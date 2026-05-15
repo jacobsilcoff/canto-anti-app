@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>粵語學習 — Flashcards</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <h1>粵語學習</h1>
+  <nav style="display:flex;gap:8px;align-items:center">
+    <button class="nav-link" onclick="showBrowse()" style="border:none;cursor:pointer;background:none">
+      📚 Browse
+    </button>
+    <a href="/" class="nav-link">✏️ Translate</a>
+  </nav>
+</header>
+
+<!-- Loading state -->
+<div class="cards-page" id="state-loading">
+  <div class="empty-state">
+    <div class="icon">⏳</div>
+    <h2>Loading…</h2>
+  </div>
+</div>
+
+<!-- No cards due -->
+<div class="cards-page" id="state-empty" style="display:none">
+  <div class="empty-state">
+    <div class="icon">🎉</div>
+    <h2>All caught up!</h2>
+    <p>No cards due for review right now.<br>Translate some phrases to build your deck.</p>
+    <a href="/" class="cta-btn">Go Translate</a>
+  </div>
+</div>
+
+<!-- Session complete -->
+<div class="cards-page" id="state-done" style="display:none">
+  <div class="empty-state">
+    <div class="icon">✅</div>
+    <h2>Session complete!</h2>
+    <p id="done-msg"></p>
+    <a href="/" class="cta-btn">Translate More</a>
+  </div>
+</div>
+
+<!-- Active review -->
+<div class="cards-page" id="state-review" style="display:none">
+  <div class="session-progress">
+    <span id="progress-label"></span>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="card-wrap">
+    <div class="flashcard" id="flashcard">
+      <div class="card-prompt-label" id="prompt-label"></div>
+      <div class="card-prompt-text" id="prompt-text">
+        <!-- filled by JS -->
+      </div>
+      <div class="card-answer" id="card-answer" style="display:none">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <!-- Before reveal -->
+    <div id="pre-reveal">
+      <button class="reveal-btn" onclick="revealCard()">Show Answer</button>
+      <p class="rating-hint">Space / Enter to reveal</p>
+    </div>
+
+    <!-- After reveal -->
+    <div id="post-reveal" style="display:none">
+      <div class="rating-btns">
+        <button class="rating-btn again" onclick="rate('again')">
+          Again <span class="key-hint">[ 1 ]</span>
+        </button>
+        <button class="rating-btn hard" onclick="rate('hard')">
+          Hard <span class="key-hint">[ 2 ]</span>
+        </button>
+        <button class="rating-btn good" onclick="rate('good')">
+          Good <span class="key-hint">[ 3 ]</span>
+        </button>
+        <button class="rating-btn easy" onclick="rate('easy')">
+          Easy <span class="key-hint">[ 4 ]</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Browse modal -->
+<div class="modal-overlay" id="browse-overlay" style="display:none" onclick="closeBrowse(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 style="font-size:1.1rem">All Cards (<span id="card-count">0</span>)</h2>
+      <button class="modal-close" onclick="closeBrowse()">✕</button>
+    </div>
+    <div id="card-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const FACES = ['english', 'chinese', 'cantonese'];
+
+  let queue = [];       // cards to review this session
+  let total = 0;        // total cards at session start
+  let idx = 0;          // current position
+  let promptFace = '';  // which face is shown as prompt
+  let revealed = false;
+  let currentAudio = null;
+
+  // ── Boot ─────────────────────────────────────────────────────────────────
+  async function loadSession() {
+    try {
+      const res = await fetch('/api/cards/due');
+      const { cards } = await res.json();
+      if (cards.length === 0) {
+        show('empty');
+        return;
+      }
+      queue = shuffle(cards);
+      total = queue.length;
+      idx = 0;
+      show('review');
+      showCard();
+    } catch {
+      showToast('Failed to load cards.');
+    }
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ── Show / hide states ───────────────────────────────────────────────────
+  function show(state) {
+    ['loading', 'empty', 'done', 'review'].forEach(s =>
+      document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
+    );
+  }
+
+  // ── Render card ──────────────────────────────────────────────────────────
+  function showCard() {
+    if (idx >= queue.length) {
+      finishSession();
+      return;
+    }
+
+    const card = queue[idx];
+    promptFace = FACES[Math.floor(Math.random() * FACES.length)];
+    revealed = false;
+
+    stopAudio();
+    document.getElementById('card-answer').style.display = 'none';
+    document.getElementById('pre-reveal').style.display = '';
+    document.getElementById('post-reveal').style.display = 'none';
+
+    // Progress
+    const done = idx;
+    document.getElementById('progress-label').textContent = `${done} / ${total}`;
+    document.getElementById('progress-fill').style.width = `${(done / total) * 100}%`;
+
+    // Prompt
+    const promptEl = document.getElementById('prompt-text');
+    promptEl.className = 'card-prompt-text';
+    promptEl.innerHTML = '';
+
+    const labelMap = { english: 'English', chinese: 'Chinese', cantonese: 'Cantonese' };
+    document.getElementById('prompt-label').textContent = labelMap[promptFace];
+
+    if (promptFace === 'english') {
+      promptEl.classList.add('is-english');
+      promptEl.textContent = card.english;
+    } else if (promptFace === 'chinese') {
+      promptEl.classList.add('is-chinese');
+      promptEl.textContent = card.chinese;
+    } else {
+      // cantonese: show audio + jyutping
+      promptEl.classList.add('is-cantonese');
+      const audioBtn = document.createElement('button');
+      audioBtn.className = 'audio-btn';
+      audioBtn.innerHTML = '🔊 Play';
+      audioBtn.onclick = () => playCardAudio(card.id, audioBtn);
+      const jyEl = document.createElement('div');
+      jyEl.className = 'jyutping-display';
+      jyEl.textContent = card.jyutping;
+      promptEl.appendChild(audioBtn);
+      promptEl.appendChild(jyEl);
+    }
+  }
+
+  // ── Reveal ───────────────────────────────────────────────────────────────
+  function revealCard() {
+    if (revealed) return;
+    revealed = true;
+
+    const card = queue[idx];
+    const answerEl = document.getElementById('card-answer');
+    answerEl.innerHTML = '';
+
+    // Show the faces that weren't the prompt
+    const toShow = FACES.filter(f => f !== promptFace);
+    toShow.forEach(face => {
+      const row = document.createElement('div');
+      row.className = 'answer-row';
+
+      const label = document.createElement('div');
+      label.className = 'answer-label';
+
+      const val = document.createElement('div');
+      val.className = 'answer-value';
+
+      if (face === 'english') {
+        label.textContent = 'English';
+        val.textContent = card.english;
+      } else if (face === 'chinese') {
+        label.textContent = 'Chinese';
+        val.classList.add('chinese');
+        val.textContent = card.chinese;
+      } else {
+        // cantonese: jyutping + audio
+        label.textContent = 'Cantonese';
+        const jyEl = document.createElement('div');
+        jyEl.className = 'answer-value jyutping';
+        jyEl.textContent = card.jyutping;
+        const audioBtn = document.createElement('button');
+        audioBtn.className = 'audio-btn';
+        audioBtn.style.marginTop = '6px';
+        audioBtn.innerHTML = '🔊 Play';
+        audioBtn.onclick = () => playCardAudio(card.id, audioBtn);
+        row.appendChild(label);
+        row.appendChild(jyEl);
+        row.appendChild(audioBtn);
+        answerEl.appendChild(row);
+        return;
+      }
+
+      row.appendChild(label);
+      row.appendChild(val);
+      answerEl.appendChild(row);
+    });
+
+    answerEl.style.display = 'flex';
+    document.getElementById('pre-reveal').style.display = 'none';
+    document.getElementById('post-reveal').style.display = '';
+
+    // Auto-play audio if cantonese wasn't the prompt face
+    if (promptFace !== 'cantonese') {
+      const dummyBtn = { classList: { add: () => {}, remove: () => {} } };
+      setTimeout(() => playCardAudio(card.id, dummyBtn), 300);
+    }
+  }
+
+  // ── Rate ─────────────────────────────────────────────────────────────────
+  async function rate(quality) {
+    const card = queue[idx];
+    try {
+      await fetch(`/api/cards/${card.id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quality }),
+      });
+    } catch {
+      showToast('Failed to save rating — continuing anyway.');
+    }
+    idx++;
+    showCard();
+  }
+
+  function finishSession() {
+    stopAudio();
+    show('done');
+    document.getElementById('done-msg').textContent =
+      `You reviewed ${total} card${total === 1 ? '' : 's'}. Great work!`;
+  }
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  function playCardAudio(cardId, btn) {
+    stopAudio();
+    currentAudio = new Audio(`/api/audio/${cardId}`);
+    currentAudio.play();
+    btn.classList.add('playing');
+    currentAudio.onended = () => btn.classList.remove('playing');
+  }
+
+  function stopAudio() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+  }
+
+  // ── Browse all cards ──────────────────────────────────────────────────────
+  async function showBrowse() {
+    document.getElementById('browse-overlay').style.display = 'flex';
+    const list = document.getElementById('card-list');
+    list.innerHTML = '<p style="color:var(--text-muted);text-align:center">Loading…</p>';
+    try {
+      const res = await fetch('/api/cards/all');
+      const { cards } = await res.json();
+      document.getElementById('card-count').textContent = cards.length;
+      if (cards.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-muted);text-align:center">No cards yet.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      cards.forEach(card => {
+        const item = document.createElement('div');
+        item.className = 'card-list-item';
+        item.id = `cli-${card.id}`;
+        const due = new Date(card.next_review + 'Z');
+        const dueStr = due <= new Date() ? 'Due now' : `Due ${due.toLocaleDateString()}`;
+        item.innerHTML = `
+          <div>
+            <div class="chinese">${card.chinese}</div>
+            <div class="jyutping">${card.jyutping}</div>
+            <div class="english">${card.english}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">${dueStr}</div>
+          </div>
+          <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
+        `;
+        list.appendChild(item);
+      });
+    } catch {
+      list.innerHTML = '<p style="color:var(--again)">Failed to load cards.</p>';
+    }
+  }
+
+  function closeBrowse(e) {
+    if (!e || e.target === document.getElementById('browse-overlay')) {
+      document.getElementById('browse-overlay').style.display = 'none';
+    }
+  }
+
+  async function deleteCard(id) {
+    if (!confirm('Delete this card?')) return;
+    await fetch(`/api/cards/${id}`, { method: 'DELETE' });
+    document.getElementById(`cli-${id}`)?.remove();
+    // Remove from current queue if present
+    const qi = queue.findIndex(c => c.id === id);
+    if (qi !== -1) {
+      queue.splice(qi, 1);
+      total = Math.max(0, total - 1);
+      if (qi <= idx) idx = Math.max(0, idx - 1);
+    }
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    // Don't fire when typing in a modal
+    if (document.getElementById('browse-overlay').style.display !== 'none') return;
+
+    if (!revealed) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealCard(); }
+    } else {
+      if (e.key === '1') rate('again');
+      else if (e.key === '2') rate('hard');
+      else if (e.key === '3') rate('good');
+      else if (e.key === '4') rate('easy');
+    }
+  });
+
+  loadSession();
+</script>
+</body>
+</html>

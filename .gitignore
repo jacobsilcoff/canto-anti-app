@@ -1,0 +1,6 @@
+.env
+venv/
+data/cards.db
+__pycache__/
+*.pyc
+.DS_Store

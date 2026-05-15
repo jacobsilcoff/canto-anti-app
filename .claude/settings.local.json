@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python3 -m pip install -r requirements.txt)",
+      "Bash(python3 -m venv --help)",
+      "Bash(python3 -m venv venv)",
+      "Bash(venv/bin/pip install *)",
+      "Bash(curl -s http://localhost:8000/cards -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s http://localhost:8000/api/cards/due)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'due count: {d[\\\\\"count\\\\\"]}'\\)\")",
+      "Bash(curl -s http://localhost:8000/api/cards/due-count)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'due-count endpoint: {d}'\\)\")",
+      "Bash(kill %1)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

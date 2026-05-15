@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>粵語學習 — Translate</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <h1>粵語學習</h1>
+  <a href="/cards" class="nav-link">
+    📖 Flashcards <span class="badge" id="due-badge"></span>
+  </a>
+</header>
+
+<main class="translate-page">
+  <div class="lang-toggle">
+    <button class="lang-btn active" id="btn-en" onclick="setLang('english')">🇬🇧 English</button>
+    <button class="swap-btn" onclick="swapLang()" title="Swap languages">⇄</button>
+    <button class="lang-btn" id="btn-yue" onclick="setLang('cantonese')">🇭🇰 Cantonese</button>
+  </div>
+
+  <div class="translate-container">
+    <div class="input-panel">
+      <textarea id="input" placeholder="Enter text…" oninput="onInput()" rows="4"></textarea>
+      <div class="input-controls">
+        <span class="char-count" id="char-count">0</span>
+        <button class="clear-btn" onclick="clearInput()" title="Clear">✕</button>
+      </div>
+    </div>
+
+    <button class="translate-btn" id="translate-btn" onclick="doTranslate()">Translate</button>
+
+    <div class="output-panel" id="output-panel" style="display:none">
+      <div class="output-chinese" id="out-chinese"></div>
+      <div class="output-jyutping" id="out-jyutping"></div>
+      <div class="output-english" id="out-english" style="display:none"></div>
+      <div class="output-controls">
+        <button class="audio-btn" id="audio-btn" onclick="playAudio()">🔊 Play</button>
+        <span class="saved-indicator" id="saved-indicator">✅ Saved to flashcards</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let sourceLang = 'english';
+  let currentCardId = null;
+  let audioEl = null;
+
+  // ── Language toggle ──────────────────────────────────────────────────────
+  function setLang(lang) {
+    sourceLang = lang;
+    document.getElementById('btn-en').classList.toggle('active', lang === 'english');
+    document.getElementById('btn-yue').classList.toggle('active', lang === 'cantonese');
+    document.getElementById('input').placeholder =
+      lang === 'english' ? 'Enter English text…' : 'Enter Cantonese (characters or jyutping)…';
+    resetOutput();
+  }
+
+  function swapLang() {
+    setLang(sourceLang === 'english' ? 'cantonese' : 'english');
+  }
+
+  // ── Input ────────────────────────────────────────────────────────────────
+  function onInput() {
+    const text = document.getElementById('input').value;
+    document.getElementById('char-count').textContent = text.length;
+  }
+
+  function clearInput() {
+    document.getElementById('input').value = '';
+    document.getElementById('char-count').textContent = '0';
+    resetOutput();
+  }
+
+  function resetOutput() {
+    document.getElementById('output-panel').style.display = 'none';
+    document.getElementById('saved-indicator').classList.remove('show');
+    currentCardId = null;
+    if (audioEl) { audioEl.pause(); audioEl = null; }
+    document.getElementById('audio-btn').classList.remove('playing');
+  }
+
+  // ── Translate ────────────────────────────────────────────────────────────
+  async function doTranslate() {
+    const text = document.getElementById('input').value.trim();
+    if (!text) return;
+
+    const btn = document.getElementById('translate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, source_lang: sourceLang }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      currentCardId = data.card_id;
+      document.getElementById('out-chinese').textContent = data.chinese;
+      document.getElementById('out-jyutping').textContent = data.jyutping;
+
+      const englishEl = document.getElementById('out-english');
+      if (sourceLang === 'cantonese') {
+        englishEl.textContent = data.english;
+        englishEl.style.display = 'block';
+      } else {
+        englishEl.style.display = 'none';
+      }
+
+      document.getElementById('output-panel').style.display = 'block';
+
+      const ind = document.getElementById('saved-indicator');
+      ind.classList.add('show');
+      setTimeout(() => ind.classList.remove('show'), 3000);
+
+      // Reset audio
+      if (audioEl) { audioEl.pause(); audioEl = null; }
+      document.getElementById('audio-btn').classList.remove('playing');
+
+    } catch (e) {
+      showToast('Translation failed. Check your API key and try again.');
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Translate';
+    }
+  }
+
+  // ── Audio ────────────────────────────────────────────────────────────────
+  function playAudio() {
+    if (!currentCardId) return;
+    if (audioEl && !audioEl.paused) {
+      audioEl.pause();
+      document.getElementById('audio-btn').classList.remove('playing');
+      return;
+    }
+    audioEl = new Audio(`/api/audio/${currentCardId}`);
+    audioEl.play();
+    document.getElementById('audio-btn').classList.add('playing');
+    audioEl.onended = () => document.getElementById('audio-btn').classList.remove('playing');
+  }
+
+  // ── Due count badge ──────────────────────────────────────────────────────
+  async function loadDueCount() {
+    try {
+      const res = await fetch('/api/cards/due-count');
+      const { count } = await res.json();
+      const badge = document.getElementById('due-badge');
+      if (count > 0) {
+        badge.textContent = count;
+        badge.classList.add('visible');
+      }
+    } catch {}
+  }
+
+  // ── Toast ────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      doTranslate();
+    }
+  });
+
+  loadDueCount();
+</script>
+</body>
+</html>
