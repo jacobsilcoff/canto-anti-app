@@ -5,22 +5,28 @@ Personal HK Cantonese learning app with two features: a translation UI and Anki-
 ## Stack
 
 - **Backend:** Python 3.12 + FastAPI, SQLite via `aiosqlite`
-- **Translation:** Groq API (`llama-3.3-70b-versatile`), free tier, no CC needed
+- **Translation:** Google Cloud Translation API (`yue` language code for Cantonese), free tier (500K chars/month)
+- **Jyutping:** Derived from translated Chinese characters using `pycantonese`
 - **TTS audio:** `edge-tts`, voice `zh-HK-HiuMaanNeural`, audio stored as BLOB in SQLite
-- **Jyutping:** Groq provides it in the JSON translation response
 - **SRS:** SM-2 algorithm (`srs.py`)
+- **Auth:** HTTP Basic Auth middleware (password via `APP_PASSWORD` env var); skipped if unset (local dev)
 - **Frontend:** Vanilla JS, two HTML pages served by FastAPI
 
 ## File Map
 
 ```
-main.py          — FastAPI app, all routes
+main.py          — FastAPI app, all routes, Basic Auth middleware
 db.py            — SQLite operations (cards table, audio BLOB storage)
-translation.py   — Groq API call, returns {english, chinese, jyutping}
+translation.py   — Google Cloud Translation API call + pycantonese jyutping
 audio.py         — edge-tts generation, returns bytes
 srs.py           — SM-2 spaced repetition algorithm
 start.sh         — local dev launcher (loads .env, runs uvicorn --reload)
-render.yaml      — Render deployment config ($1/month disk for persistence)
+Dockerfile       — container image for Fly.io deployment
+fly.toml         — Fly.io deployment config (always-on, 1GB volume)
+render.yaml      — legacy Render config (kept for reference)
+tests/
+  test_srs.py    — SM-2 algorithm unit tests
+  test_db.py     — SQLite integration tests (temp DB per test)
 static/
   index.html     — Translation page (/ route)
   cards.html     — Flashcard review page (/cards route)
@@ -35,7 +41,7 @@ data/
 cards (
   id            INTEGER PRIMARY KEY,
   english       TEXT,
-  chinese       TEXT,        -- Traditional Chinese characters
+  chinese       TEXT,        -- Traditional Chinese characters (Cantonese vocab)
   jyutping      TEXT,        -- e.g. "nei5 hou2 aa3"
   audio_data    BLOB,        -- edge-tts MP3 bytes
   created_at    TEXT,
@@ -62,20 +68,23 @@ cards (
 
 ## Key Design Decisions
 
+- **Google Cloud Translation API with `yue` language code** — uses the Cantonese model (not Mandarin/zh-TW), so output uses authentic Cantonese vocabulary (食 not 吃, etc.). Free 500K chars/month; set a daily quota cap in GCP Console to prevent any billing.
+- **Jyutping via pycantonese** — derived locally from the returned Chinese characters. `characters_to_jyutping()` returns (chars, jyutping) pairs; syllables extracted with regex `[a-z]+[1-6]`.
 - **Audio stored as BLOB in SQLite** — avoids needing a separate filesystem or object storage for cloud deployment. Keeps everything in one file.
 - **Translation always creates a card** — every translate call saves to DB. No separate "save" step.
 - **Three quiz faces:** english / chinese / cantonese (jyutping + audio). Randomly rotated each review.
-- **Groq not Gemini** — switched from Gemini (quota issues on new keys) to Groq free tier.
-- **Traditional Chinese only** — prompt instructs Cantonese vocab (係/唔/喺 etc.), not Mandarin.
+- **Traditional Chinese only** — Google's `yue` target produces Traditional characters with Cantonese-specific vocabulary.
+- **Basic Auth skipped locally** — `APP_PASSWORD` env var gates access; if unset (local dev), middleware is a no-op.
 
 ## Environment
 
 ```
-GROQ_API_KEY=...   # from console.groq.com, free, no CC
-DB_PATH=...        # default: data/cards.db
+GOOGLE_TRANSLATE_API_KEY=...   # Google Cloud Console, Cloud Translation API
+APP_PASSWORD=...               # Protects the deployed app (any username works)
+DB_PATH=...                    # default: data/cards.db
 ```
 
-Copy `.env.example` → `.env` and fill in the key. Never commit `.env`.
+Copy `.env.example` → `.env` and fill in keys. Never commit `.env`.
 
 ## Running Locally
 
@@ -85,9 +94,30 @@ Copy `.env.example` → `.env` and fill in the key. Never commit `.env`.
 # on iPhone: http://<mac-local-IP>:8000
 ```
 
-## Deployment (Render)
+## Running Tests
 
-Push repo → new Web Service from `render.yaml`. Set `GROQ_API_KEY` in Render dashboard. Add $1/month persistent disk to keep cards across deploys (without it, SQLite resets on each deploy).
+```bash
+venv/bin/pytest tests/ -v
+```
+
+## Deployment (Fly.io)
+
+App: `cantonese-anki-app`, region: `yyz` (Toronto), always-on (min 1 machine).
+SQLite persisted on a 1GB Fly volume (`cantonese_data` → `/var/data`).
+
+**First-time setup:**
+```bash
+fly volumes create cantonese_data --size 1 --region yyz
+fly secrets set GOOGLE_TRANSLATE_API_KEY=... APP_PASSWORD=...
+fly deploy
+```
+
+**CI/CD:** Pushing to `main` on GitHub runs tests then auto-deploys via `.github/workflows/ci.yml`.
+Requires `FLY_API_TOKEN` set as a GitHub Actions secret (`fly tokens create deploy`).
+
+## iPhone Home Screen
+
+Open the app in Safari → Share → Add to Home Screen. Launches full-screen without browser chrome.
 
 ## Flashcard Keyboard Shortcuts
 

@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for cantonese-anki-app on 2026-05-20T16:11:35-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'cantonese-anki-app'
+primary_region = 'yyz'
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
+
+[[mounts]]
+  source = "cantonese_data"
+  destination = "/var/data"

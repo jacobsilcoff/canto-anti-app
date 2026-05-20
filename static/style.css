@@ -525,18 +525,75 @@ textarea {
 .card-list-item .english { font-size: 0.85rem; color: var(--text-muted); }
 .card-list-item .jyutping { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
 
-.delete-card-btn {
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.edit-card-btn, .delete-card-btn {
   background: none;
   border: none;
   color: #ccc;
   cursor: pointer;
   font-size: 1.1rem;
   padding: 4px;
-  flex-shrink: 0;
   border-radius: 4px;
   transition: color 0.15s;
 }
+.edit-card-btn:hover { color: var(--primary); }
 .delete-card-btn:hover { color: var(--again); }
+
+/* ── Inline card edit form ───────────────────────────────────────────────── */
+.card-edit-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+}
+.edit-input:focus { border-color: var(--primary); }
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.edit-save-btn, .edit-cancel-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.15s;
+}
+.edit-save-btn { background: var(--primary); color: white; }
+.edit-save-btn:hover { filter: brightness(1.1); }
+.edit-save-btn:disabled { background: #aaa; cursor: not-allowed; }
+.edit-cancel-btn { background: var(--border); color: var(--text-muted); }
+.edit-cancel-btn:hover { filter: brightness(0.95); }
+
+/* ── Secondary CTA button ────────────────────────────────────────────────── */
+.cta-btn.secondary {
+  background: var(--surface);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+.cta-btn.secondary:hover { background: #e8f0fe; }
 
 /* ── Error toast ─────────────────────────────────────────────────────────── */
 .toast {

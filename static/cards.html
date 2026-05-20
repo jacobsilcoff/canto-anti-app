@@ -28,13 +28,23 @@
   </div>
 </div>
 
-<!-- No cards due -->
+<!-- No cards in DB at all -->
 <div class="cards-page" id="state-empty" style="display:none">
+  <div class="empty-state">
+    <div class="icon">📚</div>
+    <h2>No flashcards yet</h2>
+    <p>Translate some phrases to build your deck.</p>
+    <a href="/" class="cta-btn">Go Translate</a>
+  </div>
+</div>
+
+<!-- Cards exist but none due -->
+<div class="cards-page" id="state-caughtup" style="display:none">
   <div class="empty-state">
     <div class="icon">🎉</div>
     <h2>All caught up!</h2>
-    <p>No cards due for review right now.<br>Translate some phrases to build your deck.</p>
-    <a href="/" class="cta-btn">Go Translate</a>
+    <p>No cards due right now.</p>
+    <button class="cta-btn" onclick="loadSession('all')">Practice Anyway</button>
   </div>
 </div>
 
@@ -44,7 +54,10 @@
     <div class="icon">✅</div>
     <h2>Session complete!</h2>
     <p id="done-msg"></p>
-    <a href="/" class="cta-btn">Translate More</a>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+      <a href="/" class="cta-btn">Translate More</a>
+      <button class="cta-btn secondary" onclick="loadSession('all')">Practice More</button>
+    </div>
   </div>
 </div>
 
@@ -58,12 +71,8 @@
   <div class="card-wrap">
     <div class="flashcard" id="flashcard">
       <div class="card-prompt-label" id="prompt-label"></div>
-      <div class="card-prompt-text" id="prompt-text">
-        <!-- filled by JS -->
-      </div>
-      <div class="card-answer" id="card-answer" style="display:none">
-        <!-- filled by JS -->
-      </div>
+      <div class="card-prompt-text" id="prompt-text"></div>
+      <div class="card-answer" id="card-answer" style="display:none"></div>
     </div>
 
     <!-- Before reveal -->
@@ -106,24 +115,30 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const FACES = ['english', 'chinese', 'cantonese'];
-
-  let queue = [];       // cards to review this session
-  let total = 0;        // total cards at session start
-  let idx = 0;          // current position
-  let promptFace = '';  // which face is shown as prompt
+  let queue = [];
+  let total = 0;
+  let idx = 0;
   let revealed = false;
   let currentAudio = null;
 
   // ── Boot ─────────────────────────────────────────────────────────────────
-  async function loadSession() {
+  async function loadSession(mode = 'due') {
+    show('loading');
     try {
-      const res = await fetch('/api/cards/due');
-      const { cards } = await res.json();
+      const url = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
+      const { cards } = await fetch(url).then(r => r.json());
+
       if (cards.length === 0) {
-        show('empty');
+        if (mode === 'due') {
+          // Check if any cards exist at all
+          const { cards: all } = await fetch('/api/cards/all-faces').then(r => r.json());
+          show(all.length === 0 ? 'empty' : 'caughtup');
+        } else {
+          show('empty');
+        }
         return;
       }
+
       queue = shuffle(cards);
       total = queue.length;
       idx = 0;
@@ -131,6 +146,7 @@
       showCard();
     } catch {
       showToast('Failed to load cards.');
+      show('empty');
     }
   }
 
@@ -145,7 +161,7 @@
 
   // ── Show / hide states ───────────────────────────────────────────────────
   function show(state) {
-    ['loading', 'empty', 'done', 'review'].forEach(s =>
+    ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
   }
@@ -157,8 +173,7 @@
       return;
     }
 
-    const card = queue[idx];
-    promptFace = FACES[Math.floor(Math.random() * FACES.length)];
+    const item = queue[idx];
     revealed = false;
 
     stopAudio();
@@ -166,35 +181,32 @@
     document.getElementById('pre-reveal').style.display = '';
     document.getElementById('post-reveal').style.display = 'none';
 
-    // Progress
     const done = idx;
     document.getElementById('progress-label').textContent = `${done} / ${total}`;
     document.getElementById('progress-fill').style.width = `${(done / total) * 100}%`;
 
-    // Prompt
     const promptEl = document.getElementById('prompt-text');
     promptEl.className = 'card-prompt-text';
     promptEl.innerHTML = '';
 
     const labelMap = { english: 'English', chinese: 'Chinese', cantonese: 'Cantonese' };
-    document.getElementById('prompt-label').textContent = labelMap[promptFace];
+    document.getElementById('prompt-label').textContent = labelMap[item.face];
 
-    if (promptFace === 'english') {
+    if (item.face === 'english') {
       promptEl.classList.add('is-english');
-      promptEl.textContent = card.english;
-    } else if (promptFace === 'chinese') {
+      promptEl.textContent = item.english;
+    } else if (item.face === 'chinese') {
       promptEl.classList.add('is-chinese');
-      promptEl.textContent = card.chinese;
+      promptEl.textContent = item.chinese;
     } else {
-      // cantonese: show audio + jyutping
       promptEl.classList.add('is-cantonese');
       const audioBtn = document.createElement('button');
       audioBtn.className = 'audio-btn';
       audioBtn.innerHTML = '🔊 Play';
-      audioBtn.onclick = () => playCardAudio(card.id, audioBtn);
+      audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
       const jyEl = document.createElement('div');
       jyEl.className = 'jyutping-display';
-      jyEl.textContent = card.jyutping;
+      jyEl.textContent = item.jyutping;
       promptEl.appendChild(audioBtn);
       promptEl.appendChild(jyEl);
     }
@@ -205,49 +217,47 @@
     if (revealed) return;
     revealed = true;
 
-    const card = queue[idx];
+    const item = queue[idx];
     const answerEl = document.getElementById('card-answer');
     answerEl.innerHTML = '';
 
-    // Show the faces that weren't the prompt
-    const toShow = FACES.filter(f => f !== promptFace);
-    toShow.forEach(face => {
+    const FACES = ['english', 'chinese', 'cantonese'];
+    FACES.filter(f => f !== item.face).forEach(face => {
       const row = document.createElement('div');
       row.className = 'answer-row';
 
       const label = document.createElement('div');
       label.className = 'answer-label';
 
-      const val = document.createElement('div');
-      val.className = 'answer-value';
-
       if (face === 'english') {
         label.textContent = 'English';
-        val.textContent = card.english;
+        const val = document.createElement('div');
+        val.className = 'answer-value';
+        val.textContent = item.english;
+        row.appendChild(label);
+        row.appendChild(val);
       } else if (face === 'chinese') {
         label.textContent = 'Chinese';
-        val.classList.add('chinese');
-        val.textContent = card.chinese;
+        const val = document.createElement('div');
+        val.className = 'answer-value chinese';
+        val.textContent = item.chinese;
+        row.appendChild(label);
+        row.appendChild(val);
       } else {
-        // cantonese: jyutping + audio
         label.textContent = 'Cantonese';
         const jyEl = document.createElement('div');
         jyEl.className = 'answer-value jyutping';
-        jyEl.textContent = card.jyutping;
+        jyEl.textContent = item.jyutping;
         const audioBtn = document.createElement('button');
         audioBtn.className = 'audio-btn';
         audioBtn.style.marginTop = '6px';
         audioBtn.innerHTML = '🔊 Play';
-        audioBtn.onclick = () => playCardAudio(card.id, audioBtn);
+        audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
         row.appendChild(label);
         row.appendChild(jyEl);
         row.appendChild(audioBtn);
-        answerEl.appendChild(row);
-        return;
       }
 
-      row.appendChild(label);
-      row.appendChild(val);
       answerEl.appendChild(row);
     });
 
@@ -255,21 +265,20 @@
     document.getElementById('pre-reveal').style.display = 'none';
     document.getElementById('post-reveal').style.display = '';
 
-    // Auto-play audio if cantonese wasn't the prompt face
-    if (promptFace !== 'cantonese') {
+    if (item.face !== 'cantonese') {
       const dummyBtn = { classList: { add: () => {}, remove: () => {} } };
-      setTimeout(() => playCardAudio(card.id, dummyBtn), 300);
+      setTimeout(() => playCardAudio(item.card_id, dummyBtn), 300);
     }
   }
 
   // ── Rate ─────────────────────────────────────────────────────────────────
   async function rate(quality) {
-    const card = queue[idx];
+    const item = queue[idx];
     try {
-      await fetch(`/api/cards/${card.id}/review`, {
+      await fetch(`/api/cards/${item.card_id}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quality }),
+        body: JSON.stringify({ quality, face: item.face }),
       });
     } catch {
       showToast('Failed to save rating — continuing anyway.');
@@ -282,7 +291,7 @@
     stopAudio();
     show('done');
     document.getElementById('done-msg').textContent =
-      `You reviewed ${total} card${total === 1 ? '' : 's'}. Great work!`;
+      `You reviewed ${total} flashcard${total === 1 ? '' : 's'}. Great work!`;
   }
 
   // ── Audio ─────────────────────────────────────────────────────────────────
@@ -305,35 +314,98 @@
   async function showBrowse() {
     document.getElementById('browse-overlay').style.display = 'flex';
     const list = document.getElementById('card-list');
-    list.innerHTML = '<p style="color:var(--text-muted);text-align:center">Loading…</p>';
+    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">Loading…</p>';
     try {
-      const res = await fetch('/api/cards/all');
-      const { cards } = await res.json();
+      const { cards } = await fetch('/api/cards/all').then(r => r.json());
       document.getElementById('card-count').textContent = cards.length;
       if (cards.length === 0) {
-        list.innerHTML = '<p style="color:var(--text-muted);text-align:center">No cards yet.</p>';
+        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">No cards yet.</p>';
         return;
       }
       list.innerHTML = '';
-      cards.forEach(card => {
-        const item = document.createElement('div');
-        item.className = 'card-list-item';
-        item.id = `cli-${card.id}`;
-        const due = new Date(card.next_review + 'Z');
-        const dueStr = due <= new Date() ? 'Due now' : `Due ${due.toLocaleDateString()}`;
-        item.innerHTML = `
-          <div>
-            <div class="chinese">${card.chinese}</div>
-            <div class="jyutping">${card.jyutping}</div>
-            <div class="english">${card.english}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">${dueStr}</div>
-          </div>
-          <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
-        `;
-        list.appendChild(item);
-      });
+      cards.forEach(card => renderCardListItem(card, list));
     } catch {
-      list.innerHTML = '<p style="color:var(--again)">Failed to load cards.</p>';
+      list.innerHTML = '<p style="color:var(--again);padding:16px">Failed to load cards.</p>';
+    }
+  }
+
+  function renderCardListItem(card, container) {
+    const item = document.createElement('div');
+    item.className = 'card-list-item';
+    item.id = `cli-${card.id}`;
+    item.innerHTML = `
+      <div class="card-display" id="display-${card.id}">
+        <div class="chinese">${escHtml(card.chinese)}</div>
+        <div class="jyutping">${escHtml(card.jyutping)}</div>
+        <div class="english">${escHtml(card.english)}</div>
+      </div>
+      <div class="card-edit-form" id="edit-form-${card.id}" style="display:none">
+        <input class="edit-input" id="edit-en-${card.id}" value="${escAttr(card.english)}" placeholder="English">
+        <input class="edit-input" id="edit-zh-${card.id}" value="${escAttr(card.chinese)}" placeholder="Chinese">
+        <input class="edit-input" id="edit-jy-${card.id}" value="${escAttr(card.jyutping)}" placeholder="Jyutping">
+        <div class="edit-actions">
+          <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
+          <button class="edit-cancel-btn" onclick="cancelEdit(${card.id})">Cancel</button>
+        </div>
+      </div>
+      <div class="card-actions" id="actions-${card.id}">
+        <button class="edit-card-btn" onclick="startEdit(${card.id})" title="Edit">✏️</button>
+        <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
+      </div>
+    `;
+    container.appendChild(item);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function escAttr(s) {
+    return String(s).replace(/"/g, '&quot;');
+  }
+
+  function startEdit(id) {
+    document.getElementById(`display-${id}`).style.display = 'none';
+    document.getElementById(`actions-${id}`).style.display = 'none';
+    document.getElementById(`edit-form-${id}`).style.display = 'block';
+    document.getElementById(`edit-en-${id}`).focus();
+  }
+
+  function cancelEdit(id) {
+    document.getElementById(`display-${id}`).style.display = '';
+    document.getElementById(`actions-${id}`).style.display = '';
+    document.getElementById(`edit-form-${id}`).style.display = 'none';
+  }
+
+  async function saveCard(id) {
+    const english = document.getElementById(`edit-en-${id}`).value.trim();
+    const chinese = document.getElementById(`edit-zh-${id}`).value.trim();
+    const jyutping = document.getElementById(`edit-jy-${id}`).value.trim();
+    if (!english || !chinese || !jyutping) {
+      showToast('All fields are required.');
+      return;
+    }
+    const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`/api/cards/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ english, chinese, jyutping }),
+      });
+      if (!res.ok) throw new Error();
+      // Update display
+      const display = document.getElementById(`display-${id}`);
+      display.querySelector('.chinese').textContent = chinese;
+      display.querySelector('.jyutping').textContent = jyutping;
+      display.querySelector('.english').textContent = english;
+      cancelEdit(id);
+      showToast('Card updated.');
+    } catch {
+      showToast('Failed to save card.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
     }
   }
 
@@ -344,15 +416,17 @@
   }
 
   async function deleteCard(id) {
-    if (!confirm('Delete this card?')) return;
+    if (!confirm('Delete this card and all its progress?')) return;
     await fetch(`/api/cards/${id}`, { method: 'DELETE' });
     document.getElementById(`cli-${id}`)?.remove();
-    // Remove from current queue if present
-    const qi = queue.findIndex(c => c.id === id);
+    const count = document.getElementById('card-count');
+    count.textContent = parseInt(count.textContent) - 1;
+    // Remove from current session queue if present
+    const qi = queue.findIndex(c => c.card_id === id);
     if (qi !== -1) {
-      queue.splice(qi, 1);
-      total = Math.max(0, total - 1);
-      if (qi <= idx) idx = Math.max(0, idx - 1);
+      const removed = queue.splice(qi, 1).length;
+      total = Math.max(0, total - removed);
+      if (qi < idx) idx = Math.max(0, idx - removed);
     }
   }
 
@@ -366,8 +440,8 @@
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
-    // Don't fire when typing in a modal
     if (document.getElementById('browse-overlay').style.display !== 'none') return;
+    if (document.getElementById('state-review').style.display === 'none') return;
 
     if (!revealed) {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealCard(); }

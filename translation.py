@@ -1,56 +1,80 @@
 import os
 import json
+import time
 import asyncio
-from groq import Groq
+from google import genai
+from google.genai.errors import ServerError
 
-_client: Groq | None = None
-
-SYSTEM_PROMPT = """\
-You are a Cantonese (廣東話) language expert specializing in colloquial Hong Kong Cantonese.
-
-Return ONLY a valid JSON object — no markdown, no explanation — with exactly these fields:
-- "english": the English text
-- "chinese": Traditional Chinese characters using authentic Cantonese vocabulary and grammar (not Mandarin)
-- "jyutping": Jyutping romanization with tone numbers, space-separated syllables
-
-Rules for Chinese:
-- Use Cantonese-specific characters: 係/唔/喺/咁/呢/囉/喎/㗎/啩/咋/啲/嘅 etc.
-- Traditional characters only — never Simplified
-- Natural conversational register as spoken in Hong Kong
-
-Example output:
-{"english": "Where are you going?", "chinese": "你去邊度呀？", "jyutping": "nei5 heoi3 bin1 dou6 aa3 ?"}\
-"""
+_client = None
 
 
-def _get_client() -> Groq:
+def _get_client():
     global _client
     if _client is None:
-        _client = Groq(api_key=os.environ["GROQ_API_KEY"])
+        _client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     return _client
+
+
+_MODEL = "gemini-2.5-flash-lite"
+
+
+def _call(prompt: str) -> str:
+    delays = [1, 3]
+    for attempt, delay in enumerate([0] + delays):
+        if delay:
+            time.sleep(delay)
+        try:
+            return _get_client().models.generate_content(model=_MODEL, contents=prompt).text.strip()
+        except ServerError as e:
+            if e.status_code == 503 and attempt < len(delays):
+                continue
+            raise
+
+
+def _parse_json(text: str) -> dict:
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1].rsplit("```", 1)[0]
+    return json.loads(text)
+
+
+def _translate_en_to_yue(text: str) -> dict:
+    prompt = (
+        "Translate the following English text into Hong Kong Cantonese.\n"
+        "Rules:\n"
+        "- Use Traditional Chinese characters with authentic Cantonese vocabulary "
+        "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
+        "- Provide jyutping romanisation for the Chinese output (e.g. nei5 hou2 aa3)\n"
+        "Return ONLY valid JSON in this exact format, no other text:\n"
+        '{"chinese": "...", "jyutping": "..."}\n\n'
+        f"English: {text}"
+    )
+    return _parse_json(_call(prompt))
+
+
+def _translate_yue_to_en(text: str) -> dict:
+    prompt = (
+        "Translate the following Hong Kong Cantonese text into natural English.\n"
+        "Also provide the jyutping romanisation of the Cantonese input.\n"
+        "Return ONLY valid JSON in this exact format, no other text:\n"
+        '{"english": "...", "jyutping": "..."}\n\n'
+        f"Cantonese: {text}"
+    )
+    return _parse_json(_call(prompt))
 
 
 async def translate(text: str, source_lang: str) -> dict:
     if source_lang == "english":
-        user_msg = f"Translate this English text to colloquial Hong Kong Cantonese:\n\n{text}"
+        result = await asyncio.to_thread(_translate_en_to_yue, text)
+        return {
+            "english": text,
+            "chinese": result["chinese"].strip(),
+            "jyutping": result.get("jyutping", "").strip(),
+        }
     else:
-        user_msg = f"This is Cantonese (characters or romanization). Provide the English translation, canonical Traditional Chinese characters, and Jyutping:\n\n{text}"
-
-    def _call():
-        return _get_client().chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-        )
-
-    response = await asyncio.to_thread(_call)
-    result = json.loads(response.choices[0].message.content)
-    return {
-        "english": result["english"].strip(),
-        "chinese": result["chinese"].strip(),
-        "jyutping": result["jyutping"].strip(),
-    }
+        result = await asyncio.to_thread(_translate_yue_to_en, text)
+        return {
+            "english": result["english"].strip(),
+            "chinese": text,
+            "jyutping": result.get("jyutping", "").strip(),
+        }

@@ -129,7 +129,7 @@
       document.getElementById('audio-btn').classList.remove('playing');
 
     } catch (e) {
-      showToast('Translation failed. Check your API key and try again.');
+      showToast('Translation failed — please try again.');
       console.error(e);
     } finally {
       btn.disabled = false;
