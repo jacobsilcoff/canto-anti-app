@@ -134,6 +134,12 @@ async def get_audio(card_id: int) -> bytes | None:
             return row[0] if row else None
 
 
+async def set_audio(card_id: int, data: bytes):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE cards SET audio_data=? WHERE id=?", (data, card_id))
+        await db.commit()
+
+
 async def update_face_review(card_id: int, face: str, state: dict):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(

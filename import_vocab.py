@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import audio as audio_mod
 import db
 import translation as tl
 
@@ -142,12 +141,11 @@ async def main():
             continue
 
         try:
-            audio_data = await audio_mod.generate(chinese)
             card_id = await db.create_card(
                 english=english,
                 chinese=chinese,
                 jyutping=jyutping,
-                audio_data=audio_data,
+                audio_data=None,  # generated lazily on first play
             )
             print(f"[{i:4}/{len(vocab)}] OK    id={card_id:<6}     {chinese} — {english}")
             imported += 1

@@ -207,7 +207,12 @@ async def due_count():
 async def get_audio(card_id: int):
     data = await db.get_audio(card_id)
     if not data:
-        raise HTTPException(404, "Audio not found")
+        # Generate and cache on first request (cards imported without audio)
+        card = await db.get_card(card_id)
+        if not card:
+            raise HTTPException(404, "Audio not found")
+        data = await audio.generate(card["chinese"])
+        await db.set_audio(card_id, data)
     return Response(content=bytes(data), media_type="audio/mpeg")
 
 
