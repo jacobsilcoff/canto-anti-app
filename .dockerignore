@@ -12,3 +12,5 @@ tests/
 .DS_Store
 extracted_vocab.json
 test_google_translate.py
+*.key
+*.pem
