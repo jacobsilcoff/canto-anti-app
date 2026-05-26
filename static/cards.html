@@ -33,6 +33,35 @@
       margin-left: 6px;
       vertical-align: middle;
     }
+    /* ── Inline card edit (during review) ─────────────────────────────── */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .card-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      opacity: 0.3;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .card-edit-btn:hover { opacity: 1; }
+    .card-inline-edit {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      padding-top: 4px;
+    }
+    .card-inline-edit .edit-input {
+      font-size: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -102,9 +131,22 @@
 
   <div class="card-wrap">
     <div class="flashcard" id="flashcard">
-      <div class="card-prompt-label" id="prompt-label"></div>
+      <div class="card-header">
+        <div class="card-prompt-label" id="prompt-label"></div>
+        <button class="card-edit-btn" onclick="startInlineEdit()" title="Edit card">✏️</button>
+      </div>
       <div class="card-prompt-text" id="prompt-text"></div>
       <div class="card-answer" id="card-answer" style="display:none"></div>
+      <!-- Inline edit form -->
+      <div class="card-inline-edit" id="card-inline-edit">
+        <input class="edit-input" id="inline-en" placeholder="English">
+        <input class="edit-input" id="inline-zh" placeholder="Chinese" style="font-family:var(--chinese-font);font-size:1.1rem">
+        <input class="edit-input" id="inline-jy" placeholder="Jyutping">
+        <div class="edit-actions">
+          <button class="edit-save-btn" onclick="saveInlineEdit()">Save</button>
+          <button class="edit-cancel-btn" onclick="cancelInlineEdit()">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <!-- Before reveal -->
@@ -615,10 +657,65 @@
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
+  // ── Inline card edit ───────────────────────────────────────────────────────
+  function startInlineEdit() {
+    const item = queue[idx];
+    document.getElementById('inline-en').value = item.english;
+    document.getElementById('inline-zh').value = item.chinese;
+    document.getElementById('inline-jy').value = item.jyutping;
+
+    document.getElementById('prompt-text').style.display = 'none';
+    document.getElementById('card-answer').style.display = 'none';
+    document.getElementById('pre-reveal').style.display = 'none';
+    document.getElementById('post-reveal').style.display = 'none';
+    document.getElementById('card-inline-edit').style.display = 'flex';
+    document.getElementById('inline-en').focus();
+  }
+
+  async function saveInlineEdit() {
+    const item = queue[idx];
+    const english  = document.getElementById('inline-en').value.trim();
+    const chinese  = document.getElementById('inline-zh').value.trim();
+    const jyutping = document.getElementById('inline-jy').value.trim();
+    if (!english || !chinese || !jyutping) { showToast('All fields required.'); return; }
+
+    const btn = document.querySelector('#card-inline-edit .edit-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`/api/cards/${item.card_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ english, chinese, jyutping }),
+      });
+      if (!res.ok) throw new Error();
+      // Update every queued face for this card so the rest of the session is correct
+      queue.forEach(q => {
+        if (q.card_id === item.card_id) {
+          q.english = english; q.chinese = chinese; q.jyutping = jyutping;
+        }
+      });
+      cancelInlineEdit();
+      showToast('Card updated.');
+    } catch { showToast('Failed to save.'); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+
+  function cancelInlineEdit() {
+    document.getElementById('card-inline-edit').style.display = 'none';
+    document.getElementById('prompt-text').style.display = '';
+    if (revealed) {
+      document.getElementById('card-answer').style.display = 'flex';
+      document.getElementById('post-reveal').style.display = '';
+    } else {
+      document.getElementById('pre-reveal').style.display = '';
+    }
+  }
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (document.getElementById('browse-overlay').style.display !== 'none') return;
     if (document.getElementById('state-review').style.display === 'none') return;
+    if (document.getElementById('card-inline-edit').style.display !== 'none') return;
     if (!revealed) {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealCard(); }
     } else {

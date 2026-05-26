@@ -4,3 +4,4 @@ data/cards.db
 __pycache__/
 *.pyc
 .DS_Store
+extracted_vocab.json
