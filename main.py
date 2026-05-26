@@ -1,11 +1,12 @@
 import base64
 import secrets
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -18,6 +19,29 @@ import translation
 
 _APP_PASSWORD = __import__("os").getenv("APP_PASSWORD")
 
+_SESSION_TTL = 30 * 86400  # 30 days in seconds
+_sessions: dict[str, float] = {}  # token -> expiry timestamp
+
+_NO_AUTH_PATHS = {"/login", "/api/login", "/manifest.json", "/sw.js"}
+
+
+def _new_session() -> str:
+    token = secrets.token_hex(32)
+    _sessions[token] = time.time() + _SESSION_TTL
+    return token
+
+
+def _valid_session(token: str) -> bool:
+    exp = _sessions.get(token)
+    return exp is not None and time.time() < exp
+
+
+def _purge_expired():
+    now = time.time()
+    expired = [t for t, exp in _sessions.items() if exp < now]
+    for t in expired:
+        del _sessions[t]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,9 +53,20 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.middleware("http")
-async def basic_auth(request: Request, call_next):
+async def auth_middleware(request: Request, call_next):
     if not _APP_PASSWORD:
         return await call_next(request)
+
+    # Paths that are always public
+    if request.url.path in _NO_AUTH_PATHS:
+        return await call_next(request)
+
+    # Cookie session (primary — used by browser/PWA)
+    session_token = request.cookies.get("session")
+    if session_token and _valid_session(session_token):
+        return await call_next(request)
+
+    # HTTP Basic Auth (fallback for curl/dev)
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Basic "):
         try:
@@ -40,10 +75,12 @@ async def basic_auth(request: Request, call_next):
                 return await call_next(request)
         except Exception:
             pass
-    return Response(
-        status_code=401,
-        headers={"WWW-Authenticate": 'Basic realm="Cantonese App"'},
-    )
+
+    # Unauthenticated — redirect HTML requests to /login, 401 everything else
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept:
+        return Response(status_code=302, headers={"Location": "/login"})
+    return Response(status_code=401, content="Unauthorized")
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -55,7 +92,58 @@ def _html(name: str) -> HTMLResponse:
     return HTMLResponse((_static / name).read_text())
 
 
-# ── Pages ────────────────────────────────────────────────────────────────────
+# ── PWA assets (no auth, correct MIME) ───────────────────────────────────────
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse("static/sw.js", media_type="application/javascript")
+
+
+@app.get("/manifest.json")
+async def manifest():
+    return FileResponse("static/manifest.json", media_type="application/manifest+json")
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    return _html("login.html")
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+@app.post("/api/login")
+async def login(req: LoginRequest, response: Response):
+    if not _APP_PASSWORD or not secrets.compare_digest(req.password, _APP_PASSWORD):
+        raise HTTPException(401, "Wrong password")
+    _purge_expired()
+    token = _new_session()
+    response = JSONResponse({"ok": True})
+    response.set_cookie(
+        "session",
+        token,
+        max_age=_SESSION_TTL,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+    )
+    return response
+
+
+@app.post("/api/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("session")
+    if token:
+        _sessions.pop(token, None)
+    response = JSONResponse({"ok": True})
+    response.delete_cookie("session")
+    return response
+
+
+# ── Pages ─────────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

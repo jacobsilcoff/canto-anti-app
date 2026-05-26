@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>粵語學習 — Login</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="粵語學習">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .login-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .login-card h2 {
+      font-family: var(--chinese-font);
+      font-size: 1.5rem;
+      color: var(--primary);
+      text-align: center;
+    }
+    .login-card input[type=password] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+    }
+    .login-card input[type=password]:focus { border-color: var(--primary); }
+    .login-error { color: var(--again); font-size: 0.87rem; text-align: center; display: none; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>粵語學習</h1>
+</header>
+<div class="login-wrap">
+  <form class="login-card" onsubmit="doLogin(event)">
+    <h2>Welcome back</h2>
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password" autofocus>
+    <button class="translate-btn" type="submit" id="login-btn">Sign in</button>
+    <div class="login-error" id="login-error">Wrong password — try again.</div>
+  </form>
+</div>
+<script>
+  async function doLogin(e) {
+    e.preventDefault();
+    const pw = document.getElementById('pw').value;
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    err.style.display = 'none';
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (res.ok) {
+        window.location.replace('/cards');
+      } else {
+        err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+        document.getElementById('pw').select();
+      }
+    } catch {
+      err.textContent = 'Network error — try again.';
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+</script>
+</body>
+</html>

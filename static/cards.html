@@ -4,11 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>粵語學習 — Flashcards</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="粵語學習">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .offline-bar {
+      background: #f57c00;
+      color: white;
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 6px 16px;
+      display: none;
+    }
+    .offline-bar.show { display: block; }
+    .sync-badge {
+      display: inline-block;
+      background: white;
+      color: #f57c00;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 1px 7px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+  </style>
 </head>
 <body>
+
+<div class="offline-bar" id="offline-bar">
+  Offline — using cached cards
+  <span class="sync-badge" id="sync-badge" style="display:none"></span>
+</div>
 
 <header>
   <h1>粵語學習</h1>
@@ -115,39 +147,197 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ── State ─────────────────────────────────────────────────────────────────
   let queue = [];
   let total = 0;
   let idx = 0;
   let revealed = false;
   let currentAudio = null;
+  let isOnline = navigator.onLine;
 
-  // ── Boot ─────────────────────────────────────────────────────────────────
+  // ── IndexedDB ─────────────────────────────────────────────────────────────
+  // Stores: "cards" (cached due cards), "pending" (reviews to sync)
+  let _db = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('cantonese-app', 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('cards')) db.createObjectStore('cards', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('pending')) db.createObjectStore('pending', { autoIncrement: true });
+      };
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idb() {
+    if (!_db) _db = await openDB();
+    return _db;
+  }
+
+  async function idbPut(store, value) {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(value);
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  async function idbGetAll(store) {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const req = db.transaction(store).objectStore(store).getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  async function idbClear(store) {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).clear();
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  async function idbDelete(store, key) {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  async function idbGetAllWithKeys(store) {
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const items = [];
+      const req = db.transaction(store).objectStore(store).openCursor();
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor) { items.push({ key: cursor.key, value: cursor.value }); cursor.continue(); }
+        else res(items);
+      };
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  // ── Offline / sync bar ────────────────────────────────────────────────────
+  function updateOfflineBar(pendingCount) {
+    const bar = document.getElementById('offline-bar');
+    const badge = document.getElementById('sync-badge');
+    if (!isOnline) {
+      bar.classList.add('show');
+      if (pendingCount > 0) {
+        badge.textContent = `${pendingCount} pending sync`;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    } else if (pendingCount > 0) {
+      bar.classList.add('show');
+      bar.firstChild.textContent = 'Back online — syncing… ';
+      badge.textContent = `${pendingCount} reviews`;
+      badge.style.display = 'inline-block';
+    } else {
+      bar.classList.remove('show');
+    }
+  }
+
+  // Flush pending reviews to server; call whenever we come online
+  async function syncPending() {
+    const entries = await idbGetAllWithKeys('pending');
+    if (entries.length === 0) return;
+    let synced = 0;
+    for (const { key, value } of entries) {
+      try {
+        const res = await fetch(`/api/cards/${value.card_id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quality: value.quality, face: value.face }),
+        });
+        if (res.ok) { await idbDelete('pending', key); synced++; }
+      } catch { break; } // still offline
+    }
+    if (synced > 0) {
+      const remaining = entries.length - synced;
+      if (remaining === 0) {
+        showToast(`Synced ${synced} review${synced === 1 ? '' : 's'}.`);
+        updateOfflineBar(0);
+        // Re-fetch the offline bar text back to normal
+        document.getElementById('offline-bar').firstChild.textContent = 'Offline — using cached cards ';
+      } else {
+        updateOfflineBar(remaining);
+      }
+    }
+  }
+
+  window.addEventListener('online', () => {
+    isOnline = true;
+    syncPending();
+  });
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    idbGetAllWithKeys('pending').then(e => updateOfflineBar(e.length));
+  });
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
   async function loadSession(mode = 'due') {
     show('loading');
-    try {
-      const url = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
-      const { cards } = await fetch(url).then(r => r.json());
 
-      if (cards.length === 0) {
+    // Sync any pending reviews now if online
+    if (isOnline) await syncPending();
+
+    // Update offline bar from pending count
+    const pending = await idbGetAllWithKeys('pending');
+    updateOfflineBar(pending.length);
+
+    let cards;
+    if (isOnline) {
+      try {
+        const url = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
+        ({ cards } = await fetch(url).then(r => r.json()));
+        // Cache due cards for offline use (only for "due" mode)
         if (mode === 'due') {
-          // Check if any cards exist at all
-          const { cards: all } = await fetch('/api/cards/all-faces').then(r => r.json());
+          await idbClear('cards');
+          for (const c of cards) await idbPut('cards', { ...c, id: `${c.card_id}-${c.face}` });
+        }
+      } catch {
+        showToast('Network error — using cached cards.');
+        cards = await idbGetAll('cards');
+        isOnline = false;
+      }
+    } else {
+      cards = await idbGetAll('cards');
+    }
+
+    if (cards.length === 0) {
+      if (mode === 'due') {
+        if (isOnline) {
+          const { cards: all } = await fetch('/api/cards/all-faces').then(r => r.json()).catch(() => ({ cards: [] }));
           show(all.length === 0 ? 'empty' : 'caughtup');
         } else {
-          show('empty');
+          show('caughtup'); // can't distinguish offline, assume caught up
         }
-        return;
+      } else {
+        show('empty');
       }
-
-      queue = shuffle(cards);
-      total = queue.length;
-      idx = 0;
-      show('review');
-      showCard();
-    } catch {
-      showToast('Failed to load cards.');
-      show('empty');
+      return;
     }
+
+    queue = shuffle(cards);
+    total = queue.length;
+    idx = 0;
+    show('review');
+    showCard();
   }
 
   function shuffle(arr) {
@@ -159,19 +349,16 @@
     return a;
   }
 
-  // ── Show / hide states ───────────────────────────────────────────────────
+  // ── Show / hide states ────────────────────────────────────────────────────
   function show(state) {
     ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
   }
 
-  // ── Render card ──────────────────────────────────────────────────────────
+  // ── Render card ───────────────────────────────────────────────────────────
   function showCard() {
-    if (idx >= queue.length) {
-      finishSession();
-      return;
-    }
+    if (idx >= queue.length) { finishSession(); return; }
 
     const item = queue[idx];
     revealed = false;
@@ -212,7 +399,7 @@
     }
   }
 
-  // ── Reveal ───────────────────────────────────────────────────────────────
+  // ── Reveal ────────────────────────────────────────────────────────────────
   function revealCard() {
     if (revealed) return;
     revealed = true;
@@ -225,7 +412,6 @@
     FACES.filter(f => f !== item.face).forEach(face => {
       const row = document.createElement('div');
       row.className = 'answer-row';
-
       const label = document.createElement('div');
       label.className = 'answer-label';
 
@@ -234,15 +420,13 @@
         const val = document.createElement('div');
         val.className = 'answer-value';
         val.textContent = item.english;
-        row.appendChild(label);
-        row.appendChild(val);
+        row.appendChild(label); row.appendChild(val);
       } else if (face === 'chinese') {
         label.textContent = 'Chinese';
         const val = document.createElement('div');
         val.className = 'answer-value chinese';
         val.textContent = item.chinese;
-        row.appendChild(label);
-        row.appendChild(val);
+        row.appendChild(label); row.appendChild(val);
       } else {
         label.textContent = 'Cantonese';
         const jyEl = document.createElement('div');
@@ -253,11 +437,8 @@
         audioBtn.style.marginTop = '6px';
         audioBtn.innerHTML = '🔊 Play';
         audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
-        row.appendChild(label);
-        row.appendChild(jyEl);
-        row.appendChild(audioBtn);
+        row.appendChild(label); row.appendChild(jyEl); row.appendChild(audioBtn);
       }
-
       answerEl.appendChild(row);
     });
 
@@ -271,17 +452,27 @@
     }
   }
 
-  // ── Rate ─────────────────────────────────────────────────────────────────
+  // ── Rate ──────────────────────────────────────────────────────────────────
   async function rate(quality) {
     const item = queue[idx];
-    try {
-      await fetch(`/api/cards/${item.card_id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quality, face: item.face }),
-      });
-    } catch {
-      showToast('Failed to save rating — continuing anyway.');
+    if (isOnline) {
+      try {
+        await fetch(`/api/cards/${item.card_id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quality, face: item.face }),
+        });
+      } catch {
+        // Went offline mid-session — queue it
+        isOnline = false;
+        await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
+        const pending = await idbGetAllWithKeys('pending');
+        updateOfflineBar(pending.length);
+      }
+    } else {
+      await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
+      const pending = await idbGetAllWithKeys('pending');
+      updateOfflineBar(pending.length);
     }
     idx++;
     showCard();
@@ -294,7 +485,7 @@
       `You reviewed ${total} flashcard${total === 1 ? '' : 's'}. Great work!`;
   }
 
-  // ── Audio ─────────────────────────────────────────────────────────────────
+  // ── Audio ──────────────────────────────────────────────────────────────────
   function playCardAudio(cardId, btn) {
     stopAudio();
     currentAudio = new Audio(`/api/audio/${cardId}`);
@@ -304,13 +495,10 @@
   }
 
   function stopAudio() {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // ── Browse all cards ──────────────────────────────────────────────────────
+  // ── Browse all cards ───────────────────────────────────────────────────────
   async function showBrowse() {
     document.getElementById('browse-overlay').style.display = 'flex';
     const list = document.getElementById('card-list');
@@ -380,13 +568,9 @@
     const english = document.getElementById(`edit-en-${id}`).value.trim();
     const chinese = document.getElementById(`edit-zh-${id}`).value.trim();
     const jyutping = document.getElementById(`edit-jy-${id}`).value.trim();
-    if (!english || !chinese || !jyutping) {
-      showToast('All fields are required.');
-      return;
-    }
+    if (!english || !chinese || !jyutping) { showToast('All fields are required.'); return; }
     const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${id}`, {
         method: 'PUT',
@@ -394,25 +578,19 @@
         body: JSON.stringify({ english, chinese, jyutping }),
       });
       if (!res.ok) throw new Error();
-      // Update display
       const display = document.getElementById(`display-${id}`);
       display.querySelector('.chinese').textContent = chinese;
       display.querySelector('.jyutping').textContent = jyutping;
       display.querySelector('.english').textContent = english;
       cancelEdit(id);
       showToast('Card updated.');
-    } catch {
-      showToast('Failed to save card.');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save';
-    }
+    } catch { showToast('Failed to save card.'); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
 
   function closeBrowse(e) {
-    if (!e || e.target === document.getElementById('browse-overlay')) {
+    if (!e || e.target === document.getElementById('browse-overlay'))
       document.getElementById('browse-overlay').style.display = 'none';
-    }
   }
 
   async function deleteCard(id) {
@@ -421,7 +599,6 @@
     document.getElementById(`cli-${id}`)?.remove();
     const count = document.getElementById('card-count');
     count.textContent = parseInt(count.textContent) - 1;
-    // Remove from current session queue if present
     const qi = queue.findIndex(c => c.card_id === id);
     if (qi !== -1) {
       const removed = queue.splice(qi, 1).length;
@@ -430,7 +607,7 @@
     }
   }
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
+  // ── Toast ──────────────────────────────────────────────────────────────────
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -438,11 +615,10 @@
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (document.getElementById('browse-overlay').style.display !== 'none') return;
     if (document.getElementById('state-review').style.display === 'none') return;
-
     if (!revealed) {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealCard(); }
     } else {
@@ -452,6 +628,11 @@
       else if (e.key === '4') rate('easy');
     }
   });
+
+  // ── Service worker registration ────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
 
   loadSession();
 </script>
