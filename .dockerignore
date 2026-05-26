@@ -4,3 +4,11 @@ data/
 __pycache__/
 *.pyc
 .git/
+fly.toml
+docker-compose.yml
+Caddyfile
+tests/
+*.md
+.DS_Store
+extracted_vocab.json
+test_google_translate.py
