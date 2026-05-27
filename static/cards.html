@@ -146,6 +146,20 @@
     .meta-action-btn.active { border-color: var(--primary); color: var(--primary); background: #e8f0fe; }
     .meta-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: #fdecea; }
     .meta-action-btn svg.icon { width: 13px; height: 13px; vertical-align: 0; }
+    .meta-priority-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .meta-priority-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
 
     /* Browse: priority + meta columns */
     .card-list-meta {
@@ -351,6 +365,10 @@
         </button>
       </div>
       <div class="card-meta-actions" id="card-meta-actions">
+        <div class="meta-priority-row">
+          <span class="meta-priority-label">Priority</span>
+          <div id="review-priority-dots"></div>
+        </div>
         <button class="meta-action-btn" id="meta-tutor-btn" onclick="toggleTutorFlag()">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           Flag for tutor
@@ -359,7 +377,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.7"/></svg>
           Reset &amp; deprioritize
         </button>
-        <button class="meta-action-btn danger" onclick="confirmSuspend()">
+        <button class="meta-action-btn danger" id="meta-suspend-btn" onclick="confirmSuspend()" style="display:none">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
           Suspend
         </button>
@@ -874,7 +892,7 @@
     document.getElementById('pre-reveal').style.display = 'none';
     document.getElementById('post-reveal').style.display = '';
     document.getElementById('card-meta-actions').style.display = 'flex';
-    updateMetaTutorBtn();
+    updateMetaActions();
 
     if (item.face !== 'cantonese') {
       const dummyBtn = { classList: { add: () => {}, remove: () => {} } };
@@ -882,12 +900,34 @@
     }
   }
 
-  function updateMetaTutorBtn() {
+  function updateMetaActions() {
     const item = queue[idx];
     if (!item) return;
     const btn = document.getElementById('meta-tutor-btn');
     btn.classList.toggle('active', !!item.tutor_flag);
     btn.innerHTML = `${ICONS.bookmark} ${item.tutor_flag ? 'Flagged for tutor' : 'Flag for tutor'}`;
+
+    const dotsWrap = document.getElementById('review-priority-dots');
+    dotsWrap.innerHTML = '';
+    dotsWrap.appendChild(renderPriorityDots(item.priority || 3, true, setReviewPriority));
+
+    document.getElementById('meta-suspend-btn').style.display = item.priority === 1 ? '' : 'none';
+  }
+
+  async function setReviewPriority(level) {
+    const item = queue[idx];
+    if (!item) return;
+    try {
+      const res = await fetch(`/api/cards/${item.card_id}/priority`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: level }),
+      });
+      if (!res.ok) throw new Error();
+      queue.forEach(q => { if (q.card_id === item.card_id) q.priority = level; });
+      const headerDots = document.getElementById('card-priority-dots').querySelector('.priority-dots');
+      if (headerDots) updatePriorityDots(headerDots, level);
+      updateMetaActions();
+    } catch { showToast('Failed to update priority.'); }
   }
 
   // ── Rate ───────────────────────────────────────────────────────────────────
@@ -934,7 +974,7 @@
       queue.forEach(q => { if (q.card_id === item.card_id) q.tutor_flag = newVal ? 1 : 0; });
       // Update the header flag button
       document.getElementById('tutor-flag-btn').classList.toggle('active', newVal);
-      updateMetaTutorBtn();
+      updateMetaActions();
       showToast(newVal ? 'Flagged for tutor review.' : 'Flag removed.');
     } catch { showToast('Failed to update flag.'); }
   }
