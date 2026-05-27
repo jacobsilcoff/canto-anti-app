@@ -1,6 +1,6 @@
 {
-  "name": "粵語學習 — Cantonese",
-  "short_name": "粵語學習",
+  "name": "廣東卡",
+  "short_name": "廣東卡",
   "description": "HK Cantonese translation and flashcards",
   "start_url": "/cards",
   "display": "standalone",

@@ -83,9 +83,15 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _static = Path("static")
 
+APP_NAME = "廣東卡"
+_APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
+
 
 def _html(name: str) -> HTMLResponse:
-    return HTMLResponse((_static / name).read_text())
+    content = (_static / name).read_text()
+    content = content.replace("{{APP_NAME}}", APP_NAME)
+    content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
+    return HTMLResponse(content)
 
 
 # ── PWA assets ────────────────────────────────────────────────────────────────
