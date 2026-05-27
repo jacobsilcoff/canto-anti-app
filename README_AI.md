@@ -5,32 +5,37 @@ Personal HK Cantonese learning app with two features: a translation UI and Anki-
 ## Stack
 
 - **Backend:** Python 3.12 + FastAPI, SQLite via `aiosqlite`
-- **Translation:** Google Cloud Translation API (`yue` language code for Cantonese), free tier (500K chars/month)
-- **Jyutping:** Derived from translated Chinese characters using `pycantonese`
-- **TTS audio:** `edge-tts`, voice `zh-HK-HiuMaanNeural`, audio stored as BLOB in SQLite
+- **Translation:** Gemini 2.5 Flash Lite (`google-genai` SDK), free tier via Google AI Studio
+- **Jyutping:** Provided by Gemini in the JSON translation response
+- **TTS audio:** `edge-tts`, voice `zh-HK-HiuMaanNeural`, stored as BLOB in SQLite
 - **SRS:** SM-2 algorithm (`srs.py`)
-- **Auth:** HTTP Basic Auth middleware (password via `APP_PASSWORD` env var); skipped if unset (local dev)
-- **Frontend:** Vanilla JS, two HTML pages served by FastAPI
+- **Auth:** Cookie-based session auth + HTTP Basic Auth fallback; password via `APP_PASSWORD` env var; skipped if unset (local dev)
+- **Frontend:** Vanilla JS, served by FastAPI
 
 ## File Map
 
 ```
-main.py          — FastAPI app, all routes, Basic Auth middleware
-db.py            — SQLite operations (cards table, audio BLOB storage)
-translation.py   — Google Cloud Translation API call + pycantonese jyutping
+main.py          — FastAPI app, all routes, auth middleware
+db.py            — SQLite operations (cards + card_faces tables, audio BLOB)
+translation.py   — Gemini translation + jyutping
 audio.py         — edge-tts generation, returns bytes
 srs.py           — SM-2 spaced repetition algorithm
+import_vocab.py  — Bulk-import extracted_vocab.json into the DB (Gemini for jyutping)
 start.sh         — local dev launcher (loads .env, runs uvicorn --reload)
-Dockerfile       — container image for Fly.io deployment
-fly.toml         — Fly.io deployment config (always-on, 1GB volume)
-render.yaml      — legacy Render config (kept for reference)
+Dockerfile       — container image
+docker-compose.yml — production stack (app + Caddy for automatic HTTPS)
+Caddyfile        — Caddy reverse proxy config, domain from $DOMAIN env var
 tests/
   test_srs.py    — SM-2 algorithm unit tests
   test_db.py     — SQLite integration tests (temp DB per test)
 static/
   index.html     — Translation page (/ route)
   cards.html     — Flashcard review page (/cards route)
+  login.html     — Login page
   style.css      — All styles, mobile-first, CSS variables for theming
+  manifest.json  — PWA manifest
+  sw.js          — Service worker (cache-first for assets, network-first for nav)
+  icons/         — PWA icons (192px, 512px)
 data/
   cards.db       — SQLite DB (gitignored, created on first run)
 ```
@@ -44,7 +49,13 @@ cards (
   chinese       TEXT,        -- Traditional Chinese characters (Cantonese vocab)
   jyutping      TEXT,        -- e.g. "nei5 hou2 aa3"
   audio_data    BLOB,        -- edge-tts MP3 bytes
-  created_at    TEXT,
+  created_at    TEXT
+)
+
+card_faces (
+  id            INTEGER PRIMARY KEY,
+  card_id       INTEGER,     -- FK → cards.id
+  face          TEXT,        -- "english" | "chinese" | "cantonese"
   next_review   TEXT,        -- ISO datetime, UTC
   interval_days INTEGER,     -- SM-2
   ease_factor   REAL,        -- SM-2, min 1.3
@@ -52,46 +63,43 @@ cards (
 )
 ```
 
+Each card has 3 faces (english, chinese, cantonese) tracked independently in `card_faces`.
+
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | / | Translation page |
 | GET | /cards | Flashcard page |
+| GET | /login | Login page |
+| POST | /api/login | Authenticate, set session cookie |
+| POST | /api/logout | Clear session cookie |
 | POST | /api/translate | Translate text, create card, generate audio |
-| GET | /api/cards/due | Cards due for review (next_review <= now) |
-| GET | /api/cards/all | All cards (for browse modal) |
-| GET | /api/cards/due-count | Count of due cards (for badge) |
+| GET | /api/cards/due | Card faces due for review |
+| GET | /api/cards/all-faces | All card faces |
+| GET | /api/cards/all | All cards |
+| GET | /api/cards/due-count | Count of due faces |
 | GET | /api/audio/{id} | Serve card audio as audio/mpeg |
 | POST | /api/cards/{id}/review | Submit SM-2 rating (again/hard/good/easy) |
+| PUT | /api/cards/{id} | Update card fields |
 | DELETE | /api/cards/{id} | Delete a card |
-
-## Key Design Decisions
-
-- **Google Cloud Translation API with `yue` language code** — uses the Cantonese model (not Mandarin/zh-TW), so output uses authentic Cantonese vocabulary (食 not 吃, etc.). Free 500K chars/month; set a daily quota cap in GCP Console to prevent any billing.
-- **Jyutping via pycantonese** — derived locally from the returned Chinese characters. `characters_to_jyutping()` returns (chars, jyutping) pairs; syllables extracted with regex `[a-z]+[1-6]`.
-- **Audio stored as BLOB in SQLite** — avoids needing a separate filesystem or object storage for cloud deployment. Keeps everything in one file.
-- **Translation always creates a card** — every translate call saves to DB. No separate "save" step.
-- **Three quiz faces:** english / chinese / cantonese (jyutping + audio). Randomly rotated each review.
-- **Traditional Chinese only** — Google's `yue` target produces Traditional characters with Cantonese-specific vocabulary.
-- **Basic Auth skipped locally** — `APP_PASSWORD` env var gates access; if unset (local dev), middleware is a no-op.
 
 ## Environment
 
 ```
-GOOGLE_TRANSLATE_API_KEY=...   # Google Cloud Console, Cloud Translation API
-APP_PASSWORD=...               # Protects the deployed app (any username works)
-DB_PATH=...                    # default: data/cards.db
+GEMINI_API_KEY=...   # Google AI Studio — aistudio.google.com/apikey
+APP_PASSWORD=...     # Protects the deployed app
+DB_PATH=...          # default: data/cards.db (overridden to /data/cards.db in Docker)
+DOMAIN=...           # Your domain for HTTPS, e.g. yourname.duckdns.org
 ```
 
-Copy `.env.example` → `.env` and fill in keys. Never commit `.env`.
+Copy `.env.example` → `.env` and fill in values. Never commit `.env`.
 
 ## Running Locally
 
 ```bash
 ./start.sh
 # opens on http://localhost:8000
-# on iPhone: http://<mac-local-IP>:8000
 ```
 
 ## Running Tests
@@ -100,24 +108,23 @@ Copy `.env.example` → `.env` and fill in keys. Never commit `.env`.
 venv/bin/pytest tests/ -v
 ```
 
-## Deployment (Fly.io)
+## Deployment (Oracle Cloud Free Tier)
 
-App: `cantonese-anki-app`, region: `yyz` (Toronto), always-on (min 1 machine).
-SQLite persisted on a 1GB Fly volume (`cantonese_data` → `/var/data`).
+Hosted on an Oracle A1 ARM VM (always free). Docker Compose runs the app + Caddy (automatic HTTPS via Let's Encrypt).
 
-**First-time setup:**
 ```bash
-fly volumes create cantonese_data --size 1 --region yyz
-fly secrets set GOOGLE_TRANSLATE_API_KEY=... APP_PASSWORD=...
-fly deploy
+# On the VM
+git clone https://github.com/jacobsilcoff/canto-anti-app.git
+cd canto-anti-app
+cp .env.example .env && nano .env   # fill in GEMINI_API_KEY, APP_PASSWORD, DOMAIN
+docker compose up -d --build
 ```
 
-**CI/CD:** Pushing to `main` on GitHub runs tests then auto-deploys via `.github/workflows/ci.yml`.
-Requires `FLY_API_TOKEN` set as a GitHub Actions secret (`fly tokens create deploy`).
+**CI/CD:** Pushing to `main` runs tests (`ci.yml`) then auto-deploys to the VM via SSH (`deploy.yml`). Requires `VM_HOST` and `VM_SSH_KEY` set as GitHub Actions secrets.
 
-## iPhone Home Screen
+## PWA / iPhone Home Screen
 
-Open the app in Safari → Share → Add to Home Screen. Launches full-screen without browser chrome.
+Open the app in Safari → Share → Add to Home Screen. Launches full-screen with the HK skyline icon.
 
 ## Flashcard Keyboard Shortcuts
 
@@ -128,11 +135,3 @@ Open the app in Safari → Share → Add to Home Screen. Launches full-screen wi
 | 2 | Hard |
 | 3 | Good |
 | 4 | Easy |
-
-## Planned / Possible Future Features
-
-- Browse/search cards on translation page
-- Stats page (streak, cards learned, retention rate)
-- Import from CSV / export to Anki format
-- Cantonese-only input mode (draw characters)
-- Multiple card decks / tags

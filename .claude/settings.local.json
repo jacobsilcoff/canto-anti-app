@@ -15,7 +15,14 @@
       "Bash(git init *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(venv/bin/pytest tests/ -v)"
+      "Bash(venv/bin/pytest tests/ -v)",
+      "Bash(fly ssh *)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('extracted_vocab.json'\\)\\); print\\(f'{len\\(d\\)} entries'\\); print\\('keys:', list\\(d[0].keys\\(\\)\\)\\)\")",
+      "Bash(fly machine *)",
+      "Bash(fly status *)",
+      "Bash(python3 -c ' *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
