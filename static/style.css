@@ -613,6 +613,330 @@ textarea {
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
+/* ── Labels ─────────────────────────────────────────────────────────────── */
+.labels-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.labels-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.labels-bar-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.labels-bar-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.labels-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.label-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: inherit;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+.label-chip:hover { border-color: var(--primary); color: var(--primary); }
+.label-chip.active {
+  background: #e8f0fe;
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+.label-chip.add-label {
+  background: transparent;
+  border-style: dashed;
+}
+
+.label-chip-static {
+  background: #e8f0fe;
+  color: var(--primary);
+  border-radius: 12px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.output-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* ── Context / notes (collapsable) ─────────────────────────────────────── */
+.context-details,
+.output-notes-details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.context-details summary,
+.output-notes-details summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.context-details summary::-webkit-details-marker,
+.output-notes-details summary::-webkit-details-marker { display: none; }
+.context-details summary::before,
+.output-notes-details summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.75rem;
+  transition: transform 0.15s;
+}
+.context-details[open] summary::before,
+.output-notes-details[open] summary::before { transform: rotate(90deg); }
+
+.context-summary-set {
+  color: var(--good);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.context-details textarea,
+.output-notes-details textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+}
+.context-details textarea:focus,
+.output-notes-details textarea:focus { border-color: var(--primary); }
+
+.notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.notes-saved-msg {
+  font-size: 0.78rem;
+  color: var(--good);
+}
+
+/* ── Cards page filter bar ─────────────────────────────────────────────── */
+.filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.filter-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.filter-select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+}
+.filter-select:focus { border-color: var(--primary); }
+
+.filter-manage-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.filter-manage-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── Review: notes + labels ─────────────────────────────────────────────── */
+.review-notes {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.review-notes summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+  user-select: none;
+}
+.review-notes summary::-webkit-details-marker { display: none; }
+.review-notes summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+.review-notes[open] summary::before { transform: rotate(90deg); }
+.review-notes-body {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.review-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+/* ── Inline label chips in card edit forms ──────────────────────────────── */
+.inline-labels-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.inline-labels-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.inline-label-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.inline-labels-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Browse list: labels + notes ────────────────────────────────────────── */
+.card-list-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.card-list-notes {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+.card-list-notes summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-muted);
+  user-select: none;
+}
+.card-list-notes summary::-webkit-details-marker { display: none; }
+.card-list-notes summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+.card-list-notes[open] summary::before { transform: rotate(90deg); }
+.card-list-notes div {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.card-list-item .card-display { flex: 1; min-width: 0; }
+
+/* ── Manage labels modal ─────────────────────────────────────────────────── */
+.manage-labels-create {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.manage-labels-create .edit-input { flex: 1; }
+
+.label-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.label-manage-row:last-child { border-bottom: none; }
+.label-manage-name { flex: 1; }
+.label-manage-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Override textarea inside an .edit-input class so multi-line works */
+textarea.edit-input {
+  resize: vertical;
+  font-family: inherit;
+  min-height: 50px;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   .rating-btn { padding: 16px; font-size: 0.95rem; }

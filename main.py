@@ -160,6 +160,9 @@ async def cards_page():
 class TranslateRequest(BaseModel):
     text: str
     source_lang: str  # "english" | "cantonese"
+    context: str | None = None
+    label_ids: list[int] | None = None
+    notes: str | None = None
 
 
 @app.post("/api/translate")
@@ -167,28 +170,35 @@ async def translate(req: TranslateRequest):
     if not req.text.strip():
         raise HTTPException(400, "Text is empty")
 
-    result = await translation.translate(req.text.strip(), req.source_lang)
+    result = await translation.translate(
+        req.text.strip(),
+        req.source_lang,
+        context=(req.context or "").strip(),
+    )
     audio_data = await audio.generate(result["chinese"])
+    notes = (req.notes or "").strip() or None
     card_id = await db.create_card(
         english=result["english"],
         chinese=result["chinese"],
         jyutping=result["jyutping"],
         audio_data=audio_data,
+        notes=notes,
+        label_ids=req.label_ids or [],
     )
-    return {**result, "card_id": card_id}
+    return {**result, "card_id": card_id, "notes": notes, "labels": []}
 
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/cards/due")
-async def get_due_cards():
-    faces = await db.get_due_faces()
+async def get_due_cards(label_id: int | None = None):
+    faces = await db.get_due_faces(label_id=label_id)
     return {"cards": faces, "count": len(faces)}
 
 
 @app.get("/api/cards/all-faces")
-async def get_all_faces():
-    faces = await db.get_all_faces()
+async def get_all_faces(label_id: int | None = None):
+    faces = await db.get_all_faces(label_id=label_id)
     return {"cards": faces, "count": len(faces)}
 
 
@@ -199,8 +209,8 @@ async def get_all_cards():
 
 
 @app.get("/api/cards/due-count")
-async def due_count():
-    return {"count": await db.get_due_count()}
+async def due_count(label_id: int | None = None):
+    return {"count": await db.get_due_count(label_id=label_id)}
 
 
 @app.get("/api/audio/{card_id}")
@@ -242,6 +252,8 @@ class UpdateCardRequest(BaseModel):
     english: str
     chinese: str
     jyutping: str
+    notes: str | None = None
+    label_ids: list[int] | None = None  # None = leave unchanged; [] = clear all
 
 
 @app.put("/api/cards/{card_id}")
@@ -252,11 +264,60 @@ async def update_card(card_id: int, req: UpdateCardRequest):
     audio_data = None
     if req.chinese.strip() != existing["chinese"]:
         audio_data = await audio.generate(req.chinese.strip())
-    await db.update_card(card_id, req.english.strip(), req.chinese.strip(), req.jyutping.strip(), audio_data)
+    notes = (req.notes or "").strip() or None
+    await db.update_card(
+        card_id,
+        req.english.strip(),
+        req.chinese.strip(),
+        req.jyutping.strip(),
+        audio_data=audio_data,
+        notes=notes,
+        label_ids=req.label_ids,
+    )
     return {"success": True}
 
 
 @app.delete("/api/cards/{card_id}")
 async def delete_card(card_id: int):
     await db.delete_card(card_id)
+    return {"success": True}
+
+
+# ── Labels ────────────────────────────────────────────────────────────────────
+
+class LabelRequest(BaseModel):
+    name: str
+
+
+@app.get("/api/labels")
+async def list_labels():
+    return {"labels": await db.list_labels()}
+
+
+@app.post("/api/labels")
+async def create_label(req: LabelRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name is empty")
+    if len(name) > 50:
+        raise HTTPException(400, "Name too long (max 50 chars)")
+    return await db.create_label(name)
+
+
+@app.put("/api/labels/{label_id}")
+async def rename_label(label_id: int, req: LabelRequest):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name is empty")
+    if len(name) > 50:
+        raise HTTPException(400, "Name too long (max 50 chars)")
+    ok = await db.rename_label(label_id, name)
+    if not ok:
+        raise HTTPException(409, "A label with that name already exists")
+    return {"success": True}
+
+
+@app.delete("/api/labels/{label_id}")
+async def delete_label(label_id: int):
+    await db.delete_label(label_id)
     return {"success": True}

@@ -81,6 +81,15 @@
   </nav>
 </header>
 
+<!-- Filter bar -->
+<div class="filter-bar">
+  <label for="label-filter" class="filter-label">Filter:</label>
+  <select id="label-filter" class="filter-select" onchange="onFilterChange()">
+    <option value="">All labels</option>
+  </select>
+  <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels">⚙</button>
+</div>
+
 <!-- Loading state -->
 <div class="cards-page" id="state-loading">
   <div class="empty-state">
@@ -93,8 +102,8 @@
 <div class="cards-page" id="state-empty" style="display:none">
   <div class="empty-state">
     <div class="icon">📚</div>
-    <h2>No flashcards yet</h2>
-    <p>Translate some phrases to build your deck.</p>
+    <h2 id="empty-title">No flashcards yet</h2>
+    <p id="empty-msg">Translate some phrases to build your deck.</p>
     <a href="/" class="cta-btn">Go Translate</a>
   </div>
 </div>
@@ -104,7 +113,7 @@
   <div class="empty-state">
     <div class="icon">🎉</div>
     <h2>All caught up!</h2>
-    <p>No cards due right now.</p>
+    <p id="caughtup-msg">No cards due right now.</p>
     <button class="cta-btn" onclick="loadSession('all')">Practice Anyway</button>
   </div>
 </div>
@@ -142,6 +151,11 @@
         <input class="edit-input" id="inline-en" placeholder="English">
         <input class="edit-input" id="inline-zh" placeholder="Chinese" style="font-family:var(--chinese-font);font-size:1.1rem">
         <input class="edit-input" id="inline-jy" placeholder="Jyutping">
+        <textarea class="edit-input" id="inline-notes" placeholder="Notes (optional)" rows="2"></textarea>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Labels</div>
+          <div class="inline-label-chips" id="inline-label-chips"></div>
+        </div>
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveInlineEdit()">Save</button>
           <button class="edit-cancel-btn" onclick="cancelInlineEdit()">Cancel</button>
@@ -186,6 +200,21 @@
   </div>
 </div>
 
+<!-- Manage labels modal -->
+<div class="modal-overlay" id="labels-overlay" style="display:none" onclick="closeManageLabels(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 style="font-size:1.1rem">Manage Labels</h2>
+      <button class="modal-close" onclick="closeManageLabels()">✕</button>
+    </div>
+    <div class="manage-labels-create">
+      <input type="text" id="new-label-input" class="edit-input" placeholder="New label name…" maxlength="50">
+      <button class="edit-save-btn" onclick="createLabel()">Add</button>
+    </div>
+    <div id="labels-manage-list"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -196,6 +225,9 @@
   let revealed = false;
   let currentAudio = null;
   let isOnline = navigator.onLine;
+  let allLabels = [];                // [{id, name, card_count}]
+  let filterLabelId = null;          // null = all
+  let inlineEditLabelIds = new Set();
 
   // ── IndexedDB ─────────────────────────────────────────────────────────────
   // Stores: "cards" (cached due cards), "pending" (reviews to sync)
@@ -331,6 +363,44 @@
     idbGetAllWithKeys('pending').then(e => updateOfflineBar(e.length));
   });
 
+  // ── Labels ────────────────────────────────────────────────────────────────
+  async function loadLabels() {
+    try {
+      const res = await fetch('/api/labels');
+      const { labels } = await res.json();
+      allLabels = labels;
+    } catch {
+      allLabels = [];
+    }
+    renderFilterOptions();
+  }
+
+  function renderFilterOptions() {
+    const sel = document.getElementById('label-filter');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All labels</option>';
+    allLabels.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id;
+      opt.textContent = `${l.name} (${l.card_count})`;
+      sel.appendChild(opt);
+    });
+    // Restore selection if still valid
+    if (current && allLabels.find(l => String(l.id) === current)) {
+      sel.value = current;
+    }
+  }
+
+  function onFilterChange() {
+    const v = document.getElementById('label-filter').value;
+    filterLabelId = v ? parseInt(v, 10) : null;
+    loadSession('due');
+  }
+
+  function filterQuery() {
+    return filterLabelId ? `?label_id=${filterLabelId}` : '';
+  }
+
   // ── Boot ──────────────────────────────────────────────────────────────────
   async function loadSession(mode = 'due') {
     show('loading');
@@ -345,10 +415,11 @@
     let cards;
     if (isOnline) {
       try {
-        const url = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
+        const base = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
+        const url = base + filterQuery();
         ({ cards } = await fetch(url).then(r => r.json()));
-        // Cache due cards for offline use (only for "due" mode)
-        if (mode === 'due') {
+        // Cache due cards for offline use (only for "due" mode, only when unfiltered)
+        if (mode === 'due' && !filterLabelId) {
           await idbClear('cards');
           for (const c of cards) await idbPut('cards', { ...c, id: `${c.card_id}-${c.face}` });
         }
@@ -359,12 +430,31 @@
       }
     } else {
       cards = await idbGetAll('cards');
+      // Apply label filter client-side
+      if (filterLabelId) {
+        cards = cards.filter(c => (c.labels || []).some(l => l.id === filterLabelId));
+      }
+    }
+
+    const emptyTitle = document.getElementById('empty-title');
+    const emptyMsg = document.getElementById('empty-msg');
+    const caughtupMsg = document.getElementById('caughtup-msg');
+    if (filterLabelId) {
+      const name = (allLabels.find(l => l.id === filterLabelId) || {}).name || 'this label';
+      emptyTitle.textContent = `No cards for "${name}"`;
+      emptyMsg.textContent = 'Try a different label or translate something new.';
+      caughtupMsg.textContent = `No cards due for "${name}".`;
+    } else {
+      emptyTitle.textContent = 'No flashcards yet';
+      emptyMsg.textContent = 'Translate some phrases to build your deck.';
+      caughtupMsg.textContent = 'No cards due right now.';
     }
 
     if (cards.length === 0) {
       if (mode === 'due') {
         if (isOnline) {
-          const { cards: all } = await fetch('/api/cards/all-faces').then(r => r.json()).catch(() => ({ cards: [] }));
+          const url = '/api/cards/all-faces' + filterQuery();
+          const { cards: all } = await fetch(url).then(r => r.json()).catch(() => ({ cards: [] }));
           show(all.length === 0 ? 'empty' : 'caughtup');
         } else {
           show('caughtup'); // can't distinguish offline, assume caught up
@@ -484,6 +574,33 @@
       answerEl.appendChild(row);
     });
 
+    // Notes (collapsable) — only if present
+    if (item.notes && item.notes.trim()) {
+      const notesDetails = document.createElement('details');
+      notesDetails.className = 'review-notes';
+      const summary = document.createElement('summary');
+      summary.textContent = '📝 Notes';
+      notesDetails.appendChild(summary);
+      const body = document.createElement('div');
+      body.className = 'review-notes-body';
+      body.textContent = item.notes;
+      notesDetails.appendChild(body);
+      answerEl.appendChild(notesDetails);
+    }
+
+    // Labels
+    if (item.labels && item.labels.length) {
+      const row = document.createElement('div');
+      row.className = 'review-labels';
+      item.labels.forEach(lbl => {
+        const chip = document.createElement('span');
+        chip.className = 'label-chip-static';
+        chip.textContent = lbl.name;
+        row.appendChild(chip);
+      });
+      answerEl.appendChild(row);
+    }
+
     answerEl.style.display = 'flex';
     document.getElementById('pre-reveal').style.display = 'none';
     document.getElementById('post-reveal').style.display = '';
@@ -563,16 +680,31 @@
     const item = document.createElement('div');
     item.className = 'card-list-item';
     item.id = `cli-${card.id}`;
+
+    const labelsHtml = (card.labels || []).map(l =>
+      `<span class="label-chip-static">${escHtml(l.name)}</span>`
+    ).join('');
+    const notesHtml = card.notes
+      ? `<details class="card-list-notes"><summary>📝 Note</summary><div>${escHtml(card.notes)}</div></details>`
+      : '';
+
     item.innerHTML = `
       <div class="card-display" id="display-${card.id}">
         <div class="chinese">${escHtml(card.chinese)}</div>
         <div class="jyutping">${escHtml(card.jyutping)}</div>
         <div class="english">${escHtml(card.english)}</div>
+        ${labelsHtml ? `<div class="card-list-labels">${labelsHtml}</div>` : ''}
+        ${notesHtml}
       </div>
       <div class="card-edit-form" id="edit-form-${card.id}" style="display:none">
         <input class="edit-input" id="edit-en-${card.id}" value="${escAttr(card.english)}" placeholder="English">
         <input class="edit-input" id="edit-zh-${card.id}" value="${escAttr(card.chinese)}" placeholder="Chinese">
         <input class="edit-input" id="edit-jy-${card.id}" value="${escAttr(card.jyutping)}" placeholder="Jyutping">
+        <textarea class="edit-input" id="edit-notes-${card.id}" placeholder="Notes (optional)" rows="2">${escHtml(card.notes || '')}</textarea>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Labels</div>
+          <div class="inline-label-chips" id="edit-labels-${card.id}"></div>
+        </div>
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
           <button class="edit-cancel-btn" onclick="cancelEdit(${card.id})">Cancel</button>
@@ -583,6 +715,8 @@
         <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
       </div>
     `;
+    // Stash the card's current label ids on the item for the edit form
+    item._labelIds = new Set((card.labels || []).map(l => l.id));
     container.appendChild(item);
   }
 
@@ -593,11 +727,38 @@
     return String(s).replace(/"/g, '&quot;');
   }
 
+  function renderEditLabelChips(containerId, selectedIds) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    allLabels.forEach(lbl => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'label-chip' + (selectedIds.has(lbl.id) ? ' active' : '');
+      chip.textContent = lbl.name;
+      chip.onclick = () => {
+        if (selectedIds.has(lbl.id)) selectedIds.delete(lbl.id);
+        else selectedIds.add(lbl.id);
+        renderEditLabelChips(containerId, selectedIds);
+      };
+      container.appendChild(chip);
+    });
+    if (allLabels.length === 0) {
+      const note = document.createElement('span');
+      note.className = 'inline-labels-empty';
+      note.textContent = 'No labels yet — create one in Manage Labels (⚙).';
+      container.appendChild(note);
+    }
+  }
+
   function startEdit(id) {
     document.getElementById(`display-${id}`).style.display = 'none';
     document.getElementById(`actions-${id}`).style.display = 'none';
     document.getElementById(`edit-form-${id}`).style.display = 'block';
     document.getElementById(`edit-en-${id}`).focus();
+    const item = document.getElementById(`cli-${id}`);
+    const selected = new Set(item._labelIds);
+    item._editSelected = selected;
+    renderEditLabelChips(`edit-labels-${id}`, selected);
   }
 
   function cancelEdit(id) {
@@ -610,22 +771,57 @@
     const english = document.getElementById(`edit-en-${id}`).value.trim();
     const chinese = document.getElementById(`edit-zh-${id}`).value.trim();
     const jyutping = document.getElementById(`edit-jy-${id}`).value.trim();
-    if (!english || !chinese || !jyutping) { showToast('All fields are required.'); return; }
+    const notes = document.getElementById(`edit-notes-${id}`).value;
+    const labelIds = [...document.getElementById(`cli-${id}`)._editSelected];
+    if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
     const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ english, chinese, jyutping }),
+        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
       });
       if (!res.ok) throw new Error();
+      // Re-render the card item in place. Easier: refetch all on save? Too heavy — patch fields directly.
       const display = document.getElementById(`display-${id}`);
       display.querySelector('.chinese').textContent = chinese;
       display.querySelector('.jyutping').textContent = jyutping;
       display.querySelector('.english').textContent = english;
+      // Patch labels + notes display
+      const oldLabelRow = display.querySelector('.card-list-labels');
+      if (oldLabelRow) oldLabelRow.remove();
+      const oldNotes = display.querySelector('.card-list-notes');
+      if (oldNotes) oldNotes.remove();
+      const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
+      if (selectedLabels.length) {
+        const row = document.createElement('div');
+        row.className = 'card-list-labels';
+        selectedLabels.forEach(l => {
+          const chip = document.createElement('span');
+          chip.className = 'label-chip-static';
+          chip.textContent = l.name;
+          row.appendChild(chip);
+        });
+        display.appendChild(row);
+      }
+      if (notes && notes.trim()) {
+        const det = document.createElement('details');
+        det.className = 'card-list-notes';
+        det.innerHTML = `<summary>📝 Note</summary><div>${escHtml(notes)}</div>`;
+        display.appendChild(det);
+      }
+      document.getElementById(`cli-${id}`)._labelIds = new Set(labelIds);
       cancelEdit(id);
       showToast('Card updated.');
+      // Update queue copy for the live session
+      queue.forEach(q => {
+        if (q.card_id === id) {
+          q.english = english; q.chinese = chinese; q.jyutping = jyutping;
+          q.notes = notes; q.labels = selectedLabels;
+        }
+      });
+      loadLabels();  // refresh counts in filter dropdown
     } catch { showToast('Failed to save card.'); }
     finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
@@ -647,6 +843,101 @@
       total = Math.max(0, total - removed);
       if (qi < idx) idx = Math.max(0, idx - removed);
     }
+    loadLabels();
+  }
+
+  // ── Manage labels modal ────────────────────────────────────────────────────
+  async function showManageLabels() {
+    await loadLabels();
+    document.getElementById('labels-overlay').style.display = 'flex';
+    document.getElementById('new-label-input').value = '';
+    renderManageLabelsList();
+  }
+
+  function renderManageLabelsList() {
+    const list = document.getElementById('labels-manage-list');
+    list.innerHTML = '';
+    if (allLabels.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">No labels yet.</p>';
+      return;
+    }
+    allLabels.forEach(lbl => {
+      const row = document.createElement('div');
+      row.className = 'label-manage-row';
+      row.innerHTML = `
+        <input class="edit-input label-manage-name" value="${escAttr(lbl.name)}" maxlength="50">
+        <span class="label-manage-count">${lbl.card_count}</span>
+        <button class="edit-save-btn label-manage-save">Save</button>
+        <button class="delete-card-btn label-manage-delete" title="Delete label">🗑</button>
+      `;
+      row.querySelector('.label-manage-save').onclick = () => {
+        renameLabel(lbl.id, row.querySelector('.label-manage-name').value);
+      };
+      row.querySelector('.label-manage-delete').onclick = () => deleteLabel(lbl.id, lbl.name);
+      list.appendChild(row);
+    });
+  }
+
+  async function createLabel() {
+    const input = document.getElementById('new-label-input');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error();
+      input.value = '';
+      await loadLabels();
+      renderManageLabelsList();
+    } catch {
+      showToast('Could not create label.');
+    }
+  }
+
+  async function renameLabel(id, name) {
+    name = name.trim();
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/labels/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        showToast(err || 'Could not rename label.');
+        return;
+      }
+      await loadLabels();
+      renderManageLabelsList();
+      showToast('Label renamed.');
+    } catch {
+      showToast('Could not rename label.');
+    }
+  }
+
+  async function deleteLabel(id, name) {
+    if (!confirm(`Delete label "${name}"? Cards keep their other labels.`)) return;
+    try {
+      await fetch(`/api/labels/${id}`, { method: 'DELETE' });
+      if (filterLabelId === id) {
+        filterLabelId = null;
+        document.getElementById('label-filter').value = '';
+      }
+      await loadLabels();
+      renderManageLabelsList();
+    } catch {
+      showToast('Could not delete label.');
+    }
+  }
+
+  function closeManageLabels(e) {
+    if (!e || e.target === document.getElementById('labels-overlay')) {
+      document.getElementById('labels-overlay').style.display = 'none';
+    }
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────────
@@ -663,6 +954,9 @@
     document.getElementById('inline-en').value = item.english;
     document.getElementById('inline-zh').value = item.chinese;
     document.getElementById('inline-jy').value = item.jyutping;
+    document.getElementById('inline-notes').value = item.notes || '';
+    inlineEditLabelIds = new Set((item.labels || []).map(l => l.id));
+    renderEditLabelChips('inline-label-chips', inlineEditLabelIds);
 
     document.getElementById('prompt-text').style.display = 'none';
     document.getElementById('card-answer').style.display = 'none';
@@ -677,7 +971,9 @@
     const english  = document.getElementById('inline-en').value.trim();
     const chinese  = document.getElementById('inline-zh').value.trim();
     const jyutping = document.getElementById('inline-jy').value.trim();
-    if (!english || !chinese || !jyutping) { showToast('All fields required.'); return; }
+    const notes    = document.getElementById('inline-notes').value;
+    const labelIds = [...inlineEditLabelIds];
+    if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
 
     const btn = document.querySelector('#card-inline-edit .edit-save-btn');
     btn.disabled = true; btn.textContent = 'Saving…';
@@ -685,17 +981,20 @@
       const res = await fetch(`/api/cards/${item.card_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ english, chinese, jyutping }),
+        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
       });
       if (!res.ok) throw new Error();
+      const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
       // Update every queued face for this card so the rest of the session is correct
       queue.forEach(q => {
         if (q.card_id === item.card_id) {
           q.english = english; q.chinese = chinese; q.jyutping = jyutping;
+          q.notes = notes; q.labels = selectedLabels;
         }
       });
       cancelInlineEdit();
       showToast('Card updated.');
+      loadLabels();
     } catch { showToast('Failed to save.'); }
     finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
@@ -714,6 +1013,7 @@
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (document.getElementById('browse-overlay').style.display !== 'none') return;
+    if (document.getElementById('labels-overlay').style.display !== 'none') return;
     if (document.getElementById('state-review').style.display === 'none') return;
     if (document.getElementById('card-inline-edit').style.display !== 'none') return;
     if (!revealed) {
@@ -731,7 +1031,10 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  loadSession();
+  (async () => {
+    await loadLabels();
+    loadSession();
+  })();
 </script>
 </body>
 </html>

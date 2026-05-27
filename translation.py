@@ -38,7 +38,18 @@ def _parse_json(text: str) -> dict:
     return json.loads(text)
 
 
-def _translate_en_to_yue(text: str) -> dict:
+def _context_block(context: str) -> str:
+    context = (context or "").strip()
+    if not context:
+        return ""
+    return (
+        "\nContext (use this to disambiguate the meaning, "
+        "but do NOT include it in the translation output):\n"
+        f"{context}\n"
+    )
+
+
+def _translate_en_to_yue(text: str, context: str = "") -> dict:
     prompt = (
         "Translate the following English text into Hong Kong Cantonese.\n"
         "Rules:\n"
@@ -46,33 +57,35 @@ def _translate_en_to_yue(text: str) -> dict:
         "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
         "- Provide jyutping romanisation for the Chinese output (e.g. nei5 hou2 aa3)\n"
         "Return ONLY valid JSON in this exact format, no other text:\n"
-        '{"chinese": "...", "jyutping": "..."}\n\n'
+        '{"chinese": "...", "jyutping": "..."}\n'
+        f"{_context_block(context)}\n"
         f"English: {text}"
     )
     return _parse_json(_call(prompt))
 
 
-def _translate_yue_to_en(text: str) -> dict:
+def _translate_yue_to_en(text: str, context: str = "") -> dict:
     prompt = (
         "Translate the following Hong Kong Cantonese text into natural English.\n"
         "Also provide the jyutping romanisation of the Cantonese input.\n"
         "Return ONLY valid JSON in this exact format, no other text:\n"
-        '{"english": "...", "jyutping": "..."}\n\n'
+        '{"english": "...", "jyutping": "..."}\n'
+        f"{_context_block(context)}\n"
         f"Cantonese: {text}"
     )
     return _parse_json(_call(prompt))
 
 
-async def translate(text: str, source_lang: str) -> dict:
+async def translate(text: str, source_lang: str, context: str = "") -> dict:
     if source_lang == "english":
-        result = await asyncio.to_thread(_translate_en_to_yue, text)
+        result = await asyncio.to_thread(_translate_en_to_yue, text, context)
         return {
             "english": text,
             "chinese": result["chinese"].strip(),
             "jyutping": result.get("jyutping", "").strip(),
         }
     else:
-        result = await asyncio.to_thread(_translate_yue_to_en, text)
+        result = await asyncio.to_thread(_translate_yue_to_en, text, context)
         return {
             "english": result["english"].strip(),
             "chinese": text,

@@ -29,6 +29,15 @@
     <button class="lang-btn" id="btn-yue" onclick="setLang('cantonese')">🇭🇰 Cantonese</button>
   </div>
 
+  <!-- Sticky labels picker -->
+  <div class="labels-bar">
+    <div class="labels-bar-header">
+      <span class="labels-bar-title">Labels</span>
+      <span class="labels-bar-hint" id="labels-hint">tap to apply to next translation</span>
+    </div>
+    <div class="labels-chips" id="labels-chips"></div>
+  </div>
+
   <div class="translate-container">
     <div class="input-panel">
       <textarea id="input" placeholder="Enter text…" oninput="onInput()" rows="4"></textarea>
@@ -38,12 +47,38 @@
       </div>
     </div>
 
+    <!-- Context (collapsable) -->
+    <details class="context-details" id="context-details">
+      <summary>
+        <span class="context-summary-label">+ Add context for translator</span>
+        <span class="context-summary-set" id="context-summary-set" style="display:none">Context set</span>
+      </summary>
+      <textarea id="context-input" placeholder="e.g. as in charging a phone, not financial" rows="2"
+                oninput="onContextInput()"></textarea>
+    </details>
+
     <button class="translate-btn" id="translate-btn" onclick="doTranslate()">Translate</button>
 
     <div class="output-panel" id="output-panel" style="display:none">
       <div class="output-chinese" id="out-chinese"></div>
       <div class="output-jyutping" id="out-jyutping"></div>
       <div class="output-english" id="out-english" style="display:none"></div>
+
+      <div class="output-labels" id="output-labels" style="display:none"></div>
+
+      <details class="output-notes-details" id="output-notes-details">
+        <summary>
+          <span id="notes-summary-empty">+ Add note</span>
+          <span id="notes-summary-full" style="display:none">📝 Note</span>
+        </summary>
+        <textarea id="notes-input" placeholder="Optional note for this card…" rows="2"
+                  oninput="onNotesInput()"></textarea>
+        <div class="notes-actions">
+          <button class="edit-save-btn" id="notes-save-btn" onclick="saveNotes()" disabled>Save note</button>
+          <span class="notes-saved-msg" id="notes-saved-msg"></span>
+        </div>
+      </details>
+
       <div class="output-controls">
         <button class="audio-btn" id="audio-btn" onclick="playAudio()">🔊 Play</button>
         <span class="saved-indicator" id="saved-indicator">✅ Saved to flashcards</span>
@@ -58,6 +93,10 @@
   let sourceLang = 'english';
   let currentCardId = null;
   let audioEl = null;
+  // Labels state
+  let allLabels = [];                   // [{id, name, card_count}]
+  let selectedLabelIds = new Set();     // sticky across translations
+  let savedNotes = '';                  // last-saved notes for current card
 
   // ── Language toggle ──────────────────────────────────────────────────────
   function setLang(lang) {
@@ -79,6 +118,19 @@
     document.getElementById('char-count').textContent = text.length;
   }
 
+  function onContextInput() {
+    const has = document.getElementById('context-input').value.trim().length > 0;
+    document.getElementById('context-summary-set').style.display = has ? '' : 'none';
+    document.querySelector('#context-details .context-summary-label').textContent =
+      has ? 'Context for translator' : '+ Add context for translator';
+  }
+
+  function onNotesInput() {
+    const val = document.getElementById('notes-input').value;
+    document.getElementById('notes-save-btn').disabled = (val === savedNotes);
+    document.getElementById('notes-saved-msg').textContent = '';
+  }
+
   function clearInput() {
     document.getElementById('input').value = '';
     document.getElementById('char-count').textContent = '0';
@@ -88,9 +140,154 @@
   function resetOutput() {
     document.getElementById('output-panel').style.display = 'none';
     document.getElementById('saved-indicator').classList.remove('show');
+    document.getElementById('notes-input').value = '';
+    document.getElementById('notes-save-btn').disabled = true;
+    document.getElementById('notes-saved-msg').textContent = '';
+    document.getElementById('output-notes-details').open = false;
+    document.getElementById('notes-summary-empty').style.display = '';
+    document.getElementById('notes-summary-full').style.display = 'none';
+    savedNotes = '';
     currentCardId = null;
     if (audioEl) { audioEl.pause(); audioEl = null; }
     document.getElementById('audio-btn').classList.remove('playing');
+  }
+
+  // ── Labels ───────────────────────────────────────────────────────────────
+  async function loadLabels() {
+    try {
+      const res = await fetch('/api/labels');
+      const { labels } = await res.json();
+      allLabels = labels;
+    } catch {
+      allLabels = [];
+    }
+    renderLabelChips();
+  }
+
+  function renderLabelChips() {
+    const container = document.getElementById('labels-chips');
+    container.innerHTML = '';
+    allLabels.forEach(lbl => {
+      const chip = document.createElement('button');
+      chip.className = 'label-chip' + (selectedLabelIds.has(lbl.id) ? ' active' : '');
+      chip.textContent = lbl.name;
+      chip.onclick = () => toggleLabel(lbl.id);
+      container.appendChild(chip);
+    });
+    // "New label" chip
+    const addChip = document.createElement('button');
+    addChip.className = 'label-chip add-label';
+    addChip.textContent = '+ New label';
+    addChip.onclick = createLabelPrompt;
+    container.appendChild(addChip);
+    updateLabelsHint();
+  }
+
+  function updateLabelsHint() {
+    const hint = document.getElementById('labels-hint');
+    const n = selectedLabelIds.size;
+    hint.textContent = n === 0 ? 'tap to apply to next translation' :
+      `${n} selected — sticky across translations`;
+  }
+
+  function toggleLabel(id) {
+    if (selectedLabelIds.has(id)) selectedLabelIds.delete(id);
+    else selectedLabelIds.add(id);
+    renderLabelChips();
+    // If we just translated, sync the current card's labels to the new selection
+    if (currentCardId) syncCurrentCardLabels();
+  }
+
+  async function createLabelPrompt() {
+    const name = prompt('New label name:');
+    if (!name || !name.trim()) return;
+    try {
+      const res = await fetch('/api/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const lbl = await res.json();
+      // Refresh list (preserves card_count) and select
+      await loadLabels();
+      selectedLabelIds.add(lbl.id);
+      renderLabelChips();
+      if (currentCardId) syncCurrentCardLabels();
+    } catch (e) {
+      showToast('Could not create label.');
+    }
+  }
+
+  async function syncCurrentCardLabels() {
+    if (!currentCardId) return;
+    // Re-PUT with current selection. We need the latest card fields — read from output panel.
+    const english  = sourceLang === 'cantonese'
+      ? document.getElementById('out-english').textContent
+      : document.getElementById('input').value.trim();
+    const chinese  = document.getElementById('out-chinese').textContent;
+    const jyutping = document.getElementById('out-jyutping').textContent;
+    try {
+      await fetch(`/api/cards/${currentCardId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          english, chinese, jyutping,
+          notes: savedNotes,
+          label_ids: [...selectedLabelIds],
+        }),
+      });
+      renderOutputLabels();
+    } catch {
+      showToast('Could not update labels.');
+    }
+  }
+
+  function renderOutputLabels() {
+    const el = document.getElementById('output-labels');
+    el.innerHTML = '';
+    if (selectedLabelIds.size === 0) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    allLabels.filter(l => selectedLabelIds.has(l.id)).forEach(lbl => {
+      const chip = document.createElement('span');
+      chip.className = 'label-chip-static';
+      chip.textContent = lbl.name;
+      el.appendChild(chip);
+    });
+  }
+
+  // ── Notes ────────────────────────────────────────────────────────────────
+  async function saveNotes() {
+    if (!currentCardId) return;
+    const notes = document.getElementById('notes-input').value;
+    const english  = sourceLang === 'cantonese'
+      ? document.getElementById('out-english').textContent
+      : document.getElementById('input').value.trim();
+    const chinese  = document.getElementById('out-chinese').textContent;
+    const jyutping = document.getElementById('out-jyutping').textContent;
+    const btn = document.getElementById('notes-save-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/cards/${currentCardId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: [...selectedLabelIds] }),
+      });
+      if (!res.ok) throw new Error();
+      savedNotes = notes;
+      document.getElementById('notes-saved-msg').textContent = 'Saved';
+      setTimeout(() => { document.getElementById('notes-saved-msg').textContent = ''; }, 2000);
+      updateNotesSummary();
+    } catch {
+      showToast('Could not save note.');
+      btn.disabled = false;
+    }
+  }
+
+  function updateNotesSummary() {
+    const has = savedNotes.trim().length > 0;
+    document.getElementById('notes-summary-empty').style.display = has ? 'none' : '';
+    document.getElementById('notes-summary-full').style.display = has ? '' : 'none';
   }
 
   // ── Translate ────────────────────────────────────────────────────────────
@@ -98,6 +295,7 @@
     const text = document.getElementById('input').value.trim();
     if (!text) return;
 
+    const context = document.getElementById('context-input').value.trim();
     const btn = document.getElementById('translate-btn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
@@ -106,12 +304,21 @@
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, source_lang: sourceLang }),
+        body: JSON.stringify({
+          text, source_lang: sourceLang,
+          context: context || null,
+          label_ids: [...selectedLabelIds],
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
 
       currentCardId = data.card_id;
+      savedNotes = '';
+      document.getElementById('notes-input').value = '';
+      document.getElementById('notes-save-btn').disabled = true;
+      updateNotesSummary();
+
       document.getElementById('out-chinese').textContent = data.chinese;
       document.getElementById('out-jyutping').textContent = data.jyutping;
 
@@ -120,9 +327,11 @@
         englishEl.textContent = data.english;
         englishEl.style.display = 'block';
       } else {
+        englishEl.textContent = text;
         englishEl.style.display = 'none';
       }
 
+      renderOutputLabels();
       document.getElementById('output-panel').style.display = 'block';
 
       const ind = document.getElementById('saved-indicator');
@@ -190,6 +399,7 @@
   }
 
   loadDueCount();
+  loadLabels();
 </script>
 </body>
 </html>
