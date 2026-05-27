@@ -70,19 +70,25 @@
 </div>
 
 <header>
-  <h1>粵語學習</h1>
-  <nav style="display:flex;gap:8px;align-items:center">
+  <h1>Cantonese<span class="logo-accent">.</span></h1>
+  <nav style="display:flex;gap:4px;align-items:center">
     <button class="nav-link" onclick="showBrowse()" style="border:none;cursor:pointer;background:none">
-      📚 Browse
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Browse
     </button>
-    <a href="/" class="nav-link">✏️ Translate</a>
+    <a href="/" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Translate
+    </a>
   </nav>
 </header>
 
 <!-- Filter bar -->
 <div class="filter-bar">
   <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
-  <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels">⚙</button>
+  <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels" aria-label="Manage labels">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
 </div>
 
 <!-- Loading state -->
@@ -137,7 +143,9 @@
     <div class="flashcard" id="flashcard">
       <div class="card-header">
         <div class="card-prompt-label" id="prompt-label"></div>
-        <button class="card-edit-btn" onclick="startInlineEdit()" title="Edit card">✏️</button>
+        <button class="card-edit-btn" onclick="startInlineEdit()" title="Edit card" aria-label="Edit card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
       </div>
       <div class="card-prompt-text" id="prompt-text"></div>
       <div class="card-answer" id="card-answer" style="display:none"></div>
@@ -161,7 +169,7 @@
     <!-- Before reveal -->
     <div id="pre-reveal">
       <button class="reveal-btn" onclick="revealCard()">Show Answer</button>
-      <p class="rating-hint">Space / Enter to reveal</p>
+      <p class="rating-hint">Press <kbd>Space</kbd> or <kbd>Enter</kbd> to reveal</p>
     </div>
 
     <!-- After reveal -->
@@ -189,7 +197,9 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 style="font-size:1.1rem">All Cards (<span id="card-count">0</span>)</h2>
-      <button class="modal-close" onclick="closeBrowse()">✕</button>
+      <button class="modal-close" onclick="closeBrowse()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div id="card-list"></div>
   </div>
@@ -200,7 +210,9 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 style="font-size:1.1rem">Manage Labels</h2>
-      <button class="modal-close" onclick="closeManageLabels()">✕</button>
+      <button class="modal-close" onclick="closeManageLabels()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div class="manage-labels-create">
       <input type="text" id="new-label-input" class="edit-input" placeholder="New label name…" maxlength="50">
@@ -213,6 +225,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ── SVG icon strings (Lucide-style) ───────────────────────────────────────
+  const ICONS = {
+    pencil:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+    trash:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    volume:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+    note:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+  };
+
   // ── State ─────────────────────────────────────────────────────────────────
   let queue = [];
   let total = 0;
@@ -476,7 +496,7 @@
       promptEl.classList.add('is-cantonese');
       const audioBtn = document.createElement('button');
       audioBtn.className = 'audio-btn';
-      audioBtn.innerHTML = '🔊 Play';
+      audioBtn.innerHTML = `${ICONS.volume} Play`;
       audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
       const jyEl = document.createElement('div');
       jyEl.className = 'jyutping-display';
@@ -515,7 +535,7 @@
         jyEl.className = 'answer-value jyutping'; jyEl.textContent = item.jyutping;
         const audioBtn = document.createElement('button');
         audioBtn.className = 'audio-btn'; audioBtn.style.marginTop = '6px';
-        audioBtn.innerHTML = '🔊 Play';
+        audioBtn.innerHTML = `${ICONS.volume} Play`;
         audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
         row.appendChild(label); row.appendChild(jyEl); row.appendChild(audioBtn);
       }
@@ -526,7 +546,7 @@
     if (item.notes && item.notes.trim()) {
       const det = document.createElement('details');
       det.className = 'review-notes';
-      const sum = document.createElement('summary'); sum.textContent = '📝 Notes';
+      const sum = document.createElement('summary'); sum.innerHTML = `${ICONS.note} Notes`;
       const body = document.createElement('div'); body.className = 'review-notes-body';
       body.textContent = item.notes;
       det.appendChild(sum); det.appendChild(body);
@@ -627,7 +647,7 @@
       `<span class="label-chip-static">${escHtml(l.name)}</span>`
     ).join('');
     const notesHtml = card.notes
-      ? `<details class="card-list-notes"><summary>📝 Note</summary><div>${escHtml(card.notes)}</div></details>`
+      ? `<details class="card-list-notes"><summary>${ICONS.note} Note</summary><div>${escHtml(card.notes)}</div></details>`
       : '';
 
     item.innerHTML = `
@@ -653,8 +673,8 @@
         </div>
       </div>
       <div class="card-actions" id="actions-${card.id}">
-        <button class="edit-card-btn" onclick="startEdit(${card.id})" title="Edit">✏️</button>
-        <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
+        <button class="edit-card-btn" onclick="startEdit(${card.id})" title="Edit" aria-label="Edit">${ICONS.pencil}</button>
+        <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete" aria-label="Delete">${ICONS.trash}</button>
       </div>
     `;
     container.appendChild(item);
@@ -731,7 +751,7 @@
       if (notes && notes.trim()) {
         const det = document.createElement('details');
         det.className = 'card-list-notes';
-        det.innerHTML = `<summary>📝 Note</summary><div>${escHtml(notes)}</div>`;
+        det.innerHTML = `<summary>${ICONS.note} Note</summary><div>${escHtml(notes)}</div>`;
         display.appendChild(det);
       }
       item._cardLabelIds = labelIds;
@@ -788,7 +808,7 @@
         <input class="edit-input label-manage-name" value="${escAttr(lbl.name)}" maxlength="50">
         <span class="label-manage-count">${lbl.card_count}</span>
         <button class="edit-save-btn label-manage-save">Save</button>
-        <button class="delete-card-btn label-manage-delete" title="Delete label">🗑</button>
+        <button class="delete-card-btn label-manage-delete" title="Delete label" aria-label="Delete label">${ICONS.trash}</button>
       `;
       row.querySelector('.label-manage-save').onclick = () =>
         renameLabel(lbl.id, row.querySelector('.label-manage-name').value);

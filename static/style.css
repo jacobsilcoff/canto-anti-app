@@ -41,11 +41,28 @@ header {
 }
 
 header h1 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--primary);
-  font-family: var(--chinese-font);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: baseline;
 }
+header h1 .logo-accent {
+  color: var(--primary);
+  margin-left: 1px;
+}
+
+/* ── Inline icons (SVG only) ────────────────────────────────────────────── */
+svg.icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -3px;
+}
+svg.icon-lg { width: 18px; height: 18px; vertical-align: -4px; }
+button svg.icon, a svg.icon { pointer-events: none; }
 
 .nav-link {
   display: inline-flex;
@@ -54,10 +71,12 @@ header h1 {
   text-decoration: none;
   color: var(--text-muted);
   font-size: 0.9rem;
+  font-weight: 500;
   padding: 6px 12px;
-  border-radius: 20px;
-  transition: background 0.15s;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
 }
+.nav-link svg.icon { vertical-align: 0; }
 .nav-link:hover { background: var(--bg); color: var(--primary); }
 
 .badge {
@@ -111,15 +130,20 @@ header h1 {
 .swap-btn {
   background: none;
   border: none;
-  font-size: 1.3rem;
   cursor: pointer;
-  padding: 8px;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  transition: background 0.15s, transform 0.3s;
+  transition: background 0.15s, transform 0.3s, color 0.15s;
   color: var(--text-muted);
   flex-shrink: 0;
 }
-.swap-btn:hover { background: var(--border); transform: rotate(180deg); }
+.swap-btn:hover { background: var(--bg); color: var(--primary); transform: rotate(180deg); }
+.swap-btn .icon { width: 18px; height: 18px; vertical-align: 0; }
 
 .translate-container {
   display: flex;
@@ -229,15 +253,18 @@ textarea {
 .audio-btn {
   padding: 8px 16px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 999px;
   background: var(--surface);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
   transition: all 0.15s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
+.audio-btn .icon { width: 15px; height: 15px; vertical-align: 0; }
 .audio-btn:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
 .audio-btn.playing { background: #e8f0fe; border-color: var(--primary); color: var(--primary); }
 
@@ -391,7 +418,20 @@ textarea {
   text-align: center;
   font-size: 0.78rem;
   color: var(--text-muted);
-  margin-top: -8px;
+  margin-top: 10px;
+}
+.rating-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  line-height: 1.4;
 }
 
 .rating-btns {
@@ -504,11 +544,18 @@ textarea {
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.4rem;
   cursor: pointer;
   color: var(--text-muted);
-  padding: 4px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
 }
+.modal-close:hover { background: var(--bg); color: var(--text); }
+.modal-close .icon { vertical-align: 0; }
 
 .card-list-item {
   padding: 12px;
@@ -535,15 +582,20 @@ textarea {
 .edit-card-btn, .delete-card-btn {
   background: none;
   border: none;
-  color: #ccc;
+  color: #b8b8b8;
   cursor: pointer;
-  font-size: 1.1rem;
-  padding: 4px;
-  border-radius: 4px;
-  transition: color 0.15s;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
 }
-.edit-card-btn:hover { color: var(--primary); }
-.delete-card-btn:hover { color: var(--again); }
+.edit-card-btn .icon, .delete-card-btn .icon { width: 15px; height: 15px; vertical-align: 0; }
+.edit-card-btn:hover { color: var(--primary); background: var(--bg); }
+.delete-card-btn:hover { color: var(--again); background: var(--bg); }
 
 /* ── Inline card edit form ───────────────────────────────────────────────── */
 .card-edit-form {
@@ -618,13 +670,13 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 12px;
+  padding: 12px 14px;
   margin-bottom: 12px;
   box-shadow: var(--shadow);
 }
 
 .labels-bar-header {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .labels-bar-title {
@@ -666,13 +718,14 @@ textarea {
 .lp-chip {
   background: #e8f0fe;
   color: var(--primary);
-  border-radius: 12px;
-  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  padding: 4px 4px 4px 12px;
   font-size: 0.78rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  line-height: 1.2;
 }
 
 .lp-remove {
@@ -680,13 +733,19 @@ textarea {
   border: none;
   cursor: pointer;
   color: var(--primary);
-  font-size: 1rem;
-  padding: 0 2px;
+  font-size: 1.1rem;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   line-height: 1;
-  opacity: 0.65;
+  opacity: 0.6;
   font-family: inherit;
+  transition: opacity 0.15s, background 0.15s;
 }
-.lp-remove:hover { opacity: 1; }
+.lp-remove:hover { opacity: 1; background: rgba(26,115,232,0.12); }
 
 .lp-placeholder {
   font-size: 0.8rem;
@@ -697,38 +756,46 @@ textarea {
 
 .lp-search {
   width: 100%;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
   background: var(--bg);
   color: var(--text);
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.lp-search:focus { border-color: var(--primary); }
+.lp-search:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
+.lp-search::placeholder { color: var(--text-muted); }
 
 .lp-dropdown {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + 3px);
+  top: calc(100% + 4px);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.14);
-  max-height: 220px;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+  max-height: 240px;
   overflow-y: auto;
   z-index: 300;
+  padding: 4px;
 }
 
 .lp-option {
-  padding: 9px 12px;
+  padding: 9px 10px;
   cursor: pointer;
   font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 8px;
+  border-radius: 6px;
 }
 .lp-option:hover { background: var(--bg); }
 .lp-option.lp-sel { color: var(--primary); font-weight: 600; }
@@ -742,17 +809,19 @@ textarea {
 }
 
 .lp-create {
-  padding: 9px 12px;
+  padding: 9px 10px;
+  margin-top: 4px;
   cursor: pointer;
   font-size: 0.88rem;
   color: var(--text-muted);
   font-style: italic;
   border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
 }
 .lp-create:hover { background: var(--bg); color: var(--primary); }
 
 .lp-empty {
-  padding: 9px 12px;
+  padding: 12px;
   font-size: 0.85rem;
   color: var(--text-muted);
   text-align: center;
@@ -829,10 +898,10 @@ textarea {
 .filter-bar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 8px 16px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
@@ -848,9 +917,9 @@ textarea {
 
 .filter-select {
   flex: 1;
-  padding: 6px 8px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
   background: var(--bg);
   color: var(--text);
@@ -860,16 +929,21 @@ textarea {
 .filter-select:focus { border-color: var(--primary); }
 
 .filter-manage-btn {
-  background: none;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 10px;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 1rem;
   color: var(--text-muted);
   transition: all 0.15s;
+  flex-shrink: 0;
 }
-.filter-manage-btn:hover { border-color: var(--primary); color: var(--primary); }
+.filter-manage-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
+.filter-manage-btn .icon { vertical-align: 0; }
 
 /* ── Review: notes + labels ─────────────────────────────────────────────── */
 .review-notes {

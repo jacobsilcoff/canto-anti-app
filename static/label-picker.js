@@ -136,14 +136,10 @@ class LabelPicker {
     this._chips.innerHTML = '';
     const sel = this.allLabels.filter(l => this.selected.has(l.id));
     if (sel.length === 0) {
-      if (this.mode === 'single') {
-        const ph = document.createElement('span');
-        ph.className = 'lp-placeholder';
-        ph.textContent = this.placeholder;
-        this._chips.appendChild(ph);
-      }
+      this._chips.style.display = 'none';
       return;
     }
+    this._chips.style.display = '';
     sel.forEach(lbl => {
       const chip = document.createElement('span');
       chip.className = 'lp-chip';
