@@ -108,6 +108,23 @@ class LabelPicker {
       }
     });
 
+    this._outsideTap = (e) => {
+      if (!this.el.isConnected) {
+        document.removeEventListener('touchstart', this._outsideTap);
+        return;
+      }
+      if (this._open && !this.el.contains(e.target)) {
+        this._keepOpen = false;
+        this._open = false;
+        this._list.style.display = 'none';
+        this._input.value = '';
+        this._q = '';
+        this._renderList();
+        this._input.blur();
+      }
+    };
+    document.addEventListener('touchstart', this._outsideTap, { passive: true });
+
     this._renderChips();
     this._list.style.display = 'none';
   }

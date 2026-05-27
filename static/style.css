@@ -1077,3 +1077,7 @@ textarea.edit-input {
   .flashcard { min-height: 300px; padding: 32px; }
   textarea { min-height: 150px; }
 }
+
+@media (max-width: 599px) {
+  .lp-search { font-size: 1rem; }
+}
