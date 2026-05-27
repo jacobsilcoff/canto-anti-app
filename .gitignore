@@ -6,4 +6,5 @@ __pycache__/
 .DS_Store
 extracted_vocab.json
 *.key
+*.pub
 *.pem
