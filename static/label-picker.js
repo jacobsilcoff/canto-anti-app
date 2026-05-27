@@ -96,6 +96,18 @@ class LabelPicker {
       this._renderList();
     });
 
+    this.el.addEventListener('mouseleave', () => {
+      if (this._open) {
+        this._keepOpen = false;
+        this._open = false;
+        this._list.style.display = 'none';
+        this._input.value = '';
+        this._q = '';
+        this._renderList();
+        this._input.blur();
+      }
+    });
+
     this._renderChips();
     this._list.style.display = 'none';
   }
