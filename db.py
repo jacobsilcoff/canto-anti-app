@@ -28,9 +28,14 @@ async def init():
                 repetitions INTEGER DEFAULT 0
             )
         """)
-        # Migrate existing DBs that don't have the notes column yet
-        if not await _column_exists(db, "cards", "notes"):
-            await db.execute("ALTER TABLE cards ADD COLUMN notes TEXT")
+        for col, defval in [
+            ("notes", "NULL"),
+            ("priority", "3"),
+            ("tutor_flag", "0"),
+            ("suspended", "0"),
+        ]:
+            if not await _column_exists(db, "cards", col):
+                await db.execute(f"ALTER TABLE cards ADD COLUMN {col} {'TEXT' if col == 'notes' else 'INTEGER'} DEFAULT {defval}")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS card_faces (
@@ -44,6 +49,13 @@ async def init():
                 UNIQUE(card_id, face)
             )
         """)
+        if not await _column_exists(db, "card_faces", "first_seen_date"):
+            await db.execute("ALTER TABLE card_faces ADD COLUMN first_seen_date TEXT")
+            # Backfill: mark already-reviewed faces as seen (use a past date so they don't count today)
+            await db.execute(
+                "UPDATE card_faces SET first_seen_date = date('now', '-1 day') WHERE repetitions > 0"
+            )
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS labels (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +75,12 @@ async def init():
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_card_labels_label ON card_labels(label_id)"
         )
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
 
         # Backfill face rows for any cards that don't have them yet
         for face in ('english', 'chinese', 'cantonese'):
@@ -70,6 +88,24 @@ async def init():
                 "INSERT OR IGNORE INTO card_faces (card_id, face) SELECT id, ? FROM cards",
                 (face,),
             )
+        await db.commit()
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+async def get_setting(key: str, default=None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT value FROM settings WHERE key=?", (key,)) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else default
+
+
+async def set_setting(key: str, value):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, str(value)),
+        )
         await db.commit()
 
 
@@ -82,11 +118,12 @@ async def create_card(
     audio_data: bytes | None = None,
     notes: str | None = None,
     label_ids: list[int] | None = None,
+    priority: int = 3,
 ) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO cards (english, chinese, jyutping, audio_data, notes) VALUES (?, ?, ?, ?, ?)",
-            (english, chinese, jyutping, audio_data, notes),
+            "INSERT INTO cards (english, chinese, jyutping, audio_data, notes, priority) VALUES (?, ?, ?, ?, ?, ?)",
+            (english, chinese, jyutping, audio_data, notes, max(1, min(5, priority))),
         )
         card_id = cursor.lastrowid
         for face in ('english', 'chinese', 'cantonese'):
@@ -107,7 +144,7 @@ async def get_card(card_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, english, chinese, jyutping, notes FROM cards WHERE id = ?",
+            "SELECT id, english, chinese, jyutping, notes, priority, tutor_flag, suspended FROM cards WHERE id = ?",
             (card_id,),
         ) as cur:
             row = await cur.fetchone()
@@ -129,11 +166,12 @@ def _faces_query(where_extra: str = "", params: tuple = (), order_by: str = "cf.
     return (
         f"""
         SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
-               cf.interval_days, cf.ease_factor, cf.repetitions,
-               c.english, c.chinese, c.jyutping, c.notes
+               cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+               c.english, c.chinese, c.jyutping, c.notes,
+               c.priority, c.tutor_flag
         FROM card_faces cf
         JOIN cards c ON c.id = cf.card_id
-        WHERE 1=1 {where_extra}
+        WHERE c.suspended = 0 {where_extra}
         ORDER BY {order_by}
         """,
         params,
@@ -160,6 +198,71 @@ async def _faces_with_labels(rows: list[dict]) -> list[dict]:
     for r in rows:
         r["labels"] = by_card.get(r["card_id"], [])
     return rows
+
+
+async def get_study_session(label_id: int | None = None) -> dict:
+    """Return due reviews + new cards up to the daily cap, with stats."""
+    cap = int(await get_setting("new_cards_per_day") or 20)
+
+    label_filter = ""
+    label_params: tuple = ()
+    if label_id is not None:
+        label_filter = "AND cf.card_id IN (SELECT card_id FROM card_labels WHERE label_id=?)"
+        label_params = (label_id,)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Due reviews: previously seen, due now, not suspended
+        review_sql = f"""
+            SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
+                   cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+                   c.english, c.chinese, c.jyutping, c.notes,
+                   c.priority, c.tutor_flag
+            FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+            WHERE cf.first_seen_date IS NOT NULL
+              AND cf.next_review <= datetime('now')
+              AND c.suspended = 0
+              {label_filter}
+            ORDER BY cf.next_review ASC
+        """
+        async with db.execute(review_sql, label_params) as cur:
+            reviews = [dict(r) for r in await cur.fetchall()]
+
+        # Count new faces already introduced today
+        async with db.execute(
+            "SELECT COUNT(*) FROM card_faces WHERE first_seen_date = date('now')"
+        ) as cur:
+            row = await cur.fetchone()
+            daily_new_used = row[0] if row else 0
+
+        remaining = max(0, cap - daily_new_used)
+
+        new_faces = []
+        if remaining > 0:
+            new_sql = f"""
+                SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
+                       cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+                       c.english, c.chinese, c.jyutping, c.notes,
+                       c.priority, c.tutor_flag
+                FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+                WHERE cf.first_seen_date IS NULL
+                  AND c.suspended = 0
+                  {label_filter}
+                ORDER BY c.priority DESC, c.id ASC
+                LIMIT ?
+            """
+            async with db.execute(new_sql, label_params + (remaining,)) as cur:
+                new_faces = [dict(r) for r in await cur.fetchall()]
+
+    all_faces = await _faces_with_labels(reviews + new_faces)
+    return {
+        "cards": all_faces,
+        "review_count": len(reviews),
+        "new_count": len(new_faces),
+        "daily_new_used": daily_new_used,
+        "daily_new_limit": cap,
+    }
 
 
 async def get_due_faces(label_id: int | None = None) -> list[dict]:
@@ -197,12 +300,11 @@ async def get_all_cards() -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, english, chinese, jyutping, notes, created_at FROM cards ORDER BY created_at DESC"
+            "SELECT id, english, chinese, jyutping, notes, created_at, priority, tutor_flag, suspended FROM cards ORDER BY created_at DESC"
         ) as cur:
             cards = [dict(r) for r in await cur.fetchall()]
         if not cards:
             return cards
-        # Attach labels
         ids = [c["id"] for c in cards]
         placeholders = ",".join("?" * len(ids))
         async with db.execute(
@@ -224,14 +326,16 @@ async def get_due_count(label_id: int | None = None) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         if label_id is None:
             async with db.execute(
-                "SELECT COUNT(*) FROM card_faces WHERE next_review <= datetime('now')"
+                """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+                   WHERE cf.next_review <= datetime('now') AND c.suspended = 0"""
             ) as cur:
                 row = await cur.fetchone()
         else:
             async with db.execute(
-                """SELECT COUNT(*) FROM card_faces
-                   WHERE next_review <= datetime('now')
-                   AND card_id IN (SELECT card_id FROM card_labels WHERE label_id=?)""",
+                """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+                   WHERE cf.next_review <= datetime('now')
+                   AND c.suspended = 0
+                   AND cf.card_id IN (SELECT card_id FROM card_labels WHERE label_id=?)""",
                 (label_id,),
             ) as cur:
                 row = await cur.fetchone()
@@ -254,7 +358,9 @@ async def set_audio(card_id: int, data: bytes):
 async def update_face_review(card_id: int, face: str, state: dict):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            """UPDATE card_faces SET interval_days=?, ease_factor=?, repetitions=?, next_review=?
+            """UPDATE card_faces
+               SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
+                   first_seen_date = CASE WHEN first_seen_date IS NULL THEN date('now') ELSE first_seen_date END
                WHERE card_id=? AND face=?""",
             (state["interval_days"], state["ease_factor"], state["repetitions"], state["next_review"],
              card_id, face),
@@ -300,6 +406,46 @@ async def delete_card(card_id: int):
         await db.commit()
 
 
+async def set_card_priority(card_id: int, priority: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE cards SET priority=? WHERE id=?",
+            (max(1, min(5, priority)), card_id),
+        )
+        await db.commit()
+
+
+async def set_card_tutor_flag(card_id: int, flagged: bool):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE cards SET tutor_flag=? WHERE id=?",
+            (1 if flagged else 0, card_id),
+        )
+        await db.commit()
+
+
+async def set_card_suspended(card_id: int, suspended: bool):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE cards SET suspended=? WHERE id=?",
+            (1 if suspended else 0, card_id),
+        )
+        await db.commit()
+
+
+async def reset_card_to_new(card_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE card_faces
+               SET repetitions=0, interval_days=1, ease_factor=2.5,
+                   next_review=datetime('now'), first_seen_date=NULL
+               WHERE card_id=?""",
+            (card_id,),
+        )
+        await db.execute("UPDATE cards SET priority=1 WHERE id=?", (card_id,))
+        await db.commit()
+
+
 # ── Labels ────────────────────────────────────────────────────────────────────
 
 async def list_labels() -> list[dict]:
@@ -319,7 +465,6 @@ async def create_label(name: str) -> dict:
     name = name.strip()
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        # Insert or fetch existing (case-insensitive)
         await db.execute("INSERT OR IGNORE INTO labels (name) VALUES (?)", (name,))
         await db.commit()
         async with db.execute(

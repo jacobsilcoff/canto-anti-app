@@ -57,16 +57,13 @@ async def auth_middleware(request: Request, call_next):
     if not _APP_PASSWORD:
         return await call_next(request)
 
-    # Paths that are always public
     if request.url.path in _NO_AUTH_PATHS:
         return await call_next(request)
 
-    # Cookie session (primary — used by browser/PWA)
     session_token = request.cookies.get("session")
     if session_token and _valid_session(session_token):
         return await call_next(request)
 
-    # HTTP Basic Auth (fallback for curl/dev)
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Basic "):
         try:
@@ -76,7 +73,6 @@ async def auth_middleware(request: Request, call_next):
         except Exception:
             pass
 
-    # Unauthenticated — redirect HTML requests to /login, 401 everything else
     accept = request.headers.get("Accept", "")
     if "text/html" in accept:
         return Response(status_code=302, headers={"Location": "/login"})
@@ -92,7 +88,7 @@ def _html(name: str) -> HTMLResponse:
     return HTMLResponse((_static / name).read_text())
 
 
-# ── PWA assets (no auth, correct MIME) ───────────────────────────────────────
+# ── PWA assets ────────────────────────────────────────────────────────────────
 
 @app.get("/sw.js")
 async def service_worker():
@@ -184,16 +180,37 @@ async def translate(req: TranslateRequest):
         audio_data=audio_data,
         notes=notes,
         label_ids=req.label_ids or [],
+        priority=result.get("priority", 3),
     )
     return {**result, "card_id": card_id, "notes": notes, "labels": []}
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/settings")
+async def get_settings():
+    new_cards_per_day = int(await db.get_setting("new_cards_per_day") or 20)
+    return {"new_cards_per_day": new_cards_per_day}
+
+
+class SettingsUpdate(BaseModel):
+    new_cards_per_day: int
+
+
+@app.put("/api/settings")
+async def update_settings(req: SettingsUpdate):
+    if not 1 <= req.new_cards_per_day <= 500:
+        raise HTTPException(400, "new_cards_per_day must be 1–500")
+    await db.set_setting("new_cards_per_day", req.new_cards_per_day)
+    return {"success": True}
 
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/cards/due")
 async def get_due_cards(label_id: int | None = None):
-    faces = await db.get_due_faces(label_id=label_id)
-    return {"cards": faces, "count": len(faces)}
+    result = await db.get_study_session(label_id=label_id)
+    return result
 
 
 @app.get("/api/cards/all-faces")
@@ -217,7 +234,6 @@ async def due_count(label_id: int | None = None):
 async def get_audio(card_id: int):
     data = await db.get_audio(card_id)
     if not data:
-        # Generate and cache on first request (cards imported without audio)
         card = await db.get_card(card_id)
         if not card:
             raise HTTPException(404, "Audio not found")
@@ -253,7 +269,7 @@ class UpdateCardRequest(BaseModel):
     chinese: str
     jyutping: str
     notes: str | None = None
-    label_ids: list[int] | None = None  # None = leave unchanged; [] = clear all
+    label_ids: list[int] | None = None
 
 
 @app.put("/api/cards/{card_id}")
@@ -280,6 +296,47 @@ async def update_card(card_id: int, req: UpdateCardRequest):
 @app.delete("/api/cards/{card_id}")
 async def delete_card(card_id: int):
     await db.delete_card(card_id)
+    return {"success": True}
+
+
+class PriorityRequest(BaseModel):
+    priority: int
+
+
+@app.patch("/api/cards/{card_id}/priority")
+async def set_priority(card_id: int, req: PriorityRequest):
+    if not 1 <= req.priority <= 5:
+        raise HTTPException(400, "priority must be 1–5")
+    await db.set_card_priority(card_id, req.priority)
+    return {"success": True}
+
+
+class TutorFlagRequest(BaseModel):
+    flagged: bool
+
+
+@app.patch("/api/cards/{card_id}/tutor-flag")
+async def set_tutor_flag(card_id: int, req: TutorFlagRequest):
+    await db.set_card_tutor_flag(card_id, req.flagged)
+    return {"success": True}
+
+
+class SuspendRequest(BaseModel):
+    suspended: bool
+
+
+@app.patch("/api/cards/{card_id}/suspend")
+async def set_suspended(card_id: int, req: SuspendRequest):
+    await db.set_card_suspended(card_id, req.suspended)
+    return {"success": True}
+
+
+@app.post("/api/cards/{card_id}/reset")
+async def reset_card(card_id: int):
+    card = await db.get_card(card_id)
+    if not card:
+        raise HTTPException(404, "Card not found")
+    await db.reset_card_to_new(card_id)
     return {"success": True}
 
 
