@@ -22,7 +22,8 @@
       "Bash(fly status *)",
       "Bash(python3 -c ' *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node --input-type=module)"
     ]
   }
 }
