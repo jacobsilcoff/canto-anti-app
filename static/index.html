@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <script src="/static/label-picker.js"></script>
 </head>
 <body>
 
@@ -32,10 +33,9 @@
   <!-- Sticky labels picker -->
   <div class="labels-bar">
     <div class="labels-bar-header">
-      <span class="labels-bar-title">Labels</span>
-      <span class="labels-bar-hint" id="labels-hint">tap to apply to next translation</span>
+      <span class="labels-bar-title">Labels for next translation</span>
     </div>
-    <div class="labels-chips" id="labels-chips"></div>
+    <div id="sticky-label-picker"></div>
   </div>
 
   <div class="translate-container">
@@ -93,10 +93,9 @@
   let sourceLang = 'english';
   let currentCardId = null;
   let audioEl = null;
-  // Labels state
-  let allLabels = [];                   // [{id, name, card_count}]
-  let selectedLabelIds = new Set();     // sticky across translations
-  let savedNotes = '';                  // last-saved notes for current card
+  let allLabels = [];
+  let stickyPicker = null;
+  let savedNotes = '';
 
   // ── Language toggle ──────────────────────────────────────────────────────
   function setLang(lang) {
@@ -114,8 +113,7 @@
 
   // ── Input ────────────────────────────────────────────────────────────────
   function onInput() {
-    const text = document.getElementById('input').value;
-    document.getElementById('char-count').textContent = text.length;
+    document.getElementById('char-count').textContent = document.getElementById('input').value.length;
   }
 
   function onContextInput() {
@@ -126,8 +124,8 @@
   }
 
   function onNotesInput() {
-    const val = document.getElementById('notes-input').value;
-    document.getElementById('notes-save-btn').disabled = (val === savedNotes);
+    document.getElementById('notes-save-btn').disabled =
+      (document.getElementById('notes-input').value === savedNotes);
     document.getElementById('notes-saved-msg').textContent = '';
   }
 
@@ -155,73 +153,49 @@
   // ── Labels ───────────────────────────────────────────────────────────────
   async function loadLabels() {
     try {
-      const res = await fetch('/api/labels');
-      const { labels } = await res.json();
+      const { labels } = await fetch('/api/labels').then(r => r.json());
       allLabels = labels;
     } catch {
       allLabels = [];
     }
-    renderLabelChips();
-  }
 
-  function renderLabelChips() {
-    const container = document.getElementById('labels-chips');
-    container.innerHTML = '';
-    allLabels.forEach(lbl => {
-      const chip = document.createElement('button');
-      chip.className = 'label-chip' + (selectedLabelIds.has(lbl.id) ? ' active' : '');
-      chip.textContent = lbl.name;
-      chip.onclick = () => toggleLabel(lbl.id);
-      container.appendChild(chip);
-    });
-    // "New label" chip
-    const addChip = document.createElement('button');
-    addChip.className = 'label-chip add-label';
-    addChip.textContent = '+ New label';
-    addChip.onclick = createLabelPrompt;
-    container.appendChild(addChip);
-    updateLabelsHint();
-  }
-
-  function updateLabelsHint() {
-    const hint = document.getElementById('labels-hint');
-    const n = selectedLabelIds.size;
-    hint.textContent = n === 0 ? 'tap to apply to next translation' :
-      `${n} selected — sticky across translations`;
-  }
-
-  function toggleLabel(id) {
-    if (selectedLabelIds.has(id)) selectedLabelIds.delete(id);
-    else selectedLabelIds.add(id);
-    renderLabelChips();
-    // If we just translated, sync the current card's labels to the new selection
-    if (currentCardId) syncCurrentCardLabels();
-  }
-
-  async function createLabelPrompt() {
-    const name = prompt('New label name:');
-    if (!name || !name.trim()) return;
-    try {
-      const res = await fetch('/api/labels', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const lbl = await res.json();
-      // Refresh list (preserves card_count) and select
-      await loadLabels();
-      selectedLabelIds.add(lbl.id);
-      renderLabelChips();
-      if (currentCardId) syncCurrentCardLabels();
-    } catch (e) {
-      showToast('Could not create label.');
+    if (stickyPicker) {
+      stickyPicker.setLabels(allLabels);
+    } else {
+      stickyPicker = new LabelPicker(
+        document.getElementById('sticky-label-picker'),
+        {
+          allLabels,
+          initialIds: [],
+          allowCreate: true,
+          mode: 'multi',
+          placeholder: 'Search or create a label…',
+          onChange: ids => {
+            if (currentCardId) syncCurrentCardLabels();
+          },
+          onLabelsRefreshed: labels => { allLabels = labels; },
+        }
+      );
     }
   }
 
+  function renderOutputLabels() {
+    const el = document.getElementById('output-labels');
+    el.innerHTML = '';
+    if (!stickyPicker) { el.style.display = 'none'; return; }
+    const sel = stickyPicker.getSelected();
+    if (sel.size === 0) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    allLabels.filter(l => sel.has(l.id)).forEach(lbl => {
+      const chip = document.createElement('span');
+      chip.className = 'label-chip-static';
+      chip.textContent = lbl.name;
+      el.appendChild(chip);
+    });
+  }
+
   async function syncCurrentCardLabels() {
-    if (!currentCardId) return;
-    // Re-PUT with current selection. We need the latest card fields — read from output panel.
+    if (!currentCardId || !stickyPicker) return;
     const english  = sourceLang === 'cantonese'
       ? document.getElementById('out-english').textContent
       : document.getElementById('input').value.trim();
@@ -234,26 +208,13 @@
         body: JSON.stringify({
           english, chinese, jyutping,
           notes: savedNotes,
-          label_ids: [...selectedLabelIds],
+          label_ids: [...stickyPicker.getSelected()],
         }),
       });
       renderOutputLabels();
     } catch {
       showToast('Could not update labels.');
     }
-  }
-
-  function renderOutputLabels() {
-    const el = document.getElementById('output-labels');
-    el.innerHTML = '';
-    if (selectedLabelIds.size === 0) { el.style.display = 'none'; return; }
-    el.style.display = 'flex';
-    allLabels.filter(l => selectedLabelIds.has(l.id)).forEach(lbl => {
-      const chip = document.createElement('span');
-      chip.className = 'label-chip-static';
-      chip.textContent = lbl.name;
-      el.appendChild(chip);
-    });
   }
 
   // ── Notes ────────────────────────────────────────────────────────────────
@@ -271,7 +232,10 @@
       const res = await fetch(`/api/cards/${currentCardId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: [...selectedLabelIds] }),
+        body: JSON.stringify({
+          english, chinese, jyutping, notes,
+          label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
+        }),
       });
       if (!res.ok) throw new Error();
       savedNotes = notes;
@@ -307,7 +271,7 @@
         body: JSON.stringify({
           text, source_lang: sourceLang,
           context: context || null,
-          label_ids: [...selectedLabelIds],
+          label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -338,7 +302,6 @@
       ind.classList.add('show');
       setTimeout(() => ind.classList.remove('show'), 3000);
 
-      // Reset audio
       if (audioEl) { audioEl.pause(); audioEl = null; }
       document.getElementById('audio-btn').classList.remove('playing');
 
@@ -368,13 +331,9 @@
   // ── Due count badge ──────────────────────────────────────────────────────
   async function loadDueCount() {
     try {
-      const res = await fetch('/api/cards/due-count');
-      const { count } = await res.json();
+      const { count } = await fetch('/api/cards/due-count').then(r => r.json());
       const badge = document.getElementById('due-badge');
-      if (count > 0) {
-        badge.textContent = count;
-        badge.classList.add('visible');
-      }
+      if (count > 0) { badge.textContent = count; badge.classList.add('visible'); }
     } catch {}
   }
 

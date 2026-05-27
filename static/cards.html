@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <script src="/static/label-picker.js"></script>
   <style>
     .offline-bar {
       background: #f57c00;
@@ -33,7 +34,6 @@
       margin-left: 6px;
       vertical-align: middle;
     }
-    /* ── Inline card edit (during review) ─────────────────────────────── */
     .card-header {
       display: flex;
       justify-content: space-between;
@@ -59,9 +59,7 @@
       flex: 1;
       padding-top: 4px;
     }
-    .card-inline-edit .edit-input {
-      font-size: 1rem;
-    }
+    .card-inline-edit .edit-input { font-size: 1rem; }
   </style>
 </head>
 <body>
@@ -83,10 +81,7 @@
 
 <!-- Filter bar -->
 <div class="filter-bar">
-  <label for="label-filter" class="filter-label">Filter:</label>
-  <select id="label-filter" class="filter-select" onchange="onFilterChange()">
-    <option value="">All labels</option>
-  </select>
+  <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
   <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels">⚙</button>
 </div>
 
@@ -154,7 +149,7 @@
         <textarea class="edit-input" id="inline-notes" placeholder="Notes (optional)" rows="2"></textarea>
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
-          <div class="inline-label-chips" id="inline-label-chips"></div>
+          <div id="inline-label-picker"></div>
         </div>
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveInlineEdit()">Save</button>
@@ -209,7 +204,7 @@
     </div>
     <div class="manage-labels-create">
       <input type="text" id="new-label-input" class="edit-input" placeholder="New label name…" maxlength="50">
-      <button class="edit-save-btn" onclick="createLabel()">Add</button>
+      <button class="edit-save-btn" onclick="createLabelFromModal()">Add</button>
     </div>
     <div id="labels-manage-list"></div>
   </div>
@@ -225,12 +220,12 @@
   let revealed = false;
   let currentAudio = null;
   let isOnline = navigator.onLine;
-  let allLabels = [];                // [{id, name, card_count}]
-  let filterLabelId = null;          // null = all
-  let inlineEditLabelIds = new Set();
+  let allLabels = [];
+  let filterLabelId = null;
+  let filterPicker = null;
+  let inlinePicker = null;   // review inline-edit picker
 
   // ── IndexedDB ─────────────────────────────────────────────────────────────
-  // Stores: "cards" (cached due cards), "pending" (reviews to sync)
   let _db = null;
 
   function openDB() {
@@ -246,18 +241,14 @@
     });
   }
 
-  async function idb() {
-    if (!_db) _db = await openDB();
-    return _db;
-  }
+  async function idb() { if (!_db) _db = await openDB(); return _db; }
 
   async function idbPut(store, value) {
     const db = await idb();
     return new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       tx.objectStore(store).put(value);
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
 
@@ -265,8 +256,7 @@
     const db = await idb();
     return new Promise((res, rej) => {
       const req = db.transaction(store).objectStore(store).getAll();
-      req.onsuccess = () => res(req.result);
-      req.onerror = () => rej(req.error);
+      req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
     });
   }
 
@@ -275,8 +265,7 @@
     return new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       tx.objectStore(store).clear();
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
 
@@ -285,8 +274,7 @@
     return new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       tx.objectStore(store).delete(key);
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
 
@@ -310,23 +298,17 @@
     const badge = document.getElementById('sync-badge');
     if (!isOnline) {
       bar.classList.add('show');
-      if (pendingCount > 0) {
-        badge.textContent = `${pendingCount} pending sync`;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
+      if (pendingCount > 0) { badge.textContent = `${pendingCount} pending sync`; badge.style.display = 'inline-block'; }
+      else badge.style.display = 'none';
     } else if (pendingCount > 0) {
       bar.classList.add('show');
       bar.firstChild.textContent = 'Back online — syncing… ';
-      badge.textContent = `${pendingCount} reviews`;
-      badge.style.display = 'inline-block';
+      badge.textContent = `${pendingCount} reviews`; badge.style.display = 'inline-block';
     } else {
       bar.classList.remove('show');
     }
   }
 
-  // Flush pending reviews to server; call whenever we come online
   async function syncPending() {
     const entries = await idbGetAllWithKeys('pending');
     if (entries.length === 0) return;
@@ -334,67 +316,56 @@
     for (const { key, value } of entries) {
       try {
         const res = await fetch(`/api/cards/${value.card_id}/review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quality: value.quality, face: value.face }),
         });
         if (res.ok) { await idbDelete('pending', key); synced++; }
-      } catch { break; } // still offline
+      } catch { break; }
     }
     if (synced > 0) {
       const remaining = entries.length - synced;
       if (remaining === 0) {
         showToast(`Synced ${synced} review${synced === 1 ? '' : 's'}.`);
         updateOfflineBar(0);
-        // Re-fetch the offline bar text back to normal
         document.getElementById('offline-bar').firstChild.textContent = 'Offline — using cached cards ';
-      } else {
-        updateOfflineBar(remaining);
-      }
+      } else { updateOfflineBar(remaining); }
     }
   }
 
-  window.addEventListener('online', () => {
-    isOnline = true;
-    syncPending();
-  });
-  window.addEventListener('offline', () => {
-    isOnline = false;
-    idbGetAllWithKeys('pending').then(e => updateOfflineBar(e.length));
-  });
+  window.addEventListener('online', () => { isOnline = true; syncPending(); });
+  window.addEventListener('offline', () => { isOnline = false; idbGetAllWithKeys('pending').then(e => updateOfflineBar(e.length)); });
 
   // ── Labels ────────────────────────────────────────────────────────────────
   async function loadLabels() {
     try {
-      const res = await fetch('/api/labels');
-      const { labels } = await res.json();
+      const { labels } = await fetch('/api/labels').then(r => r.json());
       allLabels = labels;
-    } catch {
-      allLabels = [];
-    }
-    renderFilterOptions();
-  }
+    } catch { allLabels = []; }
 
-  function renderFilterOptions() {
-    const sel = document.getElementById('label-filter');
-    const current = sel.value;
-    sel.innerHTML = '<option value="">All labels</option>';
-    allLabels.forEach(l => {
-      const opt = document.createElement('option');
-      opt.value = l.id;
-      opt.textContent = `${l.name} (${l.card_count})`;
-      sel.appendChild(opt);
-    });
-    // Restore selection if still valid
-    if (current && allLabels.find(l => String(l.id) === current)) {
-      sel.value = current;
+    if (filterPicker) {
+      filterPicker.setLabels(allLabels);
+    } else {
+      filterPicker = new LabelPicker(
+        document.getElementById('filter-picker-wrap'),
+        {
+          allLabels,
+          initialIds: filterLabelId ? [filterLabelId] : [],
+          allowCreate: false,
+          mode: 'single',
+          placeholder: 'Filter by label…',
+          onChange: ids => {
+            const id = [...ids][0] ?? null;
+            if (id !== filterLabelId) {
+              filterLabelId = id;
+              loadSession('due');
+            }
+          },
+        }
+      );
     }
-  }
 
-  function onFilterChange() {
-    const v = document.getElementById('label-filter').value;
-    filterLabelId = v ? parseInt(v, 10) : null;
-    loadSession('due');
+    // Update any currently-open inline picker
+    if (inlinePicker) inlinePicker.setLabels(allLabels);
   }
 
   function filterQuery() {
@@ -404,21 +375,15 @@
   // ── Boot ──────────────────────────────────────────────────────────────────
   async function loadSession(mode = 'due') {
     show('loading');
-
-    // Sync any pending reviews now if online
     if (isOnline) await syncPending();
-
-    // Update offline bar from pending count
     const pending = await idbGetAllWithKeys('pending');
     updateOfflineBar(pending.length);
 
     let cards;
     if (isOnline) {
       try {
-        const base = mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due';
-        const url = base + filterQuery();
+        const url = (mode === 'all' ? '/api/cards/all-faces' : '/api/cards/due') + filterQuery();
         ({ cards } = await fetch(url).then(r => r.json()));
-        // Cache due cards for offline use (only for "due" mode, only when unfiltered)
         if (mode === 'due' && !filterLabelId) {
           await idbClear('cards');
           for (const c of cards) await idbPut('cards', { ...c, id: `${c.card_id}-${c.face}` });
@@ -430,38 +395,30 @@
       }
     } else {
       cards = await idbGetAll('cards');
-      // Apply label filter client-side
-      if (filterLabelId) {
-        cards = cards.filter(c => (c.labels || []).some(l => l.id === filterLabelId));
-      }
+      if (filterLabelId) cards = cards.filter(c => (c.labels || []).some(l => l.id === filterLabelId));
     }
 
     const emptyTitle = document.getElementById('empty-title');
-    const emptyMsg = document.getElementById('empty-msg');
+    const emptyMsg   = document.getElementById('empty-msg');
     const caughtupMsg = document.getElementById('caughtup-msg');
     if (filterLabelId) {
       const name = (allLabels.find(l => l.id === filterLabelId) || {}).name || 'this label';
       emptyTitle.textContent = `No cards for "${name}"`;
-      emptyMsg.textContent = 'Try a different label or translate something new.';
+      emptyMsg.textContent   = 'Try a different label or translate something new.';
       caughtupMsg.textContent = `No cards due for "${name}".`;
     } else {
-      emptyTitle.textContent = 'No flashcards yet';
-      emptyMsg.textContent = 'Translate some phrases to build your deck.';
+      emptyTitle.textContent  = 'No flashcards yet';
+      emptyMsg.textContent    = 'Translate some phrases to build your deck.';
       caughtupMsg.textContent = 'No cards due right now.';
     }
 
     if (cards.length === 0) {
       if (mode === 'due') {
         if (isOnline) {
-          const url = '/api/cards/all-faces' + filterQuery();
-          const { cards: all } = await fetch(url).then(r => r.json()).catch(() => ({ cards: [] }));
+          const { cards: all } = await fetch('/api/cards/all-faces' + filterQuery()).then(r => r.json()).catch(() => ({ cards: [] }));
           show(all.length === 0 ? 'empty' : 'caughtup');
-        } else {
-          show('caughtup'); // can't distinguish offline, assume caught up
-        }
-      } else {
-        show('empty');
-      }
+        } else { show('caughtup'); }
+      } else { show('empty'); }
       return;
     }
 
@@ -491,10 +448,8 @@
   // ── Render card ───────────────────────────────────────────────────────────
   function showCard() {
     if (idx >= queue.length) { finishSession(); return; }
-
     const item = queue[idx];
     revealed = false;
-
     stopAudio();
     document.getElementById('card-answer').style.display = 'none';
     document.getElementById('pre-reveal').style.display = '';
@@ -535,38 +490,31 @@
   function revealCard() {
     if (revealed) return;
     revealed = true;
-
     const item = queue[idx];
     const answerEl = document.getElementById('card-answer');
     answerEl.innerHTML = '';
 
-    const FACES = ['english', 'chinese', 'cantonese'];
-    FACES.filter(f => f !== item.face).forEach(face => {
+    ['english', 'chinese', 'cantonese'].filter(f => f !== item.face).forEach(face => {
       const row = document.createElement('div');
       row.className = 'answer-row';
       const label = document.createElement('div');
       label.className = 'answer-label';
-
       if (face === 'english') {
         label.textContent = 'English';
         const val = document.createElement('div');
-        val.className = 'answer-value';
-        val.textContent = item.english;
+        val.className = 'answer-value'; val.textContent = item.english;
         row.appendChild(label); row.appendChild(val);
       } else if (face === 'chinese') {
         label.textContent = 'Chinese';
         const val = document.createElement('div');
-        val.className = 'answer-value chinese';
-        val.textContent = item.chinese;
+        val.className = 'answer-value chinese'; val.textContent = item.chinese;
         row.appendChild(label); row.appendChild(val);
       } else {
         label.textContent = 'Cantonese';
         const jyEl = document.createElement('div');
-        jyEl.className = 'answer-value jyutping';
-        jyEl.textContent = item.jyutping;
+        jyEl.className = 'answer-value jyutping'; jyEl.textContent = item.jyutping;
         const audioBtn = document.createElement('button');
-        audioBtn.className = 'audio-btn';
-        audioBtn.style.marginTop = '6px';
+        audioBtn.className = 'audio-btn'; audioBtn.style.marginTop = '6px';
         audioBtn.innerHTML = '🔊 Play';
         audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
         row.appendChild(label); row.appendChild(jyEl); row.appendChild(audioBtn);
@@ -574,18 +522,15 @@
       answerEl.appendChild(row);
     });
 
-    // Notes (collapsable) — only if present
+    // Notes (collapsed)
     if (item.notes && item.notes.trim()) {
-      const notesDetails = document.createElement('details');
-      notesDetails.className = 'review-notes';
-      const summary = document.createElement('summary');
-      summary.textContent = '📝 Notes';
-      notesDetails.appendChild(summary);
-      const body = document.createElement('div');
-      body.className = 'review-notes-body';
+      const det = document.createElement('details');
+      det.className = 'review-notes';
+      const sum = document.createElement('summary'); sum.textContent = '📝 Notes';
+      const body = document.createElement('div'); body.className = 'review-notes-body';
       body.textContent = item.notes;
-      notesDetails.appendChild(body);
-      answerEl.appendChild(notesDetails);
+      det.appendChild(sum); det.appendChild(body);
+      answerEl.appendChild(det);
     }
 
     // Labels
@@ -594,8 +539,7 @@
       row.className = 'review-labels';
       item.labels.forEach(lbl => {
         const chip = document.createElement('span');
-        chip.className = 'label-chip-static';
-        chip.textContent = lbl.name;
+        chip.className = 'label-chip-static'; chip.textContent = lbl.name;
         row.appendChild(chip);
       });
       answerEl.appendChild(row);
@@ -617,21 +561,17 @@
     if (isOnline) {
       try {
         await fetch(`/api/cards/${item.card_id}/review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quality, face: item.face }),
         });
       } catch {
-        // Went offline mid-session — queue it
         isOnline = false;
         await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
-        const pending = await idbGetAllWithKeys('pending');
-        updateOfflineBar(pending.length);
+        updateOfflineBar((await idbGetAllWithKeys('pending')).length);
       }
     } else {
       await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
-      const pending = await idbGetAllWithKeys('pending');
-      updateOfflineBar(pending.length);
+      updateOfflineBar((await idbGetAllWithKeys('pending')).length);
     }
     idx++;
     showCard();
@@ -680,6 +620,8 @@
     const item = document.createElement('div');
     item.className = 'card-list-item';
     item.id = `cli-${card.id}`;
+    // Store label IDs for edit form initialisation
+    item._cardLabelIds = (card.labels || []).map(l => l.id);
 
     const labelsHtml = (card.labels || []).map(l =>
       `<span class="label-chip-static">${escHtml(l.name)}</span>`
@@ -703,7 +645,7 @@
         <textarea class="edit-input" id="edit-notes-${card.id}" placeholder="Notes (optional)" rows="2">${escHtml(card.notes || '')}</textarea>
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
-          <div class="inline-label-chips" id="edit-labels-${card.id}"></div>
+          <div id="edit-labels-${card.id}"></div>
         </div>
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
@@ -715,82 +657,64 @@
         <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete">🗑</button>
       </div>
     `;
-    // Stash the card's current label ids on the item for the edit form
-    item._labelIds = new Set((card.labels || []).map(l => l.id));
     container.appendChild(item);
   }
 
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function escAttr(s) {
-    return String(s).replace(/"/g, '&quot;');
-  }
-
-  function renderEditLabelChips(containerId, selectedIds) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = '';
-    allLabels.forEach(lbl => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'label-chip' + (selectedIds.has(lbl.id) ? ' active' : '');
-      chip.textContent = lbl.name;
-      chip.onclick = () => {
-        if (selectedIds.has(lbl.id)) selectedIds.delete(lbl.id);
-        else selectedIds.add(lbl.id);
-        renderEditLabelChips(containerId, selectedIds);
-      };
-      container.appendChild(chip);
-    });
-    if (allLabels.length === 0) {
-      const note = document.createElement('span');
-      note.className = 'inline-labels-empty';
-      note.textContent = 'No labels yet — create one in Manage Labels (⚙).';
-      container.appendChild(note);
-    }
-  }
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
 
   function startEdit(id) {
     document.getElementById(`display-${id}`).style.display = 'none';
     document.getElementById(`actions-${id}`).style.display = 'none';
     document.getElementById(`edit-form-${id}`).style.display = 'block';
     document.getElementById(`edit-en-${id}`).focus();
+
+    // Mount a fresh LabelPicker in the edit form
     const item = document.getElementById(`cli-${id}`);
-    const selected = new Set(item._labelIds);
-    item._editSelected = selected;
-    renderEditLabelChips(`edit-labels-${id}`, selected);
+    const pickerContainer = document.getElementById(`edit-labels-${id}`);
+    pickerContainer.innerHTML = '';
+    item._editPicker = new LabelPicker(pickerContainer, {
+      allLabels,
+      initialIds: item._cardLabelIds || [],
+      allowCreate: true,
+      mode: 'multi',
+      placeholder: 'Add label…',
+      onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(labels); },
+    });
   }
 
   function cancelEdit(id) {
     document.getElementById(`display-${id}`).style.display = '';
     document.getElementById(`actions-${id}`).style.display = '';
     document.getElementById(`edit-form-${id}`).style.display = 'none';
+    const item = document.getElementById(`cli-${id}`);
+    item._editPicker = null;
   }
 
   async function saveCard(id) {
-    const english = document.getElementById(`edit-en-${id}`).value.trim();
-    const chinese = document.getElementById(`edit-zh-${id}`).value.trim();
+    const english  = document.getElementById(`edit-en-${id}`).value.trim();
+    const chinese  = document.getElementById(`edit-zh-${id}`).value.trim();
     const jyutping = document.getElementById(`edit-jy-${id}`).value.trim();
-    const notes = document.getElementById(`edit-notes-${id}`).value;
-    const labelIds = [...document.getElementById(`cli-${id}`)._editSelected];
+    const notes    = document.getElementById(`edit-notes-${id}`).value;
+    const item     = document.getElementById(`cli-${id}`);
+    const labelIds = item._editPicker ? [...item._editPicker.getSelected()] : [];
+
     if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
     const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
       });
       if (!res.ok) throw new Error();
-      // Re-render the card item in place. Easier: refetch all on save? Too heavy — patch fields directly.
+
       const display = document.getElementById(`display-${id}`);
       display.querySelector('.chinese').textContent = chinese;
       display.querySelector('.jyutping').textContent = jyutping;
       display.querySelector('.english').textContent = english;
-      // Patch labels + notes display
-      const oldLabelRow = display.querySelector('.card-list-labels');
-      if (oldLabelRow) oldLabelRow.remove();
+      const oldLabels = display.querySelector('.card-list-labels');
+      if (oldLabels) oldLabels.remove();
       const oldNotes = display.querySelector('.card-list-notes');
       if (oldNotes) oldNotes.remove();
       const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
@@ -799,8 +723,7 @@
         row.className = 'card-list-labels';
         selectedLabels.forEach(l => {
           const chip = document.createElement('span');
-          chip.className = 'label-chip-static';
-          chip.textContent = l.name;
+          chip.className = 'label-chip-static'; chip.textContent = l.name;
           row.appendChild(chip);
         });
         display.appendChild(row);
@@ -811,17 +734,14 @@
         det.innerHTML = `<summary>📝 Note</summary><div>${escHtml(notes)}</div>`;
         display.appendChild(det);
       }
-      document.getElementById(`cli-${id}`)._labelIds = new Set(labelIds);
+      item._cardLabelIds = labelIds;
       cancelEdit(id);
       showToast('Card updated.');
-      // Update queue copy for the live session
+      // Patch queue copies so the live session sees the changes
       queue.forEach(q => {
-        if (q.card_id === id) {
-          q.english = english; q.chinese = chinese; q.jyutping = jyutping;
-          q.notes = notes; q.labels = selectedLabels;
-        }
+        if (q.card_id === id) { q.english = english; q.chinese = chinese; q.jyutping = jyutping; q.notes = notes; q.labels = selectedLabels; }
       });
-      loadLabels();  // refresh counts in filter dropdown
+      loadLabels();
     } catch { showToast('Failed to save card.'); }
     finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
@@ -839,9 +759,9 @@
     count.textContent = parseInt(count.textContent) - 1;
     const qi = queue.findIndex(c => c.card_id === id);
     if (qi !== -1) {
-      const removed = queue.splice(qi, 1).length;
-      total = Math.max(0, total - removed);
-      if (qi < idx) idx = Math.max(0, idx - removed);
+      queue.splice(qi, 1);
+      total = Math.max(0, total - 1);
+      if (qi < idx) idx = Math.max(0, idx - 1);
     }
     loadLabels();
   }
@@ -870,31 +790,27 @@
         <button class="edit-save-btn label-manage-save">Save</button>
         <button class="delete-card-btn label-manage-delete" title="Delete label">🗑</button>
       `;
-      row.querySelector('.label-manage-save').onclick = () => {
+      row.querySelector('.label-manage-save').onclick = () =>
         renameLabel(lbl.id, row.querySelector('.label-manage-name').value);
-      };
       row.querySelector('.label-manage-delete').onclick = () => deleteLabel(lbl.id, lbl.name);
       list.appendChild(row);
     });
   }
 
-  async function createLabel() {
+  async function createLabelFromModal() {
     const input = document.getElementById('new-label-input');
     const name = input.value.trim();
     if (!name) return;
     try {
       const res = await fetch('/api/labels', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
       if (!res.ok) throw new Error();
       input.value = '';
       await loadLabels();
       renderManageLabelsList();
-    } catch {
-      showToast('Could not create label.');
-    }
+    } catch { showToast('Could not create label.'); }
   }
 
   async function renameLabel(id, name) {
@@ -902,21 +818,14 @@
     if (!name) return;
     try {
       const res = await fetch(`/api/labels/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) {
-        const err = await res.text();
-        showToast(err || 'Could not rename label.');
-        return;
-      }
+      if (!res.ok) { showToast((await res.text()) || 'Could not rename label.'); return; }
       await loadLabels();
       renderManageLabelsList();
       showToast('Label renamed.');
-    } catch {
-      showToast('Could not rename label.');
-    }
+    } catch { showToast('Could not rename label.'); }
   }
 
   async function deleteLabel(id, name) {
@@ -925,72 +834,73 @@
       await fetch(`/api/labels/${id}`, { method: 'DELETE' });
       if (filterLabelId === id) {
         filterLabelId = null;
-        document.getElementById('label-filter').value = '';
+        if (filterPicker) filterPicker.setSelected([]);
       }
       await loadLabels();
       renderManageLabelsList();
-    } catch {
-      showToast('Could not delete label.');
-    }
+    } catch { showToast('Could not delete label.'); }
   }
 
   function closeManageLabels(e) {
-    if (!e || e.target === document.getElementById('labels-overlay')) {
+    if (!e || e.target === document.getElementById('labels-overlay'))
       document.getElementById('labels-overlay').style.display = 'none';
-    }
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
-  // ── Inline card edit ───────────────────────────────────────────────────────
+  // ── Inline card edit (review) ─────────────────────────────────────────────
   function startInlineEdit() {
     const item = queue[idx];
-    document.getElementById('inline-en').value = item.english;
-    document.getElementById('inline-zh').value = item.chinese;
-    document.getElementById('inline-jy').value = item.jyutping;
+    document.getElementById('inline-en').value    = item.english;
+    document.getElementById('inline-zh').value    = item.chinese;
+    document.getElementById('inline-jy').value    = item.jyutping;
     document.getElementById('inline-notes').value = item.notes || '';
-    inlineEditLabelIds = new Set((item.labels || []).map(l => l.id));
-    renderEditLabelChips('inline-label-chips', inlineEditLabelIds);
 
-    document.getElementById('prompt-text').style.display = 'none';
-    document.getElementById('card-answer').style.display = 'none';
-    document.getElementById('pre-reveal').style.display = 'none';
-    document.getElementById('post-reveal').style.display = 'none';
+    // Mount a fresh picker
+    const pickerContainer = document.getElementById('inline-label-picker');
+    pickerContainer.innerHTML = '';
+    inlinePicker = new LabelPicker(pickerContainer, {
+      allLabels,
+      initialIds: (item.labels || []).map(l => l.id),
+      allowCreate: true,
+      mode: 'multi',
+      placeholder: 'Add label…',
+      onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(labels); },
+    });
+
+    document.getElementById('prompt-text').style.display    = 'none';
+    document.getElementById('card-answer').style.display    = 'none';
+    document.getElementById('pre-reveal').style.display     = 'none';
+    document.getElementById('post-reveal').style.display    = 'none';
     document.getElementById('card-inline-edit').style.display = 'flex';
     document.getElementById('inline-en').focus();
   }
 
   async function saveInlineEdit() {
-    const item = queue[idx];
+    const item     = queue[idx];
     const english  = document.getElementById('inline-en').value.trim();
     const chinese  = document.getElementById('inline-zh').value.trim();
     const jyutping = document.getElementById('inline-jy').value.trim();
     const notes    = document.getElementById('inline-notes').value;
-    const labelIds = [...inlineEditLabelIds];
+    const labelIds = inlinePicker ? [...inlinePicker.getSelected()] : [];
     if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
 
     const btn = document.querySelector('#card-inline-edit .edit-save-btn');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${item.card_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
       });
       if (!res.ok) throw new Error();
       const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
-      // Update every queued face for this card so the rest of the session is correct
       queue.forEach(q => {
-        if (q.card_id === item.card_id) {
-          q.english = english; q.chinese = chinese; q.jyutping = jyutping;
-          q.notes = notes; q.labels = selectedLabels;
-        }
+        if (q.card_id === item.card_id) { q.english = english; q.chinese = chinese; q.jyutping = jyutping; q.notes = notes; q.labels = selectedLabels; }
       });
       cancelInlineEdit();
       showToast('Card updated.');
@@ -1000,11 +910,12 @@
   }
 
   function cancelInlineEdit() {
-    document.getElementById('card-inline-edit').style.display = 'none';
-    document.getElementById('prompt-text').style.display = '';
+    inlinePicker = null;
+    document.getElementById('card-inline-edit').style.display  = 'none';
+    document.getElementById('prompt-text').style.display        = '';
     if (revealed) {
-      document.getElementById('card-answer').style.display = 'flex';
-      document.getElementById('post-reveal').style.display = '';
+      document.getElementById('card-answer').style.display  = 'flex';
+      document.getElementById('post-reveal').style.display  = '';
     } else {
       document.getElementById('pre-reveal').style.display = '';
     }
@@ -1026,15 +937,11 @@
     }
   });
 
-  // ── Service worker registration ────────────────────────────────────────────
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  (async () => {
-    await loadLabels();
-    loadSession();
-  })();
+  (async () => { await loadLabels(); loadSession(); })();
 </script>
 </body>
 </html>

@@ -624,9 +624,6 @@ textarea {
 }
 
 .labels-bar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   margin-bottom: 8px;
 }
 
@@ -638,42 +635,7 @@ textarea {
   font-weight: 600;
 }
 
-.labels-bar-hint {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.labels-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.label-chip {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-family: inherit;
-  transition: all 0.15s;
-  line-height: 1.4;
-}
-.label-chip:hover { border-color: var(--primary); color: var(--primary); }
-.label-chip.active {
-  background: #e8f0fe;
-  border-color: var(--primary);
-  color: var(--primary);
-  font-weight: 600;
-}
-.label-chip.add-label {
-  background: transparent;
-  border-style: dashed;
-}
-
+/* Static chips (read-only display in answer reveal, card list) */
 .label-chip-static {
   background: #e8f0fe;
   color: var(--primary);
@@ -689,6 +651,111 @@ textarea {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
+}
+
+/* ── Label Picker component ─────────────────────────────────────────────── */
+.lp-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+.lp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 0;
+}
+
+.lp-chip {
+  background: #e8f0fe;
+  color: var(--primary);
+  border-radius: 12px;
+  padding: 3px 6px 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.lp-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 1rem;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.65;
+  font-family: inherit;
+}
+.lp-remove:hover { opacity: 1; }
+
+.lp-placeholder {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.lp-input-row { position: relative; }
+
+.lp-search {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.lp-search:focus { border-color: var(--primary); }
+
+.lp-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 3px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 300;
+}
+
+.lp-option {
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lp-option:hover { background: var(--bg); }
+.lp-option.lp-sel { color: var(--primary); font-weight: 600; }
+
+.lp-check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--primary);
+  text-align: center;
+}
+
+.lp-create {
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-style: italic;
+  border-top: 1px solid var(--border);
+}
+.lp-create:hover { background: var(--bg); color: var(--primary); }
+
+.lp-empty {
+  padding: 9px 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ── Context / notes (collapsable) ─────────────────────────────────────── */
@@ -845,11 +912,11 @@ textarea {
   padding-top: 8px;
 }
 
-/* ── Inline label chips in card edit forms ──────────────────────────────── */
+/* ── Inline label picker in card edit forms ─────────────────────────────── */
 .inline-labels-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 .inline-labels-title {
   font-size: 0.72rem;
@@ -858,16 +925,10 @@ textarea {
   color: var(--text-muted);
   font-weight: 600;
 }
-.inline-label-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.inline-labels-empty {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-style: italic;
-}
+/* The .lp-wrap inside a modal needs higher z-index */
+.modal .lp-dropdown,
+.card-edit-form .lp-dropdown,
+.card-inline-edit .lp-dropdown { z-index: 400; }
 
 /* ── Browse list: labels + notes ────────────────────────────────────────── */
 .card-list-labels {
