@@ -7,6 +7,7 @@ VOICES = {
     "fr": "fr-FR-DeniseNeural",
     "es": "es-ES-ElviraNeural",
     "en": "en-US-AriaNeural",
+    "de": "de-DE-KatjaNeural",
 }
 
 
