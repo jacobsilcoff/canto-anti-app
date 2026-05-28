@@ -258,6 +258,10 @@
       Translate
     </a>
     <a href="/admin" class="nav-link" id="admin-link" style="display:none">Admin</a>
+    <button class="nav-link" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign out
+    </button>
   </nav>
 </header>
 
@@ -1444,6 +1448,11 @@
   function closeManageLabels(e) {
     if (!e || e.target === document.getElementById('labels-overlay'))
       document.getElementById('labels-overlay').style.display = 'none';
+  }
+
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    window.location.replace('/login');
   }
 
   function showToast(msg) {

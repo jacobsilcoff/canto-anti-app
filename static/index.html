@@ -15,17 +15,54 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
-    .lang-select {
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.9rem;
-      background: var(--surface);
-      color: var(--text);
-      font-family: inherit;
-      outline: none;
+    .lang-target-wrap {
+      flex: 1;
+      position: relative;
     }
-    .lang-select:focus { border-color: var(--primary); }
+    .lang-target-wrap .lang-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .lang-chevron {
+      width: 13px;
+      height: 13px;
+      opacity: 0.5;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+      vertical-align: 0;
+    }
+    .lang-btn.active .lang-chevron { opacity: 0.7; }
+    #lang-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+      z-index: 50;
+      padding: 4px;
+      min-width: 130px;
+    }
+    .lang-dropdown-option {
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      border-radius: 6px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .lang-dropdown-option:hover { background: var(--bg); }
+    .lang-dropdown-option.selected { color: var(--primary); }
+    .lang-dropdown-check { width: 14px; font-size: 0.75rem; color: var(--primary); flex-shrink: 0; }
     .candidate-list {
       display: flex;
       flex-direction: column;
@@ -94,9 +131,13 @@
     <button class="swap-btn" onclick="swapLang()" title="Swap direction" aria-label="Swap direction">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
     </button>
-    <button class="lang-btn" id="btn-target" onclick="setDirection(true)">
-      <select class="lang-select" id="target-lang-select" onclick="event.stopPropagation()" onchange="onTargetLangChange()"></select>
-    </button>
+    <div class="lang-target-wrap">
+      <button class="lang-btn" id="btn-target" onclick="onTargetBtnClick()">
+        <span id="target-lang-label"></span>
+        <svg id="target-lang-chevron" class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="lang-dropdown"></div>
+    </div>
   </div>
 
   <!-- Sticky labels picker -->
@@ -197,23 +238,52 @@
     } catch {
       languages = [{ code: 'yue', name: 'Cantonese', romanization: 'jyutping', logographic: true }];
     }
-    const select = document.getElementById('target-lang-select');
-    select.innerHTML = '';
-    languages.forEach(l => {
-      const opt = document.createElement('option');
-      opt.value = l.code;
-      opt.textContent = l.name;
-      select.appendChild(opt);
-    });
-    select.value = targetLang;
+    renderLangDropdown();
     updateDirectionButtons();
   }
 
-  function onTargetLangChange() {
-    targetLang = document.getElementById('target-lang-select').value;
+  function renderLangDropdown() {
+    const dd = document.getElementById('lang-dropdown');
+    dd.innerHTML = '';
+    languages.forEach(l => {
+      const opt = document.createElement('div');
+      opt.className = 'lang-dropdown-option' + (l.code === targetLang ? ' selected' : '');
+      const check = document.createElement('span');
+      check.className = 'lang-dropdown-check';
+      check.textContent = l.code === targetLang ? '✓' : '';
+      opt.appendChild(check);
+      const name = document.createElement('span');
+      name.textContent = l.name;
+      opt.appendChild(name);
+      opt.onclick = e => { e.stopPropagation(); selectTargetLang(l.code); };
+      dd.appendChild(opt);
+    });
+    const chevron = document.getElementById('target-lang-chevron');
+    if (chevron) chevron.style.display = languages.length > 1 ? '' : 'none';
+  }
+
+  function onTargetBtnClick() {
+    const wasTarget = sourceIsTarget;
+    setDirection(true);
+    if (languages.length > 1 && wasTarget) toggleLangDropdown();
+  }
+
+  function toggleLangDropdown() {
+    const dd = document.getElementById('lang-dropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function closeLangDropdown() {
+    document.getElementById('lang-dropdown').style.display = 'none';
+  }
+
+  function selectTargetLang(code) {
+    targetLang = code;
+    renderLangDropdown();
     updateDirectionButtons();
     resetOutput();
     saveDefaultLang();
+    closeLangDropdown();
   }
 
   async function saveDefaultLang() {
@@ -244,6 +314,8 @@
     document.getElementById('input').placeholder = sourceIsTarget
       ? `Enter ${langName} text…`
       : 'Enter English text…';
+    const label = document.getElementById('target-lang-label');
+    if (label) label.textContent = langName;
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -574,7 +646,7 @@
     try {
       const s = await fetch('/api/settings').then(r => r.json());
       if (s.default_target_lang) targetLang = s.default_target_lang;
-      document.getElementById('target-lang-select').value = targetLang;
+      renderLangDropdown();
       updateDirectionButtons();
     } catch {}
   }
@@ -593,7 +665,12 @@
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.lang-target-wrap')) closeLangDropdown();
+  });
+
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeLangDropdown();
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       doTranslate();
