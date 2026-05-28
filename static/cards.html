@@ -643,7 +643,7 @@
     sel.innerHTML = '';
     languages.forEach(l => {
       const opt = document.createElement('option');
-      opt.value = l.code; opt.textContent = l.name;
+      opt.value = l.code; opt.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
       sel.appendChild(opt);
     });
     sel.value = settings.default_target_lang || 'yue';

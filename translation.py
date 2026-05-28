@@ -24,6 +24,7 @@ _MODEL = "gemini-2.5-flash-lite"
 LANG_INFO = {
     "yue": {
         "name": "Hong Kong Cantonese",
+        "flag": "🇭🇰",
         "script": "Traditional Chinese characters",
         "romanization": "jyutping",
         "frequency_examples": (
@@ -41,6 +42,7 @@ LANG_INFO = {
     },
     "cmn": {
         "name": "Mandarin Chinese",
+        "flag": "🇨🇳",
         "script": "Simplified Chinese characters",
         "romanization": "pinyin",
         "frequency_examples": (
@@ -57,6 +59,7 @@ LANG_INFO = {
     },
     "fr": {
         "name": "French",
+        "flag": "🇫🇷",
         "script": "Latin script",
         "romanization": None,
         "frequency_examples": (
@@ -70,6 +73,7 @@ LANG_INFO = {
     },
     "es": {
         "name": "Spanish",
+        "flag": "🇪🇸",
         "script": "Latin script",
         "romanization": None,
         "frequency_examples": (
@@ -83,6 +87,7 @@ LANG_INFO = {
     },
     "de": {
         "name": "German",
+        "flag": "🇩🇪",
         "script": "Latin script",
         "romanization": None,
         "frequency_examples": (
