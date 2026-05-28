@@ -14,24 +14,89 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
+  <style>
+    .lang-select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+    }
+    .lang-select:focus { border-color: var(--primary); }
+    .candidate-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .candidate-option {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .candidate-option:hover { border-color: var(--primary); }
+    .candidate-target { font-size: 1.1rem; font-weight: 500; }
+    .candidate-roman { font-size: 0.88rem; color: var(--text-muted); font-style: italic; }
+    .candidate-english { font-size: 0.92rem; }
+    .candidate-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .ai-notes-block {
+      background: #f6f9ff;
+      border-left: 3px solid var(--primary);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .ai-notes-label {
+      font-size: 0.7rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+  </style>
 </head>
 <body>
 
 <header>
   <h1>{{APP_NAME_HTML}}</h1>
-  <a href="/cards" class="nav-link">
-    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-    Flashcards <span class="badge" id="due-badge"></span>
-  </a>
+  <nav style="display:flex;gap:4px;align-items:center">
+    <a href="/cards" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Flashcards <span class="badge" id="due-badge"></span>
+    </a>
+    <a href="/admin" class="nav-link" id="admin-link" style="display:none">Admin</a>
+    <button class="nav-link" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">Sign out</button>
+  </nav>
 </header>
 
 <main class="translate-page">
   <div class="lang-toggle">
-    <button class="lang-btn active" id="btn-en" onclick="setLang('english')">🇬🇧 English</button>
-    <button class="swap-btn" onclick="swapLang()" title="Swap languages" aria-label="Swap languages">
+    <button class="lang-btn active" id="btn-source" onclick="setDirection(false)">English</button>
+    <button class="swap-btn" onclick="swapLang()" title="Swap direction" aria-label="Swap direction">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
     </button>
-    <button class="lang-btn" id="btn-yue" onclick="setLang('cantonese')">🇭🇰 Cantonese</button>
+    <button class="lang-btn" id="btn-target" onclick="setDirection(true)">
+      <select class="lang-select" id="target-lang-select" onclick="event.stopPropagation()" onchange="onTargetLangChange()"></select>
+    </button>
   </div>
 
   <!-- Sticky labels picker -->
@@ -51,7 +116,6 @@
       </div>
     </div>
 
-    <!-- Context (collapsable) -->
     <details class="context-details" id="context-details">
       <summary>
         <span class="context-summary-label">+ Add context for translator</span>
@@ -63,16 +127,28 @@
 
     <button class="translate-btn" id="translate-btn" onclick="doTranslate()">Translate</button>
 
+    <!-- Candidate picker (shown when AI returns multiple translations) -->
+    <div class="output-panel" id="candidate-panel" style="display:none">
+      <div class="ai-notes-label" style="margin-bottom:6px">Did you mean…</div>
+      <div class="candidate-list" id="candidate-list"></div>
+    </div>
+
+    <!-- Final card output -->
     <div class="output-panel" id="output-panel" style="display:none">
-      <div class="output-chinese" id="out-chinese"></div>
-      <div class="output-jyutping" id="out-jyutping"></div>
+      <div class="output-chinese" id="out-target"></div>
+      <div class="output-jyutping" id="out-romanization"></div>
       <div class="output-english" id="out-english" style="display:none"></div>
 
       <div class="output-labels" id="output-labels" style="display:none"></div>
 
+      <div class="ai-notes-block" id="ai-notes-block" style="display:none">
+        <div class="ai-notes-label">AI note</div>
+        <div id="ai-notes-text"></div>
+      </div>
+
       <details class="output-notes-details" id="output-notes-details">
         <summary>
-          <span id="notes-summary-empty">+ Add note</span>
+          <span id="notes-summary-empty">+ Add your own note</span>
           <span id="notes-summary-full" style="display:none">Note saved</span>
         </summary>
         <textarea id="notes-input" placeholder="Optional note for this card…" rows="2"
@@ -97,25 +173,77 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let sourceLang = 'english';
+  // ── State ────────────────────────────────────────────────────────────────
+  let languages = [];
+  let targetLang = 'yue';
+  let sourceIsTarget = false;          // false: en → target, true: target → en
   let currentCardId = null;
   let audioEl = null;
   let allLabels = [];
   let stickyPicker = null;
   let savedNotes = '';
+  let aiNotes = '';                    // notes returned by AI, automatically saved
+  let lastTranslation = null;          // last translate result (with candidates)
 
-  // ── Language toggle ──────────────────────────────────────────────────────
-  function setLang(lang) {
-    sourceLang = lang;
-    document.getElementById('btn-en').classList.toggle('active', lang === 'english');
-    document.getElementById('btn-yue').classList.toggle('active', lang === 'cantonese');
-    document.getElementById('input').placeholder =
-      lang === 'english' ? 'Enter English text…' : 'Enter Cantonese (characters or jyutping)…';
+  function langByCode(code) {
+    return languages.find(l => l.code === code) || null;
+  }
+
+  // ── Language selector ────────────────────────────────────────────────────
+  async function loadLanguages() {
+    try {
+      const res = await fetch('/api/languages').then(r => r.json());
+      languages = res.languages;
+    } catch {
+      languages = [{ code: 'yue', name: 'Cantonese', romanization: 'jyutping', logographic: true }];
+    }
+    const select = document.getElementById('target-lang-select');
+    select.innerHTML = '';
+    languages.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = l.name;
+      select.appendChild(opt);
+    });
+    select.value = targetLang;
+    updateDirectionButtons();
+  }
+
+  function onTargetLangChange() {
+    targetLang = document.getElementById('target-lang-select').value;
+    updateDirectionButtons();
+    resetOutput();
+    saveDefaultLang();
+  }
+
+  async function saveDefaultLang() {
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_target_lang: targetLang }),
+      });
+    } catch {}
+  }
+
+  function setDirection(isTarget) {
+    sourceIsTarget = isTarget;
+    updateDirectionButtons();
     resetOutput();
   }
 
   function swapLang() {
-    setLang(sourceLang === 'english' ? 'cantonese' : 'english');
+    setDirection(!sourceIsTarget);
+  }
+
+  function updateDirectionButtons() {
+    const lang = langByCode(targetLang);
+    const langName = lang ? lang.name : targetLang;
+    document.getElementById('btn-source').classList.toggle('active', !sourceIsTarget);
+    document.getElementById('btn-target').classList.toggle('active', sourceIsTarget);
+    document.getElementById('input').placeholder = sourceIsTarget
+      ? `Enter ${langName} text…`
+      : 'Enter English text…';
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -143,6 +271,7 @@
   }
 
   function resetOutput() {
+    document.getElementById('candidate-panel').style.display = 'none';
     document.getElementById('output-panel').style.display = 'none';
     document.getElementById('saved-indicator').classList.remove('show');
     document.getElementById('notes-input').value = '';
@@ -151,8 +280,11 @@
     document.getElementById('output-notes-details').open = false;
     document.getElementById('notes-summary-empty').style.display = '';
     document.getElementById('notes-summary-full').style.display = 'none';
+    document.getElementById('ai-notes-block').style.display = 'none';
     savedNotes = '';
+    aiNotes = '';
     currentCardId = null;
+    lastTranslation = null;
     if (audioEl) { audioEl.pause(); audioEl = null; }
     document.getElementById('audio-btn').classList.remove('playing');
   }
@@ -203,49 +335,19 @@
 
   async function syncCurrentCardLabels() {
     if (!currentCardId || !stickyPicker) return;
-    const english  = sourceLang === 'cantonese'
-      ? document.getElementById('out-english').textContent
-      : document.getElementById('input').value.trim();
-    const chinese  = document.getElementById('out-chinese').textContent;
-    const jyutping = document.getElementById('out-jyutping').textContent;
-    try {
-      await fetch(`/api/cards/${currentCardId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          english, chinese, jyutping,
-          notes: savedNotes,
-          label_ids: [...stickyPicker.getSelected()],
-        }),
-      });
-      renderOutputLabels();
-    } catch {
-      showToast('Could not update labels.');
-    }
+    await persistCard();
+    renderOutputLabels();
   }
 
   // ── Notes ────────────────────────────────────────────────────────────────
   async function saveNotes() {
     if (!currentCardId) return;
     const notes = document.getElementById('notes-input').value;
-    const english  = sourceLang === 'cantonese'
-      ? document.getElementById('out-english').textContent
-      : document.getElementById('input').value.trim();
-    const chinese  = document.getElementById('out-chinese').textContent;
-    const jyutping = document.getElementById('out-jyutping').textContent;
     const btn = document.getElementById('notes-save-btn');
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/cards/${currentCardId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          english, chinese, jyutping, notes,
-          label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
-        }),
-      });
-      if (!res.ok) throw new Error();
       savedNotes = notes;
+      await persistCard();
       document.getElementById('notes-saved-msg').textContent = 'Saved';
       setTimeout(() => { document.getElementById('notes-saved-msg').textContent = ''; }, 2000);
       updateNotesSummary();
@@ -261,6 +363,35 @@
     document.getElementById('notes-summary-full').style.display = has ? '' : 'none';
   }
 
+  function combinedNotes() {
+    const parts = [];
+    if (aiNotes.trim()) parts.push(aiNotes.trim());
+    if (savedNotes.trim()) parts.push(savedNotes.trim());
+    return parts.join('\n\n');
+  }
+
+  // ── Persist (update card on backend) ─────────────────────────────────────
+  async function persistCard() {
+    if (!currentCardId) return;
+    const target = document.getElementById('out-target').textContent;
+    const roman  = document.getElementById('out-romanization').textContent;
+    const english = sourceIsTarget
+      ? document.getElementById('out-english').textContent
+      : document.getElementById('input').value.trim();
+    const res = await fetch(`/api/cards/${currentCardId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_text: english,
+        target_text: target,
+        romanization: roman,
+        notes: combinedNotes(),
+        label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
+      }),
+    });
+    if (!res.ok) throw new Error('persist failed');
+  }
+
   // ── Translate ────────────────────────────────────────────────────────────
   async function doTranslate() {
     const text = document.getElementById('input').value.trim();
@@ -270,48 +401,29 @@
     const btn = document.getElementById('translate-btn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
+    resetOutput();
 
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text, source_lang: sourceLang,
+          text,
+          target_lang: targetLang,
+          source_is_target: sourceIsTarget,
           context: context || null,
-          label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      lastTranslation = await res.json();
 
-      currentCardId = data.card_id;
-      savedNotes = '';
-      document.getElementById('notes-input').value = '';
-      document.getElementById('notes-save-btn').disabled = true;
-      updateNotesSummary();
-
-      document.getElementById('out-chinese').textContent = data.chinese;
-      document.getElementById('out-jyutping').textContent = data.jyutping;
-
-      const englishEl = document.getElementById('out-english');
-      if (sourceLang === 'cantonese') {
-        englishEl.textContent = data.english;
-        englishEl.style.display = 'block';
+      if ((lastTranslation.candidates || []).length > 1) {
+        renderCandidates(lastTranslation.candidates);
+      } else if (lastTranslation.candidates && lastTranslation.candidates.length === 1) {
+        await chooseCandidate(0);
       } else {
-        englishEl.textContent = text;
-        englishEl.style.display = 'none';
+        showToast('No translation returned.');
       }
-
-      renderOutputLabels();
-      document.getElementById('output-panel').style.display = 'block';
-
-      const ind = document.getElementById('saved-indicator');
-      ind.classList.add('show');
-      setTimeout(() => ind.classList.remove('show'), 3000);
-
-      if (audioEl) { audioEl.pause(); audioEl = null; }
-      document.getElementById('audio-btn').classList.remove('playing');
-
     } catch (e) {
       showToast('Translation failed — please try again.');
       console.error(e);
@@ -319,6 +431,113 @@
       btn.disabled = false;
       btn.textContent = 'Translate';
     }
+  }
+
+  function renderCandidates(candidates) {
+    const panel = document.getElementById('candidate-panel');
+    const list = document.getElementById('candidate-list');
+    list.innerHTML = '';
+    const lang = langByCode(targetLang);
+    candidates.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'candidate-option';
+      row.onclick = () => chooseCandidate(i);
+      const inner = document.createElement('div');
+      if (c.label) {
+        const lbl = document.createElement('div');
+        lbl.className = 'candidate-label';
+        lbl.textContent = c.label;
+        row.appendChild(lbl);
+      }
+      const tgt = document.createElement('div');
+      tgt.className = 'candidate-target';
+      tgt.textContent = c.target_text;
+      row.appendChild(tgt);
+      if (c.romanization && lang && lang.logographic) {
+        const r = document.createElement('div');
+        r.className = 'candidate-roman';
+        r.textContent = c.romanization;
+        row.appendChild(r);
+      }
+      const en = document.createElement('div');
+      en.className = 'candidate-english';
+      en.textContent = c.english;
+      row.appendChild(en);
+      list.appendChild(row);
+    });
+    panel.style.display = 'block';
+  }
+
+  async function chooseCandidate(index) {
+    if (!lastTranslation) return;
+    const c = lastTranslation.candidates[index];
+    aiNotes = lastTranslation.notes || '';
+    savedNotes = '';
+
+    document.getElementById('candidate-panel').style.display = 'none';
+    document.getElementById('translate-btn').disabled = true;
+    document.getElementById('translate-btn').innerHTML = '<span class="spinner"></span>';
+
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: c.english,
+          target_text: c.target_text,
+          romanization: c.romanization || '',
+          target_lang: targetLang,
+          notes: aiNotes || null,
+          priority: lastTranslation.priority || 3,
+          label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      currentCardId = data.card_id;
+      renderResult(c);
+    } catch {
+      showToast('Could not save card — try again.');
+    } finally {
+      document.getElementById('translate-btn').disabled = false;
+      document.getElementById('translate-btn').textContent = 'Translate';
+    }
+  }
+
+  function renderResult(c) {
+    const lang = langByCode(targetLang);
+    document.getElementById('out-target').textContent = c.target_text;
+    document.getElementById('out-romanization').textContent =
+      (lang && lang.logographic) ? (c.romanization || '') : '';
+    document.getElementById('out-romanization').style.display =
+      (lang && lang.logographic && c.romanization) ? '' : 'none';
+
+    const englishEl = document.getElementById('out-english');
+    if (sourceIsTarget) {
+      englishEl.textContent = c.english;
+      englishEl.style.display = 'block';
+    } else {
+      englishEl.textContent = '';
+      englishEl.style.display = 'none';
+    }
+
+    // AI notes
+    if (aiNotes && aiNotes.trim()) {
+      document.getElementById('ai-notes-text').textContent = aiNotes.trim();
+      document.getElementById('ai-notes-block').style.display = '';
+    } else {
+      document.getElementById('ai-notes-block').style.display = 'none';
+    }
+
+    renderOutputLabels();
+    document.getElementById('output-panel').style.display = 'block';
+
+    const ind = document.getElementById('saved-indicator');
+    ind.classList.add('show');
+    setTimeout(() => ind.classList.remove('show'), 3000);
+
+    if (audioEl) { audioEl.pause(); audioEl = null; }
+    document.getElementById('audio-btn').classList.remove('playing');
   }
 
   // ── Audio ────────────────────────────────────────────────────────────────
@@ -335,7 +554,7 @@
     audioEl.onended = () => document.getElementById('audio-btn').classList.remove('playing');
   }
 
-  // ── Due count badge ──────────────────────────────────────────────────────
+  // ── Misc ─────────────────────────────────────────────────────────────────
   async function loadDueCount() {
     try {
       const { count } = await fetch('/api/cards/due-count').then(r => r.json());
@@ -344,7 +563,29 @@
     } catch {}
   }
 
-  // ── Toast ────────────────────────────────────────────────────────────────
+  async function loadMe() {
+    try {
+      const me = await fetch('/api/me').then(r => r.json());
+      if (me.is_admin) document.getElementById('admin-link').style.display = '';
+    } catch {}
+  }
+
+  async function loadSettings() {
+    try {
+      const s = await fetch('/api/settings').then(r => r.json());
+      if (s.default_target_lang) targetLang = s.default_target_lang;
+      document.getElementById('target-lang-select').value = targetLang;
+      updateDirectionButtons();
+    } catch {}
+  }
+
+  async function doLogout() {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+    } catch {}
+    window.location.replace('/login');
+  }
+
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -352,7 +593,6 @@
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -364,8 +604,10 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  loadDueCount();
-  loadLabels();
+  (async () => {
+    await loadLanguages();
+    await Promise.all([loadSettings(), loadDueCount(), loadLabels(), loadMe()]);
+  })();
 </script>
 </body>
 </html>

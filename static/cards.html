@@ -78,6 +78,18 @@
     }
     .card-inline-edit .edit-input { font-size: 1rem; }
 
+    .lang-tag {
+      display: inline-block;
+      background: #f0f4ff;
+      color: var(--primary);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 1px 6px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
     /* Priority dots */
     .priority-dots {
       display: inline-flex;
@@ -122,7 +134,7 @@
       margin-top: 2px;
     }
 
-    /* Meta actions (flag, reset, suspend) shown after reveal */
+    /* Meta actions */
     .card-meta-actions {
       display: flex;
       gap: 6px;
@@ -162,7 +174,7 @@
       font-weight: 600;
     }
 
-    /* Browse: priority + meta columns */
+    /* Browse */
     .card-list-meta {
       display: flex;
       align-items: center;
@@ -193,6 +205,7 @@
       border-radius: 10px;
       text-transform: uppercase;
     }
+
     /* Settings modal */
     .settings-row {
       display: flex;
@@ -205,17 +218,16 @@
     .settings-row:last-child { border-bottom: none; }
     .settings-label { font-size: 0.9rem; font-weight: 500; }
     .settings-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
-    .settings-input {
-      width: 70px;
+    .settings-input, .settings-select {
       padding: 6px 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 0.9rem;
-      text-align: center;
       font-family: inherit;
       outline: none;
     }
-    .settings-input:focus { border-color: var(--primary); }
+    .settings-input { width: 70px; text-align: center; }
+    .settings-input:focus, .settings-select:focus { border-color: var(--primary); }
     .settings-info {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -245,10 +257,10 @@
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       Translate
     </a>
+    <a href="/admin" class="nav-link" id="admin-link" style="display:none">Admin</a>
   </nav>
 </header>
 
-<!-- Filter bar -->
 <div class="filter-bar">
   <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
   <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels" aria-label="Manage labels">
@@ -256,7 +268,6 @@
   </button>
 </div>
 
-<!-- Loading state -->
 <div class="cards-page" id="state-loading">
   <div class="empty-state">
     <div class="icon">⏳</div>
@@ -264,7 +275,6 @@
   </div>
 </div>
 
-<!-- No cards in DB at all -->
 <div class="cards-page" id="state-empty" style="display:none">
   <div class="empty-state">
     <div class="icon">📚</div>
@@ -274,7 +284,6 @@
   </div>
 </div>
 
-<!-- Cards exist but none due -->
 <div class="cards-page" id="state-caughtup" style="display:none">
   <div class="empty-state">
     <div class="icon">🎉</div>
@@ -284,7 +293,6 @@
   </div>
 </div>
 
-<!-- Session complete -->
 <div class="cards-page" id="state-done" style="display:none">
   <div class="empty-state">
     <div class="icon">✅</div>
@@ -297,7 +305,6 @@
   </div>
 </div>
 
-<!-- Active review -->
 <div class="cards-page" id="state-review" style="display:none">
   <div class="session-progress">
     <span id="progress-label"></span>
@@ -309,9 +316,10 @@
     <div class="flashcard" id="flashcard">
       <div class="card-header">
         <div class="card-header-left">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <div class="card-prompt-label" id="prompt-label"></div>
             <span id="new-badge" class="new-badge" style="display:none">New</span>
+            <span id="card-lang-tag" class="lang-tag" style="display:none"></span>
           </div>
           <div id="card-priority-dots"></div>
         </div>
@@ -326,11 +334,10 @@
       </div>
       <div class="card-prompt-text" id="prompt-text"></div>
       <div class="card-answer" id="card-answer" style="display:none"></div>
-      <!-- Inline edit form -->
       <div class="card-inline-edit" id="card-inline-edit">
-        <input class="edit-input" id="inline-en" placeholder="English">
-        <input class="edit-input" id="inline-zh" placeholder="Chinese" style="font-family:var(--chinese-font);font-size:1.1rem">
-        <input class="edit-input" id="inline-jy" placeholder="Jyutping">
+        <input class="edit-input" id="inline-source" placeholder="English">
+        <input class="edit-input" id="inline-target" placeholder="Target" style="font-size:1.1rem">
+        <input class="edit-input" id="inline-roman" placeholder="Romanization">
         <textarea class="edit-input" id="inline-notes" placeholder="Notes (optional)" rows="2"></textarea>
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
@@ -343,27 +350,17 @@
       </div>
     </div>
 
-    <!-- Before reveal -->
     <div id="pre-reveal">
       <button class="reveal-btn" onclick="revealCard()">Show Answer</button>
       <p class="rating-hint">Press <kbd>Space</kbd> or <kbd>Enter</kbd> to reveal</p>
     </div>
 
-    <!-- After reveal -->
     <div id="post-reveal" style="display:none">
       <div class="rating-btns">
-        <button class="rating-btn again" onclick="rate('again')">
-          Again <span class="key-hint">[ 1 ]</span>
-        </button>
-        <button class="rating-btn hard" onclick="rate('hard')">
-          Hard <span class="key-hint">[ 2 ]</span>
-        </button>
-        <button class="rating-btn good" onclick="rate('good')">
-          Good <span class="key-hint">[ 3 ]</span>
-        </button>
-        <button class="rating-btn easy" onclick="rate('easy')">
-          Easy <span class="key-hint">[ 4 ]</span>
-        </button>
+        <button class="rating-btn again" onclick="rate('again')">Again <span class="key-hint">[ 1 ]</span></button>
+        <button class="rating-btn hard" onclick="rate('hard')">Hard <span class="key-hint">[ 2 ]</span></button>
+        <button class="rating-btn good" onclick="rate('good')">Good <span class="key-hint">[ 3 ]</span></button>
+        <button class="rating-btn easy" onclick="rate('easy')">Easy <span class="key-hint">[ 4 ]</span></button>
       </div>
       <div class="card-meta-actions" id="card-meta-actions">
         <div class="meta-priority-row">
@@ -387,7 +384,6 @@
   </div>
 </div>
 
-<!-- Browse modal -->
 <div class="modal-overlay" id="browse-overlay" style="display:none" onclick="closeBrowse(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -400,7 +396,6 @@
   </div>
 </div>
 
-<!-- Manage labels modal -->
 <div class="modal-overlay" id="labels-overlay" style="display:none" onclick="closeManageLabels(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -417,7 +412,6 @@
   </div>
 </div>
 
-<!-- Settings modal -->
 <div class="modal-overlay" id="settings-overlay" style="display:none" onclick="closeSettings(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -433,6 +427,13 @@
       </div>
       <input type="number" id="settings-new-per-day" class="settings-input" min="1" max="500" value="20">
     </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Default target language</div>
+        <div class="settings-desc">Language pre-selected on the translate page</div>
+      </div>
+      <select id="settings-default-lang" class="settings-select"></select>
+    </div>
     <p class="settings-info" id="settings-today-info"></p>
     <div style="display:flex;justify-content:flex-end;margin-top:16px">
       <button class="edit-save-btn" onclick="saveSettings()">Save</button>
@@ -443,7 +444,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ── SVG icon strings ───────────────────────────────────────────────────────
+  // ── SVG icons ─────────────────────────────────────────────────────────────
   const ICONS = {
     pencil:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
     trash:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
@@ -452,7 +453,9 @@
     bookmark: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
   };
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────────────
+  let languages = [];
+  let langByCode = {};
   let queue = [];
   let total = 0;
   let idx = 0;
@@ -463,18 +466,43 @@
   let filterLabelId = null;
   let filterPicker = null;
   let inlinePicker = null;
-  let settings = { new_cards_per_day: 20 };
+  let settings = { new_cards_per_day: 20, default_target_lang: 'yue' };
   let sessionStats = { review_count: 0, new_count: 0, daily_new_used: 0, daily_new_limit: 20 };
 
-  // ── IndexedDB ──────────────────────────────────────────────────────────────
+  // ── Language helpers ──────────────────────────────────────────────────────
+  function langInfo(code) {
+    return langByCode[code] || { code, name: code, romanization: null, logographic: false };
+  }
+  function isLogographic(code) {
+    return !!langInfo(code).logographic;
+  }
+  // Returns { source, target, pronunciation } display labels for the given language
+  function faceLabels(code) {
+    const info = langInfo(code);
+    return {
+      source: 'English',
+      target: info.name,
+      pronunciation: info.romanization
+        ? info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1)
+        : 'Audio',
+    };
+  }
+  function romanizationFieldLabel(code) {
+    const info = langInfo(code);
+    if (!info.romanization) return null;
+    return info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1);
+  }
+
+  // ── IndexedDB (v2 — bumped from v1 to clear cards using old face/field names) ──
   let _db = null;
 
   function openDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('cantonese-app', 1);
+      const req = indexedDB.open('cantonese-app', 2);
       req.onupgradeneeded = e => {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains('cards')) db.createObjectStore('cards', { keyPath: 'id' });
+        if (db.objectStoreNames.contains('cards')) db.deleteObjectStore('cards');
+        db.createObjectStore('cards', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('pending')) db.createObjectStore('pending', { autoIncrement: true });
       };
       req.onsuccess = e => resolve(e.target.result);
@@ -492,7 +520,6 @@
       tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
-
   async function idbGetAll(store) {
     const db = await idb();
     return new Promise((res, rej) => {
@@ -500,7 +527,6 @@
       req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
     });
   }
-
   async function idbClear(store) {
     const db = await idb();
     return new Promise((res, rej) => {
@@ -509,7 +535,6 @@
       tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
-
   async function idbDelete(store, key) {
     const db = await idb();
     return new Promise((res, rej) => {
@@ -518,7 +543,6 @@
       tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }
-
   async function idbGetAllWithKeys(store) {
     const db = await idb();
     return new Promise((res, rej) => {
@@ -533,7 +557,7 @@
     });
   }
 
-  // ── Offline / sync bar ─────────────────────────────────────────────────────
+  // ── Offline / sync bar ────────────────────────────────────────────────────
   function updateOfflineBar(pendingCount) {
     const bar = document.getElementById('offline-bar');
     const badge = document.getElementById('sync-badge');
@@ -576,15 +600,23 @@
   window.addEventListener('online', () => { isOnline = true; syncPending(); });
   window.addEventListener('offline', () => { isOnline = false; idbGetAllWithKeys('pending').then(e => updateOfflineBar(e.length)); });
 
-  // ── Settings ───────────────────────────────────────────────────────────────
+  // ── Settings ──────────────────────────────────────────────────────────────
   async function loadSettings() {
     try {
       settings = await fetch('/api/settings').then(r => r.json());
-    } catch { settings = { new_cards_per_day: 20 }; }
+    } catch { settings = { new_cards_per_day: 20, default_target_lang: 'yue' }; }
   }
 
   function showSettings() {
     document.getElementById('settings-new-per-day').value = settings.new_cards_per_day;
+    const sel = document.getElementById('settings-default-lang');
+    sel.innerHTML = '';
+    languages.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code; opt.textContent = l.name;
+      sel.appendChild(opt);
+    });
+    sel.value = settings.default_target_lang || 'yue';
     const used = sessionStats.daily_new_used;
     const limit = settings.new_cards_per_day;
     document.getElementById('settings-today-info').textContent =
@@ -599,20 +631,22 @@
 
   async function saveSettings() {
     const val = parseInt(document.getElementById('settings-new-per-day').value, 10);
+    const lang = document.getElementById('settings-default-lang').value;
     if (!val || val < 1 || val > 500) { showToast('Must be between 1 and 500.'); return; }
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_cards_per_day: val }),
+        body: JSON.stringify({ new_cards_per_day: val, default_target_lang: lang }),
       });
       if (!res.ok) throw new Error();
       settings.new_cards_per_day = val;
+      settings.default_target_lang = lang;
       closeSettings();
       showToast('Settings saved.');
     } catch { showToast('Failed to save settings.'); }
   }
 
-  // ── Labels ─────────────────────────────────────────────────────────────────
+  // ── Labels ────────────────────────────────────────────────────────────────
   async function loadLabels() {
     try {
       const { labels } = await fetch('/api/labels').then(r => r.json());
@@ -647,7 +681,7 @@
     return filterLabelId ? `?label_id=${filterLabelId}` : '';
   }
 
-  // ── Priority dots ──────────────────────────────────────────────────────────
+  // ── Priority dots ─────────────────────────────────────────────────────────
   function renderPriorityDots(priority, interactive, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'priority-dots' + (interactive ? ' interactive' : '');
@@ -663,7 +697,6 @@
     }
     return wrap;
   }
-
   function updatePriorityDots(container, priority) {
     container.querySelectorAll('.priority-dot').forEach((dot, i) => {
       dot.classList.toggle('filled', i + 1 <= priority);
@@ -671,7 +704,22 @@
     container.title = `Priority: ${priority}/5`;
   }
 
-  // ── Boot ───────────────────────────────────────────────────────────────────
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  async function loadLanguages() {
+    try {
+      const { languages: langs } = await fetch('/api/languages').then(r => r.json());
+      languages = langs;
+    } catch { languages = [{ code: 'yue', name: 'Cantonese', romanization: 'jyutping', logographic: true }]; }
+    langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
+  }
+
+  async function loadMe() {
+    try {
+      const me = await fetch('/api/me').then(r => r.json());
+      if (me.is_admin) document.getElementById('admin-link').style.display = '';
+    } catch {}
+  }
+
   async function loadSession(mode = 'due') {
     show('loading');
     if (isOnline) await syncPending();
@@ -727,7 +775,6 @@
           if (all.length === 0) {
             show('empty');
           } else {
-            // Show appropriate caught-up message
             const capReached = sessionStats.daily_new_used >= sessionStats.daily_new_limit;
             if (capReached && sessionStats.review_count === 0) {
               caughtupMsg.textContent = `Daily new card limit reached (${sessionStats.daily_new_limit}/day). Great work!`;
@@ -768,14 +815,13 @@
     return a;
   }
 
-  // ── Show / hide states ─────────────────────────────────────────────────────
   function show(state) {
     ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
   }
 
-  // ── Render card ────────────────────────────────────────────────────────────
+  // ── Render card ───────────────────────────────────────────────────────────
   function showCard() {
     if (idx >= queue.length) { finishSession(); return; }
     const item = queue[idx];
@@ -790,18 +836,24 @@
     document.getElementById('progress-label').textContent = `${done} / ${total}`;
     document.getElementById('progress-fill').style.width = `${(done / total) * 100}%`;
 
-    // NEW badge
     const isNew = !item.first_seen_date && item.repetitions === 0;
     document.getElementById('new-badge').style.display = isNew ? '' : 'none';
 
-    // Priority dots (display only)
+    const langCode = item.target_lang || 'yue';
+    const langTag = document.getElementById('card-lang-tag');
+    if (languages.length > 1) {
+      langTag.textContent = (langByCode[langCode] || {}).name || langCode;
+      langTag.style.display = '';
+    } else {
+      langTag.style.display = 'none';
+    }
+
     const dotsContainer = document.getElementById('card-priority-dots');
     dotsContainer.innerHTML = '';
     if (item.priority) {
       dotsContainer.appendChild(renderPriorityDots(item.priority, false, null));
     }
 
-    // Tutor flag button state
     const flagBtn = document.getElementById('tutor-flag-btn');
     flagBtn.classList.toggle('active', !!item.tutor_flag);
 
@@ -809,61 +861,71 @@
     promptEl.className = 'card-prompt-text';
     promptEl.innerHTML = '';
 
-    const labelMap = { english: 'English', chinese: 'Chinese', cantonese: 'Cantonese' };
-    document.getElementById('prompt-label').textContent = labelMap[item.face];
+    const labels = faceLabels(langCode);
+    document.getElementById('prompt-label').textContent = labels[item.face] || item.face;
 
-    if (item.face === 'english') {
+    if (item.face === 'source') {
       promptEl.classList.add('is-english');
-      promptEl.textContent = item.english;
-    } else if (item.face === 'chinese') {
-      promptEl.classList.add('is-chinese');
-      promptEl.textContent = item.chinese;
+      promptEl.textContent = item.source_text;
+    } else if (item.face === 'target') {
+      if (isLogographic(langCode)) promptEl.classList.add('is-chinese');
+      promptEl.textContent = item.target_text;
     } else {
+      // pronunciation face
       promptEl.classList.add('is-cantonese');
       const audioBtn = document.createElement('button');
       audioBtn.className = 'audio-btn';
       audioBtn.innerHTML = `${ICONS.volume} Play`;
       audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
-      const jyEl = document.createElement('div');
-      jyEl.className = 'jyutping-display';
-      jyEl.textContent = item.jyutping;
       promptEl.appendChild(audioBtn);
-      promptEl.appendChild(jyEl);
+      if (isLogographic(langCode) && item.romanization) {
+        const rEl = document.createElement('div');
+        rEl.className = 'jyutping-display';
+        rEl.textContent = item.romanization;
+        promptEl.appendChild(rEl);
+      }
     }
   }
 
-  // ── Reveal ─────────────────────────────────────────────────────────────────
+  // ── Reveal ────────────────────────────────────────────────────────────────
   function revealCard() {
     if (revealed) return;
     revealed = true;
     const item = queue[idx];
+    const langCode = item.target_lang || 'yue';
+    const labels = faceLabels(langCode);
+    const logographic = isLogographic(langCode);
     const answerEl = document.getElementById('card-answer');
     answerEl.innerHTML = '';
 
-    ['english', 'chinese', 'cantonese'].filter(f => f !== item.face).forEach(face => {
+    ['source', 'target', 'pronunciation'].filter(f => f !== item.face).forEach(face => {
       const row = document.createElement('div');
       row.className = 'answer-row';
       const label = document.createElement('div');
       label.className = 'answer-label';
-      if (face === 'english') {
-        label.textContent = 'English';
+      label.textContent = labels[face];
+      row.appendChild(label);
+      if (face === 'source') {
         const val = document.createElement('div');
-        val.className = 'answer-value'; val.textContent = item.english;
-        row.appendChild(label); row.appendChild(val);
-      } else if (face === 'chinese') {
-        label.textContent = 'Chinese';
+        val.className = 'answer-value'; val.textContent = item.source_text;
+        row.appendChild(val);
+      } else if (face === 'target') {
         const val = document.createElement('div');
-        val.className = 'answer-value chinese'; val.textContent = item.chinese;
-        row.appendChild(label); row.appendChild(val);
+        val.className = 'answer-value' + (logographic ? ' chinese' : '');
+        val.textContent = item.target_text;
+        row.appendChild(val);
       } else {
-        label.textContent = 'Cantonese';
-        const jyEl = document.createElement('div');
-        jyEl.className = 'answer-value jyutping'; jyEl.textContent = item.jyutping;
+        // pronunciation
+        if (logographic && item.romanization) {
+          const rEl = document.createElement('div');
+          rEl.className = 'answer-value jyutping'; rEl.textContent = item.romanization;
+          row.appendChild(rEl);
+        }
         const audioBtn = document.createElement('button');
         audioBtn.className = 'audio-btn'; audioBtn.style.marginTop = '6px';
         audioBtn.innerHTML = `${ICONS.volume} Play`;
         audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
-        row.appendChild(label); row.appendChild(jyEl); row.appendChild(audioBtn);
+        row.appendChild(audioBtn);
       }
       answerEl.appendChild(row);
     });
@@ -895,7 +957,7 @@
     document.getElementById('card-meta-actions').style.display = 'flex';
     updateMetaActions();
 
-    if (item.face !== 'cantonese') {
+    if (item.face !== 'pronunciation') {
       const dummyBtn = { classList: { add: () => {}, remove: () => {} } };
       setTimeout(() => playCardAudio(item.card_id, dummyBtn), 300);
     }
@@ -931,7 +993,7 @@
     } catch { showToast('Failed to update priority.'); }
   }
 
-  // ── Rate ───────────────────────────────────────────────────────────────────
+  // ── Rate ──────────────────────────────────────────────────────────────────
   async function rate(quality) {
     const item = queue[idx];
     if (isOnline) {
@@ -960,7 +1022,6 @@
       `You reviewed ${total} flashcard${total === 1 ? '' : 's'}. Great work!`;
   }
 
-  // ── Card meta-actions (tutor flag, reset, suspend) ─────────────────────────
   async function toggleTutorFlag() {
     const item = queue[idx];
     if (!item) return;
@@ -971,9 +1032,7 @@
         body: JSON.stringify({ flagged: newVal }),
       });
       if (!res.ok) throw new Error();
-      // Update all faces of this card in the queue
       queue.forEach(q => { if (q.card_id === item.card_id) q.tutor_flag = newVal ? 1 : 0; });
-      // Update the header flag button
       document.getElementById('tutor-flag-btn').classList.toggle('active', newVal);
       updateMetaActions();
       showToast(newVal ? 'Flagged for tutor review.' : 'Flag removed.');
@@ -987,7 +1046,6 @@
     try {
       const res = await fetch(`/api/cards/${item.card_id}/reset`, { method: 'POST' });
       if (!res.ok) throw new Error();
-      // Remove all faces of this card from the remaining queue
       const before = queue.length;
       queue = queue.filter((q, i) => !(q.card_id === item.card_id && i >= idx));
       total -= (before - queue.length);
@@ -1006,7 +1064,6 @@
         body: JSON.stringify({ suspended: true }),
       });
       if (!res.ok) throw new Error();
-      // Remove all faces of this card from the remaining queue
       const before = queue.length;
       queue = queue.filter((q, i) => !(q.card_id === item.card_id && i >= idx));
       total -= (before - queue.length);
@@ -1015,7 +1072,7 @@
     } catch { showToast('Failed to suspend card.'); }
   }
 
-  // ── Audio ──────────────────────────────────────────────────────────────────
+  // ── Audio ─────────────────────────────────────────────────────────────────
   function playCardAudio(cardId, btn) {
     stopAudio();
     currentAudio = new Audio(`/api/audio/${cardId}`);
@@ -1028,7 +1085,7 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // ── Browse all cards ───────────────────────────────────────────────────────
+  // ── Browse ────────────────────────────────────────────────────────────────
   async function showBrowse() {
     document.getElementById('browse-overlay').style.display = 'flex';
     const list = document.getElementById('card-list');
@@ -1055,6 +1112,11 @@
     item._priority = card.priority || 3;
     item._tutorFlag = !!card.tutor_flag;
     item._suspended = !!card.suspended;
+    item._targetLang = card.target_lang || 'yue';
+
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
+    const labels = faceLabels(langCode);
 
     const labelsHtml = (card.labels || []).map(l =>
       `<span class="label-chip-static">${escHtml(l.name)}</span>`
@@ -1062,20 +1124,29 @@
     const notesHtml = card.notes
       ? `<details class="card-list-notes"><summary>${ICONS.note} Note</summary><div>${escHtml(card.notes)}</div></details>`
       : '';
+    const langTagHtml = languages.length > 1
+      ? `<span class="lang-tag" style="margin-bottom:4px">${escHtml(labels.target)}</span>`
+      : '';
+    const romanRowHtml = (logographic && card.romanization)
+      ? `<div class="jyutping">${escHtml(card.romanization)}</div>` : '';
+    const romanInputHtml = logographic
+      ? `<input class="edit-input" id="edit-roman-${card.id}" value="${escAttr(card.romanization || '')}" placeholder="${escAttr(romanizationFieldLabel(langCode) || 'Romanization')}">`
+      : '';
 
     item.innerHTML = `
       <div class="card-display" id="display-${card.id}">
-        <div class="chinese">${escHtml(card.chinese)}</div>
-        <div class="jyutping">${escHtml(card.jyutping)}</div>
-        <div class="english">${escHtml(card.english)}</div>
+        ${langTagHtml}
+        <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
+        ${romanRowHtml}
+        <div class="english">${escHtml(card.source_text)}</div>
         <div class="card-list-meta" id="meta-${card.id}"></div>
         ${labelsHtml ? `<div class="card-list-labels">${labelsHtml}</div>` : ''}
         ${notesHtml}
       </div>
       <div class="card-edit-form" id="edit-form-${card.id}" style="display:none">
-        <input class="edit-input" id="edit-en-${card.id}" value="${escAttr(card.english)}" placeholder="English">
-        <input class="edit-input" id="edit-zh-${card.id}" value="${escAttr(card.chinese)}" placeholder="Chinese">
-        <input class="edit-input" id="edit-jy-${card.id}" value="${escAttr(card.jyutping)}" placeholder="Jyutping">
+        <input class="edit-input" id="edit-source-${card.id}" value="${escAttr(card.source_text)}" placeholder="English">
+        <input class="edit-input" id="edit-target-${card.id}" value="${escAttr(card.target_text)}" placeholder="${escAttr(labels.target)}">
+        ${romanInputHtml}
         <textarea class="edit-input" id="edit-notes-${card.id}" placeholder="Notes (optional)" rows="2">${escHtml(card.notes || '')}</textarea>
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
@@ -1101,7 +1172,6 @@
     if (!item || !metaEl) return;
     metaEl.innerHTML = '';
 
-    // Priority dots (interactive)
     const dots = renderPriorityDots(item._priority, true, async (level) => {
       try {
         const res = await fetch(`/api/cards/${cardId}/priority`, {
@@ -1111,9 +1181,7 @@
         if (!res.ok) throw new Error();
         item._priority = level;
         updatePriorityDots(dots, level);
-        // Patch queue if this card is in session
         queue.forEach(q => { if (q.card_id === cardId) q.priority = level; });
-        // Update review card dots if currently shown
         if (queue[idx] && queue[idx].card_id === cardId) {
           updatePriorityDots(document.getElementById('card-priority-dots').querySelector('.priority-dots'), level);
         }
@@ -1121,7 +1189,6 @@
     });
     metaEl.appendChild(dots);
 
-    // Tutor flag badge/toggle
     const flagBtn = document.createElement('button');
     flagBtn.className = 'meta-action-btn' + (item._tutorFlag ? ' active' : '');
     flagBtn.style.padding = '2px 8px';
@@ -1143,7 +1210,6 @@
     };
     metaEl.appendChild(flagBtn);
 
-    // Suspend toggle
     const suspendBtn = document.createElement('button');
     suspendBtn.className = 'meta-action-btn' + (item._suspended ? '' : ' danger');
     suspendBtn.style.padding = '2px 8px';
@@ -1167,7 +1233,6 @@
     };
     metaEl.appendChild(suspendBtn);
 
-    // Reset button
     const resetBtn = document.createElement('button');
     resetBtn.className = 'meta-action-btn danger';
     resetBtn.style.padding = '2px 8px';
@@ -1194,7 +1259,7 @@
     document.getElementById(`display-${id}`).style.display = 'none';
     document.getElementById(`actions-${id}`).style.display = 'none';
     document.getElementById(`edit-form-${id}`).style.display = 'block';
-    document.getElementById(`edit-en-${id}`).focus();
+    document.getElementById(`edit-source-${id}`).focus();
 
     const item = document.getElementById(`cli-${id}`);
     const pickerContainer = document.getElementById(`edit-labels-${id}`);
@@ -1218,53 +1283,63 @@
   }
 
   async function saveCard(id) {
-    const english  = document.getElementById(`edit-en-${id}`).value.trim();
-    const chinese  = document.getElementById(`edit-zh-${id}`).value.trim();
-    const jyutping = document.getElementById(`edit-jy-${id}`).value.trim();
-    const notes    = document.getElementById(`edit-notes-${id}`).value;
-    const item     = document.getElementById(`cli-${id}`);
+    const sourceText = document.getElementById(`edit-source-${id}`).value.trim();
+    const targetText = document.getElementById(`edit-target-${id}`).value.trim();
+    const romanEl = document.getElementById(`edit-roman-${id}`);
+    const romanization = romanEl ? romanEl.value.trim() : '';
+    const notes = document.getElementById(`edit-notes-${id}`).value;
+    const item = document.getElementById(`cli-${id}`);
     const labelIds = item._editPicker ? [...item._editPicker.getSelected()] : [];
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
 
-    if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
+    if (!sourceText || !targetText) { showToast('Source and target text are required.'); return; }
+    if (logographic && !romanization) { showToast('Romanization is required for this language.'); return; }
+
     const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
+        body: JSON.stringify({
+          source_text: sourceText,
+          target_text: targetText,
+          romanization: romanization,
+          notes,
+          label_ids: labelIds,
+        }),
       });
       if (!res.ok) throw new Error();
 
       const display = document.getElementById(`display-${id}`);
-      display.querySelector('.chinese').textContent = chinese;
-      display.querySelector('.jyutping').textContent = jyutping;
-      display.querySelector('.english').textContent = english;
-      const oldLabels = display.querySelector('.card-list-labels');
-      if (oldLabels) oldLabels.remove();
-      const oldNotes = display.querySelector('.card-list-notes');
-      if (oldNotes) oldNotes.remove();
-      const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
-      if (selectedLabels.length) {
-        const row = document.createElement('div');
-        row.className = 'card-list-labels';
-        selectedLabels.forEach(l => {
-          const chip = document.createElement('span');
-          chip.className = 'label-chip-static'; chip.textContent = l.name;
-          row.appendChild(chip);
-        });
-        display.appendChild(row);
-      }
-      if (notes && notes.trim()) {
-        const det = document.createElement('details');
-        det.className = 'card-list-notes';
-        det.innerHTML = `<summary>${ICONS.note} Note</summary><div>${escHtml(notes)}</div>`;
-        display.appendChild(det);
-      }
-      item._cardLabelIds = labelIds;
-      cancelEdit(id);
+      const targetEl = display.querySelector(logographic ? '.chinese' : 'div:not(.lang-tag):not(.english):not(.jyutping):not(.card-list-meta):not(.card-list-labels)');
+      // Easier: re-render the card item entirely from new data.
+      const cardData = {
+        id,
+        source_text: sourceText,
+        target_text: targetText,
+        romanization,
+        notes,
+        priority: item._priority,
+        tutor_flag: item._tutorFlag ? 1 : 0,
+        suspended: item._suspended ? 1 : 0,
+        target_lang: langCode,
+        labels: allLabels.filter(l => labelIds.includes(l.id)),
+      };
+      const parent = item.parentNode;
+      const next = item.nextSibling;
+      item.remove();
+      const tmp = document.createElement('div');
+      renderCardListItem(cardData, tmp);
+      const newItem = tmp.firstElementChild;
+      parent.insertBefore(newItem, next);
+
       showToast('Card updated.');
       queue.forEach(q => {
-        if (q.card_id === id) { q.english = english; q.chinese = chinese; q.jyutping = jyutping; q.notes = notes; q.labels = selectedLabels; }
+        if (q.card_id === id) {
+          q.source_text = sourceText; q.target_text = targetText; q.romanization = romanization;
+          q.notes = notes; q.labels = cardData.labels;
+        }
       });
       loadLabels();
     } catch { showToast('Failed to save card.'); }
@@ -1291,7 +1366,7 @@
     loadLabels();
   }
 
-  // ── Manage labels modal ────────────────────────────────────────────────────
+  // ── Manage labels modal ───────────────────────────────────────────────────
   async function showManageLabels() {
     await loadLabels();
     document.getElementById('labels-overlay').style.display = 'flex';
@@ -1371,19 +1446,32 @@
       document.getElementById('labels-overlay').style.display = 'none';
   }
 
-  // ── Toast ──────────────────────────────────────────────────────────────────
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
-  // ── Inline card edit (review) ──────────────────────────────────────────────
+  // ── Inline card edit (review) ─────────────────────────────────────────────
   function startInlineEdit() {
     const item = queue[idx];
-    document.getElementById('inline-en').value    = item.english;
-    document.getElementById('inline-zh').value    = item.chinese;
-    document.getElementById('inline-jy').value    = item.jyutping;
+    const langCode = item.target_lang || 'yue';
+    const logographic = isLogographic(langCode);
+    const labels = faceLabels(langCode);
+
+    document.getElementById('inline-source').value = item.source_text || '';
+    document.getElementById('inline-target').value = item.target_text || '';
+    document.getElementById('inline-target').placeholder = labels.target;
+    document.getElementById('inline-target').style.fontFamily = logographic ? 'var(--chinese-font)' : 'inherit';
+    const romanEl = document.getElementById('inline-roman');
+    if (logographic) {
+      romanEl.style.display = '';
+      romanEl.value = item.romanization || '';
+      romanEl.placeholder = romanizationFieldLabel(langCode) || 'Romanization';
+    } else {
+      romanEl.style.display = 'none';
+      romanEl.value = '';
+    }
     document.getElementById('inline-notes').value = item.notes || '';
 
     const pickerContainer = document.getElementById('inline-label-picker');
@@ -1394,7 +1482,7 @@
       allowCreate: true,
       mode: 'multi',
       placeholder: 'Add label…',
-      onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(labels); },
+      onLabelsRefreshed: lbls => { allLabels = lbls; if (filterPicker) filterPicker.setLabels(lbls); },
     });
 
     document.getElementById('prompt-text').style.display    = 'none';
@@ -1402,29 +1490,43 @@
     document.getElementById('pre-reveal').style.display     = 'none';
     document.getElementById('post-reveal').style.display    = 'none';
     document.getElementById('card-inline-edit').style.display = 'flex';
-    document.getElementById('inline-en').focus();
+    document.getElementById('inline-source').focus();
   }
 
   async function saveInlineEdit() {
-    const item     = queue[idx];
-    const english  = document.getElementById('inline-en').value.trim();
-    const chinese  = document.getElementById('inline-zh').value.trim();
-    const jyutping = document.getElementById('inline-jy').value.trim();
-    const notes    = document.getElementById('inline-notes').value;
+    const item = queue[idx];
+    const langCode = item.target_lang || 'yue';
+    const logographic = isLogographic(langCode);
+
+    const sourceText = document.getElementById('inline-source').value.trim();
+    const targetText = document.getElementById('inline-target').value.trim();
+    const romanization = logographic ? document.getElementById('inline-roman').value.trim() : '';
+    const notes = document.getElementById('inline-notes').value;
     const labelIds = inlinePicker ? [...inlinePicker.getSelected()] : [];
-    if (!english || !chinese || !jyutping) { showToast('English, Chinese, and Jyutping are required.'); return; }
+
+    if (!sourceText || !targetText) { showToast('Source and target text are required.'); return; }
+    if (logographic && !romanization) { showToast('Romanization is required.'); return; }
 
     const btn = document.querySelector('#card-inline-edit .edit-save-btn');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await fetch(`/api/cards/${item.card_id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ english, chinese, jyutping, notes, label_ids: labelIds }),
+        body: JSON.stringify({
+          source_text: sourceText,
+          target_text: targetText,
+          romanization,
+          notes,
+          label_ids: labelIds,
+        }),
       });
       if (!res.ok) throw new Error();
       const selectedLabels = allLabels.filter(l => labelIds.includes(l.id));
       queue.forEach(q => {
-        if (q.card_id === item.card_id) { q.english = english; q.chinese = chinese; q.jyutping = jyutping; q.notes = notes; q.labels = selectedLabels; }
+        if (q.card_id === item.card_id) {
+          q.source_text = sourceText; q.target_text = targetText; q.romanization = romanization;
+          q.notes = notes; q.labels = selectedLabels;
+        }
       });
       cancelInlineEdit();
       showToast('Card updated.');
@@ -1444,9 +1546,10 @@
     } else {
       document.getElementById('pre-reveal').style.display = '';
     }
+    // Re-render so the visible side reflects updated values.
+    showCard();
   }
 
-  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (document.getElementById('browse-overlay').style.display !== 'none') return;
     if (document.getElementById('labels-overlay').style.display !== 'none') return;
@@ -1467,7 +1570,11 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  (async () => { await Promise.all([loadLabels(), loadSettings()]); loadSession(); })();
+  (async () => {
+    await loadLanguages();
+    await Promise.all([loadLabels(), loadSettings(), loadMe()]);
+    loadSession();
+  })();
 </script>
 </body>
 </html>

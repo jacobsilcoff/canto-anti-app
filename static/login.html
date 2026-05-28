@@ -40,7 +40,7 @@
       text-align: center;
       letter-spacing: -0.01em;
     }
-    .login-card input[type=password] {
+    .login-card input {
       width: 100%;
       padding: 12px 14px;
       border: 1px solid var(--border);
@@ -50,7 +50,7 @@
       color: var(--text);
       outline: none;
     }
-    .login-card input[type=password]:focus { border-color: var(--primary); }
+    .login-card input:focus { border-color: var(--primary); }
     .login-error { color: var(--again); font-size: 0.87rem; text-align: center; display: none; }
   </style>
 </head>
@@ -61,17 +61,20 @@
 <div class="login-wrap">
   <form class="login-card" onsubmit="doLogin(event)">
     <h2>Welcome back</h2>
-    <input type="password" id="pw" placeholder="Password" autocomplete="current-password" autofocus>
+    <input type="text" id="username" placeholder="Username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
     <button class="translate-btn" type="submit" id="login-btn">Sign in</button>
-    <div class="login-error" id="login-error">Wrong password — try again.</div>
+    <div class="login-error" id="login-error">Wrong username or password — try again.</div>
   </form>
 </div>
 <script>
   async function doLogin(e) {
     e.preventDefault();
+    const username = document.getElementById('username').value.trim();
     const pw = document.getElementById('pw').value;
     const btn = document.getElementById('login-btn');
     const err = document.getElementById('login-error');
+    if (!username || !pw) return;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
     err.style.display = 'none';
@@ -79,7 +82,7 @@
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw }),
+        body: JSON.stringify({ username, password: pw }),
       });
       if (res.ok) {
         window.location.replace('/cards');

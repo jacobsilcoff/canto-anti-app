@@ -18,6 +18,72 @@ def _get_client():
 _MODEL = "gemini-2.5-flash-lite"
 
 
+# Per-language config. Each entry describes the human-readable name shown in prompts,
+# the romanization scheme (or None for Latin-script), and any rule reminders Gemini
+# needs to produce authentic output.
+LANG_INFO = {
+    "yue": {
+        "name": "Hong Kong Cantonese",
+        "script": "Traditional Chinese characters",
+        "romanization": "jyutping",
+        "frequency_examples": (
+            "5 = extremely common (particles like 係/唔/喺, numbers, greetings, basic verbs/nouns), "
+            "4 = common (food, family, shopping, transport), "
+            "3 = intermediate (work, hobbies, casual conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": (
+            "- Use Traditional Chinese characters with authentic Cantonese vocabulary "
+            "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
+            "- Provide jyutping romanisation (e.g. nei5 hou2 aa3)"
+        ),
+    },
+    "cmn": {
+        "name": "Mandarin Chinese",
+        "script": "Simplified Chinese characters",
+        "romanization": "pinyin",
+        "frequency_examples": (
+            "5 = extremely common (basic particles, numbers, greetings, daily verbs/nouns), "
+            "4 = common (food, family, shopping, transport), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": (
+            "- Use Simplified Chinese characters with standard Mandarin vocabulary\n"
+            "- Provide pinyin romanisation with tone numbers (e.g. ni3 hao3)"
+        ),
+    },
+    "fr": {
+        "name": "French",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard European French (France) with correct accents and grammar",
+    },
+    "es": {
+        "name": "Spanish",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use neutral Latin American Spanish unless context says otherwise",
+    },
+}
+
+
 def _call(prompt: str) -> str:
     delays = [1, 3]
     for attempt, delay in enumerate([0] + delays):
@@ -48,43 +114,56 @@ def _context_block(context: str) -> str:
     )
 
 
-def _translate_en_to_yue(text: str, context: str = "") -> dict:
-    prompt = (
-        "Translate the following English text into Hong Kong Cantonese.\n"
+def _candidate_schema(roman_field: str | None, include_romanization: bool) -> str:
+    fields = ['"target_text": "..."']
+    if include_romanization and roman_field:
+        fields.append(f'"romanization": "..."  // {roman_field}')
+    fields.append('"notes": "..." // 1-2 sentences: usage, register, cultural context, common pitfalls. Empty string if no useful note.')
+    return "{ " + ", ".join(fields) + " }"
+
+
+def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: str) -> str:
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    rom = info["romanization"]
+    rules = info["rules"]
+    freq = info["frequency_examples"]
+
+    if source_is_target:
+        direction = f"Translate the following {name} text into natural English."
+        input_label = name
+    else:
+        direction = f"Translate the following English text into {name}."
+        input_label = "English"
+
+    candidate_obj = ['"target_text": "..."']
+    if rom:
+        candidate_obj.append(f'"romanization": "..."  // {rom}')
+    candidate_obj.append('"english": "..."  // the English translation')
+    candidate_fields = "{ " + ", ".join(candidate_obj) + " }"
+
+    return (
+        f"{direction}\n"
         "Rules:\n"
-        "- Use Traditional Chinese characters with authentic Cantonese vocabulary "
-        "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
-        "- Provide jyutping romanisation for the Chinese output (e.g. nei5 hou2 aa3)\n"
-        '- Include "priority": 1-5 based on vocabulary frequency in everyday HK Cantonese: '
-        "5 = extremely common (particles like 係/唔/喺, numbers, greetings, basic verbs/nouns used daily), "
-        "4 = common (food, family, shopping, transport), "
-        "3 = intermediate (work, hobbies, casual conversation), "
-        "2 = less common (formal register, specific topics), "
-        "1 = rare or advanced (literary, specialised, uncommon)\n"
+        f"{rules}\n"
+        f"- Provide a 1–2 sentence usage note when helpful (register, cultural context, "
+        f"common collocations, common pitfalls). Empty string if not useful.\n"
+        f"- If the input is ambiguous and could reasonably be translated more than one way, "
+        f'include up to 3 "candidates" with brief disambiguation labels. If the input is unambiguous, '
+        f'return a single candidate.\n'
+        f'- Include "priority" 1–5 based on vocabulary frequency in everyday {name}: '
+        f"{freq}\n"
         "Return ONLY valid JSON in this exact format, no other text:\n"
-        '{"chinese": "...", "jyutping": "...", "priority": 3}\n'
+        "{\n"
+        f'  "candidates": [\n'
+        f"    {{ {', '.join(candidate_obj)}, \"label\": \"...\"  // short disambiguation hint, may be empty if single candidate }}\n"
+        f"  ],\n"
+        '  "notes": "...",\n'
+        '  "priority": 3\n'
+        "}\n"
         f"{_context_block(context)}\n"
-        f"English: {text}"
+        f"{input_label}: {text}"
     )
-    return _parse_json(_call(prompt))
-
-
-def _translate_yue_to_en(text: str, context: str = "") -> dict:
-    prompt = (
-        "Translate the following Hong Kong Cantonese text into natural English.\n"
-        "Also provide the jyutping romanisation of the Cantonese input.\n"
-        '- Include "priority": 1-5 based on vocabulary frequency in everyday HK Cantonese: '
-        "5 = extremely common (particles like 係/唔/喺, numbers, greetings, basic verbs/nouns used daily), "
-        "4 = common (food, family, shopping, transport), "
-        "3 = intermediate (work, hobbies, casual conversation), "
-        "2 = less common (formal register, specific topics), "
-        "1 = rare or advanced (literary, specialised, uncommon)\n"
-        "Return ONLY valid JSON in this exact format, no other text:\n"
-        '{"english": "...", "jyutping": "...", "priority": 3}\n'
-        f"{_context_block(context)}\n"
-        f"Cantonese: {text}"
-    )
-    return _parse_json(_call(prompt))
 
 
 def _safe_priority(raw) -> int:
@@ -94,20 +173,56 @@ def _safe_priority(raw) -> int:
         return 3
 
 
-async def translate(text: str, source_lang: str, context: str = "") -> dict:
-    if source_lang == "english":
-        result = await asyncio.to_thread(_translate_en_to_yue, text, context)
-        return {
-            "english": text,
-            "chinese": result["chinese"].strip(),
-            "jyutping": result.get("jyutping", "").strip(),
-            "priority": _safe_priority(result.get("priority", 3)),
+def _strip(s) -> str:
+    return (s or "").strip() if isinstance(s, str) else ""
+
+
+def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
+    candidates_raw = raw.get("candidates") or []
+    candidates = []
+    for c in candidates_raw:
+        if not isinstance(c, dict):
+            continue
+        candidate = {
+            "target_text": _strip(c.get("target_text")),
+            "english": _strip(c.get("english")) or (text if source_is_target is False else ""),
+            "romanization": _strip(c.get("romanization")),
+            "label": _strip(c.get("label")),
         }
-    else:
-        result = await asyncio.to_thread(_translate_yue_to_en, text, context)
-        return {
-            "english": result["english"].strip(),
-            "chinese": text,
-            "jyutping": result.get("jyutping", "").strip(),
-            "priority": _safe_priority(result.get("priority", 3)),
+        # If translating from target → English, the user-provided text IS the target_text.
+        if source_is_target:
+            candidate["target_text"] = candidate["target_text"] or text
+        else:
+            candidate["english"] = candidate["english"] or text
+        if candidate["target_text"] and candidate["english"]:
+            candidates.append(candidate)
+
+    if not candidates:
+        # Fall back to legacy single-translation shape so we never produce zero candidates.
+        single = {
+            "target_text": _strip(raw.get("target_text")) or (text if source_is_target else ""),
+            "english": _strip(raw.get("english")) or (text if not source_is_target else ""),
+            "romanization": _strip(raw.get("romanization")),
+            "label": "",
         }
+        candidates = [single]
+
+    return {
+        "candidates": candidates,
+        "notes": _strip(raw.get("notes")),
+        "priority": _safe_priority(raw.get("priority", 3)),
+    }
+
+
+async def translate(text: str, target_lang: str, source_is_target: bool, context: str = "") -> dict:
+    """Translate text. source_is_target=True means the user typed in target_lang and
+    wants an English translation; False means the user typed English and wants target_lang.
+
+    Returns: { candidates: [{target_text, english, romanization, label}], notes, priority }
+    Always at least one candidate. UI shows a picker if >1.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = _build_prompt(text, target_lang, source_is_target, context)
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt)))
+    return _parse_response(raw, text, source_is_target)

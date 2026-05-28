@@ -1,11 +1,21 @@
 import io
 import edge_tts
 
-VOICE = "zh-HK-HiuMaanNeural"
+VOICES = {
+    "yue": "zh-HK-HiuMaanNeural",
+    "cmn": "zh-CN-XiaoxiaoNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "es": "es-ES-ElviraNeural",
+    "en": "en-US-AriaNeural",
+}
 
 
-async def generate(chinese_text: str) -> bytes:
-    communicate = edge_tts.Communicate(chinese_text, VOICE)
+def voice_for(lang: str) -> str:
+    return VOICES.get(lang, VOICES["yue"])
+
+
+async def generate(text: str, lang: str = "yue") -> bytes:
+    communicate = edge_tts.Communicate(text, voice_for(lang))
     buf = io.BytesIO()
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":

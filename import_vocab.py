@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-Import extracted_vocab.json into the cards DB.
+Import extracted_vocab.json into the cards DB for a given user.
 
-- Skips exact duplicates (same Chinese text already in DB).
+- Skips exact duplicates (same Chinese text already in that user's deck).
 - Fills missing jyutping via Gemini (batched, 20 words per call).
-- Updates existing cards that have blank jyutping.
+- Updates existing cards that have blank romanization.
 
 Usage:
-    python import_vocab.py [--dry-run]
+    python import_vocab.py --user <username> [--dry-run]
 """
+import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -20,10 +22,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import auth
 import db
 import translation as tl
 
-DRY_RUN = "--dry-run" in sys.argv
 JYUTPING_BATCH = 20   # words per Gemini call
 
 
@@ -72,13 +74,24 @@ def build_jyutping_map(missing: list[str]) -> dict[str, str]:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def main():
+async def main(username: str, dry_run: bool):
     await db.init()
+    bootstrap_password = os.getenv("APP_PASSWORD")
+    if bootstrap_password:
+        await db.bootstrap_admin(
+            os.getenv("APP_ADMIN_USERNAME", "jsilcoff"),
+            auth.hash_password(bootstrap_password),
+        )
+
+    user = await db.get_user_by_username(username)
+    if not user:
+        print(f"User '{username}' not found. Create it via the admin UI first.")
+        sys.exit(1)
+    user_id = user["id"]
 
     vocab = json.loads(Path("extracted_vocab.json").read_text())
-    print(f"{'[DRY RUN] ' if DRY_RUN else ''}Loaded {len(vocab)} entries.\n")
+    print(f"{'[DRY RUN] ' if dry_run else ''}Loaded {len(vocab)} entries for user '{username}'.\n")
 
-    # ── Step 1: Pre-fetch jyutping for all entries that need it ───────────────
     needs_jyutping = [
         e["foreign"].strip()
         for e in vocab
@@ -87,24 +100,25 @@ async def main():
     jyutping_map: dict[str, str] = {}
     if needs_jyutping:
         print(f"Fetching jyutping for {len(needs_jyutping)} entries via Gemini…")
-        if not DRY_RUN:
+        if not dry_run:
             jyutping_map = build_jyutping_map(needs_jyutping)
         else:
             print("  (skipped in dry-run)")
         print()
 
-    # ── Step 2: Load existing DB state ───────────────────────────────────────
     async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        async with conn.execute("SELECT id, chinese, jyutping FROM cards") as cur:
+        async with conn.execute(
+            "SELECT id, target_text, romanization FROM cards WHERE user_id=?",
+            (user_id,),
+        ) as cur:
             existing_rows = await cur.fetchall()
 
     existing: dict[str, dict] = {
-        row["chinese"]: {"id": row["id"], "jyutping": row["jyutping"]}
+        row["target_text"]: {"id": row["id"], "romanization": row["romanization"]}
         for row in existing_rows
     }
 
-    # ── Step 3: Import / update ───────────────────────────────────────────────
     imported = updated_jy = skipped = errors = 0
 
     for i, entry in enumerate(vocab, 1):
@@ -118,34 +132,34 @@ async def main():
             continue
 
         if chinese in existing:
-            existing_jy = (existing[chinese]["jyutping"] or "").strip()
+            existing_jy = (existing[chinese]["romanization"] or "").strip()
             if not existing_jy and jyutping:
-                # Patch blank jyutping on existing card
-                if not DRY_RUN:
+                if not dry_run:
                     async with aiosqlite.connect(db.DB_PATH) as conn:
                         await conn.execute(
-                            "UPDATE cards SET jyutping=? WHERE id=?",
+                            "UPDATE cards SET romanization=? WHERE id=?",
                             (jyutping, existing[chinese]["id"]),
                         )
                         await conn.commit()
-                print(f"[{i:4}/{len(vocab)}] PATCH jyutping       {chinese} → {jyutping}")
+                print(f"[{i:4}/{len(vocab)}] PATCH romanization   {chinese} → {jyutping}")
                 updated_jy += 1
             else:
                 skipped += 1
             continue
 
-        # New card
-        if DRY_RUN:
+        if dry_run:
             print(f"[{i:4}/{len(vocab)}] WOULD import         {chinese} — {english}")
             imported += 1
             continue
 
         try:
             card_id = await db.create_card(
-                english=english,
-                chinese=chinese,
-                jyutping=jyutping,
-                audio_data=None,  # generated lazily on first play
+                user_id=user_id,
+                source_text=english,
+                target_text=chinese,
+                romanization=jyutping,
+                target_lang="yue",
+                audio_data=None,
             )
             print(f"[{i:4}/{len(vocab)}] OK    id={card_id:<6}     {chinese} — {english}")
             imported += 1
@@ -153,9 +167,13 @@ async def main():
             print(f"[{i:4}/{len(vocab)}] ERROR               {chinese}: {exc}")
             errors += 1
 
-    print(f"\nDone — imported: {imported}, jyutping patched: {updated_jy}, "
+    print(f"\nDone — imported: {imported}, romanization patched: {updated_jy}, "
           f"skipped: {skipped}, errors: {errors}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--user", required=True, help="Username to import cards into")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+    asyncio.run(main(args.user, args.dry_run))

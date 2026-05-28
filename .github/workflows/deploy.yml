@@ -8,6 +8,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Write .env to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cat > ~/canto-anti-app/.env <<'EOF'
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
+            APP_ADMIN_USERNAME=${{ secrets.APP_ADMIN_USERNAME }}
+            DOMAIN=${{ secrets.DOMAIN }}
+            DB_PATH=data/cards.db
+            EOF
+
       - name: Deploy to Oracle VM
         uses: appleboy/ssh-action@v1
         with:

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Admin</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .admin-page { max-width: 700px; margin: 0 auto; padding: 16px; }
+    .admin-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .admin-section h2 { font-size: 1rem; margin-bottom: 12px; font-weight: 600; }
+    .user-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .user-row:last-child { border-bottom: none; }
+    .user-name { font-weight: 500; }
+    .user-name .admin-tag {
+      display: inline-block;
+      background: #e8f0fe;
+      color: var(--primary);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 1px 6px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .user-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .admin-action-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
+    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: #fdecea; }
+    .create-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+    @media (max-width: 600px) {
+      .create-form { grid-template-columns: 1fr; }
+      .user-row { grid-template-columns: 1fr; gap: 4px; }
+    }
+    .create-form input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .create-form input:focus { border-color: var(--primary); }
+    .create-form label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>{{APP_NAME_HTML}}</h1>
+  <nav style="display:flex;gap:4px;align-items:center">
+    <a href="/cards" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Flashcards
+    </a>
+  </nav>
+</header>
+
+<main class="admin-page">
+  <div class="admin-section">
+    <h2>Create user</h2>
+    <form class="create-form" onsubmit="createUser(event)">
+      <input type="text" id="new-username" placeholder="Username" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input type="password" id="new-password" placeholder="Password (min 6 chars)">
+      <label><input type="checkbox" id="new-admin"> Admin</label>
+      <button class="translate-btn" type="submit">Create</button>
+    </form>
+  </div>
+
+  <div class="admin-section">
+    <h2>Users</h2>
+    <div id="user-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function loadUsers() {
+    const list = document.getElementById('user-list');
+    list.innerHTML = '<p style="color:var(--text-muted);padding:12px">Loading…</p>';
+    try {
+      const { users } = await fetch('/api/admin/users').then(r => r.json());
+      if (!users.length) {
+        list.innerHTML = '<p style="color:var(--text-muted);padding:12px">No users.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      users.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'user-row';
+        row.innerHTML = `
+          <div>
+            <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
+            <div class="user-meta">Created ${escHtml(u.created_at || '')}</div>
+          </div>
+          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Reset password</button>
+          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Delete</button>
+        `;
+        list.appendChild(row);
+      });
+    } catch {
+      list.innerHTML = '<p style="color:var(--again);padding:12px">Failed to load users.</p>';
+    }
+  }
+
+  async function createUser(e) {
+    e.preventDefault();
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value;
+    const isAdmin = document.getElementById('new-admin').checked;
+    if (!username || !password) { showToast('Username and password required.'); return; }
+    if (password.length < 6) { showToast('Password must be at least 6 characters.'); return; }
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, is_admin: isAdmin }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json()).detail || 'Failed to create user.';
+        showToast(msg);
+        return;
+      }
+      document.getElementById('new-username').value = '';
+      document.getElementById('new-password').value = '';
+      document.getElementById('new-admin').checked = false;
+      showToast('User created.');
+      loadUsers();
+    } catch {
+      showToast('Network error.');
+    }
+  }
+
+  async function resetPassword(userId, username) {
+    const pw = prompt(`New password for ${username} (min 6 characters):`);
+    if (!pw) return;
+    if (pw.length < 6) { showToast('Password must be at least 6 characters.'); return; }
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('Password reset.');
+    } catch { showToast('Failed to reset password.'); }
+  }
+
+  async function deleteUser(userId, username) {
+    if (!confirm(`Delete user "${username}" and ALL their cards, labels, and settings? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const msg = (await res.json()).detail || 'Failed to delete user.';
+        showToast(msg);
+        return;
+      }
+      showToast('User deleted.');
+      loadUsers();
+    } catch { showToast('Network error.'); }
+  }
+
+  loadUsers();
+</script>
+</body>
+</html>
