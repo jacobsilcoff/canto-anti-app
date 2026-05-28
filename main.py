@@ -216,7 +216,6 @@ async def translate_endpoint(req: TranslateRequest, user: dict = Depends(current
     return {
         "target_lang": req.target_lang,
         "candidates": result["candidates"],
-        "notes": result["notes"],
         "priority": result["priority"],
     }
 
