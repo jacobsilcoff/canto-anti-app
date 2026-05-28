@@ -7,3 +7,5 @@ python-multipart>=0.0.9
 google-genai>=1.0.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+pycantonese>=3.5.0
+jieba>=0.42.1

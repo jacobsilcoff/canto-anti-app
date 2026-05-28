@@ -158,6 +158,19 @@ async def init():
             )
         """)
 
+        # Reader texts: AI-generated texts saved for re-reading.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS reader_texts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                content TEXT NOT NULL,
+                target_lang TEXT NOT NULL DEFAULT 'yue',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -762,3 +775,79 @@ async def delete_label(user_id: int, label_id: int):
         await db.execute("DELETE FROM card_labels WHERE label_id=?", (label_id,))
         await db.execute("DELETE FROM labels WHERE id=?", (label_id,))
         await db.commit()
+
+
+# ── Reader texts ──────────────────────────────────────────────────────────────
+
+async def create_reader_text(
+    user_id: int, title: str, prompt: str, content: str, target_lang: str
+) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO reader_texts (user_id, title, prompt, content, target_lang)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, title, prompt, content, target_lang),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def list_reader_texts(user_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, prompt, target_lang, created_at
+               FROM reader_texts WHERE user_id=? ORDER BY created_at DESC""",
+            (user_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_reader_text(user_id: int, text_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, prompt, content, target_lang, created_at
+               FROM reader_texts WHERE id=? AND user_id=?""",
+            (text_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def delete_reader_text(user_id: int, text_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
+        )
+        await db.commit()
+
+
+async def get_word_statuses(user_id: int, words: list[str], target_lang: str) -> dict[str, str]:
+    """Return a mapping of word → 'known' | 'weak' | 'new' for the given word list."""
+    if not words:
+        return {}
+    unique = list(set(words))
+    placeholders = ",".join("?" * len(unique))
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""SELECT c.target_text,
+                       MAX(cf.repetitions) AS max_reps,
+                       MIN(cf.ease_factor) AS min_ease
+                FROM cards c
+                JOIN card_faces cf ON cf.card_id = c.id
+                WHERE c.user_id = ? AND c.target_lang = ?
+                  AND c.target_text IN ({placeholders})
+                GROUP BY c.target_text""",
+            (user_id, target_lang) + tuple(unique),
+        ) as cur:
+            rows = await cur.fetchall()
+
+    result: dict[str, str] = {}
+    for r in rows:
+        if r["max_reps"] >= 2 and r["min_ease"] >= 2.0:
+            result[r["target_text"]] = "known"
+        else:
+            result[r["target_text"]] = "weak"
+    return result

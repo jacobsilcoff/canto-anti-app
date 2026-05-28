@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Reader</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reader layout ── */
+    .reader-page { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+
+    /* Generate form */
+    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; }
+    .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; color: var(--text); }
+    .gen-row { display: flex; gap: 8px; align-items: flex-end; }
+    .gen-prompt-wrap { flex: 1; }
+    .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 56px; }
+    .gen-prompt-wrap textarea:focus { outline: none; border-color: var(--primary); }
+    .gen-lang-btn { border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 8px 14px; font-size: 0.88rem; cursor: pointer; white-space: nowrap; }
+    .gen-lang-btn:hover { border-color: var(--primary); }
+    .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
+    .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
+    .gen-lang-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .gen-lang-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem; cursor: pointer; }
+    .gen-lang-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* Saved texts list */
+    .saved-section { margin-bottom: 24px; }
+    .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
+    .saved-list { display: flex; flex-direction: column; gap: 6px; }
+    .saved-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .saved-item:hover { border-color: var(--primary); }
+    .saved-item-info { flex: 1; min-width: 0; }
+    .saved-item-title { font-weight: 600; font-size: 0.95rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .saved-item-meta { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
+    .saved-item-delete { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px; border-radius: 6px; flex-shrink: 0; }
+    .saved-item-delete:hover { color: #e53e3e; background: rgba(229,62,62,.08); }
+
+    /* Reader view */
+    .reader-view { display: none; }
+    .reader-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; }
+    .reader-back-btn:hover { border-color: var(--primary); }
+    .reader-title { font-size: 1.1rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Legend */
+    .reader-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.8rem; color: var(--text-muted, #888); }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .legend-dot.known { background: #22c55e; }
+    .legend-dot.weak   { background: #f59e0b; }
+    .legend-dot.new    { background: #64748b; }
+
+    /* Text body */
+    .reader-text { font-size: 1.35rem; line-height: 2.1; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
+    .token { cursor: default; }
+    .token.word { cursor: pointer; border-radius: 3px; padding: 0 1px; }
+    .token.word:hover { background: rgba(99,102,241,.12); }
+    .token.word.known { color: #16a34a; }
+    .token.word.weak  { color: #b45309; }
+    .token.word.new   { color: var(--text); opacity: 0.65; }
+    .token.word.active { background: rgba(99,102,241,.2); outline: 1px solid var(--primary); }
+
+    /* Word popup */
+    .word-popup { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; padding: 20px 20px 32px; z-index: 100; box-shadow: 0 -6px 30px rgba(0,0,0,.12); transform: translateY(100%); transition: transform 0.22s ease; max-height: 55vh; overflow-y: auto; }
+    .word-popup.open { transform: translateY(0); }
+    .popup-drag { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 16px; }
+    .popup-word { font-size: 1.9rem; font-weight: 700; font-family: 'Noto Sans TC', sans-serif; color: var(--text); margin-bottom: 4px; }
+    .popup-rom  { font-size: 1rem; color: var(--text-muted, #888); margin-bottom: 8px; }
+    .popup-eng  { font-size: 1rem; color: var(--text); margin-bottom: 10px; }
+    .popup-notes { font-size: 0.85rem; color: var(--text-muted, #888); border-left: 3px solid var(--border); padding-left: 10px; margin-bottom: 12px; }
+    .popup-status-badge { display: inline-block; font-size: 0.75rem; padding: 2px 9px; border-radius: 10px; margin-bottom: 14px; font-weight: 600; }
+    .popup-status-badge.known { background: #dcfce7; color: #166534; }
+    .popup-status-badge.weak  { background: #fef3c7; color: #92400e; }
+    .popup-status-badge.new   { background: #f1f5f9; color: #475569; }
+    .popup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .popup-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+    .popup-add-btn:disabled { opacity: 0.5; cursor: default; }
+    .popup-add-btn.added { background: #22c55e; }
+    .popup-flag-btn { background: none; border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; font-size: 0.88rem; color: var(--text-muted, #888); cursor: pointer; }
+    .popup-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
+    .popup-close-btn { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px 8px; font-size: 0.88rem; margin-left: auto; }
+    .popup-loading { color: var(--text-muted, #aaa); font-size: 0.95rem; padding: 8px 0; }
+    .popup-error { color: #e53e3e; font-size: 0.88rem; }
+
+    /* Overlay */
+    .popup-overlay { display: none; position: fixed; inset: 0; z-index: 99; }
+    .popup-overlay.open { display: block; }
+
+    @media (min-width: 600px) {
+      .word-popup { bottom: auto; top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%) scale(0.95); opacity: 0; border-radius: 14px; border: 1px solid var(--border); width: 380px; max-height: 70vh; transition: transform 0.18s ease, opacity 0.18s ease; }
+      .word-popup.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      .popup-drag { display: none; }
+    }
+
+    .gen-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>{{APP_NAME_HTML}}</h1>
+  <!-- Desktop nav -->
+  <nav class="nav-desktop">
+    <a href="/" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Translate
+    </a>
+    <a href="/cards" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      Flashcards
+    </a>
+    <a href="/reader" class="nav-link" style="color:var(--primary)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Reader
+    </a>
+    <a href="/admin" class="nav-link admin-link" style="display:none">Admin</a>
+    <button class="nav-link" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">Sign out</button>
+  </nav>
+  <!-- Mobile quick actions -->
+  <div class="nav-mobile">
+    <a href="/cards" class="nav-link" title="Flashcards">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+    </a>
+    <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <!-- Mobile dropdown -->
+  <nav class="nav-dropdown" id="nav-dropdown">
+    <a href="/" class="nav-link">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Translate
+    </a>
+    <a href="/admin" class="nav-link admin-link" style="display:none">Admin</a>
+    <button class="nav-link nav-signout" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign out
+    </button>
+  </nav>
+</header>
+
+<main class="reader-page">
+
+  <!-- Generate form + saved list (home view) -->
+  <div id="home-view">
+    <div class="gen-form">
+      <h2>Generate a text to read</h2>
+      <div class="gen-row">
+        <div class="gen-prompt-wrap">
+          <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="2"></textarea>
+        </div>
+        <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
+      </div>
+      <div class="gen-lang-row" id="gen-lang-row"></div>
+    </div>
+
+    <div class="saved-section" id="saved-section" style="display:none">
+      <h3>Saved texts</h3>
+      <div class="saved-list" id="saved-list"></div>
+    </div>
+  </div>
+
+  <!-- Reader view (shown after generating or opening a saved text) -->
+  <div class="reader-view" id="reader-view">
+    <div class="reader-header">
+      <button class="reader-back-btn" onclick="showHome()">← Back</button>
+      <div class="reader-title" id="reader-title"></div>
+    </div>
+    <div class="reader-legend">
+      <span><span class="legend-dot known"></span>Known</span>
+      <span><span class="legend-dot weak"></span>Weak</span>
+      <span><span class="legend-dot new"></span>New</span>
+    </div>
+    <div class="reader-text" id="reader-text"></div>
+  </div>
+</main>
+
+<!-- Word detail popup -->
+<div class="popup-overlay" id="popup-overlay" onclick="closePopup()"></div>
+<div class="word-popup" id="word-popup">
+  <div class="popup-drag"></div>
+  <div id="popup-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let languages = [];
+  let selectedLang = 'yue';
+  let currentTextId = null;
+  let currentTargetLang = 'yue';
+  let activeToken = null;
+  let popupWordData = null;
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  async function init() {
+    await loadLanguages();
+    await checkAdmin();
+    await loadSavedTexts();
+  }
+
+  async function loadLanguages() {
+    try {
+      const res = await fetch('/api/languages').then(r => r.json());
+      languages = res.languages;
+    } catch {
+      languages = [{ code: 'yue', name: 'Cantonese', flag: '🇭🇰' }];
+    }
+    renderLangChips();
+  }
+
+  function renderLangChips() {
+    const row = document.getElementById('gen-lang-row');
+    row.innerHTML = '';
+    languages.forEach(l => {
+      const chip = document.createElement('button');
+      chip.className = 'gen-lang-chip' + (l.code === selectedLang ? ' selected' : '');
+      chip.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
+      chip.onclick = () => { selectedLang = l.code; renderLangChips(); };
+      row.appendChild(chip);
+    });
+  }
+
+  async function checkAdmin() {
+    try {
+      const me = await fetch('/api/me').then(r => r.json());
+      if (me.is_admin) {
+        document.querySelectorAll('.admin-link').forEach(el => el.style.display = '');
+      }
+    } catch {}
+  }
+
+  // ── Saved texts ────────────────────────────────────────────────────────────
+  async function loadSavedTexts() {
+    const res = await fetch('/api/reader/texts').then(r => r.json());
+    const texts = res.texts || [];
+    const section = document.getElementById('saved-section');
+    const list = document.getElementById('saved-list');
+    if (!texts.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    list.innerHTML = '';
+    texts.forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+      const langInfo = languages.find(l => l.code === t.target_lang);
+      const flag = langInfo?.flag || '';
+      const date = new Date(t.created_at + 'Z').toLocaleDateString();
+      item.innerHTML = `
+        <div class="saved-item-info">
+          <div class="saved-item-title">${esc(t.title)}</div>
+          <div class="saved-item-meta">${flag} ${langInfo?.name || t.target_lang} · ${date}</div>
+        </div>
+        <button class="saved-item-delete" title="Delete" onclick="deleteText(event,${t.id})">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
+      `;
+      item.querySelector('.saved-item-info').onclick = () => openSavedText(t.id);
+      list.appendChild(item);
+    });
+  }
+
+  async function deleteText(e, id) {
+    e.stopPropagation();
+    if (!confirm('Delete this text?')) return;
+    await fetch(`/api/reader/texts/${id}`, { method: 'DELETE' });
+    await loadSavedTexts();
+  }
+
+  async function openSavedText(id) {
+    const res = await fetch(`/api/reader/texts/${id}`).then(r => r.json());
+    showReaderView(res);
+  }
+
+  // ── Generate ───────────────────────────────────────────────────────────────
+  async function generate() {
+    const prompt = document.getElementById('gen-prompt').value.trim();
+    if (!prompt) { showToast('Enter a prompt first'); return; }
+    const btn = document.getElementById('gen-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="gen-spinner"></span>Generating…';
+    try {
+      const res = await fetch('/api/reader/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, target_lang: selectedLang }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
+      const data = await res.json();
+      await loadSavedTexts();
+      showReaderView(data);
+    } catch (err) {
+      showToast(err.message || 'Generation failed');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate';
+    }
+  }
+
+  // ── Reader view ────────────────────────────────────────────────────────────
+  function showReaderView(data) {
+    currentTextId = data.id;
+    currentTargetLang = data.target_lang;
+    document.getElementById('reader-title').textContent = data.title;
+    renderTokens(data.tokens);
+    document.getElementById('home-view').style.display = 'none';
+    document.getElementById('reader-view').style.display = '';
+  }
+
+  function showHome() {
+    document.getElementById('reader-view').style.display = 'none';
+    document.getElementById('home-view').style.display = '';
+    closePopup();
+  }
+
+  function renderTokens(tokens) {
+    const container = document.getElementById('reader-text');
+    container.innerHTML = '';
+    tokens.forEach((tok, i) => {
+      const span = document.createElement('span');
+      span.className = 'token' + (tok.is_word ? ' word ' + tok.status : '');
+      span.textContent = tok.text;
+      if (tok.is_word) {
+        span.dataset.word = tok.text;
+        span.dataset.status = tok.status;
+        span.dataset.index = i;
+        span.onclick = () => onWordTap(span, tok.text, tok.status);
+      }
+      container.appendChild(span);
+    });
+  }
+
+  // ── Word tap ───────────────────────────────────────────────────────────────
+  async function onWordTap(el, word, status) {
+    if (activeToken) activeToken.classList.remove('active');
+    activeToken = el;
+    el.classList.add('active');
+
+    openPopup();
+    document.getElementById('popup-content').innerHTML = `<div class="popup-loading">Looking up…</div>`;
+
+    // Gather surrounding text for context
+    const fullText = document.getElementById('reader-text').textContent;
+
+    try {
+      const res = await fetch('/api/reader/translate-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, context: fullText.slice(0, 300), target_lang: currentTargetLang }),
+      });
+      if (!res.ok) throw new Error('Lookup failed');
+      const data = await res.json();
+      popupWordData = data;
+      renderPopup(data, el);
+    } catch (err) {
+      document.getElementById('popup-content').innerHTML = `<div class="popup-error">Failed to look up word. Try again.</div>`;
+    }
+  }
+
+  function renderPopup(data, tokenEl) {
+    const isInDeck = data.source === 'deck';
+    const statusLabel = { known: 'Known', weak: 'Weak', new: 'New to deck' }[data.status] || 'New';
+    const addBtnLabel = isInDeck ? 'Already in deck' : 'Add to deck';
+    const addBtnDisabled = isInDeck ? 'disabled' : '';
+
+    document.getElementById('popup-content').innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="popup-word">${esc(data.target_text)}</div>
+          ${data.romanization ? `<div class="popup-rom">${esc(data.romanization)}</div>` : ''}
+          <div class="popup-eng">${esc(data.source_text)}</div>
+        </div>
+        <button class="popup-close-btn" onclick="closePopup()">✕</button>
+      </div>
+      <span class="popup-status-badge ${data.status}">${statusLabel}</span>
+      ${data.notes ? `<div class="popup-notes">${esc(data.notes)}</div>` : ''}
+      <div class="popup-actions">
+        <button class="popup-add-btn ${isInDeck ? 'added' : ''}" id="popup-add-btn" ${addBtnDisabled} onclick="addWordToDecK()">${addBtnLabel}</button>
+        ${!isInDeck ? `<button class="popup-flag-btn" title="Flag this translation as incorrect (TODO)" onclick="showToast('Flagging will be available in a future update')">Flag translation</button>` : ''}
+      </div>
+    `;
+  }
+
+  async function addWordToDecK() {
+    if (!popupWordData || popupWordData.source === 'deck') return;
+    const btn = document.getElementById('popup-add-btn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: popupWordData.source_text,
+          target_text: popupWordData.target_text,
+          romanization: popupWordData.romanization || '',
+          target_lang: currentTargetLang,
+          notes: popupWordData.notes || '',
+          priority: popupWordData.priority || 3,
+          label_ids: [],
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to add card');
+      const card = await res.json();
+      popupWordData = { ...popupWordData, source: 'deck', card_id: card.id, status: 'weak' };
+      btn.textContent = 'Added ✓';
+      btn.classList.add('added');
+      // Update the token color in the reader.
+      if (activeToken) {
+        activeToken.classList.remove('new', 'weak', 'known');
+        activeToken.classList.add('weak');
+        activeToken.dataset.status = 'weak';
+      }
+      showToast('Added to deck');
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Add to deck';
+      showToast('Failed to add card');
+    }
+  }
+
+  // ── Popup open/close ───────────────────────────────────────────────────────
+  function openPopup() {
+    document.getElementById('word-popup').classList.add('open');
+    document.getElementById('popup-overlay').classList.add('open');
+  }
+
+  function closePopup() {
+    document.getElementById('word-popup').classList.remove('open');
+    document.getElementById('popup-overlay').classList.remove('open');
+    if (activeToken) { activeToken.classList.remove('active'); activeToken = null; }
+    popupWordData = null;
+  }
+
+  // ── Nav ────────────────────────────────────────────────────────────────────
+  function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
+  function closeMobileMenu()  { document.getElementById('nav-dropdown').classList.remove('open'); }
+
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('nav-dropdown');
+    if (dd.classList.contains('open') && !e.target.closest('header')) closeMobileMenu();
+  });
+
+  async function doLogout() {
+    await fetch('/api/logout', { method: 'POST' });
+    location.href = '/login';
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  let _toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+</body>
+</html>

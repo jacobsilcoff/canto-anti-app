@@ -1,16 +1,35 @@
 # Feature Ideas & Backlog
 
+## ✅ Shipped
+
+- **Reader (8a + 8c)** — AI-generated texts from an English prompt; tokenized reader view with familiarity highlighting (known/weak/new); tap any word to see translation or existing card data; one-tap add to deck; texts saved for re-reading.
+
+---
+
 Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 **Cost baseline:** Compute runs on Oracle Cloud Free Tier (4 OCPU ARM, 24 GB RAM) — $0. Gemini 2.5 Flash Lite via AI Studio free tier (1,500 req/day) — $0. `edge-tts` is free. At small family/friend scale (~5–15 active users) virtually everything stays within free tiers. Costs noted below are what would kick in if free tiers are exceeded. Paid Gemini Flash Lite rates: input $0.075/1M tokens, output $0.30/1M tokens.
 
 ---
 
-## ✅ Shipped
+## 16. Language-Specific Grammar Info on Demand
+**Complexity: Low–Medium | Cost: ~$0/month**
 
-- **#1 Multi-user support** — users table, scrypt password hashing, admin web UI at `/admin`, per-user siloed cards/labels/settings. Existing cards migrated to `jsilcoff`. `APP_PASSWORD` env var seeds the initial admin on first run.
-- **#2 Multi-language support** — `yue` (Traditional), `cmn` (Simplified), `fr`, `es`. Per-language Gemini prompt, per-language `edge-tts` voice, language selector on translate page, default-language per user, dynamic face labels in review.
-- **#3 AI notes + ambiguity clarification** — Gemini returns usage notes auto-populated on cards, and a candidates array shown as a "Did you mean…" picker when the input is ambiguous.
+Click on a word/card to see language-relevant grammatical metadata inline — e.g. noun gender in French/German, measure words (classifiers) in Cantonese/Mandarin, full declension tables in German, aspect markers in Chinese, etc. Each language defines which grammar dimensions are relevant; the info is fetched on demand via Gemini.
+
+**Scope (rough — not fully designed):**
+- Per-card or per-word "grammar info" button/tap target
+- Gemini prompt asks for language-specific grammar dimensions (parameterized by `target_lang`)
+- Display inline or in a modal: e.g. "粒 (for small round objects)", "der/die/das → Nom: der, Acc: den, …"
+- Cache results on the card row to avoid repeated API calls
+- Language config in `translation.LANG_INFO` drives which dimensions to fetch per language
+
+**Open questions:**
+- Should grammar info be fetched at card creation time (bundled into the translation call) or lazily on demand?
+- How to surface this in the review UI without cluttering the card face?
+- Should grammar notes be editable by the user?
+
+**Cost notes:** One short Gemini call per unique word (if lazy) or bundled into the existing translation call at no extra cost. At small user scale: effectively $0.
 
 ---
 
@@ -96,8 +115,8 @@ When a longer phrase is translated, automatically decompose it into component wo
 
 ---
 
-## 8. Reader Mode
-**Complexity: High** *(break into sub-tasks before implementing)*
+## 8. Reader Mode — remaining sub-features
+**8a + 8c shipped.** Remaining:
 
 An immersive reading experience in the target language, modelled on Du Chinese. Unknown or weakly-known words are highlighted by familiarity; hover/tap reveals translation and lets you add a card in one tap. Supports dialogue with per-speaker audio. Text can be AI-generated or imported.
 
@@ -182,3 +201,87 @@ Allow users to share a labelled subset of their deck with other users. The recei
 **Open questions:**
 - Should imports be versioned (re-import to get new cards added to the source label later)?
 - Permission model: public share link vs. invite-only by username?
+
+---
+
+## 11. Stats Dashboard
+**Complexity: Low–Medium | Cost: $0/month**
+
+Show the user a summary of their learning progress.
+
+**Scope:**
+- Cards due today vs. overdue count
+- Daily review count (bar chart, last 30 days)
+- Retention rate per card and overall
+- Streak tracker (consecutive days with at least one review)
+- Cards by ease distribution (how many struggling vs. mature)
+
+**Cost notes:** Pure DB queries — no API calls.
+
+---
+
+## 12. Anki Import / Export
+**Complexity: Medium | Cost: $0/month**
+
+Allow users to migrate decks in and out via `.apkg` files.
+
+**Scope:**
+- **Export:** serialize user's cards (or a label subset) into a valid `.apkg` (SQLite + media zip)
+- **Import:** parse an `.apkg`, map fields to the app's schema, deduplicate against existing cards, preview before confirming
+- Audio files included in the media bundle where available
+
+**Cost notes:** No API calls. `genanki` library handles `.apkg` generation.
+
+**Open questions:**
+- Which Anki note type to target for export (Basic, Basic+Reversed)?
+- Should import attempt to preserve SM-2 state from the source deck?
+
+---
+
+## 13. Typing / Cloze Review Mode
+**Complexity: Low | Cost: $0/month**
+
+An alternate review mode where the user types the answer instead of flipping a card.
+
+**Scope:**
+- Per-card or global toggle: flip mode vs. typing mode
+- Show the prompt side; user types the target-language answer
+- On submit: highlight correct/incorrect characters; reveal full card
+- Grade as Again/Good based on whether the typed answer matches (fuzzy match to handle tone marks)
+
+**Cost notes:** No API calls.
+
+---
+
+## 14. PWA Offline Mode
+**Complexity: Medium | Cost: $0/month**
+
+Allow review sessions to work without an internet connection on mobile.
+
+**Scope:**
+- Service worker caches the review queue (cards + audio) on load
+- Reviews conducted offline are queued locally and synced on reconnect
+- Visual indicator when offline; graceful degradation (no new card creation offline)
+- Manifest already present or easy to add for home-screen install prompt
+
+**Cost notes:** No API calls. Storage is bounded by the cached review queue size.
+
+---
+
+## 15. Pronunciation Recording
+**Complexity: High | Cost: $0/month**
+
+Let users record their own pronunciation and compare it to the TTS reference audio.
+
+**Scope:**
+- Record button on card front/back using `MediaRecorder` API
+- Play back both recordings side-by-side
+- Optional: waveform visualization
+- Optional: phoneme-level scoring using a local speech model or Gemini audio input
+- Recordings optionally saved per card for self-review history
+
+**Cost notes:** Basic record+playback is $0. Automated scoring via Gemini audio input would use the free tier (short clips, low volume).
+
+**Open questions:**
+- Is automated scoring worth the complexity, or is subjective self-comparison enough?
+- Should recordings be persisted or session-only?

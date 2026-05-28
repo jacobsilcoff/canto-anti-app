@@ -16,6 +16,7 @@ import audio
 import auth
 import db
 import srs
+import tokenizer
 import translation
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
@@ -185,6 +186,11 @@ async def index():
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
     return _html("cards.html")
+
+
+@app.get("/reader", response_class=HTMLResponse)
+async def reader_page():
+    return _html("reader.html")
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -533,3 +539,107 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
         if uid == user_id:
             _sessions.pop(tok, None)
     return {"success": True}
+
+
+# ── Reader ────────────────────────────────────────────────────────────────────
+
+class ReaderGenerateRequest(BaseModel):
+    prompt: str
+    target_lang: str = "yue"
+
+
+class ReaderTranslateWordRequest(BaseModel):
+    word: str
+    context: str = ""
+    target_lang: str = "yue"
+
+
+def _annotate_tokens(tokens: list[dict], statuses: dict[str, str]) -> list[dict]:
+    for t in tokens:
+        if t["is_word"]:
+            t["status"] = statuses.get(t["text"], "new")
+    return tokens
+
+
+@app.post("/api/reader/generate")
+async def reader_generate(req: ReaderGenerateRequest, user: dict = Depends(current_user)):
+    if req.target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    result = await translation.generate_reader_text(req.prompt, req.target_lang)
+    text_id = await db.create_reader_text(
+        user["id"], result["title"], req.prompt, result["content"], req.target_lang
+    )
+    tokens = tokenizer.tokenize(result["content"], req.target_lang)
+    words = [t["text"] for t in tokens if t["is_word"]]
+    statuses = await db.get_word_statuses(user["id"], words, req.target_lang)
+    return {
+        "id": text_id,
+        "title": result["title"],
+        "content": result["content"],
+        "target_lang": req.target_lang,
+        "tokens": _annotate_tokens(tokens, statuses),
+    }
+
+
+@app.get("/api/reader/texts")
+async def reader_list_texts(user: dict = Depends(current_user)):
+    return {"texts": await db.list_reader_texts(user["id"])}
+
+
+@app.get("/api/reader/texts/{text_id}")
+async def reader_get_text(text_id: int, user: dict = Depends(current_user)):
+    text = await db.get_reader_text(user["id"], text_id)
+    if not text:
+        raise HTTPException(404, "Text not found")
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    words = [t["text"] for t in tokens if t["is_word"]]
+    statuses = await db.get_word_statuses(user["id"], words, text["target_lang"])
+    return {**text, "tokens": _annotate_tokens(tokens, statuses)}
+
+
+@app.delete("/api/reader/texts/{text_id}")
+async def reader_delete_text(text_id: int, user: dict = Depends(current_user)):
+    await db.delete_reader_text(user["id"], text_id)
+    return {"success": True}
+
+
+@app.post("/api/reader/translate-word")
+async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = Depends(current_user)):
+    if req.target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    # Check if word is already in the user's deck.
+    statuses = await db.get_word_statuses(user["id"], [req.word], req.target_lang)
+    if req.word in statuses:
+        # Word exists — find the card and return its data.
+        import aiosqlite as _aiosqlite
+        async with _aiosqlite.connect(db.DB_PATH) as conn:
+            conn.row_factory = _aiosqlite.Row
+            async with conn.execute(
+                """SELECT id, source_text, target_text, romanization, notes
+                   FROM cards WHERE user_id=? AND target_lang=? AND target_text=?
+                   LIMIT 1""",
+                (user["id"], req.target_lang, req.word),
+            ) as cur:
+                row = await cur.fetchone()
+        if row:
+            return {
+                "source": "deck",
+                "card_id": row["id"],
+                "target_text": row["target_text"],
+                "source_text": row["source_text"],
+                "romanization": row["romanization"],
+                "notes": row["notes"],
+                "status": statuses[req.word],
+            }
+    # Not in deck — translate via Gemini.
+    result = await translation.translate(req.word, req.target_lang, source_is_target=True, context=req.context)
+    candidate = result["candidates"][0] if result["candidates"] else {}
+    return {
+        "source": "gemini",
+        "target_text": req.word,
+        "source_text": candidate.get("english", ""),
+        "romanization": candidate.get("romanization", ""),
+        "notes": candidate.get("notes", ""),
+        "priority": result.get("priority", 3),
+        "status": "new",
+    }

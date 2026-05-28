@@ -225,6 +225,35 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
     }
 
 
+async def generate_reader_text(prompt: str, target_lang: str) -> dict:
+    """Generate a short target-language text from an English description prompt.
+
+    Returns: { title: str, content: str }
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    rules = info["rules"]
+
+    full_prompt = (
+        f"Write a short {name} text (around 80–150 words) based on the following description.\n"
+        "Rules:\n"
+        f"{rules}\n"
+        "- Write naturally, as if for a native speaker audience.\n"
+        "- Also provide a short English title (3–6 words) summarising the text.\n"
+        "Return ONLY valid JSON, no other text:\n"
+        '{ "title": "...", "content": "..." }\n\n'
+        f"Description: {prompt}"
+    )
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt)))
+    title = (raw.get("title") or "").strip() or prompt[:40]
+    content = (raw.get("content") or "").strip()
+    if not content:
+        raise ValueError("Gemini returned empty content")
+    return {"title": title, "content": content}
+
+
 async def translate(text: str, target_lang: str, source_is_target: bool, context: str = "") -> dict:
     """Translate text. source_is_target=True means the user typed in target_lang and
     wants an English translation; False means the user typed English and wants target_lang.
