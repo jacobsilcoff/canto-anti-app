@@ -15,13 +15,16 @@ jobs:
           username: ubuntu
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            cat > ~/canto-anti-app/.env <<'EOF'
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
-            APP_ADMIN_USERNAME=${{ secrets.APP_ADMIN_USERNAME }}
-            DOMAIN=${{ secrets.DOMAIN }}
-            DB_PATH=data/cards.db
-            EOF
+            set_if_missing() {
+              local key=$1 val=$2
+              grep -q "^${key}=" ~/canto-anti-app/.env 2>/dev/null || echo "${key}=${val}" >> ~/canto-anti-app/.env
+            }
+            touch ~/canto-anti-app/.env
+            set_if_missing GEMINI_API_KEY "${{ secrets.GEMINI_API_KEY }}"
+            set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
+            set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
+            set_if_missing DOMAIN "${{ secrets.DOMAIN }}"
+            set_if_missing DB_PATH "data/cards.db"
 
       - name: Deploy to Oracle VM
         uses: appleboy/ssh-action@v1
