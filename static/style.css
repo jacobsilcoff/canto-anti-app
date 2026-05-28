@@ -1071,6 +1071,53 @@ textarea.edit-input {
   min-height: 50px;
 }
 
+/* ── Responsive nav ──────────────────────────────────────────────────────── */
+.nav-desktop { display: flex; gap: 4px; align-items: center; }
+.nav-mobile  { display: none; gap: 4px; align-items: center; }
+
+.nav-hamburger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-hamburger:hover { background: var(--bg); color: var(--primary); }
+.nav-hamburger svg { width: 20px; height: 20px; }
+
+.nav-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px 10px;
+  flex-direction: column;
+  z-index: 9;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.nav-dropdown.open { display: flex; }
+.nav-dropdown .nav-link {
+  justify-content: flex-start;
+  padding: 11px 10px;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  gap: 10px;
+}
+.nav-dropdown .nav-link + .nav-link {
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.nav-dropdown .nav-link:last-child { border-radius: 0 0 8px 8px; }
+.nav-dropdown .nav-link:first-child { border-radius: 8px 8px 0 0; }
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   .rating-btn { padding: 16px; font-size: 0.95rem; }
@@ -1080,4 +1127,6 @@ textarea.edit-input {
 
 @media (max-width: 599px) {
   .lp-search { font-size: 1rem; }
+  .nav-desktop { display: none; }
+  .nav-mobile  { display: flex; }
 }

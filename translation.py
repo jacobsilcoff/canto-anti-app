@@ -52,7 +52,7 @@ LANG_INFO = {
         ),
         "rules": (
             "- Use Simplified Chinese characters with standard Mandarin vocabulary\n"
-            "- Provide pinyin romanisation with tone numbers (e.g. ni3 hao3)"
+            "- Provide pinyin romanisation with tone diacritics (e.g. nǐ hǎo, not ni3 hao3)"
         ),
     },
     "fr": {
@@ -80,6 +80,19 @@ LANG_INFO = {
             "1 = rare or advanced (literary, specialised, uncommon)"
         ),
         "rules": "- Use neutral Latin American Spanish unless context says otherwise",
+    },
+    "de": {
+        "name": "German",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard High German (Hochdeutsch) with correct grammar, umlauts, and ß",
     },
 }
 
@@ -114,13 +127,6 @@ def _context_block(context: str) -> str:
     )
 
 
-def _candidate_schema(roman_field: str | None, include_romanization: bool) -> str:
-    fields = ['"target_text": "..."']
-    if include_romanization and roman_field:
-        fields.append(f'"romanization": "..."  // {roman_field}')
-    fields.append('"notes": "..." // 1-2 sentences: usage, register, cultural context, common pitfalls. Empty string if no useful note.')
-    return "{ " + ", ".join(fields) + " }"
-
 
 def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: str) -> str:
     info = LANG_INFO[target_lang]
@@ -140,13 +146,13 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
     if rom:
         candidate_obj.append(f'"romanization": "..."  // {rom}')
     candidate_obj.append('"english": "..."  // the English translation')
-    candidate_fields = "{ " + ", ".join(candidate_obj) + " }"
+    candidate_obj.append('"notes": "..."  // 1-2 sentences: usage, register, cultural context, common pitfalls. Empty string if no useful note.')
 
     return (
         f"{direction}\n"
         "Rules:\n"
         f"{rules}\n"
-        f"- Provide a 1–2 sentence usage note when helpful (register, cultural context, "
+        f"- For each candidate, provide a 1–2 sentence usage note when helpful (register, cultural context, "
         f"common collocations, common pitfalls). Empty string if not useful.\n"
         f"- If the input is ambiguous and could reasonably be translated more than one way, "
         f'include up to 3 "candidates" with brief disambiguation labels. If the input is unambiguous, '
@@ -158,7 +164,6 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
         f'  "candidates": [\n'
         f"    {{ {', '.join(candidate_obj)}, \"label\": \"...\"  // short disambiguation hint, may be empty if single candidate }}\n"
         f"  ],\n"
-        '  "notes": "...",\n'
         '  "priority": 3\n'
         "}\n"
         f"{_context_block(context)}\n"
@@ -188,6 +193,7 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
             "english": _strip(c.get("english")) or (text if source_is_target is False else ""),
             "romanization": _strip(c.get("romanization")),
             "label": _strip(c.get("label")),
+            "notes": _strip(c.get("notes")),
         }
         # If translating from target → English, the user-provided text IS the target_text.
         if source_is_target:
@@ -204,12 +210,12 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
             "english": _strip(raw.get("english")) or (text if not source_is_target else ""),
             "romanization": _strip(raw.get("romanization")),
             "label": "",
+            "notes": _strip(raw.get("notes")),
         }
         candidates = [single]
 
     return {
         "candidates": candidates,
-        "notes": _strip(raw.get("notes")),
         "priority": _safe_priority(raw.get("priority", 3)),
     }
 
@@ -218,7 +224,7 @@ async def translate(text: str, target_lang: str, source_is_target: bool, context
     """Translate text. source_is_target=True means the user typed in target_lang and
     wants an English translation; False means the user typed English and wants target_lang.
 
-    Returns: { candidates: [{target_text, english, romanization, label}], notes, priority }
+    Returns: { candidates: [{target_text, english, romanization, label, notes}], priority }
     Always at least one candidate. UI shows a picker if >1.
     """
     if target_lang not in LANG_INFO:
