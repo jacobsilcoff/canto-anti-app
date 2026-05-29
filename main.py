@@ -910,6 +910,18 @@ class ReaderTTSRequest(BaseModel):
     target_lang: str = "yue"
 
 
+@app.get("/api/reader/texts/{text_id}/romanize")
+async def reader_romanize(text_id: int, user: dict = Depends(current_user)):
+    """Return a word→romanization map for all tokens in the text."""
+    text = await db.get_reader_text(user["id"], text_id)
+    if not text:
+        raise HTTPException(404, "Text not found")
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    words = [t["text"] for t in tokens if t["is_word"]]
+    rom_map = tokenizer.romanize_words(words, text["target_lang"])
+    return {"romanization": rom_map, "lang": text["target_lang"]}
+
+
 @app.post("/api/reader/tts")
 async def reader_tts(req: ReaderTTSRequest, user: dict = Depends(current_user)):
     if not req.text.strip():

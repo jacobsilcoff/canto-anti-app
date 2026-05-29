@@ -52,6 +52,37 @@ def split_sentences(tokens: list[Token]) -> list[str]:
     return sentences
 
 
+def romanize_words(words: list[str], lang: str) -> dict[str, str]:
+    """Return a mapping of word text → romanization string for the given words.
+
+    Only produces output for logographic languages (yue, cmn). Returns an
+    empty dict for Latin-script languages or on failure.
+    """
+    result: dict[str, str] = {}
+    if lang == "yue":
+        try:
+            import pycantonese
+            full_text = "".join(words)
+            pairs = pycantonese.characters_to_jyutping(full_text)
+            for word, rom in pairs:
+                if rom and word not in result:
+                    result[word] = rom
+        except Exception:
+            pass
+    elif lang == "cmn":
+        try:
+            from pypinyin import pinyin, Style
+            for word in words:
+                if word not in result:
+                    p = pinyin(word, style=Style.TONE)
+                    joined = " ".join(s[0] for s in p if s)
+                    if joined:
+                        result[word] = joined
+        except Exception:
+            pass
+    return result
+
+
 def tokenize(text: str, lang: str) -> list[Token]:
     """Split text into word and non-word tokens for the reader view."""
     if lang in ("yue", "cmn"):
