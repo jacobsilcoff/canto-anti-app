@@ -14,18 +14,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* ── Reader layout ── */
     .reader-page { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
 
-    /* Generate form */
+    /* ── Generate form ── */
     .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; }
     .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; color: var(--text); }
     .gen-row { display: flex; gap: 8px; align-items: flex-end; }
     .gen-prompt-wrap { flex: 1; }
     .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 56px; }
     .gen-prompt-wrap textarea:focus { outline: none; border-color: var(--primary); }
-    .gen-lang-btn { border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 8px 14px; font-size: 0.88rem; cursor: pointer; white-space: nowrap; }
-    .gen-lang-btn:hover { border-color: var(--primary); }
     .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
@@ -33,7 +30,7 @@
     .gen-lang-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem; cursor: pointer; }
     .gen-lang-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-    /* Saved texts list */
+    /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
     .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
     .saved-list { display: flex; flex-direction: column; gap: 6px; }
@@ -45,71 +42,92 @@
     .saved-item-delete { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px; border-radius: 6px; flex-shrink: 0; }
     .saved-item-delete:hover { color: #e53e3e; background: rgba(229,62,62,.08); }
 
-    /* Reader view */
+    /* ── Reader view ── */
     .reader-view { display: none; }
-    .reader-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; }
+    .reader-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
     .reader-back-btn:hover { border-color: var(--primary); }
-    .reader-title { font-size: 1.1rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Legend */
+    /* ── Sentence translation panel ── */
+    .sentence-panel {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      z-index: 10;
+      min-height: 64px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .sentence-panel:hover { border-color: var(--primary); }
+    .sentence-panel-hint { font-size: 0.88rem; color: var(--text-muted, #aaa); font-style: italic; }
+    .sentence-panel-original { font-family: 'Noto Sans TC', sans-serif; font-size: 1.05rem; color: var(--text); line-height: 1.5; margin-bottom: 4px; }
+    .sentence-panel-translation { font-size: 0.9rem; color: var(--text-muted, #666); line-height: 1.4; }
+    .sentence-panel-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); }
+    .sentence-panel-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+
+    /* ── Legend ── */
     .reader-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.8rem; color: var(--text-muted, #888); }
     .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
     .legend-dot.known { background: #22c55e; }
     .legend-dot.weak   { background: #f59e0b; }
-    .legend-dot.new    { background: #64748b; }
+    .legend-dot.new    { background: #94a3b8; }
 
-    /* Text body */
-    .reader-text { font-size: 1.35rem; line-height: 2.1; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
-    .token { cursor: default; }
-    .token.word { cursor: pointer; border-radius: 3px; padding: 0 1px; }
-    .token.word:hover { background: rgba(99,102,241,.12); }
+    /* ── Text body ── */
+    .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
+    .sentence { cursor: pointer; border-radius: 4px; }
+    .sentence.active { background: rgba(99,102,241,.07); }
+    .token {}
+    .token.word { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background 0.1s; }
     .token.word.known { color: #16a34a; }
     .token.word.weak  { color: #b45309; }
-    .token.word.new   { color: var(--text); opacity: 0.65; }
-    .token.word.active { background: rgba(99,102,241,.2); outline: 1px solid var(--primary); }
+    .token.word.new   { color: var(--text); opacity: 0.55; }
+    .token.word:hover, .token.word.tapped { background: rgba(99,102,241,.15); }
 
-    /* Word popup */
-    .word-popup { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; padding: 20px 20px 32px; z-index: 100; box-shadow: 0 -6px 30px rgba(0,0,0,.12); transform: translateY(100%); transition: transform 0.22s ease; max-height: 55vh; overflow-y: auto; }
-    .word-popup.open { transform: translateY(0); }
-    .popup-drag { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 16px; }
-    .popup-word { font-size: 1.9rem; font-weight: 700; font-family: 'Noto Sans TC', sans-serif; color: var(--text); margin-bottom: 4px; }
-    .popup-rom  { font-size: 1rem; color: var(--text-muted, #888); margin-bottom: 8px; }
-    .popup-eng  { font-size: 1rem; color: var(--text); margin-bottom: 10px; }
-    .popup-notes { font-size: 0.85rem; color: var(--text-muted, #888); border-left: 3px solid var(--border); padding-left: 10px; margin-bottom: 12px; }
-    .popup-status-badge { display: inline-block; font-size: 0.75rem; padding: 2px 9px; border-radius: 10px; margin-bottom: 14px; font-weight: 600; }
-    .popup-status-badge.known { background: #dcfce7; color: #166534; }
-    .popup-status-badge.weak  { background: #fef3c7; color: #92400e; }
-    .popup-status-badge.new   { background: #f1f5f9; color: #475569; }
-    .popup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .popup-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
-    .popup-add-btn:disabled { opacity: 0.5; cursor: default; }
-    .popup-add-btn.added { background: #22c55e; }
-    .popup-flag-btn { background: none; border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; font-size: 0.88rem; color: var(--text-muted, #888); cursor: pointer; }
-    .popup-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
-    .popup-close-btn { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px 8px; font-size: 0.88rem; margin-left: auto; }
-    .popup-loading { color: var(--text-muted, #aaa); font-size: 0.95rem; padding: 8px 0; }
-    .popup-error { color: #e53e3e; font-size: 0.88rem; }
-
-    /* Overlay */
-    .popup-overlay { display: none; position: fixed; inset: 0; z-index: 99; }
-    .popup-overlay.open { display: block; }
-
-    @media (min-width: 600px) {
-      .word-popup { bottom: auto; top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%) scale(0.95); opacity: 0; border-radius: 14px; border: 1px solid var(--border); width: 380px; max-height: 70vh; transition: transform 0.18s ease, opacity 0.18s ease; }
-      .word-popup.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      .popup-drag { display: none; }
+    /* ── Word tooltip ── */
+    .word-tooltip {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.08);
+      padding: 14px 16px;
+      z-index: 200;
+      min-width: 200px;
+      max-width: 280px;
+      pointer-events: auto;
     }
+    .tooltip-word { font-size: 1.7rem; font-weight: 700; font-family: 'Noto Sans TC', sans-serif; color: var(--text); line-height: 1.2; }
+    .tooltip-rom  { font-size: 0.9rem; color: var(--text-muted, #888); margin: 3px 0 5px; }
+    .tooltip-eng  { font-size: 0.95rem; color: var(--text); margin-bottom: 8px; }
+    .tooltip-notes { font-size: 0.8rem; color: var(--text-muted, #888); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 10px; }
+    .tooltip-status-badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; font-weight: 600; }
+    .tooltip-status-badge.known { background: #dcfce7; color: #166534; }
+    .tooltip-status-badge.weak  { background: #fef3c7; color: #92400e; }
+    .tooltip-status-badge.new   { background: #f1f5f9; color: #475569; }
+    .tooltip-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); padding: 4px 0; }
+    .tooltip-error  { font-size: 0.82rem; color: #e53e3e; }
+    .tooltip-actions { display: flex; gap: 8px; align-items: center; }
+    .tooltip-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .tooltip-add-btn:disabled { opacity: 0.5; cursor: default; }
+    .tooltip-add-btn.added { background: #22c55e; }
+    .tooltip-flag-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: var(--text-muted, #888); cursor: pointer; }
+    .tooltip-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
+    .tooltip-close { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; color: var(--text-muted, #bbb); font-size: 1rem; padding: 2px 6px; }
+    .tooltip-close:hover { color: var(--text); }
 
-    .gen-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .gen-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
   </style>
 </head>
 <body>
 
 <header>
   <h1>{{APP_NAME_HTML}}</h1>
-  <!-- Desktop nav -->
   <nav class="nav-desktop">
     <a href="/" class="nav-link">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -126,7 +144,6 @@
     <a href="/admin" class="nav-link admin-link" style="display:none">Admin</a>
     <button class="nav-link" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">Sign out</button>
   </nav>
-  <!-- Mobile quick actions -->
   <div class="nav-mobile">
     <a href="/cards" class="nav-link" title="Flashcards">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
@@ -135,14 +152,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
-  <!-- Mobile dropdown -->
   <nav class="nav-dropdown" id="nav-dropdown">
     <a href="/" class="nav-link">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       Translate
     </a>
     <a href="/admin" class="nav-link admin-link" style="display:none">Admin</a>
-    <button class="nav-link nav-signout" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">
+    <button class="nav-link nav-signout" onclick="doLogout()" style="border:none;cursor:pointer;background:none">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sign out
     </button>
@@ -151,7 +167,7 @@
 
 <main class="reader-page">
 
-  <!-- Generate form + saved list (home view) -->
+  <!-- Home: generate + saved list -->
   <div id="home-view">
     <div class="gen-form">
       <h2>Generate a text to read</h2>
@@ -163,33 +179,44 @@
       </div>
       <div class="gen-lang-row" id="gen-lang-row"></div>
     </div>
-
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
       <div class="saved-list" id="saved-list"></div>
     </div>
   </div>
 
-  <!-- Reader view (shown after generating or opening a saved text) -->
-  <div class="reader-view" id="reader-view">
+  <!-- Reader view -->
+  <div id="reader-view" style="display:none">
     <div class="reader-header">
       <button class="reader-back-btn" onclick="showHome()">← Back</button>
       <div class="reader-title" id="reader-title"></div>
     </div>
+
+    <!-- Sentence translation panel -->
+    <div class="sentence-panel" id="sentence-panel" onclick="onPanelClick()">
+      <div class="sentence-panel-hint" id="panel-hint">Tap a word to translate it — tap a sentence to see its translation here</div>
+      <div id="panel-body" style="display:none">
+        <div class="sentence-panel-original" id="panel-original"></div>
+        <div id="panel-translation-wrap">
+          <div class="sentence-panel-translation" id="panel-translation"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="reader-legend">
       <span><span class="legend-dot known"></span>Known</span>
       <span><span class="legend-dot weak"></span>Weak</span>
-      <span><span class="legend-dot new"></span>New</span>
+      <span><span class="legend-dot new"></span>New to deck</span>
     </div>
+
     <div class="reader-text" id="reader-text"></div>
   </div>
 </main>
 
-<!-- Word detail popup -->
-<div class="popup-overlay" id="popup-overlay" onclick="closePopup()"></div>
-<div class="word-popup" id="word-popup">
-  <div class="popup-drag"></div>
-  <div id="popup-content"></div>
+<!-- Word tooltip (floating, positioned by JS) -->
+<div class="word-tooltip" id="word-tooltip" style="display:none" role="dialog">
+  <button class="tooltip-close" onclick="closeTooltip()">✕</button>
+  <div id="tooltip-content"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -200,14 +227,17 @@
   let selectedLang = 'yue';
   let currentTextId = null;
   let currentTargetLang = 'yue';
-  let activeToken = null;
-  let popupWordData = null;
+  let sentences = [];         // [{tokens, text}]
+  let currentSentenceIdx = null;
+  let activeWordEl = null;
+  let tooltipWordData = null;
+  let panelTranslationVisible = true;
 
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
     await loadLanguages();
-    await checkAdmin();
-    await loadSavedTexts();
+    checkAdmin();
+    loadSavedTexts();
   }
 
   async function loadLanguages() {
@@ -235,9 +265,7 @@
   async function checkAdmin() {
     try {
       const me = await fetch('/api/me').then(r => r.json());
-      if (me.is_admin) {
-        document.querySelectorAll('.admin-link').forEach(el => el.style.display = '');
-      }
+      if (me.is_admin) document.querySelectorAll('.admin-link').forEach(el => el.style.display = '');
     } catch {}
   }
 
@@ -246,16 +274,16 @@
     const res = await fetch('/api/reader/texts').then(r => r.json());
     const texts = res.texts || [];
     const section = document.getElementById('saved-section');
-    const list = document.getElementById('saved-list');
     if (!texts.length) { section.style.display = 'none'; return; }
     section.style.display = '';
+    const list = document.getElementById('saved-list');
     list.innerHTML = '';
     texts.forEach(t => {
-      const item = document.createElement('div');
-      item.className = 'saved-item';
       const langInfo = languages.find(l => l.code === t.target_lang);
       const flag = langInfo?.flag || '';
       const date = new Date(t.created_at + 'Z').toLocaleDateString();
+      const item = document.createElement('div');
+      item.className = 'saved-item';
       item.innerHTML = `
         <div class="saved-item-info">
           <div class="saved-item-title">${esc(t.title)}</div>
@@ -263,8 +291,7 @@
         </div>
         <button class="saved-item-delete" title="Delete" onclick="deleteText(event,${t.id})">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        </button>
-      `;
+        </button>`;
       item.querySelector('.saved-item-info').onclick = () => openSavedText(t.id);
       list.appendChild(item);
     });
@@ -274,7 +301,7 @@
     e.stopPropagation();
     if (!confirm('Delete this text?')) return;
     await fetch(`/api/reader/texts/${id}`, { method: 'DELETE' });
-    await loadSavedTexts();
+    loadSavedTexts();
   }
 
   async function openSavedText(id) {
@@ -297,7 +324,7 @@
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();
-      await loadSavedTexts();
+      loadSavedTexts();
       showReaderView(data);
     } catch (err) {
       showToast(err.message || 'Generation failed');
@@ -311,8 +338,11 @@
   function showReaderView(data) {
     currentTextId = data.id;
     currentTargetLang = data.target_lang;
+    currentSentenceIdx = null;
     document.getElementById('reader-title').textContent = data.title;
-    renderTokens(data.tokens);
+    sentences = buildSentences(data.tokens);
+    renderReader();
+    resetPanel();
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('reader-view').style.display = 'block';
   }
@@ -320,80 +350,183 @@
   function showHome() {
     document.getElementById('reader-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'block';
-    closePopup();
+    closeTooltip();
+    currentSentenceIdx = null;
   }
 
-  function renderTokens(tokens) {
+  // Split flat token list into sentence groups, split on sentence-ending punctuation.
+  function buildSentences(tokens) {
+    const result = [];
+    let buf = [];
+    const sentenceEnders = /[。！？\n!?]/;
+    tokens.forEach(tok => {
+      buf.push(tok);
+      if (!tok.is_word && sentenceEnders.test(tok.text)) {
+        result.push(buf);
+        buf = [];
+      }
+    });
+    if (buf.length) result.push(buf);
+    return result.map(toks => ({
+      tokens: toks,
+      text: toks.map(t => t.text).join(''),
+    }));
+  }
+
+  function renderReader() {
     const container = document.getElementById('reader-text');
     container.innerHTML = '';
-    tokens.forEach((tok, i) => {
-      const span = document.createElement('span');
-      span.className = 'token' + (tok.is_word ? ' word ' + tok.status : '');
-      span.textContent = tok.text;
-      if (tok.is_word) {
-        span.dataset.word = tok.text;
-        span.dataset.status = tok.status;
-        span.dataset.index = i;
-        span.onclick = () => onWordTap(span, tok.text, tok.status);
-      }
-      container.appendChild(span);
+    sentences.forEach((sent, si) => {
+      const sentEl = document.createElement('span');
+      sentEl.className = 'sentence';
+      sentEl.dataset.si = si;
+      sentEl.addEventListener('click', e => {
+        // Clicking blank space in sentence (not on a word) → select sentence
+        if (!e.target.classList.contains('word')) selectSentence(si, sentEl);
+      });
+      sent.tokens.forEach(tok => {
+        const span = document.createElement('span');
+        span.className = 'token' + (tok.is_word ? ' word ' + (tok.status || 'new') : '');
+        span.textContent = tok.text;
+        if (tok.is_word) {
+          span.dataset.word = tok.text;
+          span.dataset.si = si;
+          span.addEventListener('click', e => {
+            e.stopPropagation();
+            onWordTap(span, tok.text, tok.status || 'new', si, sentEl);
+          });
+          // Long-press support (mobile)
+          let pressTimer;
+          span.addEventListener('pointerdown', () => {
+            pressTimer = setTimeout(() => onWordTap(span, tok.text, tok.status || 'new', si, sentEl), 300);
+          });
+          span.addEventListener('pointerup',    () => clearTimeout(pressTimer));
+          span.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+        }
+        sentEl.appendChild(span);
+      });
+      container.appendChild(sentEl);
     });
   }
 
-  // ── Word tap ───────────────────────────────────────────────────────────────
-  async function onWordTap(el, word, status) {
-    if (activeToken) activeToken.classList.remove('active');
-    activeToken = el;
-    el.classList.add('active');
+  // ── Sentence panel ─────────────────────────────────────────────────────────
+  function resetPanel() {
+    document.getElementById('panel-hint').style.display = '';
+    document.getElementById('panel-body').style.display = 'none';
+    panelTranslationVisible = true;
+  }
 
-    openPopup();
-    document.getElementById('popup-content').innerHTML = `<div class="popup-loading">Looking up…</div>`;
+  function onPanelClick() {
+    // Toggle translation visibility when tapping the panel directly
+    if (currentSentenceIdx === null) return;
+    panelTranslationVisible = !panelTranslationVisible;
+    document.getElementById('panel-translation-wrap').style.display = panelTranslationVisible ? '' : 'none';
+  }
 
-    // Gather surrounding text for context
-    const fullText = document.getElementById('reader-text').textContent;
+  async function selectSentence(si, sentEl) {
+    if (currentSentenceIdx === si) return;
+
+    // Update active sentence highlight
+    document.querySelectorAll('.sentence.active').forEach(el => el.classList.remove('active'));
+    sentEl.classList.add('active');
+    currentSentenceIdx = si;
+
+    const sentText = sentences[si].text;
+    document.getElementById('panel-hint').style.display = 'none';
+    document.getElementById('panel-body').style.display = '';
+    document.getElementById('panel-original').textContent = sentText;
+    document.getElementById('panel-translation').textContent = '';
+    panelTranslationVisible = true;
+    document.getElementById('panel-translation-wrap').style.display = '';
+    document.getElementById('panel-translation').innerHTML =
+      '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
 
     try {
-      const res = await fetch('/api/reader/translate-word', {
+      const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word, context: fullText.slice(0, 300), target_lang: currentTargetLang }),
+        body: JSON.stringify({ text: sentText, target_lang: currentTargetLang, source_is_target: true }),
       });
-      if (!res.ok) throw new Error('Lookup failed');
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      popupWordData = data;
-      renderPopup(data, el);
-    } catch (err) {
-      document.getElementById('popup-content').innerHTML = `<div class="popup-error">Failed to look up word. Try again.</div>`;
+      const english = data.candidates?.[0]?.english || '';
+      document.getElementById('panel-translation').textContent = english;
+    } catch {
+      document.getElementById('panel-translation').textContent = 'Translation failed.';
     }
   }
 
-  function renderPopup(data, tokenEl) {
+  // ── Word tooltip ───────────────────────────────────────────────────────────
+  async function onWordTap(el, word, status, si, sentEl) {
+    // Select sentence
+    selectSentence(si, sentEl);
+
+    // Mark the word as active
+    if (activeWordEl) activeWordEl.classList.remove('tapped');
+    activeWordEl = el;
+    el.classList.add('tapped');
+
+    // Show tooltip with loading state
+    positionTooltip(el);
+    document.getElementById('tooltip-content').innerHTML =
+      `<div class="tooltip-loading"><span class="sentence-panel-spinner"></span> Looking up…</div>`;
+    document.getElementById('word-tooltip').style.display = '';
+
+    try {
+      const fullText = sentences[si].text;
+      const res = await fetch('/api/reader/translate-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, context: fullText, target_lang: currentTargetLang }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      tooltipWordData = data;
+      renderTooltip(data);
+    } catch {
+      document.getElementById('tooltip-content').innerHTML =
+        `<div class="tooltip-error">Lookup failed — try again.</div>`;
+    }
+  }
+
+  function positionTooltip(el) {
+    const tooltip = document.getElementById('word-tooltip');
+    tooltip.style.display = 'block';
+    const rect = el.getBoundingClientRect();
+    const tw = tooltip.offsetWidth || 240;
+    const th = tooltip.offsetHeight || 160;
+    const margin = 8;
+    let left = rect.left;
+    let top  = rect.bottom + margin;
+    if (left + tw > window.innerWidth - margin) left = window.innerWidth - tw - margin;
+    if (left < margin) left = margin;
+    if (top + th > window.innerHeight - margin) top = rect.top - th - margin;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
+  }
+
+  function renderTooltip(data) {
     const isInDeck = data.source === 'deck';
     const statusLabel = { known: 'Known', weak: 'Weak', new: 'New to deck' }[data.status] || 'New';
-    const addBtnLabel = isInDeck ? 'Already in deck' : 'Add to deck';
-    const addBtnDisabled = isInDeck ? 'disabled' : '';
-
-    document.getElementById('popup-content').innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between">
-        <div>
-          <div class="popup-word">${esc(data.target_text)}</div>
-          ${data.romanization ? `<div class="popup-rom">${esc(data.romanization)}</div>` : ''}
-          <div class="popup-eng">${esc(data.source_text)}</div>
-        </div>
-        <button class="popup-close-btn" onclick="closePopup()">✕</button>
-      </div>
-      <span class="popup-status-badge ${data.status}">${statusLabel}</span>
-      ${data.notes ? `<div class="popup-notes">${esc(data.notes)}</div>` : ''}
-      <div class="popup-actions">
-        <button class="popup-add-btn ${isInDeck ? 'added' : ''}" id="popup-add-btn" ${addBtnDisabled} onclick="addWordToDecK()">${addBtnLabel}</button>
-        ${!isInDeck ? `<button class="popup-flag-btn" title="Flag this translation as incorrect (TODO)" onclick="showToast('Flagging will be available in a future update')">Flag translation</button>` : ''}
+    document.getElementById('tooltip-content').innerHTML = `
+      <div class="tooltip-word">${esc(data.target_text)}</div>
+      ${data.romanization ? `<div class="tooltip-rom">${esc(data.romanization)}</div>` : ''}
+      <div class="tooltip-eng">${esc(data.source_text)}</div>
+      <span class="tooltip-status-badge ${data.status}">${statusLabel}</span>
+      ${data.notes ? `<div class="tooltip-notes">${esc(data.notes)}</div>` : ''}
+      <div class="tooltip-actions">
+        <button class="tooltip-add-btn ${isInDeck ? 'added' : ''}" id="tooltip-add-btn"
+          ${isInDeck ? 'disabled' : ''} onclick="addWordToDeck()">
+          ${isInDeck ? 'In deck ✓' : 'Add to deck'}
+        </button>
+        ${!isInDeck ? `<button class="tooltip-flag-btn" onclick="showToast('Flagging will be available in a future update')">Flag</button>` : ''}
       </div>
     `;
   }
 
-  async function addWordToDecK() {
-    if (!popupWordData || popupWordData.source === 'deck') return;
-    const btn = document.getElementById('popup-add-btn');
+  async function addWordToDeck() {
+    if (!tooltipWordData || tooltipWordData.source === 'deck') return;
+    const btn = document.getElementById('tooltip-add-btn');
     btn.disabled = true;
     btn.textContent = 'Adding…';
     try {
@@ -401,56 +534,52 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_text: popupWordData.source_text,
-          target_text: popupWordData.target_text,
-          romanization: popupWordData.romanization || '',
-          target_lang: currentTargetLang,
-          notes: popupWordData.notes || '',
-          priority: popupWordData.priority || 3,
-          label_ids: [],
+          source_text:   tooltipWordData.source_text,
+          target_text:   tooltipWordData.target_text,
+          romanization:  tooltipWordData.romanization || '',
+          target_lang:   currentTargetLang,
+          notes:         tooltipWordData.notes || '',
+          priority:      tooltipWordData.priority || 3,
+          label_ids:     [],
         }),
       });
-      if (!res.ok) throw new Error('Failed to add card');
-      const card = await res.json();
-      popupWordData = { ...popupWordData, source: 'deck', card_id: card.id, status: 'weak' };
-      btn.textContent = 'Added ✓';
+      if (!res.ok) throw new Error();
+      tooltipWordData = { ...tooltipWordData, source: 'deck', status: 'weak' };
+      btn.textContent = 'In deck ✓';
       btn.classList.add('added');
-      // Update the token color in the reader.
-      if (activeToken) {
-        activeToken.classList.remove('new', 'weak', 'known');
-        activeToken.classList.add('weak');
-        activeToken.dataset.status = 'weak';
+      // Recolour token
+      if (activeWordEl) {
+        activeWordEl.classList.remove('new', 'weak', 'known');
+        activeWordEl.classList.add('weak');
       }
       showToast('Added to deck');
-    } catch (err) {
+    } catch {
       btn.disabled = false;
       btn.textContent = 'Add to deck';
       showToast('Failed to add card');
     }
   }
 
-  // ── Popup open/close ───────────────────────────────────────────────────────
-  function openPopup() {
-    document.getElementById('word-popup').classList.add('open');
-    document.getElementById('popup-overlay').classList.add('open');
+  function closeTooltip() {
+    document.getElementById('word-tooltip').style.display = 'none';
+    if (activeWordEl) { activeWordEl.classList.remove('tapped'); activeWordEl = null; }
+    tooltipWordData = null;
   }
 
-  function closePopup() {
-    document.getElementById('word-popup').classList.remove('open');
-    document.getElementById('popup-overlay').classList.remove('open');
-    if (activeToken) { activeToken.classList.remove('active'); activeToken = null; }
-    popupWordData = null;
-  }
+  // Close tooltip when clicking outside it
+  document.addEventListener('click', e => {
+    const tooltip = document.getElementById('word-tooltip');
+    if (tooltip.style.display !== 'none' && !tooltip.contains(e.target) && !e.target.classList.contains('word')) {
+      closeTooltip();
+    }
+  });
 
   // ── Nav ────────────────────────────────────────────────────────────────────
   function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
-  function closeMobileMenu()  { document.getElementById('nav-dropdown').classList.remove('open'); }
-
   document.addEventListener('click', e => {
     const dd = document.getElementById('nav-dropdown');
-    if (dd.classList.contains('open') && !e.target.closest('header')) closeMobileMenu();
+    if (dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
   });
-
   async function doLogout() {
     await fetch('/api/logout', { method: 'POST' });
     location.href = '/login';

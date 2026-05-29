@@ -823,31 +823,58 @@ async def delete_reader_text(user_id: int, text_id: int):
         await db.commit()
 
 
+def _cjk_only(text: str) -> str:
+    """Strip punctuation/spaces, keeping only CJK characters."""
+    import re
+    return re.sub(r"[^一-鿿㐀-䶿豈-﫿぀-ヿ]", "", text)
+
+
 async def get_word_statuses(user_id: int, words: list[str], target_lang: str) -> dict[str, str]:
-    """Return a mapping of word → 'known' | 'weak' | 'new' for the given word list."""
+    """Return a mapping of word → 'known' | 'weak' | 'new' for the given word list.
+
+    Matching is fuzzy: a token matches a deck card if the normalized token equals the
+    normalized card target_text, OR if the normalized card target_text starts with the
+    normalized token (e.g. token '多謝' matches card '多謝你').
+    """
     if not words:
         return {}
-    unique = list(set(words))
-    placeholders = ",".join("?" * len(unique))
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            f"""SELECT c.target_text,
-                       MAX(cf.repetitions) AS max_reps,
-                       MIN(cf.ease_factor) AS min_ease
-                FROM cards c
-                JOIN card_faces cf ON cf.card_id = c.id
-                WHERE c.user_id = ? AND c.target_lang = ?
-                  AND c.target_text IN ({placeholders})
-                GROUP BY c.target_text""",
-            (user_id, target_lang) + tuple(unique),
+            """SELECT c.target_text,
+                      MAX(cf.repetitions) AS max_reps,
+                      MIN(cf.ease_factor) AS min_ease
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id
+               WHERE c.user_id = ? AND c.target_lang = ?
+               GROUP BY c.target_text""",
+            (user_id, target_lang),
         ) as cur:
             rows = await cur.fetchall()
 
-    result: dict[str, str] = {}
+    # Build normalized card lookup: stripped_text → status
+    card_lookup: dict[str, str] = {}
     for r in rows:
-        if r["max_reps"] >= 2 and r["min_ease"] >= 2.0:
-            result[r["target_text"]] = "known"
-        else:
-            result[r["target_text"]] = "weak"
+        key = _cjk_only(r["target_text"])
+        if not key:
+            continue
+        status = "known" if r["max_reps"] >= 2 and r["min_ease"] >= 2.0 else "weak"
+        if key not in card_lookup or status == "known":
+            card_lookup[key] = status
+
+    result: dict[str, str] = {}
+    for word in words:
+        norm = _cjk_only(word)
+        if not norm:
+            continue
+        # Exact normalized match.
+        if norm in card_lookup:
+            result[word] = card_lookup[norm]
+            continue
+        # Card starts with this token (e.g. card '多謝你', token '多謝').
+        if len(norm) >= 2:
+            for card_norm, status in card_lookup.items():
+                if card_norm.startswith(norm):
+                    result[word] = status
+                    break
     return result
