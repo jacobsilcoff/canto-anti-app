@@ -12,6 +12,103 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 17. Reader Audio Playback Mode
+**Complexity: Low–Medium | Cost: ~$0/month**
+
+A "read-aloud" mode in the reader: tap Play and the app reads the full text sentence by sentence, highlighting the active sentence in the panel as it plays. Auto-advances to the next sentence when audio finishes.
+
+**Scope:**
+- Pre-generate (or lazily fetch) TTS for each sentence on page load
+- Sequentially highlight each sentence as its audio plays
+- Pause/resume/stop controls
+- Auto-scroll to keep the active sentence in view
+
+**Open questions:**
+- Pre-generate all sentence audio on text open (adds latency but smoother playback), or fetch each sentence on demand just before it plays?
+
+---
+
+## 18. Reader Performance: Pre-generate Translations and Audio
+**Complexity: Medium | Cost: ~$0/month**
+
+The reader currently fetches sentence translation and word audio on demand, causing noticeable latency. Pre-compute these in the background when a text is opened.
+
+**Scope:**
+- After a text loads, silently call `/api/reader/tts` for each sentence and cache the audio blobs client-side (or server-side in `reader_texts`)
+- Similarly pre-fetch sentence translations and store them in a `reader_text_sentences` table (id, text_id, sentence_idx, translation)
+- Word translations are harder to pre-generate since there are many; consider pre-translating all "new" tokens at load time and caching in memory
+- Show a background-loading indicator so the user knows audio will be ready soon
+
+---
+
+## 19. Better Reader Loading Animation
+**Complexity: Low | Cost: $0**
+
+The current generate/open flow shows a basic spinner. Improve to feel more polished.
+
+**Scope:**
+- Skeleton loader for the text body (grey placeholder lines) while tokens are being fetched
+- Progress indication when generating (e.g. "Generating text… Tokenising… Done")
+- Smooth fade-in of the reader text once loaded
+
+---
+
+## 20. Duolingo-Style Streak
+**Complexity: Low | Cost: $0/month**
+
+Show each user a daily streak counter: consecutive days where the user completed at least one review.
+
+**Scope:**
+- Track streak in `user_settings` or a new `user_stats` table (last_active_date, current_streak, longest_streak)
+- Increment streak on first review of a new day; reset to 0 if a day is missed
+- Display streak prominently on the flashcard page (e.g. 🔥 7 days)
+- Optional: "streak freeze" if the user does a reader session but no reviews
+
+---
+
+## 21. Reader Difficulty / Vocab-Constrained Generation
+**Complexity: Medium | Cost: ~$0/month**
+
+Let users select a difficulty level before generating, or explicitly limit the number of new words the text may introduce.
+
+**Scope:**
+- UI: difficulty selector (Beginner / Intermediate / Advanced) or a "max new words" slider (e.g. 0–10)
+- In vocab-constrained mode, pass the user's deck word list to Gemini and instruct it to use only known words plus at most N new ones (see idea 8c)
+- Beginner: short sentences, high-frequency vocab, no new words beyond a small cap
+- Advanced: longer sentences, idiomatic expressions, fewer constraints
+- The existing familiarity highlighting makes it immediately visible how well the constraint was respected
+
+**Cost notes:** Passing the user's deck (up to a few thousand words) as context adds ~2–5K tokens per generation call. At free-tier rates this is still $0; on paid tier ~$0.001/generation.
+
+---
+
+## 22. Card Search in Browse Tab
+**Complexity: Low | Cost: $0**
+
+Add a search/filter box to the Flashcards browse view so users can find specific cards by keyword.
+
+**Scope:**
+- Text input at the top of the browse list
+- Filter cards client-side (already have all cards loaded) by matching against source_text, target_text, and romanization
+- Debounce input; clear button; highlight matched substrings
+- Works in addition to (not instead of) the existing label filter
+
+---
+
+## 23. Share Reader Stories with Other Users
+**Complexity: Medium | Cost: ~$0/month**
+
+Allow a user to share a generated reader text with other users on the same instance.
+
+**Scope:**
+- "Share" button on a saved text → generates a short share token (stored in `reader_texts` as a `share_token` column)
+- Public URL: `/reader/shared/<token>` — readable without login, or login-gated (TBD)
+- Recipient can open it in their own reader view and save a copy to their account
+- Word familiarity highlighting uses the recipient's own deck, not the sharer's
+- No real-time sync; it's a one-time copy, similar to card set sharing (idea 10)
+
+---
+
 ## 16. Language-Specific Grammar Info on Demand
 **Complexity: Low–Medium | Cost: ~$0/month**
 
