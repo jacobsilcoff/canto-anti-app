@@ -603,6 +603,19 @@ async def reader_delete_text(text_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+class ReaderTTSRequest(BaseModel):
+    text: str
+    target_lang: str = "yue"
+
+
+@app.post("/api/reader/tts")
+async def reader_tts(req: ReaderTTSRequest, user: dict = Depends(current_user)):
+    if not req.text.strip():
+        raise HTTPException(400, "Text is empty")
+    data = await audio.generate(req.text.strip(), req.target_lang)
+    return Response(content=data, media_type="audio/mpeg")
+
+
 @app.post("/api/reader/translate-word")
 async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:

@@ -119,6 +119,10 @@
     .tooltip-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
     .tooltip-close { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; color: var(--text-muted, #bbb); font-size: 1rem; padding: 2px 6px; }
     .tooltip-close:hover { color: var(--text); }
+    .play-btn { background: none; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; color: var(--text-muted, #888); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; flex-shrink: 0; }
+    .play-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .play-btn.playing { color: var(--primary); border-color: var(--primary); }
+    .panel-controls { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
     .gen-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
@@ -199,6 +203,12 @@
         <div class="sentence-panel-original" id="panel-original"></div>
         <div id="panel-translation-wrap">
           <div class="sentence-panel-translation" id="panel-translation"></div>
+        </div>
+        <div class="panel-controls">
+          <button class="play-btn" id="panel-play-btn" onclick="playSentence(event)" title="Play sentence">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Play
+          </button>
         </div>
       </div>
     </div>
@@ -515,6 +525,9 @@
       <span class="tooltip-status-badge ${data.status}">${statusLabel}</span>
       ${data.notes ? `<div class="tooltip-notes">${esc(data.notes)}</div>` : ''}
       <div class="tooltip-actions">
+        <button class="play-btn" onclick="playText(${JSON.stringify(data.target_text)})" title="Play pronunciation">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
         <button class="tooltip-add-btn ${isInDeck ? 'added' : ''}" id="tooltip-add-btn"
           ${isInDeck ? 'disabled' : ''} onclick="addWordToDeck()">
           ${isInDeck ? 'In deck ✓' : 'Add to deck'}
@@ -583,6 +596,34 @@
   async function doLogout() {
     await fetch('/api/logout', { method: 'POST' });
     location.href = '/login';
+  }
+
+  // ── TTS ────────────────────────────────────────────────────────────────────
+  let _currentAudio = null;
+
+  async function playText(text) {
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    try {
+      const res = await fetch('/api/reader/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, target_lang: currentTargetLang }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      _currentAudio = new Audio(url);
+      _currentAudio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; };
+      _currentAudio.play();
+    } catch {
+      showToast('Audio unavailable');
+    }
+  }
+
+  function playSentence(e) {
+    e.stopPropagation();
+    if (currentSentenceIdx === null) return;
+    playText(sentences[currentSentenceIdx].text);
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────────
