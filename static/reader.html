@@ -156,6 +156,19 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
     .gen-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
+
+    /* ── Audio mode ── */
+    .audio-mode-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+    .audio-mode-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .audio-mode-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .audio-mode-controls { display: none; align-items: center; gap: 8px; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; }
+    .audio-mode-controls.visible { display: flex; }
+    .audio-ctrl-btn { background: none; border: 1px solid var(--border); border-radius: 7px; color: var(--text); cursor: pointer; padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 4px; }
+    .audio-ctrl-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .audio-ctrl-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .audio-ctrl-btn.primary:hover { opacity: 0.88; }
+    .audio-progress { font-size: 0.82rem; color: var(--text-muted, #888); margin-left: auto; }
+    .sentence.audio-active { background: rgba(99,102,241,.13); outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -246,6 +259,20 @@
       <div class="reader-title" id="reader-title"></div>
       <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
       <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
+      <button class="audio-mode-btn" id="audio-mode-btn" onclick="toggleAudioMode()" title="Auto-play sentences" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Audio
+      </button>
+    </div>
+
+    <!-- Audio mode controls -->
+    <div class="audio-mode-controls" id="audio-mode-controls">
+      <button class="audio-ctrl-btn primary" id="audio-play-pause-btn" onclick="audioPlayPause()">
+        <svg id="audio-play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="audio-play-label">Play</span>
+      </button>
+      <button class="audio-ctrl-btn" onclick="audioStop()">Stop</button>
+      <span class="audio-progress" id="audio-progress"></span>
     </div>
 
     <!-- Sentence translation panel -->
@@ -502,6 +529,7 @@
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
     document.getElementById('reader-add-all-btn').style.display = '';
+    document.getElementById('audio-mode-btn').style.display = '';
   }
 
   async function addAllVocab() {
@@ -542,6 +570,7 @@
   }
 
   function showHome() {
+    if (audioMode) audioStop();
     document.getElementById('reader-view').style.display = 'none';
     document.getElementById('loading-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'block';
@@ -907,6 +936,169 @@
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Audio Mode ─────────────────────────────────────────────────────────────
+  let audioMode = false;
+  let audioPlaying = false;
+  let audioSentenceIdx = 0;   // global sentence index (across all pages)
+  let _audioModeAbort = false;
+
+  function toggleAudioMode() {
+    if (audioMode) {
+      audioStop();
+    } else {
+      audioMode = true;
+      audioSentenceIdx = currentPage * SENTENCES_PER_PAGE;
+      _audioModeAbort = false;
+      document.getElementById('audio-mode-btn').classList.add('active');
+      document.getElementById('audio-mode-controls').classList.add('visible');
+      updateAudioProgress();
+      audioPlayPause();
+    }
+  }
+
+  function audioStop() {
+    _audioModeAbort = true;
+    audioMode = false;
+    audioPlaying = false;
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    document.getElementById('audio-mode-btn').classList.remove('active');
+    document.getElementById('audio-mode-controls').classList.remove('visible');
+    // Remove audio-active highlight
+    document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
+  }
+
+  function audioPlayPause() {
+    if (!audioMode) return;
+    if (audioPlaying) {
+      // Pause
+      audioPlaying = false;
+      if (_currentAudio) { _currentAudio.pause(); }
+      setAudioPlayPauseUI(false);
+    } else {
+      // Play / resume
+      audioPlaying = true;
+      setAudioPlayPauseUI(true);
+      if (_currentAudio) {
+        _currentAudio.play();
+      } else {
+        runAudioMode();
+      }
+    }
+  }
+
+  function setAudioPlayPauseUI(playing) {
+    const icon = document.getElementById('audio-play-icon');
+    const label = document.getElementById('audio-play-label');
+    if (playing) {
+      icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+      label.textContent = 'Pause';
+    } else {
+      icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+      label.textContent = 'Play';
+    }
+  }
+
+  function updateAudioProgress() {
+    const total = sentences.length;
+    const current = Math.min(audioSentenceIdx + 1, total);
+    document.getElementById('audio-progress').textContent = `${current} / ${total}`;
+  }
+
+  async function runAudioMode() {
+    while (audioMode && !_audioModeAbort && audioSentenceIdx < sentences.length) {
+      if (!audioPlaying) {
+        // Paused — wait
+        await new Promise(r => setTimeout(r, 100));
+        continue;
+      }
+
+      const si = audioSentenceIdx;
+
+      // Make sure the right page is showing
+      const targetPage = Math.floor(si / SENTENCES_PER_PAGE);
+      if (targetPage !== currentPage) {
+        renderPage(targetPage);
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      // Highlight the sentence in the text body
+      document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
+      const sentEl = document.querySelector(`.sentence[data-si="${si}"]`);
+      if (sentEl) {
+        sentEl.classList.add('audio-active');
+        sentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      // Update the sentence panel (like clicking the sentence)
+      await selectSentence(si, sentEl);
+      updateAudioProgress();
+
+      // Play audio
+      await playAudioModeStep(si);
+
+      if (_audioModeAbort) break;
+
+      // Brief pause between sentences
+      await new Promise(r => setTimeout(r, 400));
+
+      audioSentenceIdx++;
+    }
+
+    if (!_audioModeAbort && audioSentenceIdx >= sentences.length) {
+      // Reached the end
+      document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
+      showToast('Audio playback complete');
+      audioStop();
+    }
+  }
+
+  function playAudioModeStep(si) {
+    return new Promise(resolve => {
+      if (_audioModeAbort) { resolve(); return; }
+
+      const cached = sentenceCache[si];
+      let fetchPromise;
+
+      if (cached?.has_audio) {
+        fetchPromise = fetch(`/api/reader/texts/${currentTextId}/sentences/${si}/audio`)
+          .then(r => { if (!r.ok) throw new Error(); return r.blob(); });
+      } else {
+        fetchPromise = fetch('/api/reader/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang }),
+        }).then(r => { if (!r.ok) throw new Error(); return r.blob(); });
+      }
+
+      fetchPromise.then(blob => {
+        if (_audioModeAbort) { resolve(); return; }
+        const url = URL.createObjectURL(blob);
+        _currentAudio = new Audio(url);
+
+        _currentAudio.onended = () => {
+          URL.revokeObjectURL(url);
+          _currentAudio = null;
+          resolve();
+        };
+        _currentAudio.onerror = () => { URL.revokeObjectURL(url); _currentAudio = null; resolve(); };
+
+        // If paused while fetching, don't auto-play — wait for resume
+        if (audioPlaying && !_audioModeAbort) {
+          _currentAudio.play().catch(() => resolve());
+        } else {
+          // Paused state: wait for play to be called
+          const checkInterval = setInterval(() => {
+            if (_audioModeAbort) { clearInterval(checkInterval); _currentAudio = null; resolve(); return; }
+            if (audioPlaying && _currentAudio) {
+              clearInterval(checkInterval);
+              _currentAudio.play().catch(() => resolve());
+            }
+          }, 100);
+        }
+      }).catch(() => resolve());
+    });
   }
 
   init();
