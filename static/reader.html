@@ -74,7 +74,7 @@
       user-select: none;
     }
     .sentence-panel:hover { border-color: var(--primary); }
-    .sentence-panel-hint { font-size: 0.88rem; color: var(--text-muted, #aaa); font-style: italic; }
+    .sentence-panel-hint { font-size: 0.88rem; color: var(--text-muted, #aaa); font-style: italic; text-align: center; width: 100%; display: block; }
     .sentence-panel-original { font-family: 'Noto Sans TC', sans-serif; font-size: 1.05rem; color: var(--text); line-height: 1.5; margin-bottom: 4px; }
     .sentence-panel-translation { font-size: 0.9rem; color: var(--text-muted, #666); line-height: 1.4; }
     .sentence-panel-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); }
@@ -133,7 +133,7 @@
     .play-btn { background: none; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; color: var(--text-muted, #888); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; flex-shrink: 0; }
     .play-btn:hover { border-color: var(--primary); color: var(--primary); }
     .play-btn.playing { color: var(--primary); border-color: var(--primary); }
-    .panel-controls { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
 
     /* ── Loading view ── */
     .loading-view { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
@@ -158,16 +158,8 @@
     .gen-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
 
     /* ── Audio mode ── */
-    .audio-mode-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
-    .audio-mode-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .audio-mode-btn { display: flex; align-items: center; justify-content: center; }
     .audio-mode-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .audio-mode-controls { display: none; align-items: center; gap: 8px; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; }
-    .audio-mode-controls.visible { display: flex; }
-    .audio-ctrl-btn { background: none; border: 1px solid var(--border); border-radius: 7px; color: var(--text); cursor: pointer; padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 4px; }
-    .audio-ctrl-btn:hover { border-color: var(--primary); color: var(--primary); }
-    .audio-ctrl-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .audio-ctrl-btn.primary:hover { opacity: 0.88; }
-    .audio-progress { font-size: 0.82rem; color: var(--text-muted, #888); margin-left: auto; }
     .sentence.audio-active { background: rgba(99,102,241,.13); outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
   </style>
 </head>
@@ -259,35 +251,16 @@
       <div class="reader-title" id="reader-title"></div>
       <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
       <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
-      <button class="audio-mode-btn" id="audio-mode-btn" onclick="toggleAudioMode()" title="Auto-play sentences" style="display:none">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Audio
-      </button>
-    </div>
-
-    <!-- Audio mode controls -->
-    <div class="audio-mode-controls" id="audio-mode-controls">
-      <button class="audio-ctrl-btn primary" id="audio-play-pause-btn" onclick="audioPlayPause()">
-        <svg id="audio-play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span id="audio-play-label">Play</span>
-      </button>
-      <button class="audio-ctrl-btn" onclick="audioStop()">Stop</button>
-      <span class="audio-progress" id="audio-progress"></span>
     </div>
 
     <!-- Sentence translation panel -->
     <div class="sentence-panel" id="sentence-panel" onclick="onPanelClick()">
-      <div class="sentence-panel-hint" id="panel-hint">Tap a word to translate it — tap a sentence to see its translation here</div>
+      <div class="sentence-panel-hint" id="panel-hint">Tap a sentence to see its translation here</div>
       <div id="panel-body" style="display:none">
-        <div class="sentence-panel-original" id="panel-original"></div>
-        <div id="panel-translation-wrap">
+        <div class="sentence-panel-hint" id="panel-reveal-hint" style="display:none">Click to show translation</div>
+        <div id="panel-content" style="display:none">
+          <div class="sentence-panel-original" id="panel-original"></div>
           <div class="sentence-panel-translation" id="panel-translation"></div>
-        </div>
-        <div class="panel-controls">
-          <button class="play-btn" id="panel-play-btn" onclick="playSentence(event)" title="Play sentence">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Play
-          </button>
         </div>
       </div>
     </div>
@@ -303,6 +276,9 @@
     <div class="page-nav" id="page-nav" style="display:none">
       <button class="page-btn" id="page-prev" onclick="goPage(-1)">← Prev</button>
       <span class="page-indicator" id="page-indicator"></span>
+      <button class="page-btn audio-mode-btn" id="audio-mode-btn" onclick="audioPlayPause()" title="Auto-play sentences">
+        <svg id="audio-play-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </button>
       <button class="page-btn" id="page-next" onclick="goPage(1)">Next →</button>
     </div>
   </div>
@@ -529,7 +505,6 @@
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
     document.getElementById('reader-add-all-btn').style.display = '';
-    document.getElementById('audio-mode-btn').style.display = '';
   }
 
   async function addAllVocab() {
@@ -617,10 +592,12 @@
 
     // Update paging controls
     const nav = document.getElementById('page-nav');
-    nav.style.display = totalPages > 1 ? '' : 'none';
+    nav.style.display = '';
     document.getElementById('page-prev').disabled = pageIdx === 0;
+    document.getElementById('page-prev').style.visibility = totalPages > 1 ? '' : 'hidden';
     document.getElementById('page-next').disabled = pageIdx >= totalPages - 1;
-    document.getElementById('page-indicator').textContent = `${pageIdx + 1} / ${totalPages}`;
+    document.getElementById('page-next').style.visibility = totalPages > 1 ? '' : 'hidden';
+    document.getElementById('page-indicator').textContent = totalPages > 1 ? `${pageIdx + 1} / ${totalPages}` : '';
 
     // Reset panel and tooltip when changing page
     closeTooltip();
@@ -678,44 +655,49 @@
   function resetPanel() {
     document.getElementById('panel-hint').style.display = '';
     document.getElementById('panel-body').style.display = 'none';
-    panelTranslationVisible = true;
+    panelTranslationVisible = false;
   }
 
   function onPanelClick() {
-    // Toggle translation visibility when tapping the panel directly
     if (currentSentenceIdx === null) return;
     panelTranslationVisible = !panelTranslationVisible;
-    document.getElementById('panel-translation-wrap').style.display = panelTranslationVisible ? '' : 'none';
+    document.getElementById('panel-content').style.display = panelTranslationVisible ? '' : 'none';
+    document.getElementById('panel-reveal-hint').style.display = panelTranslationVisible ? 'none' : '';
   }
 
   async function selectSentence(si, sentEl) {
-    if (currentSentenceIdx === si) return;
+    const alreadySelected = currentSentenceIdx === si;
 
     document.querySelectorAll('.sentence.active').forEach(el => el.classList.remove('active'));
-    sentEl.classList.add('active');
+    if (sentEl) sentEl.classList.add('active');
     currentSentenceIdx = si;
 
-    const sentText = sentences[si].text;
     document.getElementById('panel-hint').style.display = 'none';
     document.getElementById('panel-body').style.display = '';
-    document.getElementById('panel-original').textContent = sentText;
-    panelTranslationVisible = true;
-    document.getElementById('panel-translation-wrap').style.display = '';
+
+    if (!alreadySelected) {
+      // Reset to hidden when switching sentences
+      panelTranslationVisible = false;
+      document.getElementById('panel-content').style.display = 'none';
+      document.getElementById('panel-reveal-hint').style.display = '';
+    }
 
     const cached = sentenceCache[si];
     if (cached?.translation) {
+      document.getElementById('panel-original').textContent = sentences[si].text;
       document.getElementById('panel-translation').textContent = cached.translation;
       return;
     }
 
-    // Fallback: live Gemini call (shouldn't happen after preload, but just in case)
+    // Fallback: live Gemini call
+    document.getElementById('panel-original').textContent = sentences[si].text;
     document.getElementById('panel-translation').innerHTML =
       '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sentText, target_lang: currentTargetLang, source_is_target: true }),
+        body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang, source_is_target: true }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -898,17 +880,6 @@
     }
   }
 
-  function playSentence(e) {
-    e.stopPropagation();
-    if (currentSentenceIdx === null) return;
-    const cached = sentenceCache[currentSentenceIdx];
-    if (cached?.has_audio) {
-      playUrl(`/api/reader/texts/${currentTextId}/sentences/${currentSentenceIdx}/audio`);
-    } else {
-      playText(sentences[currentSentenceIdx].text);
-    }
-  }
-
   async function playUrl(url) {
     if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
     try {
@@ -941,20 +912,27 @@
   // ── Audio Mode ─────────────────────────────────────────────────────────────
   let audioMode = false;
   let audioPlaying = false;
-  let audioSentenceIdx = 0;   // global sentence index (across all pages)
+  let audioSentenceIdx = 0;
   let _audioModeAbort = false;
 
-  function toggleAudioMode() {
-    if (audioMode) {
-      audioStop();
-    } else {
+  function audioPlayPause() {
+    if (!audioMode) {
+      // Start audio mode from current page
       audioMode = true;
       audioSentenceIdx = currentPage * SENTENCES_PER_PAGE;
       _audioModeAbort = false;
-      document.getElementById('audio-mode-btn').classList.add('active');
-      document.getElementById('audio-mode-controls').classList.add('visible');
-      updateAudioProgress();
-      audioPlayPause();
+      audioPlaying = true;
+      setAudioPlayPauseUI(true);
+      runAudioMode();
+    } else if (audioPlaying) {
+      audioPlaying = false;
+      if (_currentAudio) _currentAudio.pause();
+      setAudioPlayPauseUI(false);
+    } else {
+      audioPlaying = true;
+      setAudioPlayPauseUI(true);
+      if (_currentAudio) _currentAudio.play();
+      else runAudioMode();
     }
   }
 
@@ -963,47 +941,18 @@
     audioMode = false;
     audioPlaying = false;
     if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
-    document.getElementById('audio-mode-btn').classList.remove('active');
-    document.getElementById('audio-mode-controls').classList.remove('visible');
-    // Remove audio-active highlight
+    setAudioPlayPauseUI(false);
     document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
-  }
-
-  function audioPlayPause() {
-    if (!audioMode) return;
-    if (audioPlaying) {
-      // Pause
-      audioPlaying = false;
-      if (_currentAudio) { _currentAudio.pause(); }
-      setAudioPlayPauseUI(false);
-    } else {
-      // Play / resume
-      audioPlaying = true;
-      setAudioPlayPauseUI(true);
-      if (_currentAudio) {
-        _currentAudio.play();
-      } else {
-        runAudioMode();
-      }
-    }
   }
 
   function setAudioPlayPauseUI(playing) {
     const icon = document.getElementById('audio-play-icon');
-    const label = document.getElementById('audio-play-label');
     if (playing) {
       icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-      label.textContent = 'Pause';
     } else {
       icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-      label.textContent = 'Play';
     }
-  }
-
-  function updateAudioProgress() {
-    const total = sentences.length;
-    const current = Math.min(audioSentenceIdx + 1, total);
-    document.getElementById('audio-progress').textContent = `${current} / ${total}`;
+    document.getElementById('audio-mode-btn').classList.toggle('active', playing);
   }
 
   async function runAudioMode() {
@@ -1033,7 +982,6 @@
 
       // Update the sentence panel (like clicking the sentence)
       await selectSentence(si, sentEl);
-      updateAudioProgress();
 
       // Play audio
       await playAudioModeStep(si);
