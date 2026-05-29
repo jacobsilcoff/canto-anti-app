@@ -20,7 +20,7 @@ load_dotenv()
 import db
 import translation
 
-DELAY = 1.1  # seconds between Gemini calls
+DELAY = 5.0  # seconds between Gemini calls (~12 req/min, under the 15 RPM free-tier limit)
 
 
 async def suggest_labels_for_card(source_text: str, target_text: str, target_lang: str) -> list[str]:
