@@ -98,6 +98,9 @@ async def init():
             ("notes", "TEXT", "NULL"),
             ("target_lang", "TEXT", "'yue'"),
             ("user_id", "INTEGER", "NULL"),
+            ("classifier", "TEXT", "''"),
+            ("embedding", "TEXT", "NULL"),
+            ("canonical_card_id", "INTEGER", "NULL"),
         ]:
             if not await _column_exists(db, "cards", col):
                 await db.execute(f"ALTER TABLE cards ADD COLUMN {col} {sql_type} DEFAULT {default}")
@@ -125,12 +128,15 @@ async def init():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 name TEXT NOT NULL COLLATE NOCASE,
+                is_story_label INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
         # Drop legacy UNIQUE(name) if present by recreating the table when needed.
         if not await _column_exists(db, "labels", "user_id"):
             await db.execute("ALTER TABLE labels ADD COLUMN user_id INTEGER")
+        if not await _column_exists(db, "labels", "is_story_label"):
+            await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name COLLATE NOCASE)"
         )
@@ -338,6 +344,25 @@ async def set_setting(user_id: int, key: str, value):
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
+async def get_or_create_label(user_id: int, name: str, is_story_label: bool = False) -> int:
+    """Return the id of an existing label (case-insensitive) or create it."""
+    name = name.strip()
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+            (user_id, name),
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            return row[0]
+        cursor = await db.execute(
+            "INSERT INTO labels (user_id, name, is_story_label) VALUES (?, ?, ?)",
+            (user_id, name, 1 if is_story_label else 0),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
 async def create_card(
     user_id: int,
     source_text: str,
@@ -348,14 +373,17 @@ async def create_card(
     notes: str | None = None,
     label_ids: list[int] | None = None,
     priority: int = 3,
+    classifier: str = "",
+    canonical_card_id: int | None = None,
+    suggested_label_names: list[str] | None = None,
 ) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """INSERT INTO cards (user_id, source_text, target_text, romanization, target_lang,
-                                  audio_data, notes, priority)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  audio_data, notes, priority, classifier, canonical_card_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, source_text, target_text, romanization, target_lang,
-             audio_data, notes, max(1, min(5, priority))),
+             audio_data, notes, max(1, min(5, priority)), classifier or "", canonical_card_id),
         )
         card_id = cursor.lastrowid
         for face in FACES:
@@ -363,23 +391,41 @@ async def create_card(
                 "INSERT INTO card_faces (card_id, face) VALUES (?, ?)",
                 (card_id, face),
             )
-        if label_ids:
-            # Filter to label ids owned by this user.
-            await db.execute(
-                f"""DELETE FROM card_labels WHERE card_id=? AND label_id NOT IN
-                    (SELECT id FROM labels WHERE user_id=?)""",
-                (card_id, user_id),
-            )
+        # Collect all label ids to assign.
+        all_label_ids: list[int] = list(label_ids or [])
+
+        # Auto-create and assign suggested labels.
+        for name in (suggested_label_names or []):
+            name = name.strip()
+            if not name:
+                continue
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, name),
+            ) as cur:
+                row = await cur.fetchone()
+            if row:
+                lid = row[0]
+            else:
+                cur2 = await db.execute(
+                    "INSERT INTO labels (user_id, name, is_story_label) VALUES (?, ?, 0)",
+                    (user_id, name),
+                )
+                lid = cur2.lastrowid
+            if lid not in all_label_ids:
+                all_label_ids.append(lid)
+
+        if all_label_ids:
             await db.executemany(
                 """INSERT OR IGNORE INTO card_labels (card_id, label_id)
                    SELECT ?, id FROM labels WHERE id=? AND user_id=?""",
-                [(card_id, lid, user_id) for lid in label_ids],
+                [(card_id, lid, user_id) for lid in all_label_ids],
             )
         await db.commit()
         return card_id
 
 
-_CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, priority, tutor_flag, suspended"
+_CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, priority, tutor_flag, suspended, classifier, canonical_card_id"
 
 
 async def get_card(user_id: int, card_id: int) -> dict | None:
@@ -413,7 +459,7 @@ def _faces_query(extra_where: str = "", extra_params: tuple = (),
         SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
                c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
-               c.priority, c.tutor_flag
+               c.priority, c.tutor_flag, c.classifier, c.canonical_card_id
         FROM card_faces cf
         JOIN cards c ON c.id = cf.card_id
         WHERE c.user_id = ? AND c.suspended = 0 {extra_where}
@@ -743,34 +789,81 @@ async def reset_card_to_new(user_id: int, card_id: int):
         await db.commit()
 
 
+async def update_card_embedding(card_id: int, embedding_json: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE cards SET embedding=? WHERE id=?", (embedding_json, card_id))
+        await db.commit()
+
+
+async def get_all_embeddings(user_id: int) -> list[dict]:
+    """Return all cards that have embeddings, for similarity search."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, source_text, target_text, embedding
+               FROM cards WHERE user_id=? AND embedding IS NOT NULL""",
+            (user_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
+    """Set (or clear) the canonical card pointer. Returns False if card not found."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return False
+        await db.execute(
+            "UPDATE cards SET canonical_card_id=? WHERE id=? AND user_id=?",
+            (canonical_id, card_id, user_id),
+        )
+        await db.commit()
+        return True
+
+
+async def get_card_forms(user_id: int, canonical_card_id: int) -> list[dict]:
+    """Return all cards that point to this canonical card."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""SELECT {_CARD_COLS} FROM cards
+                WHERE user_id=? AND canonical_card_id=?
+                ORDER BY id""",
+            (user_id, canonical_card_id),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 # ── Labels ────────────────────────────────────────────────────────────────────
 
 async def list_labels(user_id: int) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT l.id, l.name, COUNT(cl.card_id) AS card_count
+            """SELECT l.id, l.name, l.is_story_label, COUNT(cl.card_id) AS card_count
                FROM labels l
                LEFT JOIN card_labels cl ON cl.label_id = l.id
                WHERE l.user_id = ?
-               GROUP BY l.id, l.name
+               GROUP BY l.id, l.name, l.is_story_label
                ORDER BY l.name COLLATE NOCASE""",
             (user_id,),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
 
-async def create_label(user_id: int, name: str) -> dict:
+async def create_label(user_id: int, name: str, is_story_label: bool = False) -> dict:
     name = name.strip()
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         await db.execute(
-            "INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)",
-            (user_id, name),
+            "INSERT OR IGNORE INTO labels (user_id, name, is_story_label) VALUES (?, ?, ?)",
+            (user_id, name, 1 if is_story_label else 0),
         )
         await db.commit()
         async with db.execute(
-            "SELECT id, name FROM labels WHERE user_id=? AND name = ? COLLATE NOCASE",
+            "SELECT id, name, is_story_label FROM labels WHERE user_id=? AND name = ? COLLATE NOCASE",
             (user_id, name),
         ) as cur:
             row = await cur.fetchone()
@@ -801,6 +894,32 @@ async def delete_label(user_id: int, label_id: int):
         await db.execute("DELETE FROM card_labels WHERE label_id=?", (label_id,))
         await db.execute("DELETE FROM labels WHERE id=?", (label_id,))
         await db.commit()
+
+
+async def get_or_create_story_label(user_id: int, text_id: int) -> dict:
+    """Return (or create) the story label for a reader text. Returns {id, name, is_story_label}."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT title FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return {}
+        label_name = f"📖 {row['title']}"
+        async with db.execute(
+            "SELECT id, name, is_story_label FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+            (user_id, label_name),
+        ) as cur:
+            existing = await cur.fetchone()
+        if existing:
+            return dict(existing)
+        cursor = await db.execute(
+            "INSERT INTO labels (user_id, name, is_story_label) VALUES (?, ?, 1)",
+            (user_id, label_name),
+        )
+        await db.commit()
+        return {"id": cursor.lastrowid, "name": label_name, "is_story_label": 1}
 
 
 # ── Reader texts ──────────────────────────────────────────────────────────────

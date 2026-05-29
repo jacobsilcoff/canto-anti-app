@@ -244,6 +244,17 @@ textarea {
   letter-spacing: 0.02em;
 }
 
+.output-classifier {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-bottom: 10px;
+}
+
 .output-english {
   font-size: 1rem;
   color: var(--text);
@@ -1019,6 +1030,90 @@ textarea {
   gap: 4px;
   margin-top: 4px;
 }
+.suggest-cards-btn {
+  background: none;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.suggest-cards-btn:hover { background: var(--primary); color: #fff; }
+.label-suggest-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.label-suggest-header { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px; }
+.label-suggest-card-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+.label-suggest-card-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.label-suggest-card-btn:disabled { cursor: default; }
+.card-classifier {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 7px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+.card-canonical-ref {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.canonical-target { font-style: italic; }
+.canonical-search-wrap { position: relative; }
+.canonical-results {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 30;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+}
+.canonical-result-row {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.canonical-result-row:last-child { border-bottom: none; }
+.canonical-result-row:hover { background: var(--surface-hover, var(--border)); }
+.canonical-current { margin-top: 6px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.canonical-chip {
+  background: var(--primary-soft, #e8f0fe);
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.82rem;
+}
+.canonical-clear-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0;
+}
+.canonical-clear-btn:hover { color: var(--again); }
 .card-list-notes {
   margin-top: 6px;
   font-size: 0.8rem;

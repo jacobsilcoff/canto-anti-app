@@ -133,12 +133,22 @@ def _context_block(context: str) -> str:
 
 
 
+_CLASSIFIER_HINT = {
+    "yue": "measure word (量詞) for nouns, e.g. 個/本/張/條/杯. Empty string for non-nouns.",
+    "cmn": "measure word (量词) for nouns, e.g. 个/本/张/条/杯. Empty string for non-nouns.",
+    "fr": 'definite article for nouns: "le", "la", "l\'", or "les". Empty string for non-nouns.',
+    "es": 'definite article for nouns: "el", "la", "los", or "las". Empty string for non-nouns.',
+    "de": 'definite article for nouns: "der", "die", or "das". Empty string for non-nouns.',
+}
+
+
 def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: str) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     rom = info["romanization"]
     rules = info["rules"]
     freq = info["frequency_examples"]
+    classifier_hint = _CLASSIFIER_HINT.get(target_lang, "")
 
     if source_is_target:
         direction = f"Translate the following {name} text into natural English."
@@ -153,6 +163,10 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
     candidate_obj.append('"english": "..."  // the English translation')
     candidate_obj.append('"notes": "..."  // 1-2 sentences: usage, register, cultural context, common pitfalls. Empty string if no useful note.')
 
+    classifier_field = ""
+    if classifier_hint:
+        classifier_field = f'\n  "classifier": "..."  // {classifier_hint}'
+
     return (
         f"{direction}\n"
         "Rules:\n"
@@ -164,12 +178,16 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
         f'return a single candidate.\n'
         f'- Include "priority" 1–5 based on vocabulary frequency in everyday {name}: '
         f"{freq}\n"
+        f'- Include "suggested_labels": an array of 2–5 short English topic labels (lowercase, e.g. '
+        f'"food", "cooking", "animal", "emotion", "travel"). These are broad thematic categories.\n'
         "Return ONLY valid JSON in this exact format, no other text:\n"
         "{\n"
         f'  "candidates": [\n'
         f"    {{ {', '.join(candidate_obj)}, \"label\": \"...\"  // short disambiguation hint, may be empty if single candidate }}\n"
         f"  ],\n"
-        '  "priority": 3\n'
+        '  "priority": 3,\n'
+        f'  "suggested_labels": ["...", "..."]'
+        f"{classifier_field}\n"
         "}\n"
         f"{_context_block(context)}\n"
         f"{input_label}: {text}"
@@ -219,9 +237,17 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
         }
         candidates = [single]
 
+    # Parse top-level fields.
+    raw_labels = raw.get("suggested_labels")
+    suggested_labels = [l.strip().lower() for l in raw_labels if isinstance(l, str) and l.strip()] \
+        if isinstance(raw_labels, list) else []
+    classifier = _strip(raw.get("classifier"))
+
     return {
         "candidates": candidates,
         "priority": _safe_priority(raw.get("priority", 3)),
+        "suggested_labels": suggested_labels,
+        "classifier": classifier,
     }
 
 
@@ -254,6 +280,20 @@ async def generate_reader_text(prompt: str, target_lang: str) -> dict:
     if not content:
         raise ValueError("Gemini returned empty content")
     return {"title": title, "content": content}
+
+
+_EMBED_MODEL = "text-embedding-004"
+
+
+async def get_embedding(text: str) -> list[float] | None:
+    """Return a float embedding vector for text, or None on error."""
+    try:
+        result = await asyncio.to_thread(
+            lambda: _get_client().models.embed_content(model=_EMBED_MODEL, contents=[text])
+        )
+        return list(result.embeddings[0].values)
+    except Exception:
+        return None
 
 
 async def translate(text: str, target_lang: str, source_is_target: bool, context: str = "") -> dict:

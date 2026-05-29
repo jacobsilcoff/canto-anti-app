@@ -3,6 +3,11 @@
 ## ✅ Shipped
 
 - **Reader (8a + 8c)** — AI-generated texts from an English prompt; tokenized reader view with familiarity highlighting (known/weak/new); tap any word to see translation or existing card data; one-tap add to deck; texts saved for re-reading.
+- **Auto-labeling** — Gemini suggests 2–5 broad topic labels (food, cooking, animal…) on every translation; auto-created and assigned when a card is saved.
+- **Classifiers / articles** — Translation response now includes the definite article (fr/es/de) or measure word (yue/cmn) for nouns; stored on the card and shown as a badge in the output and card list.
+- **Reader story labels** — Words added from reader mode are auto-tagged with a "📖 [Title]" label; "Study vocab" button in the reader header opens a filtered study session for that text's vocabulary.
+- **Vector embeddings** — Each card gets a background Gemini embedding (text-embedding-004); `GET /api/labels/suggest-cards?name=X` returns top cosine-similar unassigned cards. Label manage panel now has a "✦ Suggest" button per label.
+- **Canonical card (word families)** — `canonical_card_id` FK on cards lets inflected/conjugated forms point to their base form; set via the card edit form's canonical search field; displayed as "Form of: X" in the card list.
 
 ---
 

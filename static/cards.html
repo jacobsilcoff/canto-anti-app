@@ -503,6 +503,7 @@
   let currentAudio = null;
   let isOnline = navigator.onLine;
   let allLabels = [];
+  let allCards = [];
   let filterLabelId = null;
   let filterPicker = null;
   let inlinePicker = null;
@@ -1153,6 +1154,7 @@
     list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">Loading…</p>';
     try {
       const { cards } = await fetch('/api/cards/all').then(r => r.json());
+      allCards = cards;
       document.getElementById('card-count').textContent = cards.length;
       if (cards.length === 0) {
         list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">No cards yet.</p>';
@@ -1160,6 +1162,13 @@
       }
       list.innerHTML = '';
       cards.forEach(card => renderCardListItem(card, list));
+      // Populate canonical refs now that allCards is loaded.
+      cards.forEach(card => {
+        if (card.canonical_card_id) {
+          const el = document.getElementById(`canonical-target-${card.id}`);
+          if (el) el.textContent = canonicalCardText(card.canonical_card_id) || `#${card.canonical_card_id}`;
+        }
+      });
     } catch {
       list.innerHTML = '<p style="color:var(--again);padding:16px">Failed to load cards.</p>';
     }
@@ -1174,6 +1183,7 @@
     item._tutorFlag = !!card.tutor_flag;
     item._suspended = !!card.suspended;
     item._targetLang = card.target_lang || 'yue';
+    item._canonicalCardId = card.canonical_card_id || null;
 
     const langCode = item._targetLang;
     const logographic = isLogographic(langCode);
@@ -1199,7 +1209,9 @@
         ${langTagHtml}
         <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
         ${romanRowHtml}
+        ${card.classifier ? `<span class="card-classifier">${escHtml(card.classifier)}</span>` : ''}
         <div class="english">${escHtml(card.source_text)}</div>
+        ${card.canonical_card_id ? `<div class="card-canonical-ref" id="canonical-ref-${card.id}">Form of: <span class="canonical-target" id="canonical-target-${card.id}">…</span></div>` : ''}
         <div class="card-list-meta" id="meta-${card.id}"></div>
         ${labelsHtml ? `<div class="card-list-labels">${labelsHtml}</div>` : ''}
         ${notesHtml}
@@ -1212,6 +1224,14 @@
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
           <div id="edit-labels-${card.id}"></div>
+        </div>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Canonical / base form <span style="font-weight:400;font-size:0.8rem;color:var(--text-muted)">(e.g. infinitive for conjugations)</span></div>
+          <div class="canonical-search-wrap">
+            <input class="edit-input" id="edit-canonical-${card.id}" placeholder="Search cards…" autocomplete="off" oninput="filterCanonicalResults(${card.id})">
+            <div class="canonical-results" id="canonical-results-${card.id}" style="display:none"></div>
+            <div class="canonical-current" id="canonical-current-${card.id}"></div>
+          </div>
         </div>
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
@@ -1316,6 +1336,56 @@
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
 
+  // ── Canonical card helpers ────────────────────────────────────────────────
+
+  function canonicalCardText(canonicalId) {
+    if (!canonicalId) return null;
+    const found = allCards.find(c => c.id === canonicalId);
+    return found ? (found.target_text + (found.source_text ? ` (${found.source_text})` : '')) : `#${canonicalId}`;
+  }
+
+  function renderCanonicalCurrent(cardId, canonicalId) {
+    const el = document.getElementById(`canonical-current-${cardId}`);
+    if (!el) return;
+    if (!canonicalId) { el.innerHTML = ''; return; }
+    const label = canonicalCardText(canonicalId);
+    el.innerHTML = `<span class="canonical-chip">${escHtml(label)}</span> <button class="canonical-clear-btn" onclick="clearCanonical(${cardId})">✕ Remove</button>`;
+  }
+
+  function clearCanonical(cardId) {
+    const item = document.getElementById(`cli-${cardId}`);
+    if (!item) return;
+    item._pendingCanonicalId = null;
+    renderCanonicalCurrent(cardId, null);
+  }
+
+  function filterCanonicalResults(cardId) {
+    const input = document.getElementById(`edit-canonical-${cardId}`);
+    const results = document.getElementById(`canonical-results-${cardId}`);
+    const query = input.value.trim().toLowerCase();
+    if (!query) { results.style.display = 'none'; return; }
+    const item = document.getElementById(`cli-${cardId}`);
+    const matches = allCards.filter(c =>
+      c.id !== cardId &&
+      (c.target_text.toLowerCase().includes(query) || c.source_text.toLowerCase().includes(query))
+    ).slice(0, 8);
+    if (!matches.length) { results.style.display = 'none'; return; }
+    results.innerHTML = '';
+    matches.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'canonical-result-row';
+      row.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
+      row.onclick = () => {
+        item._pendingCanonicalId = c.id;
+        renderCanonicalCurrent(cardId, c.id);
+        input.value = '';
+        results.style.display = 'none';
+      };
+      results.appendChild(row);
+    });
+    results.style.display = 'block';
+  }
+
   function startEdit(id) {
     document.getElementById(`display-${id}`).style.display = 'none';
     document.getElementById(`actions-${id}`).style.display = 'none';
@@ -1333,6 +1403,10 @@
       placeholder: 'Add label…',
       onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(labels); },
     });
+
+    // Populate canonical current state.
+    item._pendingCanonicalId = item._canonicalCardId || null;
+    renderCanonicalCurrent(id, item._pendingCanonicalId);
   }
 
   function cancelEdit(id) {
@@ -1359,6 +1433,9 @@
 
     const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
     btn.disabled = true; btn.textContent = 'Saving…';
+    const pendingCanonicalId = item._pendingCanonicalId !== undefined
+      ? item._pendingCanonicalId : item._canonicalCardId;
+
     try {
       const res = await fetch(`/api/cards/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1371,6 +1448,14 @@
         }),
       });
       if (!res.ok) throw new Error();
+
+      // Update canonical if it changed.
+      if (pendingCanonicalId !== item._canonicalCardId) {
+        await fetch(`/api/cards/${id}/canonical`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canonical_card_id: pendingCanonicalId }),
+        });
+      }
 
       const display = document.getElementById(`display-${id}`);
       const targetEl = display.querySelector(logographic ? '.chinese' : 'div:not(.lang-tag):not(.english):not(.jyutping):not(.card-list-meta):not(.card-list-labels)');
@@ -1386,6 +1471,7 @@
         suspended: item._suspended ? 1 : 0,
         target_lang: langCode,
         labels: allLabels.filter(l => labelIds.includes(l.id)),
+        canonical_card_id: pendingCanonicalId,
       };
       const parent = item.parentNode;
       const next = item.nextSibling;
@@ -1449,13 +1535,55 @@
         <input class="edit-input label-manage-name" value="${escAttr(lbl.name)}" maxlength="50">
         <span class="label-manage-count">${lbl.card_count}</span>
         <button class="edit-save-btn label-manage-save">Save</button>
+        <button class="suggest-cards-btn" title="Suggest cards by similarity">✦ Suggest</button>
         <button class="delete-card-btn label-manage-delete" title="Delete label" aria-label="Delete label">${ICONS.trash}</button>
       `;
       row.querySelector('.label-manage-save').onclick = () =>
         renameLabel(lbl.id, row.querySelector('.label-manage-name').value);
       row.querySelector('.label-manage-delete').onclick = () => deleteLabel(lbl.id, lbl.name);
+      row.querySelector('.suggest-cards-btn').onclick = () => suggestCardsForLabel(lbl.id, lbl.name, row);
       list.appendChild(row);
     });
+  }
+
+  async function suggestCardsForLabel(labelId, labelName, rowEl) {
+    // Remove any previous suggestion panel for this label.
+    rowEl.parentNode.querySelectorAll('.label-suggest-panel').forEach(el => el.remove());
+
+    const panel = document.createElement('div');
+    panel.className = 'label-suggest-panel';
+    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Finding similar cards…</span>';
+    rowEl.after(panel);
+
+    try {
+      const res = await fetch(`/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}&label_id=${labelId}&limit=10`);
+      const { cards } = await res.json();
+      if (!cards.length) {
+        panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No unassigned cards found with similar embeddings. Cards need to be added first to generate embeddings.</span>';
+        return;
+      }
+      panel.innerHTML = `<div class="label-suggest-header">Cards similar to "${escHtml(labelName)}" — click to add:</div>`;
+      cards.forEach(c => {
+        const chip = document.createElement('button');
+        chip.className = 'label-suggest-card-btn';
+        chip.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
+        chip.onclick = async () => {
+          chip.disabled = true;
+          try {
+            const res = await fetch(`/api/labels/${labelId}/cards`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ card_id: c.id }),
+            });
+            if (!res.ok) throw new Error();
+            chip.textContent = '✓ ' + chip.textContent;
+            chip.style.opacity = '0.5';
+          } catch { chip.disabled = false; showToast('Failed to add card to label.'); }
+        };
+        panel.appendChild(chip);
+      });
+    } catch {
+      panel.innerHTML = '<span style="color:var(--again);font-size:0.85rem">Failed to fetch suggestions.</span>';
+    }
   }
 
   async function createLabelFromModal() {
@@ -1646,7 +1774,16 @@
   (async () => {
     await loadLanguages();
     await Promise.all([loadLabels(), loadSettings(), loadMe(), loadStreak()]);
-    loadSession();
+    // Support ?study=1&label_id=X from reader vocab review.
+    const _params = new URLSearchParams(window.location.search);
+    if (_params.has('label_id')) {
+      const lid = parseInt(_params.get('label_id'), 10);
+      if (!isNaN(lid)) {
+        filterLabelId = lid;
+        if (filterPicker) filterPicker.setSelected([lid]);
+      }
+    }
+    loadSession(_params.get('study') === '1' ? 'all' : 'due');
   })();
 </script>
 </body>

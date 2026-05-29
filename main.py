@@ -1,3 +1,6 @@
+import asyncio
+import json
+import math
 import os
 import secrets
 import time
@@ -5,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -223,6 +226,8 @@ async def translate_endpoint(req: TranslateRequest, user: dict = Depends(current
         "target_lang": req.target_lang,
         "candidates": result["candidates"],
         "priority": result["priority"],
+        "suggested_labels": result.get("suggested_labels", []),
+        "classifier": result.get("classifier", ""),
     }
 
 
@@ -234,10 +239,24 @@ class CreateCardRequest(BaseModel):
     notes: str | None = None
     priority: int = 3
     label_ids: list[int] | None = None
+    suggested_labels: list[str] | None = None
+    classifier: str = ""
+    canonical_card_id: int | None = None
+    reader_text_id: int | None = None
+
+
+async def _generate_and_store_embedding(card_id: int, text: str):
+    embedding = await translation.get_embedding(text)
+    if embedding:
+        await db.update_card_embedding(card_id, json.dumps(embedding))
 
 
 @app.post("/api/cards")
-async def create_card(req: CreateCardRequest, user: dict = Depends(current_user)):
+async def create_card(
+    req: CreateCardRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, f"Unsupported target language: {req.target_lang}")
     target_text = req.target_text.strip()
@@ -245,6 +264,14 @@ async def create_card(req: CreateCardRequest, user: dict = Depends(current_user)
         raise HTTPException(400, "source_text and target_text are required")
     audio_data = await audio.generate(target_text, req.target_lang)
     notes = (req.notes or "").strip() or None
+
+    # Collect extra label ids — story label if reader_text_id provided.
+    extra_label_ids: list[int] = list(req.label_ids or [])
+    if req.reader_text_id:
+        story_label = await db.get_or_create_story_label(user["id"], req.reader_text_id)
+        if story_label.get("id"):
+            extra_label_ids.append(story_label["id"])
+
     card_id = await db.create_card(
         user_id=user["id"],
         source_text=req.source_text.strip(),
@@ -253,9 +280,17 @@ async def create_card(req: CreateCardRequest, user: dict = Depends(current_user)
         target_lang=req.target_lang,
         audio_data=audio_data,
         notes=notes,
-        label_ids=req.label_ids or [],
+        label_ids=extra_label_ids,
         priority=req.priority,
+        classifier=req.classifier or "",
+        canonical_card_id=req.canonical_card_id,
+        suggested_label_names=req.suggested_labels or [],
     )
+
+    # Generate embedding in the background.
+    embed_text = f"{req.source_text.strip()} {target_text}"
+    background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
+
     return {"card_id": card_id, "notes": notes, "labels": []}
 
 
@@ -430,6 +465,27 @@ async def reset_card(card_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+class SetCanonicalRequest(BaseModel):
+    canonical_card_id: int | None = None
+
+
+@app.put("/api/cards/{card_id}/canonical")
+async def set_canonical(card_id: int, req: SetCanonicalRequest, user: dict = Depends(current_user)):
+    ok = await db.set_canonical_card(user["id"], card_id, req.canonical_card_id)
+    if not ok:
+        raise HTTPException(404, "Card not found")
+    return {"success": True}
+
+
+@app.get("/api/cards/{card_id}/forms")
+async def get_card_forms(card_id: int, user: dict = Depends(current_user)):
+    card = await db.get_card(user["id"], card_id)
+    if not card:
+        raise HTTPException(404, "Card not found")
+    forms = await db.get_card_forms(user["id"], card_id)
+    return {"forms": forms}
+
+
 # ── Labels ────────────────────────────────────────────────────────────────────
 
 class LabelRequest(BaseModel):
@@ -468,6 +524,89 @@ async def rename_label(label_id: int, req: LabelRequest, user: dict = Depends(cu
 async def delete_label(label_id: int, user: dict = Depends(current_user)):
     await db.delete_label(user["id"], label_id)
     return {"success": True}
+
+
+class LabelCardRequest(BaseModel):
+    card_id: int
+
+
+@app.post("/api/labels/{label_id}/cards")
+async def add_card_to_label(label_id: int, req: LabelCardRequest, user: dict = Depends(current_user)):
+    """Add a single card to a label without touching its other labels."""
+    import aiosqlite as _aiosqlite
+    async with _aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute("PRAGMA foreign_keys = ON")
+        # Verify label and card belong to this user.
+        async with conn.execute(
+            "SELECT 1 FROM labels WHERE id=? AND user_id=?", (label_id, user["id"])
+        ) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(404, "Label not found")
+        async with conn.execute(
+            "SELECT 1 FROM cards WHERE id=? AND user_id=?", (req.card_id, user["id"])
+        ) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(404, "Card not found")
+        await conn.execute(
+            "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+            (req.card_id, label_id),
+        )
+        await conn.commit()
+    return {"success": True}
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    mag_a = math.sqrt(sum(x * x for x in a))
+    mag_b = math.sqrt(sum(x * x for x in b))
+    if not mag_a or not mag_b:
+        return 0.0
+    return dot / (mag_a * mag_b)
+
+
+@app.get("/api/labels/suggest-cards")
+async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
+    """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
+    query_embedding = await translation.get_embedding(name)
+    if not query_embedding:
+        return {"cards": []}
+
+    all_embeddings = await db.get_all_embeddings(user["id"])
+    if not all_embeddings:
+        return {"cards": []}
+
+    scored = []
+    for row in all_embeddings:
+        try:
+            emb = json.loads(row["embedding"])
+        except Exception:
+            continue
+        score = _cosine_similarity(query_embedding, emb)
+        scored.append((score, row))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [r for _, r in scored[:limit]]
+
+    # If filtering by label, fetch cards already in the label to exclude them.
+    if label_id is not None:
+        import aiosqlite as _aiosqlite
+        async with _aiosqlite.connect(db.DB_PATH) as conn:
+            async with conn.execute(
+                "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,)
+            ) as cur:
+                already = {r[0] for r in await cur.fetchall()}
+        top = [r for r in top if r["id"] not in already]
+
+    return {"cards": top[:limit]}
+
+
+@app.get("/api/reader/texts/{text_id}/vocab-label")
+async def reader_vocab_label(text_id: int, user: dict = Depends(current_user)):
+    """Get or create the story label for this reader text."""
+    label = await db.get_or_create_story_label(user["id"], text_id)
+    if not label:
+        raise HTTPException(404, "Reader text not found")
+    return label
 
 
 # ── Languages (metadata) ──────────────────────────────────────────────────────
@@ -721,5 +860,7 @@ async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = De
         "romanization": candidate.get("romanization", ""),
         "notes": candidate.get("notes", ""),
         "priority": result.get("priority", 3),
+        "suggested_labels": result.get("suggested_labels", []),
+        "classifier": result.get("classifier", ""),
         "status": "new",
     }

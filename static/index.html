@@ -207,6 +207,7 @@
     <div class="output-panel" id="output-panel" style="display:none">
       <div class="output-chinese" id="out-target"></div>
       <div class="output-jyutping" id="out-romanization"></div>
+      <div class="output-classifier" id="out-classifier" style="display:none"></div>
       <div class="output-english" id="out-english" style="display:none"></div>
 
       <div class="output-labels" id="output-labels" style="display:none"></div>
@@ -424,17 +425,21 @@
     }
   }
 
-  function renderOutputLabels() {
+  function renderOutputLabels(autoLabels) {
     const el = document.getElementById('output-labels');
     el.innerHTML = '';
-    if (!stickyPicker) { el.style.display = 'none'; return; }
-    const sel = stickyPicker.getSelected();
-    if (sel.size === 0) { el.style.display = 'none'; return; }
+    const parts = [];
+    if (stickyPicker) {
+      const sel = stickyPicker.getSelected();
+      allLabels.filter(l => sel.has(l.id)).forEach(lbl => parts.push(lbl.name));
+    }
+    (autoLabels || []).forEach(name => { if (!parts.includes(name)) parts.push(name); });
+    if (parts.length === 0) { el.style.display = 'none'; return; }
     el.style.display = 'flex';
-    allLabels.filter(l => sel.has(l.id)).forEach(lbl => {
+    parts.forEach(name => {
       const chip = document.createElement('span');
       chip.className = 'label-chip-static';
-      chip.textContent = lbl.name;
+      chip.textContent = name;
       el.appendChild(chip);
     });
   }
@@ -444,6 +449,8 @@
     await persistCard();
     renderOutputLabels();
   }
+
+  // classifier display in output — stored on lastTranslation
 
   // ── Notes ────────────────────────────────────────────────────────────────
   async function saveNotes() {
@@ -596,12 +603,14 @@
           notes: aiNotes || null,
           priority: lastTranslation.priority || 3,
           label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
+          suggested_labels: lastTranslation.suggested_labels || [],
+          classifier: lastTranslation.classifier || '',
         }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       currentCardId = data.card_id;
-      renderResult(c);
+      renderResult(c, lastTranslation.suggested_labels || []);
     } catch {
       showToast('Could not save card — try again.');
     } finally {
@@ -610,13 +619,22 @@
     }
   }
 
-  function renderResult(c) {
+  function renderResult(c, autoLabels) {
     const lang = langByCode(targetLang);
     document.getElementById('out-target').textContent = c.target_text;
     document.getElementById('out-romanization').textContent =
       (lang && lang.logographic) ? (c.romanization || '') : '';
     document.getElementById('out-romanization').style.display =
       (lang && lang.logographic && c.romanization) ? '' : 'none';
+
+    const classifierEl = document.getElementById('out-classifier');
+    const classifier = lastTranslation ? (lastTranslation.classifier || '') : '';
+    if (classifier) {
+      classifierEl.textContent = classifier;
+      classifierEl.style.display = '';
+    } else {
+      classifierEl.style.display = 'none';
+    }
 
     const englishEl = document.getElementById('out-english');
     if (sourceIsTarget) {
@@ -635,7 +653,7 @@
       document.getElementById('ai-notes-block').style.display = 'none';
     }
 
-    renderOutputLabels();
+    renderOutputLabels(autoLabels || []);
     document.getElementById('output-panel').style.display = 'block';
 
     const ind = document.getElementById('saved-indicator');
