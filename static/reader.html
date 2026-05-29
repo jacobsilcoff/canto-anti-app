@@ -58,7 +58,7 @@
       border-radius: 12px;
       padding: 14px 16px;
       margin-bottom: 18px;
-      z-index: 10;
+      z-index: 5;
       min-height: 64px;
       cursor: pointer;
       user-select: none;
@@ -123,6 +123,13 @@
     .play-btn:hover { border-color: var(--primary); color: var(--primary); }
     .play-btn.playing { color: var(--primary); border-color: var(--primary); }
     .panel-controls { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+    /* ── Paging ── */
+    .page-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
+    .page-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; padding: 8px 20px; font-size: 0.9rem; font-weight: 500; }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn:disabled { opacity: 0.35; cursor: default; }
+    .page-indicator { font-size: 0.82rem; color: var(--text-muted, #888); min-width: 60px; text-align: center; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
     .gen-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px; }
@@ -220,6 +227,12 @@
     </div>
 
     <div class="reader-text" id="reader-text"></div>
+
+    <div class="page-nav" id="page-nav" style="display:none">
+      <button class="page-btn" id="page-prev" onclick="goPage(-1)">← Prev</button>
+      <span class="page-indicator" id="page-indicator"></span>
+      <button class="page-btn" id="page-next" onclick="goPage(1)">Next →</button>
+    </div>
   </div>
 </main>
 
@@ -233,11 +246,14 @@
 
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
+  const SENTENCES_PER_PAGE = 5;
+
   let languages = [];
   let selectedLang = 'yue';
   let currentTextId = null;
   let currentTargetLang = 'yue';
   let sentences = [];         // [{tokens, text}]
+  let currentPage = 0;
   let currentSentenceIdx = null;
   let activeWordEl = null;
   let tooltipWordData = null;
@@ -349,9 +365,10 @@
     currentTextId = data.id;
     currentTargetLang = data.target_lang;
     currentSentenceIdx = null;
+    currentPage = 0;
     document.getElementById('reader-title').textContent = data.title;
     sentences = buildSentences(data.tokens);
-    renderReader();
+    renderPage(0);
     resetPanel();
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('reader-view').style.display = 'block';
@@ -383,10 +400,39 @@
     }));
   }
 
-  function renderReader() {
+  function renderPage(pageIdx) {
+    currentPage = pageIdx;
+    const totalPages = Math.ceil(sentences.length / SENTENCES_PER_PAGE);
+    const start = pageIdx * SENTENCES_PER_PAGE;
+    const pageSentences = sentences.slice(start, start + SENTENCES_PER_PAGE);
+
+    // Update paging controls
+    const nav = document.getElementById('page-nav');
+    nav.style.display = totalPages > 1 ? '' : 'none';
+    document.getElementById('page-prev').disabled = pageIdx === 0;
+    document.getElementById('page-next').disabled = pageIdx >= totalPages - 1;
+    document.getElementById('page-indicator').textContent = `${pageIdx + 1} / ${totalPages}`;
+
+    // Reset panel and tooltip when changing page
+    closeTooltip();
+    resetPanel();
+    currentSentenceIdx = null;
+
+    renderReader(pageSentences, start);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function goPage(delta) {
+    const totalPages = Math.ceil(sentences.length / SENTENCES_PER_PAGE);
+    const next = Math.max(0, Math.min(totalPages - 1, currentPage + delta));
+    if (next !== currentPage) renderPage(next);
+  }
+
+  function renderReader(pageSentences, globalOffset) {
     const container = document.getElementById('reader-text');
     container.innerHTML = '';
-    sentences.forEach((sent, si) => {
+    pageSentences.forEach((sent, localIdx) => {
+      const si = globalOffset + localIdx;
       const sentEl = document.createElement('span');
       sentEl.className = 'sentence';
       sentEl.dataset.si = si;
