@@ -241,6 +241,8 @@ async def generate_reader_text(prompt: str, target_lang: str) -> dict:
         "Rules:\n"
         f"{rules}\n"
         "- Write naturally, as if for a native speaker audience.\n"
+        "- Write ONLY the target-language text. Do NOT include romanisation, transliteration, "
+        "pinyin, jyutping, or any English translation in the text body.\n"
         "- Also provide a short English title (3–6 words) summarising the text.\n"
         "Return ONLY valid JSON, no other text:\n"
         '{ "title": "...", "content": "..." }\n\n'

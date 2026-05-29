@@ -867,14 +867,19 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
         norm = _cjk_only(word)
         if not norm:
             continue
-        # Exact normalized match.
+        # Exact normalized match → use actual status.
         if norm in card_lookup:
             result[word] = card_lookup[norm]
             continue
-        # Card starts with this token (e.g. card '多謝你', token '多謝').
-        if len(norm) >= 2:
-            for card_norm, status in card_lookup.items():
-                if card_norm.startswith(norm):
-                    result[word] = status
-                    break
+        # Token appears anywhere within a card (e.g. token '去' in card '我去旅行').
+        # Use the best status found, but cap substring-only matches at 'weak' since the
+        # user may have learned the whole phrase without isolating this word.
+        best: str | None = None
+        for card_norm, status in card_lookup.items():
+            if norm in card_norm:
+                # Prefer 'known' over 'weak' if multiple cards contain this token.
+                if best is None or status == "known":
+                    best = status
+        if best is not None:
+            result[word] = "weak" if best == "known" else best
     return result
