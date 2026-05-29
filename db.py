@@ -138,6 +138,8 @@ async def init():
             await db.execute("ALTER TABLE labels ADD COLUMN user_id INTEGER")
         if not await _column_exists(db, "labels", "is_story_label"):
             await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
+        if not await _column_exists(db, "reader_sentences", "romanization"):
+            await db.execute("ALTER TABLE reader_sentences ADD COLUMN romanization TEXT")
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name COLLATE NOCASE)"
         )
@@ -1011,7 +1013,7 @@ async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
             if not await cur.fetchone():
                 return []
         async with db.execute(
-            """SELECT sentence_idx, sentence_text, translation,
+            """SELECT sentence_idx, sentence_text, translation, romanization,
                       CASE WHEN audio_data IS NOT NULL THEN 1 ELSE 0 END AS has_audio
                FROM reader_sentences WHERE text_id=? ORDER BY sentence_idx""",
             (text_id,),
@@ -1021,16 +1023,18 @@ async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
 
 async def upsert_reader_sentence(
     text_id: int, idx: int, sentence_text: str,
-    translation: str | None = None, audio_data: bytes | None = None
+    translation: str | None = None, audio_data: bytes | None = None,
+    romanization: str | None = None,
 ):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            """INSERT INTO reader_sentences (text_id, sentence_idx, sentence_text, translation, audio_data)
-               VALUES (?, ?, ?, ?, ?)
+            """INSERT INTO reader_sentences (text_id, sentence_idx, sentence_text, translation, audio_data, romanization)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(text_id, sentence_idx) DO UPDATE SET
-                 translation = COALESCE(excluded.translation, translation),
-                 audio_data  = COALESCE(excluded.audio_data,  audio_data)""",
-            (text_id, idx, sentence_text, translation, audio_data),
+                 translation  = COALESCE(excluded.translation,  translation),
+                 audio_data   = COALESCE(excluded.audio_data,   audio_data),
+                 romanization = COALESCE(excluded.romanization, romanization)""",
+            (text_id, idx, sentence_text, translation, audio_data, romanization),
         )
         await db.commit()
 

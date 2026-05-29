@@ -797,6 +797,7 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
             return
 
         trans_text = cached.get("translation")
+        rom_text = cached.get("romanization")
         audio_bytes = None
 
         async with sem:
@@ -805,7 +806,9 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
                     tr = await translation.translate(
                         sent_text, text["target_lang"], source_is_target=True
                     )
-                    trans_text = tr["candidates"][0]["english"] if tr["candidates"] else ""
+                    cand = tr["candidates"][0] if tr["candidates"] else {}
+                    trans_text = cand.get("english", "")
+                    rom_text = cand.get("romanization") or rom_text
                 except Exception:
                     trans_text = ""
             if need_audio:
@@ -814,7 +817,7 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
                 except Exception:
                     audio_bytes = None
 
-        await db.upsert_reader_sentence(text_id, idx, sent_text, trans_text, audio_bytes)
+        await db.upsert_reader_sentence(text_id, idx, sent_text, trans_text, audio_bytes, rom_text)
 
     await _asyncio.gather(*[process(i, s) for i, s in enumerate(sent_texts)])
 

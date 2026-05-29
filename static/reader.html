@@ -75,6 +75,7 @@
     }
     .sentence-panel:hover { border-color: var(--primary); }
     .sentence-panel-hint { font-size: 0.88rem; color: var(--text-muted, #aaa); font-style: italic; text-align: center; width: 100%; display: block; }
+    .sentence-panel-romanization { font-size: 0.82rem; color: var(--text-muted, #888); margin-bottom: 4px; }
     .sentence-panel-translation { font-size: 0.9rem; color: var(--text-muted, #666); line-height: 1.4; }
     .sentence-panel-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); }
     .sentence-panel-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
@@ -159,7 +160,6 @@
     /* ── Audio mode ── */
     .audio-mode-btn { display: flex; align-items: center; justify-content: center; }
     .audio-mode-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .sentence.audio-active { background: rgba(99,102,241,.13); outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -266,6 +266,7 @@
       <div id="panel-body" style="display:none">
         <div class="sentence-panel-hint" id="panel-reveal-hint" style="display:none">Click to show translation</div>
         <div id="panel-content" style="display:none">
+          <div class="sentence-panel-romanization" id="panel-romanization" style="display:none"></div>
           <div class="sentence-panel-translation" id="panel-translation"></div>
         </div>
       </div>
@@ -675,8 +676,15 @@
     const alreadySelected = currentSentenceIdx === si;
 
     document.querySelectorAll('.sentence.active').forEach(el => el.classList.remove('active'));
+    if (!sentEl) sentEl = document.querySelector(`.sentence[data-si="${si}"]`);
     if (sentEl) sentEl.classList.add('active');
     currentSentenceIdx = si;
+
+    // Keep audio mode in sync so playback resumes from the clicked sentence
+    if (audioMode && audioSentenceIdx !== si) {
+      audioSentenceIdx = si;
+      if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    }
 
     document.getElementById('panel-hint').style.display = 'none';
     document.getElementById('panel-body').style.display = '';
@@ -686,11 +694,13 @@
 
     const cached = sentenceCache[si];
     if (cached?.translation) {
+      setPanelRomanization(cached.romanization);
       document.getElementById('panel-translation').textContent = cached.translation;
       return;
     }
 
     // Fallback: live Gemini call
+    setPanelRomanization(null);
     document.getElementById('panel-translation').innerHTML =
       '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
     try {
@@ -701,13 +711,21 @@
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const english = data.candidates?.[0]?.english || '';
-      document.getElementById('panel-translation').textContent = english;
+      const cand = data.candidates?.[0] || {};
+      setPanelRomanization(cand.romanization);
+      document.getElementById('panel-translation').textContent = cand.english || '';
       if (!sentenceCache[si]) sentenceCache[si] = {};
-      sentenceCache[si].translation = english;
+      sentenceCache[si].translation = cand.english || '';
+      sentenceCache[si].romanization = cand.romanization || null;
     } catch {
       document.getElementById('panel-translation').textContent = 'Translation failed.';
     }
+  }
+
+  function setPanelRomanization(rom) {
+    const el = document.getElementById('panel-romanization');
+    if (rom) { el.textContent = rom; el.style.display = ''; }
+    else { el.textContent = ''; el.style.display = 'none'; }
   }
 
   // ── Word tooltip ───────────────────────────────────────────────────────────
@@ -942,7 +960,6 @@
     audioPlaying = false;
     if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
     setAudioPlayPauseUI(false);
-    document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
   }
 
   function setAudioPlayPauseUI(playing) {
@@ -972,15 +989,9 @@
         await new Promise(r => setTimeout(r, 50));
       }
 
-      // Highlight the sentence in the text body
-      document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
+      // Scroll active sentence into view and update the panel
       const sentEl = document.querySelector(`.sentence[data-si="${si}"]`);
-      if (sentEl) {
-        sentEl.classList.add('audio-active');
-        sentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-
-      // Update the sentence panel (like clicking the sentence)
+      if (sentEl) sentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await selectSentence(si, sentEl);
 
       // Play audio
@@ -996,8 +1007,7 @@
 
     if (!_audioModeAbort && audioSentenceIdx >= sentences.length) {
       // Reached the end
-      document.querySelectorAll('.sentence.audio-active').forEach(el => el.classList.remove('audio-active'));
-      showToast('Audio playback complete');
+        showToast('Audio playback complete');
       audioStop();
     }
   }
