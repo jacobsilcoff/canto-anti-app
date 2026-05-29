@@ -3,6 +3,26 @@ import re
 # Each token: {"text": str, "is_word": bool}
 Token = dict
 
+_SENTENCE_ENDERS = re.compile(r"[。！？\n!?]")
+
+
+def split_sentences(tokens: list[Token]) -> list[str]:
+    """Group tokens into sentence strings, split on sentence-ending punctuation."""
+    sentences = []
+    buf: list[str] = []
+    for tok in tokens:
+        buf.append(tok["text"])
+        if not tok["is_word"] and _SENTENCE_ENDERS.search(tok["text"]):
+            s = "".join(buf).strip()
+            if s:
+                sentences.append(s)
+            buf = []
+    if buf:
+        s = "".join(buf).strip()
+        if s:
+            sentences.append(s)
+    return sentences
+
 
 def tokenize(text: str, lang: str) -> list[Token]:
     """Split text into word and non-word tokens for the reader view."""

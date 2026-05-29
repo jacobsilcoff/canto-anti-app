@@ -124,6 +124,18 @@
     .play-btn.playing { color: var(--primary); border-color: var(--primary); }
     .panel-controls { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 
+    /* ── Loading view ── */
+    .loading-view { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
+    .loading-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 28px; }
+    .loading-steps { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 320px; }
+    .loading-step { display: flex; align-items: center; gap: 12px; font-size: 0.92rem; color: var(--text-muted, #888); }
+    .loading-step.active { color: var(--text); }
+    .loading-step.done { color: #16a34a; }
+    .step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .step-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .step-check { color: #16a34a; font-size: 1rem; }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); margin: auto; }
+
     /* ── Paging ── */
     .page-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
     .page-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; padding: 8px 20px; font-size: 0.9rem; font-weight: 500; }
@@ -193,6 +205,23 @@
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
       <div class="saved-list" id="saved-list"></div>
+    </div>
+  </div>
+
+  <!-- Loading view (shown during generate + preload) -->
+  <div id="loading-view" style="display:none">
+    <div class="loading-view">
+      <div class="loading-title">Preparing your reading…</div>
+      <div class="loading-steps">
+        <div class="loading-step" id="step-generate">
+          <div class="step-icon"><div class="step-dot"></div></div>
+          <span>Generating text</span>
+        </div>
+        <div class="loading-step" id="step-preload">
+          <div class="step-icon"><div class="step-dot"></div></div>
+          <span>Translating sentences &amp; creating audio</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -331,8 +360,23 @@
   }
 
   async function openSavedText(id) {
-    const res = await fetch(`/api/reader/texts/${id}`).then(r => r.json());
-    showReaderView(res);
+    showLoadingView();
+    setStep('generate', 'done');
+    try {
+      const data = await fetch(`/api/reader/texts/${id}`).then(r => r.json());
+      if (data.preload_complete) {
+        setStep('preload', 'done');
+        showReaderView(data);
+      } else {
+        setStep('preload', 'active');
+        const preloaded = await fetch(`/api/reader/texts/${id}/preload`, { method: 'POST' }).then(r => r.json());
+        setStep('preload', 'done');
+        showReaderView({ ...data, sentences: preloaded.sentences, preload_complete: true });
+      }
+    } catch (err) {
+      showToast('Failed to load text');
+      showHome();
+    }
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
@@ -341,7 +385,10 @@
     if (!prompt) { showToast('Enter a prompt first'); return; }
     const btn = document.getElementById('gen-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="gen-spinner"></span>Generating…';
+
+    showLoadingView();
+    setStep('generate', 'active');
+
     try {
       const res = await fetch('/api/reader/generate', {
         method: 'POST',
@@ -350,32 +397,64 @@
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();
+      setStep('generate', 'done');
       loadSavedTexts();
-      showReaderView(data);
+
+      setStep('preload', 'active');
+      const preloaded = await fetch(`/api/reader/texts/${data.id}/preload`, { method: 'POST' }).then(r => r.json());
+      setStep('preload', 'done');
+
+      showReaderView({ ...data, sentences: preloaded.sentences, preload_complete: true });
     } catch (err) {
       showToast(err.message || 'Generation failed');
+      showHome();
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Generate';
     }
   }
 
+  // ── Loading view helpers ───────────────────────────────────────────────────
+  function showLoadingView() {
+    document.getElementById('home-view').style.display = 'none';
+    document.getElementById('reader-view').style.display = 'none';
+    document.getElementById('loading-view').style.display = 'block';
+    setStep('generate', 'pending');
+    setStep('preload', 'pending');
+  }
+
+  function setStep(id, state) {
+    const el = document.getElementById('step-' + id);
+    el.className = 'loading-step' + (state === 'active' ? ' active' : state === 'done' ? ' done' : '');
+    const icon = el.querySelector('.step-icon');
+    if (state === 'active') icon.innerHTML = '<div class="step-spinner"></div>';
+    else if (state === 'done') icon.innerHTML = '<span class="step-check">✓</span>';
+    else icon.innerHTML = '<div class="step-dot"></div>';
+  }
+
   // ── Reader view ────────────────────────────────────────────────────────────
+  // sentenceCache: map of sentence_idx → {translation, has_audio}
+  let sentenceCache = {};
+
   function showReaderView(data) {
     currentTextId = data.id;
     currentTargetLang = data.target_lang;
     currentSentenceIdx = null;
     currentPage = 0;
+    // Build sentence cache from preloaded data
+    sentenceCache = {};
+    (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
     document.getElementById('reader-title').textContent = data.title;
     sentences = buildSentences(data.tokens);
     renderPage(0);
     resetPanel();
+    document.getElementById('loading-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('reader-view').style.display = 'block';
   }
 
   function showHome() {
     document.getElementById('reader-view').style.display = 'none';
+    document.getElementById('loading-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'block';
     closeTooltip();
     currentSentenceIdx = null;
@@ -482,7 +561,6 @@
   async function selectSentence(si, sentEl) {
     if (currentSentenceIdx === si) return;
 
-    // Update active sentence highlight
     document.querySelectorAll('.sentence.active').forEach(el => el.classList.remove('active'));
     sentEl.classList.add('active');
     currentSentenceIdx = si;
@@ -491,12 +569,18 @@
     document.getElementById('panel-hint').style.display = 'none';
     document.getElementById('panel-body').style.display = '';
     document.getElementById('panel-original').textContent = sentText;
-    document.getElementById('panel-translation').textContent = '';
     panelTranslationVisible = true;
     document.getElementById('panel-translation-wrap').style.display = '';
+
+    const cached = sentenceCache[si];
+    if (cached?.translation) {
+      document.getElementById('panel-translation').textContent = cached.translation;
+      return;
+    }
+
+    // Fallback: live Gemini call (shouldn't happen after preload, but just in case)
     document.getElementById('panel-translation').innerHTML =
       '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
-
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
@@ -507,6 +591,8 @@
       const data = await res.json();
       const english = data.candidates?.[0]?.english || '';
       document.getElementById('panel-translation').textContent = english;
+      if (!sentenceCache[si]) sentenceCache[si] = {};
+      sentenceCache[si].translation = english;
     } catch {
       document.getElementById('panel-translation').textContent = 'Translation failed.';
     }
@@ -669,7 +755,27 @@
   function playSentence(e) {
     e.stopPropagation();
     if (currentSentenceIdx === null) return;
-    playText(sentences[currentSentenceIdx].text);
+    const cached = sentenceCache[currentSentenceIdx];
+    if (cached?.has_audio) {
+      playUrl(`/api/reader/texts/${currentTextId}/sentences/${currentSentenceIdx}/audio`);
+    } else {
+      playText(sentences[currentSentenceIdx].text);
+    }
+  }
+
+  async function playUrl(url) {
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      _currentAudio = new Audio(objUrl);
+      _currentAudio.onended = () => { URL.revokeObjectURL(objUrl); _currentAudio = null; };
+      _currentAudio.play();
+    } catch {
+      showToast('Audio unavailable');
+    }
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────────

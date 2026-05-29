@@ -171,6 +171,19 @@ async def init():
             )
         """)
 
+        # Pre-generated sentence translations and audio for reader texts.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS reader_sentences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text_id INTEGER NOT NULL,
+                sentence_idx INTEGER NOT NULL,
+                sentence_text TEXT NOT NULL,
+                translation TEXT,
+                audio_data BLOB,
+                UNIQUE(text_id, sentence_idx)
+            )
+        """)
+
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -821,6 +834,53 @@ async def delete_reader_text(user_id: int, text_id: int):
             "DELETE FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
         )
         await db.commit()
+
+
+async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
+    """Return cached sentence data for a reader text owned by user_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # Verify ownership first.
+        async with db.execute(
+            "SELECT 1 FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return []
+        async with db.execute(
+            """SELECT sentence_idx, sentence_text, translation,
+                      CASE WHEN audio_data IS NOT NULL THEN 1 ELSE 0 END AS has_audio
+               FROM reader_sentences WHERE text_id=? ORDER BY sentence_idx""",
+            (text_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def upsert_reader_sentence(
+    text_id: int, idx: int, sentence_text: str,
+    translation: str | None = None, audio_data: bytes | None = None
+):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO reader_sentences (text_id, sentence_idx, sentence_text, translation, audio_data)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(text_id, sentence_idx) DO UPDATE SET
+                 translation = COALESCE(excluded.translation, translation),
+                 audio_data  = COALESCE(excluded.audio_data,  audio_data)""",
+            (text_id, idx, sentence_text, translation, audio_data),
+        )
+        await db.commit()
+
+
+async def get_sentence_audio(user_id: int, text_id: int, idx: int) -> bytes | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT rs.audio_data FROM reader_sentences rs
+               JOIN reader_texts rt ON rt.id = rs.text_id
+               WHERE rs.text_id=? AND rs.sentence_idx=? AND rt.user_id=?""",
+            (text_id, idx, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
 
 
 def _cjk_only(text: str) -> str:

@@ -561,6 +561,23 @@ def _annotate_tokens(tokens: list[dict], statuses: dict[str, str]) -> list[dict]
     return tokens
 
 
+async def _build_text_response(user_id: int, text: dict) -> dict:
+    """Assemble the full response for a reader text: tokens + cached sentences."""
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    words = [t["text"] for t in tokens if t["is_word"]]
+    statuses = await db.get_word_statuses(user_id, words, text["target_lang"])
+    sentences = await db.get_reader_sentences(user_id, text["id"])
+    preload_complete = bool(sentences) and all(
+        s["translation"] and s["has_audio"] for s in sentences
+    )
+    return {
+        **text,
+        "tokens": _annotate_tokens(tokens, statuses),
+        "sentences": sentences,
+        "preload_complete": preload_complete,
+    }
+
+
 @app.post("/api/reader/generate")
 async def reader_generate(req: ReaderGenerateRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
@@ -569,16 +586,8 @@ async def reader_generate(req: ReaderGenerateRequest, user: dict = Depends(curre
     text_id = await db.create_reader_text(
         user["id"], result["title"], req.prompt, result["content"], req.target_lang
     )
-    tokens = tokenizer.tokenize(result["content"], req.target_lang)
-    words = [t["text"] for t in tokens if t["is_word"]]
-    statuses = await db.get_word_statuses(user["id"], words, req.target_lang)
-    return {
-        "id": text_id,
-        "title": result["title"],
-        "content": result["content"],
-        "target_lang": req.target_lang,
-        "tokens": _annotate_tokens(tokens, statuses),
-    }
+    text = await db.get_reader_text(user["id"], text_id)
+    return await _build_text_response(user["id"], text)
 
 
 @app.get("/api/reader/texts")
@@ -591,10 +600,63 @@ async def reader_get_text(text_id: int, user: dict = Depends(current_user)):
     text = await db.get_reader_text(user["id"], text_id)
     if not text:
         raise HTTPException(404, "Text not found")
+    return await _build_text_response(user["id"], text)
+
+
+@app.post("/api/reader/texts/{text_id}/preload")
+async def reader_preload(text_id: int, user: dict = Depends(current_user)):
+    """Pre-generate translations and audio for every sentence in the text.
+    Skips sentences already cached. Returns the completed sentence list."""
+    text = await db.get_reader_text(user["id"], text_id)
+    if not text:
+        raise HTTPException(404, "Text not found")
+
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
-    words = [t["text"] for t in tokens if t["is_word"]]
-    statuses = await db.get_word_statuses(user["id"], words, text["target_lang"])
-    return {**text, "tokens": _annotate_tokens(tokens, statuses)}
+    sent_texts = tokenizer.split_sentences(tokens)
+    existing = {s["sentence_idx"]: s for s in await db.get_reader_sentences(user["id"], text_id)}
+
+    import asyncio as _asyncio
+    sem = _asyncio.Semaphore(3)
+
+    async def process(idx: int, sent_text: str):
+        cached = existing.get(idx, {})
+        need_translation = not cached.get("translation")
+        need_audio = not cached.get("has_audio")
+        if not need_translation and not need_audio:
+            return
+
+        trans_text = cached.get("translation")
+        audio_bytes = None
+
+        async with sem:
+            if need_translation:
+                try:
+                    tr = await translation.translate(
+                        sent_text, text["target_lang"], source_is_target=True
+                    )
+                    trans_text = tr["candidates"][0]["english"] if tr["candidates"] else ""
+                except Exception:
+                    trans_text = ""
+            if need_audio:
+                try:
+                    audio_bytes = await audio.generate(sent_text, text["target_lang"])
+                except Exception:
+                    audio_bytes = None
+
+        await db.upsert_reader_sentence(text_id, idx, sent_text, trans_text, audio_bytes)
+
+    await _asyncio.gather(*[process(i, s) for i, s in enumerate(sent_texts)])
+
+    sentences = await db.get_reader_sentences(user["id"], text_id)
+    return {"sentences": sentences, "preload_complete": True}
+
+
+@app.get("/api/reader/texts/{text_id}/sentences/{idx}/audio")
+async def sentence_audio(text_id: int, idx: int, user: dict = Depends(current_user)):
+    data = await db.get_sentence_audio(user["id"], text_id, idx)
+    if not data:
+        raise HTTPException(404, "Audio not ready")
+    return Response(content=data, media_type="audio/mpeg")
 
 
 @app.delete("/api/reader/texts/{text_id}")
