@@ -78,6 +78,15 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .nav-link svg.icon { vertical-align: 0; }
 .nav-link:hover { background: var(--bg); color: var(--primary); }
+.streak-display {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
 
 .badge {
   background: var(--primary);

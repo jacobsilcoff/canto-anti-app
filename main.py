@@ -313,6 +313,11 @@ async def due_count(label_id: int | None = None, user: dict = Depends(current_us
     return {"count": await db.get_due_count(user["id"], label_id=label_id)}
 
 
+@app.get("/api/streak")
+async def get_streak(user: dict = Depends(current_user)):
+    return {"streak": await db.get_streak(user["id"])}
+
+
 @app.get("/api/audio/{card_id}")
 async def get_audio(card_id: int, user: dict = Depends(current_user)):
     data = await db.get_audio(user["id"], card_id)

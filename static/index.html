@@ -126,10 +126,12 @@
       Reader
     </a>
     <a href="/admin" class="nav-link admin-link" style="display:none">Admin</a>
+    <span class="streak-display" id="streak-display" style="display:none"></span>
     <button class="nav-link" onclick="doLogout()" style="border:none;cursor:pointer;background:none" title="Sign out">Sign out</button>
   </nav>
   <!-- Mobile quick actions -->
   <div class="nav-mobile">
+    <span class="streak-display" id="streak-display-mobile" style="display:none"></span>
     <a href="/cards" class="nav-link" title="Flashcards">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
       <span class="badge due-badge"></span>
@@ -677,6 +679,19 @@
     } catch {}
   }
 
+  async function loadStreak() {
+    try {
+      const { streak } = await fetch('/api/streak').then(r => r.json());
+      if (streak > 0) {
+        const text = `🔥 ${streak}`;
+        document.querySelectorAll('.streak-display').forEach(el => {
+          el.textContent = text;
+          el.style.display = '';
+        });
+      }
+    } catch {}
+  }
+
   function toggleMobileMenu() {
     document.getElementById('nav-dropdown').classList.toggle('open');
   }
@@ -726,7 +741,7 @@
 
   (async () => {
     await loadLanguages();
-    await Promise.all([loadSettings(), loadDueCount(), loadLabels(), loadMe()]);
+    await Promise.all([loadSettings(), loadDueCount(), loadLabels(), loadMe(), loadStreak()]);
   })();
 </script>
 </body>

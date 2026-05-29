@@ -171,6 +171,15 @@ async def init():
             )
         """)
 
+        # Daily study activity for streak tracking.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS study_activity (
+                user_id INTEGER NOT NULL,
+                study_date TEXT NOT NULL,
+                PRIMARY KEY (user_id, study_date)
+            )
+        """)
+
         # Pre-generated sentence translations and audio for reader texts.
         await db.execute("""
             CREATE TABLE IF NOT EXISTS reader_sentences (
@@ -629,6 +638,10 @@ async def update_face_review(user_id: int, card_id: int, face: str, state: dict)
             (state["interval_days"], state["ease_factor"], state["repetitions"], state["next_review"],
              card_id, face),
         )
+        await db.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
         await db.commit()
 
 
@@ -943,3 +956,39 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
         if best is not None:
             result[word] = "weak" if best == "known" else best
     return result
+
+
+async def get_streak(user_id: int) -> int:
+    """Return the user's current study streak in days.
+
+    A streak is the number of consecutive days (ending today or yesterday) with
+    at least one review. Counting back from today preserves the streak before
+    the user studies on a given day.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT study_date FROM study_activity WHERE user_id=? ORDER BY study_date DESC",
+            (user_id,),
+        ) as cur:
+            rows = [r[0] async for r in cur]
+
+    if not rows:
+        return 0
+
+    from datetime import date, timedelta
+    today = date.today()
+    # Allow streak if most-recent activity is today or yesterday.
+    most_recent = date.fromisoformat(rows[0])
+    if most_recent < today - timedelta(days=1):
+        return 0
+
+    streak = 0
+    expected = today if most_recent == today else today - timedelta(days=1)
+    for row in rows:
+        d = date.fromisoformat(row)
+        if d == expected:
+            streak += 1
+            expected -= timedelta(days=1)
+        elif d < expected:
+            break
+    return streak
