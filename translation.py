@@ -299,7 +299,7 @@ _DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = "intermediate") -> dict:
+async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = "B1") -> dict:
     """Generate a short target-language text from an English description prompt.
 
     Returns: { title: str, content: str }
@@ -309,7 +309,7 @@ async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = 
     info = LANG_INFO[target_lang]
     name = info["name"]
     rules = info["rules"]
-    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["intermediate"])
+    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
 
     full_prompt = (
         f"Write a {name} text based on the following description.\n"

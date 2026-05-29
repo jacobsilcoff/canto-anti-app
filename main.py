@@ -711,7 +711,7 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
 class ReaderGenerateRequest(BaseModel):
     prompt: str
     target_lang: str = "yue"
-    difficulty: str = "intermediate"
+    difficulty: str = "B1"
 
 
 class ReaderTranslateWordRequest(BaseModel):
