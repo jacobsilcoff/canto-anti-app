@@ -3,20 +3,48 @@ import re
 # Each token: {"text": str, "is_word": bool}
 Token = dict
 
-_SENTENCE_ENDERS = re.compile(r"[。！？\n!?]")
+# Matches sentence-ending punctuation that is NOT inside quotes.
+# For CJK: 。！？; for Latin: . ! ?; also newlines.
+_SENTENCE_ENDERS = re.compile(r'[。！？.!?\n]')
+# Opening/closing quote characters — we avoid splitting mid-quote.
+_OPEN_QUOTES = set('"«「『')
+_CLOSE_QUOTES = set('"»」』')
 
 
 def split_sentences(tokens: list[Token]) -> list[str]:
-    """Group tokens into sentence strings, split on sentence-ending punctuation."""
+    """Group tokens into sentence strings, split on sentence-ending punctuation.
+
+    Does not split inside quoted speech — a sentence-ender found while inside
+    quotes is absorbed into the current buffer rather than flushing it.
+    For Latin scripts a period must be followed by whitespace or end-of-text
+    (to avoid splitting on abbreviations or decimal numbers).
+    """
     sentences = []
     buf: list[str] = []
-    for tok in tokens:
-        buf.append(tok["text"])
-        if not tok["is_word"] and _SENTENCE_ENDERS.search(tok["text"]):
+    quote_depth = 0
+
+    for i, tok in enumerate(tokens):
+        text = tok["text"]
+        # Track quote depth from non-word tokens (punctuation)
+        if not tok["is_word"]:
+            for ch in text:
+                if ch in _OPEN_QUOTES:
+                    quote_depth += 1
+                elif ch in _CLOSE_QUOTES:
+                    quote_depth = max(0, quote_depth - 1)
+
+        buf.append(text)
+
+        if not tok["is_word"] and quote_depth == 0 and _SENTENCE_ENDERS.search(text):
+            # For a numeric period (e.g. "1.5"), don't split.
+            if '.' in text and '。' not in text:
+                if re.search(r'\d\.\d', text):
+                    continue
             s = "".join(buf).strip()
             if s:
                 sentences.append(s)
             buf = []
+
     if buf:
         s = "".join(buf).strip()
         if s:
