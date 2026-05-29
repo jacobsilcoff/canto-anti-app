@@ -314,12 +314,12 @@
     document.getElementById('reader-title').textContent = data.title;
     renderTokens(data.tokens);
     document.getElementById('home-view').style.display = 'none';
-    document.getElementById('reader-view').style.display = '';
+    document.getElementById('reader-view').style.display = 'block';
   }
 
   function showHome() {
     document.getElementById('reader-view').style.display = 'none';
-    document.getElementById('home-view').style.display = '';
+    document.getElementById('home-view').style.display = 'block';
     closePopup();
   }
 
