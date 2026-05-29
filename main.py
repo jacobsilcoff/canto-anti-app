@@ -196,6 +196,11 @@ async def reader_page():
     return _html("reader.html")
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page():
+    return _html("settings.html")
+
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(user: dict = Depends(current_admin)):
     return _html("admin.html")
