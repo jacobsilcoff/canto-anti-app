@@ -178,8 +178,13 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
         f'return a single candidate.\n'
         f'- Include "priority" 1–5 based on vocabulary frequency in everyday {name}: '
         f"{freq}\n"
-        f'- Include "suggested_labels": an array of 2–5 short English topic labels (lowercase, e.g. '
-        f'"food", "cooking", "animal", "emotion", "travel"). These are broad thematic categories.\n'
+        f'- Include "suggested_labels": an array of 2–4 short English labels (lowercase) that would help '
+        f'a learner organise their deck. Prioritise: (1) part of speech (e.g. "verb", "noun", "adjective", '
+        f'"adverb", "conjunction"); (2) grammatical function (e.g. "irregular verb", "modal verb", '
+        f'"reflexive verb", "expressing obligation", "negation"); (3) broad topic only when genuinely '
+        f'useful and distinct (e.g. "food", "travel", "emotions"). '
+        f'Do NOT include multiple labels that mean the same thing (e.g. not both "obligation" and '
+        f'"necessity" and "duty" — pick the most precise one). Each label must add distinct information.\n'
         "Return ONLY valid JSON in this exact format, no other text:\n"
         "{\n"
         f'  "candidates": [\n'

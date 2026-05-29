@@ -29,6 +29,11 @@
     .gen-lang-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
     .gen-lang-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem; cursor: pointer; }
     .gen-lang-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .gen-difficulty-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .gen-diff-chip { display: flex; flex-direction: column; align-items: center; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; line-height: 1.2; }
+    .gen-diff-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .gen-diff-chip .diff-code { font-size: 0.82rem; font-weight: 700; }
+    .gen-diff-chip .diff-label { font-size: 0.65rem; opacity: 0.75; }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -208,17 +213,8 @@
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
-        <div class="gen-lang-row" id="gen-lang-row" style="margin-top:0;flex:1"></div>
-        <select id="gen-difficulty" style="border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:5px 10px;font-size:0.82rem;cursor:pointer">
-          <option value="A1">A1 — Beginner</option>
-          <option value="A2">A2 — Elementary</option>
-          <option value="B1" selected>B1 — Intermediate</option>
-          <option value="B2">B2 — Upper Intermediate</option>
-          <option value="C1">C1 — Advanced</option>
-          <option value="C2">C2 — Mastery</option>
-        </select>
-      </div>
+      <div class="gen-lang-row" id="gen-lang-row"></div>
+      <div class="gen-difficulty-row" id="gen-difficulty-row"></div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
@@ -297,6 +293,16 @@
   // ── State ──────────────────────────────────────────────────────────────────
   const SENTENCES_PER_PAGE = 5;
 
+  const CEFR_LEVELS = [
+    { code: 'A1', label: 'Beginner' },
+    { code: 'A2', label: 'Elementary' },
+    { code: 'B1', label: 'Intermediate' },
+    { code: 'B2', label: 'Upper-Int.' },
+    { code: 'C1', label: 'Advanced' },
+    { code: 'C2', label: 'Mastery' },
+  ];
+  let selectedDifficulty = 'B1';
+
   let languages = [];
   let selectedLang = 'yue';
   let currentTextId = null;
@@ -312,6 +318,7 @@
   async function init() {
     await Promise.all([loadLanguages(), loadDefaultLang()]);
     renderLangChips();
+    renderDifficultyChips();
     checkAdmin();
     loadSavedTexts();
     loadStreak();
@@ -331,6 +338,18 @@
     } catch {
       languages = [{ code: 'yue', name: 'Cantonese', flag: '🇭🇰' }];
     }
+  }
+
+  function renderDifficultyChips() {
+    const row = document.getElementById('gen-difficulty-row');
+    row.innerHTML = '';
+    CEFR_LEVELS.forEach(l => {
+      const chip = document.createElement('button');
+      chip.className = 'gen-diff-chip' + (l.code === selectedDifficulty ? ' selected' : '');
+      chip.innerHTML = `<span class="diff-code">${l.code}</span><span class="diff-label">${l.label}</span>`;
+      chip.onclick = () => { selectedDifficulty = l.code; renderDifficultyChips(); };
+      row.appendChild(chip);
+    });
   }
 
   function renderLangChips() {
@@ -421,7 +440,7 @@
       const res = await fetch('/api/reader/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, target_lang: selectedLang, difficulty: document.getElementById('gen-difficulty').value }),
+        body: JSON.stringify({ prompt, target_lang: selectedLang, difficulty: selectedDifficulty }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();
