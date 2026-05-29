@@ -399,21 +399,17 @@ async def create_card(
             name = name.strip()
             if not name:
                 continue
+            await db.execute(
+                "INSERT OR IGNORE INTO labels (user_id, name, is_story_label) VALUES (?, ?, 0)",
+                (user_id, name),
+            )
             async with db.execute(
                 "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
                 (user_id, name),
             ) as cur:
                 row = await cur.fetchone()
-            if row:
-                lid = row[0]
-            else:
-                cur2 = await db.execute(
-                    "INSERT INTO labels (user_id, name, is_story_label) VALUES (?, ?, 0)",
-                    (user_id, name),
-                )
-                lid = cur2.lastrowid
-            if lid not in all_label_ids:
-                all_label_ids.append(lid)
+            if row and row[0] not in all_label_ids:
+                all_label_ids.append(row[0])
 
         if all_label_ids:
             await db.executemany(
