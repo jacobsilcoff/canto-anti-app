@@ -187,12 +187,15 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
         f'Do NOT include multiple labels that are synonyms or near-synonyms for the same concept '
         f'(e.g. not both "obligation" and "necessity" — pick the most precise one). '
         f'Every label must add distinct organisational value.\n'
+        f'- Include "cefr_level": the CEFR level of this vocabulary item (A1/A2/B1/B2/C1/C2) '
+        f'for a learner of {name}. Base this on standard {name} learner corpora and frequency lists.\n'
         "Return ONLY valid JSON in this exact format, no other text:\n"
         "{\n"
         f'  "candidates": [\n'
         f"    {{ {', '.join(candidate_obj)}, \"label\": \"...\"  // short disambiguation hint, may be empty if single candidate }}\n"
         f"  ],\n"
         '  "priority": 3,\n'
+        '  "cefr_level": "B1",\n'
         f'  "suggested_labels": ["...", "..."]'
         f"{classifier_field}\n"
         "}\n"
@@ -249,12 +252,16 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
     suggested_labels = [l.strip().lower() for l in raw_labels if isinstance(l, str) and l.strip()] \
         if isinstance(raw_labels, list) else []
     classifier = _strip(raw.get("classifier"))
+    _VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    cefr_level = _strip(raw.get("cefr_level")).upper()
+    cefr_level = cefr_level if cefr_level in _VALID_CEFR else None
 
     return {
         "candidates": candidates,
         "priority": _safe_priority(raw.get("priority", 3)),
         "suggested_labels": suggested_labels,
         "classifier": classifier,
+        "cefr_level": cefr_level,
     }
 
 

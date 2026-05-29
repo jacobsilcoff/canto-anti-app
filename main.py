@@ -228,6 +228,7 @@ async def translate_endpoint(req: TranslateRequest, user: dict = Depends(current
         "priority": result["priority"],
         "suggested_labels": result.get("suggested_labels", []),
         "classifier": result.get("classifier", ""),
+        "cefr_level": result.get("cefr_level"),
     }
 
 
@@ -243,6 +244,7 @@ class CreateCardRequest(BaseModel):
     classifier: str = ""
     canonical_card_id: int | None = None
     reader_text_id: int | None = None
+    cefr_level: str | None = None
 
 
 async def _generate_and_store_embedding(card_id: int, text: str):
@@ -285,6 +287,7 @@ async def create_card(
         classifier=req.classifier or "",
         canonical_card_id=req.canonical_card_id,
         suggested_label_names=req.suggested_labels or [],
+        cefr_level=req.cefr_level,
     )
 
     # Generate embedding in the background.
@@ -346,6 +349,11 @@ async def get_all_cards(user: dict = Depends(current_user)):
 @app.get("/api/cards/due-count")
 async def due_count(label_id: int | None = None, user: dict = Depends(current_user)):
     return {"count": await db.get_due_count(user["id"], label_id=label_id)}
+
+
+@app.get("/api/cards/cefr-distribution")
+async def cefr_distribution(user: dict = Depends(current_user)):
+    return await db.get_cefr_distribution(user["id"])
 
 
 @app.get("/api/streak")
@@ -874,6 +882,7 @@ async def reader_add_all_vocab(
                     priority=result.get("priority", 3),
                     classifier=result.get("classifier", ""),
                     suggested_label_names=result.get("suggested_labels", []),
+                    cefr_level=result.get("cefr_level"),
                 )
                 embed_text = f"{candidate['english']} {word}"
                 background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
@@ -941,5 +950,6 @@ async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = De
         "priority": result.get("priority", 3),
         "suggested_labels": result.get("suggested_labels", []),
         "classifier": result.get("classifier", ""),
+        "cefr_level": result.get("cefr_level"),
         "status": "new",
     }

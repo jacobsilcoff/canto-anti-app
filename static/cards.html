@@ -174,6 +174,33 @@
       font-weight: 600;
     }
 
+    /* CEFR badge */
+    .cefr-badge {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 1px 6px;
+      border-radius: 8px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    .cefr-A1 { background: #dcfce7; color: #166534; }
+    .cefr-A2 { background: #bbf7d0; color: #15803d; }
+    .cefr-B1 { background: #fef9c3; color: #854d0e; }
+    .cefr-B2 { background: #fed7aa; color: #9a3412; }
+    .cefr-C1 { background: #fecaca; color: #991b1b; }
+    .cefr-C2 { background: #f3e8ff; color: #6b21a8; }
+
+    /* CEFR distribution chart */
+    .cefr-dist { margin-top: 20px; width: 100%; max-width: 340px; }
+    .cefr-dist-title { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+    .cefr-dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.82rem; }
+    .cefr-dist-label { width: 24px; font-weight: 700; font-size: 0.75rem; flex-shrink: 0; }
+    .cefr-dist-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 10px; overflow: hidden; }
+    .cefr-dist-bar { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .cefr-dist-count { width: 28px; text-align: right; color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
+
     /* Browse */
     .card-list-meta {
       display: flex;
@@ -330,6 +357,7 @@
     <h2>All caught up!</h2>
     <p id="caughtup-msg">No cards due right now.</p>
     <button class="cta-btn" onclick="loadSession('all')">Practice Anyway</button>
+    <div class="cefr-dist" id="cefr-dist-caughtup"></div>
   </div>
 </div>
 
@@ -342,6 +370,7 @@
       <a href="/" class="cta-btn">Translate More</a>
       <button class="cta-btn secondary" onclick="loadSession('all')">Practice More</button>
     </div>
+    <div class="cefr-dist" id="cefr-dist-done"></div>
   </div>
 </div>
 
@@ -884,6 +913,34 @@
     ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
+    if (state === 'caughtup' || state === 'done') loadCefrDistribution(state);
+  }
+
+  const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  const CEFR_COLORS = { A1: '#16a34a', A2: '#15803d', B1: '#ca8a04', B2: '#ea580c', C1: '#dc2626', C2: '#7c3aed' };
+
+  async function loadCefrDistribution(state) {
+    const containerId = state === 'caughtup' ? 'cefr-dist-caughtup' : 'cefr-dist-done';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    try {
+      const dist = await fetch('/api/cards/cefr-distribution').then(r => r.json());
+      const labelled = CEFR_LEVELS.reduce((s, l) => s + (dist[l] || 0), 0);
+      if (!labelled) { container.innerHTML = ''; return; }
+      const max = Math.max(...CEFR_LEVELS.map(l => dist[l] || 0), 1);
+      container.innerHTML = `<div class="cefr-dist-title">Vocab by CEFR level</div>` +
+        CEFR_LEVELS.map(l => {
+          const count = dist[l] || 0;
+          const pct = Math.round((count / max) * 100);
+          return `<div class="cefr-dist-row">
+            <span class="cefr-dist-label cefr-badge cefr-${l}">${l}</span>
+            <div class="cefr-dist-bar-wrap">
+              <div class="cefr-dist-bar" style="width:${pct}%;background:${CEFR_COLORS[l]}"></div>
+            </div>
+            <span class="cefr-dist-count">${count}</span>
+          </div>`;
+        }).join('');
+    } catch { container.innerHTML = ''; }
   }
 
   // ── Render card ───────────────────────────────────────────────────────────
@@ -1229,6 +1286,7 @@
         <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
         ${romanRowHtml}
         ${card.classifier ? `<span class="card-classifier">${escHtml(card.classifier)}</span>` : ''}
+        ${card.cefr_level ? `<span class="cefr-badge cefr-${card.cefr_level}">${escHtml(card.cefr_level)}</span>` : ''}
         <div class="english">${escHtml(card.source_text)}</div>
         ${card.canonical_card_id ? `<div class="card-canonical-ref" id="canonical-ref-${card.id}">Form of: <span class="canonical-target" id="canonical-target-${card.id}">…</span></div>` : ''}
         <div class="card-list-meta" id="meta-${card.id}"></div>

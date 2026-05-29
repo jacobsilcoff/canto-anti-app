@@ -101,6 +101,7 @@ async def init():
             ("classifier", "TEXT", "''"),
             ("embedding", "TEXT", "NULL"),
             ("canonical_card_id", "INTEGER", "NULL"),
+            ("cefr_level", "TEXT", "NULL"),
         ]:
             if not await _column_exists(db, "cards", col):
                 await db.execute(f"ALTER TABLE cards ADD COLUMN {col} {sql_type} DEFAULT {default}")
@@ -376,14 +377,17 @@ async def create_card(
     classifier: str = "",
     canonical_card_id: int | None = None,
     suggested_label_names: list[str] | None = None,
+    cefr_level: str | None = None,
 ) -> int:
+    _VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    safe_cefr = cefr_level if cefr_level in _VALID_CEFR else None
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """INSERT INTO cards (user_id, source_text, target_text, romanization, target_lang,
-                                  audio_data, notes, priority, classifier, canonical_card_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  audio_data, notes, priority, classifier, canonical_card_id, cefr_level)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, source_text, target_text, romanization, target_lang,
-             audio_data, notes, max(1, min(5, priority)), classifier or "", canonical_card_id),
+             audio_data, notes, max(1, min(5, priority)), classifier or "", canonical_card_id, safe_cefr),
         )
         card_id = cursor.lastrowid
         for face in FACES:
@@ -421,7 +425,7 @@ async def create_card(
         return card_id
 
 
-_CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, priority, tutor_flag, suspended, classifier, canonical_card_id"
+_CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, priority, tutor_flag, suspended, classifier, canonical_card_id, cefr_level"
 
 
 async def get_card(user_id: int, card_id: int) -> dict | None:
@@ -1115,6 +1119,25 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
             if best is not None:
                 result[word] = "weak" if best == "known" else best
     return result
+
+
+async def get_cefr_distribution(user_id: int) -> dict:
+    """Return counts of cards at each CEFR level plus an unlabelled count."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT cefr_level, COUNT(*) AS cnt
+               FROM cards
+               WHERE user_id = ? AND suspended = 0
+               GROUP BY cefr_level""",
+            (user_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+    levels = {"A1": 0, "A2": 0, "B1": 0, "B2": 0, "C1": 0, "C2": 0, "unknown": 0}
+    for r in rows:
+        key = r["cefr_level"] if r["cefr_level"] in levels else "unknown"
+        levels[key] += r["cnt"]
+    return levels
 
 
 async def get_streak(user_id: int) -> int:

@@ -605,6 +605,7 @@
           label_ids: stickyPicker ? [...stickyPicker.getSelected()] : [],
           suggested_labels: lastTranslation.suggested_labels || [],
           classifier: lastTranslation.classifier || '',
+          cefr_level: lastTranslation.cefr_level || null,
         }),
       });
       if (!res.ok) throw new Error();
