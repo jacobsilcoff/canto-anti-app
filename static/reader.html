@@ -79,6 +79,7 @@
 
     /* ── Text body ── */
     .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
+    .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
     .sentence { cursor: pointer; border-radius: 4px; }
     .sentence.active { background: rgba(99,102,241,.07); }
     .token {}
@@ -447,6 +448,8 @@
     sentenceCache = {};
     (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
     document.getElementById('reader-title').textContent = data.title;
+    const isLatin = !['yue','cmn'].includes(data.target_lang);
+    document.getElementById('reader-text').classList.toggle('latin', isLatin);
     sentences = buildSentences(data.tokens);
     renderPage(0);
     resetPanel();
@@ -467,10 +470,22 @@
   function buildSentences(tokens) {
     const result = [];
     let buf = [];
-    const sentenceEnders = /[。！？\n!?]/;
-    tokens.forEach(tok => {
+    let quoteDepth = 0;
+    const openQuotes = new Set(['“', '«', '「', '『']);
+    const closeQuotes = new Set(['”', '»', '」', '』']);
+    const sentenceEnders = /[。！？.!?\n]/;
+
+    tokens.forEach((tok, i) => {
+      if (!tok.is_word) {
+        for (const ch of tok.text) {
+          if (openQuotes.has(ch)) quoteDepth++;
+          else if (closeQuotes.has(ch)) quoteDepth = Math.max(0, quoteDepth - 1);
+        }
+      }
       buf.push(tok);
-      if (!tok.is_word && sentenceEnders.test(tok.text)) {
+      if (!tok.is_word && quoteDepth === 0 && sentenceEnders.test(tok.text)) {
+        // Skip numeric periods like "1.5"
+        if (tok.text.includes('.') && !tok.text.includes('。') && /\d\.\d/.test(tok.text)) return;
         result.push(buf);
         buf = [];
       }
