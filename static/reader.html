@@ -211,9 +211,12 @@
       <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
         <div class="gen-lang-row" id="gen-lang-row" style="margin-top:0;flex:1"></div>
         <select id="gen-difficulty" style="border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:5px 10px;font-size:0.82rem;cursor:pointer">
-          <option value="beginner">Beginner</option>
-          <option value="intermediate" selected>Intermediate</option>
-          <option value="advanced">Advanced</option>
+          <option value="A1">A1 — Beginner</option>
+          <option value="A2">A2 — Elementary</option>
+          <option value="B1" selected>B1 — Intermediate</option>
+          <option value="B2">B2 — Upper Intermediate</option>
+          <option value="C1">C1 — Advanced</option>
+          <option value="C2">C2 — Mastery</option>
         </select>
       </div>
     </div>
@@ -307,10 +310,18 @@
 
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
-    await loadLanguages();
+    await Promise.all([loadLanguages(), loadDefaultLang()]);
+    renderLangChips();
     checkAdmin();
     loadSavedTexts();
     loadStreak();
+  }
+
+  async function loadDefaultLang() {
+    try {
+      const { default_target_lang } = await fetch('/api/settings').then(r => r.json());
+      if (default_target_lang) selectedLang = default_target_lang;
+    } catch {}
   }
 
   async function loadLanguages() {
@@ -320,7 +331,6 @@
     } catch {
       languages = [{ code: 'yue', name: 'Cantonese', flag: '🇭🇰' }];
     }
-    renderLangChips();
   }
 
   function renderLangChips() {

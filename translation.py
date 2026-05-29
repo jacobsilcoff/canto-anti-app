@@ -252,20 +252,35 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
 
 
 _DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
-    "beginner": (
-        "- Use simple, high-frequency vocabulary only. Short sentences (5–10 words each). "
-        "Avoid idiomatic expressions, slang, and complex grammar. "
-        "Write around 60–90 words total."
+    "A1": (
+        "- CEFR A1 (Beginner): very basic, high-frequency words only (colours, numbers, greetings, "
+        "simple objects). Very short sentences (3–6 words). Present tense only. "
+        "No idioms. Write around 50–70 words total."
     ),
-    "intermediate": (
-        "- Use everyday vocabulary with some moderately common idioms. "
-        "Mix short and medium-length sentences. "
-        "Write around 80–150 words total."
+    "A2": (
+        "- CEFR A2 (Elementary): common everyday vocabulary. Simple sentences with basic connectors "
+        "(and, but, because). Simple past and future allowed. Minimal idioms. "
+        "Write around 70–100 words total."
     ),
-    "advanced": (
-        "- Use rich vocabulary including idioms, set phrases, and nuanced expressions. "
-        "Vary sentence structure; include complex or compound sentences. "
-        "Write around 120–200 words total."
+    "B1": (
+        "- CEFR B1 (Intermediate): mainstream vocabulary, some common idioms and fixed expressions. "
+        "Mix of simple and compound sentences. Range of tenses. "
+        "Write around 100–150 words total."
+    ),
+    "B2": (
+        "- CEFR B2 (Upper Intermediate): broader vocabulary including less common words and "
+        "idiomatic phrases. Varied sentence structure including subordinate clauses. "
+        "Write around 130–180 words total."
+    ),
+    "C1": (
+        "- CEFR C1 (Advanced): sophisticated vocabulary, nuanced expressions, culture-specific "
+        "references, and complex grammar. Fluent, natural prose. "
+        "Write around 150–200 words total."
+    ),
+    "C2": (
+        "- CEFR C2 (Mastery): near-native register; may include literary devices, proverbs, "
+        "regional expressions, and subtle pragmatic nuance. No simplification. "
+        "Write around 170–220 words total."
     ),
 }
 
