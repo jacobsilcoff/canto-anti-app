@@ -75,7 +75,6 @@
     }
     .sentence-panel:hover { border-color: var(--primary); }
     .sentence-panel-hint { font-size: 0.88rem; color: var(--text-muted, #aaa); font-style: italic; text-align: center; width: 100%; display: block; }
-    .sentence-panel-original { font-family: 'Noto Sans TC', sans-serif; font-size: 1.05rem; color: var(--text); line-height: 1.5; margin-bottom: 4px; }
     .sentence-panel-translation { font-size: 0.9rem; color: var(--text-muted, #666); line-height: 1.4; }
     .sentence-panel-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); }
     .sentence-panel-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
@@ -267,7 +266,6 @@
       <div id="panel-body" style="display:none">
         <div class="sentence-panel-hint" id="panel-reveal-hint" style="display:none">Click to show translation</div>
         <div id="panel-content" style="display:none">
-          <div class="sentence-panel-original" id="panel-original"></div>
           <div class="sentence-panel-translation" id="panel-translation"></div>
         </div>
       </div>
@@ -683,22 +681,16 @@
     document.getElementById('panel-hint').style.display = 'none';
     document.getElementById('panel-body').style.display = '';
 
-    if (!alreadySelected) {
-      // Reset to hidden when switching sentences
-      panelTranslationVisible = false;
-      document.getElementById('panel-content').style.display = 'none';
-      document.getElementById('panel-reveal-hint').style.display = '';
-    }
+    document.getElementById('panel-content').style.display = panelTranslationVisible ? '' : 'none';
+    document.getElementById('panel-reveal-hint').style.display = panelTranslationVisible ? 'none' : '';
 
     const cached = sentenceCache[si];
     if (cached?.translation) {
-      document.getElementById('panel-original').textContent = sentences[si].text;
       document.getElementById('panel-translation').textContent = cached.translation;
       return;
     }
 
     // Fallback: live Gemini call
-    document.getElementById('panel-original').textContent = sentences[si].text;
     document.getElementById('panel-translation').innerHTML =
       '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
     try {
