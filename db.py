@@ -1043,18 +1043,31 @@ async def get_sentence_audio(user_id: int, text_id: int, idx: int) -> bytes | No
             return row[0] if row else None
 
 
-def _cjk_only(text: str) -> str:
-    """Strip punctuation/spaces, keeping only CJK characters."""
-    import re
-    return re.sub(r"[^一-鿿㐀-䶿豈-﫿぀-ヿ]", "", text)
+import re as _re
+
+_CJK_RE = _re.compile(r"[^一-鿿㐀-䶿豈-﫿぀-ヿ]")
+_NON_ALPHA_RE = _re.compile(r"[\W]", _re.UNICODE)
+
+
+def _normalize_word(text: str) -> str:
+    """Normalize a word for deck-status lookup.
+
+    CJK text: strip everything except CJK/kana characters.
+    Latin/other: lowercase and strip non-word characters.
+    """
+    cjk = _CJK_RE.sub("", text)
+    if cjk:
+        return cjk
+    return _NON_ALPHA_RE.sub("", text).lower()
 
 
 async def get_word_statuses(user_id: int, words: list[str], target_lang: str) -> dict[str, str]:
-    """Return a mapping of word → 'known' | 'weak' | 'new' for the given word list.
+    """Return a mapping of word → 'known' | 'weak' for words present in the user's deck.
 
-    Matching is fuzzy: a token matches a deck card if the normalized token equals the
-    normalized card target_text, OR if the normalized card target_text starts with the
-    normalized token (e.g. token '多謝' matches card '多謝你').
+    Words not in the deck are absent from the result (callers treat absence as 'new').
+    Matching is fuzzy: a token matches a card if the normalised token equals the
+    normalised card target_text, OR (CJK only) if the card text contains the token
+    as a substring (e.g. token '去' inside card '我去旅行').
     """
     if not words:
         return {}
@@ -1072,10 +1085,11 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
         ) as cur:
             rows = await cur.fetchall()
 
-    # Build normalized card lookup: stripped_text → status
+    is_cjk_lang = target_lang in ("yue", "cmn")
+
     card_lookup: dict[str, str] = {}
     for r in rows:
-        key = _cjk_only(r["target_text"])
+        key = _normalize_word(r["target_text"])
         if not key:
             continue
         status = "known" if r["max_reps"] >= 2 and r["min_ease"] >= 2.0 else "weak"
@@ -1084,24 +1098,22 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
 
     result: dict[str, str] = {}
     for word in words:
-        norm = _cjk_only(word)
+        norm = _normalize_word(word)
         if not norm:
             continue
-        # Exact normalized match → use actual status.
         if norm in card_lookup:
             result[word] = card_lookup[norm]
             continue
-        # Token appears anywhere within a card (e.g. token '去' in card '我去旅行').
-        # Use the best status found, but cap substring-only matches at 'weak' since the
-        # user may have learned the whole phrase without isolating this word.
-        best: str | None = None
-        for card_norm, status in card_lookup.items():
-            if norm in card_norm:
-                # Prefer 'known' over 'weak' if multiple cards contain this token.
-                if best is None or status == "known":
-                    best = status
-        if best is not None:
-            result[word] = "weak" if best == "known" else best
+        # CJK substring heuristic: token '去' inside card '我去旅行'.
+        # Cap at 'weak' — user may have learned the phrase, not the isolated character.
+        if is_cjk_lang:
+            best: str | None = None
+            for card_norm, status in card_lookup.items():
+                if norm in card_norm:
+                    if best is None or status == "known":
+                        best = status
+            if best is not None:
+                result[word] = "weak" if best == "known" else best
     return result
 
 
