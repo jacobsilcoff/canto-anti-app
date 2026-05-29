@@ -49,6 +49,9 @@
     .reader-back-btn:hover { border-color: var(--primary); }
     .reader-vocab-btn { background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
     .reader-vocab-btn:hover { opacity: 0.88; }
+    .reader-add-all-btn { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
+    .reader-add-all-btn:hover { background: var(--primary); color: #fff; }
+    .reader-add-all-btn:disabled { opacity: 0.5; cursor: default; }
     .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Sentence translation panel ── */
@@ -236,6 +239,7 @@
       <button class="reader-back-btn" onclick="showHome()">← Back</button>
       <div class="reader-title" id="reader-title"></div>
       <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
+      <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
     </div>
 
     <!-- Sentence translation panel -->
@@ -461,6 +465,35 @@
     document.getElementById('reader-view').style.display = 'block';
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
+    document.getElementById('reader-add-all-btn').style.display = '';
+  }
+
+  async function addAllVocab() {
+    const btn = document.getElementById('reader-add-all-btn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch(`/api/reader/texts/${currentTextId}/add-all-vocab`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { added, skipped, total_new } = await res.json();
+      if (total_new === 0) {
+        showToast('All words already in your deck!');
+      } else {
+        showToast(`Added ${added} card${added !== 1 ? 's' : ''}${skipped ? `, skipped ${skipped}` : ''}`);
+      }
+      // Refresh token colours.
+      const textRes = await fetch(`/api/reader/texts/${currentTextId}`);
+      if (textRes.ok) {
+        const data = await textRes.json();
+        sentences = buildSentences(data.tokens);
+        renderPage(currentPage);
+      }
+    } catch {
+      showToast('Failed to add vocab — try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ Add all vocab';
+    }
   }
 
   async function reviewVocab() {

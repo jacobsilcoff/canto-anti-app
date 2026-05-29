@@ -809,6 +809,66 @@ async def reader_delete_text(text_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+@app.post("/api/reader/texts/{text_id}/add-all-vocab")
+async def reader_add_all_vocab(
+    text_id: int,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Translate and add every unseen word from a reader text to the user's deck."""
+    text = await db.get_reader_text(user["id"], text_id)
+    if not text:
+        raise HTTPException(404, "Text not found")
+
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    # Deduplicate while preserving order.
+    seen: set[str] = set()
+    words = []
+    for t in tokens:
+        if t["is_word"] and t["text"] not in seen:
+            seen.add(t["text"])
+            words.append(t["text"])
+
+    statuses = await db.get_word_statuses(user["id"], words, text["target_lang"])
+    new_words = [w for w in words if w not in statuses]
+
+    story_label = await db.get_or_create_story_label(user["id"], text_id)
+    story_label_id = story_label.get("id")
+
+    added, skipped = 0, 0
+    for word in new_words:
+        try:
+            result = await translation.translate(
+                word, text["target_lang"], source_is_target=True
+            )
+            candidate = result["candidates"][0] if result["candidates"] else {}
+            if not candidate.get("english"):
+                skipped += 1
+                continue
+            audio_data = await audio.generate(word, text["target_lang"])
+            label_ids = [story_label_id] if story_label_id else []
+            card_id = await db.create_card(
+                user_id=user["id"],
+                source_text=candidate["english"],
+                target_text=word,
+                romanization=candidate.get("romanization", ""),
+                target_lang=text["target_lang"],
+                audio_data=audio_data,
+                notes=candidate.get("notes") or None,
+                label_ids=label_ids,
+                priority=result.get("priority", 3),
+                classifier=result.get("classifier", ""),
+                suggested_label_names=result.get("suggested_labels", []),
+            )
+            embed_text = f"{candidate['english']} {word}"
+            background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
+            added += 1
+        except Exception:
+            skipped += 1
+
+    return {"added": added, "skipped": skipped, "total_new": len(new_words)}
+
+
 class ReaderTTSRequest(BaseModel):
     text: str
     target_lang: str = "yue"
