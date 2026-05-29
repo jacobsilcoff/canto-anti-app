@@ -251,7 +251,26 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
     }
 
 
-async def generate_reader_text(prompt: str, target_lang: str) -> dict:
+_DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
+    "beginner": (
+        "- Use simple, high-frequency vocabulary only. Short sentences (5–10 words each). "
+        "Avoid idiomatic expressions, slang, and complex grammar. "
+        "Write around 60–90 words total."
+    ),
+    "intermediate": (
+        "- Use everyday vocabulary with some moderately common idioms. "
+        "Mix short and medium-length sentences. "
+        "Write around 80–150 words total."
+    ),
+    "advanced": (
+        "- Use rich vocabulary including idioms, set phrases, and nuanced expressions. "
+        "Vary sentence structure; include complex or compound sentences. "
+        "Write around 120–200 words total."
+    ),
+}
+
+
+async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = "intermediate") -> dict:
     """Generate a short target-language text from an English description prompt.
 
     Returns: { title: str, content: str }
@@ -261,11 +280,13 @@ async def generate_reader_text(prompt: str, target_lang: str) -> dict:
     info = LANG_INFO[target_lang]
     name = info["name"]
     rules = info["rules"]
+    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["intermediate"])
 
     full_prompt = (
-        f"Write a short {name} text (around 80–150 words) based on the following description.\n"
+        f"Write a {name} text based on the following description.\n"
         "Rules:\n"
         f"{rules}\n"
+        f"{difficulty_rule}\n"
         "- Write naturally, as if for a native speaker audience.\n"
         "- Write ONLY the target-language text. Do NOT include romanisation, transliteration, "
         "pinyin, jyutping, or any English translation in the text body.\n"

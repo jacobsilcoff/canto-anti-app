@@ -879,6 +879,38 @@ async def rename_label(user_id: int, label_id: int, name: str) -> bool:
             return False
 
 
+async def merge_labels(user_id: int, source_ids: list[int], target_id: int) -> int:
+    """Reassign all card_labels rows from source labels to target, delete sources.
+    Returns number of source labels deleted."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Verify target belongs to this user.
+        async with db.execute(
+            "SELECT 1 FROM labels WHERE id=? AND user_id=?", (target_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return 0
+        deleted = 0
+        for src_id in source_ids:
+            if src_id == target_id:
+                continue
+            async with db.execute(
+                "SELECT 1 FROM labels WHERE id=? AND user_id=?", (src_id, user_id)
+            ) as cur:
+                if not await cur.fetchone():
+                    continue
+            # Move card associations; INSERT OR IGNORE handles cards already in target.
+            await db.execute(
+                "INSERT OR IGNORE INTO card_labels (card_id, label_id) "
+                "SELECT card_id, ? FROM card_labels WHERE label_id=?",
+                (target_id, src_id),
+            )
+            await db.execute("DELETE FROM card_labels WHERE label_id=?", (src_id,))
+            await db.execute("DELETE FROM labels WHERE id=?", (src_id,))
+            deleted += 1
+        await db.commit()
+        return deleted
+
+
 async def delete_label(user_id: int, label_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         # Only delete the label if it belongs to this user; FK cascade handles card_labels.

@@ -520,6 +520,19 @@ async def rename_label(label_id: int, req: LabelRequest, user: dict = Depends(cu
     return {"success": True}
 
 
+class LabelMergeRequest(BaseModel):
+    source_ids: list[int]
+    target_id: int
+
+
+@app.post("/api/labels/merge")
+async def merge_labels(req: LabelMergeRequest, user: dict = Depends(current_user)):
+    if not req.source_ids:
+        raise HTTPException(400, "No source labels provided")
+    deleted = await db.merge_labels(user["id"], req.source_ids, req.target_id)
+    return {"deleted": deleted}
+
+
 @app.delete("/api/labels/{label_id}")
 async def delete_label(label_id: int, user: dict = Depends(current_user)):
     await db.delete_label(user["id"], label_id)
@@ -690,6 +703,7 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
 class ReaderGenerateRequest(BaseModel):
     prompt: str
     target_lang: str = "yue"
+    difficulty: str = "intermediate"
 
 
 class ReaderTranslateWordRequest(BaseModel):
@@ -726,7 +740,7 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
 async def reader_generate(req: ReaderGenerateRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    result = await translation.generate_reader_text(req.prompt, req.target_lang)
+    result = await translation.generate_reader_text(req.prompt, req.target_lang, req.difficulty)
     text_id = await db.create_reader_text(
         user["id"], result["title"], req.prompt, result["content"], req.target_lang
     )
@@ -835,36 +849,41 @@ async def reader_add_all_vocab(
     story_label = await db.get_or_create_story_label(user["id"], text_id)
     story_label_id = story_label.get("id")
 
-    added, skipped = 0, 0
-    for word in new_words:
-        try:
-            result = await translation.translate(
-                word, text["target_lang"], source_is_target=True
-            )
-            candidate = result["candidates"][0] if result["candidates"] else {}
-            if not candidate.get("english"):
-                skipped += 1
-                continue
-            audio_data = await audio.generate(word, text["target_lang"])
-            label_ids = [story_label_id] if story_label_id else []
-            card_id = await db.create_card(
-                user_id=user["id"],
-                source_text=candidate["english"],
-                target_text=word,
-                romanization=candidate.get("romanization", ""),
-                target_lang=text["target_lang"],
-                audio_data=audio_data,
-                notes=candidate.get("notes") or None,
-                label_ids=label_ids,
-                priority=result.get("priority", 3),
-                classifier=result.get("classifier", ""),
-                suggested_label_names=result.get("suggested_labels", []),
-            )
-            embed_text = f"{candidate['english']} {word}"
-            background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
-            added += 1
-        except Exception:
-            skipped += 1
+    sem = asyncio.Semaphore(5)
+
+    async def _add_word(word: str) -> bool:
+        async with sem:
+            try:
+                result = await translation.translate(
+                    word, text["target_lang"], source_is_target=True
+                )
+                candidate = result["candidates"][0] if result["candidates"] else {}
+                if not candidate.get("english"):
+                    return False
+                audio_data = await audio.generate(word, text["target_lang"])
+                label_ids = [story_label_id] if story_label_id else []
+                card_id = await db.create_card(
+                    user_id=user["id"],
+                    source_text=candidate["english"],
+                    target_text=word,
+                    romanization=candidate.get("romanization", ""),
+                    target_lang=text["target_lang"],
+                    audio_data=audio_data,
+                    notes=candidate.get("notes") or None,
+                    label_ids=label_ids,
+                    priority=result.get("priority", 3),
+                    classifier=result.get("classifier", ""),
+                    suggested_label_names=result.get("suggested_labels", []),
+                )
+                embed_text = f"{candidate['english']} {word}"
+                background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
+                return True
+            except Exception:
+                return False
+
+    results = await asyncio.gather(*[_add_word(w) for w in new_words])
+    added = sum(1 for r in results if r)
+    skipped = len(results) - added
 
     return {"added": added, "skipped": skipped, "total_new": len(new_words)}
 

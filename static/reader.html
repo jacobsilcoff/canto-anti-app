@@ -208,7 +208,14 @@
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
       </div>
-      <div class="gen-lang-row" id="gen-lang-row"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+        <div class="gen-lang-row" id="gen-lang-row" style="margin-top:0;flex:1"></div>
+        <select id="gen-difficulty" style="border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:5px 10px;font-size:0.82rem;cursor:pointer">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate" selected>Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
@@ -404,7 +411,7 @@
       const res = await fetch('/api/reader/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, target_lang: selectedLang }),
+        body: JSON.stringify({ prompt, target_lang: selectedLang, difficulty: document.getElementById('gen-difficulty').value }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();

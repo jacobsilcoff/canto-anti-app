@@ -17,6 +17,71 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 24. Label Merging
+**Complexity: Low | Cost: $0**
+
+Allow users to merge two or more labels they consider synonymous or too granular into a single unified label.
+
+**Scope:**
+- UI in the label management panel: select multiple labels → "Merge into…" action (pick or type a target label name)
+- Server: reassign all `card_labels` rows from the source labels to the target label; delete source labels
+- Deduplication: if a card already has the target label, drop the duplicate row rather than inserting twice
+- Confirmation dialog listing how many cards will be affected per source label
+
+**Open questions:**
+- Should the merge target be an existing label or can the user type a new name on the spot?
+
+---
+
+## 25. AI-Powered "Generate More Words for Label"
+**Complexity: Low–Medium | Cost: ~$0/month**
+
+From a label's manage panel, ask Gemini to suggest additional vocabulary that fits the label's theme — excluding words the user already has in their deck.
+
+**Scope:**
+- "Generate more words" button per label in the manage panel
+- Send label name + existing card source_text list to Gemini; ask for N new vocab suggestions in the same schema as single-card translation
+- Filter out any suggestions that match existing cards (fuzzy match on source text)
+- Show a preview/checklist; user selects which to add, then runs normal card creation (audio, romanization, etc.)
+
+**Cost notes:** One Gemini call per request (~1,000 output tokens). Free tier easily handles it; paid tier ~$0.0003/request.
+
+---
+
+## 26. Reader Difficulty Level at Generation Time
+**Complexity: Low | Cost: $0**
+
+Add a difficulty selector to the reader text generation form so users can tune how complex the generated text is.
+
+**Scope:**
+- UI: difficulty dropdown (Beginner / Intermediate / Advanced / Custom) next to the existing prompt input
+- Pass selected difficulty to the Gemini prompt as an explicit instruction (e.g. sentence length, vocabulary frequency, grammatical complexity)
+- "Custom" option reveals a free-text field for fine-grained constraints (e.g. "use only present tense, no classifiers")
+- Works alongside the existing vocab-constrained mode (idea 21)
+
+**Note:** Supersedes / extends idea 21 — implement together.
+
+---
+
+## 27. User-Configurable API Keys and Model Selection
+**Complexity: Medium | Cost: shifts API costs to users**
+
+Allow each user to supply their own Gemini API key and choose which model is used for translation, embedding, and reader generation. Enables cost offloading and power-user customization.
+
+**Scope:**
+- New "API Settings" section in user settings: Gemini API key field (stored encrypted or hashed in `user_settings`), model selector per task type (translation, embedding, reader generation)
+- Backend: if a user-supplied key is present, use it for that user's AI calls instead of the server key; fall back to server key if absent
+- Validate the key on save (cheap test call) and surface errors clearly
+- Admin view: see which users are using their own keys vs. the shared key
+- Model list fetched dynamically or hard-coded from a known-good set (Gemini Flash Lite, Flash, Pro…)
+
+**Open questions:**
+- How to store API keys securely (encrypt at rest? treat like a password with scrypt?)?
+- Should the server key be disabled entirely for users who supply their own, or always available as fallback?
+- Do we expose model selection per-task or a single global model choice?
+
+---
+
 ## 17. Reader Audio Playback Mode
 **Complexity: Low–Medium | Cost: ~$0/month**
 
