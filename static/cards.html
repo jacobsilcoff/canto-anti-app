@@ -112,6 +112,22 @@
     }
     .priority-dots.interactive .priority-dot:hover { background: var(--primary); opacity: 0.6; }
 
+    /* Confidence bar (card front) */
+    .confidence-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .confidence-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+      background: var(--primary);
+    }
+
     /* NEW badge */
     .new-badge {
       display: inline-block;
@@ -391,7 +407,9 @@
             <span id="new-badge" class="new-badge" style="display:none">New</span>
             <span id="card-lang-tag" class="lang-tag" style="display:none"></span>
           </div>
-          <div id="card-priority-dots"></div>
+          <div class="confidence-bar-wrap" id="card-confidence-bar-wrap" style="display:none">
+            <div class="confidence-bar-fill" id="card-confidence-bar"></div>
+          </div>
         </div>
         <div class="card-header-right">
           <button class="tutor-flag-btn" id="tutor-flag-btn" onclick="toggleTutorFlag()" title="Flag for tutor review" aria-label="Flag for tutor review">
@@ -903,10 +921,15 @@
       langTag.style.display = 'none';
     }
 
-    const dotsContainer = document.getElementById('card-priority-dots');
-    dotsContainer.innerHTML = '';
-    if (item.priority) {
-      dotsContainer.appendChild(renderPriorityDots(item.priority, false, null));
+    const confWrap = document.getElementById('card-confidence-bar-wrap');
+    const confFill = document.getElementById('card-confidence-bar');
+    if (item.first_seen_date) {
+      const pct = Math.min(Math.round((item.interval_days / 90) * 100), 100);
+      confFill.style.width = pct + '%';
+      confWrap.style.display = '';
+      confWrap.title = `Confidence: ${pct}%`;
+    } else {
+      confWrap.style.display = 'none';
     }
 
     const flagBtn = document.getElementById('tutor-flag-btn');
@@ -933,7 +956,7 @@
       audioBtn.innerHTML = `${ICONS.volume} Play`;
       audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
       promptEl.appendChild(audioBtn);
-      if (isLogographic(langCode) && item.romanization) {
+      if (isLogographic(langCode) && item.romanization && settings.audio_show_romanization !== false) {
         const rEl = document.createElement('div');
         rEl.className = 'jyutping-display';
         rEl.textContent = item.romanization;
@@ -1004,6 +1027,13 @@
         row.appendChild(chip);
       });
       answerEl.appendChild(row);
+    }
+
+    if (item.cefr_level) {
+      const cefrRow = document.createElement('div');
+      cefrRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px;font-size:0.78rem;color:var(--text-muted)';
+      cefrRow.innerHTML = `<span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em">CEFR</span><span class="cefr-badge cefr-${item.cefr_level}">${item.cefr_level}</span>`;
+      answerEl.appendChild(cefrRow);
     }
 
     answerEl.style.display = 'flex';

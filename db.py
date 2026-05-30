@@ -514,7 +514,7 @@ async def get_study_session(user_id: int, label_id: int | None = None) -> dict:
             SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                    cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
                    c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
-                   c.priority, c.tutor_flag
+                   c.priority, c.tutor_flag, c.cefr_level
             FROM card_faces cf JOIN cards c ON c.id = cf.card_id
             WHERE c.user_id = ?
               AND cf.first_seen_date IS NOT NULL
@@ -542,7 +542,7 @@ async def get_study_session(user_id: int, label_id: int | None = None) -> dict:
                 SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                        cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
                        c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
-                       c.priority, c.tutor_flag
+                       c.priority, c.tutor_flag, c.cefr_level
                 FROM card_faces cf JOIN cards c ON c.id = cf.card_id
                 WHERE c.user_id = ?
                   AND cf.first_seen_date IS NULL
