@@ -67,9 +67,23 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
             import pycantonese
             full_text = "".join(words)
             pairs = pycantonese.characters_to_jyutping(full_text)
-            for word, rom in pairs:
-                if rom and word not in result:
-                    result[word] = rom
+            # Build a segment-level map from whatever characters_to_jyutping produces.
+            seg_map: dict[str, str] = {}
+            for seg, rom in pairs:
+                if rom and seg not in seg_map:
+                    seg_map[seg] = rom
+            for word in words:
+                if word in result:
+                    continue
+                if word in seg_map:
+                    result[word] = seg_map[word]
+                else:
+                    # characters_to_jyutping and segment() use different internal
+                    # tokenisers so multi-char words may not appear as keys.
+                    # Assemble from per-character entries when available.
+                    parts = [seg_map.get(c) for c in word]
+                    if all(parts):
+                        result[word] = " ".join(parts)  # type: ignore[arg-type]
         except Exception:
             pass
     elif lang == "cmn":
