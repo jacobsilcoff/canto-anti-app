@@ -1,3 +1,10 @@
+# Prod: served by the app container in docker-compose.yml.
 {$DOMAIN} {
-    reverse_proxy app:8080
+    reverse_proxy canto-app:8080
+}
+
+# Staging: served by the app-staging container in docker-compose.staging.yml,
+# reachable over the shared "web" network. Returns 502 until staging is deployed.
+{$DEV_DOMAIN} {
+    reverse_proxy canto-app-staging:8080
 }

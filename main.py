@@ -13,6 +13,9 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 load_dotenv()
 
@@ -27,33 +30,8 @@ _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
 
 _SESSION_TTL = 30 * 86400  # 30 days
-# token -> (user_id, expiry timestamp)
-_sessions: dict[str, tuple[int, float]] = {}
 
 _NO_AUTH_PATHS = {"/login", "/api/login", "/manifest.json", "/sw.js"}
-
-
-def _new_session(user_id: int) -> str:
-    token = secrets.token_hex(32)
-    _sessions[token] = (user_id, time.time() + _SESSION_TTL)
-    return token
-
-
-def _session_user_id(token: str) -> int | None:
-    entry = _sessions.get(token)
-    if not entry:
-        return None
-    user_id, exp = entry
-    if time.time() >= exp:
-        _sessions.pop(token, None)
-        return None
-    return user_id
-
-
-def _purge_expired():
-    now = time.time()
-    for t in [t for t, (_, exp) in _sessions.items() if exp < now]:
-        del _sessions[t]
 
 
 @asynccontextmanager
@@ -67,6 +45,24 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+def _rate_limit_key(request: Request) -> str:
+    """Rate-limit per authenticated user when known, else per client IP.
+
+    auth_middleware sets request.state.user_id before the route runs, so AI
+    endpoints are capped per account; unauthenticated routes (login) fall back
+    to IP so a single host can't brute-force credentials."""
+    user_id = getattr(request.state, "user_id", None)
+    return f"user:{user_id}" if user_id is not None else get_remote_address(request)
+
+
+# In-memory storage: counters reset on restart/deploy. Adequate for brute-force
+# and per-user abuse caps; move to Redis if you run multiple app containers or
+# need quotas that survive deploys.
+limiter = Limiter(key_func=_rate_limit_key)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/"):
@@ -75,7 +71,7 @@ async def auth_middleware(request: Request, call_next):
     user_id = None
     token = request.cookies.get("session")
     if token:
-        user_id = _session_user_id(token)
+        user_id = await db.get_session_user(token)
 
     if user_id is None:
         accept = request.headers.get("Accept", "")
@@ -85,6 +81,39 @@ async def auth_middleware(request: Request, call_next):
 
     request.state.user_id = user_id
     return await call_next(request)
+
+
+# Registered after auth_middleware, so it runs outermost and applies headers to
+# every response — including the 302/401 from auth and 429 from the limiter.
+_CSP = (
+    "default-src 'self'; "
+    "img-src 'self' data:; "
+    "media-src 'self' blob: data:; "
+    # Inline <script>/<style> blocks are used throughout the app; 'unsafe-inline'
+    # is required until they're moved to nonces (tracked under the XSS hardening).
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'"
+)
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    # Ignored by browsers over plain HTTP; takes effect behind Caddy's TLS in prod.
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy": _CSP,
+}
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    for k, v in _SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    return response
 
 
 async def current_user(request: Request) -> dict:
@@ -171,12 +200,14 @@ class LoginRequest(BaseModel):
 
 
 @app.post("/api/login")
-async def login(req: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest):
     user = await db.get_user_by_username(req.username.strip())
     if not user or not auth.verify_password(req.password, user["password_hash"]):
         raise HTTPException(401, "Wrong username or password")
-    _purge_expired()
-    token = _new_session(user["id"])
+    await db.purge_expired_sessions()
+    token = secrets.token_hex(32)
+    await db.create_session(token, user["id"], time.time() + _SESSION_TTL)
     response = JSONResponse({"ok": True, "user": {"username": user["username"], "is_admin": bool(user["is_admin"])}})
     response.set_cookie(
         "session",
@@ -193,7 +224,7 @@ async def login(req: LoginRequest):
 async def logout(request: Request):
     token = request.cookies.get("session")
     if token:
-        _sessions.pop(token, None)
+        await db.delete_session(token)
     response = JSONResponse({"ok": True})
     response.delete_cookie("session")
     return response
@@ -245,7 +276,8 @@ class TranslateRequest(BaseModel):
 
 
 @app.post("/api/translate")
-async def translate_endpoint(req: TranslateRequest, user: dict = Depends(current_user)):
+@limiter.limit("120/minute;2000/day")
+async def translate_endpoint(request: Request, req: TranslateRequest, user: dict = Depends(current_user)):
     if not req.text.strip():
         raise HTTPException(400, "Text is empty")
     if req.target_lang not in translation.LANG_INFO:
@@ -711,8 +743,8 @@ async def admin_create_user(req: CreateUserRequest, user: dict = Depends(current
     username = req.username.strip()
     if not username or len(username) > 50:
         raise HTTPException(400, "Username must be 1–50 characters")
-    if len(req.password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    if len(req.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     existing = await db.get_user_by_username(username)
     if existing:
         raise HTTPException(409, "Username already exists")
@@ -726,8 +758,8 @@ class UpdatePasswordRequest(BaseModel):
 
 @app.put("/api/admin/users/{user_id}/password")
 async def admin_update_password(user_id: int, req: UpdatePasswordRequest, user: dict = Depends(current_admin)):
-    if len(req.password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    if len(req.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     target = await db.get_user(user_id)
     if not target:
         raise HTTPException(404, "User not found")
@@ -744,9 +776,7 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
         raise HTTPException(404, "User not found")
     await db.delete_user(user_id)
     # Invalidate all sessions for that user.
-    for tok, (uid, _) in list(_sessions.items()):
-        if uid == user_id:
-            _sessions.pop(tok, None)
+    await db.delete_user_sessions(user_id)
     return {"success": True}
 
 
@@ -794,7 +824,8 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
 
 
 @app.post("/api/reader/generate")
-async def reader_generate(req: ReaderGenerateRequest, user: dict = Depends(current_user)):
+@limiter.limit("20/minute;100/day")
+async def reader_generate(request: Request, req: ReaderGenerateRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
     result = await translation.generate_reader_text(req.prompt, req.target_lang, req.difficulty)
@@ -937,7 +968,9 @@ async def reader_delete_text(text_id: int, user: dict = Depends(current_user)):
 
 
 @app.post("/api/reader/texts/{text_id}/add-all-vocab")
+@limiter.limit("10/minute;50/day")
 async def reader_add_all_vocab(
+    request: Request,
     text_id: int,
     background_tasks: BackgroundTasks,
     user: dict = Depends(current_user),
@@ -1020,7 +1053,8 @@ async def reader_romanize(text_id: int, user: dict = Depends(current_user)):
 
 
 @app.post("/api/reader/tts")
-async def reader_tts(req: ReaderTTSRequest, user: dict = Depends(current_user)):
+@limiter.limit("120/minute;1000/day")
+async def reader_tts(request: Request, req: ReaderTTSRequest, user: dict = Depends(current_user)):
     if not req.text.strip():
         raise HTTPException(400, "Text is empty")
     data = await audio.generate(req.text.strip(), req.target_lang)
@@ -1028,7 +1062,8 @@ async def reader_tts(req: ReaderTTSRequest, user: dict = Depends(current_user)):
 
 
 @app.post("/api/reader/translate-word")
-async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = Depends(current_user)):
+@limiter.limit("120/minute;2000/day")
+async def reader_translate_word(request: Request, req: ReaderTranslateWordRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
     # Check if word is already in the user's deck.

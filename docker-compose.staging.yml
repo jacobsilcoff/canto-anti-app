@@ -1,0 +1,30 @@
+# Staging stack: app container only — no Caddy and no published ports. The
+# production Caddy (docker-compose.yml) fronts it via the shared "web" network
+# and routes {$DEV_DOMAIN} -> canto-app-staging:8080.
+#
+# Deploy from a SEPARATE checkout on the develop branch, e.g.:
+#   cd ~/canto-anti-app-staging
+#   docker compose -p staging -f docker-compose.staging.yml up -d --build
+#
+# Its own named volume keeps the staging database fully isolated from prod.
+services:
+  app-staging:
+    build: .
+    restart: unless-stopped
+    container_name: canto-app-staging
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - APP_PASSWORD=${APP_PASSWORD}
+      - APP_ADMIN_USERNAME=${APP_ADMIN_USERNAME}
+      - DB_PATH=/data/cards.db
+    volumes:
+      - staging_data:/data
+    networks:
+      - web
+
+volumes:
+  staging_data:
+
+networks:
+  web:
+    external: true

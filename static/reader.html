@@ -824,7 +824,7 @@
           <button class="tooltip-update-meaning-btn" id="tooltip-update-meaning-btn" onclick="updateCardMeaning()">Update card meaning</button>
         </div>` : ''}
       <div class="tooltip-actions">
-        <button class="play-btn" onclick="playText(${JSON.stringify(data.target_text)})" title="Play pronunciation">
+        <button class="play-btn" onclick="playText(tooltipWordData.target_text)" title="Play pronunciation">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </button>
         <button class="tooltip-add-btn ${isInDeck ? 'added' : ''}" id="tooltip-add-btn"

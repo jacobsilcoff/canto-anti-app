@@ -1,0 +1,44 @@
+name: Deploy (staging)
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write .env to staging checkout
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set_if_missing() {
+              local key=$1 val=$2
+              grep -q "^${key}=" ~/canto-anti-app-staging/.env 2>/dev/null || echo "${key}=${val}" >> ~/canto-anti-app-staging/.env
+            }
+            mkdir -p ~/canto-anti-app-staging
+            touch ~/canto-anti-app-staging/.env
+            # Reuse the same secrets as prod by default; swap to staging-specific
+            # secrets here if you want an isolated Gemini key / admin login.
+            set_if_missing GEMINI_API_KEY "${{ secrets.GEMINI_API_KEY }}"
+            set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
+            set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
+            set_if_missing DB_PATH "data/cards.db"
+
+      - name: Deploy staging stack to Oracle VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ubuntu
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd ~/canto-anti-app-staging
+            mkdir -p ~/db-backups
+            docker cp canto-app-staging:/data/cards.db ~/db-backups/staging-$(date +%F-%H%M%S).db 2>/dev/null || true
+            git fetch origin develop
+            git checkout develop
+            git pull
+            docker compose -p staging -f docker-compose.staging.yml up -d --build

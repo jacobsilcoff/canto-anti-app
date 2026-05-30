@@ -1,13 +1,22 @@
+# Production stack: the app container + the shared Caddy that fronts BOTH prod
+# and staging. Caddy routes {$DOMAIN} -> app and {$DEV_DOMAIN} -> app-staging
+# (the staging container lives in docker-compose.staging.yml and joins the same
+# external "web" network). See deploy notes for the one-time VM setup.
 services:
   app:
     build: .
     restart: unless-stopped
+    # Stable network alias so Caddy can reverse_proxy to "app:8080".
+    container_name: canto-app
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - APP_PASSWORD=${APP_PASSWORD}
+      - APP_ADMIN_USERNAME=${APP_ADMIN_USERNAME}
       - DB_PATH=/data/cards.db
     volumes:
       - app_data:/data
+    networks:
+      - web
 
   caddy:
     image: caddy:2-alpine
@@ -18,14 +27,23 @@ services:
       - "443:443/udp"
     environment:
       - DOMAIN=${DOMAIN}
+      - DEV_DOMAIN=${DEV_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - app
+    networks:
+      - web
 
 volumes:
   app_data:
   caddy_data:
   caddy_config:
+
+# Shared across the prod and staging compose projects. Create it once on the VM:
+#   docker network create web
+networks:
+  web:
+    external: true

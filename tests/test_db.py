@@ -44,6 +44,64 @@ async def test_create_card_makes_three_faces(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_session_roundtrip(fresh_db):
+    import time
+    user_id = fresh_db
+    await db.create_session("tok-abc", user_id, time.time() + 3600)
+    assert await db.get_session_user("tok-abc") == user_id
+    # Raw token is never stored — only its sha256 hash.
+    assert await db.get_session_user("tok-xyz") is None
+
+
+@pytest.mark.asyncio
+async def test_session_expires(fresh_db):
+    import time
+    user_id = fresh_db
+    await db.create_session("expired", user_id, time.time() - 1)
+    assert await db.get_session_user("expired") is None
+
+
+@pytest.mark.asyncio
+async def test_delete_user_sessions(fresh_db):
+    import time
+    user_id = fresh_db
+    await db.create_session("a", user_id, time.time() + 3600)
+    await db.create_session("b", user_id, time.time() + 3600)
+    await db.delete_user_sessions(user_id)
+    assert await db.get_session_user("a") is None
+    assert await db.get_session_user("b") is None
+
+
+@pytest.mark.asyncio
+async def test_migrations_apply_once(tmp_path, monkeypatch):
+    import aiosqlite
+    # Point the runner at a throwaway migrations dir with one migration.
+    mig_dir = tmp_path / "migrations"
+    mig_dir.mkdir()
+    (mig_dir / "001_add_widget.sql").write_text(
+        "CREATE TABLE widget (id INTEGER PRIMARY KEY, name TEXT);"
+    )
+    monkeypatch.setattr(db, "MIGRATIONS_DIR", str(mig_dir))
+    db.DB_PATH = str(tmp_path / "cards.db")
+
+    await db.init()  # runs migrations
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='widget'"
+        ) as cur:
+            assert await cur.fetchone() is not None
+        async with conn.execute("SELECT version FROM schema_migrations") as cur:
+            versions = {r[0] for r in await cur.fetchall()}
+            assert "001_add_widget.sql" in versions
+
+    # Re-running init must not re-apply the migration (would error: table exists).
+    await db.init()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute("SELECT COUNT(*) FROM schema_migrations") as cur:
+            assert (await cur.fetchone())[0] == 1
+
+
+@pytest.mark.asyncio
 async def test_due_faces_includes_new(fresh_db):
     user_id = fresh_db
     await db.create_card(user_id, "Hello", "你好", "nei5 hou2")

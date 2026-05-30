@@ -1,7 +1,11 @@
+import hashlib
 import os
+import time
+
 import aiosqlite
 
 DB_PATH = os.getenv("DB_PATH", "data/cards.db")
+MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
 
 # Card face values. 'source' = native-language text, 'target' = target-language text,
 # 'pronunciation' = romanization (logographic) or audio-only (Latin script).
@@ -138,7 +142,7 @@ async def init():
             await db.execute("ALTER TABLE labels ADD COLUMN user_id INTEGER")
         if not await _column_exists(db, "labels", "is_story_label"):
             await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
-        if not await _column_exists(db, "reader_sentences", "romanization"):
+        if await _table_exists(db, "reader_sentences") and not await _column_exists(db, "reader_sentences", "romanization"):
             await db.execute("ALTER TABLE reader_sentences ADD COLUMN romanization TEXT")
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name COLLATE NOCASE)"
@@ -180,6 +184,19 @@ async def init():
             )
         """)
 
+        # Sessions: persisted so logins survive deploys/restarts and span workers.
+        # We store sha256(token), never the raw token, so a DB leak can't be replayed as a cookie.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expiry REAL NOT NULL
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)"
+        )
+
         # Daily study activity for streak tracking.
         await db.execute("""
             CREATE TABLE IF NOT EXISTS study_activity (
@@ -198,6 +215,7 @@ async def init():
                 sentence_text TEXT NOT NULL,
                 translation TEXT,
                 audio_data BLOB,
+                romanization TEXT,
                 UNIQUE(text_id, sentence_idx)
             )
         """)
@@ -208,6 +226,40 @@ async def init():
                 "INSERT OR IGNORE INTO card_faces (card_id, face) SELECT id, ? FROM cards",
                 (face,),
             )
+        await db.commit()
+
+        # Apply any versioned schema migrations layered on top of the baseline above.
+        await _run_migrations(db)
+
+
+async def _run_migrations(db) -> None:
+    """Apply pending migrations from migrations/*.sql, in filename order, once each.
+
+    The CREATE TABLE statements in init() define the *current* baseline schema and
+    are idempotent. Post-baseline schema changes go in a new numbered file under
+    migrations/ (e.g. 001_add_user_api_keys.sql) rather than as ad-hoc ALTERs here,
+    so dev and prod converge predictably. Applied filenames are recorded in
+    schema_migrations and never re-run.
+    """
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    async with db.execute("SELECT version FROM schema_migrations") as cur:
+        applied = {r[0] for r in await cur.fetchall()}
+
+    if not os.path.isdir(MIGRATIONS_DIR):
+        return
+
+    for fname in sorted(os.listdir(MIGRATIONS_DIR)):
+        if not fname.endswith(".sql") or fname in applied:
+            continue
+        with open(os.path.join(MIGRATIONS_DIR, fname), encoding="utf-8") as f:
+            script = f.read()
+        await db.executescript(script)
+        await db.execute("INSERT INTO schema_migrations (version) VALUES (?)", (fname,))
         await db.commit()
 
 
@@ -322,6 +374,58 @@ async def delete_user(user_id: int):
 async def update_user_password(user_id: int, password_hash: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+        await db.commit()
+
+
+# ── Sessions ──────────────────────────────────────────────────────────────────
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def create_session(token: str, user_id: int, expiry: float) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO sessions (token_hash, user_id, expiry) VALUES (?, ?, ?)",
+            (_hash_token(token), user_id, expiry),
+        )
+        await db.commit()
+
+
+async def get_session_user(token: str) -> int | None:
+    """Return the user_id for a valid session token, or None if missing/expired.
+    Expired rows are deleted lazily on lookup."""
+    th = _hash_token(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT user_id, expiry FROM sessions WHERE token_hash=?", (th,)
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        user_id, expiry = row
+        if expiry < time.time():
+            await db.execute("DELETE FROM sessions WHERE token_hash=?", (th,))
+            await db.commit()
+            return None
+        return user_id
+
+
+async def delete_session(token: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM sessions WHERE token_hash=?", (_hash_token(token),))
+        await db.commit()
+
+
+async def delete_user_sessions(user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+        await db.commit()
+
+
+async def purge_expired_sessions() -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM sessions WHERE expiry < ?", (time.time(),))
         await db.commit()
 
 

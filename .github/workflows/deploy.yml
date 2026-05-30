@@ -24,6 +24,7 @@ jobs:
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing DOMAIN "${{ secrets.DOMAIN }}"
+            set_if_missing DEV_DOMAIN "${{ secrets.DEV_DOMAIN }}"
             set_if_missing DB_PATH "data/cards.db"
 
       - name: Deploy to Oracle VM
@@ -34,5 +35,8 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ~/canto-anti-app
+            # Back up the live DB before pulling — migrations run on startup.
+            mkdir -p ~/db-backups
+            docker cp canto-app:/data/cards.db ~/db-backups/cards-$(date +%F-%H%M%S).db 2>/dev/null || true
             git pull
             docker compose up -d --build
