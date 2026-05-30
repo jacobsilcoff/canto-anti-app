@@ -44,52 +44,34 @@ async def fetch_fields(
 ) -> tuple[list[str], str | None, str | None, str | None]:
     info = translation.LANG_INFO.get(target_lang, {})
     lang_name = info.get("name", target_lang)
+    classifier_hint = translation._CLASSIFIER_HINT.get(target_lang, "")
 
-    instructions = []
-
+    fields = []
     if need_labels:
-        instructions.append(
-            'Return 2–4 short English labels (lowercase) that help a learner organise their deck. '
-            'Include: (1) part of speech (e.g. "verb", "noun", "adjective"); '
-            '(2) grammatical function when relevant (e.g. "irregular verb", "expressing obligation"); '
-            '(3) topic labels only when genuinely useful — nested specificity is fine '
-            '(e.g. both "food" and "vegetable"). Do NOT include synonymous labels. '
-            'Return as "labels": [...]'
+        fields.append(
+            '"labels": ["...", "..."]'
+            '  // 2–4 short English labels (lowercase): part of speech, grammatical function, '
+            'topic when useful. No synonymous labels.'
         )
-    else:
-        instructions.append('Omit "labels" from your response.')
-
     if need_cefr:
-        instructions.append(
-            f'Return the CEFR level (A1/A2/B1/B2/C1/C2) of this word for a learner of {lang_name} '
-            'based on standard learner corpora. Return as "cefr_level": "..."'
-        )
-    else:
-        instructions.append('Omit "cefr_level" from your response.')
-
+        fields.append(f'"cefr_level": "..."  // A1/A2/B1/B2/C1/C2 for a learner of {lang_name}')
     if need_classifier:
-        classifier_hint = translation._CLASSIFIER_HINT.get(target_lang, "")
-        instructions.append(
-            f'Return the classifier for this word if it is a noun: {classifier_hint} '
-            'Return as "classifier": "..." (empty string if not a noun).'
-        )
-    else:
-        instructions.append('Omit "classifier" from your response.')
-
+        fields.append(f'"classifier": "..."  // {classifier_hint}')
     if need_notes:
-        instructions.append(
-            'Return 1–2 sentences of usage notes: register, cultural context, common collocations, '
-            'or common pitfalls. Empty string if nothing useful. Return as "notes": "..."'
+        fields.append(
+            '"notes": "..."'
+            '  // 1–2 sentences: usage, register, cultural context, common pitfalls. '
+            'Empty string if nothing useful.'
         )
-    else:
-        instructions.append('Omit "notes" from your response.')
 
     prompt = (
-        f"Given this {lang_name} vocabulary card:\n"
-        f"  {lang_name}: {target_text}\n"
-        f"  English: {source_text}\n\n"
-        + "\n".join(instructions)
-        + "\nReturn ONLY valid JSON, no other text."
+        f"Fill in the missing fields for this {lang_name} vocabulary flashcard.\n"
+        f"{lang_name}: {target_text}\n"
+        f"English: {source_text}\n\n"
+        "Return ONLY valid JSON in this exact format, no other text:\n"
+        "{\n"
+        + ",\n".join(f"  {f}" for f in fields)
+        + "\n}"
     )
 
     try:
