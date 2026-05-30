@@ -1,4 +1,4 @@
-const CACHE = 'cantonese-v1';
+const CACHE = 'cantonese-{{VERSION}}';
 const SHELL = [
   '/',
   '/cards',
@@ -41,13 +41,17 @@ self.addEventListener('fetch', e => {
   }
 
   if (url.pathname.startsWith('/static/') || url.hostname.includes('fonts.g')) {
-    // Cache-first for assets
+    // Stale-while-revalidate: serve cache instantly, refresh in the background
+    // so an updated asset is picked up on the next load even within a version.
     e.respondWith(
-      caches.match(request).then(cached => cached || fetch(request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(request, clone));
-        return res;
-      }))
+      caches.match(request).then(cached => {
+        const network = fetch(request).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(request, clone));
+          return res;
+        });
+        return cached || network;
+      })
     );
     return;
   }

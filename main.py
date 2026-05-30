@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -110,18 +111,40 @@ APP_NAME = "廣東卡"
 _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
 
 
+def _compute_asset_version() -> str:
+    """Content hash of all static files. Changes only when an asset changes,
+    so deploys bust browser/service-worker caches without manual version bumps."""
+    h = hashlib.sha256()
+    for p in sorted(_static.rglob("*")):
+        if p.is_file():
+            h.update(p.read_bytes())
+    return h.hexdigest()[:12]
+
+
+ASSET_VERSION = _compute_asset_version()
+
+
 def _html(name: str) -> HTMLResponse:
     content = (_static / name).read_text()
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
-    return HTMLResponse(content)
+    content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
+    content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
+    # no-cache forces Safari to revalidate the HTML, so it always sees the
+    # current fingerprinted asset URLs instead of serving a stale page.
+    return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
 
 
 # ── PWA assets ────────────────────────────────────────────────────────────────
 
 @app.get("/sw.js")
 async def service_worker():
-    return FileResponse("static/sw.js", media_type="application/javascript")
+    content = (_static / "sw.js").read_text().replace("{{VERSION}}", ASSET_VERSION)
+    return Response(
+        content,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/manifest.json")
