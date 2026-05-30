@@ -338,10 +338,12 @@ async def get_settings(user: dict = Depends(current_user)):
     new_cards_per_day = int(await db.get_setting(user["id"], "new_cards_per_day") or 20)
     default_target_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
+    audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
         "auto_add_reader_vocab": auto_add_reader_vocab,
+        "audio_show_romanization": audio_show_romanization,
     }
 
 
@@ -349,6 +351,7 @@ class SettingsUpdate(BaseModel):
     new_cards_per_day: int | None = None
     default_target_lang: str | None = None
     auto_add_reader_vocab: bool | None = None
+    audio_show_romanization: bool | None = None
 
 
 @app.put("/api/settings")
@@ -363,6 +366,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "default_target_lang", req.default_target_lang)
     if req.auto_add_reader_vocab is not None:
         await db.set_setting(user["id"], "auto_add_reader_vocab", "true" if req.auto_add_reader_vocab else "false")
+    if req.audio_show_romanization is not None:
+        await db.set_setting(user["id"], "audio_show_romanization", "true" if req.audio_show_romanization else "false")
     return {"success": True}
 
 

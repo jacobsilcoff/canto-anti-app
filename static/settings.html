@@ -27,16 +27,12 @@
     .settings-input:focus, .settings-select:focus { outline: none; border-color: var(--primary); }
 
     .settings-info { font-size: 0.82rem; color: var(--text-muted, #888); padding: 10px 18px 14px; margin: 0; }
-    .settings-save-row { padding: 14px 18px; display: flex; justify-content: flex-end; border-top: 1px solid var(--border); }
     .toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
     .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
     .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
     .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
-    .save-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 24px; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
-    .save-btn:hover { opacity: 0.88; }
-    .save-btn:disabled { opacity: 0.5; cursor: default; }
   </style>
 </head>
 <body>
@@ -101,17 +97,14 @@
         <div class="settings-label">New cards per day</div>
         <div class="settings-desc">Max new vocabulary items introduced each day</div>
       </div>
-      <input type="number" id="settings-new-per-day" class="settings-input" min="1" max="500" value="20">
+      <input type="number" id="settings-new-per-day" class="settings-input" min="1" max="500" value="20" oninput="debounceSaveStudy()">
     </div>
     <div class="settings-row">
       <div>
         <div class="settings-label">Default target language</div>
         <div class="settings-desc">Language pre-selected on the translate page</div>
       </div>
-      <select id="settings-default-lang" class="settings-select"></select>
-    </div>
-    <div class="settings-save-row">
-      <button class="save-btn" id="save-btn" onclick="saveSettings()">Save</button>
+      <select id="settings-default-lang" class="settings-select" onchange="saveSettings()"></select>
     </div>
   </div>
 
@@ -192,12 +185,16 @@
     sel.value = settings.default_target_lang || 'yue';
   }
 
+  let _saveStudyTimer;
+  function debounceSaveStudy() {
+    clearTimeout(_saveStudyTimer);
+    _saveStudyTimer = setTimeout(saveSettings, 600);
+  }
+
   async function saveSettings() {
     const val = parseInt(document.getElementById('settings-new-per-day').value, 10);
     const lang = document.getElementById('settings-default-lang').value;
     if (!val || val < 1 || val > 500) { showToast('Must be between 1 and 500.'); return; }
-    const btn = document.getElementById('save-btn');
-    btn.disabled = true;
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -207,11 +204,9 @@
       if (!res.ok) throw new Error();
       settings.new_cards_per_day = val;
       settings.default_target_lang = lang;
-      showToast('Settings saved.');
+      showToast('Saved.');
     } catch {
       showToast('Failed to save settings.');
-    } finally {
-      btn.disabled = false;
     }
   }
 
