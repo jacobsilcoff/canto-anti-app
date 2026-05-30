@@ -516,6 +516,9 @@
     const isLatin = !['yue','cmn'].includes(data.target_lang);
     document.getElementById('reader-text').classList.toggle('latin', isLatin);
     sentences = buildSentences(data.tokens);
+    // Must be set before renderPage so <rt> elements get their text on first render.
+    romanizationOn = false;
+    romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
     renderPage(0);
     resetPanel();
     document.getElementById('loading-view').style.display = 'none';
@@ -524,9 +527,6 @@
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
     document.getElementById('reader-add-all-btn').style.display = data.all_vocab_added ? 'none' : '';
-    // Romanization toggle: only for logographic languages
-    romanizationOn = false;
-    romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
     const romBtn = document.getElementById('rom-toggle-btn');
     romBtn.style.display = isLatin ? 'none' : '';
     romBtn.classList.remove('active');
