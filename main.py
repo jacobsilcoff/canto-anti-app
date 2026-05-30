@@ -130,6 +130,12 @@ def _html(name: str) -> HTMLResponse:
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
+    content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
+    content = content.replace(
+        "</head>",
+        f'<script>window.__VERSION__="{ASSET_VERSION}"</script></head>',
+        1,
+    )
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
