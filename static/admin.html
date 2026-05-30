@@ -132,6 +132,22 @@
   </div>
 
   <div class="admin-section">
+    <h2>Shared key (friends)</h2>
+    <p class="user-meta" style="margin-bottom:12px">
+      Models used when a granted friend makes AI calls on your shared key. Keep these cheap —
+      you’re paying. Your own models are set on the <a href="/settings">Settings</a> page.
+    </p>
+    <div class="user-row" style="grid-template-columns:1fr auto">
+      <div class="user-name">Translation model</div>
+      <select id="shared-model-translate" class="settings-select" onchange="saveSharedModels()"></select>
+    </div>
+    <div class="user-row" style="grid-template-columns:1fr auto">
+      <div class="user-name">Reader model</div>
+      <select id="shared-model-reader" class="settings-select" onchange="saveSharedModels()"></select>
+    </div>
+  </div>
+
+  <div class="admin-section">
     <h2>Users</h2>
     <div id="user-list"></div>
   </div>
@@ -167,6 +183,62 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function modelLabel(m) {
+    return m
+      .replace(/^gemini-/, 'Gemini ')
+      .replace('flash-lite', 'Flash Lite')
+      .replace(/flash$/, 'Flash')
+      .replace(/pro$/, 'Pro');
+  }
+
+  async function loadSharedModels() {
+    try {
+      const data = await fetch('/api/admin/shared-key-models').then(r => r.json());
+      const fill = (sel, current) => {
+        sel.innerHTML = '';
+        data.available_models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = modelLabel(m);
+          if (m === current) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      };
+      fill(document.getElementById('shared-model-translate'), data.model_translate);
+      fill(document.getElementById('shared-model-reader'), data.model_reader);
+    } catch {
+      showToast('Failed to load shared key models.');
+    }
+  }
+
+  async function saveSharedModels() {
+    try {
+      const res = await fetch('/api/admin/shared-key-models', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_translate: document.getElementById('shared-model-translate').value,
+          model_reader: document.getElementById('shared-model-reader').value,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('Shared key models saved.');
+    } catch { showToast('Failed to save models.'); }
+  }
+
+  async function toggleShared(userId, next) {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/shared-key`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ can_use_shared_key: next }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(next ? 'Shared key access granted.' : 'Shared key access revoked.');
+      loadUsers();
+    } catch { showToast('Failed to update shared key access.'); }
+  }
+
   async function loadUsers() {
     const list = document.getElementById('user-list');
     list.innerHTML = '<p style="color:var(--text-muted);padding:12px">Loading…</p>';
@@ -180,13 +252,20 @@
       users.forEach(u => {
         const row = document.createElement('div');
         row.className = 'user-row';
+        const uname = escHtml(u.username).replace(/'/g, "\\'");
+        const sharedBtn = u.is_admin
+          ? '<span class="user-meta" style="text-align:center">Shared key: always</span>'
+          : (u.can_use_shared_key
+              ? `<button class="admin-action-btn" onclick="toggleShared(${u.id}, false)">Shared key: On</button>`
+              : `<button class="admin-action-btn" onclick="toggleShared(${u.id}, true)">Shared key: Off</button>`);
         row.innerHTML = `
           <div>
             <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
             <div class="user-meta">Created ${escHtml(u.created_at || '')}</div>
           </div>
-          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Reset password</button>
-          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Delete</button>
+          ${sharedBtn}
+          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset password</button>
+          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
         `;
         list.appendChild(row);
       });
@@ -253,6 +332,7 @@
   }
 
   loadUsers();
+  loadSharedModels();
 </script>
 </body>
 </html>

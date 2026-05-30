@@ -74,10 +74,13 @@ async def init():
                 username TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER DEFAULT 0,
+                can_use_shared_key INTEGER NOT NULL DEFAULT 0,
                 native_lang TEXT NOT NULL DEFAULT 'en',
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        if not await _column_exists(db, "users", "can_use_shared_key"):
+            await db.execute("ALTER TABLE users ADD COLUMN can_use_shared_key INTEGER NOT NULL DEFAULT 0")
 
         # Cards (legacy single-user table is named "cards"; we keep the name and migrate columns).
         await db.execute("""
@@ -276,7 +279,7 @@ async def bootstrap_admin(username: str, password_hash: str) -> int:
 
         if user_count == 0:
             cursor = await db.execute(
-                "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)",
+                "INSERT INTO users (username, password_hash, is_admin, can_use_shared_key) VALUES (?, ?, 1, 1)",
                 (username, password_hash),
             )
             admin_id = cursor.lastrowid
@@ -317,7 +320,7 @@ async def get_user_by_username(username: str) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, password_hash, is_admin, native_lang FROM users WHERE username=? COLLATE NOCASE",
+            "SELECT id, username, password_hash, is_admin, can_use_shared_key, native_lang FROM users WHERE username=? COLLATE NOCASE",
             (username,),
         ) as cur:
             row = await cur.fetchone()
@@ -328,20 +331,41 @@ async def get_user(user_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, is_admin, native_lang, created_at FROM users WHERE id=?",
+            "SELECT id, username, is_admin, can_use_shared_key, native_lang, created_at FROM users WHERE id=?",
             (user_id,),
         ) as cur:
             row = await cur.fetchone()
             return dict(row) if row else None
 
 
+async def set_user_shared_key(user_id: int, allowed: bool) -> None:
+    """Admin grant: allow/deny a user to use the shared (admin's env) Gemini key."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET can_use_shared_key=? WHERE id=?",
+            (1 if allowed else 0, user_id),
+        )
+        await db.commit()
+
+
 async def list_users() -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, is_admin, native_lang, created_at FROM users ORDER BY id"
+            "SELECT id, username, is_admin, can_use_shared_key, native_lang, created_at FROM users ORDER BY id"
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_primary_admin_id() -> int | None:
+    """The owning admin (lowest id). Friends' shared-key model config lives in
+    this admin's settings so it's a single source of truth for the shared key."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM users WHERE is_admin=1 ORDER BY id LIMIT 1"
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
 
 
 async def create_user(username: str, password_hash: str, is_admin: bool = False) -> int:

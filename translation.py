@@ -5,17 +5,22 @@ import asyncio
 from google import genai
 from google.genai.errors import ServerError
 
-_client = None
+_clients: dict[str, "genai.Client"] = {}
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        _client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    return _client
+def _get_client(api_key: str):
+    """Return a cached Gemini client for the given API key (one per distinct key)."""
+    client = _clients.get(api_key)
+    if client is None:
+        client = genai.Client(api_key=api_key)
+        _clients[api_key] = client
+    return client
 
 
-_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = "gemini-2.5-flash-lite"
+# Models users may pick when spending on their OWN key. Server validates against
+# this so an arbitrary/expensive model id can't be injected via the API.
+MODEL_ALLOWLIST = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
 
 
 # Per-language config. Each entry describes the human-readable name shown in prompts,
@@ -102,13 +107,13 @@ LANG_INFO = {
 }
 
 
-def _call(prompt: str) -> str:
+def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
     delays = [1, 3]
     for attempt, delay in enumerate([0] + delays):
         if delay:
             time.sleep(delay)
         try:
-            return _get_client().models.generate_content(model=_MODEL, contents=prompt).text.strip()
+            return _get_client(api_key).models.generate_content(model=model, contents=prompt).text.strip()
         except ServerError as e:
             if e.status_code == 503 and attempt < len(delays):
                 continue
@@ -300,7 +305,9 @@ _DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = "B1") -> dict:
+async def generate_reader_text(
+    prompt: str, target_lang: str, difficulty: str = "B1", *, api_key: str, model: str = DEFAULT_MODEL
+) -> dict:
     """Generate a short target-language text from an English description prompt.
 
     Returns: { title: str, content: str }
@@ -325,7 +332,7 @@ async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = 
         '{ "title": "...", "content": "..." }\n\n'
         f"Description: {prompt}"
     )
-    raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt)))
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt, api_key, model)))
     title = (raw.get("title") or "").strip() or prompt[:40]
     content = (raw.get("content") or "").strip()
     if not content:
@@ -336,18 +343,21 @@ async def generate_reader_text(prompt: str, target_lang: str, difficulty: str = 
 _EMBED_MODEL = "text-embedding-004"
 
 
-async def get_embedding(text: str) -> list[float] | None:
+async def get_embedding(text: str, *, api_key: str) -> list[float] | None:
     """Return a float embedding vector for text, or None on error."""
     try:
         result = await asyncio.to_thread(
-            lambda: _get_client().models.embed_content(model=_EMBED_MODEL, contents=[text])
+            lambda: _get_client(api_key).models.embed_content(model=_EMBED_MODEL, contents=[text])
         )
         return list(result.embeddings[0].values)
     except Exception:
         return None
 
 
-async def translate(text: str, target_lang: str, source_is_target: bool, context: str = "") -> dict:
+async def translate(
+    text: str, target_lang: str, source_is_target: bool, context: str = "", *,
+    api_key: str, model: str = DEFAULT_MODEL,
+) -> dict:
     """Translate text. source_is_target=True means the user typed in target_lang and
     wants an English translation; False means the user typed English and wants target_lang.
 
@@ -357,5 +367,5 @@ async def translate(text: str, target_lang: str, source_is_target: bool, context
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_prompt(text, target_lang, source_is_target, context)
-    raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt)))
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     return _parse_response(raw, text, source_is_target)

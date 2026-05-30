@@ -18,6 +18,7 @@ free-tier limit (~15 RPM).
 """
 
 import asyncio
+import os
 import time
 
 import aiosqlite
@@ -28,6 +29,8 @@ load_dotenv()
 import db
 import translation
 
+# Admin script: uses the server's own (env) Gemini key for all users.
+_API_KEY = os.environ["GEMINI_API_KEY"]
 DELAY = 5.0  # seconds between Gemini calls
 VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
 CLASSIFIER_LANGS = {"yue", "cmn"}
@@ -75,7 +78,7 @@ async def fetch_fields(
     )
 
     try:
-        raw = await asyncio.to_thread(lambda: translation._parse_json(translation._call(prompt)))
+        raw = await asyncio.to_thread(lambda: translation._parse_json(translation._call(prompt, _API_KEY)))
         labels: list[str] = []
         if need_labels:
             raw_labels = raw.get("labels") or []

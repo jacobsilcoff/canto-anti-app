@@ -26,6 +26,10 @@ jobs:
             set_if_missing DOMAIN "${{ secrets.DOMAIN }}"
             set_if_missing DEV_DOMAIN "${{ secrets.DEV_DOMAIN }}"
             set_if_missing DB_PATH "data/cards.db"
+            # Generate the at-rest encryption key once. NEVER regenerate it —
+            # doing so would make every stored user API key undecryptable.
+            grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app/.env || \
+              echo "API_KEY_ENC_KEY=$(openssl rand -base64 32 | tr '+/' '-_')" >> ~/canto-anti-app/.env
 
       - name: Deploy to Oracle VM
         uses: appleboy/ssh-action@v1
