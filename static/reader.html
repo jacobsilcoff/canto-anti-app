@@ -90,7 +90,7 @@
     /* ── Text body ── */
     .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
     .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
-    .reader-text.show-rom { line-height: 3.2; }
+    .reader-text.show-rom { line-height: 2.7; }
     .sentence { cursor: pointer; border-radius: 4px; }
     .sentence.active { background: rgba(99,102,241,.07); }
     .token {}
@@ -100,7 +100,9 @@
     .token.word.new   { color: var(--text); opacity: 0.55; }
     .token.word:hover, .token.word.tapped { background: rgba(99,102,241,.15); }
     ruby { ruby-align: center; }
-    rt { font-size: 0.42em; font-family: inherit; opacity: 0.75; letter-spacing: 0; }
+    rt { font-size: 0.38em; font-family: inherit; opacity: 0.7; letter-spacing: 0; }
+    .rom-toggle-off { position: relative; }
+    .rom-toggle-off::after { content: ''; position: absolute; left: 50%; top: 50%; width: 70%; height: 1.5px; background: currentColor; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
     /* ── Word tooltip ── */
     .word-tooltip {
@@ -524,6 +526,7 @@
     const romBtn = document.getElementById('rom-toggle-btn');
     romBtn.style.display = isLatin ? 'none' : '';
     romBtn.classList.remove('active');
+    romBtn.classList.add('rom-toggle-off');
     document.getElementById('reader-text').classList.remove('show-rom');
   }
 
@@ -958,6 +961,7 @@
     romanizationOn = !romanizationOn;
     const btn = document.getElementById('rom-toggle-btn');
     btn.classList.toggle('active', romanizationOn);
+    btn.classList.toggle('rom-toggle-off', !romanizationOn);
     document.getElementById('reader-text').classList.toggle('show-rom', romanizationOn);
 
     if (romanizationOn && romanizationMap === null) {
