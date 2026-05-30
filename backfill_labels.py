@@ -1,9 +1,13 @@
-"""Backfill script: add AI-suggested labels and CEFR levels to existing cards.
+"""Backfill script: add AI-suggested labels, CEFR levels, classifiers, and notes
+to existing cards that are missing them.
 
-- Labels: skips cards that already have at least one label.
-- CEFR:   skips cards that already have a cefr_level set.
-- Both are fetched in a single Gemini call per card to minimise API usage.
-- Cards that need neither are skipped entirely.
+- Labels:     skips cards that already have at least one label.
+- CEFR:       skips cards that already have a cefr_level set.
+- Classifier: skips cards that already have a non-empty classifier.
+              Only attempted for yue/cmn cards.
+- Notes:      skips cards that already have non-empty notes.
+- All are fetched in a single Gemini call per card to minimise API usage.
+- Cards that need none of the above are skipped entirely.
 
 Usage (from project root):
     source venv/bin/activate
@@ -26,53 +30,88 @@ import translation
 
 DELAY = 5.0  # seconds between Gemini calls
 VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+CLASSIFIER_LANGS = {"yue", "cmn"}
 
 
-async def fetch_labels_and_cefr(
-    source_text: str, target_text: str, target_lang: str, need_labels: bool, need_cefr: bool
-) -> tuple[list[str], str | None]:
+async def fetch_fields(
+    source_text: str,
+    target_text: str,
+    target_lang: str,
+    need_labels: bool,
+    need_cefr: bool,
+    need_classifier: bool,
+    need_notes: bool,
+) -> tuple[list[str], str | None, str | None, str | None]:
     info = translation.LANG_INFO.get(target_lang, {})
     lang_name = info.get("name", target_lang)
 
-    label_instruction = (
-        'Return 2–4 short English labels (lowercase) that help a learner organise their deck. '
-        'Include: (1) part of speech (e.g. "verb", "noun", "adjective"); '
-        '(2) grammatical function when relevant (e.g. "irregular verb", "expressing obligation"); '
-        '(3) topic labels only when genuinely useful — nested specificity is fine '
-        '(e.g. both "food" and "vegetable"). Do NOT include synonymous labels. '
-        'Return as "labels": [...]'
-        if need_labels else
-        'Omit "labels" from your response.'
-    )
-    cefr_instruction = (
-        f'Return the CEFR level (A1/A2/B1/B2/C1/C2) of this word for a learner of {lang_name} '
-        'based on standard learner corpora. Return as "cefr_level": "..."'
-        if need_cefr else
-        'Omit "cefr_level" from your response.'
-    )
+    instructions = []
+
+    if need_labels:
+        instructions.append(
+            'Return 2–4 short English labels (lowercase) that help a learner organise their deck. '
+            'Include: (1) part of speech (e.g. "verb", "noun", "adjective"); '
+            '(2) grammatical function when relevant (e.g. "irregular verb", "expressing obligation"); '
+            '(3) topic labels only when genuinely useful — nested specificity is fine '
+            '(e.g. both "food" and "vegetable"). Do NOT include synonymous labels. '
+            'Return as "labels": [...]'
+        )
+    else:
+        instructions.append('Omit "labels" from your response.')
+
+    if need_cefr:
+        instructions.append(
+            f'Return the CEFR level (A1/A2/B1/B2/C1/C2) of this word for a learner of {lang_name} '
+            'based on standard learner corpora. Return as "cefr_level": "..."'
+        )
+    else:
+        instructions.append('Omit "cefr_level" from your response.')
+
+    if need_classifier:
+        classifier_hint = translation._CLASSIFIER_HINT.get(target_lang, "")
+        instructions.append(
+            f'Return the classifier for this word if it is a noun: {classifier_hint} '
+            'Return as "classifier": "..." (empty string if not a noun).'
+        )
+    else:
+        instructions.append('Omit "classifier" from your response.')
+
+    if need_notes:
+        instructions.append(
+            'Return 1–2 sentences of usage notes: register, cultural context, common collocations, '
+            'or common pitfalls. Empty string if nothing useful. Return as "notes": "..."'
+        )
+    else:
+        instructions.append('Omit "notes" from your response.')
 
     prompt = (
         f"Given this {lang_name} vocabulary card:\n"
         f"  {lang_name}: {target_text}\n"
         f"  English: {source_text}\n\n"
-        f"{label_instruction}\n"
-        f"{cefr_instruction}\n"
-        "Return ONLY valid JSON, no other text."
+        + "\n".join(instructions)
+        + "\nReturn ONLY valid JSON, no other text."
     )
+
     try:
         raw = await asyncio.to_thread(lambda: translation._parse_json(translation._call(prompt)))
         labels: list[str] = []
         if need_labels:
             raw_labels = raw.get("labels") or []
-            labels = [l.strip().lower() for l in raw_labels if isinstance(l, str) and l.strip()]
+            labels = [la.strip().lower() for la in raw_labels if isinstance(la, str) and la.strip()]
         cefr: str | None = None
         if need_cefr:
             cefr = (raw.get("cefr_level") or "").strip().upper()
             cefr = cefr if cefr in VALID_CEFR else None
-        return labels, cefr
+        classifier: str | None = None
+        if need_classifier:
+            classifier = (raw.get("classifier") or "").strip()
+        notes: str | None = None
+        if need_notes:
+            notes = (raw.get("notes") or "").strip() or None
+        return labels, cefr, classifier, notes
     except Exception as e:
         print(f"  Gemini error: {e}")
-        return [], None
+        return [], None, None, None
 
 
 async def main():
@@ -80,16 +119,16 @@ async def main():
 
     async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-
-        # Cards missing labels OR missing cefr_level.
         async with conn.execute("""
             SELECT c.id, c.user_id, c.source_text, c.target_text, c.target_lang,
-                   c.cefr_level,
+                   c.cefr_level, c.classifier, c.notes,
                    EXISTS (SELECT 1 FROM card_labels cl WHERE cl.card_id = c.id) AS has_labels
             FROM cards c
             WHERE (
                 NOT EXISTS (SELECT 1 FROM card_labels cl WHERE cl.card_id = c.id)
                 OR c.cefr_level IS NULL
+                OR (c.classifier IS NULL OR c.classifier = '')
+                OR c.notes IS NULL
             )
             AND c.source_text != '' AND c.target_text != ''
             ORDER BY c.user_id, c.id
@@ -110,22 +149,33 @@ async def main():
         lang = card["target_lang"]
         need_labels = not card["has_labels"]
         need_cefr = card["cefr_level"] is None
+        need_classifier = lang in CLASSIFIER_LANGS and not (card["classifier"] or "").strip()
+        need_notes = card["notes"] is None
+
+        if not any([need_labels, need_cefr, need_classifier, need_notes]):
+            continue
 
         flags = []
-        if need_labels: flags.append("labels")
-        if need_cefr:   flags.append("CEFR")
+        if need_labels:    flags.append("labels")
+        if need_cefr:      flags.append("CEFR")
+        if need_classifier: flags.append("classifier")
+        if need_notes:     flags.append("notes")
         print(f"[{processed+skipped+1}/{len(cards)}] Card {cid} (user {uid}): {tgt} — {src}  [{', '.join(flags)}]")
 
-        labels, cefr = await fetch_labels_and_cefr(src, tgt, lang, need_labels, need_cefr)
+        labels, cefr, classifier, notes = await fetch_fields(
+            src, tgt, lang, need_labels, need_cefr, need_classifier, need_notes
+        )
 
-        if not labels and cefr is None:
+        if not labels and cefr is None and classifier is None and notes is None:
             print("  Nothing returned, skipping.")
             skipped += 1
             time.sleep(DELAY)
             continue
 
-        if labels: print(f"  Labels: {labels}")
-        if cefr:   print(f"  CEFR:   {cefr}")
+        if labels:     print(f"  Labels:     {labels}")
+        if cefr:       print(f"  CEFR:       {cefr}")
+        if classifier is not None: print(f"  Classifier: {classifier!r}")
+        if notes:      print(f"  Notes:      {notes[:80]}{'…' if len(notes) > 80 else ''}")
 
         async with aiosqlite.connect(db.DB_PATH) as conn:
             if need_labels and labels:
@@ -145,10 +195,11 @@ async def main():
                             (cid, row[0]),
                         )
             if need_cefr and cefr:
-                await conn.execute(
-                    "UPDATE cards SET cefr_level=? WHERE id=?",
-                    (cefr, cid),
-                )
+                await conn.execute("UPDATE cards SET cefr_level=? WHERE id=?", (cefr, cid))
+            if need_classifier and classifier is not None:
+                await conn.execute("UPDATE cards SET classifier=? WHERE id=?", (classifier, cid))
+            if need_notes and notes:
+                await conn.execute("UPDATE cards SET notes=? WHERE id=?", (notes, cid))
             await conn.commit()
 
         processed += 1
