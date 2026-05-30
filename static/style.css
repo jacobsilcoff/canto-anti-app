@@ -667,6 +667,24 @@ textarea {
 }
 .cta-btn.secondary:hover { background: #e8f0fe; }
 
+/* ── Settings-style select (shared with admin page) ──────────────────────── */
+.settings-select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 30px 7px 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.settings-select:disabled { opacity: 0.5; cursor: not-allowed; }
+.settings-select:focus { outline: none; border-color: var(--primary); }
+
 /* ── Error toast ─────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;

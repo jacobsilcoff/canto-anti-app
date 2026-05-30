@@ -23,8 +23,22 @@
     .settings-label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
     .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
     .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; text-align: center; }
-    .settings-select { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; }
+    .settings-select {
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+      padding: 7px 30px 7px 10px; font-size: 0.9rem; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .settings-select:disabled { opacity: 0.5; cursor: not-allowed; }
     .settings-input:focus, .settings-select:focus { outline: none; border-color: var(--primary); }
+    .settings-btn {
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+      padding: 7px 14px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    }
+    .settings-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .settings-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .settings-btn.primary:hover { background: var(--primary-hover); }
 
     .settings-info { font-size: 0.82rem; color: var(--text-muted, #888); padding: 10px 18px 14px; margin: 0; }
     .toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
@@ -148,9 +162,9 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-        <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off">
-        <button class="cta-btn" onclick="saveApiKey()">Save</button>
-        <button class="cta-btn secondary" onclick="clearApiKey()">Clear</button>
+        <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off" style="width:160px;text-align:left">
+        <button class="settings-btn primary" onclick="saveApiKey()">Save</button>
+        <button class="settings-btn" onclick="clearApiKey()">Clear</button>
       </div>
     </div>
     <div class="settings-row">
@@ -220,6 +234,14 @@
     renderAiSection();
   }
 
+  function modelLabel(m) {
+    return m
+      .replace(/^gemini-/, 'Gemini ')
+      .replace('flash-lite', 'Flash Lite')
+      .replace(/flash$/, 'Flash')
+      .replace(/pro$/, 'Pro');
+  }
+
   function renderAiSection() {
     const models = settings.available_models || [];
     const mt = document.getElementById('settings-model-translate');
@@ -228,7 +250,7 @@
       sel.innerHTML = '';
       models.forEach(m => {
         const opt = document.createElement('option');
-        opt.value = m; opt.textContent = m;
+        opt.value = m; opt.textContent = modelLabel(m);
         sel.appendChild(opt);
       });
     });
@@ -252,7 +274,7 @@
     } else if (settings.using_shared_key) {
       note.textContent = 'You’re using the shared key — the model is set by the admin. Add your own key to choose models.';
     } else {
-      note.textContent = 'Add your API key above to enable AI features.';
+      note.textContent = '';
     }
   }
 

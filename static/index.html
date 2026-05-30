@@ -535,7 +535,11 @@
           context: context || null,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        let msg = 'Translation failed — please try again.';
+        try { msg = (await res.json()).detail || msg; } catch {}
+        throw new Error(msg);
+      }
       lastTranslation = await res.json();
 
       if ((lastTranslation.candidates || []).length > 1) {
@@ -546,7 +550,7 @@
         showToast('No translation returned.');
       }
     } catch (e) {
-      showToast('Translation failed — please try again.');
+      showToast(e.message || 'Translation failed — please try again.');
       console.error(e);
     } finally {
       btn.disabled = false;
