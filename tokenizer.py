@@ -6,6 +6,9 @@ Token = dict
 # Matches sentence-ending punctuation that is NOT inside quotes.
 # For CJK: 。！？; for Latin: . ! ?; also newlines.
 _SENTENCE_ENDERS = re.compile(r'[。！？.!?\n]')
+
+# Punctuation that must never be swallowed inside a word token.
+_INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉\n])')
 # Opening/closing quote characters — we avoid splitting mid-quote.
 _OPEN_QUOTES = set('"«「『')
 _CLOSE_QUOTES = set('"»」』')
@@ -112,7 +115,15 @@ def _words_to_tokens(words: list[str]) -> list[Token]:
     tokens = []
     for w in words:
         if _is_cjk_word(w):
-            tokens.append({"text": w, "is_word": True})
+            # Split on any embedded punctuation so sentence-enders are separate tokens.
+            parts = _INLINE_PUNCT.split(w)
+            if len(parts) == 1:
+                tokens.append({"text": w, "is_word": True})
+            else:
+                for part in parts:
+                    if not part:
+                        continue
+                    tokens.append({"text": part, "is_word": _is_cjk_word(part)})
         else:
             # Non-CJK segments (punctuation, spaces, numbers) are non-interactive.
             tokens.append({"text": w, "is_word": False})

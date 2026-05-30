@@ -308,15 +308,18 @@ async def create_card(
 async def get_settings(user: dict = Depends(current_user)):
     new_cards_per_day = int(await db.get_setting(user["id"], "new_cards_per_day") or 20)
     default_target_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
+        "auto_add_reader_vocab": auto_add_reader_vocab,
     }
 
 
 class SettingsUpdate(BaseModel):
     new_cards_per_day: int | None = None
     default_target_lang: str | None = None
+    auto_add_reader_vocab: bool | None = None
 
 
 @app.put("/api/settings")
@@ -329,6 +332,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.default_target_lang not in translation.LANG_INFO:
             raise HTTPException(400, "Unsupported default_target_lang")
         await db.set_setting(user["id"], "default_target_lang", req.default_target_lang)
+    if req.auto_add_reader_vocab is not None:
+        await db.set_setting(user["id"], "auto_add_reader_vocab", "true" if req.auto_add_reader_vocab else "false")
     return {"success": True}
 
 
@@ -736,18 +741,21 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
     """Assemble the full response for a reader text: tokens + cached sentences."""
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
     words = [t["text"] for t in tokens if t["is_word"]]
-    statuses = await db.get_word_statuses(user_id, words, text["target_lang"])
+    unique_words = list(dict.fromkeys(words))
+    statuses = await db.get_word_statuses(user_id, unique_words, text["target_lang"])
     sentences = await db.get_reader_sentences(user_id, text["id"])
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
     rom_map = tokenizer.romanize_words(words, text["target_lang"])
+    all_vocab_added = bool(unique_words) and all(w in statuses for w in unique_words)
     return {
         **text,
         "tokens": _annotate_tokens(tokens, statuses),
         "sentences": sentences,
         "preload_complete": preload_complete,
         "romanization": rom_map,
+        "all_vocab_added": all_vocab_added,
     }
 
 
@@ -769,11 +777,64 @@ async def reader_list_texts(user: dict = Depends(current_user)):
 
 
 @app.get("/api/reader/texts/{text_id}")
-async def reader_get_text(text_id: int, user: dict = Depends(current_user)):
+async def reader_get_text(text_id: int, background_tasks: BackgroundTasks, user: dict = Depends(current_user)):
     text = await db.get_reader_text(user["id"], text_id)
     if not text:
         raise HTTPException(404, "Text not found")
-    return await _build_text_response(user["id"], text)
+    resp = await _build_text_response(user["id"], text)
+    if not resp["all_vocab_added"]:
+        auto_add = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
+        if auto_add:
+            background_tasks.add_task(_auto_add_vocab_bg, user["id"], text_id, text)
+    return resp
+
+
+async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict):
+    """Background task: add all unseen words from a reader text (no HTTP context needed)."""
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    seen: set[str] = set()
+    words = []
+    for t in tokens:
+        if t["is_word"] and t["text"] not in seen:
+            seen.add(t["text"])
+            words.append(t["text"])
+    statuses = await db.get_word_statuses(user_id, words, text["target_lang"])
+    new_words = [w for w in words if w not in statuses]
+    if not new_words:
+        return
+    story_label = await db.get_or_create_story_label(user_id, text_id)
+    story_label_id = story_label.get("id")
+    sem = asyncio.Semaphore(5)
+
+    async def _add_word(word: str):
+        async with sem:
+            try:
+                result = await translation.translate(word, text["target_lang"], source_is_target=True)
+                candidate = result["candidates"][0] if result["candidates"] else {}
+                if not candidate.get("english"):
+                    return
+                audio_data = await audio.generate(word, text["target_lang"])
+                label_ids = [story_label_id] if story_label_id else []
+                card_id = await db.create_card(
+                    user_id=user_id,
+                    source_text=candidate["english"],
+                    target_text=word,
+                    romanization=candidate.get("romanization", ""),
+                    target_lang=text["target_lang"],
+                    audio_data=audio_data,
+                    notes=candidate.get("notes") or None,
+                    label_ids=label_ids,
+                    priority=result.get("priority", 3),
+                    classifier=result.get("classifier", ""),
+                    suggested_label_names=result.get("suggested_labels", []),
+                    cefr_level=result.get("cefr_level"),
+                )
+                embed_text = f"{candidate['english']} {word}"
+                await _generate_and_store_embedding(card_id, embed_text)
+            except Exception:
+                pass
+
+    await asyncio.gather(*[_add_word(w) for w in new_words])
 
 
 @app.post("/api/reader/texts/{text_id}/preload")
@@ -951,7 +1012,7 @@ async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = De
             ) as cur:
                 row = await cur.fetchone()
         if row:
-            return {
+            resp: dict = {
                 "source": "deck",
                 "card_id": row["id"],
                 "target_text": row["target_text"],
@@ -960,6 +1021,23 @@ async def reader_translate_word(req: ReaderTranslateWordRequest, user: dict = De
                 "notes": row["notes"],
                 "status": statuses[req.word],
             }
+            # If context is provided, also translate to detect a different sense.
+            if req.context:
+                try:
+                    ctx_result = await translation.translate(
+                        req.word, req.target_lang, source_is_target=True, context=req.context
+                    )
+                    ctx_candidate = ctx_result["candidates"][0] if ctx_result["candidates"] else {}
+                    ctx_english = ctx_candidate.get("english", "")
+                    stored = (row["source_text"] or "").lower()
+                    # Surface the contextual meaning if it differs from what's stored.
+                    if ctx_english and ctx_english.lower() != stored:
+                        resp["context_source_text"] = ctx_english
+                        resp["context_romanization"] = ctx_candidate.get("romanization", "")
+                        resp["context_notes"] = ctx_candidate.get("notes", "")
+                except Exception:
+                    pass
+            return resp
     # Not in deck — translate via Gemini.
     result = await translation.translate(req.word, req.target_lang, source_is_target=True, context=req.context)
     candidate = result["candidates"][0] if result["candidates"] else {}

@@ -126,8 +126,9 @@ def _context_block(context: str) -> str:
     if not context:
         return ""
     return (
-        "\nContext (use this to disambiguate the meaning, "
-        "but do NOT include it in the translation output):\n"
+        "\nContext sentence (the word/phrase above appears in this sentence — "
+        "you MUST use this to determine the correct meaning and translation; "
+        "do NOT translate the context sentence itself):\n"
         f"{context}\n"
     )
 

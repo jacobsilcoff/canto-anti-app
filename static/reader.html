@@ -90,7 +90,6 @@
     /* ── Text body ── */
     .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
     .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
-    .reader-text.show-rom { line-height: 2.7; }
     .sentence { cursor: pointer; border-radius: 4px; }
     .sentence.active { background: rgba(99,102,241,.07); }
     .token {}
@@ -100,7 +99,8 @@
     .token.word.new   { color: var(--text); opacity: 0.55; }
     .token.word:hover, .token.word.tapped { background: rgba(99,102,241,.15); }
     ruby { ruby-align: center; }
-    rt { font-size: 0.38em; font-family: inherit; opacity: 0.7; letter-spacing: 0; }
+    rt { font-size: 0.38em; font-family: inherit; letter-spacing: 0; visibility: hidden; }
+    .reader-text.show-rom rt { visibility: visible; opacity: 0.7; }
     .rom-toggle-off { position: relative; }
     .rom-toggle-off::after { content: ''; position: absolute; left: 50%; top: 50%; width: 70%; height: 1.5px; background: currentColor; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
@@ -131,6 +131,10 @@
     .tooltip-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
     .tooltip-add-btn:disabled { opacity: 0.5; cursor: default; }
     .tooltip-add-btn.added { background: #22c55e; }
+    .tooltip-alt-meaning { background: var(--bg, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+    .tooltip-alt-label { font-weight: 600; color: var(--text-muted, #888); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+    .tooltip-update-meaning-btn { display: block; margin-top: 6px; background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
+    .tooltip-update-meaning-btn:hover { background: var(--primary); color: #fff; }
     .tooltip-flag-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: var(--text-muted, #888); cursor: pointer; }
     .tooltip-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
     .tooltip-close { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; color: var(--text-muted, #bbb); font-size: 1rem; padding: 2px 6px; }
@@ -519,7 +523,7 @@
     document.getElementById('reader-view').style.display = 'block';
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
-    document.getElementById('reader-add-all-btn').style.display = '';
+    document.getElementById('reader-add-all-btn').style.display = data.all_vocab_added ? 'none' : '';
     // Romanization toggle: only for logographic languages
     romanizationOn = false;
     romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
@@ -540,8 +544,10 @@
       const { added, skipped, total_new } = await res.json();
       if (total_new === 0) {
         showToast('All words already in your deck!');
+        btn.style.display = 'none';
       } else {
         showToast(`Added ${added} card${added !== 1 ? 's' : ''}${skipped ? `, skipped ${skipped}` : ''}`);
+        btn.style.display = 'none';
       }
       // Refresh token colours.
       const textRes = await fetch(`/api/reader/texts/${currentTextId}`);
@@ -552,7 +558,6 @@
       }
     } catch {
       showToast('Failed to add vocab — try again.');
-    } finally {
       btn.disabled = false;
       btn.textContent = '+ Add all vocab';
     }
@@ -650,16 +655,12 @@
         if (!e.target.classList.contains('word')) selectSentence(si, sentEl);
       });
       sent.tokens.forEach(tok => {
-        const rom = romanizationOn && tok.is_word && romanizationMap
-          ? (romanizationMap[tok.text] || null) : null;
-
-        // Outer element: ruby if we have romanization, span otherwise
         let el;
-        if (rom) {
+        if (tok.is_word) {
           el = document.createElement('ruby');
           el.appendChild(document.createTextNode(tok.text));
           const rt = document.createElement('rt');
-          rt.textContent = rom;
+          rt.textContent = (romanizationMap && romanizationMap[tok.text]) || '';
           el.appendChild(rt);
         } else {
           el = document.createElement('span');
@@ -809,12 +810,19 @@
   function renderTooltip(data) {
     const isInDeck = data.source === 'deck';
     const statusLabel = { known: 'Known', weak: 'Weak', new: 'New to deck' }[data.status] || 'New';
+    const hasAltMeaning = isInDeck && data.context_source_text;
     document.getElementById('tooltip-content').innerHTML = `
       <div class="tooltip-word">${esc(data.target_text)}</div>
       ${data.romanization ? `<div class="tooltip-rom">${esc(data.romanization)}</div>` : ''}
       <div class="tooltip-eng">${esc(data.source_text)}</div>
       <span class="tooltip-status-badge ${data.status}">${statusLabel}</span>
       ${data.notes ? `<div class="tooltip-notes">${esc(data.notes)}</div>` : ''}
+      ${hasAltMeaning ? `
+        <div class="tooltip-alt-meaning">
+          <span class="tooltip-alt-label">In context:</span> ${esc(data.context_source_text)}
+          ${data.context_notes ? `<div class="tooltip-notes">${esc(data.context_notes)}</div>` : ''}
+          <button class="tooltip-update-meaning-btn" id="tooltip-update-meaning-btn" onclick="updateCardMeaning()">Update card meaning</button>
+        </div>` : ''}
       <div class="tooltip-actions">
         <button class="play-btn" onclick="playText(${JSON.stringify(data.target_text)})" title="Play pronunciation">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -826,6 +834,32 @@
         ${!isInDeck ? `<button class="tooltip-flag-btn" onclick="showToast('Flagging will be available in a future update')">Flag</button>` : ''}
       </div>
     `;
+  }
+
+  async function updateCardMeaning() {
+    if (!tooltipWordData || !tooltipWordData.card_id || !tooltipWordData.context_source_text) return;
+    const btn = document.getElementById('tooltip-update-meaning-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+    try {
+      const res = await fetch(`/api/cards/${tooltipWordData.card_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text:  tooltipWordData.context_source_text,
+          target_text:  tooltipWordData.target_text,
+          romanization: tooltipWordData.context_romanization || tooltipWordData.romanization || '',
+          notes:        tooltipWordData.context_notes || tooltipWordData.notes || '',
+        }),
+      });
+      if (!res.ok) throw new Error();
+      tooltipWordData = { ...tooltipWordData, source_text: tooltipWordData.context_source_text, context_source_text: null };
+      document.querySelector('.tooltip-alt-meaning')?.remove();
+      document.querySelector('.tooltip-eng').textContent = tooltipWordData.source_text;
+      showToast('Card meaning updated');
+    } catch {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update card meaning'; }
+      showToast('Failed to update card');
+    }
   }
 
   async function addWordToDeck() {
@@ -957,18 +991,12 @@
   }
 
   // ── Romanization toggle ────────────────────────────────────────────────────
-  async function toggleRomanization() {
+  function toggleRomanization() {
     romanizationOn = !romanizationOn;
     const btn = document.getElementById('rom-toggle-btn');
     btn.classList.toggle('active', romanizationOn);
     btn.classList.toggle('rom-toggle-off', !romanizationOn);
     document.getElementById('reader-text').classList.toggle('show-rom', romanizationOn);
-
-    if (romanizationOn && romanizationMap === null) {
-      romanizationMap = {};
-    }
-
-    renderPage(currentPage);
   }
 
   // ── Audio Mode ─────────────────────────────────────────────────────────────
