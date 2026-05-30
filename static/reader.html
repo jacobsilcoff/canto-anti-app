@@ -522,7 +522,7 @@
     document.getElementById('reader-add-all-btn').style.display = '';
     // Romanization toggle: only for logographic languages
     romanizationOn = false;
-    romanizationMap = null;
+    romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
     const romBtn = document.getElementById('rom-toggle-btn');
     romBtn.style.display = isLatin ? 'none' : '';
     romBtn.classList.remove('active');
@@ -965,19 +965,7 @@
     document.getElementById('reader-text').classList.toggle('show-rom', romanizationOn);
 
     if (romanizationOn && romanizationMap === null) {
-      btn.disabled = true;
-      try {
-        const res = await fetch(`/api/reader/texts/${currentTextId}/romanize`);
-        if (res.ok) {
-          const data = await res.json();
-          romanizationMap = data.romanization;
-        } else {
-          romanizationMap = {};
-        }
-      } catch {
-        romanizationMap = {};
-      }
-      btn.disabled = false;
+      romanizationMap = {};
     }
 
     renderPage(currentPage);

@@ -741,11 +741,13 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
+    rom_map = tokenizer.romanize_words(words, text["target_lang"])
     return {
         **text,
         "tokens": _annotate_tokens(tokens, statuses),
         "sentences": sentences,
         "preload_complete": preload_complete,
+        "romanization": rom_map,
     }
 
 
