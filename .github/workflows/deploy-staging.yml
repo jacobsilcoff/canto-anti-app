@@ -26,6 +26,7 @@ jobs:
             set_if_missing GEMINI_API_KEY "${{ secrets.GEMINI_API_KEY }}"
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
+            set_if_missing APP_ADMIN_EMAIL "${{ secrets.APP_ADMIN_EMAIL }}"
             set_if_missing DB_PATH "data/cards.db"
             # Email config — always overwrite so adding/rotating secrets takes effect immediately.
             sed -i '/^RESEND_API_KEY=/d' ~/canto-anti-app-staging/.env

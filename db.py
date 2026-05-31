@@ -266,8 +266,9 @@ async def _run_migrations(db) -> None:
         await db.commit()
 
 
-async def bootstrap_admin(username: str, password_hash: str) -> int:
+async def bootstrap_admin(username: str, password_hash: str, email: str | None = None) -> int:
     """Ensure an admin user exists. If no users, create with given creds and migrate existing data.
+    On every startup, ensures the admin's email is set and verified if provided.
     Returns the admin's user_id.
     """
     async with aiosqlite.connect(DB_PATH) as db:
@@ -279,8 +280,10 @@ async def bootstrap_admin(username: str, password_hash: str) -> int:
 
         if user_count == 0:
             cursor = await db.execute(
-                "INSERT INTO users (username, password_hash, is_admin, can_use_shared_key) VALUES (?, ?, 1, 1)",
-                (username, password_hash),
+                """INSERT INTO users
+                   (username, password_hash, is_admin, can_use_shared_key, email, email_verified)
+                   VALUES (?, ?, 1, 1, ?, 1)""",
+                (username, password_hash, email),
             )
             admin_id = cursor.lastrowid
 
@@ -311,7 +314,17 @@ async def bootstrap_admin(username: str, password_hash: str) -> int:
             (username,),
         ) as cur:
             row = await cur.fetchone()
-            return row["id"] if row else 0
+            admin_id = row["id"] if row else 0
+
+        # Keep admin email in sync with env var and always mark it verified.
+        if admin_id and email:
+            await db.execute(
+                "UPDATE users SET email=?, email_verified=1 WHERE id=?",
+                (email, admin_id),
+            )
+            await db.commit()
+
+        return admin_id
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────

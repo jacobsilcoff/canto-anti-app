@@ -32,6 +32,7 @@ import translation
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
+_BOOTSTRAP_EMAIL = os.getenv("APP_ADMIN_EMAIL") or None
 
 _SESSION_TTL = 30 * 86400  # 30 days
 
@@ -50,7 +51,7 @@ _NO_AUTH_PATHS = {
 async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
-        await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD))
+        await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
     yield
 
 
