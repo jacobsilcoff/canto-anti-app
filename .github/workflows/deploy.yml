@@ -26,6 +26,9 @@ jobs:
             set_if_missing DOMAIN "${{ secrets.DOMAIN }}"
             set_if_missing DEV_DOMAIN "${{ secrets.DEV_DOMAIN }}"
             set_if_missing DB_PATH "data/cards.db"
+            set_if_missing RESEND_API_KEY "${{ secrets.RESEND_API_KEY }}"
+            set_if_missing FROM_EMAIL "${{ secrets.FROM_EMAIL }}"
+            set_if_missing APP_URL "https://${{ secrets.DOMAIN }}"
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app/.env || \
