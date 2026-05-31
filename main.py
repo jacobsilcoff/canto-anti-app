@@ -1216,6 +1216,28 @@ async def admin_update_password(user_id: int, req: UpdatePasswordRequest, user: 
     return {"success": True}
 
 
+@app.post("/api/admin/email-test")
+async def admin_email_test(user: dict = Depends(current_admin)):
+    """Send a test email to the admin's own address and return the raw result."""
+    to = user.get("email")
+    if not to:
+        raise HTTPException(400, "Your account has no email address set.")
+    key = email_utils.RESEND_API_KEY
+    config = {
+        "resend_api_key_set": bool(key),
+        "resend_api_key_prefix": key[:8] + "…" if key else None,
+        "from_email": email_utils.FROM_EMAIL,
+        "app_url": email_utils.APP_URL,
+        "sending_to": to,
+    }
+    ok, detail = await email_utils._send(
+        to,
+        "Test email from your app",
+        email_utils._base("It works!", "<p>This is a test email sent from the admin panel.</p>"),
+    )
+    return {"config": config, "sent": ok, "detail": detail}
+
+
 @app.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
     if user_id == user["id"]:

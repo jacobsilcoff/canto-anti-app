@@ -10,11 +10,12 @@ FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@canto-anki.duckdns.org")
 APP_URL = os.getenv("APP_URL", "https://canto-anki.duckdns.org")
 
 
-async def _send(to: str, subject: str, html: str) -> bool:
-    """Send an email via Resend. Returns True on success."""
+async def _send(to: str, subject: str, html: str) -> tuple[bool, str]:
+    """Send an email via Resend. Returns (success, detail_message)."""
     if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set — skipping email to %s", to)
-        return False
+        msg = "RESEND_API_KEY not configured"
+        logger.warning("%s — skipping email to %s", msg, to)
+        return False, msg
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -23,12 +24,15 @@ async def _send(to: str, subject: str, html: str) -> bool:
                 json={"from": FROM_EMAIL, "to": [to], "subject": subject, "html": html},
             )
             if resp.status_code >= 400:
-                logger.error("Resend error %s: %s", resp.status_code, resp.text)
-                return False
-        return True
-    except Exception:
+                msg = f"Resend {resp.status_code}: {resp.text}"
+                logger.error(msg)
+                return False, msg
+            logger.info("Email sent to %s (status %s)", to, resp.status_code)
+            return True, "ok"
+    except Exception as exc:
+        msg = f"Network error: {exc}"
         logger.exception("Failed to send email to %s", to)
-        return False
+        return False, msg
 
 
 def _base(title: str, body: str) -> str:
@@ -56,7 +60,8 @@ async def send_verification(to: str, token: str, app_name: str = "Canto Anki") -
 <p style="font-size:13px;color:#666">Or copy this link: <a href="{url}">{url}</a></p>
 <p style="font-size:13px;color:#666">This link expires in 24 hours.</p>""",
     )
-    return await _send(to, f"Verify your {app_name} account", html)
+    ok, _ = await _send(to, f"Verify your {app_name} account", html)
+    return ok
 
 
 async def send_password_reset(to: str, token: str, app_name: str = "Canto Anki") -> bool:
@@ -71,4 +76,5 @@ async def send_password_reset(to: str, token: str, app_name: str = "Canto Anki")
 <p style="font-size:13px;color:#666">Or copy this link: <a href="{url}">{url}</a></p>
 <p style="font-size:13px;color:#666">This link expires in 1 hour. If you didn't request this, ignore this email.</p>""",
     )
-    return await _send(to, f"Reset your {app_name} password", html)
+    ok, _ = await _send(to, f"Reset your {app_name} password", html)
+    return ok
