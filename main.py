@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -262,9 +262,9 @@ async def settings_page():
     return _html("settings.html")
 
 
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_page(user: dict = Depends(current_admin)):
-    return _html("admin.html")
+@app.get("/admin")
+async def admin_page(_: dict = Depends(current_admin)):
+    return RedirectResponse("/settings", status_code=301)
 
 
 # ── Translation ───────────────────────────────────────────────────────────────
