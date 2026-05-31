@@ -266,8 +266,9 @@ async def _run_migrations(db) -> None:
         await db.commit()
 
 
-async def bootstrap_admin(username: str, password_hash: str) -> int:
+async def bootstrap_admin(username: str, password_hash: str, email: str | None = None) -> int:
     """Ensure an admin user exists. If no users, create with given creds and migrate existing data.
+    On every startup, ensures the admin's email is set and verified if provided.
     Returns the admin's user_id.
     """
     async with aiosqlite.connect(DB_PATH) as db:
@@ -279,8 +280,10 @@ async def bootstrap_admin(username: str, password_hash: str) -> int:
 
         if user_count == 0:
             cursor = await db.execute(
-                "INSERT INTO users (username, password_hash, is_admin, can_use_shared_key) VALUES (?, ?, 1, 1)",
-                (username, password_hash),
+                """INSERT INTO users
+                   (username, password_hash, is_admin, can_use_shared_key, email, email_verified)
+                   VALUES (?, ?, 1, 1, ?, 1)""",
+                (username, password_hash, email),
             )
             admin_id = cursor.lastrowid
 
@@ -311,17 +314,62 @@ async def bootstrap_admin(username: str, password_hash: str) -> int:
             (username,),
         ) as cur:
             row = await cur.fetchone()
-            return row["id"] if row else 0
+            admin_id = row["id"] if row else 0
+
+        # Keep admin email in sync with env var and always mark it verified.
+        if admin_id and email:
+            await db.execute(
+                "UPDATE users SET email=?, email_verified=1 WHERE id=?",
+                (email, admin_id),
+            )
+            await db.commit()
+
+        return admin_id
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
+
+_USER_COLS = (
+    "id, username, email, display_name, password_hash, is_admin, "
+    "can_use_shared_key, native_lang, email_verified, created_at"
+)
+
 
 async def get_user_by_username(username: str) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, password_hash, is_admin, can_use_shared_key, native_lang FROM users WHERE username=? COLLATE NOCASE",
+            f"SELECT {_USER_COLS} FROM users WHERE username=? COLLATE NOCASE",
             (username,),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def get_user_by_email(email: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT {_USER_COLS} FROM users WHERE lower(email)=lower(?)",
+            (email,),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def get_user_by_token(token: str, token_type: str) -> dict | None:
+    """Look up a user by verification_token or reset_token.
+
+    When token_type is 'reset', reset_token_expiry is also included in the
+    returned dict so the caller can validate expiry without a second query.
+    """
+    col = "verification_token" if token_type == "verification" else "reset_token"
+    extra = ", reset_token_expiry" if token_type == "reset" else ""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT {_USER_COLS}{extra} FROM users WHERE {col}=?",
+            (token,),
         ) as cur:
             row = await cur.fetchone()
             return dict(row) if row else None
@@ -331,7 +379,7 @@ async def get_user(user_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, is_admin, can_use_shared_key, native_lang, created_at FROM users WHERE id=?",
+            f"SELECT {_USER_COLS} FROM users WHERE id=?",
             (user_id,),
         ) as cur:
             row = await cur.fetchone()
@@ -352,7 +400,7 @@ async def list_users() -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, username, is_admin, can_use_shared_key, native_lang, created_at FROM users ORDER BY id"
+            f"SELECT {_USER_COLS} FROM users ORDER BY id"
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
@@ -368,14 +416,81 @@ async def get_primary_admin_id() -> int | None:
             return row[0] if row else None
 
 
-async def create_user(username: str, password_hash: str, is_admin: bool = False) -> int:
+async def create_user(
+    username: str,
+    password_hash: str,
+    is_admin: bool = False,
+    email: str | None = None,
+    display_name: str | None = None,
+    email_verified: bool = True,
+    verification_token: str | None = None,
+) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
-            (username, password_hash, 1 if is_admin else 0),
+            """INSERT INTO users
+               (username, password_hash, is_admin, email, display_name, email_verified, verification_token)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (username, password_hash, 1 if is_admin else 0,
+             email, display_name, 1 if email_verified else 0, verification_token),
         )
         await db.commit()
         return cursor.lastrowid
+
+
+async def set_email_verified(user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET email_verified=1, verification_token=NULL WHERE id=?",
+            (user_id,),
+        )
+        await db.commit()
+
+
+async def set_verification_token(user_id: int, token: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET verification_token=? WHERE id=?",
+            (token, user_id),
+        )
+        await db.commit()
+
+
+async def set_reset_token(user_id: int, token: str | None, expiry: str | None) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET reset_token=?, reset_token_expiry=? WHERE id=?",
+            (token, expiry, user_id),
+        )
+        await db.commit()
+
+
+async def update_user_profile(
+    user_id: int,
+    *,
+    username: str | None = None,
+    display_name: str | None = None,
+    email: str | None = None,
+    email_verified: bool | None = None,
+    verification_token: str | None = ...,  # type: ignore[assignment]
+) -> None:
+    """Partial-update profile fields. Pass only the kwargs you want to change."""
+    fields, vals = [], []
+    if username is not None:
+        fields.append("username=?"); vals.append(username)
+    if display_name is not None:
+        fields.append("display_name=?"); vals.append(display_name)
+    if email is not None:
+        fields.append("email=?"); vals.append(email)
+    if email_verified is not None:
+        fields.append("email_verified=?"); vals.append(1 if email_verified else 0)
+    if verification_token is not ...:  # explicitly passed (including None to clear)
+        fields.append("verification_token=?"); vals.append(verification_token)
+    if not fields:
+        return
+    vals.append(user_id)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(f"UPDATE users SET {', '.join(fields)} WHERE id=?", vals)
+        await db.commit()
 
 
 async def delete_user(user_id: int):

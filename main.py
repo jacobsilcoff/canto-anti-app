@@ -1,8 +1,10 @@
 import asyncio
+import datetime
 import hashlib
 import json
 import math
 import os
+import re
 import secrets
 import time
 from contextlib import asynccontextmanager
@@ -23,23 +25,33 @@ import audio
 import auth
 import crypto
 import db
+import email_utils
 import srs
 import tokenizer
 import translation
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
+_BOOTSTRAP_EMAIL = os.getenv("APP_ADMIN_EMAIL") or None
 
 _SESSION_TTL = 30 * 86400  # 30 days
 
-_NO_AUTH_PATHS = {"/login", "/api/login", "/manifest.json", "/sw.js"}
+_NO_AUTH_PATHS = {
+    "/login", "/api/login",
+    "/register", "/api/register",
+    "/verify-email",
+    "/forgot-password", "/api/forgot-password",
+    "/reset-password", "/api/reset-password",
+    "/api/resend-verification",
+    "/manifest.json", "/sw.js",
+}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
-        await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD))
+        await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
     yield
 
 
@@ -273,9 +285,18 @@ class LoginRequest(BaseModel):
 @app.post("/api/login")
 @limiter.limit("10/minute")
 async def login(request: Request, req: LoginRequest):
-    user = await db.get_user_by_username(req.username.strip())
+    identifier = req.username.strip()
+    if "@" in identifier:
+        user = await db.get_user_by_email(identifier)
+    else:
+        user = await db.get_user_by_username(identifier)
     if not user or not auth.verify_password(req.password, user["password_hash"]):
         raise HTTPException(401, "Wrong username or password")
+    if not user.get("email_verified", True):
+        return JSONResponse(
+            status_code=403,
+            content={"code": "email_not_verified", "detail": "Please verify your email before signing in."},
+        )
     await db.purge_expired_sessions()
     token = secrets.token_hex(32)
     await db.create_session(token, user["id"], time.time() + _SESSION_TTL)
@@ -308,6 +329,70 @@ async def me(user: dict = Depends(current_user)):
         "is_admin": bool(user["is_admin"]),
         "native_lang": user.get("native_lang", "en"),
     }
+
+
+@app.get("/api/profile")
+async def get_profile(user: dict = Depends(current_user)):
+    return {
+        "username": user["username"],
+        "display_name": user.get("display_name") or "",
+        "email": user.get("email") or "",
+        "email_verified": bool(user.get("email_verified", True)),
+    }
+
+
+class ProfileUpdate(BaseModel):
+    display_name: str | None = None
+    username: str | None = None
+    email: str | None = None
+
+
+@app.put("/api/profile")
+@limiter.limit("10/minute")
+async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depends(current_user)):
+    updates: dict = {}
+    email_changed = False
+
+    if req.display_name is not None:
+        dn = req.display_name.strip()
+        if not dn:
+            raise HTTPException(400, "Full name cannot be empty.")
+        updates["display_name"] = dn
+
+    if req.username is not None:
+        uname = req.username.strip()
+        if not _USERNAME_RE.match(uname):
+            raise HTTPException(400, "Username must be 2–30 characters: letters, numbers, _ or -")
+        if uname != user["username"]:
+            existing = await db.get_user_by_username(uname)
+            if existing and existing["id"] != user["id"]:
+                raise HTTPException(409, "That username is already taken.")
+            updates["username"] = uname
+
+    if req.email is not None:
+        new_email = req.email.strip().lower()
+        if new_email and "@" not in new_email:
+            raise HTTPException(400, "Enter a valid email address.")
+        if new_email != (user.get("email") or "").lower():
+            if new_email:
+                existing = await db.get_user_by_email(new_email)
+                if existing and existing["id"] != user["id"]:
+                    raise HTTPException(409, "That email is already in use.")
+            # Email changed: require re-verification (unless clearing it).
+            token = secrets.token_urlsafe(32) if new_email else None
+            updates["email"] = new_email or None
+            updates["email_verified"] = False if new_email else True
+            updates["verification_token"] = token
+            email_changed = bool(new_email)
+            if new_email and token:
+                await email_utils.send_verification(new_email, token, APP_NAME_DISPLAY)
+
+    if updates:
+        # Pass verification_token only if it was explicitly set above.
+        vt = updates.pop("verification_token", ...)
+        await db.update_user_profile(user["id"], verification_token=vt, **updates)
+
+    return {"ok": True, "email_changed": email_changed}
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -357,6 +442,142 @@ async def settings_page():
 @app.get("/admin")
 async def admin_page(_: dict = Depends(current_admin)):
     return RedirectResponse("/settings", status_code=301)
+
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page():
+    return _html("register.html")
+
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page():
+    return _html("forgot-password.html")
+
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page():
+    return _html("reset-password.html")
+
+
+@app.get("/verify-email")
+async def verify_email(token: str = ""):
+    if not token:
+        return RedirectResponse("/login?error=invalid_token", status_code=302)
+    user = await db.get_user_by_token(token, "verification")
+    if not user:
+        return RedirectResponse("/login?error=invalid_token", status_code=302)
+    await db.set_email_verified(user["id"])
+    return RedirectResponse("/login?verified=1", status_code=302)
+
+
+# ── Self-service registration ─────────────────────────────────────────────────
+
+_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_\-]{2,30}$")
+
+APP_NAME_DISPLAY = os.getenv("APP_NAME", APP_NAME)
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    username: str
+    display_name: str
+    password: str
+
+
+@app.post("/api/register")
+@limiter.limit("5/minute;20/hour")
+async def register(request: Request, req: RegisterRequest):
+    email = req.email.strip().lower()
+    username = req.username.strip()
+    display_name = req.display_name.strip()
+    if not email or "@" not in email:
+        raise HTTPException(400, "A valid email address is required.")
+    if not _USERNAME_RE.match(username):
+        raise HTTPException(400, "Username must be 2–30 characters: letters, numbers, _ or -")
+    if not display_name:
+        raise HTTPException(400, "Full name is required.")
+    if len(req.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+    if await db.get_user_by_email(email):
+        raise HTTPException(409, "An account with that email already exists.")
+    if await db.get_user_by_username(username):
+        raise HTTPException(409, "That username is already taken.")
+    token = secrets.token_urlsafe(32)
+    await db.create_user(
+        username=username,
+        password_hash=auth.hash_password(req.password),
+        email=email,
+        display_name=display_name,
+        email_verified=False,
+        verification_token=token,
+    )
+    await email_utils.send_verification(email, token, APP_NAME_DISPLAY)
+    return {"ok": True}
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+
+@app.post("/api/resend-verification")
+@limiter.limit("3/minute;10/hour")
+async def resend_verification(request: Request, req: ResendVerificationRequest):
+    email = req.email.strip().lower()
+    if not email:
+        return {"ok": True}  # silent; don't leak info
+    user = await db.get_user_by_email(email)
+    if user and not user.get("email_verified", True):
+        token = secrets.token_urlsafe(32)
+        await db.set_verification_token(user["id"], token)
+        await email_utils.send_verification(user["email"], token, APP_NAME_DISPLAY)
+    return {"ok": True}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+@app.post("/api/forgot-password")
+@limiter.limit("3/minute;10/hour")
+async def forgot_password(request: Request, req: ForgotPasswordRequest):
+    email = req.email.strip().lower()
+    user = await db.get_user_by_email(email)
+    if user and user.get("email_verified", True):
+        token = secrets.token_urlsafe(32)
+        expiry = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=1)).isoformat()
+        await db.set_reset_token(user["id"], token, expiry)
+        await email_utils.send_password_reset(user["email"], token, APP_NAME_DISPLAY)
+    # Always 200 — don't reveal whether the email is registered.
+    return {"ok": True}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@app.post("/api/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(request: Request, req: ResetPasswordRequest):
+    if len(req.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+    user = await db.get_user_by_token(req.token.strip(), "reset")
+    if not user:
+        raise HTTPException(400, "Link expired or invalid. Request a new one.")
+    expiry_str = user.get("reset_token_expiry")
+    if not expiry_str:
+        raise HTTPException(400, "Link expired or invalid. Request a new one.")
+    try:
+        expiry = datetime.datetime.fromisoformat(expiry_str)
+    except ValueError:
+        raise HTTPException(400, "Link expired or invalid. Request a new one.")
+    if datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) > expiry:
+        raise HTTPException(400, "This reset link has expired. Request a new one.")
+    await db.update_user_password(user["id"], auth.hash_password(req.password))
+    await db.set_reset_token(user["id"], None, None)
+    # Invalidate all existing sessions so stolen sessions can't persist.
+    await db.delete_user_sessions(user["id"])
+    return {"ok": True}
 
 
 # ── Translation ───────────────────────────────────────────────────────────────
@@ -994,6 +1215,28 @@ async def admin_update_password(user_id: int, req: UpdatePasswordRequest, user: 
         raise HTTPException(404, "User not found")
     await db.update_user_password(user_id, auth.hash_password(req.password))
     return {"success": True}
+
+
+@app.post("/api/admin/email-test")
+async def admin_email_test(user: dict = Depends(current_admin)):
+    """Send a test email to the admin's own address and return the raw result."""
+    to = user.get("email")
+    if not to:
+        raise HTTPException(400, "Your account has no email address set.")
+    key = email_utils.RESEND_API_KEY
+    config = {
+        "resend_api_key_set": bool(key),
+        "resend_api_key_prefix": key[:8] + "…" if key else None,
+        "from_email": email_utils.FROM_EMAIL,
+        "app_url": email_utils.APP_URL,
+        "sending_to": to,
+    }
+    ok, detail = await email_utils._send(
+        to,
+        "Test email from your app",
+        email_utils._base("It works!", "<p>This is a test email sent from the admin panel.</p>"),
+    )
+    return {"config": config, "sent": ok, "detail": detail}
 
 
 @app.delete("/api/admin/users/{user_id}")

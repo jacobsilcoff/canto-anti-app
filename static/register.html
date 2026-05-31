@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Create account</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .login-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 32px 28px; width: 100%; max-width: 380px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .login-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); text-align: center; letter-spacing: -0.01em; margin-bottom: 4px; }
+    .login-card input {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 1rem; font-family: inherit; color: var(--text); outline: none; box-sizing: border-box;
+    }
+    .login-card input:focus { border-color: var(--primary); }
+    .input-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: -8px; }
+    .login-error { color: var(--again); font-size: 0.87rem; text-align: center; display: none; }
+    .login-success { color: #16a34a; font-size: 0.9rem; text-align: center; display: none; }
+    .login-footer { font-size: 0.83rem; text-align: center; color: var(--text-muted); }
+    .login-footer a { color: var(--primary); text-decoration: none; }
+    .login-footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>{{APP_NAME_HTML}}</h1>
+</header>
+<div class="login-wrap">
+  <form class="login-card" id="reg-form" onsubmit="doRegister(event)">
+    <h2>Create account</h2>
+    <div class="input-label">Full name</div>
+    <input type="text" id="display-name" placeholder="Jane Smith" autocomplete="name" autofocus>
+    <div class="input-label">Username</div>
+    <input type="text" id="username" placeholder="jsmith42" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="input-label">Email</div>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    <div class="input-label">Password <span style="color:var(--text-muted);font-size:0.75rem">(min 8 characters)</span></div>
+    <input type="password" id="pw" placeholder="Password" autocomplete="new-password">
+    <button class="translate-btn" type="submit" id="reg-btn">Create account</button>
+    <div class="login-error" id="reg-error"></div>
+    <div class="login-success" id="reg-success"></div>
+    <div class="login-footer">Already have an account? <a href="/login">Sign in</a></div>
+  </form>
+</div>
+<script>
+  async function doRegister(e) {
+    e.preventDefault();
+    const displayName = document.getElementById('display-name').value.trim();
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const pw = document.getElementById('pw').value;
+    const btn = document.getElementById('reg-btn');
+    const err = document.getElementById('reg-error');
+    const ok = document.getElementById('reg-success');
+    err.style.display = 'none'; ok.style.display = 'none';
+
+    if (!displayName || !username || !email || !pw) { err.textContent = 'All fields are required.'; err.style.display = 'block'; return; }
+    if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; err.style.display = 'block'; return; }
+
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, username, display_name: displayName, password: pw }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        document.getElementById('reg-form').innerHTML = `
+          <h2 style="text-align:center">Check your email</h2>
+          <p style="text-align:center;color:var(--text-muted);font-size:0.9rem">
+            We sent a verification link to <strong style="color:var(--text)">${email.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</strong>.<br>
+            Click it to activate your account.
+          </p>
+          <a href="/login" class="translate-btn" style="display:block;text-align:center;text-decoration:none">Back to sign in</a>
+        `;
+      } else {
+        err.textContent = body.detail || 'Registration failed — please try again.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Create account';
+      }
+    } catch {
+      err.textContent = 'Network error — please try again.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Create account';
+    }
+  }
+</script>
+</body>
+</html>

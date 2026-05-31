@@ -52,6 +52,9 @@
     }
     .login-card input:focus { border-color: var(--primary); }
     .login-error { color: var(--again); font-size: 0.87rem; text-align: center; display: none; }
+    .login-footer { font-size: 0.83rem; text-align: center; color: var(--text-muted); }
+    .login-footer a { color: var(--primary); text-decoration: none; }
+    .login-footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -61,13 +64,33 @@
 <div class="login-wrap">
   <form class="login-card" onsubmit="doLogin(event)">
     <h2>Welcome back</h2>
-    <input type="text" id="username" placeholder="Username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
+    <input type="text" id="username" placeholder="Email or username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus>
     <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
     <button class="translate-btn" type="submit" id="login-btn">Sign in</button>
-    <div class="login-error" id="login-error">Wrong username or password — try again.</div>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-footer"><a href="/forgot-password">Forgot password?</a></div>
+    <div class="login-footer">No account? <a href="/register">Create one</a></div>
   </form>
 </div>
 <script>
+  // Show success banners for post-verification and post-reset redirects.
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const err = document.getElementById('login-error');
+    if (params.get('verified') === '1') {
+      err.style.color = '#16a34a';
+      err.textContent = 'Email verified — you can now sign in.';
+      err.style.display = 'block';
+    } else if (params.get('reset') === '1') {
+      err.style.color = '#16a34a';
+      err.textContent = 'Password updated — sign in with your new password.';
+      err.style.display = 'block';
+    } else if (params.get('error') === 'invalid_token') {
+      err.textContent = 'Invalid or expired link — please request a new one.';
+      err.style.display = 'block';
+    }
+  })();
+
   async function doLogin(e) {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
@@ -85,8 +108,16 @@
         body: JSON.stringify({ username, password: pw }),
       });
       if (res.ok) {
-        window.location.replace('/cards');
+        window.location.replace('/');
       } else {
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 403 && body.code === 'email_not_verified') {
+          err.innerHTML = 'Please verify your email first. '
+            + `<a href="/api/resend-verification?email=${encodeURIComponent(username)}" `
+            + 'onclick="resendVerification(event, this)">Resend link</a>';
+        } else {
+          err.textContent = body.detail || 'Wrong email/username or password — try again.';
+        }
         err.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Sign in';
@@ -98,6 +129,19 @@
       btn.disabled = false;
       btn.textContent = 'Sign in';
     }
+  }
+  async function resendVerification(e, link) {
+    e.preventDefault();
+    const email = new URL(link.href).searchParams.get('email');
+    try {
+      await fetch('/api/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch {}
+    const err = document.getElementById('login-error');
+    err.textContent = 'Verification email sent — check your inbox.';
   }
 </script>
 </body>
