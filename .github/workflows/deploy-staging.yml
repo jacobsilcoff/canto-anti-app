@@ -27,6 +27,10 @@ jobs:
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing DB_PATH "data/cards.db"
+            # Generate the at-rest encryption key once. NEVER regenerate it —
+            # doing so would make every stored user API key undecryptable.
+            grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app-staging/.env || \
+              echo "API_KEY_ENC_KEY=$(openssl rand -base64 32 | tr '+/' '-_')" >> ~/canto-anti-app-staging/.env
 
       - name: Deploy staging stack to Oracle VM
         uses: appleboy/ssh-action@v1

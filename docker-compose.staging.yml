@@ -16,6 +16,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - APP_PASSWORD=${APP_PASSWORD}
       - APP_ADMIN_USERNAME=${APP_ADMIN_USERNAME}
+      - API_KEY_ENC_KEY=${API_KEY_ENC_KEY}
       - DB_PATH=/data/cards.db
     volumes:
       - staging_data:/data

@@ -167,6 +167,27 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function modelLabel(m) {
+    return m
+      .replace(/^gemini-/, 'Gemini ')
+      .replace('flash-lite', 'Flash Lite')
+      .replace(/flash$/, 'Flash')
+      .replace(/pro$/, 'Pro');
+  }
+
+  async function toggleShared(userId, next) {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/shared-key`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ can_use_shared_key: next }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(next ? 'Shared key access granted.' : 'Shared key access revoked.');
+      loadUsers();
+    } catch { showToast('Failed to update shared key access.'); }
+  }
+
   async function loadUsers() {
     const list = document.getElementById('user-list');
     list.innerHTML = '<p style="color:var(--text-muted);padding:12px">Loading…</p>';
@@ -180,13 +201,20 @@
       users.forEach(u => {
         const row = document.createElement('div');
         row.className = 'user-row';
+        const uname = escHtml(u.username).replace(/'/g, "\\'");
+        const sharedBtn = u.is_admin
+          ? '<span class="user-meta" style="text-align:center">Shared key: always</span>'
+          : (u.can_use_shared_key
+              ? `<button class="admin-action-btn" onclick="toggleShared(${u.id}, false)">Shared key: On</button>`
+              : `<button class="admin-action-btn" onclick="toggleShared(${u.id}, true)">Shared key: Off</button>`);
         row.innerHTML = `
           <div>
             <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
             <div class="user-meta">Created ${escHtml(u.created_at || '')}</div>
           </div>
-          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Reset password</button>
-          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${escHtml(u.username).replace(/'/g, "\\'")}')">Delete</button>
+          ${sharedBtn}
+          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset password</button>
+          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
         `;
         list.appendChild(row);
       });

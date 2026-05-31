@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -21,6 +21,7 @@ load_dotenv()
 
 import audio
 import auth
+import crypto
 import db
 import srs
 import tokenizer
@@ -153,8 +154,78 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _html(name: str) -> HTMLResponse:
+def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> str:
+    """Return the full <header> inner HTML with the active page highlighted."""
+    _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+          'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
+    svgs = {
+        "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+        "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+        "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
+                      '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
+                      'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
+                      'A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83'
+                      'l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09'
+                      'A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0'
+                      'l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09'
+                      'a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83'
+                      'l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09'
+                      'a1.65 1.65 0 0 0-1.51 1z"/></svg>'),
+        "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+        "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        "hamburger": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+    }
+
+    def link(href: str, label: str, icon: str, badge: bool = False) -> str:
+        hl = ' style="color:var(--primary)"' if href == active else ""
+        bdg = ' <span class="badge due-badge"></span>' if badge else ""
+        return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}\n    </a>'
+
+    nav_links = [
+        link("/",         "Translate",  "translate"),
+        link("/cards",    "Flashcards", "cards",    badge=True),
+        link("/reader",   "Reader",     "reader"),
+        link("/settings", "Settings",   "settings"),
+    ]
+    signout_btn = (
+        '    <button class="nav-link" onclick="doLogout()" '
+        'style="border:none;cursor:pointer;background:none" title="Sign out">\n'
+        f'      {svgs["signout"]}\n      Sign out\n    </button>'
+    )
+    signout_dropdown = (
+        '    <button class="nav-link nav-signout" onclick="doLogout()" '
+        'style="border:none;cursor:pointer;background:none">\n'
+        f'      {svgs["signout"]}\n      Sign out\n    </button>'
+    )
+    desktop_extra = f"\n{extra_desktop}" if extra_desktop else ""
+    dropdown_extra = f"\n{extra_dropdown}" if extra_dropdown else ""
+
+    return (
+        "  <h1>{{APP_NAME_HTML}}</h1>\n"
+        "  <nav class=\"nav-desktop\">\n"
+        + "\n".join(nav_links)
+        + desktop_extra + "\n"
+        "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
+        + signout_btn + "\n"
+        "  </nav>\n"
+        "  <div class=\"nav-mobile\">\n"
+        "    <span class=\"streak-display\" id=\"streak-display-mobile\" style=\"display:none\"></span>\n"
+        "    <button class=\"nav-hamburger\" onclick=\"toggleMobileMenu()\" aria-label=\"Menu\">\n"
+        f"      {svgs['hamburger']}\n"
+        "    </button>\n"
+        "  </div>\n"
+        "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
+        + "\n".join(nav_links)
+        + dropdown_extra + "\n"
+        + signout_dropdown + "\n"
+        "  </nav>\n"
+    )
+
+
+def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
+    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown))
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
@@ -241,29 +312,51 @@ async def me(user: dict = Depends(current_user)):
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
+_BROWSE_ICON = (
+    'class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'
+)
+_BROWSE_BTN_DESKTOP = (
+    '    <button class="nav-link" onclick="showBrowse()" '
+    'style="border:none;cursor:pointer;background:none">\n'
+    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
+    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
+    '      Browse\n    </button>'
+)
+_BROWSE_BTN_DROPDOWN = (
+    '    <button class="nav-link" onclick="closeMobileMenu();showBrowse()" '
+    'style="border:none;cursor:pointer;background:none">\n'
+    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
+    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
+    '      Browse\n    </button>'
+)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return _html("index.html")
+    return _html("index.html", active="/")
 
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html")
+    return _html("cards.html", active="/cards",
+                 extra_desktop=_BROWSE_BTN_DESKTOP,
+                 extra_dropdown=_BROWSE_BTN_DROPDOWN)
 
 
 @app.get("/reader", response_class=HTMLResponse)
 async def reader_page():
-    return _html("reader.html")
+    return _html("reader.html", active="/reader")
 
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
-    return _html("settings.html")
+    return _html("settings.html", active="/settings")
 
 
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_page(user: dict = Depends(current_admin)):
-    return _html("admin.html")
+@app.get("/admin")
+async def admin_page(_: dict = Depends(current_admin)):
+    return RedirectResponse("/settings", status_code=301)
 
 
 # ── Translation ───────────────────────────────────────────────────────────────
@@ -275,6 +368,59 @@ class TranslateRequest(BaseModel):
     context: str | None = None
 
 
+# ── Gemini access resolution ────────────────────────────────────────────────
+# A user's own key (with their chosen per-task models) takes priority. If they
+# haven't set one, only the admin and explicitly-granted users fall back to the
+# shared key — and on the shared key the model is fixed (no spending choices on
+# someone else's dime). Everyone else is blocked until they add their own key.
+_SHARED_API_KEY = os.getenv("GEMINI_API_KEY")
+
+
+class _GeminiAccess:
+    def __init__(self, api_key: str, model_translate: str, model_reader: str):
+        self.api_key = api_key
+        self.model_translate = model_translate
+        self.model_reader = model_reader
+
+
+def _valid_model(value: str | None) -> str:
+    return value if value in translation.MODEL_ALLOWLIST else translation.DEFAULT_MODEL
+
+
+async def _resolve_gemini(user: dict) -> _GeminiAccess:
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    if own_enc:
+        try:
+            api_key = crypto.decrypt(own_enc)
+        except Exception:
+            raise HTTPException(400, "Stored API key could not be read; please re-enter it in Settings.")
+        return _GeminiAccess(
+            api_key,
+            _valid_model(await db.get_setting(user["id"], "model_translate")),
+            _valid_model(await db.get_setting(user["id"], "model_reader")),
+        )
+    # The admin spends their own (env) key, so they pick their own models.
+    if user.get("is_admin"):
+        if not _SHARED_API_KEY:
+            raise HTTPException(503, "Shared API key is not configured.")
+        return _GeminiAccess(
+            _SHARED_API_KEY,
+            _valid_model(await db.get_setting(user["id"], "model_translate")),
+            _valid_model(await db.get_setting(user["id"], "model_reader")),
+        )
+    # Granted friends spend the admin's key, so the admin dictates their model.
+    if user.get("can_use_shared_key"):
+        if not _SHARED_API_KEY:
+            raise HTTPException(503, "Shared API key is not configured.")
+        admin_id = await db.get_primary_admin_id()
+        mt = mr = translation.DEFAULT_MODEL
+        if admin_id is not None:
+            mt = _valid_model(await db.get_setting(admin_id, "shared_model_translate"))
+            mr = _valid_model(await db.get_setting(admin_id, "shared_model_reader"))
+        return _GeminiAccess(_SHARED_API_KEY, mt, mr)
+    raise HTTPException(400, "Add your Gemini API key in Settings to use AI features.")
+
+
 @app.post("/api/translate")
 @limiter.limit("120/minute;2000/day")
 async def translate_endpoint(request: Request, req: TranslateRequest, user: dict = Depends(current_user)):
@@ -282,11 +428,14 @@ async def translate_endpoint(request: Request, req: TranslateRequest, user: dict
         raise HTTPException(400, "Text is empty")
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, f"Unsupported target language: {req.target_lang}")
+    access = await _resolve_gemini(user)
     result = await translation.translate(
         req.text.strip(),
         req.target_lang,
         source_is_target=req.source_is_target,
         context=(req.context or "").strip(),
+        api_key=access.api_key,
+        model=access.model_translate,
     )
     return {
         "target_lang": req.target_lang,
@@ -313,8 +462,8 @@ class CreateCardRequest(BaseModel):
     cefr_level: str | None = None
 
 
-async def _generate_and_store_embedding(card_id: int, text: str):
-    embedding = await translation.get_embedding(text)
+async def _generate_and_store_embedding(card_id: int, text: str, api_key: str):
+    embedding = await translation.get_embedding(text, api_key=api_key)
     if embedding:
         await db.update_card_embedding(card_id, json.dumps(embedding))
 
@@ -356,9 +505,13 @@ async def create_card(
         cefr_level=req.cefr_level,
     )
 
-    # Generate embedding in the background.
-    embed_text = f"{req.source_text.strip()} {target_text}"
-    background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
+    # Generate embedding in the background (best-effort; skip if no usable key).
+    try:
+        access = await _resolve_gemini(user)
+        embed_text = f"{req.source_text.strip()} {target_text}"
+        background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
+    except HTTPException:
+        pass
 
     return {"card_id": card_id, "notes": notes, "labels": []}
 
@@ -371,11 +524,22 @@ async def get_settings(user: dict = Depends(current_user)):
     default_target_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
     audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
+    has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
         "auto_add_reader_vocab": auto_add_reader_vocab,
         "audio_show_romanization": audio_show_romanization,
+        "has_api_key": has_api_key,
+        "is_admin": bool(user.get("is_admin")),
+        # You pick models when spending your own money: your own key, or (for the
+        # admin) the env key. Granted friends get the admin's fixed shared model.
+        "can_choose_models": has_api_key or bool(user.get("is_admin")),
+        "using_shared_key": (not has_api_key) and (not user.get("is_admin")) and bool(user.get("can_use_shared_key")),
+        "model_translate": _valid_model(await db.get_setting(user["id"], "model_translate")),
+        "model_reader": _valid_model(await db.get_setting(user["id"], "model_reader")),
+        "available_models": translation.MODEL_ALLOWLIST,
+        "default_model": translation.DEFAULT_MODEL,
     }
 
 
@@ -384,6 +548,9 @@ class SettingsUpdate(BaseModel):
     default_target_lang: str | None = None
     auto_add_reader_vocab: bool | None = None
     audio_show_romanization: bool | None = None
+    gemini_api_key: str | None = None
+    model_translate: str | None = None
+    model_reader: str | None = None
 
 
 @app.put("/api/settings")
@@ -400,6 +567,18 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "auto_add_reader_vocab", "true" if req.auto_add_reader_vocab else "false")
     if req.audio_show_romanization is not None:
         await db.set_setting(user["id"], "audio_show_romanization", "true" if req.audio_show_romanization else "false")
+    if req.gemini_api_key is not None:
+        val = req.gemini_api_key.strip()
+        # Empty string clears the stored key (user reverts to shared/blocked).
+        await db.set_setting(user["id"], "gemini_api_key", crypto.encrypt(val) if val else "")
+    if req.model_translate is not None:
+        if req.model_translate not in translation.MODEL_ALLOWLIST:
+            raise HTTPException(400, "Unsupported model")
+        await db.set_setting(user["id"], "model_translate", req.model_translate)
+    if req.model_reader is not None:
+        if req.model_reader not in translation.MODEL_ALLOWLIST:
+            raise HTTPException(400, "Unsupported model")
+        await db.set_setting(user["id"], "model_reader", req.model_reader)
     return {"success": True}
 
 
@@ -664,7 +843,11 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 @app.get("/api/labels/suggest-cards")
 async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
     """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
-    query_embedding = await translation.get_embedding(name)
+    try:
+        access = await _resolve_gemini(user)
+    except HTTPException:
+        return {"cards": []}
+    query_embedding = await translation.get_embedding(name, api_key=access.api_key)
     if not query_embedding:
         return {"cards": []}
 
@@ -730,6 +913,52 @@ async def list_languages():
 @app.get("/api/admin/users")
 async def admin_list_users(user: dict = Depends(current_admin)):
     return {"users": await db.list_users()}
+
+
+class SharedKeyGrant(BaseModel):
+    can_use_shared_key: bool
+
+
+@app.put("/api/admin/users/{user_id}/shared-key")
+async def admin_set_shared_key(user_id: int, req: SharedKeyGrant, user: dict = Depends(current_admin)):
+    """Grant/revoke a friend's permission to use the admin's shared Gemini key."""
+    target = await db.get_user(user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.set_user_shared_key(user_id, req.can_use_shared_key)
+    return {"success": True}
+
+
+@app.get("/api/admin/shared-key-models")
+async def admin_get_shared_models(user: dict = Depends(current_admin)):
+    """The models granted friends get when spending the admin's shared key."""
+    admin_id = await db.get_primary_admin_id()
+    return {
+        "model_translate": _valid_model(await db.get_setting(admin_id, "shared_model_translate")),
+        "model_reader": _valid_model(await db.get_setting(admin_id, "shared_model_reader")),
+        "available_models": translation.MODEL_ALLOWLIST,
+        "default_model": translation.DEFAULT_MODEL,
+    }
+
+
+class SharedModelsUpdate(BaseModel):
+    model_translate: str | None = None
+    model_reader: str | None = None
+
+
+@app.put("/api/admin/shared-key-models")
+async def admin_set_shared_models(req: SharedModelsUpdate, user: dict = Depends(current_admin)):
+    # Stored on the primary admin so it's a single source of truth for the key.
+    admin_id = await db.get_primary_admin_id()
+    if req.model_translate is not None:
+        if req.model_translate not in translation.MODEL_ALLOWLIST:
+            raise HTTPException(400, "Unsupported model")
+        await db.set_setting(admin_id, "shared_model_translate", req.model_translate)
+    if req.model_reader is not None:
+        if req.model_reader not in translation.MODEL_ALLOWLIST:
+            raise HTTPException(400, "Unsupported model")
+        await db.set_setting(admin_id, "shared_model_reader", req.model_reader)
+    return {"success": True}
 
 
 class CreateUserRequest(BaseModel):
@@ -828,7 +1057,11 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
 async def reader_generate(request: Request, req: ReaderGenerateRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    result = await translation.generate_reader_text(req.prompt, req.target_lang, req.difficulty)
+    access = await _resolve_gemini(user)
+    result = await translation.generate_reader_text(
+        req.prompt, req.target_lang, req.difficulty,
+        api_key=access.api_key, model=access.model_reader,
+    )
     text_id = await db.create_reader_text(
         user["id"], result["title"], req.prompt, result["content"], req.target_lang
     )
@@ -850,11 +1083,15 @@ async def reader_get_text(text_id: int, background_tasks: BackgroundTasks, user:
     if not resp["all_vocab_added"]:
         auto_add = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
         if auto_add:
-            background_tasks.add_task(_auto_add_vocab_bg, user["id"], text_id, text)
+            try:
+                access = await _resolve_gemini(user)
+                background_tasks.add_task(_auto_add_vocab_bg, user["id"], text_id, text, access)
+            except HTTPException:
+                pass
     return resp
 
 
-async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict):
+async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict, access: "_GeminiAccess"):
     """Background task: add all unseen words from a reader text (no HTTP context needed)."""
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
     seen: set[str] = set()
@@ -874,7 +1111,10 @@ async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict):
     async def _add_word(word: str):
         async with sem:
             try:
-                result = await translation.translate(word, text["target_lang"], source_is_target=True)
+                result = await translation.translate(
+                    word, text["target_lang"], source_is_target=True,
+                    api_key=access.api_key, model=access.model_translate,
+                )
                 candidate = result["candidates"][0] if result["candidates"] else {}
                 if not candidate.get("english"):
                     return
@@ -895,7 +1135,7 @@ async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict):
                     cefr_level=result.get("cefr_level"),
                 )
                 embed_text = f"{candidate['english']} {word}"
-                await _generate_and_store_embedding(card_id, embed_text)
+                await _generate_and_store_embedding(card_id, embed_text, access.api_key)
             except Exception:
                 pass
 
@@ -909,6 +1149,7 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
     text = await db.get_reader_text(user["id"], text_id)
     if not text:
         raise HTTPException(404, "Text not found")
+    access = await _resolve_gemini(user)
 
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
     sent_texts = tokenizer.split_sentences(tokens)
@@ -932,7 +1173,8 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
             if need_translation:
                 try:
                     tr = await translation.translate(
-                        sent_text, text["target_lang"], source_is_target=True
+                        sent_text, text["target_lang"], source_is_target=True,
+                        api_key=access.api_key, model=access.model_translate,
                     )
                     cand = tr["candidates"][0] if tr["candidates"] else {}
                     trans_text = cand.get("english", "")
@@ -979,6 +1221,7 @@ async def reader_add_all_vocab(
     text = await db.get_reader_text(user["id"], text_id)
     if not text:
         raise HTTPException(404, "Text not found")
+    access = await _resolve_gemini(user)
 
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
     # Deduplicate while preserving order.
@@ -1001,7 +1244,8 @@ async def reader_add_all_vocab(
         async with sem:
             try:
                 result = await translation.translate(
-                    word, text["target_lang"], source_is_target=True
+                    word, text["target_lang"], source_is_target=True,
+                    api_key=access.api_key, model=access.model_translate,
                 )
                 candidate = result["candidates"][0] if result["candidates"] else {}
                 if not candidate.get("english"):
@@ -1023,7 +1267,7 @@ async def reader_add_all_vocab(
                     cefr_level=result.get("cefr_level"),
                 )
                 embed_text = f"{candidate['english']} {word}"
-                background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text)
+                background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
                 return True
             except Exception:
                 return False
@@ -1093,8 +1337,10 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
             # If context is provided, also translate to detect a different sense.
             if req.context:
                 try:
+                    access = await _resolve_gemini(user)
                     ctx_result = await translation.translate(
-                        req.word, req.target_lang, source_is_target=True, context=req.context
+                        req.word, req.target_lang, source_is_target=True, context=req.context,
+                        api_key=access.api_key, model=access.model_translate,
                     )
                     ctx_candidate = ctx_result["candidates"][0] if ctx_result["candidates"] else {}
                     ctx_english = ctx_candidate.get("english", "")
@@ -1108,7 +1354,11 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                     pass
             return resp
     # Not in deck — translate via Gemini.
-    result = await translation.translate(req.word, req.target_lang, source_is_target=True, context=req.context)
+    access = await _resolve_gemini(user)
+    result = await translation.translate(
+        req.word, req.target_lang, source_is_target=True, context=req.context,
+        api_key=access.api_key, model=access.model_translate,
+    )
     candidate = result["candidates"][0] if result["candidates"] else {}
     return {
         "source": "gemini",

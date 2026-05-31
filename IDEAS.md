@@ -18,6 +18,18 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 28. Move Browse Button Out of Nav Bar
+**Complexity: Low | Cost: $0**
+
+The "Browse" button on the Flashcards page is a page-specific action (opens a card search modal) but currently sits in the shared nav bar as a special-cased extra. It should live in the page content instead — e.g. as a button near the top of the flashcard view or inside the study controls area — so the nav bar contains only true navigation links.
+
+**Scope:**
+- Remove the Browse button from the injected nav (`extra_desktop` / `extra_dropdown` params in `_build_nav`)
+- Add a Browse button directly in the cards page UI (e.g. alongside the study controls or as a floating action button)
+- No backend changes needed
+
+---
+
 ## 24. Label Merging
 **Complexity: Low | Cost: $0**
 
