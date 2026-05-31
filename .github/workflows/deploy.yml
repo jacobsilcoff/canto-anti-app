@@ -24,15 +24,18 @@ jobs:
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing APP_ADMIN_EMAIL "${{ secrets.APP_ADMIN_EMAIL }}"
-            set_if_missing DOMAIN "${{ secrets.DOMAIN }}"
-            set_if_missing DEV_DOMAIN "${{ secrets.DEV_DOMAIN }}"
             set_if_missing DB_PATH "data/cards.db"
-            # Email config — always overwrite so adding/rotating secrets takes effect immediately.
+            # Always overwrite domain + email config so secret changes take effect immediately.
+            sed -i '/^DOMAIN=/d' ~/canto-anti-app/.env
+            echo "DOMAIN=${{ secrets.DOMAIN }}" >> ~/canto-anti-app/.env
+            sed -i '/^DEV_DOMAIN=/d' ~/canto-anti-app/.env
+            echo "DEV_DOMAIN=${{ secrets.DEV_DOMAIN }}" >> ~/canto-anti-app/.env
             sed -i '/^RESEND_API_KEY=/d' ~/canto-anti-app/.env
             echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> ~/canto-anti-app/.env
             sed -i '/^FROM_EMAIL=/d' ~/canto-anti-app/.env
             echo "FROM_EMAIL=${{ secrets.FROM_EMAIL }}" >> ~/canto-anti-app/.env
-            set_if_missing APP_URL "https://${{ secrets.DOMAIN }}"
+            sed -i '/^APP_URL=/d' ~/canto-anti-app/.env
+            echo "APP_URL=https://${{ secrets.DOMAIN }}" >> ~/canto-anti-app/.env
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app/.env || \
