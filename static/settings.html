@@ -181,7 +181,25 @@
       </div>
       <select id="settings-model-reader" class="settings-select" onchange="saveModels()"></select>
     </div>
-    <div class="settings-desc" id="model-note" style="padding-top:4px"></div>
+    <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
+  </div>
+
+  <div class="settings-section" id="admin-ai-section" style="display:none">
+    <div class="settings-section-title">Shared key — friends' models</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Translation model</div>
+        <div class="settings-desc">Used when a granted friend calls translation</div>
+      </div>
+      <select id="admin-model-translate" class="settings-select" onchange="saveSharedModels()"></select>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Reader model</div>
+        <div class="settings-desc">Used when a granted friend generates reader texts</div>
+      </div>
+      <select id="admin-model-reader" class="settings-select" onchange="saveSharedModels()"></select>
+    </div>
   </div>
 </main>
 
@@ -197,8 +215,44 @@
   async function checkAdmin() {
     try {
       const me = await fetch('/api/me').then(r => r.json());
-      if (me.is_admin) document.querySelectorAll('.admin-link').forEach(el => el.style.display = '');
+      if (me.is_admin) {
+        document.querySelectorAll('.admin-link').forEach(el => el.style.display = '');
+        document.getElementById('admin-ai-section').style.display = '';
+        await loadSharedModels();
+      }
     } catch {}
+  }
+
+  async function loadSharedModels() {
+    try {
+      const data = await fetch('/api/admin/shared-key-models').then(r => r.json());
+      const fill = (sel, current) => {
+        sel.innerHTML = '';
+        data.available_models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m; opt.textContent = modelLabel(m);
+          if (m === current) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      };
+      fill(document.getElementById('admin-model-translate'), data.model_translate);
+      fill(document.getElementById('admin-model-reader'), data.model_reader);
+    } catch { showToast('Failed to load shared key models.'); }
+  }
+
+  async function saveSharedModels() {
+    try {
+      const res = await fetch('/api/admin/shared-key-models', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_translate: document.getElementById('admin-model-translate').value,
+          model_reader: document.getElementById('admin-model-reader').value,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('Shared key models saved.');
+    } catch { showToast('Failed to save models.'); }
   }
 
   let languages = [];
@@ -270,7 +324,7 @@
     if (settings.has_api_key) {
       note.textContent = 'Models apply to AI calls billed to your key.';
     } else if (settings.is_admin) {
-      note.textContent = 'These models apply to your own AI calls on the shared key. Set the model friends get on the Admin page.';
+      note.textContent = 'These models apply to your own AI calls on the shared key.';
     } else if (settings.using_shared_key) {
       note.textContent = 'You’re using the shared key — the model is set by the admin. Add your own key to choose models.';
     } else {
