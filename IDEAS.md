@@ -18,6 +18,20 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 29. Get a Real Domain for Email + Cleaner URLs
+**Complexity: Low | Cost: ~$10/year**
+
+DuckDNS doesn't support TXT records, so Resend domain verification is impossible and email currently sends via Resend's sandbox (`onboarding@resend.dev`) which only delivers to verified addresses. A real domain unlocks proper transactional email and a cleaner public URL.
+
+**Scope:**
+- Register a domain (e.g. Cloudflare Registrar — at-cost, ~$10/yr for `.com`)
+- Point A record at the Oracle VM
+- Add Resend's SPF/DKIM TXT records in Cloudflare DNS (3 records, takes ~5 min)
+- Update `APP_URL`, `FROM_EMAIL` GitHub secrets + Caddy config to use the new domain
+- Decommission DuckDNS
+
+---
+
 ## 28. Move Browse Button Out of Nav Bar
 **Complexity: Low | Cost: $0**
 
