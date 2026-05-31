@@ -27,8 +27,11 @@ jobs:
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing DB_PATH "data/cards.db"
-            set_if_missing RESEND_API_KEY "${{ secrets.RESEND_API_KEY }}"
-            set_if_missing FROM_EMAIL "${{ secrets.FROM_EMAIL }}"
+            # Email config — always overwrite so adding/rotating secrets takes effect immediately.
+            sed -i '/^RESEND_API_KEY=/d' ~/canto-anti-app-staging/.env
+            echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> ~/canto-anti-app-staging/.env
+            sed -i '/^FROM_EMAIL=/d' ~/canto-anti-app-staging/.env
+            echo "FROM_EMAIL=${{ secrets.FROM_EMAIL }}" >> ~/canto-anti-app-staging/.env
             set_if_missing APP_URL "https://${{ secrets.DEV_DOMAIN }}"
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.

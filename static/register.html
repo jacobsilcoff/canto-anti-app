@@ -37,9 +37,9 @@
   <form class="login-card" id="reg-form" onsubmit="doRegister(event)">
     <h2>Create account</h2>
     <div class="input-label">Full name</div>
-    <input type="text" id="display-name" placeholder="Jacob Silcoff" autocomplete="name" autofocus>
+    <input type="text" id="display-name" placeholder="Jane Smith" autocomplete="name" autofocus>
     <div class="input-label">Username</div>
-    <input type="text" id="username" placeholder="jsilcoff" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input type="text" id="username" placeholder="jsmith42" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div class="input-label">Email</div>
     <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
     <div class="input-label">Password <span style="color:var(--text-muted);font-size:0.75rem">(min 8 characters)</span></div>
@@ -74,9 +74,14 @@
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
-        document.getElementById('reg-form').style.display = 'none';
-        ok.textContent = `We sent a verification link to ${email}. Click it to activate your account.`;
-        ok.style.display = 'block';
+        document.getElementById('reg-form').innerHTML = `
+          <h2 style="text-align:center">Check your email</h2>
+          <p style="text-align:center;color:var(--text-muted);font-size:0.9rem">
+            We sent a verification link to <strong style="color:var(--text)">${email.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</strong>.<br>
+            Click it to activate your account.
+          </p>
+          <a href="/login" class="translate-btn" style="display:block;text-align:center;text-decoration:none">Back to sign in</a>
+        `;
       } else {
         err.textContent = body.detail || 'Registration failed — please try again.';
         err.style.display = 'block';
