@@ -85,17 +85,19 @@
     .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
     .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: #fdecea; }
     .create-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto auto;
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
       padding: 14px 18px;
     }
-    @media (max-width: 540px) {
-      .create-form { grid-template-columns: 1fr; }
+    @media (max-width: 480px) {
       .user-row { grid-template-columns: 1fr; gap: 4px; }
     }
-    .create-form input {
+    .create-form input[type="text"],
+    .create-form input[type="password"] {
+      flex: 1;
+      min-width: 120px;
       padding: 7px 10px;
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -105,8 +107,9 @@
       color: var(--text);
       outline: none;
     }
-    .create-form input:focus { border-color: var(--primary); }
-    .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+    .create-form input[type="text"]:focus,
+    .create-form input[type="password"]:focus { border-color: var(--primary); }
+    .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; }
   </style>
 </head>
 <body>
