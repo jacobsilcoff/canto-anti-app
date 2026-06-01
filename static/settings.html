@@ -339,17 +339,18 @@
 
       if (data.has_subscription) {
         if (data.cancel_at_period_end) {
-          // Already canceling — show when access ends and offer to resume
+          // Pending cancellation: hide manage/cancel, show expiry note + resume
+          manageBtn.style.display = 'none';
+          cancelBtn.style.display = 'none';
+          resumeBtn.style.display = '';
           let cancelMsg = 'Your subscription is set to cancel at the end of your billing period. You\'ll keep Pro until then.';
           if (data.subscription_period_end) {
             const d = new Date(data.subscription_period_end);
             const fmt = d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
-            cancelMsg = `Your subscription is set to cancel on ${fmt}. You'll keep Pro until then.`;
+            cancelMsg = `Your Pro access expires on ${fmt}. You can resume your subscription before then.`;
           }
           cancelNote.textContent = cancelMsg;
           cancelNote.style.display = '';
-          resumeBtn.style.display = '';
-          cancelBtn.style.display = 'none';
         } else {
           cancelNote.style.display = 'none';
           cancelBtn.style.display = '';
