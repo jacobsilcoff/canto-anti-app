@@ -36,28 +36,24 @@ def test_crypto_distinct_tokens():
     assert crypto.encrypt("x") != crypto.encrypt("x")
 
 
-# ── can_use_shared_key ────────────────────────────────────────────────────────
+# ── admin plan comp ───────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_admin_can_use_shared_key(fresh_db):
-    admin = await db.get_user(fresh_db)
-    assert admin["can_use_shared_key"] == 1
-
-
-@pytest.mark.asyncio
-async def test_new_user_cannot_use_shared_key_by_default(fresh_db):
+async def test_new_user_defaults_to_free(fresh_db):
     uid = await db.create_user("friend", auth.hash_password("password123"))
+    assert (await db.get_user(uid))["plan"] == "free"
+
+
+@pytest.mark.asyncio
+async def test_set_user_plan_comps_to_pro(fresh_db):
+    uid = await db.create_user("friend", auth.hash_password("password123"))
+    await db.set_user_plan(uid, "pro")
     user = await db.get_user(uid)
-    assert user["can_use_shared_key"] == 0
-
-
-@pytest.mark.asyncio
-async def test_set_user_shared_key(fresh_db):
-    uid = await db.create_user("friend", auth.hash_password("password123"))
-    await db.set_user_shared_key(uid, True)
-    assert (await db.get_user(uid))["can_use_shared_key"] == 1
-    await db.set_user_shared_key(uid, False)
-    assert (await db.get_user(uid))["can_use_shared_key"] == 0
+    assert user["plan"] == "pro"
+    # A comped user has no Stripe customer — webhooks won't touch them.
+    assert user["stripe_customer_id"] is None
+    await db.set_user_plan(uid, "free")
+    assert (await db.get_user(uid))["plan"] == "free"
 
 
 # ── resolver ──────────────────────────────────────────────────────────────────
@@ -111,23 +107,22 @@ async def test_resolve_unmetered_does_not_consume_quota(fresh_db, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_resolve_granted_friend_is_unlimited(fresh_db, monkeypatch):
+async def test_resolve_comped_pro_gets_pro_quota(fresh_db, monkeypatch):
     monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
     uid = await db.create_user("friend", auth.hash_password("password123"))
-    await db.set_user_shared_key(uid, True)
+    await db.set_user_plan(uid, "pro")
     user = await db.get_user(uid)
+    # A comped Pro user is metered against the (larger) Pro allowance, not free.
     for _ in range(main.PLAN_LIMITS["free"] + 5):
         await main._resolve_gemini(user)
-    # Granted friends bypass the quota — nothing is metered.
-    assert await db.get_usage(uid) == 0
+    assert await db.get_usage(uid) == main.PLAN_LIMITS["free"] + 5
 
 
 @pytest.mark.asyncio
 async def test_resolve_shared_key_uses_fixed_model(fresh_db, monkeypatch):
     monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
     uid = await db.create_user("friend", auth.hash_password("password123"))
-    await db.set_user_shared_key(uid, True)
-    # Even if a model is stored, the shared key ignores it.
+    # Even if a model is stored, plan users on the shared key get the default.
     await db.set_setting(uid, "model_translate", "gemini-2.5-pro")
     user = await db.get_user(uid)
 
@@ -156,23 +151,6 @@ async def test_resolve_admin_uses_own_models_on_shared_key(fresh_db, monkeypatch
     assert access.api_key == "shared-key"
     assert access.model_translate == "gemini-2.5-pro"
     assert access.model_reader == "gemini-2.5-flash"
-
-
-@pytest.mark.asyncio
-async def test_resolve_friend_uses_admin_shared_models(fresh_db, monkeypatch):
-    monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
-    # Friends-on-shared-key models are configured by the admin, separate from
-    # the admin's own model choices.
-    await db.set_setting(fresh_db, "shared_model_translate", "gemini-2.5-flash")
-    await db.set_setting(fresh_db, "shared_model_reader", "gemini-2.5-pro")
-    uid = await db.create_user("friend", auth.hash_password("password123"))
-    await db.set_user_shared_key(uid, True)
-    user = await db.get_user(uid)
-
-    access = await main._resolve_gemini(user)
-    assert access.api_key == "shared-key"
-    assert access.model_translate == "gemini-2.5-flash"
-    assert access.model_reader == "gemini-2.5-pro"
 
 
 # ── model validation ──────────────────────────────────────────────────────────

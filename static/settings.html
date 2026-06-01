@@ -246,24 +246,6 @@
     <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
   </div>
 
-  <div class="settings-section" id="admin-ai-section" style="display:none">
-    <div class="settings-section-title">Shared key — friends' models</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Translation model</div>
-        <div class="settings-desc">Used when a granted friend calls translation</div>
-      </div>
-      <select id="admin-model-translate" class="settings-select" onchange="saveSharedModels()"></select>
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Reader model</div>
-        <div class="settings-desc">Used when a granted friend generates reader texts</div>
-      </div>
-      <select id="admin-model-reader" class="settings-select" onchange="saveSharedModels()"></select>
-    </div>
-  </div>
-
   <div class="settings-section" id="admin-create-section" style="display:none">
     <div class="settings-section-title">Create user</div>
     <form class="create-form" onsubmit="createUser(event)">
@@ -298,9 +280,21 @@
     try {
       data = await fetch('/api/billing/status').then(r => r.json());
     } catch { return; }
-    // Unlimited users (own key / admin / granted friend) don't see the plan card.
-    if (data.unlimited) return;
     document.getElementById('plan-section').style.display = '';
+    const upgradeBtn0 = document.getElementById('plan-upgrade-btn');
+    const manageBtn0 = document.getElementById('plan-manage-btn');
+    // Unlimited users (own key / admin) see a status line but no quota/upgrade UI.
+    if (data.unlimited) {
+      document.getElementById('plan-name').textContent = 'Unlimited';
+      document.getElementById('plan-usage-text').textContent =
+        'No monthly limit on AI translations.';
+      document.getElementById('plan-usage-bar-wrap').style.display = 'none';
+      document.getElementById('plan-note').textContent =
+        'You have unlimited access (admin or your own Gemini key).';
+      upgradeBtn0.style.display = 'none';
+      manageBtn0.style.display = 'none';
+      return;
+    }
     const isPro = data.plan === 'pro';
     document.getElementById('plan-name').textContent = isPro ? 'Pro' : 'Free';
 
@@ -410,10 +404,10 @@
     try {
       const me = await fetch('/api/me').then(r => r.json());
       if (me.is_admin) {
-        ['admin-ai-section', 'admin-create-section', 'admin-users-section'].forEach(id => {
+        ['admin-create-section', 'admin-users-section'].forEach(id => {
           document.getElementById(id).style.display = '';
         });
-        await Promise.all([loadSharedModels(), loadUsers()]);
+        await loadUsers();
       }
     } catch {}
   }
@@ -436,11 +430,15 @@
         const row = document.createElement('div');
         row.className = 'user-row';
         const uname = escHtml(u.username).replace(/'/g, "\\'");
-        const sharedBtn = u.is_admin
-          ? '<span class="settings-desc" style="white-space:nowrap">Shared key: always</span>'
-          : (u.can_use_shared_key
-              ? `<button class="admin-action-btn" onclick="toggleShared(${u.id}, false)">Shared: On</button>`
-              : `<button class="admin-action-btn" onclick="toggleShared(${u.id}, true)">Shared: Off</button>`);
+        const isPro = u.plan === 'pro';
+        const hasStripe = !!u.stripe_customer_id;
+        const planBtn = u.is_admin
+          ? '<span class="settings-desc" style="white-space:nowrap">Unlimited</span>'
+          : hasStripe
+              ? `<span class="settings-desc" style="white-space:nowrap">Pro (Stripe)</span>`
+              : (isPro
+                  ? `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
+                  : `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
         const verifiedTag = u.email_verified === 0
           ? '<span style="color:var(--again);font-size:0.75rem;margin-left:6px">unverified</span>'
           : '';
@@ -456,7 +454,7 @@
             ${nameLine}${emailLine}
             <div class="settings-desc">Created ${escHtml(u.created_at || '')}</div>
           </div>
-          ${sharedBtn}
+          ${planBtn}
           <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset pw</button>
           <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
         `;
@@ -489,17 +487,17 @@
     } catch { showToast('Network error.'); }
   }
 
-  async function toggleShared(userId, next) {
+  async function setPlan(userId, plan) {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/shared-key`, {
+      const res = await fetch(`/api/admin/users/${userId}/plan`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ can_use_shared_key: next }),
+        body: JSON.stringify({ plan }),
       });
-      if (!res.ok) throw new Error();
-      showToast(next ? 'Shared key access granted.' : 'Shared key access revoked.');
+      if (!res.ok) { showToast((await res.json()).detail || 'Failed to change plan.'); return; }
+      showToast(plan === 'pro' ? 'Upgraded to Pro.' : 'Reverted to Free.');
       loadUsers();
-    } catch { showToast('Failed to update shared key access.'); }
+    } catch { showToast('Failed to change plan.'); }
   }
 
   async function resetPassword(userId, username) {
@@ -525,38 +523,6 @@
       showToast('User deleted.');
       loadUsers();
     } catch { showToast('Network error.'); }
-  }
-
-  async function loadSharedModels() {
-    try {
-      const data = await fetch('/api/admin/shared-key-models').then(r => r.json());
-      const fill = (sel, current) => {
-        sel.innerHTML = '';
-        data.available_models.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m; opt.textContent = modelLabel(m);
-          if (m === current) opt.selected = true;
-          sel.appendChild(opt);
-        });
-      };
-      fill(document.getElementById('admin-model-translate'), data.model_translate);
-      fill(document.getElementById('admin-model-reader'), data.model_reader);
-    } catch { showToast('Failed to load shared key models.'); }
-  }
-
-  async function saveSharedModels() {
-    try {
-      const res = await fetch('/api/admin/shared-key-models', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model_translate: document.getElementById('admin-model-translate').value,
-          model_reader: document.getElementById('admin-model-reader').value,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      showToast('Shared key models saved.');
-    } catch { showToast('Failed to save models.'); }
   }
 
   let languages = [];
@@ -629,10 +595,8 @@
       note.textContent = 'Models apply to AI calls billed to your key.';
     } else if (settings.is_admin) {
       note.textContent = 'These models apply to your own AI calls on the shared key.';
-    } else if (settings.using_shared_key) {
-      note.textContent = 'You’re using the shared key — the model is set by the admin. Add your own key to choose models.';
     } else {
-      note.textContent = '';
+      note.textContent = 'Add your own Gemini key to choose models. Otherwise translations use the default model.';
     }
   }
 
@@ -650,7 +614,6 @@
       input.value = '';
       settings.has_api_key = true;
       settings.can_choose_models = true;
-      settings.using_shared_key = false;
       renderAiSection();
       showToast('API key saved.');
     } catch {
@@ -669,7 +632,7 @@
       document.getElementById('settings-api-key').value = '';
       settings.has_api_key = false;
       settings.can_choose_models = false;
-      // Reload to recompute shared-key fallback state.
+      // Reload to recompute model-choice state now the key is gone.
       settings = await fetch('/api/settings').then(r => r.json());
       renderAiSection();
       showToast('API key removed.');

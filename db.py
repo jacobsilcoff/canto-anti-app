@@ -387,12 +387,13 @@ async def get_user(user_id: int) -> dict | None:
             return dict(row) if row else None
 
 
-async def set_user_shared_key(user_id: int, allowed: bool) -> None:
-    """Admin grant: allow/deny a user to use the shared (admin's env) Gemini key."""
+async def set_user_plan(user_id: int, plan: str) -> None:
+    """Admin comp: set a user's plan directly (e.g. grant Pro to a friend) without
+    a Stripe subscription. Use set_plan_by_customer for Stripe-driven changes."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE users SET can_use_shared_key=? WHERE id=?",
-            (1 if allowed else 0, user_id),
+            "UPDATE users SET plan=? WHERE id=?",
+            (plan, user_id),
         )
         await db.commit()
 
@@ -404,17 +405,6 @@ async def list_users() -> list[dict]:
             f"SELECT {_USER_COLS} FROM users ORDER BY id"
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
-
-
-async def get_primary_admin_id() -> int | None:
-    """The owning admin (lowest id). Friends' shared-key model config lives in
-    this admin's settings so it's a single source of truth for the shared key."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT id FROM users WHERE is_admin=1 ORDER BY id LIMIT 1"
-        ) as cur:
-            row = await cur.fetchone()
-            return row[0] if row else None
 
 
 async def create_user(
