@@ -366,7 +366,10 @@ async def login(request: Request, req: LoginRequest):
         max_age=_SESSION_TTL,
         httponly=True,
         secure=True,
-        samesite="strict",
+        # "lax" (not "strict") so the cookie survives Stripe's cross-site
+        # redirect back to /settings after Checkout. Still CSRF-safe: not sent
+        # on cross-site POSTs, only top-level GET navigations.
+        samesite="lax",
     )
     return response
 
@@ -986,10 +989,14 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
     try:
-        event = billing.construct_event(payload, sig)
+        billing.construct_event(payload, sig)  # verify signature against raw body
     except Exception:
         raise HTTPException(400, "Invalid webhook signature.")
 
+    # Parse the raw body as a plain dict. The verified StripeObject from
+    # construct_event doesn't support dict-style .get() in this SDK version,
+    # so we re-read the (already-trusted) payload as JSON.
+    event = json.loads(payload)
     etype = event["type"]
     obj = event["data"]["object"]
 
