@@ -23,6 +23,7 @@ load_dotenv()
 
 import audio
 import auth
+import billing
 import crypto
 import db
 import email_utils
@@ -43,6 +44,7 @@ _NO_AUTH_PATHS = {
     "/forgot-password", "/api/forgot-password",
     "/reset-password", "/api/reset-password",
     "/api/resend-verification",
+    "/api/webhooks/stripe",
     "/manifest.json", "/sw.js",
 }
 
@@ -590,11 +592,19 @@ class TranslateRequest(BaseModel):
 
 
 # ── Gemini access resolution ────────────────────────────────────────────────
-# A user's own key (with their chosen per-task models) takes priority. If they
-# haven't set one, only the admin and explicitly-granted users fall back to the
-# shared key — and on the shared key the model is fixed (no spending choices on
-# someone else's dime). Everyone else is blocked until they add their own key.
+# A user's own key (with their chosen per-task models) takes priority — it is
+# never metered, since they pay Google directly. Without a key:
+#   - admins spend their own env key (own models, unmetered),
+#   - explicitly-granted friends share the admin's key (admin's models, unmetered),
+#   - everyone else is on a paid plan tier and shares the key under a monthly
+#     quota (free 30/mo, pro 600/mo) — the metered path.
+# On the shared key the model is fixed (no spending choices on someone else's dime).
 _SHARED_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Monthly shared-key AI-call allowance per plan. Own-key/admin/granted users are
+# unlimited. These caps bound cost exposure: even pro's 600 calls is ~$0.08/mo
+# of Gemini at current Flash-Lite rates.
+PLAN_LIMITS = {"free": 30, "pro": 600}
 
 
 class _GeminiAccess:
@@ -608,7 +618,17 @@ def _valid_model(value: str | None) -> str:
     return value if value in translation.MODEL_ALLOWLIST else translation.DEFAULT_MODEL
 
 
-async def _resolve_gemini(user: dict) -> _GeminiAccess:
+def _plan_limit(user: dict) -> int:
+    return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
+
+
+async def _resolve_gemini(user: dict, *, meter: bool = True) -> _GeminiAccess:
+    """Resolve which Gemini key + models a user gets, enforcing the monthly quota.
+
+    For metered (shared-key plan) users this checks the quota and, when `meter`
+    is True, records one AI call. Pass `meter=False` for derived/background calls
+    (e.g. card-creation embeddings) that shouldn't count against the allowance.
+    """
     own_enc = await db.get_setting(user["id"], "gemini_api_key")
     if own_enc:
         try:
@@ -629,17 +649,34 @@ async def _resolve_gemini(user: dict) -> _GeminiAccess:
             _valid_model(await db.get_setting(user["id"], "model_translate")),
             _valid_model(await db.get_setting(user["id"], "model_reader")),
         )
-    # Granted friends spend the admin's key, so the admin dictates their model.
-    if user.get("can_use_shared_key"):
-        if not _SHARED_API_KEY:
-            raise HTTPException(503, "Shared API key is not configured.")
-        admin_id = await db.get_primary_admin_id()
-        mt = mr = translation.DEFAULT_MODEL
-        if admin_id is not None:
-            mt = _valid_model(await db.get_setting(admin_id, "shared_model_translate"))
-            mr = _valid_model(await db.get_setting(admin_id, "shared_model_reader"))
-        return _GeminiAccess(_SHARED_API_KEY, mt, mr)
-    raise HTTPException(400, "Add your Gemini API key in Settings to use AI features.")
+
+    if not _SHARED_API_KEY:
+        raise HTTPException(503, "Shared API key is not configured.")
+
+    # Granted friends are unlimited on the shared key; plan users are metered.
+    if not user.get("can_use_shared_key"):
+        limit = _plan_limit(user)
+        if await db.get_usage(user["id"]) >= limit:
+            if (user.get("plan") or "free") == "free":
+                raise HTTPException(402, (
+                    f"You've used your {limit} free AI translations this month. "
+                    f"Upgrade to Pro for {PLAN_LIMITS['pro']}/month, or add your own "
+                    "Gemini key in Settings for unlimited use."
+                ))
+            raise HTTPException(402, (
+                f"You've reached your monthly limit of {limit} AI translations. "
+                "It resets on the 1st. Add your own Gemini key in Settings for "
+                "unlimited use."
+            ))
+        if meter:
+            await db.increment_usage(user["id"])
+
+    admin_id = await db.get_primary_admin_id()
+    mt = mr = translation.DEFAULT_MODEL
+    if admin_id is not None:
+        mt = _valid_model(await db.get_setting(admin_id, "shared_model_translate"))
+        mr = _valid_model(await db.get_setting(admin_id, "shared_model_reader"))
+    return _GeminiAccess(_SHARED_API_KEY, mt, mr)
 
 
 @app.post("/api/translate")
@@ -727,8 +764,9 @@ async def create_card(
     )
 
     # Generate embedding in the background (best-effort; skip if no usable key).
+    # Not metered — it's a derived side-effect of saving a card, not a user action.
     try:
-        access = await _resolve_gemini(user)
+        access = await _resolve_gemini(user, meter=False)
         embed_text = f"{req.source_text.strip()} {target_text}"
         background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
     except HTTPException:
@@ -801,6 +839,110 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
             raise HTTPException(400, "Unsupported model")
         await db.set_setting(user["id"], "model_reader", req.model_reader)
     return {"success": True}
+
+
+# ── Billing ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/billing/status")
+async def billing_status(user: dict = Depends(current_user)):
+    """Plan + monthly usage for the settings UI. `unlimited` means no quota
+    applies (own key, admin, or a granted friend)."""
+    has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
+    unlimited = has_api_key or bool(user.get("is_admin")) or bool(user.get("can_use_shared_key"))
+    return {
+        "plan": user.get("plan") or "free",
+        "subscription_status": user.get("subscription_status"),
+        "unlimited": unlimited,
+        "used": await db.get_usage(user["id"]),
+        "limit": _plan_limit(user),
+        "billing_enabled": billing.is_configured(),
+        "has_subscription": bool(user.get("stripe_customer_id")),
+        "pro_limit": PLAN_LIMITS["pro"],
+    }
+
+
+@app.post("/api/billing/checkout")
+@limiter.limit("10/minute")
+async def billing_checkout(request: Request, user: dict = Depends(current_user)):
+    """Create a Stripe Checkout session and return its hosted URL."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    if (user.get("plan") or "free") == "pro":
+        raise HTTPException(400, "You're already on the Pro plan.")
+    base = email_utils.APP_URL
+    try:
+        session = await asyncio.to_thread(
+            billing.create_checkout_session,
+            customer_id=user.get("stripe_customer_id"),
+            customer_email=user.get("email"),
+            client_reference_id=str(user["id"]),
+            success_url=f"{base}/settings?upgraded=1",
+            cancel_url=f"{base}/settings",
+        )
+    except Exception:
+        raise HTTPException(502, "Could not start checkout. Please try again.")
+    return {"url": session.url}
+
+
+@app.post("/api/billing/portal")
+@limiter.limit("10/minute")
+async def billing_portal(request: Request, user: dict = Depends(current_user)):
+    """Create a Stripe Customer Portal session for managing the subscription."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    customer_id = user.get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No subscription to manage.")
+    try:
+        session = await asyncio.to_thread(
+            billing.create_portal_session,
+            customer_id=customer_id,
+            return_url=f"{email_utils.APP_URL}/settings",
+        )
+    except Exception:
+        raise HTTPException(502, "Could not open the billing portal. Please try again.")
+    return {"url": session.url}
+
+
+def _subscription_period_end(obj: dict) -> str | None:
+    ts = obj.get("current_period_end")
+    if not ts:
+        return None
+    return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat()
+
+
+@app.post("/api/webhooks/stripe")
+async def stripe_webhook(request: Request):
+    """Stripe-to-server subscription events. Verifies the signature against the
+    raw body, then syncs users.plan. Idempotent — Stripe may retry."""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = billing.construct_event(payload, sig)
+    except Exception:
+        raise HTTPException(400, "Invalid webhook signature.")
+
+    etype = event["type"]
+    obj = event["data"]["object"]
+
+    if etype == "checkout.session.completed":
+        customer_id = obj.get("customer")
+        user_ref = obj.get("client_reference_id")
+        if customer_id and user_ref:
+            await db.set_stripe_customer(int(user_ref), customer_id)
+            await db.set_plan_by_customer(customer_id, "pro", "active", None)
+    elif etype in ("customer.subscription.created", "customer.subscription.updated"):
+        customer_id = obj.get("customer")
+        status = obj.get("status")
+        plan = "pro" if status in ("active", "trialing", "past_due") else "free"
+        if customer_id:
+            await db.set_plan_by_customer(customer_id, plan, status, _subscription_period_end(obj))
+    elif etype == "customer.subscription.deleted":
+        customer_id = obj.get("customer")
+        if customer_id:
+            await db.set_plan_by_customer(customer_id, "free", "canceled", None)
+
+    return {"received": True}
 
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
@@ -1065,7 +1207,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
     """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
     try:
-        access = await _resolve_gemini(user)
+        access = await _resolve_gemini(user, meter=False)
     except HTTPException:
         return {"cards": []}
     query_embedding = await translation.get_embedding(name, api_key=access.api_key)

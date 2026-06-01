@@ -148,6 +148,24 @@
     </div>
   </div>
 
+  <div class="settings-section" id="plan-section" style="display:none">
+    <div class="settings-section-title">Plan &amp; usage</div>
+    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+        <div class="settings-label" id="plan-name">Free</div>
+        <div class="settings-desc" id="plan-usage-text"></div>
+      </div>
+      <div id="plan-usage-bar-wrap" style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+        <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
+      </div>
+      <div class="settings-desc" id="plan-note"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
+        <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-section">
     <div class="settings-section-title">Study</div>
     <div class="settings-row">
@@ -266,9 +284,72 @@
 
 <script>
   async function init() {
-    await Promise.all([loadLanguages(), loadSettings(), loadProfile()]);
+    await Promise.all([loadLanguages(), loadSettings(), loadProfile(), loadBilling()]);
     checkAdmin();
     loadStreak();
+    if (new URLSearchParams(location.search).get('upgraded')) {
+      showToast('Welcome to Pro! Your subscription is active.');
+      history.replaceState(null, '', '/settings');
+    }
+  }
+
+  async function loadBilling() {
+    let data;
+    try {
+      data = await fetch('/api/billing/status').then(r => r.json());
+    } catch { return; }
+    // Unlimited users (own key / admin / granted friend) don't see the plan card.
+    if (data.unlimited) return;
+    document.getElementById('plan-section').style.display = '';
+    const isPro = data.plan === 'pro';
+    document.getElementById('plan-name').textContent = isPro ? 'Pro' : 'Free';
+
+    const used = data.used, limit = data.limit;
+    const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+    document.getElementById('plan-usage-text').textContent =
+      `${used} / ${limit} AI translations this month`;
+    const bar = document.getElementById('plan-usage-bar');
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? '#f59e0b' : 'var(--primary)');
+
+    const note = document.getElementById('plan-note');
+    const upgradeBtn = document.getElementById('plan-upgrade-btn');
+    const manageBtn = document.getElementById('plan-manage-btn');
+    if (isPro) {
+      note.textContent = 'Resets on the 1st of each month. Need more? Add your own Gemini key above for unlimited use.';
+      manageBtn.style.display = data.has_subscription ? '' : 'none';
+      upgradeBtn.style.display = 'none';
+    } else {
+      note.textContent = data.billing_enabled
+        ? `Upgrade for ${data.pro_limit} translations/month, or add your own Gemini key above for unlimited use.`
+        : 'Add your own Gemini key above for unlimited use.';
+      upgradeBtn.style.display = data.billing_enabled ? '' : 'none';
+      manageBtn.style.display = data.has_subscription ? '' : 'none';
+    }
+  }
+
+  async function startCheckout() {
+    const btn = document.getElementById('plan-upgrade-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/billing/checkout', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.url) { location.href = body.url; return; }
+      showToast(body.detail || 'Could not start checkout.');
+    } catch { showToast('Network error.'); }
+    btn.disabled = false;
+  }
+
+  async function openPortal() {
+    const btn = document.getElementById('plan-manage-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.url) { location.href = body.url; return; }
+      showToast(body.detail || 'Could not open billing portal.');
+    } catch { showToast('Network error.'); }
+    btn.disabled = false;
   }
 
   async function loadProfile() {

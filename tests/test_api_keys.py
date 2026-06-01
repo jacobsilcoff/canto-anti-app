@@ -78,13 +78,48 @@ async def test_resolve_uses_own_key_and_models(fresh_db, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_resolve_blocks_user_without_key(fresh_db, monkeypatch):
+async def test_resolve_free_user_gets_shared_key_and_is_metered(fresh_db, monkeypatch):
     monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
     uid = await db.create_user("friend", auth.hash_password("password123"))
     user = await db.get_user(uid)
+    access = await main._resolve_gemini(user)
+    assert access.api_key == "shared-key"
+    # The call was metered against the free monthly allowance.
+    assert await db.get_usage(uid) == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_blocks_free_user_over_quota(fresh_db, monkeypatch):
+    monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
+    uid = await db.create_user("friend", auth.hash_password("password123"))
+    user = await db.get_user(uid)
+    # Exhaust the free allowance.
+    for _ in range(main.PLAN_LIMITS["free"]):
+        await db.increment_usage(uid)
     with pytest.raises(main.HTTPException) as exc:
         await main._resolve_gemini(user)
-    assert exc.value.status_code == 400
+    assert exc.value.status_code == 402
+
+
+@pytest.mark.asyncio
+async def test_resolve_unmetered_does_not_consume_quota(fresh_db, monkeypatch):
+    monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
+    uid = await db.create_user("friend", auth.hash_password("password123"))
+    user = await db.get_user(uid)
+    await main._resolve_gemini(user, meter=False)
+    assert await db.get_usage(uid) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_granted_friend_is_unlimited(fresh_db, monkeypatch):
+    monkeypatch.setattr(main, "_SHARED_API_KEY", "shared-key")
+    uid = await db.create_user("friend", auth.hash_password("password123"))
+    await db.set_user_shared_key(uid, True)
+    user = await db.get_user(uid)
+    for _ in range(main.PLAN_LIMITS["free"] + 5):
+        await main._resolve_gemini(user)
+    # Granted friends bypass the quota — nothing is metered.
+    assert await db.get_usage(uid) == 0
 
 
 @pytest.mark.asyncio

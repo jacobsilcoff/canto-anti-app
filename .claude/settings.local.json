@@ -23,7 +23,19 @@
       "Bash(python3 -c ' *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(node --input-type=module)"
+      "Bash(node --input-type=module)",
+      "Bash(venv/bin/pytest tests/ -q)",
+      "Bash(venv/bin/python -c \"import pycantonese; r = pycantonese.characters_to_jyutping\\('你好，世界！今日天氣點？'\\); print\\(r\\)\")",
+      "Bash(gh run *)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" -L https://canto-anki.silcoff-labs.ca/login --max-time 30)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" -L https://dev.canto-anki.silcoff-labs.ca/login --max-time 40)",
+      "Bash(curl -sS -D - -o /dev/null https://canto-anki.silcoff-labs.ca/login --max-time 20)",
+      "Bash(git checkout *)",
+      "Bash(venv/bin/pytest tests/ -x -q)",
+      "Bash(venv/bin/pytest tests/test_auth_flows.py -v)",
+      "Bash(python3 -c \"import slowapi; import inspect; print\\(inspect.getfile\\(slowapi\\)\\)\")",
+      "Bash(venv/bin/python -c \"import slowapi; import inspect; f=inspect.getfile\\(slowapi\\); print\\(f\\)\")",
+      "Bash(venv/bin/python -c \"from slowapi import Limiter; l=Limiter\\(key_func=lambda r: ''\\); print\\([a for a in dir\\(l\\) if not a.startswith\\('__'\\)]\\)\")"
     ]
   }
 }

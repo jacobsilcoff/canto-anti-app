@@ -8,3 +8,4 @@ extracted_vocab.json
 *.key
 *.pub
 *.pem
+.mcp.json

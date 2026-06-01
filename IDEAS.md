@@ -2,6 +2,7 @@
 
 ## ✅ Shipped
 
+- **Subscription billing + AI usage metering** — Stripe-hosted Checkout + Customer Portal (no card data on-server). Plans: Free (30 shared-key AI calls/mo), Pro ($5/mo, 600/mo); own-key/admin/granted-friend accounts are unlimited & unmetered. Quota enforced + metered centrally in `_resolve_gemini`; monthly `usage_counters` reset automatically by `YYYY-MM` period key. Webhook (`/api/webhooks/stripe`, signature-verified) syncs `users.plan`. Settings page shows a plan/usage card with upgrade + manage buttons.
 - **Cache-busting / auto asset versioning** — Startup content-hash of `static/` produces `ASSET_VERSION`; CSS/JS URLs are fingerprinted (`?v=…`), the service-worker cache name embeds the version, and HTML + `sw.js` are served `no-cache`. New deploys (= rebuild + restart) are picked up on the next normal load — no more Safari force-reload.
 - **Reader (8a + 8c)** — AI-generated texts from an English prompt; tokenized reader view with familiarity highlighting (known/weak/new); tap any word to see translation or existing card data; one-tap add to deck; texts saved for re-reading.
 - **Auto-labeling** — Gemini suggests 2–5 broad topic labels (food, cooking, animal…) on every translation; auto-created and assigned when a card is saved.
