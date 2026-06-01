@@ -1005,17 +1005,20 @@ async def billing_cancel(request: Request, user: dict = Depends(current_user)):
             sub_id=sub_id, cancel_at_period_end=False,
         )
     try:
-        await asyncio.to_thread(billing.cancel_subscription, sub_id)
+        sub = await asyncio.to_thread(billing.cancel_subscription, sub_id)
     except Exception:
         raise HTTPException(502, "Could not cancel subscription. Please try again.")
+    # Extract the real period end from Stripe's response (may be missing from
+    # the DB for accounts created before we started storing it).
+    period_end = _subscription_period_end(sub) or user.get("subscription_period_end")
     # Update DB immediately so billing_status reflects the change before the
     # webhook arrives (which may take a few seconds).
     await db.set_plan_by_customer(
         customer_id, user.get("plan") or "free",
-        user.get("subscription_status"), user.get("subscription_period_end"),
+        user.get("subscription_status"), period_end,
         sub_id=sub_id, cancel_at_period_end=True,
     )
-    return {"ok": True, "period_end": user.get("subscription_period_end")}
+    return {"ok": True, "period_end": period_end}
 
 
 @app.post("/api/billing/resume")
@@ -1043,8 +1046,12 @@ async def billing_resume(request: Request, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
-def _subscription_period_end(obj: dict) -> str | None:
-    ts = obj.get("current_period_end")
+def _subscription_period_end(obj) -> str | None:
+    """Extract and format current_period_end from a Stripe sub dict or object."""
+    try:
+        ts = obj["current_period_end"]  # works for both dicts and StripeObjects
+    except (KeyError, TypeError):
+        return None
     if not ts:
         return None
     return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat()
