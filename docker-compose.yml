@@ -17,6 +17,9 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY}
       - FROM_EMAIL=${FROM_EMAIL}
       - APP_URL=${APP_URL:-https://canto-anki.silcoff-labs.ca}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
       - DB_PATH=/data/cards.db
     volumes:
       - app_data:/data

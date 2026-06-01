@@ -247,7 +247,7 @@ _PLAN_WIDGET = """
       var label = d.unlimited ? '\\u221E' : (d.plan === 'pro' ? 'Pro' : 'Free');
       var pill = document.createElement('a');
       pill.id = 'plan-pill';
-      pill.href = '/settings';
+      pill.href = '/settings#plan-section';
       pill.textContent = label;
       pill.title = 'Your plan: ' + label + ' \\u2014 manage in Settings';
       var hot = (d.plan === 'pro' || d.unlimited);
