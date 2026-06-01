@@ -184,7 +184,17 @@
       });
       if (!res.ok) { showToast((await res.json()).detail || 'Failed to change plan.'); return; }
       showToast(plan === 'pro' ? 'Upgraded to Pro.' : 'Reverted to Free.');
-      loadUsers();
+      // Update just this row's button in-place so the page doesn't scroll to the top.
+      const btn = document.querySelector(`[data-user-plan-btn="${userId}"]`);
+      if (btn) {
+        if (plan === 'pro') {
+          btn.textContent = 'Plan: Pro';
+          btn.onclick = () => setPlan(userId, 'free');
+        } else {
+          btn.textContent = 'Plan: Free';
+          btn.onclick = () => setPlan(userId, 'pro');
+        }
+      }
     } catch { showToast('Failed to change plan.'); }
   }
 
@@ -209,8 +219,8 @@
           : hasStripe
               ? '<span class="user-meta" style="text-align:center">Pro (Stripe)</span>'
               : (isPro
-                  ? `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
-                  : `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
+                  ? `<button class="admin-action-btn" data-user-plan-btn="${u.id}" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
+                  : `<button class="admin-action-btn" data-user-plan-btn="${u.id}" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
         row.innerHTML = `
           <div>
             <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
