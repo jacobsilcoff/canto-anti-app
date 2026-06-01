@@ -415,8 +415,19 @@
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
         closeCancelModal();
-        showToast('Subscription canceled. You keep Pro until the end of your billing period.');
-        await loadBilling();
+        // Update the UI immediately from the response — don't wait for the webhook.
+        const periodEnd = body.period_end || document.getElementById('plan-cancel-btn').dataset.periodEnd;
+        let fmt = 'the end of your billing period';
+        if (periodEnd) {
+          const d = new Date(periodEnd);
+          fmt = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        const cancelNote = document.getElementById('plan-cancel-note');
+        cancelNote.textContent = `Your subscription is set to cancel on ${fmt}. You'll keep Pro until then.`;
+        cancelNote.style.display = '';
+        document.getElementById('plan-cancel-btn').style.display = 'none';
+        document.getElementById('plan-resume-btn').style.display = '';
+        showToast(`Subscription canceled. Pro access continues until ${fmt}.`);
         return;
       }
       showToast(body.detail || 'Could not cancel subscription.');

@@ -1008,6 +1008,13 @@ async def billing_cancel(request: Request, user: dict = Depends(current_user)):
         await asyncio.to_thread(billing.cancel_subscription, sub_id)
     except Exception:
         raise HTTPException(502, "Could not cancel subscription. Please try again.")
+    # Update DB immediately so billing_status reflects the change before the
+    # webhook arrives (which may take a few seconds).
+    await db.set_plan_by_customer(
+        customer_id, user.get("plan") or "free",
+        user.get("subscription_status"), user.get("subscription_period_end"),
+        sub_id=sub_id, cancel_at_period_end=True,
+    )
     return {"ok": True, "period_end": user.get("subscription_period_end")}
 
 
@@ -1026,6 +1033,13 @@ async def billing_resume(request: Request, user: dict = Depends(current_user)):
         await asyncio.to_thread(billing.resume_subscription, sub_id)
     except Exception:
         raise HTTPException(502, "Could not resume subscription. Please try again.")
+    # Update DB immediately so billing_status reflects the change before webhook.
+    customer_id = user.get("stripe_customer_id")
+    await db.set_plan_by_customer(
+        customer_id, user.get("plan") or "free",
+        user.get("subscription_status"), user.get("subscription_period_end"),
+        sub_id=sub_id, cancel_at_period_end=False,
+    )
     return {"ok": True}
 
 
