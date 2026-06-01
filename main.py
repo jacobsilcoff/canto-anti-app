@@ -914,6 +914,8 @@ async def billing_status(user: dict = Depends(current_user)):
     return {
         "plan": plan,
         "subscription_status": user.get("subscription_status"),
+        "subscription_period_end": user.get("subscription_period_end"),
+        "cancel_at_period_end": bool(user.get("cancel_at_period_end")),
         "unlimited": unlimited,
         "used": await db.get_usage(user["id"]),
         "limit": _plan_limit(user),
@@ -975,6 +977,43 @@ async def billing_portal(request: Request, user: dict = Depends(current_user)):
     return {"url": session.url}
 
 
+@app.post("/api/billing/cancel")
+@limiter.limit("10/minute")
+async def billing_cancel(request: Request, user: dict = Depends(current_user)):
+    """Set cancel_at_period_end on the subscription. Pro access continues until
+    the period end date; the subscription is not deleted immediately."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    sub_id = user.get("stripe_subscription_id")
+    if not sub_id:
+        raise HTTPException(400, "No active subscription to cancel.")
+    if user.get("cancel_at_period_end"):
+        raise HTTPException(400, "Subscription is already set to cancel.")
+    try:
+        await asyncio.to_thread(billing.cancel_subscription, sub_id)
+    except Exception:
+        raise HTTPException(502, "Could not cancel subscription. Please try again.")
+    return {"ok": True, "period_end": user.get("subscription_period_end")}
+
+
+@app.post("/api/billing/resume")
+@limiter.limit("10/minute")
+async def billing_resume(request: Request, user: dict = Depends(current_user)):
+    """Clear cancel_at_period_end — subscription will renew as normal."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    sub_id = user.get("stripe_subscription_id")
+    if not sub_id:
+        raise HTTPException(400, "No active subscription.")
+    if not user.get("cancel_at_period_end"):
+        raise HTTPException(400, "Subscription is not pending cancellation.")
+    try:
+        await asyncio.to_thread(billing.resume_subscription, sub_id)
+    except Exception:
+        raise HTTPException(502, "Could not resume subscription. Please try again.")
+    return {"ok": True}
+
+
 def _subscription_period_end(obj: dict) -> str | None:
     ts = obj.get("current_period_end")
     if not ts:
@@ -1005,17 +1044,27 @@ async def stripe_webhook(request: Request):
         user_ref = obj.get("client_reference_id")
         if customer_id and user_ref:
             await db.set_stripe_customer(int(user_ref), customer_id)
+            # subscription.created fires alongside this, so plan/period are
+            # set there; here we just ensure the customer link exists.
             await db.set_plan_by_customer(customer_id, "pro", "active", None)
     elif etype in ("customer.subscription.created", "customer.subscription.updated"):
         customer_id = obj.get("customer")
+        sub_id = obj.get("id")
         status = obj.get("status")
+        cancel_flag = bool(obj.get("cancel_at_period_end", False))
         plan = "pro" if status in ("active", "trialing", "past_due") else "free"
         if customer_id:
-            await db.set_plan_by_customer(customer_id, plan, status, _subscription_period_end(obj))
+            await db.set_plan_by_customer(
+                customer_id, plan, status, _subscription_period_end(obj),
+                sub_id=sub_id, cancel_at_period_end=cancel_flag,
+            )
     elif etype == "customer.subscription.deleted":
         customer_id = obj.get("customer")
         if customer_id:
-            await db.set_plan_by_customer(customer_id, "free", "canceled", None)
+            await db.set_plan_by_customer(
+                customer_id, "free", "canceled", None,
+                sub_id=None, cancel_at_period_end=False,
+            )
 
     return {"received": True}
 

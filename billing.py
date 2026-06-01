@@ -53,6 +53,16 @@ def create_checkout_session(
     return stripe.checkout.Session.create(**params)
 
 
+def cancel_subscription(sub_id: str):
+    """Set cancel_at_period_end=True — access continues until period end."""
+    return stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
+
+
+def resume_subscription(sub_id: str):
+    """Clear cancel_at_period_end — subscription resumes as normal."""
+    return stripe.Subscription.modify(sub_id, cancel_at_period_end=False)
+
+
 def create_portal_session(*, customer_id: str, return_url: str):
     """Create a Customer Portal session for managing/canceling a subscription."""
     return stripe.billing_portal.Session.create(

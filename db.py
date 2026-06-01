@@ -332,7 +332,8 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
 _USER_COLS = (
     "id, username, email, display_name, password_hash, is_admin, "
     "can_use_shared_key, native_lang, email_verified, created_at, "
-    "plan, stripe_customer_id, subscription_status, subscription_period_end"
+    "plan, stripe_customer_id, subscription_status, subscription_period_end, "
+    "stripe_subscription_id, cancel_at_period_end"
 )
 
 
@@ -633,14 +634,20 @@ async def set_stripe_customer(user_id: int, customer_id: str) -> None:
 
 
 async def set_plan_by_customer(
-    customer_id: str, plan: str, status: str | None, period_end: str | None
+    customer_id: str,
+    plan: str,
+    status: str | None,
+    period_end: str | None,
+    sub_id: str | None = None,
+    cancel_at_period_end: bool = False,
 ) -> None:
     """Update subscription state for whichever user owns this Stripe customer."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE users SET plan=?, subscription_status=?, subscription_period_end=? "
+            "UPDATE users SET plan=?, subscription_status=?, subscription_period_end=?, "
+            "stripe_subscription_id=?, cancel_at_period_end=? "
             "WHERE stripe_customer_id=?",
-            (plan, status, period_end, customer_id),
+            (plan, status, period_end, sub_id, int(cancel_at_period_end), customer_id),
         )
         await db.commit()
 

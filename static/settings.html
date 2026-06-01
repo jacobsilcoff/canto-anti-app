@@ -159,9 +159,28 @@
         <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
       </div>
       <div class="settings-desc" id="plan-note"></div>
+      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--warning,#e67e22)"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
         <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
+        <button class="settings-btn" id="plan-cancel-btn" style="display:none" onclick="showCancelModal()">Cancel subscription</button>
+        <button class="settings-btn primary" id="plan-resume-btn" style="display:none" onclick="resumeSubscription()">Resume subscription</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel subscription confirmation modal -->
+  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--card);border-radius:12px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
+      <div style="color:var(--text-secondary);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
+        Your Pro access will continue until the end of your billing period. After that your account reverts to Free.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="settings-btn" onclick="closeCancelModal()">Keep Pro</button>
+        <button class="settings-btn" id="cancel-confirm-btn"
+          style="background:var(--danger,#e74c3c);color:#fff;border-color:transparent"
+          onclick="confirmCancel()">Yes, cancel</button>
       </div>
     </div>
   </div>
@@ -307,18 +326,42 @@
     bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? '#f59e0b' : 'var(--primary)');
 
     const note = document.getElementById('plan-note');
+    const cancelNote = document.getElementById('plan-cancel-note');
     const upgradeBtn = document.getElementById('plan-upgrade-btn');
     const manageBtn = document.getElementById('plan-manage-btn');
+    const cancelBtn = document.getElementById('plan-cancel-btn');
+    const resumeBtn = document.getElementById('plan-resume-btn');
+
     if (isPro) {
       note.textContent = 'Resets on the 1st of each month. Need more? Add your own Gemini key above for unlimited use.';
       manageBtn.style.display = data.has_subscription ? '' : 'none';
       upgradeBtn.style.display = 'none';
+
+      if (data.has_subscription) {
+        if (data.cancel_at_period_end && data.subscription_period_end) {
+          // Already canceling — show when access ends and offer to resume
+          const d = new Date(data.subscription_period_end);
+          const fmt = d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+          cancelNote.textContent = `Your subscription is set to cancel on ${fmt}. You'll keep Pro until then.`;
+          cancelNote.style.display = '';
+          resumeBtn.style.display = '';
+          cancelBtn.style.display = 'none';
+        } else {
+          cancelNote.style.display = 'none';
+          cancelBtn.style.display = '';
+          resumeBtn.style.display = 'none';
+          // Stash period end for the cancel modal
+          cancelBtn.dataset.periodEnd = data.subscription_period_end || '';
+        }
+      }
     } else {
       note.textContent = data.billing_enabled
         ? `Upgrade for ${data.pro_limit} translations/month, or add your own Gemini key above for unlimited use.`
         : 'Add your own Gemini key above for unlimited use.';
       upgradeBtn.style.display = data.billing_enabled ? '' : 'none';
       manageBtn.style.display = data.has_subscription ? '' : 'none';
+      cancelBtn.style.display = 'none';
+      resumeBtn.style.display = 'none';
     }
   }
 
@@ -342,6 +385,58 @@
       const body = await res.json().catch(() => ({}));
       if (res.ok && body.url) { location.href = body.url; return; }
       showToast(body.detail || 'Could not open billing portal.');
+    } catch { showToast('Network error.'); }
+    btn.disabled = false;
+  }
+
+  function showCancelModal() {
+    const periodEnd = document.getElementById('plan-cancel-btn').dataset.periodEnd;
+    let bodyText = 'Your Pro access will continue until the end of your billing period. After that your account reverts to Free.';
+    if (periodEnd) {
+      const d = new Date(periodEnd);
+      const fmt = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      bodyText = `Your Pro access will continue until ${fmt}. After that your account reverts to Free.`;
+    }
+    document.getElementById('cancel-modal-body').textContent = bodyText;
+    const modal = document.getElementById('cancel-modal');
+    modal.style.display = 'flex';
+  }
+
+  function closeCancelModal() {
+    document.getElementById('cancel-modal').style.display = 'none';
+  }
+
+  async function confirmCancel() {
+    const btn = document.getElementById('cancel-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Canceling…';
+    try {
+      const res = await fetch('/api/billing/cancel', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        closeCancelModal();
+        showToast('Subscription canceled. You keep Pro until the end of your billing period.');
+        await loadBilling();
+        return;
+      }
+      showToast(body.detail || 'Could not cancel subscription.');
+    } catch { showToast('Network error.'); }
+    btn.disabled = false;
+    btn.textContent = 'Yes, cancel';
+  }
+
+  async function resumeSubscription() {
+    const btn = document.getElementById('plan-resume-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/billing/resume', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showToast('Subscription resumed. Your plan will renew as normal.');
+        await loadBilling();
+        return;
+      }
+      showToast(body.detail || 'Could not resume subscription.');
     } catch { showToast('Network error.'); }
     btn.disabled = false;
   }
