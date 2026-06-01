@@ -984,11 +984,26 @@ async def billing_cancel(request: Request, user: dict = Depends(current_user)):
     the period end date; the subscription is not deleted immediately."""
     if not billing.is_configured():
         raise HTTPException(503, "Billing is not configured.")
-    sub_id = user.get("stripe_subscription_id")
-    if not sub_id:
-        raise HTTPException(400, "No active subscription to cancel.")
     if user.get("cancel_at_period_end"):
         raise HTTPException(400, "Subscription is already set to cancel.")
+    customer_id = user.get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No active subscription to cancel.")
+    sub_id = user.get("stripe_subscription_id")
+    # Existing Pro accounts may not have sub_id stored yet (pre-migration rows).
+    # Look it up from Stripe and persist it so future calls are instant.
+    if not sub_id:
+        try:
+            sub_id = await asyncio.to_thread(billing.get_active_subscription_id, customer_id)
+        except Exception:
+            pass
+        if not sub_id:
+            raise HTTPException(400, "No active subscription to cancel.")
+        await db.set_plan_by_customer(
+            customer_id, user.get("plan") or "free",
+            user.get("subscription_status"), user.get("subscription_period_end"),
+            sub_id=sub_id, cancel_at_period_end=False,
+        )
     try:
         await asyncio.to_thread(billing.cancel_subscription, sub_id)
     except Exception:

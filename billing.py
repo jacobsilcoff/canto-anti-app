@@ -53,6 +53,13 @@ def create_checkout_session(
     return stripe.checkout.Session.create(**params)
 
 
+def get_active_subscription_id(customer_id: str) -> str | None:
+    """Return the first active subscription ID for a customer, or None."""
+    subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
+    items = subs.get("data") if isinstance(subs, dict) else list(subs.auto_paging_iter())
+    return items[0]["id"] if items else None
+
+
 def cancel_subscription(sub_id: str):
     """Set cancel_at_period_end=True — access continues until period end."""
     return stripe.Subscription.modify(sub_id, cancel_at_period_end=True)

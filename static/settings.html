@@ -159,7 +159,7 @@
         <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
       </div>
       <div class="settings-desc" id="plan-note"></div>
-      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--warning,#e67e22)"></div>
+      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:#e67e22"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
         <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
@@ -170,16 +170,16 @@
   </div>
 
   <!-- Cancel subscription confirmation modal -->
-  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:none;align-items:center;justify-content:center">
-    <div style="background:var(--card);border-radius:12px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--radius);padding:28px 24px;max-width:380px;width:90%;box-shadow:var(--shadow)">
       <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
-      <div style="color:var(--text-secondary);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
+      <div style="color:var(--text-muted);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
         Your Pro access will continue until the end of your billing period. After that your account reverts to Free.
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="settings-btn" onclick="closeCancelModal()">Keep Pro</button>
         <button class="settings-btn" id="cancel-confirm-btn"
-          style="background:var(--danger,#e74c3c);color:#fff;border-color:transparent"
+          style="background:var(--again);color:#fff;border-color:transparent"
           onclick="confirmCancel()">Yes, cancel</button>
       </div>
     </div>
