@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Choose your plan</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .welcome-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .welcome-inner { width:100%; max-width:720px; display:flex; flex-direction:column; gap:18px; }
+    .welcome-inner h2 { font-size:1.5rem; font-weight:700; color:var(--text); text-align:center; letter-spacing:-0.01em; }
+    .welcome-sub { text-align:center; color:var(--text-muted); font-size:0.95rem; margin-top:-8px; }
+    .plan-cards { display:flex; gap:16px; flex-wrap:wrap; }
+    .plan-card {
+      flex:1; min-width:240px; background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); box-shadow:var(--shadow); padding:24px; display:flex;
+      flex-direction:column; gap:12px;
+    }
+    .plan-card.featured { border-color:var(--primary); border-width:2px; }
+    .plan-card h3 { font-size:1.15rem; font-weight:700; color:var(--text); }
+    .plan-price { font-size:1.8rem; font-weight:700; color:var(--text); }
+    .plan-price span { font-size:0.9rem; font-weight:500; color:var(--text-muted); }
+    .plan-feats { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+    .plan-feats li { font-size:0.9rem; color:var(--text); padding-left:22px; position:relative; }
+    .plan-feats li::before { content:'✓'; position:absolute; left:0; color:var(--primary); font-weight:700; }
+    .plan-tag { align-self:flex-start; background:var(--primary); color:#fff; font-size:0.7rem; font-weight:700;
+      padding:2px 10px; border-radius:999px; letter-spacing:0.03em; }
+    .welcome-btn { margin-top:auto; width:100%; padding:12px; border-radius:8px; font-size:1rem; font-weight:600;
+      cursor:pointer; font-family:inherit; border:1px solid var(--border); background:var(--surface); color:var(--text); }
+    .welcome-btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .welcome-skip { text-align:center; }
+    .welcome-skip a { color:var(--text-muted); font-size:0.85rem; text-decoration:none; cursor:pointer; }
+    .welcome-skip a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>{{APP_NAME_HTML}}</h1>
+</header>
+<div class="welcome-wrap">
+  <div class="welcome-inner">
+    <h2>Welcome! Pick a plan</h2>
+    <p class="welcome-sub">You can change this any time in Settings.</p>
+    <div class="plan-cards">
+      <div class="plan-card">
+        <h3>Free</h3>
+        <div class="plan-price">$0</div>
+        <ul class="plan-feats">
+          <li><span id="free-limit">30</span> AI translations / month</li>
+          <li>Unlimited flashcards &amp; study</li>
+          <li>Audio &amp; reader included</li>
+        </ul>
+        <button class="welcome-btn" id="free-btn" onclick="startFree()">Start with Free</button>
+      </div>
+      <div class="plan-card featured">
+        <span class="plan-tag">Most popular</span>
+        <h3>Pro</h3>
+        <div class="plan-price">$5<span> / month</span></div>
+        <ul class="plan-feats">
+          <li><span id="pro-limit">600</span> AI translations / month</li>
+          <li>Everything in Free</li>
+          <li>Priority for new AI features</li>
+        </ul>
+        <button class="welcome-btn primary" id="pro-btn" onclick="goPro()">Upgrade to Pro — $5/mo</button>
+      </div>
+    </div>
+    <div class="welcome-skip"><a onclick="startFree()">Skip for now →</a></div>
+  </div>
+</div>
+<script>
+  (async function () {
+    try {
+      const s = await fetch('/api/billing/status').then(r => r.json());
+      // If this user shouldn't see the picker (already pro/unlimited/onboarded), leave.
+      if (!s.show_welcome) { window.location.replace('/'); return; }
+      if (s.limit) document.getElementById('free-limit').textContent = s.limit;
+      if (s.pro_limit) document.getElementById('pro-limit').textContent = s.pro_limit;
+    } catch {}
+  })();
+
+  async function markSeen() {
+    try { await fetch('/api/onboard', { method: 'POST' }); } catch {}
+  }
+
+  async function startFree() {
+    document.getElementById('free-btn').disabled = true;
+    await markSeen();
+    window.location.replace('/');
+  }
+
+  async function goPro() {
+    const btn = document.getElementById('pro-btn');
+    btn.disabled = true;
+    await markSeen();
+    try {
+      const res = await fetch('/api/billing/checkout', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.url) { location.href = body.url; return; }
+    } catch {}
+    // If checkout couldn't start, just continue into the app on Free.
+    window.location.replace('/');
+  }
+</script>
+</body>
+</html>

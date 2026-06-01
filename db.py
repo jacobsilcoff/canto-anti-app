@@ -331,7 +331,9 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
 
 _USER_COLS = (
     "id, username, email, display_name, password_hash, is_admin, "
-    "can_use_shared_key, native_lang, email_verified, created_at"
+    "can_use_shared_key, native_lang, email_verified, created_at, "
+    "plan, stripe_customer_id, subscription_status, subscription_period_end, "
+    "stripe_subscription_id, cancel_at_period_end"
 )
 
 
@@ -386,12 +388,13 @@ async def get_user(user_id: int) -> dict | None:
             return dict(row) if row else None
 
 
-async def set_user_shared_key(user_id: int, allowed: bool) -> None:
-    """Admin grant: allow/deny a user to use the shared (admin's env) Gemini key."""
+async def set_user_plan(user_id: int, plan: str) -> None:
+    """Admin comp: set a user's plan directly (e.g. grant Pro to a friend) without
+    a Stripe subscription. Use set_plan_by_customer for Stripe-driven changes."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE users SET can_use_shared_key=? WHERE id=?",
-            (1 if allowed else 0, user_id),
+            "UPDATE users SET plan=? WHERE id=?",
+            (plan, user_id),
         )
         await db.commit()
 
@@ -403,17 +406,6 @@ async def list_users() -> list[dict]:
             f"SELECT {_USER_COLS} FROM users ORDER BY id"
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
-
-
-async def get_primary_admin_id() -> int | None:
-    """The owning admin (lowest id). Friends' shared-key model config lives in
-    this admin's settings so it's a single source of truth for the shared key."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT id FROM users WHERE is_admin=1 ORDER BY id LIMIT 1"
-        ) as cur:
-            row = await cur.fetchone()
-            return row[0] if row else None
 
 
 async def create_user(
@@ -584,6 +576,78 @@ async def set_setting(user_id: int, key: str, value):
         await db.execute(
             "INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
             (user_id, key, str(value)),
+        )
+        await db.commit()
+
+
+# ── Billing & usage metering ────────────────────────────────────────────────
+
+async def get_usage(user_id: int) -> int:
+    """AI calls the user has made in the current calendar month (UTC)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT ai_calls FROM usage_counters "
+            "WHERE user_id=? AND period=strftime('%Y-%m','now')",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+
+async def increment_usage(user_id: int) -> int:
+    """Add one AI call to the current month's counter; return the new total."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO usage_counters (user_id, period, ai_calls)
+               VALUES (?, strftime('%Y-%m','now'), 1)
+               ON CONFLICT(user_id, period) DO UPDATE SET ai_calls = ai_calls + 1""",
+            (user_id,),
+        )
+        async with db.execute(
+            "SELECT ai_calls FROM usage_counters "
+            "WHERE user_id=? AND period=strftime('%Y-%m','now')",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+        await db.commit()
+        return row[0] if row else 1
+
+
+async def get_user_by_stripe_customer(customer_id: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT {_USER_COLS} FROM users WHERE stripe_customer_id=?",
+            (customer_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def set_stripe_customer(user_id: int, customer_id: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET stripe_customer_id=? WHERE id=?",
+            (customer_id, user_id),
+        )
+        await db.commit()
+
+
+async def set_plan_by_customer(
+    customer_id: str,
+    plan: str,
+    status: str | None,
+    period_end: str | None,
+    sub_id: str | None = None,
+    cancel_at_period_end: bool = False,
+) -> None:
+    """Update subscription state for whichever user owns this Stripe customer."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET plan=?, subscription_status=?, subscription_period_end=?, "
+            "stripe_subscription_id=?, cancel_at_period_end=? "
+            "WHERE stripe_customer_id=?",
+            (plan, status, period_end, sub_id, int(cancel_at_period_end), customer_id),
         )
         await db.commit()
 

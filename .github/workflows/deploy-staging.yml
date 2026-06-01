@@ -35,6 +35,13 @@ jobs:
             echo "FROM_EMAIL=${{ secrets.FROM_EMAIL }}" >> ~/canto-anti-app-staging/.env
             sed -i '/^APP_URL=/d' ~/canto-anti-app-staging/.env
             echo "APP_URL=https://${{ secrets.DEV_DOMAIN }}" >> ~/canto-anti-app-staging/.env
+            # Stripe test-mode config for staging (falls back to empty = billing disabled).
+            sed -i '/^STRIPE_SECRET_KEY=/d' ~/canto-anti-app-staging/.env
+            echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }}" >> ~/canto-anti-app-staging/.env
+            sed -i '/^STRIPE_WEBHOOK_SECRET=/d' ~/canto-anti-app-staging/.env
+            echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}" >> ~/canto-anti-app-staging/.env
+            sed -i '/^STRIPE_PRICE_PRO=/d' ~/canto-anti-app-staging/.env
+            echo "STRIPE_PRICE_PRO=${{ secrets.STRIPE_PRICE_PRO_TEST }}" >> ~/canto-anti-app-staging/.env
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app-staging/.env || \

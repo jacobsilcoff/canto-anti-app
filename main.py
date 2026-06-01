@@ -23,6 +23,7 @@ load_dotenv()
 
 import audio
 import auth
+import billing
 import crypto
 import db
 import email_utils
@@ -43,6 +44,7 @@ _NO_AUTH_PATHS = {
     "/forgot-password", "/api/forgot-password",
     "/reset-password", "/api/reset-password",
     "/api/resend-verification",
+    "/api/webhooks/stripe",
     "/manifest.json", "/sw.js",
 }
 
@@ -235,8 +237,61 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
     )
 
 
+_PLAN_WIDGET = """
+<script>
+(function () {
+  fetch('/api/billing/status').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d) return;
+    var h1 = document.querySelector('header h1');
+    if (h1 && !document.getElementById('plan-pill')) {
+      var label = d.unlimited ? '\\u221E' : (d.plan === 'pro' ? 'Pro' : 'Free');
+      var pill = document.createElement('a');
+      pill.id = 'plan-pill';
+      pill.href = '/settings#plan-section';
+      pill.textContent = label;
+      pill.title = 'Your plan: ' + label + ' \\u2014 manage in Settings';
+      var hot = (d.plan === 'pro' || d.unlimited);
+      pill.style.cssText = 'margin-left:8px;font-size:0.6em;font-weight:700;padding:2px 9px;border-radius:999px;'
+        + 'text-decoration:none;vertical-align:middle;letter-spacing:0.02em;'
+        + (hot ? 'background:var(--primary);color:#fff;' : 'background:var(--border);color:var(--text-muted);');
+      h1.appendChild(pill);
+    }
+    if (d.billing_enabled && !d.unlimited && d.plan === 'free'
+        && location.pathname !== '/settings'
+        && !localStorage.getItem('canto_hide_upgrade')) {
+      var bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;'
+        + 'padding:8px 16px;background:var(--primary);color:#fff;font-size:0.9rem;';
+      var msg = document.createElement('span');
+      msg.textContent = "You're on the Free plan (" + d.used + "/" + d.limit
+        + " AI uses this month). Upgrade to Pro for " + d.pro_limit + "/month.";
+      var up = document.createElement('button');
+      up.textContent = 'Upgrade \\u2014 $5/mo';
+      up.style.cssText = 'background:#fff;color:var(--primary);border:none;border-radius:6px;'
+        + 'padding:5px 12px;font-weight:600;cursor:pointer;';
+      up.onclick = function () {
+        up.disabled = true;
+        fetch('/api/billing/checkout', { method: 'POST' }).then(function (r) { return r.json(); })
+          .then(function (b) { if (b && b.url) { location.href = b.url; } else { up.disabled = false; } })
+          .catch(function () { up.disabled = false; });
+      };
+      var x = document.createElement('button');
+      x.textContent = '\\u2715';
+      x.title = 'Dismiss';
+      x.style.cssText = 'background:none;border:none;color:#fff;cursor:pointer;font-size:1rem;line-height:1;';
+      x.onclick = function () { localStorage.setItem('canto_hide_upgrade', '1'); bar.remove(); };
+      bar.appendChild(msg); bar.appendChild(up); bar.appendChild(x);
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+  }).catch(function () {});
+})();
+</script>
+"""
+
+
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
+    has_nav = "{{NAV}}" in content
     content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown))
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
@@ -248,6 +303,10 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
         f'<script>window.__VERSION__="{ASSET_VERSION}"</script></head>',
         1,
     )
+    # Inject the plan badge + upgrade banner on authenticated app pages (those
+    # with the shared nav); login/register pages have no nav and are skipped.
+    if has_nav:
+        content = content.replace("</body>", _PLAN_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -307,7 +366,10 @@ async def login(request: Request, req: LoginRequest):
         max_age=_SESSION_TTL,
         httponly=True,
         secure=True,
-        samesite="strict",
+        # "lax" (not "strict") so the cookie survives Stripe's cross-site
+        # redirect back to /settings after Checkout. Still CSRF-safe: not sent
+        # on cross-site POSTs, only top-level GET navigations.
+        samesite="lax",
     )
     return response
 
@@ -437,6 +499,11 @@ async def reader_page():
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _html("settings.html", active="/settings")
+
+
+@app.get("/welcome", response_class=HTMLResponse)
+async def welcome_page():
+    return _html("welcome.html")
 
 
 @app.get("/admin")
@@ -590,11 +657,19 @@ class TranslateRequest(BaseModel):
 
 
 # ── Gemini access resolution ────────────────────────────────────────────────
-# A user's own key (with their chosen per-task models) takes priority. If they
-# haven't set one, only the admin and explicitly-granted users fall back to the
-# shared key — and on the shared key the model is fixed (no spending choices on
-# someone else's dime). Everyone else is blocked until they add their own key.
+# A user's own key (with their chosen per-task models) takes priority — it is
+# never metered, since they pay Google directly. Without a key:
+#   - admins spend their own env key (own models, unmetered),
+#   - explicitly-granted friends share the admin's key (admin's models, unmetered),
+#   - everyone else is on a paid plan tier and shares the key under a monthly
+#     quota (free 30/mo, pro 600/mo) — the metered path.
+# On the shared key the model is fixed (no spending choices on someone else's dime).
 _SHARED_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Monthly shared-key AI-call allowance per plan. Own-key/admin/granted users are
+# unlimited. These caps bound cost exposure: even pro's 600 calls is ~$0.08/mo
+# of Gemini at current Flash-Lite rates.
+PLAN_LIMITS = {"free": 30, "pro": 600}
 
 
 class _GeminiAccess:
@@ -608,7 +683,17 @@ def _valid_model(value: str | None) -> str:
     return value if value in translation.MODEL_ALLOWLIST else translation.DEFAULT_MODEL
 
 
-async def _resolve_gemini(user: dict) -> _GeminiAccess:
+def _plan_limit(user: dict) -> int:
+    return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
+
+
+async def _resolve_gemini(user: dict, *, meter: bool = True) -> _GeminiAccess:
+    """Resolve which Gemini key + models a user gets, enforcing the monthly quota.
+
+    For metered (shared-key plan) users this checks the quota and, when `meter`
+    is True, records one AI call. Pass `meter=False` for derived/background calls
+    (e.g. card-creation embeddings) that shouldn't count against the allowance.
+    """
     own_enc = await db.get_setting(user["id"], "gemini_api_key")
     if own_enc:
         try:
@@ -629,17 +714,30 @@ async def _resolve_gemini(user: dict) -> _GeminiAccess:
             _valid_model(await db.get_setting(user["id"], "model_translate")),
             _valid_model(await db.get_setting(user["id"], "model_reader")),
         )
-    # Granted friends spend the admin's key, so the admin dictates their model.
-    if user.get("can_use_shared_key"):
-        if not _SHARED_API_KEY:
-            raise HTTPException(503, "Shared API key is not configured.")
-        admin_id = await db.get_primary_admin_id()
-        mt = mr = translation.DEFAULT_MODEL
-        if admin_id is not None:
-            mt = _valid_model(await db.get_setting(admin_id, "shared_model_translate"))
-            mr = _valid_model(await db.get_setting(admin_id, "shared_model_reader"))
-        return _GeminiAccess(_SHARED_API_KEY, mt, mr)
-    raise HTTPException(400, "Add your Gemini API key in Settings to use AI features.")
+
+    if not _SHARED_API_KEY:
+        raise HTTPException(503, "Shared API key is not configured.")
+
+    # Everyone else spends the shared key, metered against their plan's monthly
+    # allowance (free 30 / pro 600). Pro can be self-serve via Stripe or comped
+    # by the admin. The shared key always runs the default (cheapest) model.
+    limit = _plan_limit(user)
+    if await db.get_usage(user["id"]) >= limit:
+        if (user.get("plan") or "free") == "free":
+            raise HTTPException(402, (
+                f"You've used your {limit} free AI translations this month. "
+                f"Upgrade to Pro for {PLAN_LIMITS['pro']}/month, or add your own "
+                "Gemini key in Settings for unlimited use."
+            ))
+        raise HTTPException(402, (
+            f"You've reached your monthly limit of {limit} AI translations. "
+            "It resets on the 1st. Add your own Gemini key in Settings for "
+            "unlimited use."
+        ))
+    if meter:
+        await db.increment_usage(user["id"])
+
+    return _GeminiAccess(_SHARED_API_KEY, translation.DEFAULT_MODEL, translation.DEFAULT_MODEL)
 
 
 @app.post("/api/translate")
@@ -727,8 +825,9 @@ async def create_card(
     )
 
     # Generate embedding in the background (best-effort; skip if no usable key).
+    # Not metered — it's a derived side-effect of saving a card, not a user action.
     try:
-        access = await _resolve_gemini(user)
+        access = await _resolve_gemini(user, meter=False)
         embed_text = f"{req.source_text.strip()} {target_text}"
         background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
     except HTTPException:
@@ -754,9 +853,8 @@ async def get_settings(user: dict = Depends(current_user)):
         "has_api_key": has_api_key,
         "is_admin": bool(user.get("is_admin")),
         # You pick models when spending your own money: your own key, or (for the
-        # admin) the env key. Granted friends get the admin's fixed shared model.
+        # admin) the env key. Plan users on the shared key get the fixed default.
         "can_choose_models": has_api_key or bool(user.get("is_admin")),
-        "using_shared_key": (not has_api_key) and (not user.get("is_admin")) and bool(user.get("can_use_shared_key")),
         "model_translate": _valid_model(await db.get_setting(user["id"], "model_translate")),
         "model_reader": _valid_model(await db.get_setting(user["id"], "model_reader")),
         "available_models": translation.MODEL_ALLOWLIST,
@@ -801,6 +899,210 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
             raise HTTPException(400, "Unsupported model")
         await db.set_setting(user["id"], "model_reader", req.model_reader)
     return {"success": True}
+
+
+# ── Billing ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/billing/status")
+async def billing_status(user: dict = Depends(current_user)):
+    """Plan + monthly usage for the settings UI. `unlimited` means no quota
+    applies (own key, admin, or a granted friend)."""
+    has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
+    unlimited = has_api_key or bool(user.get("is_admin"))
+    plan = user.get("plan") or "free"
+    onboarded = bool(await db.get_setting(user["id"], "onboarded"))
+    return {
+        "plan": plan,
+        "subscription_status": user.get("subscription_status"),
+        "subscription_period_end": user.get("subscription_period_end"),
+        "cancel_at_period_end": bool(user.get("cancel_at_period_end")),
+        "unlimited": unlimited,
+        "used": await db.get_usage(user["id"]),
+        "limit": _plan_limit(user),
+        "billing_enabled": billing.is_configured(),
+        "has_subscription": bool(user.get("stripe_customer_id")),
+        "pro_limit": PLAN_LIMITS["pro"],
+        # First-login plan picker: shown once to free users when billing is live.
+        "show_welcome": billing.is_configured() and not unlimited and plan == "free" and not onboarded,
+    }
+
+
+@app.post("/api/onboard")
+async def mark_onboarded(user: dict = Depends(current_user)):
+    """Mark the first-login plan picker as seen so it isn't shown again."""
+    await db.set_setting(user["id"], "onboarded", "1")
+    return {"ok": True}
+
+
+@app.post("/api/billing/checkout")
+@limiter.limit("10/minute")
+async def billing_checkout(request: Request, user: dict = Depends(current_user)):
+    """Create a Stripe Checkout session and return its hosted URL."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    if (user.get("plan") or "free") == "pro":
+        raise HTTPException(400, "You're already on the Pro plan.")
+    base = email_utils.APP_URL
+    try:
+        session = await asyncio.to_thread(
+            billing.create_checkout_session,
+            customer_id=user.get("stripe_customer_id"),
+            customer_email=user.get("email"),
+            client_reference_id=str(user["id"]),
+            success_url=f"{base}/settings?upgraded=1",
+            cancel_url=f"{base}/settings",
+        )
+    except Exception:
+        raise HTTPException(502, "Could not start checkout. Please try again.")
+    return {"url": session.url}
+
+
+@app.post("/api/billing/portal")
+@limiter.limit("10/minute")
+async def billing_portal(request: Request, user: dict = Depends(current_user)):
+    """Create a Stripe Customer Portal session for managing the subscription."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    customer_id = user.get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No subscription to manage.")
+    try:
+        session = await asyncio.to_thread(
+            billing.create_portal_session,
+            customer_id=customer_id,
+            return_url=f"{email_utils.APP_URL}/settings",
+        )
+    except Exception:
+        raise HTTPException(502, "Could not open the billing portal. Please try again.")
+    return {"url": session.url}
+
+
+@app.post("/api/billing/cancel")
+@limiter.limit("10/minute")
+async def billing_cancel(request: Request, user: dict = Depends(current_user)):
+    """Set cancel_at_period_end on the subscription. Pro access continues until
+    the period end date; the subscription is not deleted immediately."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    if user.get("cancel_at_period_end"):
+        raise HTTPException(400, "Subscription is already set to cancel.")
+    customer_id = user.get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No active subscription to cancel.")
+    sub_id = user.get("stripe_subscription_id")
+    # Existing Pro accounts may not have sub_id stored yet (pre-migration rows).
+    # Look it up from Stripe and persist it so future calls are instant.
+    if not sub_id:
+        try:
+            sub_id = await asyncio.to_thread(billing.get_active_subscription_id, customer_id)
+        except Exception:
+            pass
+        if not sub_id:
+            raise HTTPException(400, "No active subscription to cancel.")
+        await db.set_plan_by_customer(
+            customer_id, user.get("plan") or "free",
+            user.get("subscription_status"), user.get("subscription_period_end"),
+            sub_id=sub_id, cancel_at_period_end=False,
+        )
+    try:
+        sub = await asyncio.to_thread(billing.cancel_subscription, sub_id)
+    except Exception:
+        raise HTTPException(502, "Could not cancel subscription. Please try again.")
+    # Extract the real period end from Stripe's response (may be missing from
+    # the DB for accounts created before we started storing it).
+    period_end = _subscription_period_end(sub) or user.get("subscription_period_end")
+    # Update DB immediately so billing_status reflects the change before the
+    # webhook arrives (which may take a few seconds).
+    await db.set_plan_by_customer(
+        customer_id, user.get("plan") or "free",
+        user.get("subscription_status"), period_end,
+        sub_id=sub_id, cancel_at_period_end=True,
+    )
+    return {"ok": True, "period_end": period_end}
+
+
+@app.post("/api/billing/resume")
+@limiter.limit("10/minute")
+async def billing_resume(request: Request, user: dict = Depends(current_user)):
+    """Clear cancel_at_period_end — subscription will renew as normal."""
+    if not billing.is_configured():
+        raise HTTPException(503, "Billing is not configured.")
+    sub_id = user.get("stripe_subscription_id")
+    if not sub_id:
+        raise HTTPException(400, "No active subscription.")
+    if not user.get("cancel_at_period_end"):
+        raise HTTPException(400, "Subscription is not pending cancellation.")
+    try:
+        await asyncio.to_thread(billing.resume_subscription, sub_id)
+    except Exception:
+        raise HTTPException(502, "Could not resume subscription. Please try again.")
+    # Update DB immediately so billing_status reflects the change before webhook.
+    customer_id = user.get("stripe_customer_id")
+    await db.set_plan_by_customer(
+        customer_id, user.get("plan") or "free",
+        user.get("subscription_status"), user.get("subscription_period_end"),
+        sub_id=sub_id, cancel_at_period_end=False,
+    )
+    return {"ok": True}
+
+
+def _subscription_period_end(obj) -> str | None:
+    """Extract and format current_period_end from a Stripe sub dict or object."""
+    try:
+        ts = obj["current_period_end"]  # works for both dicts and StripeObjects
+    except (KeyError, TypeError):
+        return None
+    if not ts:
+        return None
+    return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat()
+
+
+@app.post("/api/webhooks/stripe")
+async def stripe_webhook(request: Request):
+    """Stripe-to-server subscription events. Verifies the signature against the
+    raw body, then syncs users.plan. Idempotent — Stripe may retry."""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        billing.construct_event(payload, sig)  # verify signature against raw body
+    except Exception:
+        raise HTTPException(400, "Invalid webhook signature.")
+
+    # Parse the raw body as a plain dict. The verified StripeObject from
+    # construct_event doesn't support dict-style .get() in this SDK version,
+    # so we re-read the (already-trusted) payload as JSON.
+    event = json.loads(payload)
+    etype = event["type"]
+    obj = event["data"]["object"]
+
+    if etype == "checkout.session.completed":
+        customer_id = obj.get("customer")
+        user_ref = obj.get("client_reference_id")
+        if customer_id and user_ref:
+            await db.set_stripe_customer(int(user_ref), customer_id)
+            # subscription.created fires alongside this, so plan/period are
+            # set there; here we just ensure the customer link exists.
+            await db.set_plan_by_customer(customer_id, "pro", "active", None)
+    elif etype in ("customer.subscription.created", "customer.subscription.updated"):
+        customer_id = obj.get("customer")
+        sub_id = obj.get("id")
+        status = obj.get("status")
+        cancel_flag = bool(obj.get("cancel_at_period_end", False))
+        plan = "pro" if status in ("active", "trialing", "past_due") else "free"
+        if customer_id:
+            await db.set_plan_by_customer(
+                customer_id, plan, status, _subscription_period_end(obj),
+                sub_id=sub_id, cancel_at_period_end=cancel_flag,
+            )
+    elif etype == "customer.subscription.deleted":
+        customer_id = obj.get("customer")
+        if customer_id:
+            await db.set_plan_by_customer(
+                customer_id, "free", "canceled", None,
+                sub_id=None, cancel_at_period_end=False,
+            )
+
+    return {"received": True}
 
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
@@ -1065,7 +1367,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
     """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
     try:
-        access = await _resolve_gemini(user)
+        access = await _resolve_gemini(user, meter=False)
     except HTTPException:
         return {"cards": []}
     query_embedding = await translation.get_embedding(name, api_key=access.api_key)
@@ -1136,49 +1438,26 @@ async def admin_list_users(user: dict = Depends(current_admin)):
     return {"users": await db.list_users()}
 
 
-class SharedKeyGrant(BaseModel):
-    can_use_shared_key: bool
+class PlanUpdate(BaseModel):
+    plan: str
 
 
-@app.put("/api/admin/users/{user_id}/shared-key")
-async def admin_set_shared_key(user_id: int, req: SharedKeyGrant, user: dict = Depends(current_admin)):
-    """Grant/revoke a friend's permission to use the admin's shared Gemini key."""
+@app.put("/api/admin/users/{user_id}/plan")
+async def admin_set_plan(user_id: int, req: PlanUpdate, user: dict = Depends(current_admin)):
+    """Comp a friend to Pro (or revert to Free) without Stripe. Comped users have
+    no stripe_customer_id, so subscription webhooks never touch them."""
+    if req.plan not in PLAN_LIMITS:
+        raise HTTPException(400, f"Unknown plan: {req.plan}")
     target = await db.get_user(user_id)
     if not target:
         raise HTTPException(404, "User not found")
-    await db.set_user_shared_key(user_id, req.can_use_shared_key)
-    return {"success": True}
-
-
-@app.get("/api/admin/shared-key-models")
-async def admin_get_shared_models(user: dict = Depends(current_admin)):
-    """The models granted friends get when spending the admin's shared key."""
-    admin_id = await db.get_primary_admin_id()
-    return {
-        "model_translate": _valid_model(await db.get_setting(admin_id, "shared_model_translate")),
-        "model_reader": _valid_model(await db.get_setting(admin_id, "shared_model_reader")),
-        "available_models": translation.MODEL_ALLOWLIST,
-        "default_model": translation.DEFAULT_MODEL,
-    }
-
-
-class SharedModelsUpdate(BaseModel):
-    model_translate: str | None = None
-    model_reader: str | None = None
-
-
-@app.put("/api/admin/shared-key-models")
-async def admin_set_shared_models(req: SharedModelsUpdate, user: dict = Depends(current_admin)):
-    # Stored on the primary admin so it's a single source of truth for the key.
-    admin_id = await db.get_primary_admin_id()
-    if req.model_translate is not None:
-        if req.model_translate not in translation.MODEL_ALLOWLIST:
-            raise HTTPException(400, "Unsupported model")
-        await db.set_setting(admin_id, "shared_model_translate", req.model_translate)
-    if req.model_reader is not None:
-        if req.model_reader not in translation.MODEL_ALLOWLIST:
-            raise HTTPException(400, "Unsupported model")
-        await db.set_setting(admin_id, "shared_model_reader", req.model_reader)
+    if target.get("stripe_customer_id"):
+        raise HTTPException(
+            409,
+            "This user has a Stripe subscription; change their plan via the "
+            "billing portal so it stays in sync.",
+        )
+    await db.set_user_plan(user_id, req.plan)
     return {"success": True}
 
 

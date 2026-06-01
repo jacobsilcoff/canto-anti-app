@@ -108,7 +108,13 @@
         body: JSON.stringify({ username, password: pw }),
       });
       if (res.ok) {
-        window.location.replace('/');
+        // First-time free users see the plan picker once; everyone else goes home.
+        let dest = '/';
+        try {
+          const s = await fetch('/api/billing/status').then(r => r.json());
+          if (s.show_welcome) dest = '/welcome';
+        } catch {}
+        window.location.replace(dest);
       } else {
         const body = await res.json().catch(() => ({}));
         if (res.status === 403 && body.code === 'email_not_verified') {

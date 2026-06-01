@@ -6,8 +6,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@canto-anki.duckdns.org")
-APP_URL = os.getenv("APP_URL", "https://canto-anki.duckdns.org")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@canto-anki.silcoff-labs.ca")
+APP_URL = os.getenv("APP_URL", "https://canto-anki.silcoff-labs.ca")
 
 
 async def _send(to: str, subject: str, html: str) -> tuple[bool, str]:

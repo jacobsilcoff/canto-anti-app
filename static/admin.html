@@ -175,17 +175,17 @@
       .replace(/pro$/, 'Pro');
   }
 
-  async function toggleShared(userId, next) {
+  async function setPlan(userId, plan) {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/shared-key`, {
+      const res = await fetch(`/api/admin/users/${userId}/plan`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ can_use_shared_key: next }),
+        body: JSON.stringify({ plan }),
       });
-      if (!res.ok) throw new Error();
-      showToast(next ? 'Shared key access granted.' : 'Shared key access revoked.');
+      if (!res.ok) { showToast((await res.json()).detail || 'Failed to change plan.'); return; }
+      showToast(plan === 'pro' ? 'Upgraded to Pro.' : 'Reverted to Free.');
       loadUsers();
-    } catch { showToast('Failed to update shared key access.'); }
+    } catch { showToast('Failed to change plan.'); }
   }
 
   async function loadUsers() {
@@ -202,17 +202,21 @@
         const row = document.createElement('div');
         row.className = 'user-row';
         const uname = escHtml(u.username).replace(/'/g, "\\'");
-        const sharedBtn = u.is_admin
-          ? '<span class="user-meta" style="text-align:center">Shared key: always</span>'
-          : (u.can_use_shared_key
-              ? `<button class="admin-action-btn" onclick="toggleShared(${u.id}, false)">Shared key: On</button>`
-              : `<button class="admin-action-btn" onclick="toggleShared(${u.id}, true)">Shared key: Off</button>`);
+        const isPro = u.plan === 'pro';
+        const hasStripe = !!u.stripe_customer_id;
+        const planBtn = u.is_admin
+          ? '<span class="user-meta" style="text-align:center">Unlimited</span>'
+          : hasStripe
+              ? '<span class="user-meta" style="text-align:center">Pro (Stripe)</span>'
+              : (isPro
+                  ? `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
+                  : `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
         row.innerHTML = `
           <div>
             <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
             <div class="user-meta">Created ${escHtml(u.created_at || '')}</div>
           </div>
-          ${sharedBtn}
+          ${planBtn}
           <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset password</button>
           <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
         `;
