@@ -403,6 +403,11 @@
       bodyText = `Your Pro access will continue until ${fmt}. After that your account reverts to Free.`;
     }
     document.getElementById('cancel-modal-body').textContent = bodyText;
+    // Reset the confirm button — confirmCancel() leaves it disabled/"Canceling…"
+    // on its success path, so re-opening the modal must restore it.
+    const confirmBtn = document.getElementById('cancel-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Yes, cancel';
     const modal = document.getElementById('cancel-modal');
     modal.style.display = 'flex';
   }
