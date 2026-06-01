@@ -332,32 +332,34 @@
     const cancelBtn = document.getElementById('plan-cancel-btn');
     const resumeBtn = document.getElementById('plan-resume-btn');
 
+    // Reset every button/note to a clean baseline, then show exactly what this
+    // state needs. Without this, a button's visibility can linger from a prior
+    // render (the source of the "temperamental" feel).
+    for (const b of [upgradeBtn, manageBtn, cancelBtn, resumeBtn]) {
+      b.style.display = 'none';
+      b.disabled = false;
+    }
+    cancelNote.style.display = 'none';
+    cancelBtn.dataset.periodEnd = data.subscription_period_end || '';
+
     if (isPro) {
       note.textContent = 'Resets on the 1st of each month. Need more? Add your own Gemini key above for unlimited use.';
-      manageBtn.style.display = data.has_subscription ? '' : 'none';
-      upgradeBtn.style.display = 'none';
 
-      if (data.has_subscription) {
-        if (data.cancel_at_period_end) {
-          // Pending cancellation: hide manage/cancel, show expiry note + resume
-          manageBtn.style.display = 'none';
-          cancelBtn.style.display = 'none';
-          resumeBtn.style.display = '';
-          let cancelMsg = 'Your subscription is set to cancel at the end of your billing period. You\'ll keep Pro until then.';
-          if (data.subscription_period_end) {
-            const d = new Date(data.subscription_period_end);
-            const fmt = d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
-            cancelMsg = `Your Pro access expires on ${fmt}. You can resume your subscription before then.`;
-          }
-          cancelNote.textContent = cancelMsg;
-          cancelNote.style.display = '';
-        } else {
-          cancelNote.style.display = 'none';
-          cancelBtn.style.display = '';
-          resumeBtn.style.display = 'none';
-          // Stash period end for the cancel modal
-          cancelBtn.dataset.periodEnd = data.subscription_period_end || '';
+      if (data.has_subscription && data.cancel_at_period_end) {
+        // Pending cancellation: show expiry note + resume only.
+        resumeBtn.style.display = '';
+        let cancelMsg = 'Your subscription is set to cancel at the end of your billing period. You\'ll keep Pro until then.';
+        if (data.subscription_period_end) {
+          const d = new Date(data.subscription_period_end);
+          const fmt = d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+          cancelMsg = `Your Pro access expires on ${fmt}. You can resume your subscription before then.`;
         }
+        cancelNote.textContent = cancelMsg;
+        cancelNote.style.display = '';
+      } else if (data.has_subscription) {
+        // Active subscription: allow manage + cancel.
+        manageBtn.style.display = '';
+        cancelBtn.style.display = '';
       }
     } else {
       note.textContent = data.billing_enabled
@@ -365,8 +367,6 @@
         : 'Add your own Gemini key above for unlimited use.';
       upgradeBtn.style.display = data.billing_enabled ? '' : 'none';
       manageBtn.style.display = data.has_subscription ? '' : 'none';
-      cancelBtn.style.display = 'none';
-      resumeBtn.style.display = 'none';
     }
   }
 
@@ -420,19 +420,14 @@
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
         closeCancelModal();
-        // Update the UI immediately from the response — don't wait for the webhook.
-        const periodEnd = body.period_end || document.getElementById('plan-cancel-btn').dataset.periodEnd;
+        // The endpoint updates the DB immediately, so re-rendering from
+        // /api/billing/status gives us one source of truth for button state.
+        await loadBilling();
         let fmt = 'the end of your billing period';
-        if (periodEnd) {
-          const d = new Date(periodEnd);
+        if (body.period_end) {
+          const d = new Date(body.period_end);
           fmt = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
         }
-        const cancelNote = document.getElementById('plan-cancel-note');
-        cancelNote.textContent = `Your Pro access expires on ${fmt}. You can resume your subscription before then.`;
-        cancelNote.style.display = '';
-        document.getElementById('plan-cancel-btn').style.display = 'none';
-        document.getElementById('plan-manage-btn').style.display = 'none';
-        document.getElementById('plan-resume-btn').style.display = '';
         showToast(`Subscription canceled. Pro access continues until ${fmt}.`);
         return;
       }
