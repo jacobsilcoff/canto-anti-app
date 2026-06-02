@@ -476,6 +476,7 @@
   const LEARNING_REQUEUE_GAP = 3;
   const reviewedFaces = new Set();   // unique card-faces graded this session
   let revealed = false;
+  let _duePoller = null;   // setInterval handle; non-null only on caughtup/done screens
   let currentAudio = null;
   let isOnline = navigator.onLine;
   let allLabels = [];
@@ -813,7 +814,33 @@
     ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
-    if (state === 'caughtup' || state === 'done') loadCefrDistribution(state);
+    if (state === 'caughtup' || state === 'done') {
+      loadCefrDistribution(state);
+      startDuePoller();
+    } else {
+      stopDuePoller();
+    }
+  }
+
+  function startDuePoller() {
+    stopDuePoller();
+    // Poll every 30 s. Learning cards can come due in as little as 1 min, so
+    // 30 s means at most a 30-second delay before the session auto-resumes.
+    _duePoller = setInterval(async () => {
+      if (!isOnline) return;
+      try {
+        const url = '/api/cards/due-count' + filterQuery();
+        const { count } = await fetch(url).then(r => r.json());
+        if (count > 0) {
+          stopDuePoller();
+          loadSession('due');
+        }
+      } catch { /* ignore network errors, will retry */ }
+    }, 30_000);
+  }
+
+  function stopDuePoller() {
+    if (_duePoller !== null) { clearInterval(_duePoller); _duePoller = null; }
   }
 
   const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
