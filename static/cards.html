@@ -306,8 +306,11 @@
   <div class="empty-state">
     <div class="icon">📚</div>
     <h2 id="empty-title">No flashcards yet</h2>
-    <p id="empty-msg">Translate some phrases to build your deck.</p>
-    <a href="/" class="cta-btn">Go Translate</a>
+    <p id="empty-msg">Translate a word on the home tab — it becomes a flashcard here automatically.</p>
+    <a href="/" class="cta-btn">Add your first word</a>
+    <p id="empty-how" style="font-size:0.82rem;color:var(--text-muted);margin-top:12px;max-width:280px;line-height:1.5">
+      Each card has three faces: you'll see it from English, from the target language, and as a pronunciation challenge. Spaced repetition handles when each face comes back.
+    </p>
   </div>
 </div>
 
@@ -423,8 +426,12 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div style="padding:0 0 10px">
+    <div style="padding:0 0 10px;display:flex;flex-direction:column;gap:8px">
       <input type="search" id="browse-search" class="edit-input" placeholder="Search cards…" oninput="filterBrowse()" style="width:100%;box-sizing:border-box">
+      <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text-muted);cursor:pointer;user-select:none">
+        <input type="checkbox" id="browse-all-langs" onchange="filterBrowse()" style="cursor:pointer">
+        Show all languages
+      </label>
     </div>
     <div id="card-list"></div>
   </div>
@@ -850,13 +857,8 @@
     document.getElementById('new-badge').style.display = isNew ? '' : 'none';
 
     const langCode = item.target_lang || 'yue';
-    const langTag = document.getElementById('card-lang-tag');
-    if (languages.length > 1) {
-      langTag.textContent = (langByCode[langCode] || {}).name || langCode;
-      langTag.style.display = '';
-    } else {
-      langTag.style.display = 'none';
-    }
+    // Cards are already scoped to the user's learning language — no need to label each one.
+    document.getElementById('card-lang-tag').style.display = 'none';
 
     const confWrap = document.getElementById('card-confidence-bar-wrap');
     const confFill = document.getElementById('card-confidence-bar');
@@ -929,6 +931,13 @@
         val.className = 'answer-value' + (logographic ? ' chinese' : '');
         val.textContent = item.target_text;
         row.appendChild(val);
+        // Always show romanization when revealing target — especially important
+        // on the pronunciation face where it was hidden before the flip.
+        if (logographic && item.romanization) {
+          const rEl = document.createElement('div');
+          rEl.className = 'answer-value jyutping'; rEl.textContent = item.romanization;
+          row.appendChild(rEl);
+        }
       } else {
         // pronunciation
         if (logographic && item.romanization) {
@@ -1111,12 +1120,13 @@
   async function showBrowse() {
     document.getElementById('browse-overlay').style.display = 'flex';
     document.getElementById('browse-search').value = '';
+    document.getElementById('browse-all-langs').checked = false;
     const list = document.getElementById('card-list');
     list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">Loading…</p>';
     try {
       const { cards } = await fetch('/api/cards/all').then(r => r.json());
       allCards = cards;
-      renderBrowseList(cards);
+      filterBrowse();
     } catch {
       list.innerHTML = '<p style="color:var(--again);padding:16px">Failed to load cards.</p>';
     }
@@ -1141,12 +1151,18 @@
 
   function filterBrowse() {
     const q = document.getElementById('browse-search').value.trim().toLowerCase();
-    if (!q) { renderBrowseList(allCards); return; }
-    const filtered = allCards.filter(c =>
-      (c.source_text || '').toLowerCase().includes(q) ||
-      (c.target_text || '').toLowerCase().includes(q) ||
-      (c.romanization || '').toLowerCase().includes(q)
-    );
+    const showAll = document.getElementById('browse-all-langs').checked;
+    let filtered = allCards;
+    if (!showAll && settings.default_target_lang) {
+      filtered = filtered.filter(c => c.target_lang === settings.default_target_lang);
+    }
+    if (q) {
+      filtered = filtered.filter(c =>
+        (c.source_text || '').toLowerCase().includes(q) ||
+        (c.target_text || '').toLowerCase().includes(q) ||
+        (c.romanization || '').toLowerCase().includes(q)
+      );
+    }
     renderBrowseList(filtered);
   }
 

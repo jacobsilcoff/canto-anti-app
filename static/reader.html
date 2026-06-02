@@ -17,23 +17,17 @@
     .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
 
     /* ── Generate form ── */
-    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; }
-    .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; color: var(--text); }
-    .gen-row { display: flex; gap: 8px; align-items: flex-end; }
-    .gen-prompt-wrap { flex: 1; }
-    .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 56px; }
+    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+    .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 72px; }
     .gen-prompt-wrap textarea:focus { outline: none; border-color: var(--primary); }
-    .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .gen-bottom-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .gen-options { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; flex: 1; }
+    .gen-option-group { display: flex; flex-direction: column; gap: 3px; }
+    .gen-option-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
-    .gen-lang-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-    .gen-lang-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem; cursor: pointer; }
-    .gen-lang-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .gen-difficulty-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-    .gen-diff-chip { display: flex; flex-direction: column; align-items: center; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; line-height: 1.2; }
-    .gen-diff-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .gen-diff-chip .diff-code { font-size: 0.82rem; font-weight: 700; }
-    .gen-diff-chip .diff-label { font-size: 0.65rem; opacity: 0.75; }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -49,7 +43,7 @@
 
     /* ── Reader view ── */
     .reader-view { display: none; }
-    .reader-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .reader-header { display: flex; align-items: center; gap: 8px 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
     .reader-back-btn:hover { border-color: var(--primary); }
     .reader-vocab-btn { background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
@@ -88,7 +82,7 @@
     .legend-dot.new    { background: #94a3b8; }
 
     /* ── Text body ── */
-    .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); }
+    .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); overflow-wrap: break-word; }
     .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
     .sentence { cursor: pointer; border-radius: 4px; }
     .sentence.active { background: rgba(99,102,241,.07); }
@@ -181,14 +175,38 @@
   <div id="home-view">
     <div class="gen-form">
       <h2>Generate a text to read</h2>
-      <div class="gen-row">
-        <div class="gen-prompt-wrap">
-          <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="2"></textarea>
+      <div class="gen-prompt-wrap">
+        <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="3"></textarea>
+      </div>
+      <div class="gen-bottom-row">
+        <div class="gen-options">
+          <div class="gen-option-group">
+            <div class="gen-option-label">Difficulty</div>
+            <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
+              <option value="A1">A1 · Beginner</option>
+              <option value="A2">A2 · Elementary</option>
+              <option value="B1">B1 · Intermediate</option>
+              <option value="B2">B2 · Upper Int.</option>
+              <option value="C1">C1 · Advanced</option>
+              <option value="C2">C2 · Mastery</option>
+            </select>
+          </div>
+          <div class="gen-option-group">
+            <div class="gen-option-label">Length</div>
+            <select id="gen-paragraphs" class="settings-select">
+              <option value="1">1 paragraph</option>
+              <option value="2">2 paragraphs</option>
+              <option value="3">3 paragraphs</option>
+              <option value="4" selected>4 paragraphs</option>
+              <option value="5">5 paragraphs</option>
+              <option value="6">6 paragraphs</option>
+              <option value="8">8 paragraphs</option>
+              <option value="10">10 paragraphs</option>
+            </select>
+          </div>
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
       </div>
-      <div class="gen-lang-row" id="gen-lang-row"></div>
-      <div class="gen-difficulty-row" id="gen-difficulty-row"></div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
@@ -266,14 +284,6 @@
   // ── State ──────────────────────────────────────────────────────────────────
   const SENTENCES_PER_PAGE = 5;
 
-  const CEFR_LEVELS = [
-    { code: 'A1', label: 'Beginner' },
-    { code: 'A2', label: 'Elementary' },
-    { code: 'B1', label: 'Intermediate' },
-    { code: 'B2', label: 'Upper-Int.' },
-    { code: 'C1', label: 'Advanced' },
-    { code: 'C2', label: 'Mastery' },
-  ];
   let selectedDifficulty = 'B1';
 
   let languages = [];
@@ -292,16 +302,31 @@
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
     await Promise.all([loadLanguages(), loadDefaultLang()]);
-    renderLangChips();
-    renderDifficultyChips();
     loadSavedTexts();
     loadStreak();
   }
 
   async function loadDefaultLang() {
     try {
-      const { default_target_lang } = await fetch('/api/settings').then(r => r.json());
-      if (default_target_lang) selectedLang = default_target_lang;
+      const s = await fetch('/api/settings').then(r => r.json());
+      if (s.default_target_lang) selectedLang = s.default_target_lang;
+      if (s.default_reader_difficulty) {
+        selectedDifficulty = s.default_reader_difficulty;
+        const sel = document.getElementById('gen-difficulty');
+        if (sel) sel.value = selectedDifficulty;
+      }
+    } catch {}
+  }
+
+  async function saveDifficultyPref() {
+    const val = document.getElementById('gen-difficulty').value;
+    selectedDifficulty = val;
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_reader_difficulty: val }),
+      });
     } catch {}
   }
 
@@ -314,29 +339,6 @@
     }
   }
 
-  function renderDifficultyChips() {
-    const row = document.getElementById('gen-difficulty-row');
-    row.innerHTML = '';
-    CEFR_LEVELS.forEach(l => {
-      const chip = document.createElement('button');
-      chip.className = 'gen-diff-chip' + (l.code === selectedDifficulty ? ' selected' : '');
-      chip.innerHTML = `<span class="diff-code">${l.code}</span><span class="diff-label">${l.label}</span>`;
-      chip.onclick = () => { selectedDifficulty = l.code; renderDifficultyChips(); };
-      row.appendChild(chip);
-    });
-  }
-
-  function renderLangChips() {
-    const row = document.getElementById('gen-lang-row');
-    row.innerHTML = '';
-    languages.forEach(l => {
-      const chip = document.createElement('button');
-      chip.className = 'gen-lang-chip' + (l.code === selectedLang ? ' selected' : '');
-      chip.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
-      chip.onclick = () => { selectedLang = l.code; renderLangChips(); };
-      row.appendChild(chip);
-    });
-  }
 
 
   // ── Saved texts ────────────────────────────────────────────────────────────
@@ -408,7 +410,12 @@
       const res = await fetch('/api/reader/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, target_lang: selectedLang, difficulty: selectedDifficulty }),
+        body: JSON.stringify({
+          prompt,
+          target_lang: selectedLang,
+          difficulty: selectedDifficulty,
+          num_paragraphs: parseInt(document.getElementById('gen-paragraphs').value, 10) || 4,
+        }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();

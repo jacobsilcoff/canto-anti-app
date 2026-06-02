@@ -306,7 +306,13 @@ _DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
 
 
 async def generate_reader_text(
-    prompt: str, target_lang: str, difficulty: str = "B1", *, api_key: str, model: str = DEFAULT_MODEL
+    prompt: str,
+    target_lang: str,
+    difficulty: str = "B1",
+    num_paragraphs: int = 4,
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
 ) -> dict:
     """Generate a short target-language text from an English description prompt.
 
@@ -318,12 +324,14 @@ async def generate_reader_text(
     name = info["name"]
     rules = info["rules"]
     difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
+    num_paragraphs = max(1, min(10, int(num_paragraphs)))
 
     full_prompt = (
         f"Write a {name} text based on the following description.\n"
         "Rules:\n"
         f"{rules}\n"
         f"{difficulty_rule}\n"
+        f"- The text should be exactly {num_paragraphs} paragraph(s) long.\n"
         "- Write naturally, as if for a native speaker audience.\n"
         "- Write ONLY the target-language text. Do NOT include romanisation, transliteration, "
         "pinyin, jyutping, or any English translation in the text body.\n"

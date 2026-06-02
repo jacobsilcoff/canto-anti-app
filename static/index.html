@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{APP_NAME}} — Translate</title>
+  <title>{{APP_NAME}} — Add Vocab</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,54 +15,69 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
-    .lang-target-wrap {
-      flex: 1;
+    /* ── lang direction bar ── */
+    .lang-direction {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .lang-dir-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .lang-dir-label.active { color: var(--text); background: var(--surface); border: 1px solid var(--border); }
+    .swap-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      color: var(--text-muted);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+    }
+    .swap-btn:hover { background: var(--surface); color: var(--text); }
+
+    /* ── tour overlay ── */
+    .tour-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .tour-card {
+      background: var(--surface); border-radius: 16px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+      padding: 32px 28px; max-width: 420px; width: 100%;
+      display: flex; flex-direction: column; gap: 16px;
       position: relative;
     }
-    .lang-target-wrap .lang-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+    .tour-step-num {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--primary);
     }
-    .lang-chevron {
-      width: 13px;
-      height: 13px;
-      opacity: 0.5;
-      flex-shrink: 0;
-      transition: transform 0.2s;
-      vertical-align: 0;
+    .tour-icon { font-size: 2.4rem; line-height: 1; }
+    .tour-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0; }
+    .tour-body { font-size: 0.95rem; color: var(--text-muted); line-height: 1.55; margin: 0; }
+    .tour-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+    .tour-dots { display: flex; gap: 6px; }
+    .tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+    .tour-dot.active { background: var(--primary); }
+    .tour-next-btn {
+      background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      padding: 10px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit;
     }
-    .lang-btn.active .lang-chevron { opacity: 0.7; }
-    #lang-dropdown {
-      display: none;
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
-      z-index: 50;
-      padding: 4px;
-      min-width: 130px;
+    .tour-next-btn:hover { opacity: 0.9; }
+    .tour-skip {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; cursor: pointer;
+      font-size: 1rem; color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
     }
-    .lang-dropdown-option {
-      padding: 9px 12px;
-      cursor: pointer;
-      font-size: 0.88rem;
-      border-radius: 6px;
-      font-weight: 500;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .lang-dropdown-option:hover { background: var(--bg); }
-    .lang-dropdown-option.selected { color: var(--primary); }
-    .lang-dropdown-check { width: 14px; font-size: 0.75rem; color: var(--primary); flex-shrink: 0; }
+    .tour-skip:hover { background: var(--bg); }
+
     .candidate-list {
       display: flex;
       flex-direction: column;
@@ -115,19 +130,27 @@
 
 <header>{{NAV}}</header>
 
+<div id="tour-overlay" class="tour-overlay" style="display:none" aria-modal="true" role="dialog">
+  <div class="tour-card">
+    <button class="tour-skip" onclick="dismissTour()" title="Skip tour">✕</button>
+    <div class="tour-step-num" id="tour-step-num">Step 1 of 3</div>
+    <div class="tour-icon" id="tour-icon">✏️</div>
+    <h2 class="tour-title" id="tour-title"></h2>
+    <p class="tour-body" id="tour-body"></p>
+    <div class="tour-footer">
+      <div class="tour-dots" id="tour-dots"></div>
+      <button class="tour-next-btn" id="tour-next-btn" onclick="tourNext()">Next →</button>
+    </div>
+  </div>
+</div>
+
 <main class="translate-page">
-  <div class="lang-toggle">
-    <button class="lang-btn active" id="btn-source" onclick="setDirection(false)">English</button>
+  <div class="lang-direction">
+    <span class="lang-dir-label active" id="btn-source">English</span>
     <button class="swap-btn" onclick="swapLang()" title="Swap direction" aria-label="Swap direction">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
     </button>
-    <div class="lang-target-wrap">
-      <button class="lang-btn" id="btn-target" onclick="onTargetBtnClick()">
-        <span id="target-lang-label"></span>
-        <svg id="target-lang-chevron" class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div id="lang-dropdown"></div>
-    </div>
+    <span class="lang-dir-label" id="btn-target"></span>
   </div>
 
   <!-- Sticky labels picker -->
@@ -221,75 +244,15 @@
     return languages.find(l => l.code === code) || null;
   }
 
-  // ── Language selector ────────────────────────────────────────────────────
+  // ── Language ─────────────────────────────────────────────────────────────
   async function loadLanguages() {
     try {
       const res = await fetch('/api/languages').then(r => r.json());
       languages = res.languages;
     } catch {
-      languages = [{ code: 'yue', name: 'Cantonese', romanization: 'jyutping', logographic: true }];
+      languages = [{ code: 'yue', name: 'Cantonese', flag: '🇭🇰', romanization: 'jyutping', logographic: true }];
     }
-    renderLangDropdown();
     updateDirectionButtons();
-  }
-
-  function renderLangDropdown() {
-    const dd = document.getElementById('lang-dropdown');
-    dd.innerHTML = '';
-    languages.forEach(l => {
-      const opt = document.createElement('div');
-      opt.className = 'lang-dropdown-option' + (l.code === targetLang ? ' selected' : '');
-      const check = document.createElement('span');
-      check.className = 'lang-dropdown-check';
-      check.textContent = l.code === targetLang ? '✓' : '';
-      opt.appendChild(check);
-      if (l.flag) {
-        const flag = document.createElement('span');
-        flag.textContent = l.flag;
-        opt.appendChild(flag);
-      }
-      const name = document.createElement('span');
-      name.textContent = l.name;
-      opt.appendChild(name);
-      opt.onclick = e => { e.stopPropagation(); selectTargetLang(l.code); };
-      dd.appendChild(opt);
-    });
-    const chevron = document.getElementById('target-lang-chevron');
-    if (chevron) chevron.style.display = languages.length > 1 ? '' : 'none';
-  }
-
-  function onTargetBtnClick() {
-    const wasTarget = sourceIsTarget;
-    setDirection(true);
-    if (languages.length > 1 && wasTarget) toggleLangDropdown();
-  }
-
-  function toggleLangDropdown() {
-    const dd = document.getElementById('lang-dropdown');
-    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-  }
-
-  function closeLangDropdown() {
-    document.getElementById('lang-dropdown').style.display = 'none';
-  }
-
-  function selectTargetLang(code) {
-    targetLang = code;
-    renderLangDropdown();
-    updateDirectionButtons();
-    resetOutput();
-    saveDefaultLang();
-    closeLangDropdown();
-  }
-
-  async function saveDefaultLang() {
-    try {
-      await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ default_target_lang: targetLang }),
-      });
-    } catch {}
   }
 
   function setDirection(isTarget) {
@@ -305,13 +268,71 @@
   function updateDirectionButtons() {
     const lang = langByCode(targetLang);
     const langName = lang ? lang.name : targetLang;
-    document.getElementById('btn-source').classList.toggle('active', !sourceIsTarget);
-    document.getElementById('btn-target').classList.toggle('active', sourceIsTarget);
+    const langLabel = (lang && lang.flag ? lang.flag + ' ' : '') + langName;
+    const src = document.getElementById('btn-source');
+    const tgt = document.getElementById('btn-target');
+    if (src) src.classList.toggle('active', !sourceIsTarget);
+    if (tgt) { tgt.classList.toggle('active', sourceIsTarget); tgt.textContent = langLabel; }
     document.getElementById('input').placeholder = sourceIsTarget
       ? `Enter ${langName} text…`
       : 'Enter English text…';
-    const label = document.getElementById('target-lang-label');
-    if (label) label.textContent = (lang && lang.flag ? lang.flag + ' ' : '') + langName;
+  }
+
+  // ── Tour ─────────────────────────────────────────────────────────────────
+  const TOUR_STEPS = [
+    {
+      icon: '✏️',
+      title: 'Type any word to add it',
+      body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.',
+    },
+    {
+      icon: '🃏',
+      title: 'Study your cards daily',
+      body: 'The Flashcards tab shows you cards due today. Each card has three faces: recognition, production, and pronunciation — spaced repetition handles the scheduling.',
+    },
+    {
+      icon: '📖',
+      title: 'Read real stories',
+      body: 'The Reader generates texts in your language. Tap any word to see its translation or add it to your deck. Words you already know are highlighted.',
+    },
+  ];
+  let tourStep = 0;
+
+  function showTour() {
+    tourStep = 0;
+    renderTourStep();
+    document.getElementById('tour-overlay').style.display = 'flex';
+  }
+
+  function renderTourStep() {
+    const s = TOUR_STEPS[tourStep];
+    document.getElementById('tour-step-num').textContent = `Step ${tourStep + 1} of ${TOUR_STEPS.length}`;
+    document.getElementById('tour-icon').textContent = s.icon;
+    document.getElementById('tour-title').textContent = s.title;
+    document.getElementById('tour-body').textContent = s.body;
+    const btn = document.getElementById('tour-next-btn');
+    btn.textContent = tourStep < TOUR_STEPS.length - 1 ? 'Next →' : 'Got it';
+    const dots = document.getElementById('tour-dots');
+    dots.innerHTML = '';
+    TOUR_STEPS.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'tour-dot' + (i === tourStep ? ' active' : '');
+      dots.appendChild(d);
+    });
+  }
+
+  function tourNext() {
+    if (tourStep < TOUR_STEPS.length - 1) {
+      tourStep++;
+      renderTourStep();
+    } else {
+      dismissTour();
+    }
+  }
+
+  async function dismissTour() {
+    document.getElementById('tour-overlay').style.display = 'none';
+    try { await fetch('/api/tour-seen', { method: 'POST' }); } catch {}
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -678,8 +699,8 @@
     try {
       const s = await fetch('/api/settings').then(r => r.json());
       if (s.default_target_lang) targetLang = s.default_target_lang;
-      renderLangDropdown();
       updateDirectionButtons();
+      if (!s.tour_seen) showTour();
     } catch {}
   }
 
@@ -698,7 +719,6 @@
   }
 
   document.addEventListener('click', e => {
-    if (!e.target.closest('.lang-target-wrap')) closeLangDropdown();
     if (!e.target.closest('header')) {
       const dd = document.getElementById('nav-dropdown');
       if (dd) dd.classList.remove('open');
@@ -706,7 +726,10 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeLangDropdown();
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('tour-overlay');
+      if (overlay && overlay.style.display !== 'none') { dismissTour(); return; }
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       doTranslate();
