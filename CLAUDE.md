@@ -94,7 +94,7 @@ Ideas and backlog live in [`IDEAS.md`](IDEAS.md). During any conversation:
 Always use the `.settings-select` class for `<select>` elements (defined in `style.css`). It applies `appearance: none; -webkit-appearance: none;` with a custom SVG chevron, consistent border/radius, and no system drop-shadow. Never use a raw `<select>` without this class — browsers add ugly system styling (box-shadow, OS-native arrow) that breaks visual consistency.
 
 **Nav collapse breakpoint**  
-The desktop nav collapses to the hamburger at **760 px** (`@media (max-width: 759px)`). This is higher than a typical mobile breakpoint because the header contains the language pill as well as the nav links. Do not lower it. The language pill's text (`.lang-pill-name`) is hidden below this breakpoint; only the flag emoji + chevron remain.
+The desktop nav collapses to the hamburger at **760 px** (`@media (max-width: 759px)`). The language pill's full name (`.lang-pill-name`) is hidden below **900 px** — a wider range than the nav collapse — so the h1 block stays compact (~135 px) at every width where the desktop nav is visible. Above 900 px the full name fits with ~115 px to spare. Do not lower either threshold without re-checking the header arithmetic: h1 width + nav width must be ≤ viewport − 32 px at the collapse point.
 
 **Shadows**  
 Use `var(--shadow)` (defined in the CSS variables) for card/surface elevation. Avoid hardcoded `box-shadow` values on interactive elements — the existing `var(--shadow)` token and the few modal-specific values in `style.css` cover all cases.

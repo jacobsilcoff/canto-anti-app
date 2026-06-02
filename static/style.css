@@ -48,7 +48,9 @@ header h1 {
   color: var(--text);
   letter-spacing: 0.06em;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  flex-shrink: 0;      /* logo block never gets compressed by the flex layout */
+  white-space: nowrap; /* prevent the logo text from wrapping */
 }
 header h1 .logo-accent {
   color: var(--primary);
@@ -1252,11 +1254,18 @@ textarea.edit-input {
   .lp-search { font-size: 1rem; }
 }
 
-/* Nav collapses at 760px to accommodate the language pill in the header.
-   Below this breakpoint the desktop nav is hidden in favour of the hamburger,
-   and the lang pill shrinks to flag-only (name hidden via .lang-pill-name). */
+/* The lang pill name adds ~95px to the h1. Hide it below 900px so the h1
+   stays compact at every width where the desktop nav is visible, keeping
+   the total header content (h1 ~135px + nav ~530px) well within bounds.
+   Above 900px there is ~115px of breathing room so the full name fits. */
+@media (max-width: 899px) {
+  .lang-pill-name { display: none; }
+}
+
+/* Nav collapses to hamburger at 760px. At this point the desktop nav is
+   hidden; only the compact h1 (logo + flag emoji + plan pill) and the
+   hamburger button remain visible in the header. */
 @media (max-width: 759px) {
   .nav-desktop { display: none; }
   .nav-mobile  { display: flex; }
-  .lang-pill-name { display: none; }
 }
