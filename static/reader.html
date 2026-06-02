@@ -17,19 +17,17 @@
     .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
 
     /* ── Generate form ── */
-    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; }
-    .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; color: var(--text); }
-    .gen-row { display: flex; gap: 8px; align-items: flex-end; }
-    .gen-prompt-wrap { flex: 1; }
-    .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 56px; }
+    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+    .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 72px; }
     .gen-prompt-wrap textarea:focus { outline: none; border-color: var(--primary); }
-    .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
-    .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
-
-    .gen-options-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; align-items: flex-end; }
+    .gen-bottom-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .gen-options { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; flex: 1; }
     .gen-option-group { display: flex; flex-direction: column; gap: 3px; }
     .gen-option-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
+    .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -177,37 +175,37 @@
   <div id="home-view">
     <div class="gen-form">
       <h2>Generate a text to read</h2>
-      <div class="gen-row">
-        <div class="gen-prompt-wrap">
-          <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="2"></textarea>
+      <div class="gen-prompt-wrap">
+        <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="3"></textarea>
+      </div>
+      <div class="gen-bottom-row">
+        <div class="gen-options">
+          <div class="gen-option-group">
+            <div class="gen-option-label">Difficulty</div>
+            <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
+              <option value="A1">A1 · Beginner</option>
+              <option value="A2">A2 · Elementary</option>
+              <option value="B1">B1 · Intermediate</option>
+              <option value="B2">B2 · Upper Int.</option>
+              <option value="C1">C1 · Advanced</option>
+              <option value="C2">C2 · Mastery</option>
+            </select>
+          </div>
+          <div class="gen-option-group">
+            <div class="gen-option-label">Length</div>
+            <select id="gen-paragraphs" class="settings-select">
+              <option value="1">1 paragraph</option>
+              <option value="2">2 paragraphs</option>
+              <option value="3">3 paragraphs</option>
+              <option value="4" selected>4 paragraphs</option>
+              <option value="5">5 paragraphs</option>
+              <option value="6">6 paragraphs</option>
+              <option value="8">8 paragraphs</option>
+              <option value="10">10 paragraphs</option>
+            </select>
+          </div>
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
-      </div>
-      <div class="gen-options-row">
-        <div class="gen-option-group">
-          <div class="gen-option-label">Difficulty</div>
-          <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
-            <option value="A1">A1 · Beginner</option>
-            <option value="A2">A2 · Elementary</option>
-            <option value="B1">B1 · Intermediate</option>
-            <option value="B2">B2 · Upper Int.</option>
-            <option value="C1">C1 · Advanced</option>
-            <option value="C2">C2 · Mastery</option>
-          </select>
-        </div>
-        <div class="gen-option-group">
-          <div class="gen-option-label">Length</div>
-          <select id="gen-paragraphs" class="settings-select">
-            <option value="1">1 paragraph</option>
-            <option value="2">2 paragraphs</option>
-            <option value="3">3 paragraphs</option>
-            <option value="4" selected>4 paragraphs</option>
-            <option value="5">5 paragraphs</option>
-            <option value="6">6 paragraphs</option>
-            <option value="8">8 paragraphs</option>
-            <option value="10">10 paragraphs</option>
-          </select>
-        </div>
       </div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
