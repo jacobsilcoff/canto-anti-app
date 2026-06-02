@@ -155,13 +155,6 @@ async def init():
             await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
         if await _table_exists(db, "reader_sentences") and not await _column_exists(db, "reader_sentences", "romanization"):
             await db.execute("ALTER TABLE reader_sentences ADD COLUMN romanization TEXT")
-        # One-time wipe: old sentence translations used the vocabulary-card prompt and
-        # produced bad results (e.g. whole sentences translated as a single word).
-        # We detect a fresh run by the absence of the sentinel column, add it, then
-        # delete all cached translations so they're re-generated with the fixed prompt.
-        if await _table_exists(db, "reader_sentences") and not await _column_exists(db, "reader_sentences", "prompt_v2"):
-            await db.execute("ALTER TABLE reader_sentences ADD COLUMN prompt_v2 INTEGER DEFAULT 1")
-            await db.execute("DELETE FROM reader_sentences")
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name COLLATE NOCASE)"
         )
