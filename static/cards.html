@@ -857,13 +857,8 @@
     document.getElementById('new-badge').style.display = isNew ? '' : 'none';
 
     const langCode = item.target_lang || 'yue';
-    const langTag = document.getElementById('card-lang-tag');
-    if (languages.length > 1) {
-      langTag.textContent = (langByCode[langCode] || {}).name || langCode;
-      langTag.style.display = '';
-    } else {
-      langTag.style.display = 'none';
-    }
+    // Cards are already scoped to the user's learning language — no need to label each one.
+    document.getElementById('card-lang-tag').style.display = 'none';
 
     const confWrap = document.getElementById('card-confidence-bar-wrap');
     const confFill = document.getElementById('card-confidence-bar');
@@ -936,6 +931,13 @@
         val.className = 'answer-value' + (logographic ? ' chinese' : '');
         val.textContent = item.target_text;
         row.appendChild(val);
+        // Always show romanization when revealing target — especially important
+        // on the pronunciation face where it was hidden before the flip.
+        if (logographic && item.romanization) {
+          const rEl = document.createElement('div');
+          rEl.className = 'answer-value jyutping'; rEl.textContent = item.romanization;
+          row.appendChild(rEl);
+        }
       } else {
         // pronunciation
         if (logographic && item.romanization) {

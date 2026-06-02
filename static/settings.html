@@ -221,6 +221,20 @@
     <div class="settings-section-title">Reader</div>
     <div class="settings-row">
       <div>
+        <div class="settings-label">Default difficulty</div>
+        <div class="settings-desc">CEFR level pre-selected when you open the Reader</div>
+      </div>
+      <select id="settings-reader-difficulty" class="settings-select" onchange="saveReaderDifficulty()">
+        <option value="A1">A1 — Beginner</option>
+        <option value="A2">A2 — Elementary</option>
+        <option value="B1">B1 — Intermediate</option>
+        <option value="B2">B2 — Upper Intermediate</option>
+        <option value="C1">C1 — Advanced</option>
+        <option value="C2">C2 — Mastery</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div>
         <div class="settings-label">Auto-add vocab</div>
         <div class="settings-desc">Automatically add all new words to your deck when opening a reader text</div>
       </div>
@@ -657,6 +671,7 @@
     document.getElementById('settings-new-per-day').value = settings.new_cards_per_day;
     document.getElementById('settings-audio-romanization').checked = settings.audio_show_romanization !== false;
     document.getElementById('settings-auto-add-vocab').checked = !!settings.auto_add_reader_vocab;
+    document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
 
     const sel = document.getElementById('settings-default-lang');
     sel.innerHTML = '';
@@ -809,6 +824,23 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveReaderDifficulty() {
+    const val = document.getElementById('settings-reader-difficulty').value;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_reader_difficulty: val }),
+      });
+      if (!res.ok) throw new Error();
+      settings.default_reader_difficulty = val;
+      showToast('Default difficulty saved.');
+    } catch {
+      document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
       showToast('Failed to save setting.');
     }
   }

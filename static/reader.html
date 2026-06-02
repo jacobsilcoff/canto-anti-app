@@ -27,11 +27,10 @@
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
 
-    .gen-difficulty-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-    .gen-diff-chip { display: flex; flex-direction: column; align-items: center; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; line-height: 1.2; }
-    .gen-diff-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .gen-diff-chip .diff-code { font-size: 0.82rem; font-weight: 700; }
-    .gen-diff-chip .diff-label { font-size: 0.65rem; opacity: 0.75; }
+    .gen-options-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    .gen-option-group { display: flex; flex-direction: column; gap: 3px; }
+    .gen-option-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .gen-option-select { font-size: 0.85rem; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit; }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -185,8 +184,32 @@
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
       </div>
-
-      <div class="gen-difficulty-row" id="gen-difficulty-row"></div>
+      <div class="gen-options-row">
+        <div class="gen-option-group">
+          <div class="gen-option-label">Difficulty</div>
+          <select id="gen-difficulty" class="gen-option-select" onchange="saveDifficultyPref()">
+            <option value="A1">A1 · Beginner</option>
+            <option value="A2">A2 · Elementary</option>
+            <option value="B1">B1 · Intermediate</option>
+            <option value="B2">B2 · Upper Int.</option>
+            <option value="C1">C1 · Advanced</option>
+            <option value="C2">C2 · Mastery</option>
+          </select>
+        </div>
+        <div class="gen-option-group">
+          <div class="gen-option-label">Length</div>
+          <select id="gen-paragraphs" class="gen-option-select">
+            <option value="1">1 paragraph</option>
+            <option value="2">2 paragraphs</option>
+            <option value="3">3 paragraphs</option>
+            <option value="4" selected>4 paragraphs</option>
+            <option value="5">5 paragraphs</option>
+            <option value="6">6 paragraphs</option>
+            <option value="8">8 paragraphs</option>
+            <option value="10">10 paragraphs</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
       <h3>Saved texts</h3>
@@ -264,14 +287,6 @@
   // ── State ──────────────────────────────────────────────────────────────────
   const SENTENCES_PER_PAGE = 5;
 
-  const CEFR_LEVELS = [
-    { code: 'A1', label: 'Beginner' },
-    { code: 'A2', label: 'Elementary' },
-    { code: 'B1', label: 'Intermediate' },
-    { code: 'B2', label: 'Upper-Int.' },
-    { code: 'C1', label: 'Advanced' },
-    { code: 'C2', label: 'Mastery' },
-  ];
   let selectedDifficulty = 'B1';
 
   let languages = [];
@@ -290,15 +305,31 @@
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
     await Promise.all([loadLanguages(), loadDefaultLang()]);
-    renderDifficultyChips();
     loadSavedTexts();
     loadStreak();
   }
 
   async function loadDefaultLang() {
     try {
-      const { default_target_lang } = await fetch('/api/settings').then(r => r.json());
-      if (default_target_lang) selectedLang = default_target_lang;
+      const s = await fetch('/api/settings').then(r => r.json());
+      if (s.default_target_lang) selectedLang = s.default_target_lang;
+      if (s.default_reader_difficulty) {
+        selectedDifficulty = s.default_reader_difficulty;
+        const sel = document.getElementById('gen-difficulty');
+        if (sel) sel.value = selectedDifficulty;
+      }
+    } catch {}
+  }
+
+  async function saveDifficultyPref() {
+    const val = document.getElementById('gen-difficulty').value;
+    selectedDifficulty = val;
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_reader_difficulty: val }),
+      });
     } catch {}
   }
 
@@ -311,17 +342,6 @@
     }
   }
 
-  function renderDifficultyChips() {
-    const row = document.getElementById('gen-difficulty-row');
-    row.innerHTML = '';
-    CEFR_LEVELS.forEach(l => {
-      const chip = document.createElement('button');
-      chip.className = 'gen-diff-chip' + (l.code === selectedDifficulty ? ' selected' : '');
-      chip.innerHTML = `<span class="diff-code">${l.code}</span><span class="diff-label">${l.label}</span>`;
-      chip.onclick = () => { selectedDifficulty = l.code; renderDifficultyChips(); };
-      row.appendChild(chip);
-    });
-  }
 
 
   // ── Saved texts ────────────────────────────────────────────────────────────
@@ -393,7 +413,12 @@
       const res = await fetch('/api/reader/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, target_lang: selectedLang, difficulty: selectedDifficulty }),
+        body: JSON.stringify({
+          prompt,
+          target_lang: selectedLang,
+          difficulty: selectedDifficulty,
+          num_paragraphs: parseInt(document.getElementById('gen-paragraphs').value, 10) || 4,
+        }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();

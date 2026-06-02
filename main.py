@@ -936,11 +936,13 @@ async def get_settings(user: dict = Depends(current_user)):
     audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
     has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
     tour_seen = bool(await db.get_setting(user["id"], "tour_seen"))
+    default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
         "auto_add_reader_vocab": auto_add_reader_vocab,
         "audio_show_romanization": audio_show_romanization,
+        "default_reader_difficulty": default_reader_difficulty,
         "has_api_key": has_api_key,
         "is_admin": bool(user.get("is_admin")),
         "tour_seen": tour_seen,
@@ -959,6 +961,7 @@ class SettingsUpdate(BaseModel):
     default_target_lang: str | None = None
     auto_add_reader_vocab: bool | None = None
     audio_show_romanization: bool | None = None
+    default_reader_difficulty: str | None = None
     gemini_api_key: str | None = None
     model_translate: str | None = None
     model_reader: str | None = None
@@ -978,6 +981,11 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "auto_add_reader_vocab", "true" if req.auto_add_reader_vocab else "false")
     if req.audio_show_romanization is not None:
         await db.set_setting(user["id"], "audio_show_romanization", "true" if req.audio_show_romanization else "false")
+    if req.default_reader_difficulty is not None:
+        _VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+        if req.default_reader_difficulty not in _VALID_CEFR:
+            raise HTTPException(400, "Invalid CEFR level")
+        await db.set_setting(user["id"], "default_reader_difficulty", req.default_reader_difficulty)
     if req.gemini_api_key is not None:
         val = req.gemini_api_key.strip()
         # Empty string clears the stored key (user reverts to shared/blocked).
@@ -1653,6 +1661,7 @@ class ReaderGenerateRequest(BaseModel):
     prompt: str
     target_lang: str = "yue"
     difficulty: str = "B1"
+    num_paragraphs: int = 4
 
 
 class ReaderTranslateWordRequest(BaseModel):
@@ -1698,6 +1707,7 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
     access = await _resolve_gemini(user)
     result = await translation.generate_reader_text(
         req.prompt, req.target_lang, req.difficulty,
+        req.num_paragraphs,
         api_key=access.api_key, model=access.model_reader,
     )
     text_id = await db.create_reader_text(
