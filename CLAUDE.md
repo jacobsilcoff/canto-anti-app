@@ -87,3 +87,14 @@ Ideas and backlog live in [`IDEAS.md`](IDEAS.md). During any conversation:
 - All DB access goes through `db.py`.
 - Keep API responses lean — no fields the frontend doesn't use.
 - `srs.py` is pure/stateless — pass state in, get new state back, no side effects.
+
+## UI / CSS Conventions
+
+**Selects / dropdowns**  
+Always use the `.settings-select` class for `<select>` elements (defined in `style.css`). It applies `appearance: none; -webkit-appearance: none;` with a custom SVG chevron, consistent border/radius, and no system drop-shadow. Never use a raw `<select>` without this class — browsers add ugly system styling (box-shadow, OS-native arrow) that breaks visual consistency.
+
+**Nav collapse breakpoint**  
+The desktop nav collapses to the hamburger at **760 px** (`@media (max-width: 759px)`). This is higher than a typical mobile breakpoint because the header contains the language pill as well as the nav links. Do not lower it. The language pill's text (`.lang-pill-name`) is hidden below this breakpoint; only the flag emoji + chevron remain.
+
+**Shadows**  
+Use `var(--shadow)` (defined in the CSS variables) for card/surface elevation. Avoid hardcoded `box-shadow` values on interactive elements — the existing `var(--shadow)` token and the few modal-specific values in `style.css` cover all cases.

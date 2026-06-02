@@ -1250,6 +1250,13 @@ textarea.edit-input {
 
 @media (max-width: 599px) {
   .lp-search { font-size: 1rem; }
+}
+
+/* Nav collapses at 760px to accommodate the language pill in the header.
+   Below this breakpoint the desktop nav is hidden in favour of the hamburger,
+   and the lang pill shrinks to flag-only (name hidden via .lang-pill-name). */
+@media (max-width: 759px) {
   .nav-desktop { display: none; }
   .nav-mobile  { display: flex; }
+  .lang-pill-name { display: none; }
 }

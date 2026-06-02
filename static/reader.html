@@ -27,10 +27,9 @@
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
 
-    .gen-options-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    .gen-options-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; align-items: flex-end; }
     .gen-option-group { display: flex; flex-direction: column; gap: 3px; }
     .gen-option-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .gen-option-select { font-size: 0.85rem; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit; }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -187,7 +186,7 @@
       <div class="gen-options-row">
         <div class="gen-option-group">
           <div class="gen-option-label">Difficulty</div>
-          <select id="gen-difficulty" class="gen-option-select" onchange="saveDifficultyPref()">
+          <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
             <option value="A1">A1 · Beginner</option>
             <option value="A2">A2 · Elementary</option>
             <option value="B1">B1 · Intermediate</option>
@@ -198,7 +197,7 @@
         </div>
         <div class="gen-option-group">
           <div class="gen-option-label">Length</div>
-          <select id="gen-paragraphs" class="gen-option-select">
+          <select id="gen-paragraphs" class="settings-select">
             <option value="1">1 paragraph</option>
             <option value="2">2 paragraphs</option>
             <option value="3">3 paragraphs</option>

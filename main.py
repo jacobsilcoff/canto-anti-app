@@ -276,8 +276,18 @@ _LANG_WIDGET = """
       + 'padding:3px 9px 3px 7px;font-size:0.7em;font-weight:600;cursor:pointer;'
       + 'display:inline-flex;align-items:center;gap:4px;color:var(--text);line-height:1.4;'
       + 'margin-left:8px;white-space:nowrap;vertical-align:middle;';
-    pill.innerHTML = (current.flag ? current.flag + ' ' : '') + current.name
-      + ' <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    // Split flag and name into separate spans so CSS can hide the name on narrow screens
+    // (below 760px the nav collapses and only the flag emoji + chevron remain visible).
+    var flagSpan = document.createElement('span');
+    flagSpan.textContent = current.flag || '🌐';
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'lang-pill-name';
+    nameSpan.textContent = current.name;
+    var chevronSpan = document.createElement('span');
+    chevronSpan.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    pill.appendChild(flagSpan);
+    pill.appendChild(nameSpan);
+    pill.appendChild(chevronSpan);
 
     var dd = document.createElement('div');
     dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;'
