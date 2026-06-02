@@ -26,9 +26,7 @@
     .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
-    .gen-lang-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-    .gen-lang-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem; cursor: pointer; }
-    .gen-lang-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
     .gen-difficulty-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .gen-diff-chip { display: flex; flex-direction: column; align-items: center; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; line-height: 1.2; }
     .gen-diff-chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
@@ -187,7 +185,7 @@
         </div>
         <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
       </div>
-      <div class="gen-lang-row" id="gen-lang-row"></div>
+
       <div class="gen-difficulty-row" id="gen-difficulty-row"></div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
@@ -292,7 +290,6 @@
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
     await Promise.all([loadLanguages(), loadDefaultLang()]);
-    renderLangChips();
     renderDifficultyChips();
     loadSavedTexts();
     loadStreak();
@@ -322,18 +319,6 @@
       chip.className = 'gen-diff-chip' + (l.code === selectedDifficulty ? ' selected' : '');
       chip.innerHTML = `<span class="diff-code">${l.code}</span><span class="diff-label">${l.label}</span>`;
       chip.onclick = () => { selectedDifficulty = l.code; renderDifficultyChips(); };
-      row.appendChild(chip);
-    });
-  }
-
-  function renderLangChips() {
-    const row = document.getElementById('gen-lang-row');
-    row.innerHTML = '';
-    languages.forEach(l => {
-      const chip = document.createElement('button');
-      chip.className = 'gen-lang-chip' + (l.code === selectedLang ? ' selected' : '');
-      chip.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
-      chip.onclick = () => { selectedLang = l.code; renderLangChips(); };
       row.appendChild(chip);
     });
   }

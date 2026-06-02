@@ -2,6 +2,12 @@
 
 ## ✅ Shipped
 
+- **Language-first onboarding (30)** — `/welcome` now asks "What are you learning?" as step 1 (language cards with script samples); plan picker is step 2 and only shown when billing is configured. Saves `default_target_lang` and seeds a starter deck in the background. All non-admin users who haven't onboarded go through this flow on first login.
+- **Persistent language pill in header (31)** — Flag + language name pill injected into every nav page via `_LANG_WIDGET`; clicking opens a dropdown to switch language, which saves the preference and reloads. Language-scoped: study sessions, due-count badge, reader saved texts, and flashcard browse all default to the current learning language.
+- **Guided tour (32)** — 3-step dismissible overlay on the translate page (shown until `tour_seen` setting is set server-side). Explains: add a word → daily flashcard review → reader. Escape key also dismisses. Shown to all accounts until they see it.
+- **Teaching empty state (33)** — Flashcards empty state now explains the three-face SRS loop and links directly to the translate page.
+- **Starter deck seeding (34)** — 12 high-frequency words per language auto-created at onboarding (tagged "🌱 Starter") so the first study session is non-empty. Runs as a background task; guarded against re-seeding if the user already has cards.
+
 - **Subscription billing + AI usage metering** — Stripe-hosted Checkout + Customer Portal (no card data on-server). Plans: Free (30 shared-key AI calls/mo), Pro ($5/mo, 600/mo); own-key + admin accounts are unlimited & unmetered. Quota enforced + metered centrally in `_resolve_gemini`; monthly `usage_counters` reset automatically by `YYYY-MM` period key. Webhook (`/api/webhooks/stripe`, signature-verified) syncs `users.plan`. Settings page shows a plan/usage card with upgrade + manage buttons.
 - **Plan UX + admin comp** — Replaced the old per-friend shared-key grant with direct plan control: a plan badge (Free/Pro/∞) in the header on every app page, a dismissible "Upgrade to Pro" banner for free users, and a one-time first-login plan-picker (`/welcome`, gated by an `onboarded` setting). Admin can comp any user to Pro (or back to Free) from the Users list via `PUT /api/admin/users/{id}/plan` (`db.set_user_plan`); comped users have no Stripe customer so webhooks never touch them. Stripe-subscribed users are shown read-only ("Pro (Stripe)") to keep state in sync via the portal.
 - **Cache-busting / auto asset versioning** — Startup content-hash of `static/` produces `ASSET_VERSION`; CSS/JS URLs are fingerprinted (`?v=…`), the service-worker cache name embeds the version, and HTML + `sw.js` are served `no-cache`. New deploys (= rebuild + restart) are picked up on the next normal load — no more Safari force-reload.
@@ -17,6 +23,69 @@
 Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 **Cost baseline:** Compute runs on Oracle Cloud Free Tier (4 OCPU ARM, 24 GB RAM) — $0. Gemini 2.5 Flash Lite via AI Studio free tier (1,500 req/day) — $0. `edge-tts` is free. At small family/friend scale (~5–15 active users) virtually everything stays within free tiers. Costs noted below are what would kick in if free tiers are exceeded. Paid Gemini Flash Lite rates: input $0.075/1M tokens, output $0.30/1M tokens.
+
+---
+
+# Onboarding & intuitiveness
+
+New users report (a) not understanding how the app works and (b) not finding how to switch off the default language. The app's loop — *translate a word → it becomes a flashcard → study it daily → read real text* — is invisible, and the first screen is a blank translate box defaulted to Cantonese. Ideas 30–35 fix discoverability; 36–40 bootstrap absolute beginners toward Duolingo parity.
+
+## 30. Language-first onboarding ✅ (implementing)
+**Complexity: Low | Cost: $0**
+
+Make "What do you want to learn?" the first step of `/welcome`, before the plan picker, so nobody lands on Cantonese by accident. Saves `default_target_lang`; the plan step only appears when billing is configured for a free user.
+
+## 31. Persistent language switcher in the header ✅ (implementing)
+**Complexity: Low | Cost: $0**
+
+A "🌐 [language]" pill in the nav on every app page, one tap to change the learning language (writes `default_target_lang` + reloads). The current chevron dropdown on the translate page is too subtle and only exists on that one page.
+
+## 32. First-run guided tour ✅ (implementing)
+**Complexity: Low–Medium | Cost: $0**
+
+A 3-step dismissible coach overlay on first visit to the translate page: ① type a word → AI makes a flashcard, ② study daily on Flashcards, ③ read stories in Reader. Gated by a localStorage flag.
+
+## 33. Teaching empty states ✅ (implementing)
+**Complexity: Low | Cost: $0**
+
+Make zero-data states explain the loop instead of being blank — richer Flashcards empty state that describes per-face study (recognition vs. production) and points back to translating.
+
+## 34. Seed a starter deck on signup ✅ (implementing)
+**Complexity: Low–Medium | Cost: $0**
+
+Auto-create ~15 high-frequency cards in the chosen language at onboarding (with audio via edge-tts, tagged "🌱 Starter") so the very first study session is non-empty and the loop is experienced immediately. Guarded to only seed when the user has zero cards.
+
+## 35. Reframe the home tab & translate copy
+**Complexity: Low | Cost: $0**
+
+"Translate" reads like a utility, not a learning app. Consider renaming to "Add a word"/"Learn" and adding a one-line subtitle under the input for new users: *"Translate any word — it becomes a flashcard you'll review."*
+
+## 36. Guided beginner course / skill tree
+**Complexity: High | Cost: ~$0/month | *the* Duolingo-competitive bet**
+
+A curated unit sequence per language (Greetings → Numbers → Food → Getting around…). Each unit bundles a few pre-made vocab cards, one short grammar note, a tiny reader text, and 2–3 sentence drills — turning the blank box into "do the next lesson." Everything below can feed into it.
+
+## 37. Grammar note card type
+**Complexity: Medium | Cost: ~$0/month**
+
+Add short grammar-explainer cards that are also SM-2 scheduled (e.g. "Cantonese verbs don't conjugate; 咗 marks completed action"). Closes the biggest content gap for beginners. Pairs with idea 16 (grammar info on demand) for generation.
+
+## 38. Explain-this-sentence in the reader
+**Complexity: Medium | Cost: ~$0/month**
+
+Tapping a sentence already gives a translation; add a grammar/word-by-word breakdown ("這=this · 係=is · 嘅 marks possession") so beginners learn structure, not just isolated vocab.
+
+## 39. Unified "Daily Practice" flow
+**Complexity: Medium | Cost: ~$0/month**
+
+One button that runs today's new words + due reviews + one short reading as a single guided session with a progress bar and end-of-session reward. Combine with the streak (idea 20). Removes the need to self-direct across tabs.
+
+## 40. Romanization-first / script-toggle mode
+**Complexity: Low | Cost: $0**
+
+For logographic languages, let beginners learn in jyutping/pinyin + audio first and reveal characters progressively — removes the steepest day-one wall for yue/cmn.
+
+> **See also:** ideas 9 (novel sentence review) and 13 (typing/cloze) give the "produce the language" practice Duolingo is known for and are especially valuable early — prioritize them for beginners.
 
 ---
 

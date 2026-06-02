@@ -3,16 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{APP_NAME}} — Choose your plan</title>
+  <title>{{APP_NAME}} — Get started</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
   <style>
     .welcome-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
-    .welcome-inner { width:100%; max-width:720px; display:flex; flex-direction:column; gap:18px; }
-    .welcome-inner h2 { font-size:1.5rem; font-weight:700; color:var(--text); text-align:center; letter-spacing:-0.01em; }
-    .welcome-sub { text-align:center; color:var(--text-muted); font-size:0.95rem; margin-top:-8px; }
+    .welcome-inner { width:100%; max-width:720px; display:flex; flex-direction:column; gap:20px; }
+    .welcome-inner h2 { font-size:1.5rem; font-weight:700; color:var(--text); text-align:center; letter-spacing:-0.01em; margin:0; }
+    .welcome-sub { text-align:center; color:var(--text-muted); font-size:0.95rem; margin:0; }
+
+    /* ── step indicator ── */
+    .step-indicator { display:flex; align-items:center; justify-content:center; gap:8px; }
+    .step-dot { width:8px; height:8px; border-radius:50%; background:var(--border); transition:background 0.2s; }
+    .step-dot.active { background:var(--primary); }
+
+    /* ── language cards ── */
+    .lang-cards { display:flex; gap:12px; flex-wrap:wrap; }
+    .lang-card {
+      flex:1; min-width:140px; background:var(--surface); border:2px solid var(--border);
+      border-radius:var(--radius); padding:18px 16px; cursor:pointer; display:flex;
+      flex-direction:column; align-items:center; gap:10px; transition:all 0.15s; text-align:center;
+    }
+    .lang-card:hover { border-color:var(--primary); }
+    .lang-card.selected { border-color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+    .lang-flag { font-size:2rem; line-height:1; }
+    .lang-name { font-size:0.9rem; font-weight:700; color:var(--text); }
+    .lang-script { font-size:1.05rem; color:var(--text-muted); font-family:'Noto Sans TC', sans-serif; }
+
+    /* ── plan cards ── */
     .plan-cards { display:flex; gap:16px; flex-wrap:wrap; }
     .plan-card {
       flex:1; min-width:240px; background:var(--surface); border:1px solid var(--border);
@@ -20,7 +40,7 @@
       flex-direction:column; gap:12px;
     }
     .plan-card.featured { border-color:var(--primary); border-width:2px; }
-    .plan-card h3 { font-size:1.15rem; font-weight:700; color:var(--text); }
+    .plan-card h3 { font-size:1.15rem; font-weight:700; color:var(--text); margin:0; }
     .plan-price { font-size:1.8rem; font-weight:700; color:var(--text); }
     .plan-price span { font-size:0.9rem; font-weight:500; color:var(--text-muted); }
     .plan-feats { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
@@ -28,12 +48,19 @@
     .plan-feats li::before { content:'✓'; position:absolute; left:0; color:var(--primary); font-weight:700; }
     .plan-tag { align-self:flex-start; background:var(--primary); color:#fff; font-size:0.7rem; font-weight:700;
       padding:2px 10px; border-radius:999px; letter-spacing:0.03em; }
-    .welcome-btn { margin-top:auto; width:100%; padding:12px; border-radius:8px; font-size:1rem; font-weight:600;
+
+    /* ── buttons ── */
+    .welcome-btn { width:100%; padding:13px; border-radius:8px; font-size:1rem; font-weight:600;
       cursor:pointer; font-family:inherit; border:1px solid var(--border); background:var(--surface); color:var(--text); }
     .welcome-btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .welcome-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .welcome-btn-row { display:flex; gap:12px; }
     .welcome-skip { text-align:center; }
     .welcome-skip a { color:var(--text-muted); font-size:0.85rem; text-decoration:none; cursor:pointer; }
     .welcome-skip a:hover { text-decoration:underline; }
+
+    .step { display:none; flex-direction:column; gap:20px; }
+    .step.active { display:flex; }
   </style>
 </head>
 <body>
@@ -42,65 +69,144 @@
 </header>
 <div class="welcome-wrap">
   <div class="welcome-inner">
-    <h2>Welcome! Pick a plan</h2>
-    <p class="welcome-sub">You can change this any time in Settings.</p>
-    <div class="plan-cards">
-      <div class="plan-card">
-        <h3>Free</h3>
-        <div class="plan-price">$0</div>
-        <ul class="plan-feats">
-          <li><span id="free-limit">30</span> AI translations / month</li>
-          <li>Unlimited flashcards &amp; study</li>
-          <li>Audio &amp; reader included</li>
-        </ul>
-        <button class="welcome-btn" id="free-btn" onclick="startFree()">Start with Free</button>
-      </div>
-      <div class="plan-card featured">
-        <span class="plan-tag">Most popular</span>
-        <h3>Pro</h3>
-        <div class="plan-price">$5<span> / month</span></div>
-        <ul class="plan-feats">
-          <li><span id="pro-limit">600</span> AI translations / month</li>
-          <li>Everything in Free</li>
-          <li>Priority for new AI features</li>
-        </ul>
-        <button class="welcome-btn primary" id="pro-btn" onclick="goPro()">Upgrade to Pro — $5/mo</button>
-      </div>
+
+    <!-- Step indicator -->
+    <div class="step-indicator" id="step-indicator" style="display:none">
+      <div class="step-dot active" id="dot-0"></div>
+      <div class="step-dot" id="dot-1"></div>
     </div>
-    <div class="welcome-skip"><a onclick="startFree()">Skip for now →</a></div>
+
+    <!-- Step 1: language -->
+    <div class="step active" id="step-lang">
+      <h2>What are you learning?</h2>
+      <p class="welcome-sub">You can change this any time in Settings.</p>
+      <div class="lang-cards" id="lang-cards"></div>
+      <button class="welcome-btn primary" id="lang-next-btn" onclick="goToStep2()" disabled>Continue →</button>
+    </div>
+
+    <!-- Step 2: plan (only rendered if billing is live) -->
+    <div class="step" id="step-plan">
+      <h2>Pick a plan</h2>
+      <p class="welcome-sub">You can upgrade or cancel any time.</p>
+      <div class="plan-cards">
+        <div class="plan-card">
+          <h3>Free</h3>
+          <div class="plan-price">$0</div>
+          <ul class="plan-feats">
+            <li><span id="free-limit">30</span> AI translations / month</li>
+            <li>Unlimited flashcards &amp; study</li>
+            <li>Audio &amp; reader included</li>
+          </ul>
+          <button class="welcome-btn" id="free-btn" onclick="finish(false)">Start with Free</button>
+        </div>
+        <div class="plan-card featured">
+          <span class="plan-tag">Most popular</span>
+          <h3>Pro</h3>
+          <div class="plan-price">$5<span> / month</span></div>
+          <ul class="plan-feats">
+            <li><span id="pro-limit">600</span> AI translations / month</li>
+            <li>Everything in Free</li>
+            <li>Priority for new AI features</li>
+          </ul>
+          <button class="welcome-btn primary" id="pro-btn" onclick="finish(true)">Upgrade to Pro — $5/mo</button>
+        </div>
+      </div>
+      <div class="welcome-skip"><a onclick="finish(false)">Skip for now →</a></div>
+    </div>
+
   </div>
 </div>
 <script>
+  let selectedLang = null;
+  let billingEnabled = false;
+
   (async function () {
     try {
-      const s = await fetch('/api/billing/status').then(r => r.json());
-      // If this user shouldn't see the picker (already pro/unlimited/onboarded), leave.
-      if (!s.show_welcome) { window.location.replace('/'); return; }
-      if (s.limit) document.getElementById('free-limit').textContent = s.limit;
-      if (s.pro_limit) document.getElementById('pro-limit').textContent = s.pro_limit;
-    } catch {}
+      const [langRes, status] = await Promise.all([
+        fetch('/api/languages').then(r => r.json()),
+        fetch('/api/billing/status').then(r => r.json()),
+      ]);
+
+      // Already fully onboarded — skip this page.
+      if (status.onboarded) { window.location.replace('/'); return; }
+
+      billingEnabled = !!status.billing_enabled && !status.unlimited && status.plan === 'free';
+      if (billingEnabled) {
+        document.getElementById('step-indicator').style.display = 'flex';
+        if (status.limit) document.getElementById('free-limit').textContent = status.limit;
+        if (status.pro_limit) document.getElementById('pro-limit').textContent = status.pro_limit;
+      }
+
+      const currentLang = status.default_target_lang || 'yue';
+      const langs = langRes.languages || [];
+      const container = document.getElementById('lang-cards');
+
+      // Pre-select current lang if it was already set
+      selectedLang = currentLang;
+
+      langs.forEach(l => {
+        const card = document.createElement('div');
+        card.className = 'lang-card' + (l.code === currentLang ? ' selected' : '');
+        card.dataset.code = l.code;
+
+        const scriptSamples = {
+          yue: '你好', cmn: '你好', fr: 'Bonjour', es: 'Hola', de: 'Hallo',
+        };
+        card.innerHTML = `
+          <div class="lang-flag">${l.flag || '🌐'}</div>
+          <div class="lang-name">${l.name}</div>
+          <div class="lang-script">${scriptSamples[l.code] || ''}</div>
+        `;
+        card.onclick = () => {
+          document.querySelectorAll('.lang-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          selectedLang = l.code;
+          document.getElementById('lang-next-btn').disabled = false;
+        };
+        container.appendChild(card);
+      });
+
+      // Enable the button since we pre-selected
+      document.getElementById('lang-next-btn').disabled = false;
+
+    } catch (e) {
+      console.error(e);
+    }
   })();
 
-  async function markSeen() {
-    try { await fetch('/api/onboard', { method: 'POST' }); } catch {}
+  function goToStep2() {
+    if (!billingEnabled) {
+      finish(false);
+      return;
+    }
+    document.getElementById('step-lang').classList.remove('active');
+    document.getElementById('step-plan').classList.add('active');
+    document.getElementById('dot-0').classList.remove('active');
+    document.getElementById('dot-1').classList.add('active');
   }
 
-  async function startFree() {
-    document.getElementById('free-btn').disabled = true;
-    await markSeen();
-    window.location.replace('/');
-  }
-
-  async function goPro() {
-    const btn = document.getElementById('pro-btn');
-    btn.disabled = true;
-    await markSeen();
+  async function onboard() {
     try {
-      const res = await fetch('/api/billing/checkout', { method: 'POST' });
-      const body = await res.json().catch(() => ({}));
-      if (res.ok && body.url) { location.href = body.url; return; }
+      await fetch('/api/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: selectedLang }),
+      });
     } catch {}
-    // If checkout couldn't start, just continue into the app on Free.
+  }
+
+  async function finish(goPro) {
+    document.getElementById('free-btn').disabled = true;
+    document.getElementById('pro-btn').disabled = true;
+    document.getElementById('lang-next-btn').disabled = true;
+    await onboard();
+    if (goPro) {
+      try {
+        const res = await fetch('/api/billing/checkout', { method: 'POST' });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body.url) { location.href = body.url; return; }
+      } catch {}
+    }
     window.location.replace('/');
   }
 </script>

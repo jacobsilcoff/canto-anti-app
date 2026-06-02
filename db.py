@@ -562,6 +562,15 @@ async def purge_expired_sessions() -> None:
 
 # ── Settings ──────────────────────────────────────────────────────────────────
 
+async def count_cards(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM cards WHERE user_id=?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+
 async def get_setting(user_id: int, key: str, default=None):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
@@ -800,19 +809,28 @@ async def _faces_with_labels(user_id: int, rows: list[dict]) -> list[dict]:
     return rows
 
 
-async def get_study_session(user_id: int, label_id: int | None = None) -> dict:
+async def get_study_session(
+    user_id: int,
+    label_id: int | None = None,
+    target_lang: str | None = None,
+) -> dict:
     """Return due reviews + new cards up to the daily cap, with stats."""
     cap = int(await get_setting(user_id, "new_cards_per_day") or 20)
 
-    label_filter = ""
-    label_params: tuple = ()
+    extra_filter = ""
+    extra_params: tuple = ()
     if label_id is not None:
-        label_filter = (
-            "AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+        extra_filter += (
+            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
             "JOIN labels l ON l.id = cl.label_id "
             "WHERE cl.label_id=? AND l.user_id=?)"
         )
-        label_params = (label_id, user_id)
+        extra_params += (label_id, user_id)
+    if target_lang is not None:
+        extra_filter += " AND c.target_lang = ?"
+        extra_params += (target_lang,)
+    label_filter = extra_filter
+    label_params = extra_params
 
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -889,18 +907,26 @@ async def get_due_faces(user_id: int, label_id: int | None = None) -> list[dict]
     return await _faces_with_labels(user_id, rows)
 
 
-async def get_all_faces(user_id: int, label_id: int | None = None) -> list[dict]:
+async def get_all_faces(
+    user_id: int,
+    label_id: int | None = None,
+    target_lang: str | None = None,
+) -> list[dict]:
+    extra = ""
+    extra_params: tuple = ()
+    if label_id is not None:
+        extra += (
+            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+            "JOIN labels l ON l.id = cl.label_id "
+            "WHERE cl.label_id=? AND l.user_id=?)"
+        )
+        extra_params += (label_id, user_id)
+    if target_lang is not None:
+        extra += " AND c.target_lang = ?"
+        extra_params += (target_lang,)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        if label_id is None:
-            sql, params = _faces_query("", (user_id,))
-        else:
-            sql, params = _faces_query(
-                "AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
-                "JOIN labels l ON l.id = cl.label_id "
-                "WHERE cl.label_id=? AND l.user_id=?)",
-                (user_id, label_id, user_id),
-            )
+        sql, params = _faces_query(extra, (user_id,) + extra_params)
         async with db.execute(sql, params) as cur:
             rows = [dict(r) for r in await cur.fetchall()]
     return await _faces_with_labels(user_id, rows)
@@ -934,27 +960,30 @@ async def get_all_cards(user_id: int) -> list[dict]:
     return cards
 
 
-async def get_due_count(user_id: int, label_id: int | None = None) -> int:
+async def get_due_count(
+    user_id: int,
+    label_id: int | None = None,
+    target_lang: str | None = None,
+) -> int:
+    extra = ""
+    extra_params: tuple = ()
+    if label_id is not None:
+        extra += (
+            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+            "JOIN labels l ON l.id = cl.label_id "
+            "WHERE cl.label_id=? AND l.user_id=?)"
+        )
+        extra_params += (label_id, user_id)
+    if target_lang is not None:
+        extra += " AND c.target_lang = ?"
+        extra_params += (target_lang,)
     async with aiosqlite.connect(DB_PATH) as db:
-        if label_id is None:
-            async with db.execute(
-                """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
-                   WHERE c.user_id = ? AND cf.next_review <= datetime('now') AND c.suspended = 0""",
-                (user_id,),
-            ) as cur:
-                row = await cur.fetchone()
-        else:
-            async with db.execute(
-                """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
-                   WHERE c.user_id = ?
-                   AND cf.next_review <= datetime('now')
-                   AND c.suspended = 0
-                   AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl
-                                      JOIN labels l ON l.id = cl.label_id
-                                      WHERE cl.label_id=? AND l.user_id=?)""",
-                (user_id, label_id, user_id),
-            ) as cur:
-                row = await cur.fetchone()
+        async with db.execute(
+            f"""SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+               WHERE c.user_id = ? AND cf.next_review <= datetime('now') AND c.suspended = 0{extra}""",
+            (user_id,) + extra_params,
+        ) as cur:
+            row = await cur.fetchone()
         return row[0] if row else 0
 
 
@@ -1278,9 +1307,16 @@ async def create_reader_text(
         return cursor.lastrowid
 
 
-async def list_reader_texts(user_id: int) -> list[dict]:
+async def list_reader_texts(user_id: int, target_lang: str | None = None) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+        if target_lang is not None:
+            async with db.execute(
+                """SELECT id, title, prompt, target_lang, created_at
+                   FROM reader_texts WHERE user_id=? AND target_lang=? ORDER BY created_at DESC""",
+                (user_id, target_lang),
+            ) as cur:
+                return [dict(r) for r in await cur.fetchall()]
         async with db.execute(
             """SELECT id, title, prompt, target_lang, created_at
                FROM reader_texts WHERE user_id=? ORDER BY created_at DESC""",

@@ -28,6 +28,7 @@ import crypto
 import db
 import email_utils
 import srs
+import starter_deck
 import tokenizer
 import translation
 
@@ -49,11 +50,25 @@ _NO_AUTH_PATHS = {
 }
 
 
+_TEST_USERS = os.getenv("TEST_USERS", "").lower() in ("1", "true", "yes")
+_TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "test")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
         await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
+    if _TEST_USERS:
+        # "new" — email verified, no cards, no onboarding; use to test first-time UX
+        existing = await db.get_user_by_username("new")
+        if not existing:
+            await db.create_user(
+                "new",
+                auth.hash_password(_TEST_USER_PASSWORD),
+                email="new@test.local",
+                email_verified=True,
+            )
     yield
 
 
@@ -237,6 +252,81 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
     )
 
 
+_LANG_WIDGET = """
+<script>
+(function () {
+  Promise.all([
+    fetch('/api/languages').then(function (r) { return r.ok ? r.json() : null; }),
+    fetch('/api/settings').then(function (r) { return r.ok ? r.json() : null; }),
+  ]).then(function (results) {
+    var langRes = results[0]; var settingsRes = results[1];
+    if (!langRes || !settingsRes) return;
+    var langs = langRes.languages || [];
+    var currentCode = settingsRes.default_target_lang || 'yue';
+    var current = langs.find(function (l) { return l.code === currentCode; }) || { name: currentCode, flag: '🌐' };
+    if (langs.length < 2) return;  // nothing to switch to
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;';
+
+    var pill = document.createElement('button');
+    pill.id = 'lang-pill';
+    pill.title = 'Change learning language';
+    pill.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:999px;'
+      + 'padding:3px 9px 3px 7px;font-size:0.7em;font-weight:600;cursor:pointer;'
+      + 'display:inline-flex;align-items:center;gap:4px;color:var(--text);line-height:1.4;'
+      + 'margin-left:8px;white-space:nowrap;vertical-align:middle;';
+    pill.innerHTML = (current.flag ? current.flag + ' ' : '') + current.name
+      + ' <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+    var dd = document.createElement('div');
+    dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;'
+      + 'background:var(--surface);border:1px solid var(--border);border-radius:10px;'
+      + 'box-shadow:0 6px 24px rgba(0,0,0,.12);z-index:2000;padding:4px;min-width:170px;';
+
+    langs.forEach(function (l) {
+      var opt = document.createElement('div');
+      var isCurrent = l.code === currentCode;
+      opt.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:0.85em;border-radius:6px;'
+        + 'font-weight:500;display:flex;align-items:center;gap:8px;'
+        + 'color:' + (isCurrent ? 'var(--primary)' : 'var(--text)') + ';';
+      var check = document.createElement('span');
+      check.style.cssText = 'width:14px;font-size:0.8em;flex-shrink:0;';
+      check.textContent = isCurrent ? '✓' : '';
+      opt.appendChild(check);
+      var lbl = document.createElement('span');
+      lbl.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
+      opt.appendChild(lbl);
+      opt.addEventListener('mouseenter', function () { opt.style.background = 'var(--bg)'; });
+      opt.addEventListener('mouseleave', function () { opt.style.background = ''; });
+      opt.addEventListener('click', function () {
+        if (isCurrent) { dd.style.display = 'none'; return; }
+        opt.style.opacity = '0.5';
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ default_target_lang: l.code }),
+        }).then(function () { location.reload(); }).catch(function () { opt.style.opacity = ''; });
+      });
+      dd.appendChild(opt);
+    });
+
+    pill.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function () { dd.style.display = 'none'; });
+
+    wrap.appendChild(pill);
+    wrap.appendChild(dd);
+
+    var h1 = document.querySelector('header h1');
+    if (h1) h1.appendChild(wrap);
+  }).catch(function () {});
+})();
+</script>
+"""
+
 _PLAN_WIDGET = """
 <script>
 (function () {
@@ -306,7 +396,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _PLAN_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -845,6 +935,7 @@ async def get_settings(user: dict = Depends(current_user)):
     auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
     audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
     has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
+    tour_seen = bool(await db.get_setting(user["id"], "tour_seen"))
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
@@ -852,6 +943,7 @@ async def get_settings(user: dict = Depends(current_user)):
         "audio_show_romanization": audio_show_romanization,
         "has_api_key": has_api_key,
         "is_admin": bool(user.get("is_admin")),
+        "tour_seen": tour_seen,
         # You pick models when spending your own money: your own key, or (for the
         # admin) the env key. Plan users on the shared key get the fixed default.
         "can_choose_models": has_api_key or bool(user.get("is_admin")),
@@ -911,8 +1003,11 @@ async def billing_status(user: dict = Depends(current_user)):
     unlimited = has_api_key or bool(user.get("is_admin"))
     plan = user.get("plan") or "free"
     onboarded = bool(await db.get_setting(user["id"], "onboarded"))
+    default_target_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     return {
         "plan": plan,
+        "default_target_lang": default_target_lang,
+        "onboarded": onboarded,
         "subscription_status": user.get("subscription_status"),
         "subscription_period_end": user.get("subscription_period_end"),
         "cancel_at_period_end": bool(user.get("cancel_at_period_end")),
@@ -922,15 +1017,33 @@ async def billing_status(user: dict = Depends(current_user)):
         "billing_enabled": billing.is_configured(),
         "has_subscription": bool(user.get("stripe_customer_id")),
         "pro_limit": PLAN_LIMITS["pro"],
-        # First-login plan picker: shown once to free users when billing is live.
-        "show_welcome": billing.is_configured() and not unlimited and plan == "free" and not onboarded,
+        # Language + plan picker: shown once for any new non-admin user.
+        "show_welcome": not onboarded and not bool(user.get("is_admin")),
     }
 
 
+class OnboardRequest(BaseModel):
+    lang: str | None = None
+
+
 @app.post("/api/onboard")
-async def mark_onboarded(user: dict = Depends(current_user)):
-    """Mark the first-login plan picker as seen so it isn't shown again."""
+async def mark_onboarded(
+    req: OnboardRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Complete onboarding: save chosen language, seed starter deck, mark done."""
+    lang = req.lang
+    if lang and lang in translation.LANG_INFO:
+        await db.set_setting(user["id"], "default_target_lang", lang)
+        background_tasks.add_task(starter_deck.seed, user["id"], lang)
     await db.set_setting(user["id"], "onboarded", "1")
+    return {"ok": True}
+
+
+@app.post("/api/tour-seen")
+async def mark_tour_seen(user: dict = Depends(current_user)):
+    await db.set_setting(user["id"], "tour_seen", "1")
     return {"ok": True}
 
 
@@ -1109,12 +1222,14 @@ async def stripe_webhook(request: Request):
 
 @app.get("/api/cards/due")
 async def get_due_cards(label_id: int | None = None, user: dict = Depends(current_user)):
-    return await db.get_study_session(user["id"], label_id=label_id)
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return await db.get_study_session(user["id"], label_id=label_id, target_lang=lang)
 
 
 @app.get("/api/cards/all-faces")
 async def get_all_faces(label_id: int | None = None, user: dict = Depends(current_user)):
-    faces = await db.get_all_faces(user["id"], label_id=label_id)
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    faces = await db.get_all_faces(user["id"], label_id=label_id, target_lang=lang)
     return {"cards": faces, "count": len(faces)}
 
 
@@ -1126,7 +1241,8 @@ async def get_all_cards(user: dict = Depends(current_user)):
 
 @app.get("/api/cards/due-count")
 async def due_count(label_id: int | None = None, user: dict = Depends(current_user)):
-    return {"count": await db.get_due_count(user["id"], label_id=label_id)}
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"count": await db.get_due_count(user["id"], label_id=label_id, target_lang=lang)}
 
 
 @app.get("/api/cards/cefr-distribution")
@@ -1593,7 +1709,8 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
 
 @app.get("/api/reader/texts")
 async def reader_list_texts(user: dict = Depends(current_user)):
-    return {"texts": await db.list_reader_texts(user["id"])}
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"texts": await db.list_reader_texts(user["id"], target_lang=lang)}
 
 
 @app.get("/api/reader/texts/{text_id}")
