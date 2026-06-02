@@ -43,7 +43,10 @@
 
     /* ── Reader view ── */
     .reader-view { display: none; }
-    .reader-header { display: flex; align-items: center; gap: 8px 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .reader-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reader-header-nav { display: flex; align-items: center; gap: 8px; }
+    .reader-header-actions { display: flex; gap: 8px; margin-left: auto; }
     .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
     .reader-back-btn:hover { border-color: var(--primary); }
     .reader-vocab-btn { background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
@@ -51,7 +54,6 @@
     .reader-add-all-btn { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
     .reader-add-all-btn:hover { background: var(--primary); color: #fff; }
     .reader-add-all-btn:disabled { opacity: 0.5; cursor: default; }
-    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Sentence translation panel ── */
     .sentence-panel {
@@ -234,10 +236,14 @@
   <!-- Reader view -->
   <div id="reader-view" style="display:none">
     <div class="reader-header">
-      <button class="reader-back-btn" onclick="showHome()">← Back</button>
       <div class="reader-title" id="reader-title"></div>
-      <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
-      <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
+      <div class="reader-header-nav">
+        <button class="reader-back-btn" onclick="showHome()">← Back</button>
+        <div class="reader-header-actions">
+          <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
+          <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
+        </div>
+      </div>
     </div>
 
     <!-- Sentence translation panel -->
