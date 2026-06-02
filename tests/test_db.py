@@ -110,6 +110,45 @@ async def test_due_faces_includes_new(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_new_session_staggers_to_primary_face(fresh_db):
+    """A brand-new word offers only its primary face, not all three at once."""
+    user_id = fresh_db
+    await db.create_card(user_id, "Hello", "你好", "nei5 hou2")
+    session = await db.get_study_session(user_id)
+    assert session["new_count"] == 1
+    assert session["cards"][0]["face"] == db.PRIMARY_FACE
+
+
+@pytest.mark.asyncio
+async def test_secondary_faces_unlock_after_primary_graduates(fresh_db):
+    """Once the primary face graduates out of learning, the other faces unlock."""
+    user_id = fresh_db
+    card_id = await db.create_card(user_id, "Hello", "你好", "nei5 hou2")
+    # Graduate the primary face: out of learning, due in the future.
+    await db.update_face_review(user_id, card_id, db.PRIMARY_FACE, {
+        "interval_days": 1, "ease_factor": 2.5, "repetitions": 1,
+        "next_review": "2099-01-01 00:00:00", "learning_step": None,
+    })
+    session = await db.get_study_session(user_id)
+    new_faces = {c["face"] for c in session["cards"]}
+    assert new_faces == {f for f in db.FACES if f != db.PRIMARY_FACE}
+
+
+@pytest.mark.asyncio
+async def test_primary_in_learning_keeps_secondaries_locked(fresh_db):
+    """While the primary face is still mid-learning, secondaries stay locked."""
+    user_id = fresh_db
+    card_id = await db.create_card(user_id, "Hello", "你好", "nei5 hou2")
+    # Primary face seen but still in a learning step (not graduated).
+    await db.update_face_review(user_id, card_id, db.PRIMARY_FACE, {
+        "interval_days": 0, "ease_factor": 2.5, "repetitions": 0,
+        "next_review": "2099-01-01 00:00:00", "learning_step": 1,
+    })
+    session = await db.get_study_session(user_id)
+    assert session["new_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_delete_card_removes_faces(fresh_db):
     user_id = fresh_db
     card_id = await db.create_card(user_id, "Bye", "拜拜", "baai3 baai3")
@@ -124,7 +163,9 @@ async def test_due_count_counts_faces(fresh_db):
     user_id = fresh_db
     await db.create_card(user_id, "One", "一", "jat1")
     await db.create_card(user_id, "Two", "二", "ji6")
-    assert await db.get_due_count(user_id) == 6
+    # New words are staggered to their primary face, so each contributes 1 (not 3)
+    # until that face graduates and unlocks the others.
+    assert await db.get_due_count(user_id) == 2
 
 
 @pytest.mark.asyncio

@@ -471,7 +471,12 @@
   let queue = [];
   let total = 0;
   let idx = 0;
+  // Cards still in learning (e.g. just rated "again") are re-inserted this many
+  // positions ahead so they come back around in the same session.
+  const LEARNING_REQUEUE_GAP = 3;
+  const reviewedFaces = new Set();   // unique card-faces graded this session
   let revealed = false;
+  let _duePoller = null;   // setInterval handle; non-null only on caughtup/done screens
   let currentAudio = null;
   let isOnline = navigator.onLine;
   let allLabels = [];
@@ -778,6 +783,7 @@
     queue = shuffle(cards);
     total = queue.length;
     idx = 0;
+    reviewedFaces.clear();
     show('review');
     updateSessionStatsLine();
     showCard();
@@ -808,7 +814,33 @@
     ['loading', 'empty', 'caughtup', 'done', 'review'].forEach(s =>
       document.getElementById(`state-${s}`).style.display = s === state ? '' : 'none'
     );
-    if (state === 'caughtup' || state === 'done') loadCefrDistribution(state);
+    if (state === 'caughtup' || state === 'done') {
+      loadCefrDistribution(state);
+      startDuePoller();
+    } else {
+      stopDuePoller();
+    }
+  }
+
+  function startDuePoller() {
+    stopDuePoller();
+    // Poll every 30 s. Learning cards can come due in as little as 1 min, so
+    // 30 s means at most a 30-second delay before the session auto-resumes.
+    _duePoller = setInterval(async () => {
+      if (!isOnline) return;
+      try {
+        const url = '/api/cards/due-count' + filterQuery();
+        const { count } = await fetch(url).then(r => r.json());
+        if (count > 0) {
+          stopDuePoller();
+          loadSession('due');
+        }
+      } catch { /* ignore network errors, will retry */ }
+    }, 30_000);
+  }
+
+  function stopDuePoller() {
+    if (_duePoller !== null) { clearInterval(_duePoller); _duePoller = null; }
   }
 
   const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -1027,12 +1059,14 @@
   // ── Rate ──────────────────────────────────────────────────────────────────
   async function rate(quality) {
     const item = queue[idx];
+    let state = null;
     if (isOnline) {
       try {
-        await fetch(`/api/cards/${item.card_id}/review`, {
+        const res = await fetch(`/api/cards/${item.card_id}/review`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quality, face: item.face }),
         });
+        if (res.ok) state = await res.json();
       } catch {
         isOnline = false;
         await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
@@ -1042,15 +1076,34 @@
       await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
       updateOfflineBar((await idbGetAllWithKeys('pending')).length);
     }
+    reviewedFaces.add(`${item.card_id}-${item.face}`);
     idx++;
+    // A card still in learning is due again in a minute or two — bring it back
+    // around this session instead of waiting for the next one. (Offline, we have
+    // no server state, so fall back to requeuing on "again".)
+    const stillLearning = state ? state.learning_step !== null && state.learning_step !== undefined
+                                : quality === 'again';
+    if (stillLearning) {
+      const requeued = { ...item };
+      if (state) Object.assign(requeued, {
+        interval_days: state.interval_days,
+        ease_factor: state.ease_factor,
+        repetitions: state.repetitions,
+        learning_step: state.learning_step,
+      });
+      const insertAt = Math.min(queue.length, idx + LEARNING_REQUEUE_GAP);
+      queue.splice(insertAt, 0, requeued);
+      total = queue.length;
+    }
     showCard();
   }
 
   function finishSession() {
     stopAudio();
     show('done');
+    const n = reviewedFaces.size || total;
     document.getElementById('done-msg').textContent =
-      `You reviewed ${total} flashcard${total === 1 ? '' : 's'}. Great work!`;
+      `You reviewed ${n} flashcard${n === 1 ? '' : 's'}. Great work!`;
   }
 
   async function toggleTutorFlag() {

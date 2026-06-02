@@ -1831,13 +1831,12 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
         async with sem:
             if need_translation:
                 try:
-                    tr = await translation.translate(
-                        sent_text, text["target_lang"], source_is_target=True,
+                    tr = await translation.translate_sentence(
+                        sent_text, text["target_lang"],
                         api_key=access.api_key, model=access.model_translate,
                     )
-                    cand = tr["candidates"][0] if tr["candidates"] else {}
-                    trans_text = cand.get("english", "")
-                    rom_text = cand.get("romanization") or rom_text
+                    trans_text = tr.get("english", "")
+                    rom_text = tr.get("romanization") or rom_text
                 except Exception:
                     trans_text = ""
             if need_audio:
@@ -1860,6 +1859,29 @@ async def sentence_audio(text_id: int, idx: int, user: dict = Depends(current_us
     if not data:
         raise HTTPException(404, "Audio not ready")
     return Response(content=data, media_type="audio/mpeg")
+
+
+class SentenceTranslateRequest(BaseModel):
+    text: str
+    target_lang: str = "yue"
+
+
+@app.post("/api/reader/translate-sentence")
+@limiter.limit("60/minute")
+async def reader_translate_sentence(
+    request: Request,
+    req: SentenceTranslateRequest,
+    user: dict = Depends(current_user),
+):
+    """Translate a single reader sentence to English using a plain prose prompt."""
+    if req.target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    access = await _resolve_gemini(user)
+    result = await translation.translate_sentence(
+        req.text, req.target_lang,
+        api_key=access.api_key, model=access.model_translate,
+    )
+    return result
 
 
 @app.delete("/api/reader/texts/{text_id}")
