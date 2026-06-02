@@ -28,6 +28,9 @@ jobs:
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing APP_ADMIN_EMAIL "${{ secrets.APP_ADMIN_EMAIL }}"
             set_if_missing DB_PATH "data/cards.db"
+            # Staging-only: create test accounts on startup for testing first-time UX.
+            set_if_missing TEST_USERS "1"
+            set_if_missing TEST_USER_PASSWORD "test"
             # Always overwrite domain + email config so secret changes take effect immediately.
             sed -i '/^RESEND_API_KEY=/d' ~/canto-anti-app-staging/.env
             echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> ~/canto-anti-app-staging/.env
