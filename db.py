@@ -79,13 +79,10 @@ async def init():
                 username TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER DEFAULT 0,
-                can_use_shared_key INTEGER NOT NULL DEFAULT 0,
                 native_lang TEXT NOT NULL DEFAULT 'en',
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
-        if not await _column_exists(db, "users", "can_use_shared_key"):
-            await db.execute("ALTER TABLE users ADD COLUMN can_use_shared_key INTEGER NOT NULL DEFAULT 0")
 
         # Cards (legacy single-user table is named "cards"; we keep the name and migrate columns).
         await db.execute("""
@@ -155,6 +152,9 @@ async def init():
             await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
         if await _table_exists(db, "reader_sentences") and not await _column_exists(db, "reader_sentences", "romanization"):
             await db.execute("ALTER TABLE reader_sentences ADD COLUMN romanization TEXT")
+        # can_use_shared_key was superseded by the plan/billing system and is never read.
+        if await _column_exists(db, "users", "can_use_shared_key"):
+            await db.execute("ALTER TABLE users DROP COLUMN can_use_shared_key")
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name COLLATE NOCASE)"
         )
@@ -289,8 +289,8 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
         if user_count == 0:
             cursor = await db.execute(
                 """INSERT INTO users
-                   (username, password_hash, is_admin, can_use_shared_key, email, email_verified)
-                   VALUES (?, ?, 1, 1, ?, 1)""",
+                   (username, password_hash, is_admin, email, email_verified)
+                   VALUES (?, ?, 1, ?, 1)""",
                 (username, password_hash, email),
             )
             admin_id = cursor.lastrowid
@@ -339,7 +339,7 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
 
 _USER_COLS = (
     "id, username, email, display_name, password_hash, is_admin, "
-    "can_use_shared_key, native_lang, email_verified, created_at, "
+    "native_lang, email_verified, created_at, "
     "plan, stripe_customer_id, subscription_status, subscription_period_end, "
     "stripe_subscription_id, cancel_at_period_end"
 )
