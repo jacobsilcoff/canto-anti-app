@@ -212,7 +212,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}\n    </a>'
 
     nav_links = [
-        link("/",         "Translate",  "translate"),
+        link("/",         "Add Vocab",  "translate"),
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
         link("/settings", "Settings",   "settings"),

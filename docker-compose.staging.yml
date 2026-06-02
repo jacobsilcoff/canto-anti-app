@@ -25,6 +25,8 @@ services:
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
       - DB_PATH=/data/cards.db
+      - TEST_USERS=${TEST_USERS:-1}
+      - TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-test}
     volumes:
       - staging_data:/data
     networks:
