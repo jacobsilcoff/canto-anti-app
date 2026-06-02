@@ -688,24 +688,23 @@
       return;
     }
 
-    // Fallback: live Gemini call
+    // Fallback: live Gemini call using the sentence translation endpoint
     setPanelRomanization(null);
     document.getElementById('panel-translation').innerHTML =
       '<span class="sentence-panel-spinner"></span><span class="sentence-panel-loading">Translating…</span>';
     try {
-      const res = await fetch('/api/translate', {
+      const res = await fetch('/api/reader/translate-sentence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang, source_is_target: true }),
+        body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const cand = data.candidates?.[0] || {};
-      setPanelRomanization(cand.romanization);
-      document.getElementById('panel-translation').textContent = cand.english || '';
+      setPanelRomanization(data.romanization);
+      document.getElementById('panel-translation').textContent = data.english || '';
       if (!sentenceCache[si]) sentenceCache[si] = {};
-      sentenceCache[si].translation = cand.english || '';
-      sentenceCache[si].romanization = cand.romanization || null;
+      sentenceCache[si].translation = data.english || '';
+      sentenceCache[si].romanization = data.romanization || null;
     } catch {
       document.getElementById('panel-translation').textContent = 'Translation failed.';
     }

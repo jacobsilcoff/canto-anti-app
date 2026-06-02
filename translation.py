@@ -348,6 +348,40 @@ async def generate_reader_text(
     return {"title": title, "content": content}
 
 
+async def translate_sentence(
+    text: str, target_lang: str, *, api_key: str, model: str = DEFAULT_MODEL,
+) -> dict:
+    """Translate a full sentence to English. Returns {english, romanization}.
+
+    Uses a plain translation prompt rather than the vocabulary-card prompt so
+    Gemini translates the whole sentence instead of just its first content word.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    rom = info["romanization"]
+
+    rom_field = f'"romanization": "..."  // full sentence in {rom}\n' if rom else ""
+    prompt = (
+        f"Translate the following {name} sentence into natural English.\n"
+        "Return ONLY valid JSON, no other text:\n"
+        "{\n"
+        f'  "english": "...",\n'
+        f'  {rom_field}'
+        "}\n\n"
+        f"{name}: {text}"
+    )
+    try:
+        raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        return {
+            "english": (raw.get("english") or "").strip(),
+            "romanization": (raw.get("romanization") or "").strip() or None,
+        }
+    except Exception:
+        return {"english": "", "romanization": None}
+
+
 _EMBED_MODEL = "text-embedding-004"
 
 
