@@ -11,6 +11,11 @@ MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migra
 # 'pronunciation' = romanization (logographic) or audio-only (Latin script).
 FACES = ("source", "target", "pronunciation")
 
+# When a word is brand-new we introduce only this face. The other faces of the
+# same card stay locked until the primary face graduates out of learning, so a
+# single word no longer shows up three times in the same first session.
+PRIMARY_FACE = "target"
+
 SUPPORTED_LANGS = ("yue", "cmn", "fr", "es")
 LOGOGRAPHIC_LANGS = {"yue", "cmn"}
 
@@ -124,11 +129,14 @@ async def init():
                 ease_factor REAL DEFAULT 2.5,
                 repetitions INTEGER DEFAULT 0,
                 first_seen_date TEXT,
+                learning_step INTEGER DEFAULT NULL,
                 UNIQUE(card_id, face)
             )
         """)
         if not await _column_exists(db, "card_faces", "first_seen_date"):
             await db.execute("ALTER TABLE card_faces ADD COLUMN first_seen_date TEXT")
+        if not await _column_exists(db, "card_faces", "learning_step"):
+            await db.execute("ALTER TABLE card_faces ADD COLUMN learning_step INTEGER DEFAULT NULL")
 
         # Labels: per-user, unique within user.
         await db.execute("""
@@ -761,7 +769,8 @@ async def get_face_state(user_id: int, card_id: int, face: str) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT cf.interval_days, cf.ease_factor, cf.repetitions
+            """SELECT cf.interval_days, cf.ease_factor, cf.repetitions,
+                      cf.first_seen_date, cf.learning_step
                FROM card_faces cf JOIN cards c ON c.id = cf.card_id
                WHERE cf.card_id=? AND cf.face=? AND c.user_id=?""",
             (card_id, face, user_id),
@@ -776,6 +785,7 @@ def _faces_query(extra_where: str = "", extra_params: tuple = (),
         f"""
         SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+               cf.learning_step,
                c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
                c.priority, c.tutor_flag, c.classifier, c.canonical_card_id
         FROM card_faces cf
@@ -838,6 +848,7 @@ async def get_study_session(
         review_sql = f"""
             SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                    cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+                   cf.learning_step,
                    c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
                    c.priority, c.tutor_flag, c.cefr_level
             FROM card_faces cf JOIN cards c ON c.id = cf.card_id
@@ -863,20 +874,38 @@ async def get_study_session(
 
         new_faces = []
         if remaining > 0:
+            # Stagger faces: a brand-new word offers only its primary face. The
+            # other faces unlock once the primary face has graduated out of
+            # learning (learning_step IS NULL with a first_seen_date set), so the
+            # three faces of one word spread across days instead of clustering in
+            # a single session.
             new_sql = f"""
                 SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                        cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
+                       cf.learning_step,
                        c.source_text, c.target_text, c.romanization, c.target_lang, c.notes,
                        c.priority, c.tutor_flag, c.cefr_level
                 FROM card_faces cf JOIN cards c ON c.id = cf.card_id
                 WHERE c.user_id = ?
                   AND cf.first_seen_date IS NULL
                   AND c.suspended = 0
+                  AND (
+                        cf.face = ?
+                        OR EXISTS (
+                            SELECT 1 FROM card_faces p
+                            WHERE p.card_id = cf.card_id AND p.face = ?
+                              AND p.first_seen_date IS NOT NULL
+                              AND p.learning_step IS NULL
+                        )
+                  )
                   {label_filter}
                 ORDER BY c.priority DESC, c.id ASC
                 LIMIT ?
             """
-            async with db.execute(new_sql, (user_id,) + label_params + (remaining,)) as cur:
+            async with db.execute(
+                new_sql,
+                (user_id, PRIMARY_FACE, PRIMARY_FACE) + label_params + (remaining,),
+            ) as cur:
                 new_faces = [dict(r) for r in await cur.fetchall()]
 
     all_faces = await _faces_with_labels(user_id, reviews + new_faces)
@@ -980,8 +1009,18 @@ async def get_due_count(
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             f"""SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
-               WHERE c.user_id = ? AND cf.next_review <= datetime('now') AND c.suspended = 0{extra}""",
-            (user_id,) + extra_params,
+               WHERE c.user_id = ? AND cf.next_review <= datetime('now') AND c.suspended = 0
+                 AND (
+                       cf.first_seen_date IS NOT NULL
+                       OR cf.face = ?
+                       OR EXISTS (
+                           SELECT 1 FROM card_faces p
+                           WHERE p.card_id = cf.card_id AND p.face = ?
+                             AND p.first_seen_date IS NOT NULL
+                             AND p.learning_step IS NULL
+                       )
+                 ){extra}""",
+            (user_id, PRIMARY_FACE, PRIMARY_FACE) + extra_params,
         ) as cur:
             row = await cur.fetchone()
         return row[0] if row else 0
@@ -1017,10 +1056,11 @@ async def update_face_review(user_id: int, card_id: int, face: str, state: dict)
         await db.execute(
             """UPDATE card_faces
                SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
+                   learning_step=?,
                    first_seen_date = CASE WHEN first_seen_date IS NULL THEN date('now') ELSE first_seen_date END
                WHERE card_id=? AND face=?""",
             (state["interval_days"], state["ease_factor"], state["repetitions"], state["next_review"],
-             card_id, face),
+             state.get("learning_step"), card_id, face),
         )
         await db.execute(
             "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
@@ -1119,7 +1159,8 @@ async def reset_card_to_new(user_id: int, card_id: int):
         await db.execute(
             """UPDATE card_faces
                SET repetitions=0, interval_days=1, ease_factor=2.5,
-                   next_review=datetime('now'), first_seen_date=NULL
+                   next_review=datetime('now'), first_seen_date=NULL,
+                   learning_step=NULL
                WHERE card_id=?""",
             (card_id,),
         )

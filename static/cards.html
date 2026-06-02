@@ -471,6 +471,10 @@
   let queue = [];
   let total = 0;
   let idx = 0;
+  // Cards still in learning (e.g. just rated "again") are re-inserted this many
+  // positions ahead so they come back around in the same session.
+  const LEARNING_REQUEUE_GAP = 3;
+  const reviewedFaces = new Set();   // unique card-faces graded this session
   let revealed = false;
   let currentAudio = null;
   let isOnline = navigator.onLine;
@@ -778,6 +782,7 @@
     queue = shuffle(cards);
     total = queue.length;
     idx = 0;
+    reviewedFaces.clear();
     show('review');
     updateSessionStatsLine();
     showCard();
@@ -1027,12 +1032,14 @@
   // ── Rate ──────────────────────────────────────────────────────────────────
   async function rate(quality) {
     const item = queue[idx];
+    let state = null;
     if (isOnline) {
       try {
-        await fetch(`/api/cards/${item.card_id}/review`, {
+        const res = await fetch(`/api/cards/${item.card_id}/review`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quality, face: item.face }),
         });
+        if (res.ok) state = await res.json();
       } catch {
         isOnline = false;
         await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
@@ -1042,15 +1049,34 @@
       await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
       updateOfflineBar((await idbGetAllWithKeys('pending')).length);
     }
+    reviewedFaces.add(`${item.card_id}-${item.face}`);
     idx++;
+    // A card still in learning is due again in a minute or two — bring it back
+    // around this session instead of waiting for the next one. (Offline, we have
+    // no server state, so fall back to requeuing on "again".)
+    const stillLearning = state ? state.learning_step !== null && state.learning_step !== undefined
+                                : quality === 'again';
+    if (stillLearning) {
+      const requeued = { ...item };
+      if (state) Object.assign(requeued, {
+        interval_days: state.interval_days,
+        ease_factor: state.ease_factor,
+        repetitions: state.repetitions,
+        learning_step: state.learning_step,
+      });
+      const insertAt = Math.min(queue.length, idx + LEARNING_REQUEUE_GAP);
+      queue.splice(insertAt, 0, requeued);
+      total = queue.length;
+    }
     showCard();
   }
 
   function finishSession() {
     stopAudio();
     show('done');
+    const n = reviewedFaces.size || total;
     document.getElementById('done-msg').textContent =
-      `You reviewed ${total} flashcard${total === 1 ? '' : 's'}. Great work!`;
+      `You reviewed ${n} flashcard${n === 1 ? '' : 's'}. Great work!`;
   }
 
   async function toggleTutorFlag() {
