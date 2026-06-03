@@ -13,6 +13,8 @@ VOICES = {
     "tl": "fil-PH-BlessicaNeural",  # edge-tts exposes Tagalog as Filipino (fil-PH)
     "ms": "ms-MY-YasminNeural",
     "id": "id-ID-GadisNeural",
+    "ko": "ko-KR-SunHiNeural",
+    "hi": "hi-IN-SwaraNeural",
 }
 
 

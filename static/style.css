@@ -10,6 +10,8 @@
   --text: #202124;
   --text-muted: #5f6368;
   --chinese-font: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', serif;
+  --devanagari-font: 'Noto Sans Devanagari', 'Nirmala UI', sans-serif;
+  --hangul-font: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
   --again: #d32f2f;
@@ -27,6 +29,13 @@ body {
   flex-direction: column;
   overflow-x: hidden; /* prevent horizontal scroll on narrow phones */
 }
+
+/* Script-family overrides: set --script-font on a container and every target-text
+   element inside it (.is-chinese, .chinese, .output-chinese, .reader-text, …)
+   picks up the right font. Default/fallback is --chinese-font for back-compat. */
+.script-devanagari { --script-font: var(--devanagari-font); }
+.script-hangul { --script-font: var(--hangul-font); }
+.script-chinese { --script-font: var(--chinese-font); }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 header {
@@ -232,7 +241,7 @@ textarea {
 }
 
 .output-chinese {
-  font-family: var(--chinese-font);
+  font-family: var(--script-font, var(--chinese-font));
   font-size: 2rem;
   line-height: 1.4;
   margin-bottom: 8px;
@@ -369,7 +378,7 @@ textarea {
 }
 
 .card-prompt-text.is-chinese {
-  font-family: var(--chinese-font);
+  font-family: var(--script-font, var(--chinese-font));
   font-size: 2.4rem;
   line-height: 1.4;
 }
@@ -419,7 +428,7 @@ textarea {
   line-height: 1.5;
 }
 
-.answer-value.chinese { font-family: var(--chinese-font); font-size: 1.6rem; }
+.answer-value.chinese { font-family: var(--script-font, var(--chinese-font)); font-size: 1.6rem; }
 .answer-value.jyutping { color: var(--text-muted); font-style: italic; }
 
 /* ── Card actions ───────────────────────────────────────────────────────── */
@@ -591,7 +600,7 @@ textarea {
   gap: 12px;
 }
 
-.card-list-item .chinese { font-family: var(--chinese-font); font-size: 1.2rem; }
+.card-list-item .chinese { font-family: var(--script-font, var(--chinese-font)); font-size: 1.2rem; }
 .card-list-item .english { font-size: 0.85rem; color: var(--text-muted); }
 .card-list-item .jyutping { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
 

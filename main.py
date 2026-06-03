@@ -1585,6 +1585,7 @@ async def list_languages():
                 "name": info["name"],
                 "flag": info.get("flag", ""),
                 "script": info["script"],
+                "script_family": translation.SCRIPT_BY_LANG.get(code, "latin"),
                 "romanization": info["romanization"],
                 "logographic": info["romanization"] is not None,
             }

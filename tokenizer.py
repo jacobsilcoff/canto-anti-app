@@ -4,14 +4,23 @@ import re
 Token = dict
 
 # Matches sentence-ending punctuation that is NOT inside quotes.
-# For CJK: 。！？; for Latin: . ! ?; also newlines.
-_SENTENCE_ENDERS = re.compile(r'[。！？.!?\n]')
+# CJK: 。！？; Latin: . ! ?; Devanagari danda: । ॥; also newlines.
+_SENTENCE_ENDERS = re.compile(r'[。！？.!?।॥\n]')
 
 # Punctuation that must never be swallowed inside a word token.
 _INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉\n])')
 # Opening/closing quote characters — we avoid splitting mid-quote.
 _OPEN_QUOTES = set('"«「『')
 _CLOSE_QUOTES = set('"»」』')
+
+# Word characters for alphabetic, space-delimited scripts. Includes Latin (with
+# accents + apostrophe), Devanagari (consonants AND combining vowel marks, which
+# are not .isalpha()), and Hangul (precomposed syllables + Jamo). Used to tokenise
+# any non-CJK script where words are separated by spaces.
+# Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
+# those stay as sentence punctuation rather than getting glued onto a word.
+_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿ가-힣ᄀ-ᇿ㄰-㆏"
+_ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 
 def split_sentences(tokens: list[Token]) -> list[str]:
@@ -58,10 +67,32 @@ def split_sentences(tokens: list[Token]) -> list[str]:
 def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     """Return a mapping of word text → romanization string for the given words.
 
-    Only produces output for logographic languages (yue, cmn). Returns an
-    empty dict for Latin-script languages or on failure.
+    Produces output for scripts with an offline romaniser (yue, cmn, ko, hi).
+    Returns an empty dict for Latin-script languages or on failure.
     """
     result: dict[str, str] = {}
+    if lang == "ko":
+        try:
+            from korean_romanizer.romanizer import Romanizer
+            for word in words:
+                if word not in result:
+                    rom = Romanizer(word).romanize()
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            pass
+        return result
+    if lang == "hi":
+        try:
+            from indic_transliteration import sanscript
+            for word in words:
+                if word not in result:
+                    rom = sanscript.transliterate(word, sanscript.DEVANAGARI, sanscript.IAST)
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            pass
+        return result
     if lang == "yue":
         try:
             import pycantonese
@@ -170,9 +201,10 @@ def _char_tokenize(text: str) -> list[Token]:
 
 
 def _tokenize_latin(text: str) -> list[Token]:
+    """Tokenise a space-delimited alphabetic script (Latin, Devanagari, Hangul…)."""
     tokens = []
-    for m in re.finditer(r"[a-zA-ZÀ-ÿ']+|[^a-zA-ZÀ-ÿ']+", text):
+    for m in re.finditer(rf"[{_ALPHA}]+|[^{_ALPHA}]+", text):
         word = m.group()
-        is_word = bool(re.match(r"[a-zA-ZÀ-ÿ']", word))
+        is_word = bool(_ALPHA_RE.match(word))
         tokens.append({"text": word, "is_word": is_word})
     return tokens

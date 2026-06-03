@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
     .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
 
@@ -83,7 +83,7 @@
     .legend-dot.new    { background: #94a3b8; }
 
     /* ── Text body ── */
-    .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: 'Noto Sans TC', sans-serif; color: var(--text); overflow-wrap: break-word; }
+    .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: var(--script-font, 'Noto Sans TC'), sans-serif; color: var(--text); overflow-wrap: break-word; }
     .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
     .sentence { cursor: pointer; border-radius: 4px; }
     .sentence.active { background: rgba(99,102,241,.07); }
@@ -112,7 +112,7 @@
       max-width: 280px;
       pointer-events: auto;
     }
-    .tooltip-word { font-size: 1.7rem; font-weight: 700; font-family: 'Noto Sans TC', sans-serif; color: var(--text); line-height: 1.2; }
+    .tooltip-word { font-size: 1.7rem; font-weight: 700; font-family: var(--script-font, 'Noto Sans TC'), sans-serif; color: var(--text); line-height: 1.2; }
     .tooltip-rom  { font-size: 0.9rem; color: var(--text-muted, #888); margin: 3px 0 5px; }
     .tooltip-eng  { font-size: 0.95rem; color: var(--text); margin-bottom: 8px; }
     .tooltip-notes { font-size: 0.8rem; color: var(--text-muted, #888); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 10px; }
@@ -343,6 +343,16 @@
     }
   }
 
+  function scriptFamilyOf(code) {
+    const l = languages.find(x => x.code === code);
+    return (l && l.script_family) || 'latin';
+  }
+  function applyReaderScript(el, code) {
+    if (!el) return;
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-hangul', 'script-latin');
+    el.classList.add('script-' + scriptFamilyOf(code));
+  }
+
 
 
   // ── Saved texts ────────────────────────────────────────────────────────────
@@ -470,8 +480,11 @@
     sentenceCache = {};
     (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
     document.getElementById('reader-title').textContent = data.title;
-    const isLatin = !['yue','cmn'].includes(data.target_lang);
+    const isLatin = scriptFamilyOf(data.target_lang) === 'latin';
     document.getElementById('reader-text').classList.toggle('latin', isLatin);
+    // Apply the writing-system font to the text body and the word tooltip.
+    applyReaderScript(document.getElementById('reader-text'), data.target_lang);
+    applyReaderScript(document.getElementById('word-tooltip'), data.target_lang);
     sentences = buildSentences(data.tokens);
     // Must be set before renderPage so <rt> elements get their text on first render.
     romanizationOn = false;
@@ -545,7 +558,7 @@
     let quoteDepth = 0;
     const openQuotes = new Set(['“', '«', '「', '『']);
     const closeQuotes = new Set(['”', '»', '」', '』']);
-    const sentenceEnders = /[。！？.!?\n]/;
+    const sentenceEnders = /[。！？.!?।॥\n]/;
 
     tokens.forEach((tok, i) => {
       if (!tok.is_word) {
