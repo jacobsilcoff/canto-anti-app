@@ -167,18 +167,42 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
     if rom:
         candidate_obj.append(f'"romanization": "..."  // {rom}')
     candidate_obj.append('"english": "..."  // the English translation')
-    candidate_obj.append('"notes": "..."  // 1-2 sentences: usage, register, cultural context, common pitfalls. Empty string if no useful note.')
+    candidate_obj.append('"notes": "..."  // see notes rules below')
 
     classifier_field = ""
     if classifier_hint:
         classifier_field = f'\n  "classifier": "..."  // {classifier_hint}'
 
+    # Build language-specific etymology hint for the notes rule.
+    if target_lang in ("yue", "cmn"):
+        etymology_hint = (
+            "If the word is a loanword from English (e.g. 巴士 from \"bus\", 的士 from \"taxi\"), "
+            "or if an English word derives from it (e.g. 颱風 → \"typhoon\", 茶 → \"tea\"), "
+            "mention the connection in one clause."
+        )
+    else:
+        etymology_hint = (
+            "If the word shares a Latin/Greek root with an English word, or is a recognisable cognate "
+            "or false friend (e.g. French \"librairie\" ≠ \"library\"), note the connection in one clause."
+        )
+
+    classifier_rule = (
+        f"- CLASSIFIER (for nouns): always provide the correct {classifier_hint} "
+        f"Do not leave it blank for countable nouns.\n"
+        if classifier_hint else ""
+    )
+
     return (
         f"{direction}\n"
         "Rules:\n"
         f"{rules}\n"
-        f"- For each candidate, provide a 1–2 sentence usage note when helpful (register, cultural context, "
-        f"common collocations, common pitfalls). Empty string if not useful.\n"
+        f"- NOTES: Write 1–2 sentences of genuine insight for a language learner. "
+        f"Do NOT restate what the translation already makes obvious (e.g. don't explain that a verb "
+        f"means 'to do X' when that is already the translation). "
+        f"Focus on: register/formality, common collocations, pitfalls for English speakers, cultural context. "
+        f"{etymology_hint} "
+        f"Use an empty string if there is truly nothing non-obvious to add.\n"
+        f"{classifier_rule}"
         f"- If the input is ambiguous and could reasonably be translated more than one way, "
         f'include up to 3 "candidates" with brief disambiguation labels. If the input is unambiguous, '
         f'return a single candidate.\n'
