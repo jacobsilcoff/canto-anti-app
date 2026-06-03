@@ -45,6 +45,24 @@ The one solid free option is **Meta MMS** (`facebook/mms-tts-hat`) — a purpose
 
 Thai (`th`) is the remaining language from the "non-Latin scripts" batch. TTS is fine (`th-TH-PremwadeeNeural`), but Thai is written **without spaces between words**, so the reader's whitespace tokenizer (`_tokenize_latin`) would treat a whole sentence as one untappable blob. Needs dictionary-based segmentation like CJK — add a `th` branch in `tokenizer.tokenize` using **`pythainlp`** (`word_tokenize`), plus `pythainlp.transliterate.romanize` for reader ruby. Everything else follows the established pattern: `LANG_INFO` + `SCRIPT_BY_LANG['th']='thai'`, `--thai-font` (Noto Sans Thai), starter deck, onboarding sample. `pythainlp` is the one new dep (pure-Python but bundles data). Romanization scheme decision: RTGS (standard, drops tones) vs a tone-marked scheme — Thai is tonal so tones matter for learners.
 
+## 43. AI Learning Path (Duolingo-style course) — ⭐ FLAGSHIP
+**Complexity: High | Cost: ~$0 (Gemini free tier) | the big bet**
+
+A generative, SRS-aware course that teaches a language from the ground up. **Design decisions locked** (2026-06): CEFR-scaffolded curriculum, unified with the existing SRS deck, lean deterministic MVP first.
+
+**Architecture:**
+- **Two-layer generation** — keeps an AI course coherent: (1) *curriculum* skeleton = units + lessons + objectives + target new-concept counts, generated once and regeneratable; (2) *lesson content* = the exercises, generated on demand and **cached** in `lessons.content` (JSON).
+- **Concept ledger** — each lesson declares the concepts it teaches (vocab + grammar points). Next-lesson generation is fed a compact *digest* (concept IDs + mastery + weak items to recycle), never raw lesson text → scales without context bloat. The app owns concept IDs; the AI references the provided list and proposes canonical keys for new ones (app dedupes).
+- **CEFR scaffold** — a per-level, language-agnostic can-do/topic checklist (A1: greetings, numbers, family, ordering food…) guides the curriculum generator. Reliable + generalizable since CEFR is language-independent. Store as a `learning.CEFR_SYLLABUS` constant (like `LANG_INFO`).
+- **SRS fusion** (the differentiator) — lesson vocab becomes **tagged cards** in the existing deck (reuse `create_card` + a course/unit label, like reader story-labels). Generator checks `get_word_statuses` to skip already-known words and recycle weak ones into review exercises. Path ↔ flashcards reinforce each other; this is the "aware of what the user has learned" edge.
+- **Exercise-type registry** — each type = JSON schema (what the AI emits) + frontend renderer (widget) + grader. Adding a type later touches only those three. **MVP types are all auto-gradable**: vocab multiple-choice, word-bank sentence build (Duolingo-style tiles), listening (edge-tts audio), cloze/fill-blank, match-pairs. AI-graded free production (translation, comprehension) is **deferred** — costs a call per answer.
+
+**Data model:** `courses (user_id, target_lang, level, status)` / `units (course_id, idx, title, theme, objective, status)` / `lessons (unit_id, idx, title, objectives, status, content JSON null=ungenerated, concepts_introduced JSON)` / `concepts (course_id, kind, key, label, introduced_lesson_id)` / `user_progress (user_id, lesson_id, score, completed_at)`. Exercises live as a JSON blob in `lessons.content` (regeneratable content, not relational); attempts/scores are durable. New module `learning.py` (mirrors `translation.py`). New `/learn` page: path view + lesson player + results.
+
+**Phased build:** (1) CEFR scaffold + curriculum generator + read-only path view — *de-risks syllabus quality first*; (2) lesson generation + player + deterministic grading + unlock/progress; (3) SRS fusion (vocab→cards, skip-known, recycle-weak, ledger mastery); (4) regeneration UX, background pre-gen of next lesson, more exercise types, later AI grading.
+
+**Risks:** curriculum quality (#1 — mitigated by CEFR scaffold + per-lesson/unit regenerate); concept-ID stability (app owns IDs); open-ended grading cost (deferred); scope (tight MVP, expand). Per-lesson and per-unit **regenerate** buttons throughout.
+
 ---
 
 # Onboarding & intuitiveness
