@@ -27,6 +27,7 @@ services:
       - DB_PATH=/data/cards.db
       - TEST_USERS=${TEST_USERS:-1}
       - TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-test}
+      - ENVIRONMENT=dev
     volumes:
       - staging_data:/data
     networks:
