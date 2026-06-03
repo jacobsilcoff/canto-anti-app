@@ -2,6 +2,7 @@
 
 ## ✅ Shipped
 
+- **5 new languages: Italian, Brazilian Portuguese, Tagalog, Malay, Indonesian** — Added entries to `translation.LANG_INFO` (per-language rules, frequency scale, flag), TTS voices in `audio.VOICES` (it-IT/pt-BR/fil-PH/ms-MY/id-ID), gendered definite-article classifier hints for it/pt, 12-word starter decks each, and onboarding greeting samples. Everything else (settings dropdown, language pill, `/api/languages`) derives automatically. Haitian Creole was requested too but **skipped — edge-tts has no Creole voice**; revisit if another TTS provider is added.
 - **SRS learning steps + face staggering** — Reworked scheduling so it behaves like real spaced repetition. `srs.update` now has sub-day learning steps (1 min → 10 min → graduate to 1 day); "again" sends a card back through the steps so it reappears *this session* instead of vanishing for a day, and the frontend re-queues any still-learning card a few slots ahead. "Easy" now graduates immediately to a 4-day interval (vs 1 for "good"), and review-card hard/good/easy intervals are differentiated. New `learning_step` column on `card_faces`. New words are also staggered to their primary face (`target`) — the source/pronunciation faces unlock only once the primary graduates — so one word no longer shows up 3× in its first session. `get_due_count` honors the same gate so the badge matches.
 - **Language-first onboarding (30)** — `/welcome` now asks "What are you learning?" as step 1 (language cards with script samples); plan picker is step 2 and only shown when billing is configured. Saves `default_target_lang` and seeds a starter deck in the background. All non-admin users who haven't onboarded go through this flow on first login.
 - **Persistent language pill in header (31)** — Flag + language name pill injected into every nav page via `_LANG_WIDGET`; clicking opens a dropdown to switch language, which saves the preference and reloads. Language-scoped: study sessions, due-count badge, reader saved texts, and flashcard browse all default to the current learning language.
@@ -24,6 +25,19 @@
 Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 **Cost baseline:** Compute runs on Oracle Cloud Free Tier (4 OCPU ARM, 24 GB RAM) — $0. Gemini 2.5 Flash Lite via AI Studio free tier (1,500 req/day) — $0. `edge-tts` is free. At small family/friend scale (~5–15 active users) virtually everything stays within free tiers. Costs noted below are what would kick in if free tiers are exceeded. Paid Gemini Flash Lite rates: input $0.075/1M tokens, output $0.30/1M tokens.
+
+---
+
+## 41. Haitian Creole audio via Meta MMS
+**Complexity: Medium | Cost: $0 (local inference)**
+
+Haitian Creole (`ht`) was deferred when adding the 5 new languages because **edge-tts has no Creole voice** — and the `voice_for` fallback would read Creole text in a *Cantonese* voice (worse than silence). Confirmed: Google Cloud TTS, Amazon Polly, Azure, and gTTS/Google Translate also have **no** Haitian Creole voice.
+
+The one solid free option is **Meta MMS** (`facebook/mms-tts-hat`) — a purpose-built VITS model (part of Massively Multilingual Speech, 1,100+ langs), run locally via `transformers` + `torch`. Verified the model exists on Hugging Face.
+
+**Plan:** route `ht` in `audio.py` to a lazy-loaded MMS backend; leave every other language on edge-tts so the weight only matters when Creole is actually used. Encode the model's raw waveform to MP3 (or serve WAV) to match the current BLOB storage/serving.
+
+**Main cost is infra, not money:** adds the full PyTorch stack (~hundreds of MB) + the model (~140 MB) to the Docker image → much larger/slower builds & deploys on the Oracle ARM box, for a single language. CPU inference works on ARM, just slower per card. Decision pending: is Creole worth the heavier container? Prototype on `develop` first to judge voice quality before committing.
 
 ---
 

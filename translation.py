@@ -104,6 +104,79 @@ LANG_INFO = {
         ),
         "rules": "- Use standard High German (Hochdeutsch) with correct grammar, umlauts, and ß",
     },
+    "it": {
+        "name": "Italian",
+        "flag": "🇮🇹",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard Italian with correct accents (à, è, é, ì, ò, ù) and grammar",
+    },
+    "pt": {
+        "name": "Brazilian Portuguese",
+        "flag": "🇧🇷",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use Brazilian Portuguese (Brazil) with correct accents and grammar",
+    },
+    "tl": {
+        "name": "Tagalog",
+        "flag": "🇵🇭",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (markers like ang/ng/sa, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": (
+            "- Use standard Tagalog/Filipino as spoken in the Philippines\n"
+            "- Common English loanwords (Taglish) are acceptable where they are the natural everyday choice"
+        ),
+    },
+    "ms": {
+        "name": "Malay",
+        "flag": "🇲🇾",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, basic verbs/nouns, common particles), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard Malay (Bahasa Melayu) as used in Malaysia",
+    },
+    "id": {
+        "name": "Indonesian",
+        "flag": "🇮🇩",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, basic verbs/nouns, common particles), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard Indonesian (Bahasa Indonesia)",
+    },
 }
 
 
@@ -145,6 +218,10 @@ _CLASSIFIER_HINT = {
     "fr": 'definite article for nouns: "le", "la", "l\'", or "les". Empty string for non-nouns.',
     "es": 'definite article for nouns: "el", "la", "los", or "las". Empty string for non-nouns.',
     "de": 'definite article for nouns: "der", "die", or "das". Empty string for non-nouns.',
+    "it": 'definite article for nouns: "il", "lo", "la", "l\'", "i", "gli", or "le". Empty string for non-nouns.',
+    "pt": 'definite article for nouns: "o", "a", "os", or "as". Empty string for non-nouns.',
+    # Tagalog, Malay, and Indonesian have no gendered definite article system, so no
+    # classifier is requested (they behave like English here).
 }
 
 

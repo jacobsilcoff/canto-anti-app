@@ -8,6 +8,11 @@ VOICES = {
     "es": "es-ES-ElviraNeural",
     "en": "en-US-AriaNeural",
     "de": "de-DE-KatjaNeural",
+    "it": "it-IT-ElsaNeural",
+    "pt": "pt-BR-FranciscaNeural",
+    "tl": "fil-PH-BlessicaNeural",  # edge-tts exposes Tagalog as Filipino (fil-PH)
+    "ms": "ms-MY-YasminNeural",
+    "id": "id-ID-GadisNeural",
 }
 
 
