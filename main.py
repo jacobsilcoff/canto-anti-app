@@ -171,56 +171,9 @@ _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
 
 IS_DEV = os.getenv("ENVIRONMENT", "").lower() == "dev"
 
-# In-memory bytes for the dev-variant icons (generated once at import time).
-_DEV_ICON_192: bytes | None = None
-_DEV_ICON_512: bytes | None = None
-
-if IS_DEV:
-    try:
-        import io
-        from PIL import Image, ImageDraw, ImageFont
-
-        def _make_dev_icon(path: str) -> bytes:
-            img = Image.open(path).convert("RGBA")
-            size = img.size[0]  # square
-
-            # Orange overlay at ~35% opacity so the underlying art shows through.
-            overlay = Image.new("RGBA", img.size, (251, 146, 60, 90))  # amber-400
-            img = Image.alpha_composite(img, overlay)
-
-            # "DEV" badge in the bottom-right corner.
-            draw = ImageDraw.Draw(img)
-            badge_h = max(28, size // 7)
-            badge_w = max(64, size // 3)
-            badge_x = size - badge_w - 4
-            badge_y = size - badge_h - 4
-            radius = badge_h // 3
-            # Pill background
-            draw.rounded_rectangle(
-                [badge_x, badge_y, size - 4, size - 4],
-                radius=radius,
-                fill=(234, 88, 12, 230),   # orange-600
-            )
-            # Text — use a default bitmap font; size scaled to badge
-            font_size = int(badge_h * 0.58)
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except Exception:
-                font = ImageFont.load_default()
-            bbox = draw.textbbox((0, 0), "DEV", font=font)
-            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            tx = badge_x + (badge_w - tw) // 2
-            ty = badge_y + (badge_h - th) // 2 - bbox[1]
-            draw.text((tx, ty), "DEV", fill=(255, 255, 255, 255), font=font)
-
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            return buf.getvalue()
-
-        _DEV_ICON_192 = _make_dev_icon("static/icons/icon-192.png")
-        _DEV_ICON_512 = _make_dev_icon("static/icons/icon-512.png")
-    except Exception as e:
-        print(f"[dev] icon generation failed: {e}")
+# Pre-generated, committed dev-variant icons (orange tint + "DEV" badge). Served
+# as static files in dev — no runtime image library needed. See
+# scripts/make_dev_icons.py for how they were produced.
 
 
 def _compute_asset_version() -> str:
@@ -451,12 +404,12 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
-    # In dev, point the favicon + apple-touch-icon (and any other icon refs) at the
-    # badged dev icons so the browser tab and iOS homescreen visibly differ from prod.
-    # (The manifest alone isn't enough — iOS prefers apple-touch-icon over it.)
+    # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
+    # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
+    # isn't enough — iOS prefers apple-touch-icon over it.)
     if IS_DEV:
-        content = content.replace("/static/icons/icon-192.png", "/icons/dev/192")
-        content = content.replace("/static/icons/icon-512.png", "/icons/dev/512")
+        content = content.replace("/static/icons/icon-192.png", "/static/icons/icon-dev-192.png")
+        content = content.replace("/static/icons/icon-512.png", "/static/icons/icon-dev-512.png")
     content = content.replace(
         "</head>",
         f'<script>window.__VERSION__="{ASSET_VERSION}"</script></head>',
@@ -496,22 +449,12 @@ async def manifest():
             "theme_color": "#ea580c",        # orange-600
             "orientation": "portrait",
             "icons": [
-                {"src": "/icons/dev/192", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-                {"src": "/icons/dev/512", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-dev-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-dev-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
             ],
         }
         return JSONResponse(data, headers={"Content-Type": "application/manifest+json"})
     return FileResponse("static/manifest.json", media_type="application/manifest+json")
-
-
-@app.get("/icons/dev/{size}")
-async def dev_icon(size: str):
-    """Serve the orange-badged dev icon; only generated when ENVIRONMENT=dev."""
-    icon = _DEV_ICON_512 if size == "512" else _DEV_ICON_192
-    if icon is None:
-        raise HTTPException(404, "Dev icons not available")
-    return Response(content=icon, media_type="image/png",
-                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
