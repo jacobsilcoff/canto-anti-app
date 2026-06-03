@@ -15,6 +15,7 @@ VOICES = {
     "id": "id-ID-GadisNeural",
     "ko": "ko-KR-SunHiNeural",
     "hi": "hi-IN-SwaraNeural",
+    "te": "te-IN-ShrutiNeural",
 }
 
 

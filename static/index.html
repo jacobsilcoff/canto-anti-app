@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
     /* ── lang direction bar ── */
@@ -249,7 +249,7 @@
   function applyScript(code) {
     const l = langByCode(code);
     const fam = (l && l.script_family) || 'latin';
-    document.body.classList.remove('script-chinese', 'script-devanagari', 'script-hangul', 'script-latin');
+    document.body.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
     document.body.classList.add('script-' + fam);
   }
 

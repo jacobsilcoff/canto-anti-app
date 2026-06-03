@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
     .offline-bar {
@@ -501,7 +501,7 @@
   // the right --script-font for the language's writing system.
   function applyScript(el, code) {
     if (!el) return;
-    el.classList.remove('script-chinese', 'script-devanagari', 'script-hangul', 'script-latin');
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
     el.classList.add('script-' + scriptFamily(code));
   }
   // Returns { source, target, pronunciation } display labels for the given language
@@ -1776,7 +1776,7 @@
     document.getElementById('inline-target').value = item.target_text || '';
     document.getElementById('inline-target').placeholder = labels.target;
     document.getElementById('inline-target').style.fontFamily = logographic
-      ? { chinese: 'var(--chinese-font)', devanagari: 'var(--devanagari-font)', hangul: 'var(--hangul-font)' }[scriptFamily(langCode)] || 'var(--chinese-font)'
+      ? { chinese: 'var(--chinese-font)', devanagari: 'var(--devanagari-font)', telugu: 'var(--telugu-font)', hangul: 'var(--hangul-font)' }[scriptFamily(langCode)] || 'var(--chinese-font)'
       : 'inherit';
     const romanEl = document.getElementById('inline-roman');
     if (logographic) {

@@ -14,12 +14,12 @@ _OPEN_QUOTES = set('"«「『')
 _CLOSE_QUOTES = set('"»」』')
 
 # Word characters for alphabetic, space-delimited scripts. Includes Latin (with
-# accents + apostrophe), Devanagari (consonants AND combining vowel marks, which
-# are not .isalpha()), and Hangul (precomposed syllables + Jamo). Used to tokenise
-# any non-CJK script where words are separated by spaces.
+# accents + apostrophe), Devanagari and Telugu (consonants AND combining vowel
+# marks, which are not .isalpha()), and Hangul (precomposed syllables + Jamo).
+# Used to tokenise any non-CJK script where words are separated by spaces.
 # Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
 # those stay as sentence punctuation rather than getting glued onto a word.
-_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿ가-힣ᄀ-ᇿ㄰-㆏"
+_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 
@@ -82,12 +82,13 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
         except Exception:
             pass
         return result
-    if lang == "hi":
+    if lang in ("hi", "te"):
         try:
             from indic_transliteration import sanscript
+            src = sanscript.DEVANAGARI if lang == "hi" else sanscript.TELUGU
             for word in words:
                 if word not in result:
-                    rom = sanscript.transliterate(word, sanscript.DEVANAGARI, sanscript.IAST)
+                    rom = sanscript.transliterate(word, src, sanscript.IAST)
                     if rom:
                         result[word] = rom
         except Exception:

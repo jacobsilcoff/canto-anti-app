@@ -7,7 +7,7 @@
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
     .welcome-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
     .welcome-inner { width:100%; max-width:720px; display:flex; flex-direction:column; gap:20px; }
@@ -152,10 +152,10 @@
         const scriptSamples = {
           yue: '你好', cmn: '你好', fr: 'Bonjour', es: 'Hola', de: 'Hallo',
           it: 'Ciao', pt: 'Olá', tl: 'Kumusta', ms: 'Helo', id: 'Halo',
-          ko: '안녕하세요', hi: 'नमस्ते',
+          ko: '안녕하세요', hi: 'नमस्ते', te: 'నమస్తే',
         };
         const scriptFonts = {
-          hangul: 'var(--hangul-font)', devanagari: 'var(--devanagari-font)', chinese: 'var(--chinese-font)',
+          hangul: 'var(--hangul-font)', devanagari: 'var(--devanagari-font)', telugu: 'var(--telugu-font)', chinese: 'var(--chinese-font)',
         };
         const sampleFont = scriptFonts[l.script_family] || 'inherit';
         card.innerHTML = `

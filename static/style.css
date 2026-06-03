@@ -11,6 +11,7 @@
   --text-muted: #5f6368;
   --chinese-font: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', serif;
   --devanagari-font: 'Noto Sans Devanagari', 'Nirmala UI', sans-serif;
+  --telugu-font: 'Noto Sans Telugu', 'Gautami', sans-serif;
   --hangul-font: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
@@ -34,6 +35,7 @@ body {
    element inside it (.is-chinese, .chinese, .output-chinese, .reader-text, …)
    picks up the right font. Default/fallback is --chinese-font for back-compat. */
 .script-devanagari { --script-font: var(--devanagari-font); }
+.script-telugu { --script-font: var(--telugu-font); }
 .script-hangul { --script-font: var(--hangul-font); }
 .script-chinese { --script-font: var(--chinese-font); }
 

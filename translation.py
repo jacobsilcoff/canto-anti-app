@@ -212,13 +212,30 @@ LANG_INFO = {
             "- Provide romanisation using IAST transliteration (e.g. namaste, pānī, kitāb)"
         ),
     },
+    "te": {
+        "name": "Telugu",
+        "flag": "🇮🇳",
+        "script": "Telugu",
+        "romanization": "IAST",
+        "frequency_examples": (
+            "5 = extremely common (postpositions, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, Sanskritised register)"
+        ),
+        "rules": (
+            "- Use standard Modern Telugu (తెలుగు) in Telugu script\n"
+            "- Provide romanisation using IAST/ISO transliteration (e.g. namaste, nīḻlu, tèlugu)"
+        ),
+    },
 }
 
 # Machine-readable script family per language, used by the frontend to pick the
 # right font and (for the reader) how to render/segment text. Defaults to "latin".
 SCRIPT_BY_LANG = {
     "yue": "chinese", "cmn": "chinese",
-    "ko": "hangul", "hi": "devanagari",
+    "ko": "hangul", "hi": "devanagari", "te": "telugu",
 }
 
 

@@ -173,6 +173,20 @@ _WORDS: dict[str, list[tuple[str, str, str]]] = {
         ("one", "एक", "eka"),
         ("person", "आदमी", "ādamī"),
     ],
+    "te": [
+        ("hello", "నమస్తే", "namaste"),
+        ("thank you", "ధన్యవాదాలు", "dhanyavādālu"),
+        ("yes", "అవును", "avunu"),
+        ("no", "కాదు", "kādu"),
+        ("I / me", "నేను", "nenu"),
+        ("you (informal)", "నువ్వు", "nuvvu"),
+        ("good", "మంచి", "maṃci"),
+        ("eat", "తిను", "tinu"),
+        ("drink", "తాగు", "tāgu"),
+        ("water", "నీళ్లు", "nīḻlu"),
+        ("one", "ఒకటి", "òkaṭi"),
+        ("person", "మనిషి", "maniṣi"),
+    ],
 }
 
 

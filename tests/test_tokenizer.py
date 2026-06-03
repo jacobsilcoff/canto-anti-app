@@ -51,6 +51,23 @@ def test_hindi_romanization_iast():
     assert rom["पानी"] == "pānī"
 
 
+# ── Telugu ────────────────────────────────────────────────────────────────────
+
+def test_telugu_splits_on_spaces():
+    assert _words("నేను తెలుగు నేర్చుకుంటున్నాను", "te") == ["నేను", "తెలుగు", "నేర్చుకుంటున్నాను"]
+
+
+def test_telugu_keeps_combining_marks_in_word():
+    # 'నీళ్లు' contains combining vowel signs that are not .isalpha() — one token.
+    assert _words("నీళ్లు", "te") == ["నీళ్లు"]
+
+
+def test_telugu_romanization_iast():
+    rom = tokenizer.romanize_words(["నమస్తే", "ఒకటి"], "te")
+    assert rom["నమస్తే"] == "namaste"
+    assert rom["ఒకటి"] == "òkaṭi"
+
+
 # ── Latin unaffected ──────────────────────────────────────────────────────────
 
 def test_latin_still_tokenizes():
