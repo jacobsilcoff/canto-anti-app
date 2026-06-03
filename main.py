@@ -451,6 +451,12 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
+    # In dev, point the favicon + apple-touch-icon (and any other icon refs) at the
+    # badged dev icons so the browser tab and iOS homescreen visibly differ from prod.
+    # (The manifest alone isn't enough — iOS prefers apple-touch-icon over it.)
+    if IS_DEV:
+        content = content.replace("/static/icons/icon-192.png", "/icons/dev/192")
+        content = content.replace("/static/icons/icon-512.png", "/icons/dev/512")
     content = content.replace(
         "</head>",
         f'<script>window.__VERSION__="{ASSET_VERSION}"</script></head>',
