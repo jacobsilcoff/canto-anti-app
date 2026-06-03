@@ -40,28 +40,33 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 |------|------|
 | `main.py` | All FastAPI routes, auth middleware, session management |
 | `db.py` | All DB access — schema, migrations, CRUD. Every function takes `user_id` for isolation |
-| `translation.py` | Gemini prompt construction, JSON parsing, retry logic |
-| `audio.py` | edge-tts wrapper; returns MP3 bytes |
-| `srs.py` | Pure SM-2 implementation; takes card state, returns new state |
+| `translation.py` | Gemini prompt construction, JSON parsing, retry logic; `LANG_INFO` + `SCRIPT_BY_LANG` language registry |
+| `audio.py` | edge-tts wrapper; returns MP3 bytes; `VOICES` map |
+| `srs.py` | SM-2 with sub-day learning steps; pure/stateless — takes card state, returns new state |
+| `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai TBD, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby |
 | `auth.py` | scrypt password hashing + timing-safe verification |
 
 ### Database schema
 
 - **cards** — source_text, target_text, romanization, target_lang, audio_data (BLOB), notes, priority (1–5), tutor_flag, suspended
-- **card_faces** — one row per face per card (`source`, `target`, `pronunciation`); each face has independent SM-2 state (next_review, interval_days, ease_factor, repetitions, first_seen_date)
+- **card_faces** — one row per face per card (`source`, `target`, `pronunciation`); each face has independent SM-2 state (next_review, interval_days, ease_factor, repetitions, first_seen_date, learning_step). `learning_step` non-NULL = card is in (re)learning with sub-day steps; NULL = graduated review card.
 - **labels / card_labels** — per-user tags; many-to-many with cards
 - **users** — scrypt-hashed passwords, is_admin flag
 - **user_settings** — key-value store (new_cards_per_day, default_target_lang)
 
-Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately.
+Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately. New words are **staggered** — only the primary `target` face is introduced first; `source`/`pronunciation` unlock once the primary graduates (see `db.get_study_session`).
 
 ### Auth & sessions
 
 Sessions are in-memory (`_sessions` dict in `main.py`): token → (user_id, expiry). Auth middleware runs on every request; unauthenticated HTML requests redirect to `/login`, API requests get 401. Sessions expire after 30 days and are purged on next login.
 
+### SRS scheduling (`srs.update`)
+
+SM-2 with sub-day **learning steps** (`LEARNING_STEPS_MIN = [1, 10]` minutes). A new or lapsed card walks the steps before graduating to a day-level interval, so "again" reschedules in ~1 min (reappears the same session, re-queued client-side) instead of vanishing for a day. "Easy" graduates straight to 4 days; review-card hard/good/easy intervals are differentiated. Pure/stateless — pass `learning_step`/`first_seen_date`/etc. in, get the new state back.
+
 ### Study session logic (`db.get_study_session`)
 
-Returns due review faces (next_review ≤ now) + new faces (first_seen_date IS NULL) up to the daily cap (default 20 new/day). New faces are ordered by priority DESC then id ASC.
+Returns due review faces (next_review ≤ now) + new faces up to the daily cap (default 20 new/day, `new_cards_per_day` setting). New faces are **staggered**: a brand-new word only offers its `PRIMARY_FACE` (`target`); the other faces become eligible once the primary has graduated (`learning_step IS NULL AND first_seen_date IS NOT NULL`). New faces ordered by priority DESC then id ASC. `db.get_due_count` applies the same staggering gate so the badge matches.
 
 ### Translation flow
 
@@ -69,18 +74,28 @@ Returns due review faces (next_review ≤ now) + new faces (first_seen_date IS N
 
 ### Multi-language support
 
-`translation.LANG_INFO` maps language codes (`yue`, `cmn`, `fr`, `es`, `de`) to per-language config: romanization scheme, script, TTS voice, Gemini prompt rules. Adding a new language means adding an entry there and a voice in `audio.VOICES`.
+`translation.LANG_INFO` is the language registry — maps codes to per-language config (name, flag, script, romanization scheme, frequency scale, Gemini prompt rules). Supported: `yue cmn` (Chinese), `fr es de it pt tl ms id` (Latin), `ko hi te` (Hangul/Devanagari/Telugu). `/api/languages` derives the frontend language list from it, so the settings dropdown, language pill, and onboarding update automatically.
+
+**Adding a Latin-script language** = an entry in `LANG_INFO` + a voice in `audio.VOICES`. That's it.
+
+**Adding a non-Latin script** also requires:
+- `translation.SCRIPT_BY_LANG[code] = "<family>"` (machine script key; default `"latin"`). Exposed as `script_family` in `/api/languages`.
+- `tokenizer.py`: if space-delimited, add the script's Unicode ranges to `_ALPHA` (mind combining marks and which punctuation must stay separate); if no spaces (Thai/CJK), add a dictionary-segmentation branch in `tokenize`. Add an offline romanizer branch in `romanize_words` for reader ruby.
+- Frontend font: a `--<family>-font` CSS var + `.script-<family>` rule in `style.css`, the Google-Fonts `<link>` in the 4 rendering pages (cards/reader/index/welcome), and add the family to the `script-*` reset lists in the `applyScript` helpers + the inline-edit/onboarding font maps.
+
+The `logographic` flag (`romanization is not None`) controls *whether a romanization face is shown*; the **`--script-font` CSS variable** (set via a `script-<family>` container class) controls *which font renders* — these are decoupled. Never reintroduce a hardcoded `.is-chinese` font assumption for non-CJK scripts.
 
 ### Multi-user isolation
 
 Every `db.py` function filters by `user_id`. Admin bootstrap (`db.bootstrap_admin`) migrates any legacy single-user data to the configured admin username on first run.
 
-## Feature Tracking
+## Feature Tracking & doc upkeep
 
-Ideas and backlog live in [`IDEAS.md`](IDEAS.md). During any conversation:
+Ideas and backlog live in [`IDEAS.md`](IDEAS.md). These are **standing rules** — do them automatically, without being asked:
 
 - **New ideas that come up** (even incidentally) → add to `IDEAS.md` with a complexity/cost estimate.
-- **Implemented features** → move to a `## ✅ Shipped` section at the top of `IDEAS.md` with a one-line summary.
+- **Whenever a feature ships** → move it to the `## ✅ Shipped` section at the top of `IDEAS.md` with a one-line summary. Do this every time, as part of finishing the work.
+- **Keep this file (`CLAUDE.md`) current** → when a change alters the architecture, schema, language registry, or a documented convention here, update the relevant section in the same change so this file never drifts from the code.
 
 ## Code Conventions
 
