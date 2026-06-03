@@ -19,12 +19,18 @@ LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 # guardrails the curriculum generator organises into units + lessons; the model
 # adapts ordering and detail to the specific language (e.g. tones + measure words
 # for Cantonese, gender + verb conjugation for French). Start with A1/A2.
+#
+# NOTE: the writing/sound SYSTEM itself (script + tones/pronunciation) is handled
+# by a separate, curated "Foundations" module keyed on script_family — NOT here.
+# That content is finite/factual (a fixed inventory of graphemes/tones), shared
+# across users, and best derived from our romanizers rather than AI-generated.
+# This syllabus assumes the learner can already read the script and focuses on
+# vocabulary, grammar, and communication.
 CEFR_SYLLABUS = {
     "A1": [
         "Greetings, goodbyes, and basic courtesy (please, thank you, sorry, excuse me)",
         "Introducing yourself and asking someone's name",
         "Personal information: nationality, where you live, age",
-        "The writing/sound system basics (alphabet & spelling, or tones & romanisation)",
         "Numbers 0–100; giving your age and phone number",
         "Core function words: the verbs 'to be' and 'to have'; basic pronouns",
         "Articles / noun gender, or classifiers & measure words (language-dependent)",
