@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
     /* ── lang direction bar ── */
@@ -96,7 +96,7 @@
       transition: all 0.15s;
     }
     .candidate-option:hover { border-color: var(--primary); }
-    .candidate-target { font-size: 1.1rem; font-weight: 500; }
+    .candidate-target { font-size: 1.1rem; font-weight: 500; font-family: var(--script-font, inherit); }
     .candidate-roman { font-size: 0.88rem; color: var(--text-muted); font-style: italic; }
     .candidate-english { font-size: 0.92rem; }
     .candidate-label {
@@ -244,6 +244,15 @@
     return languages.find(l => l.code === code) || null;
   }
 
+  // Tag the page with the target language's writing system so target-text
+  // elements (.output-chinese, .candidate-target) use the right font.
+  function applyScript(code) {
+    const l = langByCode(code);
+    const fam = (l && l.script_family) || 'latin';
+    document.body.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
+    document.body.classList.add('script-' + fam);
+  }
+
   // ── Language ─────────────────────────────────────────────────────────────
   async function loadLanguages() {
     try {
@@ -266,6 +275,7 @@
   }
 
   function updateDirectionButtons() {
+    applyScript(targetLang);
     const lang = langByCode(targetLang);
     const langName = lang ? lang.name : targetLang;
     const langLabel = (lang && lang.flag ? lang.flag + ' ' : '') + langName;

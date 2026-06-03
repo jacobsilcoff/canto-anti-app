@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
     .offline-bar {
@@ -494,6 +494,16 @@
   function isLogographic(code) {
     return !!langInfo(code).logographic;
   }
+  function scriptFamily(code) {
+    return langInfo(code).script_family || 'latin';
+  }
+  // Tag a container so its target-text elements (.is-chinese/.chinese) pick up
+  // the right --script-font for the language's writing system.
+  function applyScript(el, code) {
+    if (!el) return;
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
+    el.classList.add('script-' + scriptFamily(code));
+  }
   // Returns { source, target, pronunciation } display labels for the given language
   function faceLabels(code) {
     const info = langInfo(code);
@@ -889,6 +899,7 @@
     document.getElementById('new-badge').style.display = isNew ? '' : 'none';
 
     const langCode = item.target_lang || 'yue';
+    applyScript(document.getElementById('flashcard'), langCode);
     // Cards are already scoped to the user's learning language — no need to label each one.
     document.getElementById('card-lang-tag').style.display = 'none';
 
@@ -1234,6 +1245,7 @@
     const langCode = item._targetLang;
     const logographic = isLogographic(langCode);
     const labels = faceLabels(langCode);
+    applyScript(item, langCode);
 
     const labelsHtml = (card.labels || []).map(l =>
       `<span class="label-chip-static">${escHtml(l.name)}</span>`
@@ -1763,7 +1775,9 @@
     document.getElementById('inline-source').value = item.source_text || '';
     document.getElementById('inline-target').value = item.target_text || '';
     document.getElementById('inline-target').placeholder = labels.target;
-    document.getElementById('inline-target').style.fontFamily = logographic ? 'var(--chinese-font)' : 'inherit';
+    document.getElementById('inline-target').style.fontFamily = logographic
+      ? { chinese: 'var(--chinese-font)', devanagari: 'var(--devanagari-font)', telugu: 'var(--telugu-font)', hangul: 'var(--hangul-font)' }[scriptFamily(langCode)] || 'var(--chinese-font)'
+      : 'inherit';
     const romanEl = document.getElementById('inline-roman');
     if (logographic) {
       romanEl.style.display = '';

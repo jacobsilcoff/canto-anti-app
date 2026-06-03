@@ -177,6 +177,65 @@ LANG_INFO = {
         ),
         "rules": "- Use standard Indonesian (Bahasa Indonesia)",
     },
+    "ko": {
+        "name": "Korean",
+        "flag": "🇰🇷",
+        "script": "Hangul",
+        "romanization": "romaja",
+        "frequency_examples": (
+            "5 = extremely common (basic particles 은/는/이/가/을/를, pronouns, daily verbs/nouns), "
+            "4 = common (food, family, shopping, transport), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": (
+            "- Use standard Seoul Korean (표준어) in Hangul\n"
+            "- Use natural politeness level (해요체 for everyday speech) unless context says otherwise\n"
+            "- Provide romanisation using the Revised Romanization of Korean (e.g. annyeonghaseyo)"
+        ),
+    },
+    "hi": {
+        "name": "Hindi",
+        "flag": "🇮🇳",
+        "script": "Devanagari",
+        "romanization": "IAST",
+        "frequency_examples": (
+            "5 = extremely common (postpositions, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, Sanskritised/Urdu register)"
+        ),
+        "rules": (
+            "- Use standard Modern Standard Hindi (मानक हिन्दी) in Devanagari script\n"
+            "- Provide romanisation using IAST transliteration (e.g. namaste, pānī, kitāb)"
+        ),
+    },
+    "te": {
+        "name": "Telugu",
+        "flag": "🇮🇳",
+        "script": "Telugu",
+        "romanization": "IAST",
+        "frequency_examples": (
+            "5 = extremely common (postpositions, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, Sanskritised register)"
+        ),
+        "rules": (
+            "- Use standard Modern Telugu (తెలుగు) in Telugu script\n"
+            "- Provide romanisation using IAST/ISO transliteration (e.g. namaste, nīḻlu, tèlugu)"
+        ),
+    },
+}
+
+# Machine-readable script family per language, used by the frontend to pick the
+# right font and (for the reader) how to render/segment text. Defaults to "latin".
+SCRIPT_BY_LANG = {
+    "yue": "chinese", "cmn": "chinese",
+    "ko": "hangul", "hi": "devanagari", "te": "telugu",
 }
 
 
