@@ -28,6 +28,19 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 41. Haitian Creole audio via Meta MMS
+**Complexity: Medium | Cost: $0 (local inference)**
+
+Haitian Creole (`ht`) was deferred when adding the 5 new languages because **edge-tts has no Creole voice** — and the `voice_for` fallback would read Creole text in a *Cantonese* voice (worse than silence). Confirmed: Google Cloud TTS, Amazon Polly, Azure, and gTTS/Google Translate also have **no** Haitian Creole voice.
+
+The one solid free option is **Meta MMS** (`facebook/mms-tts-hat`) — a purpose-built VITS model (part of Massively Multilingual Speech, 1,100+ langs), run locally via `transformers` + `torch`. Verified the model exists on Hugging Face.
+
+**Plan:** route `ht` in `audio.py` to a lazy-loaded MMS backend; leave every other language on edge-tts so the weight only matters when Creole is actually used. Encode the model's raw waveform to MP3 (or serve WAV) to match the current BLOB storage/serving.
+
+**Main cost is infra, not money:** adds the full PyTorch stack (~hundreds of MB) + the model (~140 MB) to the Docker image → much larger/slower builds & deploys on the Oracle ARM box, for a single language. CPU inference works on ARM, just slower per card. Decision pending: is Creole worth the heavier container? Prototype on `develop` first to judge voice quality before committing.
+
+---
+
 # Onboarding & intuitiveness
 
 New users report (a) not understanding how the app works and (b) not finding how to switch off the default language. The app's loop — *translate a word → it becomes a flashcard → study it daily → read real text* — is invisible, and the first screen is a blank translate box defaulted to Cantonese. Ideas 30–35 fix discoverability; 36–40 bootstrap absolute beginners toward Duolingo parity.
