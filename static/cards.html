@@ -963,7 +963,14 @@
         val.className = 'answer-value' + (logographic ? ' chinese' : '');
         val.textContent = item.target_text;
         row.appendChild(val);
-        // Romanization is shown in the pronunciation row — don't duplicate it here.
+        // On a pronunciation-face flip there is no pronunciation row in the answer,
+        // so romanization must appear here instead. On source/target flips the
+        // pronunciation row already carries it — don't duplicate.
+        if (logographic && item.romanization && item.face === 'pronunciation') {
+          const rEl = document.createElement('div');
+          rEl.className = 'answer-value jyutping'; rEl.textContent = item.romanization;
+          row.appendChild(rEl);
+        }
       } else {
         // pronunciation
         if (logographic && item.romanization) {
