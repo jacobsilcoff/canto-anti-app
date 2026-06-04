@@ -188,7 +188,7 @@
     </div>
     <p class="teach-intro" id="teach-intro"></p>
     <div id="teach-items"></div>
-    <button class="cta-btn player-action" onclick="startExercises()">Start exercises →</button>
+    <button class="cta-btn player-action" id="teach-action" onclick="startExercises()">Start exercises →</button>
   </div>
 
   <!-- Lesson player -->
@@ -485,7 +485,7 @@
   };
 
   function updateBar() {
-    const pct = player ? Math.round(player.idx / player.queue.length * 100) : 0;
+    const pct = player ? Math.min(100, Math.round(player.answered / player.total * 100)) : 0;
     document.getElementById('player-bar-fill').style.width = pct + '%';
   }
   function updateAction() {
@@ -500,11 +500,14 @@
       if (!res.ok) throw new Error();
       const lesson = await res.json();
       const content = lesson.content || {};
-      const exs = content.exercises || [];
-      if (!exs.length) throw new Error('no exercises');
+      // Normalise to segments (back-compat with old single-block lessons).
+      let segments = content.segments;
+      if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
+      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      if (!total) throw new Error('no exercises');
       player = {
-        lessonId, lang: lesson.target_lang,
-        queue: exs.map(e => ({ ...e })), idx: 0, total: exs.length,
+        lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
+        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         controller: null, graded: false,
       };
@@ -512,17 +515,42 @@
       document.getElementById('state-player').className = sc;
       document.getElementById('state-teach').className = sc;
       document.getElementById('state-results').className = 'learn-center ' + sc;
-      // Teach screen first (if present), then exercises.
-      if (content.teach && (content.teach.items || []).length) {
-        document.getElementById('teach-title').textContent = lesson.title || 'Lesson';
-        renderTeach(content.teach);
-        show('teach');
-      } else {
-        startExercises();
-      }
+      startSegment(0);
     } catch {
       alert('Could not load this lesson — please try again.');
       show('course');
+    }
+  }
+
+  function startSegment(i) {
+    player.segIdx = i;
+    const seg = player.segments[i];
+    const teach = seg.teach;
+    if (teach && (teach.items || []).length) {
+      const n = player.segments.length;
+      document.getElementById('teach-title').textContent =
+        n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
+      document.getElementById('teach-action').textContent = i === 0 ? 'Start exercises →' : 'Got it — keep going →';
+      renderTeach(teach);
+      show('teach');
+    } else {
+      startExercises();
+    }
+  }
+
+  // Advance past a finished segment: next segment, then end-of-lesson review, then finish.
+  function afterSegment() {
+    if (player.segIdx < player.segments.length - 1) {
+      startSegment(player.segIdx + 1);
+    } else if (player.mistakes.length) {
+      player.reviewStarted = true;
+      player.queue = player.mistakes.map(e => ({ ...e, _review: true }));
+      player.mistakes = [];
+      player.idx = 0;
+      show('player');
+      renderExercise();
+    } else {
+      finishLesson();
     }
   }
 
@@ -548,7 +576,11 @@
     });
   }
 
-  function startExercises() {
+  function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
+    const seg = player.segments[player.segIdx];
+    player.queue = (seg.exercises || []).map(e => ({ ...e }));
+    player.idx = 0;
+    if (!player.queue.length) { afterSegment(); return; }
     show('player');
     renderExercise();
   }
@@ -617,22 +649,17 @@
         fb.className = 'feedback wrong';
         fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
       }
-      const isLast = player.idx >= player.queue.length - 1;
-      const reviewWillStart = !player.reviewStarted && player.mistakes.length > 0;
-      a.textContent = (isLast && !reviewWillStart) ? 'Finish' : 'Continue';
+      const lastSeg = player.segIdx >= player.segments.length - 1;
+      const isLastEx = player.idx >= player.queue.length - 1;
+      const willReview = (!player.reviewStarted && player.mistakes.length > 0) || (player.reviewStarted && !correct);
+      a.textContent = (lastSeg && isLastEx && !willReview) ? 'Finish' : 'Continue';
       a.disabled = false;
     } else {
+      player.answered++;
       player.idx++;
       if (player.idx >= player.queue.length) {
-        if (!player.reviewStarted && player.mistakes.length) {
-          // Enter the end-of-lesson review round with the missed exercises.
-          player.reviewStarted = true;
-          player.mistakes.forEach(e => player.queue.push({ ...e, _review: true }));
-          player.mistakes = [];
-          renderExercise();
-        } else {
-          finishLesson();
-        }
+        if (player.reviewStarted) finishLesson();   // review queue exhausted
+        else afterSegment();                         // next segment / start review / finish
       } else {
         renderExercise();
       }

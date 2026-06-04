@@ -127,6 +127,11 @@ def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | 
         f"{backbone}\n\n"
         f"{_known_block(known_summary)}\n\n"
         "Design rules:\n"
+        "- This course teaches VOCABULARY, GRAMMAR, and COMMUNICATION only. Do NOT create "
+        "any unit, lesson, or concept that teaches the writing system, alphabet, tones, "
+        "pinyin/jyutping/romanisation, or pronunciation drills — assume the learner can "
+        "already read and pronounce the script (that is handled separately). E.g. never make "
+        "concepts like \"high level tone\" or \"the letter é\".\n"
         "- Organise into 6–8 UNITS, each a coherent theme with a one-line objective.\n"
         "- Each unit has 3–5 LESSONS. Each lesson is small: it introduces about 5–8 "
         "NEW concepts (vocabulary items and/or one grammar point) and reuses earlier ones.\n"
@@ -237,51 +242,68 @@ def _pick_options(correct: str, pool: list[str], n: int = 4) -> tuple[list[str],
     return opts, opts.index(correct)
 
 
-def _build_exercises(items: list[dict], lang: str,
-                     gloss_pool: list[str], target_pool: list[str]) -> list[dict]:
-    """Deterministically build correct exercises from materialised items.
-    Each item: {key, gloss, target, roman}. Guarantees right answers/directions."""
+# Lessons are split into SEGMENTS: teach a few concepts, practise them, teach a
+# few more, practise (consolidating the new + refreshing earlier ones).
+_SEGMENT_SIZE = 3      # concepts taught per segment
+_SEG_BUDGET = 8        # max exercises per segment
+
+
+def _recognition_ex(it: dict, gloss_pool: list[str]) -> dict:
+    opts, ans = _pick_options(it["gloss"], gloss_pool)
+    return {
+        "type": "choice", "concept_key": it["key"], "instruction": "What does this mean?",
+        "prompt": it["target"], "prompt_lang": "target", "prompt_roman": it["roman"],
+        "audio": it["target"], "options": opts, "answer": ans, "tip": it.get("note", ""),
+    }
+
+
+def _production_ex(it: dict, target_pool: list[str], lang: str) -> dict:
     R = tokenizer.romanize_text
-    has_rom = bool(LANG_INFO.get(lang, {}).get("romanization"))
-    recog, prod, listen = [], [], []
+    opts, ans = _pick_options(it["target"], target_pool)
+    return {
+        "type": "choice", "concept_key": it["key"], "instruction": "How do you say this?",
+        "prompt": it["gloss"], "prompt_lang": "english", "audio": "",
+        "options": opts, "options_roman": [R(o, lang) for o in opts],
+        "answer": ans, "tip": it.get("note", ""),
+    }
 
-    for it in items:
-        tgt, gl, tip = it["target"], it["gloss"], it.get("note", "")
-        # Recognition: show target, choose the English meaning.
-        opts, ans = _pick_options(gl, gloss_pool)
-        recog.append({
-            "type": "choice", "concept_key": it["key"], "instruction": "What does this mean?",
-            "prompt": tgt, "prompt_lang": "target", "prompt_roman": it["roman"],
-            "audio": tgt, "options": opts, "answer": ans, "tip": tip,
-        })
-        # Production: show English, choose the target word.
-        topts, tans = _pick_options(tgt, target_pool)
-        prod.append({
-            "type": "choice", "concept_key": it["key"], "instruction": "How do you say this?",
-            "prompt": gl, "prompt_lang": "english", "audio": "",
-            "options": topts, "options_roman": [R(o, lang) if has_rom else "" for o in topts],
-            "answer": tans, "tip": tip,
-        })
 
-    for it in items[:3]:
-        lopts, lans = _pick_options(it["target"], target_pool)
-        listen.append({
-            "type": "listening", "concept_key": it["key"], "instruction": "What did you hear?",
-            "audio": it["target"], "audio_roman": it["roman"],
-            "options": lopts, "options_roman": [R(o, lang) if has_rom else "" for o in lopts],
-            "answer": lans, "tip": it.get("note", ""),
-        })
+def _listening_ex(it: dict, target_pool: list[str], lang: str) -> dict:
+    R = tokenizer.romanize_text
+    opts, ans = _pick_options(it["target"], target_pool)
+    return {
+        "type": "listening", "concept_key": it["key"], "instruction": "What did you hear?",
+        "audio": it["target"], "audio_roman": it["roman"],
+        "options": opts, "options_roman": [R(o, lang) for o in opts],
+        "answer": ans, "tip": it.get("note", ""),
+    }
 
-    exercises = recog + prod + listen
+
+def _match_ex(items: list[dict]) -> dict:
+    return {
+        "type": "match", "instruction": "Match the pairs",
+        "pairs": [{"target": it["target"], "target_roman": it["roman"], "english": it["gloss"]} for it in items[:5]],
+    }
+
+
+def _segment_exercises(group: list[dict], lang: str, gloss_pool: list[str],
+                       target_pool: list[str], refresh_items: list[dict]) -> list[dict]:
+    """Build one segment's exercises: consolidate the just-taught `group`
+    (recognition + production each, a listening, a match) plus 1–2 recognition
+    exercises REFRESHING earlier material from this lesson."""
+    recog = [_recognition_ex(it, gloss_pool) for it in group]   # 1× each — coverage
+    extras = [_production_ex(it, target_pool, lang) for it in group]   # → 2× each
+    if refresh_items:
+        for it in random.sample(refresh_items, min(2, len(refresh_items))):
+            e = _recognition_ex(it, gloss_pool)
+            e["instruction"] = "Review: what does this mean?"
+            extras.append(e)
+    if group:
+        extras.append(_listening_ex(group[0], target_pool, lang))
+    if len(group) >= 3:
+        extras.append(_match_ex(group))
+    exercises = recog + extras[: max(0, _SEG_BUDGET - len(recog))]
     random.shuffle(exercises)
-    exercises = exercises[:12]
-
-    if len(items) >= 3:
-        sub = items[:5]
-        exercises.append({
-            "type": "match", "instruction": "Match the pairs",
-            "pairs": [{"target": it["target"], "target_roman": it["roman"], "english": it["gloss"]} for it in sub],
-        })
     return exercises
 
 
@@ -293,10 +315,10 @@ async def generate_lesson(
     api_key: str,
     model: str = DEFAULT_MODEL,
 ) -> dict:
-    """Build a lesson: materialise each concept's accurate target text via one
-    translation call, then construct exercises deterministically. `lesson` =
-    {title, objective, concepts:[{kind,key,label,gloss}]}. Returns
-    {"teach": {...}, "exercises": [...]}."""
+    """Build a segmented lesson: materialise each concept's accurate target via
+    one translation call, then deterministically build teach+practice SEGMENTS.
+    `lesson` = {title, objective, concepts:[{kind,key,label,gloss}]}.
+    Returns {"segments": [ {"teach": {...}, "exercises": [...]}, ... ]}."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     concepts = lesson.get("concepts", []) or []
@@ -310,10 +332,8 @@ async def generate_lesson(
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
 
-    # Materialised items that have a target (skip concepts we couldn't translate).
-    # Keep the FULL contextual gloss ("thank you (for a gift)") so near-synonyms
-    # stay distinct and become teaching distractors rather than ambiguous answers.
-    items, teach_items = [], []
+    # Materialise. Keep the FULL contextual gloss so near-synonyms stay distinct.
+    items, grammar_only_teach = [], []
     for c in concepts:
         key, gloss = c.get("key"), (c.get("gloss") or "").strip()
         target = (targets.get(key) or "").strip()
@@ -321,11 +341,26 @@ async def generate_lesson(
         roman = R(target, target_lang) if (has_rom and target) else ""
         if target:
             items.append({"key": key, "gloss": gloss, "target": target, "roman": roman, "note": note})
-        teach_items.append({"target": target, "target_roman": roman, "gloss": gloss, "note": note})
+        else:  # grammar point with no single target form — taught via its note
+            grammar_only_teach.append({"target": "", "target_roman": "", "gloss": gloss, "note": note})
 
     gloss_pool = [it["gloss"] for it in items] + [(c.get("gloss") or "").strip() for c in prior_concepts]
     target_pool = [it["target"] for it in items] + [(c.get("label") or "").strip() for c in prior_concepts]
 
-    exercises = _build_exercises(items, target_lang, gloss_pool, target_pool) if items else []
-    teach = {"intro": intro, "items": teach_items}
-    return {"teach": teach, "exercises": exercises}
+    def _teach_item(it):
+        return {"target": it["target"], "target_roman": it["roman"], "gloss": it["gloss"], "note": it.get("note", "")}
+
+    groups = [items[i:i + _SEGMENT_SIZE] for i in range(0, len(items), _SEGMENT_SIZE)] or [[]]
+    segments, refresh = [], []
+    for gi, group in enumerate(groups):
+        teach_items = [_teach_item(it) for it in group]
+        if gi == 0:
+            teach_items = grammar_only_teach + teach_items   # grammar notes up front
+        teach = {"items": teach_items}
+        if gi == 0:
+            teach["intro"] = intro
+        exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh) if group else []
+        segments.append({"teach": teach, "exercises": exercises})
+        refresh = refresh + group
+
+    return {"segments": segments}
