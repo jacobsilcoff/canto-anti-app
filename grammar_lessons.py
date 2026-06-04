@@ -66,9 +66,12 @@ def _generate_prompt(lang: str, concept: dict) -> str:
         "common and reuse the same words across the pair so ONLY the grammar changes.\n"
         '- "cloze": 3 fill-in-the-blank sentences drilling this rule. Each: '
         '"sentence" (the full correct sentence with exactly one blank written as '
-        '"___"), "gloss" (English), "answer" (the word that fills the blank). If the '
-        'blank is a conjugated verb, ALSO give "verb" (the infinitive) and "person" '
-        '(one of je/tu/il/nous/vous/ils). Use simple, common vocabulary.\n'
+        '"___"), "gloss" (English), "answer" (the word that fills the blank — it must '
+        'NOT already appear elsewhere in the sentence). If the blank IS a single '
+        'conjugated verb, ALSO give "verb" (the plain, NON-reflexive infinitive) and '
+        '"person" (one of je/tu/il/nous/vous/ils). For reflexive/pronominal verbs '
+        "(s'appeler, se lever) or any blank that isn't exactly one conjugated verb, "
+        'OMIT "verb"/"person" and just give the full "answer". Use simple vocabulary.\n'
         '- "reorder": 2 short correct sentences for a word-ordering drill. Each: '
         '"sentence" (the full correct sentence) and "tokens" (its words in correct '
         "order as an array — split on words, keep punctuation attached). 3–6 tokens.\n\n"
@@ -115,8 +118,10 @@ def _critic_prompt(lang: str, gen: dict) -> str:
         f"You are a meticulous {name} grammar examiner. Independently re-derive each "
         f"item below FROM SCRATCH (don't just skim it) and decide if it is fully "
         f"correct: grammatical, naturally phrased, the English gloss accurate, and "
-        f"(for cloze) the bracketed answer the correct form. Be strict — reject "
-        f"anything with an agreement error, a wrong form, or a mistranslation.\n\n"
+        f"(for cloze) the bracketed answer the correct, agreeing form that fits where "
+        f"the blank is. Be strict — reject anything with an agreement error, a wrong "
+        f"form, a mistranslation, OR a cloze whose bracketed answer duplicates a word "
+        f"already in the sentence or doesn't grammatically fit the blank.\n\n"
         f"{body}\n\n"
         "Return ONLY JSON with one boolean per item, aligned by index, true = keep:\n"
         '{ "minimal_pairs": [true, ...], "cloze": [true, ...], "reorder": [true, ...] }'
@@ -129,15 +134,35 @@ def _verdicts(crit: dict, key: str, n: int) -> list[bool]:
     return [bool(v[i]) if i < len(v) else True for i in range(n)]
 
 
+def _cloze_is_sane(sentence: str, answer: str) -> bool:
+    """The blank must exist and filling it must not DUPLICATE the answer word —
+    catches corrupt clozes where the verb is already in the sentence
+    (e.g. "Ils ___ appellent ..." filled with "s'appellent")."""
+    if "___" not in sentence or not answer:
+        return False
+    filled = sentence.replace("___", answer, 1).lower()
+    toks = re.findall(r"[^\W\d_]+", filled, re.UNICODE)
+    ans_toks = [w for w in re.findall(r"[^\W\d_]+", answer.lower(), re.UNICODE) if len(w) > 2]
+    return not any(toks.count(w) > 1 for w in ans_toks)
+
+
 def _conj_cloze(concept_key: str, lang: str, sentence: str, gloss: str,
-                verb: str, person: str) -> dict | None:
+                verb: str, person: str, model_answer: str) -> dict | None:
     """Build a conjugation cloze with an ENGINE-computed answer + option list
-    (the model's answer/options are ignored — grammar.py is authoritative)."""
+    (grammar.py is authoritative). Only fires when the model's OWN answer is a
+    cell of this verb's paradigm — i.e. the blank genuinely is the conjugated
+    verb. If the model's answer isn't a paradigm cell (a reflexive pronoun, a
+    different word), the blank is something else and forcing a verb form would
+    corrupt the sentence, so we bail to the free-cloze / drop path."""
     forms = grammar.conjugate_present(verb, lang)
     if not forms or person not in forms:
         return None
-    correct = forms[person]
     pool = list(dict.fromkeys(forms.values()))
+    if (model_answer or "").strip().lower() not in [f.lower() for f in pool]:
+        return None
+    correct = forms[person]
+    if not _cloze_is_sane(sentence, correct):
+        return None
     distractors = [f for f in pool if f != correct]
     random.shuffle(distractors)
     opts = [correct] + distractors[:3]
@@ -154,7 +179,7 @@ def _free_cloze(concept_key: str, sentence: str, gloss: str, answer: str,
     """Cloze when we can't compute the paradigm: trust the (critic-verified)
     answer, draw distractors from sibling answers in the same concept."""
     answer = (answer or "").strip()
-    if not answer or "___" not in sentence:
+    if not _cloze_is_sane(sentence, answer):
         return None
     seen = {answer}
     distractors = []
@@ -251,7 +276,7 @@ async def generate_grammar_content(
         person = (c.get("person") or "").strip().lower()
         ex = None
         if grammar.has_conjugation(lang) and verb and person:
-            ex = _conj_cloze(key, lang, sentence, gloss, verb, person)
+            ex = _conj_cloze(key, lang, sentence, gloss, verb, person, c.get("answer", ""))
         if ex is None:
             ex = _free_cloze(key, sentence, gloss, c.get("answer", ""), answer_pool)
         if ex:

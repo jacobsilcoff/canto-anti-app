@@ -48,15 +48,14 @@ def test_happy_path_builds_all_pieces():
     assert all(e.get("grammar") for e in art["exercises"])
 
 
-def test_conjugation_cloze_answer_is_engine_computed_not_trusted():
+def test_conjugation_cloze_options_come_from_the_engine():
     import asyncio
-    # Model lies about the answer; the engine must override it.
-    gen = {**FR_GEN, "cloze": [{**FR_GEN["cloze"][0], "answer": "WRONG"}]}
-    art = asyncio.run(_run(gen, {"minimal_pairs": [True], "cloze": [True], "reorder": [True]}))
+    # Model gives the right answer; the engine supplies the option list (all real
+    # cells of the paradigm) and confirms the answer.
+    art = asyncio.run(_run(FR_GEN, {"minimal_pairs": [True], "cloze": [True], "reorder": [True]}))
     cloze = next(e for e in art["exercises"]
                  if e["type"] == "choice" and e["instruction"] == "Fill in the blank")
     assert cloze["options"][cloze["answer"]] == grammar.conjugate_present("manger")["je"]  # "mange"
-    assert "WRONG" not in cloze["options"]
     assert set(cloze["options"]) <= set(grammar.conjugate_present("manger").values())
 
 
@@ -75,6 +74,46 @@ def test_minimal_pair_recognition_answer_is_one_of_the_two_sentences():
               if e["type"] == "choice" and e["instruction"] == "Which sentence means this?")
     assert set(mp["options"]) == {"Le chat dort.", "Les chats dorment."}
     assert mp["options"][mp["answer"]] in mp["options"]
+
+
+def test_reflexive_verb_is_not_conjugated_by_engine():
+    # Regression: "s'appeler" must NOT go through the bare -er rule (which would
+    # produce the wrong "s'appelent" instead of "s'appellent").
+    assert grammar.conjugate_present("s'appeler") == {}
+    assert grammar.conjugate_present("se lever") == {}
+    assert grammar.is_reflexive("s'appeler") and not grammar.is_reflexive("appeler")
+
+
+def test_corrupt_reflexive_cloze_is_dropped():
+    import asyncio
+    # The exact shape that produced "Ils [s'appelent] appellent Dubois": the verb
+    # is already in the sentence and tagged as the reflexive infinitive.
+    gen = {
+        "explain": "Reflexive verbs.", "minimal_pairs": [],
+        "cloze": [{"sentence": "Ils ___ appellent Dubois.", "gloss": "They are called Dubois.",
+                   "answer": "s'appellent", "verb": "s'appeler", "person": "ils"}],
+        "reorder": [],
+    }
+    art = asyncio.run(_run(gen, {"cloze": [True]},
+                           concept={"key": "verb_sappeler", "label": "s'appeler", "gloss": "to be called"}))
+    # Engine bails (reflexive) AND the free cloze sanity check rejects the
+    # duplicated verb → no exercise survives.
+    assert art["exercises"] == []
+
+
+def test_wrong_paradigm_cell_is_auto_corrected():
+    import asyncio
+    # Model conjugates the wrong person ("avons" for je); engine fixes it to "ai".
+    gen = {
+        "explain": "avoir present.", "minimal_pairs": [],
+        "cloze": [{"sentence": "J' ___ un chat.", "gloss": "I have a cat.",
+                   "answer": "avons", "verb": "avoir", "person": "je"}],
+        "reorder": [],
+    }
+    art = asyncio.run(_run(gen, {"cloze": [True]},
+                           concept={"key": "verb_avoir", "label": "avoir", "gloss": "to have"}))
+    cloze = next(e for e in art["exercises"] if e["type"] == "choice")
+    assert cloze["options"][cloze["answer"]] == "ai"
 
 
 def test_non_conjugable_language_uses_free_cloze():

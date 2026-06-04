@@ -64,11 +64,25 @@ def has_conjugation(lang: str) -> bool:
     return lang == "fr"
 
 
+def is_reflexive(verb: str) -> bool:
+    """Pronominal/reflexive infinitive (se laver, s'appeler, s'asseoir)."""
+    v = (verb or "").strip().lower()
+    return v.startswith("se ") or v.startswith("s'") or v.startswith("s’")
+
+
 def conjugate_present(verb: str, lang: str = "fr") -> dict[str, str]:
-    """Return {person: form} for the present tense, or {} if not conjugable."""
+    """Return {person: form} for the present tense, or {} if not conjugable.
+
+    Reflexive/pronominal verbs (s'appeler, se lever) are NOT handled — they need
+    a reflexive-pronoun paradigm (me/te/se…) we don't model, and the bare -er
+    rule would silently produce wrong forms (s'appelent). We return {} so callers
+    fall back rather than drill incorrect French.
+    """
     if lang != "fr" or not verb:
         return {}
     verb = verb.strip().lower()
+    if is_reflexive(verb):
+        return {}
     forms = _FR_PRESENT.get(verb) or _fr_regular_present(verb)
     if not forms:
         return {}
