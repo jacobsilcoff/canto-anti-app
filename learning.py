@@ -11,6 +11,7 @@ language. This keeps an AI course coherent and reliable across languages.
 """
 import asyncio
 
+import tokenizer
 from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
 
 LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -157,3 +158,128 @@ async def generate_curriculum(
     prompt = _build_curriculum_prompt(target_lang, level, known_summary)
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     return raw
+
+
+# ── Lesson content (exercises) ────────────────────────────────────────────────
+#
+# Exercise-type registry: each type is a self-describing JSON object. To add a
+# new type you (1) add its schema here so the generator can emit it, (2) add a
+# renderer + grader in the frontend (static/learn.html EXERCISE_TYPES), and
+# (3) list which of its fields hold target-language text in _ROMANIZE_FIELDS so
+# romanisation hints get attached. Nothing else needs to change.
+EXERCISE_TYPES = ("choice", "word_bank", "listening", "match")
+
+_EXERCISE_CONTRACT = """
+Available exercise types (emit a mix, ~8 exercises total, all focused on THIS
+lesson's new concepts with a few earlier ones recycled as distractors):
+
+1. "choice" — multiple choice (4 options, exactly one correct).
+   { "type":"choice", "concept_key":"<key>", "instruction":"<generic instruction>",
+     "prompt":"<the single stimulus word/phrase>", "prompt_lang":"target"|"english",
+     "audio":"<target text to read aloud, or empty string>",
+     "options":["..","..","..",".."], "answer": <0-based index of correct option> }
+   - Recognition: "prompt" is a TARGET word (prompt_lang "target"); options are English meanings.
+   - Production: "prompt" is an ENGLISH word (prompt_lang "english"); options are TARGET words.
+   - Use both directions across the lesson.
+   - "instruction" MUST be generic (e.g. "What does this mean?" / "How do you say this?")
+     and must NOT contain the answer or repeat the prompt word.
+
+2. "word_bank" — assemble the target sentence from word tiles.
+   { "type":"word_bank", "concept_key":"<key>", "instruction":"Translate: <English sentence>",
+     "audio":"<the full target sentence>",
+     "answer_tokens":["<target token>", ...],     // correct order, one tile each
+     "distractor_tokens":["<plausible wrong tile>", ...] }   // 1-3 extra tiles
+
+3. "listening" — hear target audio, pick what was said (options are TARGET text).
+   { "type":"listening", "concept_key":"<key>", "instruction":"What did you hear?",
+     "audio":"<target text to read aloud>",        // required, non-empty
+     "options":["<target>","<target>","<target>"], "answer": <0-based index> }
+
+4. "match" — match 3–5 target↔English pairs.
+   { "type":"match", "instruction":"Match the pairs",
+     "pairs":[ {"target":"<target>","english":"<English>"}, ... ] }
+
+Rules:
+- Only use vocabulary/grammar from this lesson's concepts or earlier ones (listed
+  below). Never introduce unseen words.
+- Every exercise's "concept_key" must be one of the lesson's new-concept keys.
+- Keep target text natural and correct. Distractors must be plausible but clearly wrong.
+""".strip()
+
+# Per-type list of fields whose values are target-language text and should get a
+# parallel "<field>_roman" romanisation hint (computed by us, never the AI).
+_ROMANIZE_PLANS = {
+    "choice": [("prompt", "prompt_roman", "if_target"), ("options", "options_roman", "if_options_target")],
+    "word_bank": [("answer_tokens", "answer_roman", "join")],
+    "listening": [("audio", "audio_roman", "str"), ("options", "options_roman", "list")],
+    "match": [("pairs", None, "pairs")],
+}
+
+
+def _attach_romanization(exercises: list[dict], lang: str) -> list[dict]:
+    """Fill in romanisation hints for target-language text using our offline
+    romanisers (jyutping/pinyin/IAST/romaja). No-op for Latin-script langs."""
+    if not LANG_INFO.get(lang, {}).get("romanization"):
+        return exercises
+    R = tokenizer.romanize_text
+    for ex in exercises:
+        t = ex.get("type")
+        if t == "choice":
+            if ex.get("prompt_lang") == "target":
+                ex["prompt_roman"] = R(ex.get("prompt", ""), lang)
+            else:  # options are target text (production)
+                ex["options_roman"] = [R(o, lang) for o in ex.get("options", [])]
+        elif t == "word_bank":
+            ex["answer_roman"] = R(" ".join(ex.get("answer_tokens", [])), lang)
+        elif t == "listening":
+            ex["audio_roman"] = R(ex.get("audio", ""), lang)
+            ex["options_roman"] = [R(o, lang) for o in ex.get("options", [])]
+        elif t == "match":
+            for p in ex.get("pairs", []):
+                p["target_roman"] = R(p.get("target", ""), lang)
+    return exercises
+
+
+def _build_lesson_prompt(target_lang: str, lesson: dict, prior_concepts: list[dict]) -> str:
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    rules = info["rules"]
+    concepts = lesson.get("concepts", [])
+    new_block = "\n".join(
+        f'- [{c.get("kind","vocab")}] key={c.get("key")} · {c.get("label","")} = {c.get("gloss","")}'
+        for c in concepts
+    ) or "(none)"
+    prior_block = ", ".join(
+        f'{c.get("label","")} ({c.get("gloss","")})' for c in prior_concepts[:80]
+    ) or "(none yet)"
+
+    return (
+        f"You are writing one bite-size {name} lesson for an English-speaking learner.\n"
+        f"Language notes:\n{rules}\n\n"
+        f"Lesson: {lesson.get('title','')}\n"
+        f"Objective: {lesson.get('objective','')}\n\n"
+        f"NEW concepts this lesson must teach and test (use these keys):\n{new_block}\n\n"
+        f"Earlier concepts already known (recycle as distractors; do not re-teach):\n{prior_block}\n\n"
+        f"{_EXERCISE_CONTRACT}\n\n"
+        "Return ONLY valid JSON: { \"exercises\": [ ... ] }"
+    )
+
+
+async def generate_lesson(
+    target_lang: str,
+    lesson: dict,
+    prior_concepts: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """Generate the exercises for one lesson. `lesson` = {title, objective,
+    concepts:[{kind,key,label,gloss}]}. Returns {"exercises":[...]} with
+    romanisation hints attached for languages that have a romaniser."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = _build_lesson_prompt(target_lang, lesson, prior_concepts or [])
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+    exercises = [e for e in (raw.get("exercises") or []) if isinstance(e, dict) and e.get("type") in EXERCISE_TYPES]
+    exercises = _attach_romanization(exercises, target_lang)
+    return {"exercises": exercises}

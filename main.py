@@ -1658,6 +1658,83 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
+    """Generate the exercises for a lesson and cache them."""
+    access = await _resolve_gemini(user)
+    result = await learning.generate_lesson(
+        lesson["target_lang"],
+        {"title": lesson["title"], "objective": lesson["objective"], "concepts": lesson["concepts"]},
+        lesson.get("prior_concepts") or [],
+        api_key=access.api_key, model=access.model_reader,
+    )
+    if not result.get("exercises"):
+        raise HTTPException(502, "Lesson generation returned no exercises — try again.")
+    await db.set_lesson_content(user["id"], lesson["id"], result)
+    return result
+
+
+def _lesson_response(lesson: dict, content: dict) -> dict:
+    return {
+        "id": lesson["id"],
+        "title": lesson["title"],
+        "objective": lesson["objective"],
+        "target_lang": lesson["target_lang"],
+        "completed": lesson.get("completed", False),
+        "score": lesson.get("score"),
+        "content": content,
+    }
+
+
+@app.get("/api/lessons/{lesson_id}")
+@limiter.limit("20/minute")
+async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
+    """Return a lesson's exercises, generating + caching them on first open."""
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    content = lesson["content"] or await _generate_lesson_content(user, lesson)
+    return _lesson_response(lesson, content)
+
+
+@app.post("/api/lessons/{lesson_id}/regenerate")
+@limiter.limit("10/minute;40/day")
+async def regenerate_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    content = await _generate_lesson_content(user, lesson)
+    return _lesson_response(lesson, content)
+
+
+class CompleteLessonRequest(BaseModel):
+    score: int = 0
+
+
+@app.post("/api/lessons/{lesson_id}/complete")
+async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
+    ok = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
+    if not ok:
+        raise HTTPException(404, "Lesson not found")
+    return {"success": True}
+
+
+@app.get("/api/tts")
+@limiter.limit("120/minute")
+async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """On-demand TTS for the lesson player (and other UI). Returns MP3."""
+    text = (text or "").strip()
+    if not text:
+        raise HTTPException(400, "text required")
+    if lang not in translation.LANG_INFO:
+        lang = "yue"
+    try:
+        data = await audio.generate(text[:200], lang)
+    except Exception:
+        raise HTTPException(502, "TTS failed")
+    return Response(content=data, media_type="audio/mpeg",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ── Admin: user management ────────────────────────────────────────────────────
 
 @app.get("/api/admin/users")

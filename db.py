@@ -1594,6 +1594,110 @@ async def delete_course(user_id: int, course_id: int):
         await db.commit()
 
 
+async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
+    """Return a single lesson (ownership-checked) with everything needed to play
+    OR generate it: target_lang, title, objective, parsed content (or None),
+    its new concepts, the prior-concept pool (for distractors), and done/score."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT l.id, l.unit_id, l.title, l.objective, l.content,
+                      l.concepts_introduced, l.idx AS lesson_idx,
+                      u.course_id, u.idx AS unit_idx,
+                      c.target_lang, c.level
+               FROM course_lessons l
+               JOIN course_units u ON u.id = l.unit_id
+               JOIN courses c ON c.id = u.course_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        lesson = dict(row)
+        course_id = lesson["course_id"]
+        keys = json.loads(lesson.pop("concepts_introduced") or "[]")
+
+        # New concepts for this lesson (preserve curriculum order).
+        concepts: list[dict] = []
+        if keys:
+            placeholders = ",".join("?" * len(keys))
+            async with db.execute(
+                f"""SELECT kind, key, label, gloss FROM course_concepts
+                    WHERE course_id=? AND key IN ({placeholders})""",
+                (course_id, *keys),
+            ) as cur:
+                by_key = {r["key"]: dict(r) for r in await cur.fetchall()}
+            concepts = [by_key[k] for k in keys if k in by_key]
+        lesson["concepts"] = concepts
+
+        # Prior concepts (introduced in earlier lessons) — distractor pool.
+        async with db.execute(
+            """SELECT cc.label, cc.gloss FROM course_concepts cc
+               JOIN course_lessons l2 ON l2.id = cc.introduced_lesson_id
+               JOIN course_units u2 ON u2.id = l2.unit_id
+               WHERE cc.course_id=?
+                 AND (u2.idx < ? OR (u2.idx = ? AND l2.idx < ?))""",
+            (course_id, lesson["unit_idx"], lesson["unit_idx"], lesson["lesson_idx"]),
+        ) as cur:
+            lesson["prior_concepts"] = [dict(r) for r in await cur.fetchall()]
+
+        lesson["content"] = json.loads(lesson["content"]) if lesson["content"] else None
+
+        async with db.execute(
+            "SELECT score, completed_at FROM course_progress WHERE user_id=? AND lesson_id=?",
+            (user_id, lesson_id),
+        ) as cur:
+            prog = await cur.fetchone()
+        lesson["completed"] = prog is not None
+        lesson["score"] = prog["score"] if prog else None
+        return lesson
+
+
+async def set_lesson_content(user_id: int, lesson_id: int, content: dict) -> bool:
+    """Cache generated exercises on a lesson (ownership-checked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM course_lessons l
+               JOIN course_units u ON u.id = l.unit_id
+               JOIN courses c ON c.id = u.course_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return False
+        await db.execute(
+            "UPDATE course_lessons SET content=? WHERE id=?",
+            (json.dumps(content), lesson_id),
+        )
+        await db.commit()
+        return True
+
+
+async def complete_lesson(user_id: int, lesson_id: int, score: int) -> bool:
+    """Record (or update) lesson completion + score. Ownership-checked."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM course_lessons l
+               JOIN course_units u ON u.id = l.unit_id
+               JOIN courses c ON c.id = u.course_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return False
+        await db.execute(
+            """INSERT INTO course_progress (user_id, lesson_id, score, completed_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(user_id, lesson_id) DO UPDATE SET
+                 score=MAX(course_progress.score, excluded.score),
+                 completed_at=excluded.completed_at""",
+            (user_id, lesson_id, int(score)),
+        )
+        await db.commit()
+        return True
+
+
 async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
     """Return cached sentence data for a reader text owned by user_id."""
     async with aiosqlite.connect(DB_PATH) as db:

@@ -62,6 +62,55 @@
 
     .learn-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; }
     .err { color: var(--again); font-size: 0.88rem; margin-top: 10px; }
+    .lesson.clickable { cursor: pointer; }
+    .lesson.clickable:hover { border-color: var(--primary); }
+
+    /* ── Lesson player ── */
+    .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+    .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
+    .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; }
+    .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); }
+    .ex-prompt.english { font-family: inherit; }
+    .ex-roman { text-align: center; color: var(--text-muted); font-size: 1rem; margin-bottom: 18px; font-style: italic; }
+    .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
+    .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
+    .audio-center { text-align: center; margin: 16px 0 26px; }
+
+    .opt-list { display: flex; flex-direction: column; gap: 10px; }
+    .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .opt.english { font-family: inherit; }
+    .opt.selected { border-color: var(--primary); background: #eef4fe; }
+    .opt.correct { border-color: var(--good); background: #e7f6ec; }
+    .opt.wrong { border-color: var(--again); background: #fdecea; }
+    .opt:disabled { cursor: default; }
+    .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
+
+    /* word bank */
+    .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
+    .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .tile.placeholder { visibility: hidden; }
+
+    /* match */
+    .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; }
+    .match-item.target { font-family: var(--script-font, inherit); }
+    .match-item.selected { border-color: var(--primary); background: #eef4fe; }
+    .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
+    .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
+
+    /* feedback + action */
+    .feedback { border-radius: 12px; padding: 14px 16px; margin: 18px 0; font-weight: 600; display: none; }
+    .feedback.correct { background: #e7f6ec; color: #166534; display: block; }
+    .feedback.wrong { background: #fdecea; color: #9b1c1c; display: block; }
+    .feedback small { display: block; font-weight: 400; margin-top: 4px; }
+    .player-action { width: 100%; }
+
+    /* results */
+    .results-emoji { font-size: 3rem; }
+    .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
   </style>
 </head>
 <body>
@@ -99,16 +148,43 @@
       <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
     </div>
     <div id="units"></div>
-    <div class="learn-note">Tap-to-play lessons are coming next — this is your course map.</div>
+    <div class="learn-note">Tap an available lesson to start.</div>
+  </div>
+
+  <!-- Lesson loading (first-time generation) -->
+  <div id="state-lesson-loading" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p>Building this lesson…</p>
+  </div>
+
+  <!-- Lesson player -->
+  <div id="state-player" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
+      <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
+    </div>
+    <div id="exercise-root"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
+  </div>
+
+  <!-- Results -->
+  <div id="state-results" class="learn-center" style="display:none">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-score" id="results-score"></div>
+    <p id="results-msg">Lesson complete!</p>
+    <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
+    <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
   </div>
 </main>
 
 <script>
   let selectedLevel = 'A1';
   let langName = 'your language';
+  let LANGS = [];
 
   function show(state) {
-    ['loading', 'empty', 'generating', 'course'].forEach(s =>
+    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
   }
 
@@ -124,8 +200,9 @@
         fetch('/api/settings').then(r => r.json()).catch(() => ({})),
         fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
       ]);
+      LANGS = langs.languages || [];
       const code = settings.default_target_lang || 'yue';
-      const l = (langs.languages || []).find(x => x.code === code);
+      const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
     } catch {}
     document.getElementById('empty-lang').textContent = langName;
@@ -205,7 +282,8 @@
         const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
         const meta = (l.concept_count != null)
           ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
-        html += `<div class="lesson ${st}">
+        const clickable = (st === 'available' || st === 'done');
+        html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openLesson(${l.id})"` : ''}>
           <div class="lesson-node">${node}</div>
           <div class="lesson-body">
             <div class="lesson-name">${esc(l.title)}</div>
@@ -218,6 +296,231 @@
       sec.innerHTML = html;
       wrap.appendChild(sec);
     });
+  }
+
+  // ── Lesson player ───────────────────────────────────────────────────────────
+  let player = null;
+  let _audio = null;
+
+  function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
+  function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
+  function playTTS(text, lang) {
+    if (!text) return;
+    try { if (_audio) _audio.pause(); } catch {}
+    _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    _audio.play().catch(() => {});
+  }
+
+  // Each exercise type: render(ex, root, lang) -> controller
+  //   controller: { isReady():bool, grade():bool, answerText():string, lock(correct):void }
+  // To add a type: add an entry here + its schema in learning.py's _EXERCISE_CONTRACT.
+  const EXERCISE_TYPES = {
+    choice: {
+      render(ex, root, lang) {
+        let sel = null;
+        const targetPrompt = ex.prompt_lang === 'target';
+        const optsTarget = ex.prompt_lang === 'english';
+        let html = `<div class="ex-instruction">${esc(ex.instruction || 'Choose the correct answer')}</div>`;
+        if (ex.prompt) {
+          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${esc(ex.prompt)}</div>`;
+          if (targetPrompt && ex.prompt_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+        }
+        if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
+        html += `<div class="opt-list" id="opts"></div>`;
+        root.innerHTML = html;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button');
+          b.className = 'opt' + (optsTarget ? '' : ' english');
+          b.type = 'button';
+          b.innerHTML = esc(o) + (optsTarget && ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    listening: {
+      render(ex, root, lang) {
+        let sel = null;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'What did you hear?')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
+          <div class="opt-list" id="opts"></div>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
+          b.innerHTML = esc(o) + (ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]) + (ex.audio_roman ? ` (${esc(ex.audio_roman)})` : ''),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    word_bank: {
+      render(ex, root, lang) {
+        const answer = ex.answer_tokens || [];
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the sentence')}</div>
+          ${ex.audio ? `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>` : ''}
+          <div class="wb-answer" id="wb-answer"></div>
+          <div class="wb-bank" id="wb-bank"></div>`;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const ansEl = document.getElementById('wb-answer');
+        const bankEl = document.getElementById('wb-bank');
+        shuffle([...answer, ...(ex.distractor_tokens || [])]).forEach(tok => {
+          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button'; t.textContent = tok;
+          t.onclick = () => { if (player.graded) return; (t.parentElement === bankEl ? ansEl : bankEl).appendChild(t); updateAction(); };
+          bankEl.appendChild(t);
+        });
+        const placed = () => [...ansEl.children].map(c => c.textContent);
+        return {
+          isReady: () => ansEl.children.length > 0,
+          grade: () => { const p = placed(); return p.length === answer.length && p.every((t, i) => t === answer[i]); },
+          answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
+          lock: () => [...ansEl.children, ...bankEl.children].forEach(c => c.disabled = true),
+        };
+      },
+    },
+    match: {
+      render(ex, root, lang) {
+        const pairs = ex.pairs || [];
+        const left = shuffle(pairs.map((p, i) => ({ txt: p.target, roman: p.target_roman, id: i, side: 't' })));
+        const right = shuffle(pairs.map((p, i) => ({ txt: p.english, id: i, side: 'e' })));
+        let selEl = null, selItem = null, matched = 0;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Match the pairs')}</div><div class="match-grid" id="mg"></div>`;
+        const grid = document.getElementById('mg');
+        const rows = Math.max(left.length, right.length);
+        for (let i = 0; i < rows; i++) {
+          [left[i], right[i]].forEach(item => {
+            if (!item) return;
+            const el = document.createElement('button');
+            el.className = 'match-item' + (item.side === 't' ? ' target' : '');
+            el.type = 'button';
+            el.innerHTML = esc(item.txt) + (item.side === 't' && item.roman ? `<div class="opt-roman">${esc(item.roman)}</div>` : '');
+            el.onclick = () => {
+              if (player.graded || el.classList.contains('matched')) return;
+              if (!selEl) { selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selEl === el) { el.classList.remove('selected'); selEl = null; return; }
+              if (selItem.side === item.side) { selEl.classList.remove('selected'); selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selItem.id === item.id) {
+                selEl.classList.remove('selected'); selEl.classList.add('matched'); el.classList.add('matched');
+                selEl = null; matched++; updateAction();
+              } else {
+                const a = selEl, b = el; a.classList.add('flash-wrong'); b.classList.add('flash-wrong');
+                setTimeout(() => { a.classList.remove('flash-wrong', 'selected'); b.classList.remove('flash-wrong'); }, 450);
+                selEl = null;
+              }
+            };
+            grid.appendChild(el);
+          });
+        }
+        return { isReady: () => matched === pairs.length, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
+  };
+
+  function updateBar() {
+    const pct = player ? Math.round(player.idx / player.exercises.length * 100) : 0;
+    document.getElementById('player-bar-fill').style.width = pct + '%';
+  }
+  function updateAction() {
+    if (!player || player.graded) return;
+    document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
+  }
+
+  async function openLesson(lessonId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const exs = (lesson.content && lesson.content.exercises) || [];
+      if (!exs.length) throw new Error('no exercises');
+      player = { lessonId, lang: lesson.target_lang, exercises: exs, idx: 0, correct: 0, controller: null, graded: false };
+      document.getElementById('state-player').className = scriptClassFor(player.lang);
+      document.getElementById('state-results').className = 'learn-center ' + scriptClassFor(player.lang);
+      show('player');
+      renderExercise();
+    } catch {
+      alert('Could not load this lesson — please try again.');
+      show('course');
+    }
+  }
+
+  function renderExercise() {
+    const ex = player.exercises[player.idx];
+    const root = document.getElementById('exercise-root');
+    const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
+    player.graded = false;
+    player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
+    const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
+    updateBar(); updateAction();
+  }
+
+  function onAction() {
+    if (!player) return;
+    const a = document.getElementById('player-action');
+    if (!player.graded) {
+      if (!player.controller.isReady()) return;
+      const correct = player.controller.grade();
+      player.controller.lock(correct);
+      player.graded = true;
+      if (correct) player.correct++;
+      const fb = document.getElementById('feedback');
+      if (correct) { fb.className = 'feedback correct'; fb.textContent = 'Correct!'; }
+      else {
+        const at = player.controller.answerText ? player.controller.answerText() : '';
+        fb.className = 'feedback wrong';
+        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '');
+      }
+      a.textContent = (player.idx >= player.exercises.length - 1) ? 'Finish' : 'Continue';
+      a.disabled = false;
+    } else {
+      player.idx++;
+      if (player.idx >= player.exercises.length) finishLesson();
+      else renderExercise();
+    }
+  }
+
+  async function finishLesson() {
+    const total = player.exercises.length;
+    const score = Math.round(player.correct / total * 100);
+    try {
+      await fetch('/api/lessons/' + player.lessonId + '/complete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }),
+      });
+    } catch {}
+    document.getElementById('results-score').textContent = score + '%';
+    document.getElementById('results-emoji').textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
+    document.getElementById('results-msg').textContent = `You got ${player.correct} of ${total} correct.`;
+    show('results');
+  }
+
+  function quitLesson() {
+    if (confirm('Quit this lesson? This attempt won\'t be saved.')) { player = null; refreshAndShowCourse(); }
+  }
+  function retryLesson() { if (player) openLesson(player.lessonId); }
+  function backToMap() { player = null; refreshAndShowCourse(); }
+
+  async function refreshAndShowCourse() {
+    show('loading');
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); } else { show('empty'); }
+    } catch { show('empty'); }
   }
 
   async function doLogout() {
