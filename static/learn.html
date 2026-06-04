@@ -115,6 +115,8 @@
     #state-player { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
     #exercise-root { flex: 1 1 auto; min-height: 0; }
     .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .grammar-badge { align-self: flex-start; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
 
     /* feedback + action */
     .feedback { border-radius: 12px; padding: 14px 16px; margin: 18px 0; font-weight: 600; display: none; }
@@ -224,6 +226,7 @@
       <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
     </div>
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
+    <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
     <div id="exercise-root"></div>
     <div class="feedback" id="feedback"></div>
     <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
@@ -732,7 +735,7 @@
       const row = document.createElement('div');
       row.className = 'teach-item';
       row.innerHTML = `<div class="teach-text">
-          <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}</div>
+          <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
           <div class="teach-gloss">${esc(it.gloss || '')}</div>
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
@@ -790,6 +793,7 @@
     const root = document.getElementById('exercise-root');
     const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
     document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
+    document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;

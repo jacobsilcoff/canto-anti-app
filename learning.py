@@ -145,6 +145,12 @@ def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | 
         '    {"kind":"grammar","key":"<stable snake_case key>","label":"<short grammar point name>","gloss":"<one-line explanation>"}\n'
         "- Keys must be stable and canonical (e.g. \"greeting_hello\", \"number_1_10\", "
         "\"gender_definite_articles\", \"measure_word_go3\") so they can be tracked across lessons.\n"
+        "- For verb conjugation, make ONE \"grammar\" concept per verb or pattern "
+        "(e.g. key \"verb_present_avoir\", label the INFINITIVE \"avoir\", gloss "
+        "\"the verb avoir (to have) — present tense\"), or a pattern like \"present tense "
+        "of regular -er verbs\". Do NOT create a separate concept for each conjugated form "
+        "(ai, as, a, avons…) — the app drills the full conjugation automatically. "
+        "Mark every structural item (verb skills, articles, agreement, particles) as kind \"grammar\".\n"
         "- Give each unit and lesson a short, learner-friendly English title.\n\n"
         "Return ONLY valid JSON in exactly this shape, no other text:\n"
         "{\n"
@@ -334,17 +340,21 @@ async def generate_lesson(
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
 
-    # Materialise. Keep the FULL contextual gloss so near-synonyms stay distinct.
-    items, grammar_only_teach = [], []
+    # Materialise. VOCAB concepts become testable items; GRAMMAR concepts are
+    # kept OUT of the vocab exercise pipeline (so we never ask an ambiguous
+    # "how do you say X" where several forms fit) — they're taught + drilled
+    # with their own grammar exercises (conjugation, etc.).
+    items, grammar_teach = [], []
     for c in concepts:
         key, gloss = c.get("key"), (c.get("gloss") or "").strip()
         target = (targets.get(key) or "").strip()
         note = (notes.get(key) or "").strip()
         roman = R(target, target_lang) if (has_rom and target) else ""
-        if target:
+        if c.get("kind") == "grammar":
+            grammar_teach.append({"target": target, "target_roman": roman, "gloss": gloss,
+                                  "note": note, "grammar": True})
+        elif target:
             items.append({"key": key, "gloss": gloss, "target": target, "roman": roman, "note": note})
-        else:  # grammar point with no single target form — taught via its note
-            grammar_only_teach.append({"target": "", "target_roman": "", "gloss": gloss, "note": note})
 
     gloss_pool = [it["gloss"] for it in items] + [(c.get("gloss") or "").strip() for c in prior_concepts]
     target_pool = [it["target"] for it in items] + [(c.get("label") or "").strip() for c in prior_concepts]
@@ -358,7 +368,7 @@ async def generate_lesson(
     for gi, group in enumerate(groups):
         teach_items = [_teach_item(it) for it in group]
         if gi == 0:
-            teach_items = grammar_only_teach + teach_items   # grammar notes up front
+            teach_items = grammar_teach + teach_items   # grammar points up front
         teach = {"items": teach_items}
         if gi == 0:
             teach["intro"] = intro
@@ -366,9 +376,9 @@ async def generate_lesson(
         segments.append({"teach": teach, "exercises": exercises})
         refresh = refresh + group
 
-    # Grammar drills: drill the FORMS flashcards can't teach. For verb concepts
-    # (vocab OR grammar), get the infinitive from the label/target and add
-    # conjugation exercises to the segment teaching that concept.
+    # Grammar drills: drill the FORMS flashcards can't teach. For verb concepts,
+    # derive the infinitive from the label and add conjugation exercises (these
+    # are unambiguous: "conjugate avoir for je" → ai).
     if grammar.has_conjugation(target_lang):
         for c in concepts:
             inf = _verb_infinitive(c, targets.get(c.get("key"), ""))

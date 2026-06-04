@@ -98,10 +98,10 @@ def build_conjugation_exercises(verb: str, concept_key: str, n: int = 3) -> list
         opts = [correct] + distractors[:3]
         random.shuffle(opts)
         exercises.append({
-            "type": "choice", "concept_key": concept_key,
-            "instruction": f"Conjugate “{verb}” for “{person}”",
+            "type": "choice", "concept_key": concept_key, "grammar": True,
+            "instruction": f"Conjugate “{verb}” for “{person}” (present)",
             "prompt": "", "prompt_lang": "english",
             "options": opts, "answer": opts.index(correct),
-            "tip": "present tense",
+            "tip": f"{verb} — present tense",
         })
     return exercises

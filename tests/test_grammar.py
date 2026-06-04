@@ -40,9 +40,9 @@ def test_build_form_drills_are_correct():
     assert len(exs) == 3
     forms = set(grammar.conjugate_present("parler").values())
     for e in exs:
-        assert e["type"] == "choice"
+        assert e["type"] == "choice" and e.get("grammar")
         # the marked answer is the real conjugated form for the asked person
-        person = e["instruction"].split("for ")[1].strip("“”")
+        person = e["instruction"].split("“")[2].split("”")[0]
         assert e["options"][e["answer"]] == grammar.conjugate_present("parler")[person]
         # all options are real cells of the paradigm (plausible distractors)
         assert set(e["options"]) <= forms
