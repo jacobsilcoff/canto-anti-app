@@ -610,11 +610,12 @@
         player.mistakes.push(ex);              // review it at the end of the lesson
       }
       const fb = document.getElementById('feedback');
-      if (correct) { fb.className = 'feedback correct'; fb.textContent = 'Correct!'; }
+      const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
+      if (correct) { fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip; }
       else {
         const at = player.controller.answerText ? player.controller.answerText() : '';
         fb.className = 'feedback wrong';
-        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '');
+        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
       }
       const isLast = player.idx >= player.queue.length - 1;
       const reviewWillStart = !player.reviewStarted && player.mistakes.length > 0;

@@ -11,7 +11,6 @@ language. This keeps an AI course coherent and reliable across languages.
 """
 import asyncio
 import random
-import re
 
 import tokenizer
 from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
@@ -190,36 +189,35 @@ async def generate_curriculum(
 EXERCISE_TYPES = ("choice", "word_bank", "listening", "match")
 
 
-def _clean_gloss(g: str) -> str:
-    """Strip parentheticals for a cleaner translation input ('Hi (informal)' → 'Hi')."""
-    g = re.sub(r"\s*\([^)]*\)\s*", " ", g or "").strip()
-    return g
-
-
 def _build_materialize_prompt(target_lang: str, concepts: list[dict]) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     rules = info["rules"]
-    lines = []
-    for c in concepts:
-        gl = _clean_gloss(c.get("gloss", "")) or c.get("gloss", "")
-        lines.append(f'- key="{c.get("key")}" kind={c.get("kind","vocab")} : {gl}')
+    lines = [
+        f'- key="{c.get("key")}" kind={c.get("kind","vocab")} : {c.get("gloss","")}'
+        for c in concepts
+    ]
     items = "\n".join(lines)
     return (
         f"You are preparing one beginner {name} lesson for an English speaker.\n"
         f"Language notes:\n{rules}\n\n"
         f"For each item below, give the single most natural, correct everyday {name} "
-        f"word or phrase for that English meaning (the citation/dictionary form, no "
-        f"extra commentary, no romanisation).\n"
+        f"word or phrase for that meaning (citation/dictionary form, no romanisation).\n"
+        f"IMPORTANT — teach the nuances, don't flatten them: when several items have "
+        f"overlapping English meanings (e.g. two different ways to say 'thank you', or "
+        f"formal vs informal 'you'), give each its correct DISTINCT target, and write a "
+        f"short 'note' for EACH explaining exactly when to use it versus the other. These "
+        f"distinctions are the whole point of the lesson.\n"
         f"Items:\n{items}\n\n"
         f"Also write:\n"
         f'- "intro": 1–2 friendly sentences introducing this lesson.\n'
-        f'- "notes": for each GRAMMAR item, a one-sentence plain-English explanation '
-        f'(keyed by its key). Empty object if none.\n\n'
+        f'- "notes": a one-sentence plain-English usage note for ANY item that has a '
+        f'useful nuance, is easily confused with another item, or is a grammar point '
+        f'(keyed by its key). Empty object if truly none.\n\n'
         "Return ONLY valid JSON in this exact shape:\n"
         '{ "targets": { "<key>": "<target word/phrase>", ... },\n'
         '  "intro": "...",\n'
-        '  "notes": { "<grammar key>": "<one-sentence note>", ... } }'
+        '  "notes": { "<key>": "<one-sentence note>", ... } }'
     )
 
 
@@ -248,13 +246,13 @@ def _build_exercises(items: list[dict], lang: str,
     recog, prod, listen = [], [], []
 
     for it in items:
-        tgt, gl = it["target"], it["gloss"]
+        tgt, gl, tip = it["target"], it["gloss"], it.get("note", "")
         # Recognition: show target, choose the English meaning.
         opts, ans = _pick_options(gl, gloss_pool)
         recog.append({
             "type": "choice", "concept_key": it["key"], "instruction": "What does this mean?",
             "prompt": tgt, "prompt_lang": "target", "prompt_roman": it["roman"],
-            "audio": tgt, "options": opts, "answer": ans,
+            "audio": tgt, "options": opts, "answer": ans, "tip": tip,
         })
         # Production: show English, choose the target word.
         topts, tans = _pick_options(tgt, target_pool)
@@ -262,7 +260,7 @@ def _build_exercises(items: list[dict], lang: str,
             "type": "choice", "concept_key": it["key"], "instruction": "How do you say this?",
             "prompt": gl, "prompt_lang": "english", "audio": "",
             "options": topts, "options_roman": [R(o, lang) if has_rom else "" for o in topts],
-            "answer": tans,
+            "answer": tans, "tip": tip,
         })
 
     for it in items[:3]:
@@ -271,7 +269,7 @@ def _build_exercises(items: list[dict], lang: str,
             "type": "listening", "concept_key": it["key"], "instruction": "What did you hear?",
             "audio": it["target"], "audio_roman": it["roman"],
             "options": lopts, "options_roman": [R(o, lang) if has_rom else "" for o in lopts],
-            "answer": lans,
+            "answer": lans, "tip": it.get("note", ""),
         })
 
     exercises = recog + prod + listen
@@ -313,18 +311,20 @@ async def generate_lesson(
     R = tokenizer.romanize_text
 
     # Materialised items that have a target (skip concepts we couldn't translate).
+    # Keep the FULL contextual gloss ("thank you (for a gift)") so near-synonyms
+    # stay distinct and become teaching distractors rather than ambiguous answers.
     items, teach_items = [], []
     for c in concepts:
-        key, gloss = c.get("key"), _clean_gloss(c.get("gloss", "")) or c.get("gloss", "")
+        key, gloss = c.get("key"), (c.get("gloss") or "").strip()
         target = (targets.get(key) or "").strip()
         note = (notes.get(key) or "").strip()
         roman = R(target, target_lang) if (has_rom and target) else ""
         if target:
-            items.append({"key": key, "gloss": gloss, "target": target, "roman": roman})
+            items.append({"key": key, "gloss": gloss, "target": target, "roman": roman, "note": note})
         teach_items.append({"target": target, "target_roman": roman, "gloss": gloss, "note": note})
 
-    gloss_pool = [it["gloss"] for it in items] + [_clean_gloss(c.get("gloss", "")) for c in prior_concepts]
-    target_pool = [it["target"] for it in items] + [c.get("label", "") for c in prior_concepts]
+    gloss_pool = [it["gloss"] for it in items] + [(c.get("gloss") or "").strip() for c in prior_concepts]
+    target_pool = [it["target"] for it in items] + [(c.get("label") or "").strip() for c in prior_concepts]
 
     exercises = _build_exercises(items, target_lang, gloss_pool, target_pool) if items else []
     teach = {"intro": intro, "items": teach_items}
