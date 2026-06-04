@@ -81,14 +81,36 @@ def _known_block(known_summary: str | None) -> str:
     )
 
 
+def _next_level(level: str) -> str | None:
+    """The CEFR level after `level`, or None if already at the top."""
+    try:
+        i = LEVELS.index(level)
+    except ValueError:
+        return None
+    return LEVELS[i + 1] if i + 1 < len(LEVELS) else None
+
+
 def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | None) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     script = info["script"]
     rom = info["romanization"]
     rules = info["rules"]
-    checklist = CEFR_SYLLABUS.get(level, CEFR_SYLLABUS["A1"])
-    checklist_str = "\n".join(f"- {c}" for c in checklist)
+    checklist = CEFR_SYLLABUS.get(level)
+    if checklist:
+        backbone = (
+            f"Use this CEFR {level} can-do / topic checklist as your backbone. Cover all of "
+            f"it, but ORDER, GROUP, and ADAPT it for {name} specifically — front-load what is "
+            f"foundational for THIS language (e.g. tones & measure words, or gender & verb "
+            f"conjugation), and fold in features the checklist doesn't name but {name} needs:\n"
+            + "\n".join(f"- {c}" for c in checklist)
+        )
+    else:
+        backbone = (
+            f"Cover the standard topics, vocabulary, and grammatical competencies expected at "
+            f"CEFR {level} in {name}, progressing in difficulty from the start of the level to "
+            f"the end. Build directly on what the learner already knows (below)."
+        )
     rom_note = (
         f"Romanisation scheme for examples: {rom}.\n" if rom else
         "This language uses the Latin alphabet; no romanisation needed.\n"
@@ -101,11 +123,7 @@ def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | 
         f"Writing system: {script}\n"
         f"{rom_note}"
         f"Language-specific notes:\n{rules}\n\n"
-        f"Use this CEFR {level} can-do / topic checklist as your backbone. Cover all of "
-        f"it, but ORDER, GROUP, and ADAPT it for {name} specifically — front-load what is "
-        f"foundational for THIS language (e.g. tones & measure words, or gender & verb "
-        f"conjugation), and fold in features the checklist doesn't name but {name} needs:\n"
-        f"{checklist_str}\n\n"
+        f"{backbone}\n\n"
         f"{_known_block(known_summary)}\n\n"
         "Design rules:\n"
         "- Organise into 6–8 UNITS, each a coherent theme with a one-line objective.\n"
@@ -202,8 +220,23 @@ lesson's new concepts with a few earlier ones recycled as distractors):
 Rules:
 - Only use vocabulary/grammar from this lesson's concepts or earlier ones (listed
   below). Never introduce unseen words.
-- Every exercise's "concept_key" must be one of the lesson's new-concept keys.
+- Test EACH new concept in at least two different exercises.
+- Include 1–2 exercises that REVIEW earlier concepts (from the known list) so the
+  learner keeps practising what they've already met.
 - Keep target text natural and correct. Distractors must be plausible but clearly wrong.
+""".strip()
+
+# The teaching screen shown BEFORE the exercises.
+_TEACH_CONTRACT = """
+Also include a "teach" object that briefly TEACHES the new material before the
+exercises (the learner reads this first):
+{ "teach": {
+    "intro": "<1-2 friendly sentences introducing this lesson's theme / grammar point>",
+    "items": [ {"target":"<target word or phrase>", "gloss":"<English meaning>",
+                "note":"<optional short usage or grammar note; empty string if none>"} ]
+} }
+Include one item per NEW vocabulary concept, and for each NEW grammar concept an
+item whose "note" explains it simply in one sentence.
 """.strip()
 
 # Per-type list of fields whose values are target-language text and should get a
@@ -260,8 +293,9 @@ def _build_lesson_prompt(target_lang: str, lesson: dict, prior_concepts: list[di
         f"Objective: {lesson.get('objective','')}\n\n"
         f"NEW concepts this lesson must teach and test (use these keys):\n{new_block}\n\n"
         f"Earlier concepts already known (recycle as distractors; do not re-teach):\n{prior_block}\n\n"
+        f"{_TEACH_CONTRACT}\n\n"
         f"{_EXERCISE_CONTRACT}\n\n"
-        "Return ONLY valid JSON: { \"exercises\": [ ... ] }"
+        "Return ONLY valid JSON: { \"teach\": {...}, \"exercises\": [ ... ] }"
     )
 
 
@@ -282,4 +316,10 @@ async def generate_lesson(
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     exercises = [e for e in (raw.get("exercises") or []) if isinstance(e, dict) and e.get("type") in EXERCISE_TYPES]
     exercises = _attach_romanization(exercises, target_lang)
-    return {"exercises": exercises}
+
+    teach = raw.get("teach") if isinstance(raw.get("teach"), dict) else {}
+    if teach and LANG_INFO[target_lang].get("romanization"):
+        for it in teach.get("items", []):
+            if isinstance(it, dict):
+                it["target_roman"] = tokenizer.romanize_text(it.get("target", ""), target_lang)
+    return {"teach": teach, "exercises": exercises}

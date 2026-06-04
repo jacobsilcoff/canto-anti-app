@@ -1658,6 +1658,32 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+@app.post("/api/courses/{course_id}/extend")
+@limiter.limit("4/minute;20/day")
+async def extend_course(request: Request, course_id: int, user: dict = Depends(current_user)):
+    """Continue the path: generate the next CEFR level's units, building on
+    everything taught so far, and append them to the course."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    next_level = learning._next_level(course["level"])
+    if not next_level:
+        raise HTTPException(400, "You've reached the top CEFR level.")
+    access = await _resolve_gemini(user)
+    digest = await db.get_course_concept_digest(course_id)
+    try:
+        curriculum = await learning.generate_curriculum(
+            course["target_lang"], next_level, known_summary=digest,
+            api_key=access.api_key, model=access.model_reader,
+        )
+    except Exception:
+        raise HTTPException(502, "Couldn't generate more units — please try again.")
+    if not curriculum.get("units"):
+        raise HTTPException(502, "Generation returned no units — please try again.")
+    await db.append_units(user["id"], course_id, curriculum, next_level)
+    return await db.get_course(user["id"], course_id)
+
+
 async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
     """Generate the exercises for a lesson and cache them."""
     access = await _resolve_gemini(user)

@@ -111,6 +111,20 @@
     /* results */
     .results-emoji { font-size: 3rem; }
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
+
+    /* teach screen */
+    .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; }
+    .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .teach-text { flex: 1; min-width: 0; }
+    .teach-target { font-size: 1.25rem; font-family: var(--script-font, inherit); }
+    .teach-target .opt-roman { font-size: 0.8rem; }
+    .teach-gloss { color: var(--text); margin-top: 2px; }
+    .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
+
+    /* completed lesson + continue CTA */
+    .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
+    .lesson-replay { font-size: 0.74rem; color: var(--primary); margin-top: 4px; }
+    #course-cta .learn-center { padding: 28px 16px 8px; }
   </style>
 </head>
 <body>
@@ -148,6 +162,7 @@
       <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
     </div>
     <div id="units"></div>
+    <div id="course-cta"></div>
     <div class="learn-note">Tap an available lesson to start.</div>
   </div>
 
@@ -155,6 +170,17 @@
   <div id="state-lesson-loading" class="learn-center" style="display:none">
     <h2><span class="spinner"></span></h2>
     <p>Building this lesson…</p>
+  </div>
+
+  <!-- Teach screen (before exercises) -->
+  <div id="state-teach" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
+      <div style="flex:1;font-weight:600" id="teach-title"></div>
+    </div>
+    <p class="teach-intro" id="teach-intro"></p>
+    <div id="teach-items"></div>
+    <button class="cta-btn player-action" onclick="startExercises()">Start exercises →</button>
   </div>
 
   <!-- Lesson player -->
@@ -183,8 +209,10 @@
   let langName = 'your language';
   let LANGS = [];
 
+  const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
   function show(state) {
-    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'player', 'results'].forEach(s =>
+    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
   }
 
@@ -283,19 +311,34 @@
         const meta = (l.concept_count != null)
           ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
         const clickable = (st === 'available' || st === 'done');
+        const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
         html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openLesson(${l.id})"` : ''}>
           <div class="lesson-node">${node}</div>
           <div class="lesson-body">
             <div class="lesson-name">${esc(l.title)}</div>
             ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
             ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
+            ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
           </div>
-          <div class="lesson-status ${st}">${st}</div>
+          <div class="lesson-status ${st}">${badge}</div>
         </div>`;
       });
       sec.innerHTML = html;
       wrap.appendChild(sec);
     });
+
+    // Continue-the-path CTA when the whole course is complete.
+    const cta = document.getElementById('course-cta');
+    cta.innerHTML = '';
+    const allDone = nLessons > 0 && nDone === nLessons;
+    if (allDone) {
+      const next = LEVELS[LEVELS.indexOf(course.level) + 1];
+      cta.innerHTML = next
+        ? `<div class="learn-center"><h2>Level ${esc(course.level)} complete! 🎉</h2>
+             <p>You've finished every lesson. Ready to go further?</p>
+             <button class="cta-btn" onclick="extendCourse()">Continue to ${esc(next)}</button></div>`
+        : `<div class="learn-center"><h2>🏆 You've reached the top level!</h2></div>`;
+    }
   }
 
   // ── Lesson player ───────────────────────────────────────────────────────────
@@ -447,16 +490,67 @@
       const res = await fetch('/api/lessons/' + lessonId);
       if (!res.ok) throw new Error();
       const lesson = await res.json();
-      const exs = (lesson.content && lesson.content.exercises) || [];
+      const content = lesson.content || {};
+      const exs = content.exercises || [];
       if (!exs.length) throw new Error('no exercises');
       player = { lessonId, lang: lesson.target_lang, exercises: exs, idx: 0, correct: 0, controller: null, graded: false };
-      document.getElementById('state-player').className = scriptClassFor(player.lang);
-      document.getElementById('state-results').className = 'learn-center ' + scriptClassFor(player.lang);
-      show('player');
-      renderExercise();
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      // Teach screen first (if present), then exercises.
+      if (content.teach && (content.teach.items || []).length) {
+        document.getElementById('teach-title').textContent = lesson.title || 'Lesson';
+        renderTeach(content.teach);
+        show('teach');
+      } else {
+        startExercises();
+      }
     } catch {
       alert('Could not load this lesson — please try again.');
       show('course');
+    }
+  }
+
+  function renderTeach(teach) {
+    document.getElementById('teach-intro').textContent = teach.intro || '';
+    const wrap = document.getElementById('teach-items');
+    wrap.innerHTML = '';
+    (teach.items || []).forEach(it => {
+      const row = document.createElement('div');
+      row.className = 'teach-item';
+      row.innerHTML = `<div class="teach-text">
+          <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}</div>
+          <div class="teach-gloss">${esc(it.gloss || '')}</div>
+          ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
+        </div>`;
+      if (it.target) {
+        const btn = document.createElement('button');
+        btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
+        btn.onclick = () => playTTS(it.target, player.lang);
+        row.appendChild(btn);
+      }
+      wrap.appendChild(row);
+    });
+  }
+
+  function startExercises() {
+    show('player');
+    renderExercise();
+  }
+
+  async function extendCourse() {
+    const id = document.getElementById('state-course').dataset.courseId;
+    show('generating');
+    try {
+      const res = await fetch('/api/courses/' + id + '/extend', { method: 'POST' });
+      if (!res.ok) { const m = (await res.json().catch(() => ({}))).detail || 'Could not add more units.'; throw new Error(m); }
+      const course = await res.json();
+      renderCourse(course);
+      show('course');
+    } catch (e) {
+      alert(e.message || 'Could not add more units — please try again.');
+      refreshAndShowCourse();
     }
   }
 

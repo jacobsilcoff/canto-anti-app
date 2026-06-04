@@ -1447,6 +1447,38 @@ async def delete_reader_text(user_id: int, text_id: int):
 
 # ── Learning path (AI course) ─────────────────────────────────────────────────
 
+async def _insert_units(db, course_id: int, units: list[dict], start_idx: int):
+    """Insert units (with their lessons + concepts) at idx >= start_idx."""
+    for offset, unit in enumerate(units):
+        ucur = await db.execute(
+            "INSERT INTO course_units (course_id, idx, title, theme, objective) VALUES (?, ?, ?, ?, ?)",
+            (course_id, start_idx + offset, (unit.get("title") or "").strip(),
+             (unit.get("theme") or "").strip(), (unit.get("objective") or "").strip()),
+        )
+        unit_id = ucur.lastrowid
+        for li, lesson in enumerate(unit.get("lessons", [])):
+            concepts = lesson.get("new_concepts") or []
+            keys = [(c.get("key") or "").strip() for c in concepts if c.get("key")]
+            lcur = await db.execute(
+                """INSERT INTO course_lessons (unit_id, idx, title, objective, concepts_introduced)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (unit_id, li, (lesson.get("title") or "").strip(),
+                 (lesson.get("objective") or "").strip(), json.dumps(keys)),
+            )
+            lesson_id = lcur.lastrowid
+            for c in concepts:
+                key = (c.get("key") or "").strip()
+                if not key:
+                    continue
+                await db.execute(
+                    """INSERT OR IGNORE INTO course_concepts
+                       (course_id, kind, key, label, gloss, introduced_lesson_id)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (course_id, (c.get("kind") or "vocab").strip(), key,
+                     (c.get("label") or "").strip(), (c.get("gloss") or "").strip(), lesson_id),
+                )
+
+
 async def create_course(user_id: int, target_lang: str, level: str, curriculum: dict) -> int:
     """Persist a generated curriculum (units → lessons → concepts). Returns course_id."""
     title = (curriculum.get("language") or target_lang) + f" {level}"
@@ -1456,36 +1488,49 @@ async def create_course(user_id: int, target_lang: str, level: str, curriculum: 
             (user_id, target_lang, level, title),
         )
         course_id = cur.lastrowid
-        for ui, unit in enumerate(curriculum.get("units", [])):
-            ucur = await db.execute(
-                "INSERT INTO course_units (course_id, idx, title, theme, objective) VALUES (?, ?, ?, ?, ?)",
-                (course_id, ui, (unit.get("title") or "").strip(),
-                 (unit.get("theme") or "").strip(), (unit.get("objective") or "").strip()),
-            )
-            unit_id = ucur.lastrowid
-            for li, lesson in enumerate(unit.get("lessons", [])):
-                concepts = lesson.get("new_concepts") or []
-                keys = [(c.get("key") or "").strip() for c in concepts if c.get("key")]
-                lcur = await db.execute(
-                    """INSERT INTO course_lessons (unit_id, idx, title, objective, concepts_introduced)
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (unit_id, li, (lesson.get("title") or "").strip(),
-                     (lesson.get("objective") or "").strip(), json.dumps(keys)),
-                )
-                lesson_id = lcur.lastrowid
-                for c in concepts:
-                    key = (c.get("key") or "").strip()
-                    if not key:
-                        continue
-                    await db.execute(
-                        """INSERT OR IGNORE INTO course_concepts
-                           (course_id, kind, key, label, gloss, introduced_lesson_id)
-                           VALUES (?, ?, ?, ?, ?, ?)""",
-                        (course_id, (c.get("kind") or "vocab").strip(), key,
-                         (c.get("label") or "").strip(), (c.get("gloss") or "").strip(), lesson_id),
-                    )
+        await _insert_units(db, course_id, curriculum.get("units", []), 0)
         await db.commit()
         return course_id
+
+
+async def get_course_concept_digest(course_id: int, limit: int = 250) -> str:
+    """Compact comma-separated list of taught concept glosses — fed to the
+    curriculum generator as `known_summary` when extending a course."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT gloss, label FROM course_concepts WHERE course_id=? LIMIT ?",
+            (course_id, limit),
+        ) as cur:
+            rows = await cur.fetchall()
+    items = [(r["gloss"] or r["label"] or "").strip() for r in rows]
+    items = [i for i in items if i]
+    return ", ".join(items)
+
+
+async def append_units(user_id: int, course_id: int, curriculum: dict, new_level: str) -> int:
+    """Append generated units to an existing course (continuation). Updates the
+    course level/title. Returns the number of units added (0 if not owned)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT target_lang FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
+        ) as cur:
+            course = await cur.fetchone()
+        if not course:
+            return 0
+        async with db.execute(
+            "SELECT COALESCE(MAX(idx), -1) AS m FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            start_idx = (await cur.fetchone())["m"] + 1
+        units = curriculum.get("units", [])
+        await _insert_units(db, course_id, units, start_idx)
+        title = (curriculum.get("language") or course["target_lang"]) + f" {new_level}"
+        await db.execute(
+            "UPDATE courses SET level=?, title=? WHERE id=?", (new_level, title, course_id)
+        )
+        await db.commit()
+        return len(units)
 
 
 async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict]:
