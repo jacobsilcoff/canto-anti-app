@@ -504,36 +504,43 @@
     },
     block_build: {
       render(ex, root, lang) {
-        let cho = null, jung = null;   // jamo indices
+        let cho = null, choSym = '', jung = null, jungSym = '', jong = 0, jongSel = false;
+        const hasFinals = Array.isArray(ex.finals) && ex.finals.length > 0;
         root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the syllable')}</div>
           <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button>
             ${ex.roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
           <div class="bb-preview" id="bb-preview">·</div>
           <div class="bb-label">Consonant</div><div class="opt-list bb-row" id="bb-initials"></div>
-          <div class="bb-label">Vowel</div><div class="opt-list bb-row" id="bb-medials"></div>`;
+          <div class="bb-label">Vowel</div><div class="opt-list bb-row" id="bb-medials"></div>
+          ${hasFinals ? `<div class="bb-label">Final (받침)</div><div class="opt-list bb-row" id="bb-finals"></div>` : ''}`;
         document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
         setTimeout(() => playTTS(ex.audio, lang), 300);
         const preview = document.getElementById('bb-preview');
         const compose = () => (cho == null || jung == null) ? null
-          : String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28);
-        const refresh = () => { preview.textContent = compose() || '·'; updateAction(); };
-        const initEl = document.getElementById('bb-initials');
-        (ex.initials || []).forEach(it => {
-          const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = it.j;
-          b.onclick = () => { if (player.graded) return; cho = it.cho; [...initEl.children].forEach(c => c.classList.toggle('selected', c === b)); refresh(); };
-          initEl.appendChild(b);
-        });
-        const medEl = document.getElementById('bb-medials');
-        (ex.medials || []).forEach(it => {
-          const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = it.j;
-          b.onclick = () => { if (player.graded) return; jung = it.jung; [...medEl.children].forEach(c => c.classList.toggle('selected', c === b)); refresh(); };
-          medEl.appendChild(b);
-        });
+          : String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28 + (jongSel ? jong : 0));
+        // Live, incremental preview: shows the lone letter, then the block as it builds.
+        const previewText = () => compose() || (cho != null ? choSym : (jung != null ? jungSym : '·'));
+        const refresh = () => { preview.textContent = previewText(); updateAction(); };
+        const mkRow = (id, list, pick) => {
+          const el = document.getElementById(id);
+          (list || []).forEach(it => {
+            const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = it.j;
+            b.onclick = () => {
+              if (player.graded) return;
+              [...el.children].forEach(c => c.classList.toggle('selected', c === b));
+              pick(it); refresh();
+            };
+            el.appendChild(b);
+          });
+        };
+        mkRow('bb-initials', ex.initials, it => { cho = it.cho; choSym = it.j; });
+        mkRow('bb-medials', ex.medials, it => { jung = it.jung; jungSym = it.j; });
+        if (hasFinals) mkRow('bb-finals', ex.finals, it => { jong = it.jong; jongSel = true; });
         return {
-          isReady: () => cho != null && jung != null,
+          isReady: () => cho != null && jung != null && (!hasFinals || jongSel),
           grade: () => compose() === ex.target,
           answerText: () => esc(ex.target) + (ex.roman ? ` (${esc(ex.roman)})` : ''),
-          lock: () => { [...initEl.children, ...medEl.children].forEach(c => c.disabled = true); preview.textContent = compose() || '·'; },
+          lock: () => { root.querySelectorAll('.tile').forEach(c => c.disabled = true); preview.textContent = previewText(); },
         };
       },
     },
