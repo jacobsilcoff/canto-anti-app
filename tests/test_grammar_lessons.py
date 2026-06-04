@@ -117,11 +117,13 @@ def test_wrong_paradigm_cell_is_auto_corrected():
 
 
 def test_conjugation_table_is_engine_computed():
-    # Reliable paradigm straight from the engine — never the LLM.
+    # Reliable paradigm straight from the engine — never the LLM. Canonical
+    # layout: person down, singular/plural across.
     t = grammar.conjugation_table("manger")
-    assert t["rows"][0] == ["je", "mange"]
-    assert t["rows"][3] == ["nous", "mangeons"]
-    assert t["rows"][5] == ["ils / elles", "mangent"]
+    assert t["columns"] == ["singular", "plural"]
+    assert t["rows"][0] == ["je mange", "nous mangeons"]
+    assert t["rows"][2] == ["il / elle mange", "ils / elles mangent"]
+    assert grammar.conjugation_table("avoir")["rows"][0] == ["j'ai", "nous avons"]  # elision
     assert grammar.conjugation_table("s'appeler") is None   # reflexive → no table
 
 
@@ -129,7 +131,7 @@ def test_verb_concept_gets_computed_table_in_artifact():
     import asyncio
     art = asyncio.run(_run(FR_GEN, {"minimal_pairs": [True], "cloze": [True], "reorder": [True]}))
     assert art["tables"], "verb concept should carry a conjugation table"
-    assert ["nous", "mangeons"] in art["tables"][0]["rows"]
+    assert any("mangeons" in cell for row in art["tables"][0]["rows"] for cell in row)
 
 
 def test_generator_table_kept_only_when_critic_approves():

@@ -89,18 +89,19 @@ def conjugate_present(verb: str, lang: str = "fr") -> dict[str, str]:
     return dict(zip(PERSONS, forms))
 
 
-_PERSON_LABELS = ["je", "tu", "il / elle", "nous", "vous", "ils / elles"]
-
-
 def conjugation_table(verb: str, lang: str = "fr") -> dict | None:
     """A reliable, ENGINE-computed conjugation table for the teach screen, or
-    None if not conjugable. Shape matches the generic table renderer:
-    {title, columns, rows} with rows = [[pronoun, form], ...]."""
+    None if not conjugable. Canonical layout: person down (1/2/3), singular vs
+    plural across, each cell = pronoun + form ("je mange" / "nous mangeons")."""
     forms = conjugate_present(verb, lang)
     if not forms:
         return None
-    rows = [[label, forms[p]] for p, label in zip(PERSONS, _PERSON_LABELS)]
-    return {"title": f"{verb} — present tense", "columns": [], "rows": rows}
+    rows = [
+        [with_pronoun("je", forms["je"]), with_pronoun("nous", forms["nous"])],
+        [with_pronoun("tu", forms["tu"]), with_pronoun("vous", forms["vous"])],
+        [f'il / elle {forms["il"]}', f'ils / elles {forms["ils"]}'],
+    ]
+    return {"title": f"{verb} — present tense", "columns": ["singular", "plural"], "rows": rows}
 
 
 def with_pronoun(person: str, form: str) -> str:

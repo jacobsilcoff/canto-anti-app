@@ -1704,8 +1704,10 @@ async def _ensure_grammar_content(lesson: dict, access) -> dict:
             continue
         art = await db.get_concept_content(lang, key)
         if art is None:
+            # Uses grammar_lessons.GENERATION_MODEL (a more capable model than the
+            # cheap reader model) — generated once, cached + shared across users.
             art = await grammar_lessons.generate_grammar_content(
-                lang, c, api_key=access.api_key, model=access.model_reader,
+                lang, c, api_key=access.api_key,
             )
             await db.set_concept_content(lang, key, art)
         out[key] = art

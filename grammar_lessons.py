@@ -27,12 +27,19 @@ The artifact carries `explain` + `minimal_pairs` for the TEACH screen and a list
 of ready-to-play `exercises` (reusing the existing choice / word_bank renderers).
 """
 import asyncio
+import os
 import random
 import re
 
 import grammar
 import tokenizer
-from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
+from translation import LANG_INFO, _call, _parse_json
+
+# Grammar content is generated ONCE per concept and cached shared across all
+# users (concept_content), so a more capable/expensive model is worth it here:
+# the cost amortizes to ~zero per user while quality compounds for everyone. This
+# is the generator AND critic model; vocab materialization stays on the cheap one.
+GENERATION_MODEL = os.environ.get("GRAMMAR_MODEL", "gemini-2.5-pro")
 
 
 def _default_call_json(api_key: str, model: str):
@@ -250,7 +257,7 @@ async def generate_grammar_content(
     concept: dict,
     *,
     api_key: str | None = None,
-    model: str = DEFAULT_MODEL,
+    model: str = GENERATION_MODEL,
     call_json=None,
 ) -> dict:
     """Generate + critic-verify the canonical grammar artifact for one concept.
