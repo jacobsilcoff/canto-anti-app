@@ -12,6 +12,7 @@ language. This keeps an AI course coherent and reliable across languages.
 import asyncio
 import random
 
+import grammar
 import tokenizer
 from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
 
@@ -360,6 +361,13 @@ async def generate_lesson(
         if gi == 0:
             teach["intro"] = intro
         exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh) if group else []
+        # Grammar drills: for verbs (gloss "to …"), add reliable conjugation
+        # exercises from the grammar engine, drilling the FORMS — the thing
+        # flashcards can't teach.
+        if grammar.has_conjugation(target_lang):
+            for it in group:
+                if it["gloss"].strip().lower().startswith("to "):
+                    exercises += grammar.build_conjugation_exercises(it["target"], it["key"], n=2)
         segments.append({"teach": teach, "exercises": exercises})
         refresh = refresh + group
 
