@@ -271,3 +271,70 @@ async def test_multilang_card_no_romanization(fresh_db):
     card = await db.get_card(user_id, card_id)
     assert card["target_lang"] == "fr"
     assert card["romanization"] == ""
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+_CURRIC = {
+    "level": "A1", "language": "French",
+    "units": [
+        {"title": "Greetings", "theme": "social", "objective": "Say hello",
+         "lessons": [
+            {"title": "Hello & Goodbye", "objective": "Greet",
+             "new_concepts": [
+                {"kind": "vocab", "key": "greeting_hello", "label": "Bonjour", "gloss": "hello"},
+                {"kind": "vocab", "key": "greeting_goodbye", "label": "Au revoir", "gloss": "goodbye"},
+             ]},
+            {"title": "My Name", "objective": "Introduce",
+             "new_concepts": [{"kind": "grammar", "key": "verb_to_be_je", "label": "suis", "gloss": "am"}]},
+         ]},
+        {"title": "Numbers", "theme": "math", "objective": "Count",
+         "lessons": [
+            {"title": "0-10", "objective": "Count to ten",
+             "new_concepts": [{"kind": "vocab", "key": "number_1", "label": "un", "gloss": "one"}]},
+         ]},
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_create_and_get_course(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    course = await db.get_course(user_id, cid)
+    assert course["title"] == "French A1"
+    assert len(course["units"]) == 2
+    assert [u["title"] for u in course["units"]] == ["Greetings", "Numbers"]
+    first_unit = course["units"][0]
+    assert len(first_unit["lessons"]) == 2
+    assert first_unit["lessons"][0]["concept_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_course_unlock_progression(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    course = await db.get_course(user_id, cid)
+    statuses = [l["status"] for u in course["units"] for l in u["lessons"]]
+    assert statuses == ["available", "locked", "locked"]
+
+
+@pytest.mark.asyncio
+async def test_active_course_and_delete(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    active = await db.get_active_course(user_id, "fr")
+    assert active is not None and active["id"] == cid
+    assert await db.get_active_course(user_id, "es") is None  # different language
+    await db.delete_course(user_id, cid)
+    assert await db.get_courses(user_id) == []
+    assert await db.get_active_course(user_id, "fr") is None
+
+
+@pytest.mark.asyncio
+async def test_courses_are_siloed_by_user(fresh_db):
+    admin_id = fresh_db
+    other_id = await db.create_user("other", auth.hash_password("pw"))
+    cid = await db.create_course(admin_id, "fr", "A1", _CURRIC)
+    assert await db.get_course(other_id, cid) is None
+    assert await db.get_courses(other_id) == []

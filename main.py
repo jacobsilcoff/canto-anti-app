@@ -31,6 +31,7 @@ import srs
 import starter_deck
 import tokenizer
 import translation
+import learning
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -197,6 +198,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -221,6 +223,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/",         "Add Vocab",  "translate"),
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
+        link("/learn",    "Learn",      "learn"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -622,6 +625,11 @@ async def cards_page():
 @app.get("/reader", response_class=HTMLResponse)
 async def reader_page():
     return _html("reader.html", active="/reader")
+
+
+@app.get("/learn", response_class=HTMLResponse)
+async def learn_page():
+    return _html("learn.html", active="/learn")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -1592,6 +1600,62 @@ async def list_languages():
             for code, info in translation.LANG_INFO.items()
         ]
     }
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+class CreateCourseRequest(BaseModel):
+    target_lang: str | None = None
+    level: str = "A1"
+
+
+@app.post("/api/courses")
+@limiter.limit("6/minute;30/day")
+async def create_course(request: Request, req: CreateCourseRequest, user: dict = Depends(current_user)):
+    """Generate a CEFR-scaffolded course skeleton and persist it."""
+    lang = req.target_lang or await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    if req.level not in learning.LEVELS:
+        raise HTTPException(400, "Unsupported level")
+    access = await _resolve_gemini(user)
+    try:
+        curriculum = await learning.generate_curriculum(
+            lang, req.level, api_key=access.api_key, model=access.model_reader,
+        )
+    except Exception:
+        raise HTTPException(502, "Course generation failed — please try again.")
+    if not curriculum.get("units"):
+        raise HTTPException(502, "Course generation returned no units — please try again.")
+    course_id = await db.create_course(user["id"], lang, req.level, curriculum)
+    return await db.get_course(user["id"], course_id)
+
+
+@app.get("/api/courses")
+async def list_courses(user: dict = Depends(current_user)):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"courses": await db.get_courses(user["id"], target_lang=lang)}
+
+
+@app.get("/api/courses/active")
+async def active_course(user: dict = Depends(current_user)):
+    """The current language's active course (full nested structure), or null."""
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"course": await db.get_active_course(user["id"], lang)}
+
+
+@app.get("/api/courses/{course_id}")
+async def get_course(course_id: int, user: dict = Depends(current_user)):
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    return course
+
+
+@app.delete("/api/courses/{course_id}")
+async def delete_course(course_id: int, user: dict = Depends(current_user)):
+    await db.delete_course(user["id"], course_id)
+    return {"success": True}
 
 
 # ── Admin: user management ────────────────────────────────────────────────────

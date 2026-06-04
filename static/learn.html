@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Learn</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+
+    /* States */
+    .learn-center { text-align: center; padding: 48px 16px; }
+    .learn-center h2 { font-size: 1.3rem; margin-bottom: 8px; }
+    .learn-center p { color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .cta-btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 11px 22px; font-size: 0.98rem; font-weight: 600; cursor: pointer; }
+    .cta-btn:disabled { opacity: 0.6; cursor: default; }
+    .cta-btn.secondary { background: none; color: var(--primary); border: 1px solid var(--primary); }
+    .level-row { display: inline-flex; gap: 8px; margin-bottom: 18px; }
+    .level-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-size: 0.9rem; }
+    .level-chip.active { border-color: var(--primary); color: var(--primary); background: #eef4fe; }
+
+    /* Course header */
+    .course-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .course-title { font-size: 1.4rem; font-weight: 700; }
+    .course-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    .course-regen { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; font-size: 0.82rem; }
+    .course-regen:hover { border-color: var(--again); color: var(--again); }
+
+    /* Units + lessons (vertical path) */
+    .unit { margin-bottom: 28px; }
+    .unit-head { margin-bottom: 12px; }
+    .unit-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+    .unit-name { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
+    .unit-obj { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+
+    .lesson { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .lesson.locked { opacity: 0.55; }
+    .lesson.available { border-color: var(--primary); box-shadow: var(--shadow); }
+    .lesson-node { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
+    .lesson.done .lesson-node { background: var(--good); }
+    .lesson.available .lesson-node { background: var(--primary); }
+    .lesson.locked .lesson-node { background: var(--border); color: var(--text-muted); }
+    .lesson-body { flex: 1; min-width: 0; }
+    .lesson-name { font-weight: 600; }
+    .lesson-obj { color: var(--text-muted); font-size: 0.84rem; margin-top: 2px; }
+    .lesson-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; }
+    .lesson-status { font-size: 0.74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
+    .lesson-status.done { background: #dcfce7; color: #166534; }
+    .lesson-status.available { background: #e0ecfd; color: #1a4fa0; }
+    .lesson-status.locked { background: #f1f3f4; color: #80868b; }
+
+    .learn-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; }
+    .err { color: var(--again); font-size: 0.88rem; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="learn-page">
+  <div id="state-loading" class="learn-center"><span class="spinner"></span></div>
+
+  <!-- No course yet -->
+  <div id="state-empty" class="learn-center" style="display:none">
+    <h2>Learn <span id="empty-lang">your language</span> from the ground up</h2>
+    <p>Generate a personalised course — units and bite-size lessons that build on each<br>other, tuned to this language. You can regenerate it anytime.</p>
+    <div class="level-row" id="level-row">
+      <div class="level-chip active" data-level="A1">A1 · Beginner</div>
+      <div class="level-chip" data-level="A2">A2 · Elementary</div>
+    </div>
+    <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Generate my course</button></div>
+    <div class="err" id="create-err" style="display:none"></div>
+  </div>
+
+  <!-- Generating -->
+  <div id="state-generating" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p>Designing your course…<br>This takes around 15&ndash;30 seconds.</p>
+  </div>
+
+  <!-- Course -->
+  <div id="state-course" style="display:none">
+    <div class="course-head">
+      <div>
+        <div class="course-title" id="course-title"></div>
+        <div class="course-sub" id="course-sub"></div>
+      </div>
+      <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
+    </div>
+    <div id="units"></div>
+    <div class="learn-note">Tap-to-play lessons are coming next — this is your course map.</div>
+  </div>
+</main>
+
+<script>
+  let selectedLevel = 'A1';
+  let langName = 'your language';
+
+  function show(state) {
+    ['loading', 'empty', 'generating', 'course'].forEach(s =>
+      document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
+  }
+
+  function esc(s) {
+    const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML;
+  }
+
+  async function init() {
+    show('loading');
+    // Resolve current language name for the empty-state copy.
+    try {
+      const [settings, langs] = await Promise.all([
+        fetch('/api/settings').then(r => r.json()).catch(() => ({})),
+        fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
+      ]);
+      const code = settings.default_target_lang || 'yue';
+      const l = (langs.languages || []).find(x => x.code === code);
+      langName = l ? l.name : code;
+    } catch {}
+    document.getElementById('empty-lang').textContent = langName;
+
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); }
+      else { show('empty'); }
+    } catch {
+      show('empty');
+    }
+  }
+
+  document.getElementById('level-row').addEventListener('click', e => {
+    const chip = e.target.closest('.level-chip');
+    if (!chip) return;
+    selectedLevel = chip.dataset.level;
+    document.querySelectorAll('.level-chip').forEach(c => c.classList.toggle('active', c === chip));
+  });
+
+  async function createCourse() {
+    document.getElementById('create-err').style.display = 'none';
+    show('generating');
+    try {
+      const res = await fetch('/api/courses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: selectedLevel }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+        throw new Error(msg);
+      }
+      const course = await res.json();
+      renderCourse(course);
+      show('course');
+    } catch (e) {
+      show('empty');
+      const el = document.getElementById('create-err');
+      el.textContent = e.message || 'Generation failed — please try again.';
+      el.style.display = '';
+    }
+  }
+
+  async function regenerate() {
+    if (!confirm('Regenerate this course? Your current course map will be replaced.')) return;
+    const id = document.getElementById('state-course').dataset.courseId;
+    show('generating');
+    try {
+      if (id) await fetch('/api/courses/' + id, { method: 'DELETE' });
+      await createCourse();
+    } catch {
+      init();
+    }
+  }
+
+  function renderCourse(course) {
+    document.getElementById('state-course').dataset.courseId = course.id;
+    document.getElementById('course-title').textContent = course.title || (course.target_lang + ' ' + course.level);
+    const units = course.units || [];
+    const nLessons = units.reduce((s, u) => s + (u.lessons || []).length, 0);
+    const nDone = units.reduce((s, u) => s + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+    document.getElementById('course-sub').textContent =
+      `${units.length} units · ${nLessons} lessons · ${nDone}/${nLessons} done`;
+
+    const wrap = document.getElementById('units');
+    wrap.innerHTML = '';
+    units.forEach((u, ui) => {
+      const sec = document.createElement('div');
+      sec.className = 'unit';
+      let html = `<div class="unit-head">
+        <div class="unit-title">Unit ${ui + 1}</div>
+        <div class="unit-name">${esc(u.title)}</div>
+        ${u.objective ? `<div class="unit-obj">${esc(u.objective)}</div>` : ''}
+      </div>`;
+      (u.lessons || []).forEach((l, li) => {
+        const st = l.status || 'locked';
+        const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
+        const meta = (l.concept_count != null)
+          ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
+        html += `<div class="lesson ${st}">
+          <div class="lesson-node">${node}</div>
+          <div class="lesson-body">
+            <div class="lesson-name">${esc(l.title)}</div>
+            ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
+            ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
+          </div>
+          <div class="lesson-status ${st}">${st}</div>
+        </div>`;
+      });
+      sec.innerHTML = html;
+      wrap.appendChild(sec);
+    });
+  }
+
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login';
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import time
 
@@ -230,6 +231,64 @@ async def init():
                 UNIQUE(text_id, sentence_idx)
             )
         """)
+
+        # ── Learning path (AI course) — IDEAS item 43 ──
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS courses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                target_lang TEXT NOT NULL,
+                level TEXT NOT NULL,
+                title TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_units (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER NOT NULL,
+                idx INTEGER NOT NULL,
+                title TEXT,
+                theme TEXT,
+                objective TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_lessons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                unit_id INTEGER NOT NULL,
+                idx INTEGER NOT NULL,
+                title TEXT,
+                objective TEXT,
+                content TEXT,              -- JSON exercises; NULL = not yet generated
+                concepts_introduced TEXT   -- JSON array of concept keys
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_concepts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,        -- vocab | grammar
+                key TEXT NOT NULL,         -- stable english-gloss snake_case key
+                label TEXT,                -- target-language form (curriculum hint; refined on materialization)
+                gloss TEXT,                -- English meaning
+                introduced_lesson_id INTEGER,
+                UNIQUE(course_id, key)
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_progress (
+                user_id INTEGER NOT NULL,
+                lesson_id INTEGER NOT NULL,
+                score INTEGER,
+                completed_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (user_id, lesson_id)
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_units_course ON course_units(course_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_lessons_unit ON course_lessons(unit_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_concepts_course ON course_concepts(course_id)")
 
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
@@ -1383,6 +1442,155 @@ async def delete_reader_text(user_id: int, text_id: int):
         await db.execute(
             "DELETE FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
         )
+        await db.commit()
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+async def create_course(user_id: int, target_lang: str, level: str, curriculum: dict) -> int:
+    """Persist a generated curriculum (units → lessons → concepts). Returns course_id."""
+    title = (curriculum.get("language") or target_lang) + f" {level}"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT INTO courses (user_id, target_lang, level, title) VALUES (?, ?, ?, ?)",
+            (user_id, target_lang, level, title),
+        )
+        course_id = cur.lastrowid
+        for ui, unit in enumerate(curriculum.get("units", [])):
+            ucur = await db.execute(
+                "INSERT INTO course_units (course_id, idx, title, theme, objective) VALUES (?, ?, ?, ?, ?)",
+                (course_id, ui, (unit.get("title") or "").strip(),
+                 (unit.get("theme") or "").strip(), (unit.get("objective") or "").strip()),
+            )
+            unit_id = ucur.lastrowid
+            for li, lesson in enumerate(unit.get("lessons", [])):
+                concepts = lesson.get("new_concepts") or []
+                keys = [(c.get("key") or "").strip() for c in concepts if c.get("key")]
+                lcur = await db.execute(
+                    """INSERT INTO course_lessons (unit_id, idx, title, objective, concepts_introduced)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (unit_id, li, (lesson.get("title") or "").strip(),
+                     (lesson.get("objective") or "").strip(), json.dumps(keys)),
+                )
+                lesson_id = lcur.lastrowid
+                for c in concepts:
+                    key = (c.get("key") or "").strip()
+                    if not key:
+                        continue
+                    await db.execute(
+                        """INSERT OR IGNORE INTO course_concepts
+                           (course_id, kind, key, label, gloss, introduced_lesson_id)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (course_id, (c.get("kind") or "vocab").strip(), key,
+                         (c.get("label") or "").strip(), (c.get("gloss") or "").strip(), lesson_id),
+                    )
+        await db.commit()
+        return course_id
+
+
+async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict]:
+    """List the user's courses (optionally filtered by language), newest first."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        sql = "SELECT id, target_lang, level, title, status, created_at FROM courses WHERE user_id=?"
+        params: tuple = (user_id,)
+        if target_lang is not None:
+            sql += " AND target_lang=?"
+            params += (target_lang,)
+        sql += " ORDER BY created_at DESC"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_course(user_id: int, course_id: int) -> dict | None:
+    """Return the full nested course (units → lessons) with per-lesson concept
+    counts and unlock status (computed from progress: first not-done lesson is
+    'available', earlier ones 'done', later ones 'locked')."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, target_lang, level, title, status, created_at FROM courses WHERE id=? AND user_id=?",
+            (course_id, user_id),
+        ) as cur:
+            course = await cur.fetchone()
+        if not course:
+            return None
+        course = dict(course)
+
+        async with db.execute(
+            "SELECT lesson_id, score, completed_at FROM course_progress WHERE user_id=?",
+            (user_id,),
+        ) as cur:
+            done = {r["lesson_id"]: dict(r) for r in await cur.fetchall()}
+
+        async with db.execute(
+            "SELECT id, idx, title, theme, objective FROM course_units WHERE course_id=? ORDER BY idx",
+            (course_id,),
+        ) as cur:
+            units = [dict(r) for r in await cur.fetchall()]
+
+        first_available_set = False
+        for unit in units:
+            async with db.execute(
+                """SELECT id, idx, title, objective,
+                          (content IS NOT NULL) AS generated, concepts_introduced
+                   FROM course_lessons WHERE unit_id=? ORDER BY idx""",
+                (unit["id"],),
+            ) as cur:
+                lessons = [dict(r) for r in await cur.fetchall()]
+            for lesson in lessons:
+                keys = json.loads(lesson.get("concepts_introduced") or "[]")
+                lesson["concept_count"] = len(keys)
+                lesson.pop("concepts_introduced", None)
+                if lesson["id"] in done:
+                    lesson["status"] = "done"
+                    lesson["score"] = done[lesson["id"]]["score"]
+                elif not first_available_set:
+                    lesson["status"] = "available"
+                    first_available_set = True
+                else:
+                    lesson["status"] = "locked"
+            unit["lessons"] = lessons
+        course["units"] = units
+        return course
+
+
+async def get_active_course(user_id: int, target_lang: str) -> dict | None:
+    """The user's most recent active course for a language, or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id FROM courses WHERE user_id=? AND target_lang=? AND status='active'
+               ORDER BY created_at DESC LIMIT 1""",
+            (user_id, target_lang),
+        ) as cur:
+            row = await cur.fetchone()
+    return await get_course(user_id, row["id"]) if row else None
+
+
+async def delete_course(user_id: int, course_id: int):
+    """Delete a course and all its units/lessons/concepts/progress (for regeneration)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return
+        async with db.execute(
+            "SELECT id FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            unit_ids = [r[0] for r in await cur.fetchall()]
+        for uid in unit_ids:
+            async with db.execute(
+                "SELECT id FROM course_lessons WHERE unit_id=?", (uid,)
+            ) as cur:
+                lesson_ids = [r[0] for r in await cur.fetchall()]
+            for lid in lesson_ids:
+                await db.execute("DELETE FROM course_progress WHERE lesson_id=?", (lid,))
+            await db.execute("DELETE FROM course_lessons WHERE unit_id=?", (uid,))
+        await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
         await db.commit()
 
 
