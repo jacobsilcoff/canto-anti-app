@@ -177,6 +177,7 @@
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
       <div style="flex:1;font-weight:600" id="teach-title"></div>
+      <button class="course-regen" onclick="regenerateCurrentLesson()" title="Regenerate this lesson">↻</button>
     </div>
     <p class="teach-intro" id="teach-intro"></p>
     <div id="teach-items"></div>
@@ -537,6 +538,20 @@
   function startExercises() {
     show('player');
     renderExercise();
+  }
+
+  async function regenerateCurrentLesson() {
+    if (!player) return;
+    const id = player.lessonId;
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + id + '/regenerate', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      openLesson(id);
+    } catch {
+      alert('Could not regenerate — please try again.');
+      openLesson(id);
+    }
   }
 
   async function extendCourse() {
