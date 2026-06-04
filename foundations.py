@@ -87,6 +87,10 @@ _CONS_2 = [C("ㅂ", "b", "바"), C("ㅅ", "s", "사"),
 _CONS_3 = [C("ㅊ", "ch", "차"), C("ㅋ", "k", "카"), C("ㅌ", "t", "타"), C("ㅍ", "p", "파")]
 _VOWELS_2 = [V("ㅑ", "ya", "야"), V("ㅕ", "yeo", "여"), V("ㅛ", "yo", "요"),
              V("ㅠ", "yu", "유"), V("ㅐ", "ae", "애"), V("ㅔ", "e", "에")]
+# Compound vowels — written (and typed) as two basic vowels.
+_VOWELS_COMPOUND = [V("ㅘ", "wa", "와", "ㅗ + ㅏ"), V("ㅝ", "wo", "워", "ㅜ + ㅓ"),
+                    V("ㅚ", "oe", "외", "ㅗ + ㅣ"), V("ㅟ", "wi", "위", "ㅜ + ㅣ"),
+                    V("ㅢ", "ui", "의", "ㅡ + ㅣ")]
 
 # Candidate words per lesson (English meaning). Validated at build time against
 # the letters taught so far — any using an untaught letter is dropped.
@@ -122,9 +126,10 @@ _HANGUL_TRACK = {
             {"title": "Consonants ㅊㅋㅌㅍ", "type": "graphemes", "graphemes": _CONS_3, "blocks": True},
             {"title": "Reading Practice", "type": "words", "words": _WORDS_AFTER_CONS_3},
         ]},
-        {"title": "More Vowels", "objective": "Y-vowels and everyday words", "lessons": [
+        {"title": "More Vowels", "objective": "Y-vowels, combined vowels, full blocks", "lessons": [
             {"title": "Y-Vowels & ㅐㅔ", "type": "graphemes", "graphemes": _VOWELS_2, "blocks": True},
             {"title": "Everyday Words", "type": "words", "words": _WORDS_AFTER_VOWELS_2},
+            {"title": "Combined Vowels & Full Blocks", "type": "compound_vowels", "vowels": _VOWELS_COMPOUND},
         ]},
     ],
 }
@@ -262,6 +267,28 @@ def _build_lesson_content(lesson: dict, taught: list[dict]) -> dict:
                 exs.append(_block_build(t, cons_pool, vowel_pool))
         random.shuffle(exs)
         teach = {"intro": "", "items": [_teach_item_grapheme(g) for g in graphemes]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "compound_vowels":
+        compounds = lesson["vowels"]
+        roman_pool = [g["roman"] for g in compounds] + taught_romans
+        exs = [_grapheme_to_sound(g, roman_pool) for g in compounds]
+        # 4-jamo blocks: consonant + compound vowel + final. The learner types the
+        # compound vowel's two components, so the keyboard is the basic vowels.
+        basic_vowels = _VOWELS_1
+        cons_pool = taught_cons or [C("ㅇ", "(silent)", "아")]
+        final_caps = [g for g in cons_pool if g["symbol"] in _FINAL_CONS]
+        for cv in compounds[:3]:
+            c = random.choice(cons_pool)
+            exs.append(_block_build(compose_syllable(c["symbol"], cv["symbol"]), cons_pool, basic_vowels))
+            if final_caps:
+                f = random.choice(final_caps)
+                exs.append(_block_build(compose_syllable(c["symbol"], cv["symbol"], f["symbol"]), cons_pool, basic_vowels))
+        random.shuffle(exs)
+        teach = {"intro": "Some vowels combine two sounds — type both letters and they merge into one. "
+                          "A full block can have up to four letters (e.g. 관 = ㄱ+ㅗ+ㅏ+ㄴ).",
+                 "items": [{"target": g["symbol"], "target_roman": "", "gloss": f"“{g['roman']}” sound",
+                            "note": g.get("note", ""), "audio": g["audio"]} for g in compounds]}
         return {"segments": [{"teach": teach, "exercises": exs}]}
 
     if ltype == "words":

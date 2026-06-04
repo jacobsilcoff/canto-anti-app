@@ -127,6 +127,20 @@
     .results-emoji { font-size: 3rem; }
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
 
+    /* ── Reinforcing animations ── */
+    @keyframes pop { 0% { transform: scale(.92); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+    .feedback.correct, .feedback.wrong { animation: pop .22s ease both; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+    .shake { animation: shake .4s ease; }
+    @keyframes bounceIn { 0% { transform: scale(0); } 55% { transform: scale(1.25); } 75% { transform: scale(.92); } 100% { transform: scale(1); } }
+    .bounce-in { animation: bounceIn .6s ease both; }
+    @keyframes optpop { 50% { transform: scale(1.04); } }
+    .opt.correct, .tile.correct { animation: optpop .3s ease; }
+    .lesson.done .lesson-node { transition: transform .2s; }
+    @keyframes nodepop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .audio-play:active, .tile:active, .opt:active { transform: scale(.96); }
+    .confetti-piece { position: fixed; top: -14px; width: 9px; height: 14px; z-index: 9999; pointer-events: none; border-radius: 2px; }
+
     /* teach screen */
     .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; }
     .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
@@ -175,6 +189,7 @@
         <div class="course-sub" id="course-sub"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
         <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
       </div>
@@ -316,6 +331,7 @@
 
   function renderCourse(course) {
     currentCourse = course;
+    document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
     document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
     document.getElementById('state-course').dataset.courseId = course.id;
     document.getElementById('course-title').textContent = course.title || (course.target_lang + ' ' + course.level);
@@ -383,6 +399,59 @@
     try { if (_audio) _audio.pause(); } catch {}
     _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
     _audio.play().catch(() => {});
+  }
+
+  // ── Sound effects (synthesized, no asset files) ─────────────────────────────
+  let muted = localStorage.getItem('learn_muted') === '1';
+  let _sfxCtx = null;
+  function _sfx() {
+    try {
+      if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_sfxCtx.state === 'suspended') _sfxCtx.resume();
+      return _sfxCtx;
+    } catch { return null; }
+  }
+  function _beep(freq, start, dur, type = 'sine', vol = 0.16) {
+    if (muted) return;
+    const ac = _sfx(); if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    correct() { _beep(587, 0, 0.13, 'sine', 0.16); _beep(880, 0.08, 0.2, 'sine', 0.16); },
+    wrong() { _beep(196, 0, 0.18, 'sine', 0.15); _beep(150, 0.07, 0.24, 'sine', 0.13); },
+    complete() { [523, 659, 784, 1047].forEach((f, i) => _beep(f, i * 0.1, 0.32, 'triangle', 0.16)); },
+    tap() { _beep(520, 0, 0.04, 'sine', 0.05); },
+  };
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem('learn_muted', muted ? '1' : '0');
+    const b = document.getElementById('mute-toggle');
+    if (b) b.textContent = muted ? '🔇' : '🔊';
+    if (!muted) sfx.tap();
+  }
+  function confetti() {
+    if (muted) { /* still show confetti even if muted */ }
+    const colors = ['#f94144', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#f3722c', '#ff6ec7', '#1a73e8'];
+    for (let i = 0; i < 40; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.background = colors[i % colors.length];
+      document.body.appendChild(p);
+      const dur = 1500 + Math.random() * 1300;
+      p.animate([
+        { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+        { transform: `translateY(${88 + Math.random() * 12}vh) rotate(${360 + Math.random() * 540}deg)`, opacity: 0.9 },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.6,.4,1)' });
+      setTimeout(() => p.remove(), dur);
+    }
   }
 
   // ── Hangul jamo composition (for block_build) ───────────────────────────────
@@ -563,7 +632,7 @@
           const el = document.getElementById(containerId);
           jamo.forEach(j => {
             const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = j;
-            b.onclick = () => { if (player.graded) return; if (typed.length < 5) { typed.push(j); refresh(); } };
+            b.onclick = () => { if (player.graded) return; if (typed.length < 5) { typed.push(j); sfx.tap(); refresh(); } };
             el.appendChild(b);
           });
         };
@@ -745,12 +814,18 @@
       }
       const fb = document.getElementById('feedback');
       const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
-      if (correct) { fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip; }
-      else {
+      if (correct) {
+        fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip;
+        sfx.correct();
+      } else {
         const at = player.controller.answerText ? player.controller.answerText() : '';
         fb.className = 'feedback wrong';
         fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
+        sfx.wrong();
+        const root = document.getElementById('exercise-root');
+        root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
       }
+      try { if (navigator.vibrate) navigator.vibrate(correct ? 15 : [0, 30, 30, 30]); } catch {}
       const lastSeg = player.segIdx >= player.segments.length - 1;
       const isLastEx = player.idx >= player.queue.length - 1;
       const willReview = (!player.reviewStarted && player.mistakes.length > 0) || (player.reviewStarted && !correct);
@@ -777,10 +852,15 @@
       });
     } catch {}
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
-    document.getElementById('results-emoji').textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
+    const emoji = document.getElementById('results-emoji');
+    emoji.textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
     document.getElementById('results-msg').textContent =
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
     show('results');
+    emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
+    sfx.complete();
+    if (score >= 60) confetti();
+    try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
   }
 
   function quitLesson() {
