@@ -101,6 +101,13 @@
     .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
     .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
 
+    /* player layout: fixed-height column so the action button never jumps.
+       The exercise area flexes, so feedback appearing shrinks it instead of
+       pushing the button down. */
+    #state-player { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
+    #exercise-root { flex: 1 1 auto; min-height: 0; }
+    .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+
     /* feedback + action */
     .feedback { border-radius: 12px; padding: 14px 16px; margin: 18px 0; font-weight: 600; display: none; }
     .feedback.correct { background: #e7f6ec; color: #166534; display: block; }
@@ -190,6 +197,7 @@
       <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
       <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
     </div>
+    <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div id="exercise-root"></div>
     <div class="feedback" id="feedback"></div>
     <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
@@ -477,7 +485,7 @@
   };
 
   function updateBar() {
-    const pct = player ? Math.round(player.idx / player.exercises.length * 100) : 0;
+    const pct = player ? Math.round(player.idx / player.queue.length * 100) : 0;
     document.getElementById('player-bar-fill').style.width = pct + '%';
   }
   function updateAction() {
@@ -494,7 +502,12 @@
       const content = lesson.content || {};
       const exs = content.exercises || [];
       if (!exs.length) throw new Error('no exercises');
-      player = { lessonId, lang: lesson.target_lang, exercises: exs, idx: 0, correct: 0, controller: null, graded: false };
+      player = {
+        lessonId, lang: lesson.target_lang,
+        queue: exs.map(e => ({ ...e })), idx: 0, total: exs.length,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        controller: null, graded: false,
+      };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
       document.getElementById('state-teach').className = sc;
@@ -570,9 +583,10 @@
   }
 
   function renderExercise() {
-    const ex = player.exercises[player.idx];
+    const ex = player.queue[player.idx];
     const root = document.getElementById('exercise-root');
     const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
+    document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
@@ -584,10 +598,17 @@
     const a = document.getElementById('player-action');
     if (!player.graded) {
       if (!player.controller.isReady()) return;
+      const ex = player.queue[player.idx];
       const correct = player.controller.grade();
       player.controller.lock(correct);
       player.graded = true;
-      if (correct) player.correct++;
+      if (correct) {
+        if (!ex._review) player.firstPassCorrect++;
+      } else if (ex._review) {
+        player.queue.push({ ...ex });          // retry this mistake again later
+      } else {
+        player.mistakes.push(ex);              // review it at the end of the lesson
+      }
       const fb = document.getElementById('feedback');
       if (correct) { fb.className = 'feedback correct'; fb.textContent = 'Correct!'; }
       else {
@@ -595,18 +616,31 @@
         fb.className = 'feedback wrong';
         fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '');
       }
-      a.textContent = (player.idx >= player.exercises.length - 1) ? 'Finish' : 'Continue';
+      const isLast = player.idx >= player.queue.length - 1;
+      const reviewWillStart = !player.reviewStarted && player.mistakes.length > 0;
+      a.textContent = (isLast && !reviewWillStart) ? 'Finish' : 'Continue';
       a.disabled = false;
     } else {
       player.idx++;
-      if (player.idx >= player.exercises.length) finishLesson();
-      else renderExercise();
+      if (player.idx >= player.queue.length) {
+        if (!player.reviewStarted && player.mistakes.length) {
+          // Enter the end-of-lesson review round with the missed exercises.
+          player.reviewStarted = true;
+          player.mistakes.forEach(e => player.queue.push({ ...e, _review: true }));
+          player.mistakes = [];
+          renderExercise();
+        } else {
+          finishLesson();
+        }
+      } else {
+        renderExercise();
+      }
     }
   }
 
   async function finishLesson() {
-    const total = player.exercises.length;
-    const score = Math.round(player.correct / total * 100);
+    const total = player.total;
+    const score = Math.round(player.firstPassCorrect / total * 100);
     try {
       await fetch('/api/lessons/' + player.lessonId + '/complete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }),
@@ -614,7 +648,7 @@
     } catch {}
     document.getElementById('results-score').textContent = score + '%';
     document.getElementById('results-emoji').textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
-    document.getElementById('results-msg').textContent = `You got ${player.correct} of ${total} correct.`;
+    document.getElementById('results-msg').textContent = `You got ${player.firstPassCorrect} of ${total} correct.`;
     show('results');
   }
 
