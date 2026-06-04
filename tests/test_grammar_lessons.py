@@ -116,6 +116,36 @@ def test_wrong_paradigm_cell_is_auto_corrected():
     assert cloze["options"][cloze["answer"]] == "ai"
 
 
+def test_conjugation_table_is_engine_computed():
+    # Reliable paradigm straight from the engine — never the LLM.
+    t = grammar.conjugation_table("manger")
+    assert t["rows"][0] == ["je", "mange"]
+    assert t["rows"][3] == ["nous", "mangeons"]
+    assert t["rows"][5] == ["ils / elles", "mangent"]
+    assert grammar.conjugation_table("s'appeler") is None   # reflexive → no table
+
+
+def test_verb_concept_gets_computed_table_in_artifact():
+    import asyncio
+    art = asyncio.run(_run(FR_GEN, {"minimal_pairs": [True], "cloze": [True], "reorder": [True]}))
+    assert art["tables"], "verb concept should carry a conjugation table"
+    assert ["nous", "mangeons"] in art["tables"][0]["rows"]
+
+
+def test_generator_table_kept_only_when_critic_approves():
+    import asyncio
+    gen = {
+        "explain": "Definite articles.", "minimal_pairs": [], "cloze": [], "reorder": [],
+        "tables": [{"title": "Definite articles", "columns": ["", "masc", "fem"],
+                    "rows": [["sing", "le", "la"], ["plur", "les", "les"]]}],
+    }
+    concept = {"key": "gender_articles", "label": "definite articles", "gloss": "le/la/les"}
+    kept = asyncio.run(_run(gen, {"tables": [True]}, concept=concept))
+    assert any(t["title"] == "Definite articles" for t in kept["tables"])
+    dropped = asyncio.run(_run(gen, {"tables": [False]}, concept=concept))
+    assert dropped["tables"] == []   # not a verb, critic rejected → no tables
+
+
 def test_non_conjugable_language_uses_free_cloze():
     import asyncio
     gen = {

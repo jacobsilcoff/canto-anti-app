@@ -89,6 +89,20 @@ def conjugate_present(verb: str, lang: str = "fr") -> dict[str, str]:
     return dict(zip(PERSONS, forms))
 
 
+_PERSON_LABELS = ["je", "tu", "il / elle", "nous", "vous", "ils / elles"]
+
+
+def conjugation_table(verb: str, lang: str = "fr") -> dict | None:
+    """A reliable, ENGINE-computed conjugation table for the teach screen, or
+    None if not conjugable. Shape matches the generic table renderer:
+    {title, columns, rows} with rows = [[pronoun, form], ...]."""
+    forms = conjugate_present(verb, lang)
+    if not forms:
+        return None
+    rows = [[label, forms[p]] for p, label in zip(PERSONS, _PERSON_LABELS)]
+    return {"title": f"{verb} — present tense", "columns": [], "rows": rows}
+
+
 def with_pronoun(person: str, form: str) -> str:
     """Attach the subject pronoun, with je→j' elision before a vowel sound."""
     if person == "je" and form[:1].lower() in "aeiouhâàéèêîïôûœ":

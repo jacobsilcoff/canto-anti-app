@@ -162,6 +162,12 @@
     .mp-gloss { color: var(--text-muted); font-size: 0.85rem; }
     .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: #3730a3; }
     .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; }
+    .teach-table-wrap { margin-top: 12px; overflow-x: auto; }
+    .teach-table-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
+    .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+    .teach-table th { background: #f0f2f8; font-weight: 600; }
+    .teach-table td:first-child { color: var(--text-muted); white-space: nowrap; }
 
     /* completed lesson + continue CTA */
     .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
@@ -753,6 +759,16 @@
           ${it.explain ? `<div class="teach-explain">${esc(it.explain)}</div>` : ''}
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
+      (it.tables || []).forEach(t => {
+        const wrap = document.createElement('div');
+        wrap.className = 'teach-table-wrap';
+        let h = t.title ? `<div class="teach-table-title">${esc(t.title)}</div>` : '';
+        h += '<table class="teach-table">';
+        if ((t.columns || []).length) h += '<thead><tr>' + t.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
+        h += '<tbody>' + (t.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+        wrap.innerHTML = h;
+        row.querySelector('.teach-text').appendChild(wrap);
+      });
       if (pairs.length) {
         const box = document.createElement('div');
         box.className = 'minimal-pairs';

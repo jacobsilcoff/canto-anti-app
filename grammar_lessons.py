@@ -74,14 +74,22 @@ def _generate_prompt(lang: str, concept: dict) -> str:
         'OMIT "verb"/"person" and just give the full "answer". Use simple vocabulary.\n'
         '- "reorder": 2 short correct sentences for a word-ordering drill. Each: '
         '"sentence" (the full correct sentence) and "tokens" (its words in correct '
-        "order as an array — split on words, keep punctuation attached). 3–6 tokens.\n\n"
+        "order as an array — split on words, keep punctuation attached). 3–6 tokens.\n"
+        '- "tables" (OPTIONAL, usually omit): include a small reference table ONLY if '
+        "it genuinely clarifies a PARADIGM other than a single verb's conjugation "
+        "(e.g. definite articles by gender/number, subject pronouns, noun endings). Do "
+        "NOT make a verb-conjugation table — the app inserts a verified one "
+        'automatically. Each table: {"title": "...", "columns": [header labels] (or [] '
+        'for no header row), "rows": [["cell", ...], ...]}. Keep tables ≤6 rows, every '
+        "cell correct.\n\n"
         "Every target sentence must be fully grammatical and natural. Return ONLY "
         "valid JSON in exactly this shape, no other text:\n"
         "{\n"
         '  "explain": "...",\n'
         '  "minimal_pairs": [{"a_text":"...","a_gloss":"...","b_text":"...","b_gloss":"...","contrast":"..."}],\n'
         '  "cloze": [{"sentence":"...","gloss":"...","answer":"...","verb":"...","person":"..."}],\n'
-        '  "reorder": [{"sentence":"...","tokens":["...","..."]}]\n'
+        '  "reorder": [{"sentence":"...","tokens":["...","..."]}],\n'
+        '  "tables": [{"title":"...","columns":["..."],"rows":[["...","..."]]}]\n'
         "}\n"
     )
 
@@ -93,6 +101,7 @@ def _critic_prompt(lang: str, gen: dict) -> str:
     pairs = gen.get("minimal_pairs") or []
     cloze = gen.get("cloze") or []
     reorder = gen.get("reorder") or []
+    tables = gen.get("tables") or []
 
     def _pair(p):
         return f'   A: "{p.get("a_text","")}" = "{p.get("a_gloss","")}" | B: "{p.get("b_text","")}" = "{p.get("b_gloss","")}" | differs in: {p.get("contrast","")}'
@@ -104,6 +113,11 @@ def _critic_prompt(lang: str, gen: dict) -> str:
     def _reorder(r):
         return f'   "{r.get("sentence","")}"'
 
+    def _table(t):
+        head = " | ".join(str(c) for c in (t.get("columns") or [])) or "(no header)"
+        rows = " ; ".join("/".join(str(c) for c in r) for r in (t.get("rows") or []))
+        return f'   "{t.get("title","")}" [{head}] {rows}'
+
     body = (
         "MINIMAL PAIRS (each must be two grammatical sentences whose English glosses "
         "are accurate AND that really differ in only the stated feature):\n"
@@ -113,6 +127,9 @@ def _critic_prompt(lang: str, gen: dict) -> str:
         + ("\n".join(f"{i}.{_cloze(c)}" for i, c in enumerate(cloze)) or "   (none)")
         + "\n\nREORDER (must be a fully grammatical, natural sentence):\n"
         + ("\n".join(f"{i}.{_reorder(r)}" for i, r in enumerate(reorder)) or "   (none)")
+        + "\n\nTABLES (EVERY cell must be correct; reject the whole table if any cell "
+        "is wrong):\n"
+        + ("\n".join(f"{i}.{_table(t)}" for i, t in enumerate(tables)) or "   (none)")
     )
     return (
         f"You are a meticulous {name} grammar examiner. Independently re-derive each "
@@ -124,7 +141,7 @@ def _critic_prompt(lang: str, gen: dict) -> str:
         f"already in the sentence or doesn't grammatically fit the blank.\n\n"
         f"{body}\n\n"
         "Return ONLY JSON with one boolean per item, aligned by index, true = keep:\n"
-        '{ "minimal_pairs": [true, ...], "cloze": [true, ...], "reorder": [true, ...] }'
+        '{ "minimal_pairs": [true, ...], "cloze": [true, ...], "reorder": [true, ...], "tables": [true, ...] }'
     )
 
 
@@ -198,6 +215,21 @@ def _free_cloze(concept_key: str, sentence: str, gloss: str, answer: str,
     }
 
 
+def _verb_from_concept(concept: dict) -> str:
+    """The conjugable infinitive a grammar concept teaches (the curriculum puts it
+    in `label`), or "". Used to attach an engine-computed conjugation table."""
+    cand = re.sub(r"\s*\([^)]*\)\s*", "", concept.get("label", "") or "").strip().lower()
+    return cand if cand and grammar.conjugate_present(cand) else ""
+
+
+def _clean_table(t: dict) -> dict | None:
+    rows = [[str(c) for c in r] for r in (t.get("rows") or []) if isinstance(r, list) and r]
+    if not rows:
+        return None
+    return {"title": (t.get("title") or "").strip(),
+            "columns": [str(c) for c in (t.get("columns") or [])], "rows": rows}
+
+
 def _minimal_pair_ex(concept_key: str, pair: dict) -> dict:
     """A recognition drill reinforcing the contrast: given one sentence's English
     meaning, pick which of the two target sentences expresses it."""
@@ -243,10 +275,13 @@ async def generate_grammar_content(
     raw_cloze = gen.get("cloze") or []
     raw_reorder = gen.get("reorder") or []
 
+    raw_tables = gen.get("tables") or []
+
     crit = await call_json(_critic_prompt(lang, gen)) or {}
     keep_pairs = _verdicts(crit, "minimal_pairs", len(raw_pairs))
     keep_cloze = _verdicts(crit, "cloze", len(raw_cloze))
     keep_reorder = _verdicts(crit, "reorder", len(raw_reorder))
+    keep_tables = _verdicts(crit, "tables", len(raw_tables))
 
     def rom(s: str) -> str:
         return R(s, lang) if (has_rom and s) else ""
@@ -302,11 +337,26 @@ async def generate_grammar_content(
         exercises.append(ex)
 
     random.shuffle(exercises)
+
+    # Tables: an ENGINE-computed conjugation table first (authoritative — never
+    # the LLM), then any OTHER paradigm tables the critic approved.
+    tables = []
+    verb = _verb_from_concept(concept)
+    if verb:
+        ct = grammar.conjugation_table(verb, lang)
+        if ct:
+            tables.append(ct)
+    for t, ok in zip(raw_tables, keep_tables):
+        cleaned = _clean_table(t) if ok else None
+        if cleaned:
+            tables.append(cleaned)
+
     return {
         "concept_key": key, "lang": lang,
         "label": (concept.get("label") or "").strip(),
         "gloss": (concept.get("gloss") or "").strip(),
         "explain": (gen.get("explain") or "").strip(),
         "minimal_pairs": pairs,
+        "tables": tables,
         "exercises": exercises,
     }

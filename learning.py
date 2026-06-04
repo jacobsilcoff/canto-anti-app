@@ -369,6 +369,7 @@ async def generate_lesson(
                 grammar_teach.append({
                     "grammar": True, "target": (c.get("label") or target or gloss),
                     "gloss": gloss, "explain": (art.get("explain") or "").strip(),
+                    "tables": art.get("tables") or [],
                     "minimal_pairs": art.get("minimal_pairs") or [],
                 })
                 grammar_ex += [dict(e) for e in (art.get("exercises") or [])]
