@@ -173,7 +173,10 @@
         <div class="course-title" id="course-title"></div>
         <div class="course-sub" id="course-sub"></div>
       </div>
-      <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
+      </div>
     </div>
     <div id="units"></div>
     <div id="course-cta"></div>
@@ -224,6 +227,8 @@
   let selectedLevel = 'A1';
   let langName = 'your language';
   let LANGS = [];
+  let currentCourse = null;
+  let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
 
   const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -302,7 +307,15 @@
     }
   }
 
+  function toggleUnlockAll() {
+    unlockAll = !unlockAll;
+    localStorage.setItem('learn_unlock_all', unlockAll ? '1' : '0');
+    if (currentCourse) renderCourse(currentCourse);
+  }
+
   function renderCourse(course) {
+    currentCourse = course;
+    document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
     document.getElementById('state-course').dataset.courseId = course.id;
     document.getElementById('course-title').textContent = course.title || (course.target_lang + ' ' + course.level);
     const units = course.units || [];
@@ -326,7 +339,7 @@
         const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
         const meta = l.concept_count
           ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
-        const clickable = (st === 'available' || st === 'done');
+        const clickable = unlockAll || (st === 'available' || st === 'done');
         const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
         html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openLesson(${l.id})"` : ''}>
           <div class="lesson-node">${node}</div>
