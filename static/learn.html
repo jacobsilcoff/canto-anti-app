@@ -324,7 +324,7 @@
       (u.lessons || []).forEach((l, li) => {
         const st = l.status || 'locked';
         const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
-        const meta = (l.concept_count != null)
+        const meta = l.concept_count
           ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
         const clickable = (st === 'available' || st === 'done');
         const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
@@ -571,7 +571,7 @@
     player.segIdx = i;
     const seg = player.segments[i];
     const teach = seg.teach;
-    if (teach && (teach.items || []).length) {
+    if (teach && ((teach.items || []).length || teach.intro)) {
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
