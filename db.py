@@ -286,6 +286,18 @@ async def init():
                 PRIMARY KEY (user_id, lesson_id)
             )
         """)
+        # Verified canonical grammar content — SHARED across users, keyed by
+        # (lang, concept_key). Expensive to generate (generator + critic pass),
+        # cheap to replay; see grammar_lessons.py.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS concept_content (
+                lang TEXT NOT NULL,
+                concept_key TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (lang, concept_key)
+            )
+        """)
         await db.execute("CREATE INDEX IF NOT EXISTS idx_units_course ON course_units(course_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_lessons_unit ON course_lessons(unit_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_concepts_course ON course_concepts(course_id)")
@@ -1481,6 +1493,31 @@ async def _insert_units(db, course_id: int, units: list[dict], start_idx: int):
                     (course_id, (c.get("kind") or "vocab").strip(), key,
                      (c.get("label") or "").strip(), (c.get("gloss") or "").strip(), lesson_id),
                 )
+
+
+async def get_concept_content(lang: str, concept_key: str) -> dict | None:
+    """Verified canonical grammar artifact for (lang, concept_key), or None.
+    Shared across users — not ownership-scoped."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT content FROM concept_content WHERE lang=? AND concept_key=?",
+            (lang, concept_key),
+        ) as cur:
+            row = await cur.fetchone()
+    return json.loads(row[0]) if row else None
+
+
+async def set_concept_content(lang: str, concept_key: str, content: dict) -> None:
+    """Cache a verified grammar artifact (shared across users; upsert)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO concept_content (lang, concept_key, content, created_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(lang, concept_key) DO UPDATE SET
+                 content=excluded.content, created_at=excluded.created_at""",
+            (lang, concept_key, json.dumps(content)),
+        )
+        await db.commit()
 
 
 async def create_course(user_id: int, target_lang: str, level: str, curriculum: dict) -> int:

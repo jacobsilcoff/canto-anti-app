@@ -151,6 +151,17 @@
     .teach-target .opt-roman { font-size: 0.8rem; }
     .teach-gloss { color: var(--text); margin-top: 2px; }
     .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
+    .teach-item.teach-grammar { display: block; }
+    .teach-explain { color: var(--text); font-size: 0.95rem; line-height: 1.5; margin-top: 8px; }
+    .minimal-pairs { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .mp-card { background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .mp-line { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+    .mp-line + .mp-line { border-top: 1px dashed var(--border); }
+    .mp-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
+    .mp-target .opt-roman { font-size: 0.78rem; }
+    .mp-gloss { color: var(--text-muted); font-size: 0.85rem; }
+    .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: #3730a3; }
+    .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; }
 
     /* completed lesson + continue CTA */
     .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
@@ -732,14 +743,37 @@
     const wrap = document.getElementById('teach-items');
     wrap.innerHTML = '';
     (teach.items || []).forEach(it => {
+      const pairs = it.minimal_pairs || [];
+      const isGrammar = it.grammar && (it.explain || pairs.length);
       const row = document.createElement('div');
-      row.className = 'teach-item';
+      row.className = 'teach-item' + (isGrammar ? ' teach-grammar' : '');
       row.innerHTML = `<div class="teach-text">
           <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
           <div class="teach-gloss">${esc(it.gloss || '')}</div>
+          ${it.explain ? `<div class="teach-explain">${esc(it.explain)}</div>` : ''}
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
-      const speak = it.audio || it.target;   // graphemes voice a representative syllable
+      if (pairs.length) {
+        const box = document.createElement('div');
+        box.className = 'minimal-pairs';
+        pairs.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'mp-card';
+          [['a', p.a_text, p.a_gloss, p.a_roman], ['b', p.b_text, p.b_gloss, p.b_roman]].forEach(([_, t, g, r]) => {
+            const line = document.createElement('div');
+            line.className = 'mp-line';
+            line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
+              <div><div class="mp-target">${esc(t || '')}${r ? ` <span class="opt-roman">${esc(r)}</span>` : ''}</div>
+              <div class="mp-gloss">${esc(g || '')}</div></div>`;
+            line.querySelector('button').onclick = () => playTTS(t, player.lang);
+            card.appendChild(line);
+          });
+          if (p.contrast) card.innerHTML += `<div class="mp-contrast">↕ ${esc(p.contrast)}</div>`;
+          box.appendChild(card);
+        });
+        row.querySelector('.teach-text').appendChild(box);
+      }
+      const speak = it.audio || (isGrammar ? '' : it.target);  // grammar labels aren't speakable
       if (speak) {
         const btn = document.createElement('button');
         btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';

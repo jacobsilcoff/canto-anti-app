@@ -45,6 +45,10 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `srs.py` | SM-2 with sub-day learning steps; pure/stateless — takes card state, returns new state |
 | `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai TBD, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby |
 | `auth.py` | scrypt password hashing + timing-safe verification |
+| `learning.py` | AI Learning Path — CEFR curriculum generation + deterministic segmented-lesson assembly (vocab + grammar-first segments) |
+| `grammar.py` | Reliable verb conjugation engine (French present) — rules + curated irregulars; an independent oracle, never trusts the LLM |
+| `grammar_lessons.py` | Generator + **critic** pipeline producing the VERIFIED canonical grammar artifact (explicit rule + minimal pairs + cloze/reorder drills) per `(lang, concept)` |
+| `foundations.py` | Curated script/pronunciation module (Hangul jamo engine); gates non-Latin scripts |
 
 ### Database schema
 
@@ -53,6 +57,8 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 - **labels / card_labels** — per-user tags; many-to-many with cards
 - **users** — scrypt-hashed passwords, is_admin flag
 - **user_settings** — key-value store (new_cards_per_day, default_target_lang)
+- **courses / course_units / course_lessons / course_concepts / course_progress** — per-user AI Learning Path (curriculum skeleton; `course_lessons.content` = cached generated exercises, NULL until first open)
+- **concept_content** — `(lang, concept_key)` → verified canonical grammar artifact, **shared across users** (not user-scoped); the expensive-once generator+critic output
 
 Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately. New words are **staggered** — only the primary `target` face is introduced first; `source`/`pronunciation` unlock once the primary graduates (see `db.get_study_session`).
 
@@ -71,6 +77,14 @@ Returns due review faces (next_review ≤ now) + new faces up to the daily cap (
 ### Translation flow
 
 `POST /api/translate` → `translation.translate()` builds a language-specific Gemini prompt → parses JSON response into up to 3 candidates (for ambiguous inputs) with target_text, romanization, notes, priority. `POST /api/cards` then generates audio via edge-tts and stores everything including the MP3 BLOB.
+
+### AI Learning Path — grammar-first lessons
+
+A lesson is assembled deterministically from a curriculum's concepts (`learning.generate_lesson`). **Vocab** concepts → recognition/production/listening/match segments. **Grammar** concepts → a dedicated **grammar-first segment** (explicit English rule + minimal pairs in the teach screen, then cloze/reorder drills) — kept OUT of the vocab pipeline so we never ask an ambiguous "how do you say X" where several forms fit.
+
+Grammar content is produced by a **generator + critic** pipeline (`grammar_lessons.generate_grammar_content`): a generator LLM writes the rule, minimal pairs, and drills; a *critic* LLM independently re-derives and judges each item, and **rejected items are dropped** (thinner-but-correct over complete-but-wrong). Where a free non-LLM oracle exists it overrides the LLM — **romanization** is always recomputed (`tokenizer.romanize_text`, never trusted from the model) and **French present-tense** cloze answers/options come from `grammar.py`. The verified artifact is cached **shared across users** in `concept_content (lang, concept_key)` — generation is the expensive step, replay is cheap. Exercises reuse the existing `choice` (cloze, minimal-pair recognition) and `word_bank` (reorder) renderers; no new exercise types were needed. Orchestrated in `main._ensure_grammar_content` (cache-miss → generate+verify+store) before `generate_lesson`.
+
+NOT yet built (deferred): controlled-vocab **enrichment** (filling drill slots from the user's known SRS deck via typed slots), a grammar-**DAG** syllabus, more tenses/languages, and error-correction drills.
 
 ### Multi-language support
 

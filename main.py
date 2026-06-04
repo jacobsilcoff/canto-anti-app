@@ -32,6 +32,7 @@ import starter_deck
 import tokenizer
 import translation
 import learning
+import grammar_lessons
 import foundations
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
@@ -1689,14 +1690,38 @@ async def extend_course(request: Request, course_id: int, user: dict = Depends(c
     return await db.get_course(user["id"], course_id)
 
 
+async def _ensure_grammar_content(lesson: dict, access) -> dict:
+    """Resolve each grammar concept's VERIFIED canonical artifact from the shared
+    (lang, concept_key) cache, generating + critic-checking it on a miss. Shared
+    across users; generation is the expensive step, replay is cheap."""
+    lang = lesson["target_lang"]
+    out: dict = {}
+    for c in lesson["concepts"]:
+        if c.get("kind") != "grammar":
+            continue
+        key = (c.get("key") or "").strip()
+        if not key:
+            continue
+        art = await db.get_concept_content(lang, key)
+        if art is None:
+            art = await grammar_lessons.generate_grammar_content(
+                lang, c, api_key=access.api_key, model=access.model_reader,
+            )
+            await db.set_concept_content(lang, key, art)
+        out[key] = art
+    return out
+
+
 async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
     """Generate the exercises for a lesson and cache them."""
     access = await _resolve_gemini(user)
+    grammar_content = await _ensure_grammar_content(lesson, access)
     result = await learning.generate_lesson(
         lesson["target_lang"],
         {"title": lesson["title"], "objective": lesson["objective"], "concepts": lesson["concepts"]},
         lesson.get("prior_concepts") or [],
         api_key=access.api_key, model=access.model_reader,
+        grammar_content=grammar_content,
     )
     total_ex = sum(len(s.get("exercises") or []) for s in (result.get("segments") or []))
     if not total_ex:

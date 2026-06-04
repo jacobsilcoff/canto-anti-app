@@ -135,8 +135,17 @@ def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | 
         "already read and pronounce the script (that is handled separately). E.g. never make "
         "concepts like \"high level tone\" or \"the letter é\".\n"
         "- Organise into 6–8 UNITS, each a coherent theme with a one-line objective.\n"
-        "- Each unit has 3–5 LESSONS. Each lesson is small: it introduces about 5–8 "
-        "NEW concepts (vocabulary items and/or one grammar point) and reuses earlier ones.\n"
+        "- GRAMMAR AND SENTENCE CONSTRUCTION ARE THE BACKBONE. Think of this like the "
+        "chapters of a grammar book: most lessons should center on ONE grammar point "
+        "(how to build/transform sentences) and introduce only the MINIMAL vocabulary "
+        "needed to illustrate it. Vocabulary is comparatively trivial — do not pad "
+        "lessons with long word lists.\n"
+        "- Each lesson is small: ideally ONE grammar concept plus AT MOST ~2–3 new "
+        "vocab items, and it REUSES earlier vocab/grammar to build sentences. Prefer "
+        "reusing words the learner already knows over teaching new ones. Spend more "
+        "lessons on features English speakers find UN-intuitive (gender/agreement, "
+        "aspect/tense, classifiers, word order, honorifics) and breeze past what "
+        "transfers from English.\n"
         "- Progress strictly from foundational to more complex; never use a grammar "
         "point or word in a lesson before it has been introduced.\n"
         "- For each lesson, list the new concepts. A concept is either:\n"
@@ -322,10 +331,13 @@ async def generate_lesson(
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
+    grammar_content: dict | None = None,
 ) -> dict:
     """Build a segmented lesson: materialise each concept's accurate target via
     one translation call, then deterministically build teach+practice SEGMENTS.
     `lesson` = {title, objective, concepts:[{kind,key,label,gloss}]}.
+    `grammar_content` maps a grammar concept key → its verified canonical artifact
+    (grammar_lessons.generate_grammar_content) for the grammar-first segment.
     Returns {"segments": [ {"teach": {...}, "exercises": [...]}, ... ]}."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -340,19 +352,29 @@ async def generate_lesson(
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
 
-    # Materialise. VOCAB concepts become testable items; GRAMMAR concepts are
-    # kept OUT of the vocab exercise pipeline (so we never ask an ambiguous
-    # "how do you say X" where several forms fit) — they're taught + drilled
-    # with their own grammar exercises (conjugation, etc.).
-    items, grammar_teach = [], []
+    # Materialise. VOCAB concepts become testable items; GRAMMAR concepts get a
+    # grammar-first segment (explicit rule + minimal pairs + verified drills) and
+    # are kept OUT of the vocab exercise pipeline, so we never ask an ambiguous
+    # "how do you say X" where several forms fit.
+    grammar_content = grammar_content or {}
+    items, grammar_teach, grammar_ex = [], [], []
     for c in concepts:
         key, gloss = c.get("key"), (c.get("gloss") or "").strip()
         target = (targets.get(key) or "").strip()
         note = (notes.get(key) or "").strip()
         roman = R(target, target_lang) if (has_rom and target) else ""
         if c.get("kind") == "grammar":
-            grammar_teach.append({"target": target, "target_roman": roman, "gloss": gloss,
-                                  "note": note, "grammar": True})
+            art = grammar_content.get(key)
+            if art:
+                grammar_teach.append({
+                    "grammar": True, "target": (c.get("label") or target or gloss),
+                    "gloss": gloss, "explain": (art.get("explain") or "").strip(),
+                    "minimal_pairs": art.get("minimal_pairs") or [],
+                })
+                grammar_ex += [dict(e) for e in (art.get("exercises") or [])]
+            else:
+                grammar_teach.append({"target": target, "target_roman": roman,
+                                      "gloss": gloss, "note": note, "grammar": True})
         elif target:
             items.append({"key": key, "gloss": gloss, "target": target, "roman": roman, "note": note})
 
@@ -362,30 +384,33 @@ async def generate_lesson(
     def _teach_item(it):
         return {"target": it["target"], "target_roman": it["roman"], "gloss": it["gloss"], "note": it.get("note", "")}
 
-    groups = [items[i:i + _SEGMENT_SIZE] for i in range(0, len(items), _SEGMENT_SIZE)] or [[]]
-    key_to_seg = {it["key"]: gi for gi, group in enumerate(groups) for it in group}
-    segments, refresh = [], []
-    for gi, group in enumerate(groups):
-        teach_items = [_teach_item(it) for it in group]
-        if gi == 0:
-            teach_items = grammar_teach + teach_items   # grammar points up front
-        teach = {"items": teach_items}
-        if gi == 0:
+    segments: list[dict] = []
+
+    # Grammar-first segment: teach the rule(s) + minimal pairs, then drill them.
+    if grammar_teach or grammar_ex:
+        if not grammar_ex and grammar.has_conjugation(target_lang):
+            # Fallback (no verified artifact): unambiguous conjugation drills.
+            for c in concepts:
+                inf = _verb_infinitive(c, targets.get(c.get("key"), ""))
+                if inf:
+                    grammar_ex += grammar.build_conjugation_exercises(inf, c.get("key"), n=2)
+        segments.append({"teach": {"items": grammar_teach, "intro": intro}, "exercises": grammar_ex})
+        intro = ""   # consumed by the grammar segment
+
+    # Vocab segments: teach a few, practise, teach a few more.
+    groups = [items[i:i + _SEGMENT_SIZE] for i in range(0, len(items), _SEGMENT_SIZE)]
+    refresh: list[dict] = []
+    for group in groups:
+        teach = {"items": [_teach_item(it) for it in group]}
+        if not segments:
             teach["intro"] = intro
-        exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh) if group else []
+            intro = ""
+        exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh)
         segments.append({"teach": teach, "exercises": exercises})
         refresh = refresh + group
 
-    # Grammar drills: drill the FORMS flashcards can't teach. For verb concepts,
-    # derive the infinitive from the label and add conjugation exercises (these
-    # are unambiguous: "conjugate avoir for je" → ai).
-    if grammar.has_conjugation(target_lang):
-        for c in concepts:
-            inf = _verb_infinitive(c, targets.get(c.get("key"), ""))
-            if inf:
-                seg = segments[key_to_seg.get(c.get("key"), 0)]
-                seg["exercises"] += grammar.build_conjugation_exercises(inf, c.get("key"), n=2)
-
+    if not segments:
+        segments = [{"teach": {"items": [], "intro": intro}, "exercises": []}]
     return {"segments": segments}
 
 
