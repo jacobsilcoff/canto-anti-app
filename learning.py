@@ -11,6 +11,7 @@ language. This keeps an AI course coherent and reliable across languages.
 """
 import asyncio
 import random
+import re
 
 import grammar
 import tokenizer
@@ -352,6 +353,7 @@ async def generate_lesson(
         return {"target": it["target"], "target_roman": it["roman"], "gloss": it["gloss"], "note": it.get("note", "")}
 
     groups = [items[i:i + _SEGMENT_SIZE] for i in range(0, len(items), _SEGMENT_SIZE)] or [[]]
+    key_to_seg = {it["key"]: gi for gi, group in enumerate(groups) for it in group}
     segments, refresh = [], []
     for gi, group in enumerate(groups):
         teach_items = [_teach_item(it) for it in group]
@@ -361,14 +363,32 @@ async def generate_lesson(
         if gi == 0:
             teach["intro"] = intro
         exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh) if group else []
-        # Grammar drills: for verbs (gloss "to …"), add reliable conjugation
-        # exercises from the grammar engine, drilling the FORMS — the thing
-        # flashcards can't teach.
-        if grammar.has_conjugation(target_lang):
-            for it in group:
-                if it["gloss"].strip().lower().startswith("to "):
-                    exercises += grammar.build_conjugation_exercises(it["target"], it["key"], n=2)
         segments.append({"teach": teach, "exercises": exercises})
         refresh = refresh + group
 
+    # Grammar drills: drill the FORMS flashcards can't teach. For verb concepts
+    # (vocab OR grammar), get the infinitive from the label/target and add
+    # conjugation exercises to the segment teaching that concept.
+    if grammar.has_conjugation(target_lang):
+        for c in concepts:
+            inf = _verb_infinitive(c, targets.get(c.get("key"), ""))
+            if inf:
+                seg = segments[key_to_seg.get(c.get("key"), 0)]
+                seg["exercises"] += grammar.build_conjugation_exercises(inf, c.get("key"), n=2)
+
     return {"segments": segments}
+
+
+def _verb_infinitive(concept: dict, target: str) -> str:
+    """Return a conjugable infinitive for a verb concept, or "". Prefers the
+    curriculum label (e.g. "aller (present)" → "aller") since the materialised
+    target may be a conjugated/messy form; falls back to the target."""
+    gloss = (concept.get("gloss") or "").strip().lower()
+    is_verbish = gloss.startswith("to ") or "verb" in (concept.get("key", "") + gloss)
+    if not is_verbish:
+        return ""
+    for cand in (concept.get("label", ""), target):
+        c = re.sub(r"\s*\([^)]*\)\s*", "", cand or "").strip().lower()
+        if c and grammar.conjugate_present(c):
+            return c
+    return ""
