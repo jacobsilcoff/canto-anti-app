@@ -50,11 +50,17 @@ def test_word_lessons_only_use_taught_letters():
 
 def test_block_build_targets_are_valid():
     units = F.build_units("ko")
+    seen = 0
     for u in units:
         for l in u["lessons"]:
             for s in l["content"]["segments"]:
                 for e in s["exercises"]:
                     if e["type"] == "block_build":
-                        # the composed answer from the provided indices == target
-                        assert len(e["target"]) == 1
-                        assert e["initials"] and e["medials"]
+                        seen += 1
+                        assert len(e["target"]) == 1  # one syllable block
+                        assert e["consonants"] and e["vowels"]
+                        # target must be spellable from the offered jamo
+                        used = F.decompose_hangul(e["target"])
+                        offered = set(e["consonants"]) | set(e["vowels"])
+                        assert used <= offered, f"{e['target']} needs jamo outside the keyboard"
+    assert seen > 0

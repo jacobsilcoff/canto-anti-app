@@ -166,26 +166,16 @@ def _grapheme_match(graphemes: list[dict]) -> dict:
     }
 
 
-def _block_build(cho: dict, jung: dict, cons_pool: list[dict], vowel_pool: list[dict],
-                 jong: dict | None = None, final_pool: list[dict] | None = None) -> dict:
-    """Build a syllable-assembly exercise. With `final_pool` it adds a 받침
-    (final) row (a "∅ none" option + final consonants); `jong` is the correct
-    final (or None → the answer is no final). The frontend grades by composing
-    the picked jamo, so the answer is implicit in `target`."""
-    target = compose_syllable(cho["symbol"], jung["symbol"], jong["symbol"] if jong else "")
-    initials = [{"j": c["symbol"], "cho": _CHO_IDX[c["symbol"]]} for c in cons_pool]
-    medials = [{"j": v["symbol"], "jung": _JUNG_IDX[v["symbol"]]} for v in vowel_pool]
-    random.shuffle(initials); random.shuffle(medials)
-    ex = {
-        "type": "block_build", "instruction": "Build the syllable you hear",
+def _block_build(target: str, cons_pool: list[dict], vowel_pool: list[dict]) -> dict:
+    """A syllable-assembly exercise: the learner taps jamo (like a Korean
+    keyboard) and they auto-compose into the block. We just supply the available
+    consonants + vowels; the frontend composes + grades against `target`."""
+    return {
+        "type": "block_build", "instruction": "Spell the syllable you hear",
         "audio": target, "roman": _romanize_ko(target), "target": target,
-        "initials": initials, "medials": medials,
+        "consonants": [c["symbol"] for c in cons_pool],
+        "vowels": [v["symbol"] for v in vowel_pool],
     }
-    if final_pool is not None:
-        finals = [{"j": "∅", "jong": 0}] + [{"j": f["symbol"], "jong": _JONG_IDX[f["symbol"]]} for f in final_pool]
-        random.shuffle(finals)
-        ex["finals"] = finals
-    return ex
 
 
 def _read_word(word: str, roman_pool: list[str], meaning: str) -> dict:
@@ -235,7 +225,7 @@ def _build_lesson_content(lesson: dict, taught: list[dict]) -> dict:
         ieung = C("ㅇ", "(silent)", "아")
         exs = []
         for v in vowels[:4]:
-            exs.append(_block_build(ieung, v, [ieung], vowels))
+            exs.append(_block_build(compose_syllable("ㅇ", v["symbol"]), [ieung], vowels))
         teach = {"intro": lesson["intro"],
                  "items": [{"target": compose_syllable("ㅇ", v["symbol"]),
                             "target_roman": v["roman"], "gloss": f"ㅇ + {v['symbol']}",
@@ -254,21 +244,22 @@ def _build_lesson_content(lesson: dict, taught: list[dict]) -> dict:
             new_vowels = [g for g in graphemes if g["kind"] == "vowel"]
             cons_pool = (taught_cons + new_cons) or [C("ㅇ", "(silent)", "아")]
             vowel_pool = taught_vowels + new_vowels
-            # simple consonant+vowel blocks
+            final_caps = [g for g in cons_pool if g["symbol"] in _FINAL_CONS]
+            targets: list[str] = []
+            # consonant + vowel
             for c in (new_cons or cons_pool)[:2]:
                 if vowel_pool:
-                    exs.append(_block_build(c, random.choice(vowel_pool), cons_pool, vowel_pool))
+                    targets.append(compose_syllable(c["symbol"], random.choice(vowel_pool)["symbol"]))
             for v in new_vowels[:2]:
-                if cons_pool:
-                    exs.append(_block_build(random.choice(cons_pool), v, cons_pool, vowel_pool))
-            # consonant+vowel+final (받침) blocks, once we have final-capable consonants
-            final_caps = [g for g in (taught_cons + new_cons) if g["symbol"] in _FINAL_CONS]
+                targets.append(compose_syllable(random.choice(cons_pool)["symbol"], v["symbol"]))
+            # consonant + vowel + final (받침)
             if final_caps and vowel_pool:
                 for _ in range(2):
-                    exs.append(_block_build(
-                        random.choice(cons_pool), random.choice(vowel_pool),
-                        cons_pool, vowel_pool,
-                        jong=random.choice(final_caps), final_pool=final_caps))
+                    targets.append(compose_syllable(
+                        random.choice(cons_pool)["symbol"], random.choice(vowel_pool)["symbol"],
+                        random.choice(final_caps)["symbol"]))
+            for t in dict.fromkeys(targets):
+                exs.append(_block_build(t, cons_pool, vowel_pool))
         random.shuffle(exs)
         teach = {"intro": "", "items": [_teach_item_grapheme(g) for g in graphemes]}
         return {"segments": [{"teach": teach, "exercises": exs}]}
