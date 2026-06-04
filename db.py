@@ -1459,11 +1459,15 @@ async def _insert_units(db, course_id: int, units: list[dict], start_idx: int):
         for li, lesson in enumerate(unit.get("lessons", [])):
             concepts = lesson.get("new_concepts") or []
             keys = [(c.get("key") or "").strip() for c in concepts if c.get("key")]
+            # Foundations lessons arrive with pre-built content; vocab lessons
+            # leave it NULL and generate on first open.
+            content = lesson.get("content")
             lcur = await db.execute(
-                """INSERT INTO course_lessons (unit_id, idx, title, objective, concepts_introduced)
-                   VALUES (?, ?, ?, ?, ?)""",
+                """INSERT INTO course_lessons (unit_id, idx, title, objective, concepts_introduced, content)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (unit_id, li, (lesson.get("title") or "").strip(),
-                 (lesson.get("objective") or "").strip(), json.dumps(keys)),
+                 (lesson.get("objective") or "").strip(), json.dumps(keys),
+                 json.dumps(content) if content else None),
             )
             lesson_id = lcur.lastrowid
             for c in concepts:

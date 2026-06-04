@@ -32,6 +32,7 @@ import starter_deck
 import tokenizer
 import translation
 import learning
+import foundations
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -1627,6 +1628,10 @@ async def create_course(request: Request, req: CreateCourseRequest, user: dict =
         raise HTTPException(502, "Course generation failed — please try again.")
     if not curriculum.get("units"):
         raise HTTPException(502, "Course generation returned no units — please try again.")
+    # Prepend the Foundations track (script/sounds) for languages that have one,
+    # so it gates the front of the path. Its lessons carry pre-built content.
+    foundation_units = foundations.build_units(lang)
+    curriculum["units"] = foundation_units + curriculum.get("units", [])
     course_id = await db.create_course(user["id"], lang, req.level, curriculum)
     return await db.get_course(user["id"], course_id)
 

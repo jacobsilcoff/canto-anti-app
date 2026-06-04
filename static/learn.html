@@ -92,6 +92,13 @@
     .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
     .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
     .tile.placeholder { visibility: hidden; }
+    .tile.selected { border-color: var(--primary); background: #eef4fe; }
+    .tile:disabled { cursor: default; }
+
+    /* block build (Hangul syllable assembly) */
+    .bb-preview { font-size: 3rem; text-align: center; font-family: var(--script-font, inherit); min-height: 3.4rem; line-height: 3.4rem; color: var(--text); }
+    .bb-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 10px 0 6px; }
+    .bb-row { flex-direction: row; flex-wrap: wrap; }
 
     /* match */
     .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -482,6 +489,41 @@
         return { isReady: () => matched === pairs.length, grade: () => true, answerText: () => '', lock: () => {} };
       },
     },
+    block_build: {
+      render(ex, root, lang) {
+        let cho = null, jung = null;   // jamo indices
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the syllable')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button>
+            ${ex.roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
+          <div class="bb-preview" id="bb-preview">·</div>
+          <div class="bb-label">Consonant</div><div class="opt-list bb-row" id="bb-initials"></div>
+          <div class="bb-label">Vowel</div><div class="opt-list bb-row" id="bb-medials"></div>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const preview = document.getElementById('bb-preview');
+        const compose = () => (cho == null || jung == null) ? null
+          : String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28);
+        const refresh = () => { preview.textContent = compose() || '·'; updateAction(); };
+        const initEl = document.getElementById('bb-initials');
+        (ex.initials || []).forEach(it => {
+          const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = it.j;
+          b.onclick = () => { if (player.graded) return; cho = it.cho; [...initEl.children].forEach(c => c.classList.toggle('selected', c === b)); refresh(); };
+          initEl.appendChild(b);
+        });
+        const medEl = document.getElementById('bb-medials');
+        (ex.medials || []).forEach(it => {
+          const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = it.j;
+          b.onclick = () => { if (player.graded) return; jung = it.jung; [...medEl.children].forEach(c => c.classList.toggle('selected', c === b)); refresh(); };
+          medEl.appendChild(b);
+        });
+        return {
+          isReady: () => cho != null && jung != null,
+          grade: () => compose() === ex.target,
+          answerText: () => esc(ex.target) + (ex.roman ? ` (${esc(ex.roman)})` : ''),
+          lock: () => { [...initEl.children, ...medEl.children].forEach(c => c.disabled = true); preview.textContent = compose() || '·'; },
+        };
+      },
+    },
   };
 
   function updateBar() {
@@ -504,7 +546,10 @@
       let segments = content.segments;
       if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
       const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
-      if (!total) throw new Error('no exercises');
+      // Allow info-only lessons (teach with no exercises); only fail if truly empty.
+      const hasContent = segments.some(sg => (sg.exercises || []).length ||
+        (sg.teach && ((sg.teach.items || []).length || sg.teach.intro)));
+      if (!hasContent) throw new Error('empty lesson');
       player = {
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
         segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
@@ -530,7 +575,9 @@
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
-      document.getElementById('teach-action').textContent = i === 0 ? 'Start exercises →' : 'Got it — keep going →';
+      const hasEx = (seg.exercises || []).length > 0;
+      document.getElementById('teach-action').textContent =
+        !hasEx ? 'Got it →' : (i === 0 ? 'Start exercises →' : 'Continue →');
       renderTeach(teach);
       show('teach');
     } else {
@@ -566,10 +613,11 @@
           <div class="teach-gloss">${esc(it.gloss || '')}</div>
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
-      if (it.target) {
+      const speak = it.audio || it.target;   // graphemes voice a representative syllable
+      if (speak) {
         const btn = document.createElement('button');
         btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
-        btn.onclick = () => playTTS(it.target, player.lang);
+        btn.onclick = () => playTTS(speak, player.lang);
         row.appendChild(btn);
       }
       wrap.appendChild(row);
@@ -668,15 +716,16 @@
 
   async function finishLesson() {
     const total = player.total;
-    const score = Math.round(player.firstPassCorrect / total * 100);
+    const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
     try {
       await fetch('/api/lessons/' + player.lessonId + '/complete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }),
       });
     } catch {}
-    document.getElementById('results-score').textContent = score + '%';
+    document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     document.getElementById('results-emoji').textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
-    document.getElementById('results-msg').textContent = `You got ${player.firstPassCorrect} of ${total} correct.`;
+    document.getElementById('results-msg').textContent =
+      total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
     show('results');
   }
 
