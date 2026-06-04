@@ -1693,7 +1693,8 @@ async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
         lesson.get("prior_concepts") or [],
         api_key=access.api_key, model=access.model_reader,
     )
-    if not result.get("exercises"):
+    total_ex = sum(len(s.get("exercises") or []) for s in (result.get("segments") or []))
+    if not total_ex:
         raise HTTPException(502, "Lesson generation returned no exercises — try again.")
     await db.set_lesson_content(user["id"], lesson["id"], result)
     return result
