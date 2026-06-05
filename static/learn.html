@@ -527,8 +527,9 @@
         const optsTarget = ex.prompt_lang === 'english';
         let html = `<div class="ex-instruction">${esc(ex.instruction || 'Choose the correct answer')}</div>`;
         if (ex.prompt) {
-          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${esc(ex.prompt)}</div>`;
-          if (targetPrompt && ex.prompt_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+          const pHtml = targetPrompt ? targetSpan(ex.prompt, lang) : esc(ex.prompt);
+          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${pHtml}</div>`;
+          if (targetPrompt && ex.prompt_roman && !needsRuby(lang)) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
         }
         if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
         html += `<div class="opt-list" id="opts"></div>`;
@@ -539,7 +540,7 @@
           const b = document.createElement('button');
           b.className = 'opt' + (optsTarget ? '' : ' english');
           b.type = 'button';
-          b.innerHTML = esc(o) + (optsTarget && ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.innerHTML = optsTarget ? targetSpan(o, lang) : esc(o);
           b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
           list.appendChild(b);
         });
@@ -562,7 +563,7 @@
         const list = document.getElementById('opts');
         (ex.options || []).forEach((o, i) => {
           const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
-          b.innerHTML = esc(o) + (ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.innerHTML = targetSpan(o, lang);
           b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
           list.appendChild(b);
         });
@@ -585,7 +586,7 @@
         const ansEl = document.getElementById('wb-answer');
         const bankEl = document.getElementById('wb-bank');
         shuffle([...answer, ...(ex.distractor_tokens || [])]).forEach(tok => {
-          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button'; t.textContent = tok;
+          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button'; t.innerHTML = targetSpan(tok, lang);
           t.onclick = () => { if (player.graded) return; (t.parentElement === bankEl ? ansEl : bankEl).appendChild(t); updateAction(); };
           bankEl.appendChild(t);
         });
@@ -613,7 +614,7 @@
             const el = document.createElement('button');
             el.className = 'match-item' + (item.side === 't' ? ' target' : '');
             el.type = 'button';
-            el.innerHTML = esc(item.txt) + (item.side === 't' && item.roman ? `<div class="opt-roman">${esc(item.roman)}</div>` : '');
+            el.innerHTML = item.side === 't' ? targetSpan(item.txt, lang) : esc(item.txt);
             el.onclick = () => {
               if (player.graded || el.classList.contains('matched')) return;
               if (!selEl) { selEl = el; selItem = item; el.classList.add('selected'); return; }
@@ -810,18 +811,33 @@
   // Return just the target-language portion of a (possibly mixed) string for TTS.
   // Strips parenthetical romanization (which contains tone numbers), markdown markers,
   // and for CJK/Hangul scripts, trailing ASCII text the generator sometimes appends.
+  // Languages where we have offline romanizers → ruby annotations make sense.
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
+  function needsRuby(lang) { return RUBY_LANGS.has(lang); }
+
   function cleanForTTS(text, lang) {
     let t = (text || '')
       .replace(/\([^)]*\)/g, '')   // strip all parentheticals (romanization/notes)
       .replace(/\*+/g, '')          // strip markdown markers
       .trim();
-    if (['yue', 'cmn', 'ko'].includes(lang)) {
-      // Trim trailing Latin/ASCII after the last CJK/Hangul/CJK-punctuation character.
-      const m = t.match(/^([\s\S]*[　-鿿가-힯㐀-䶿豈-﫿。！？、，；：""''「」【】〔〕《》·…—～]+)/);
+    if (RUBY_LANGS.has(lang)) {
+      // Trim trailing Latin/ASCII after the last non-Latin script character.
+      // Covers CJK, Hangul, Devanagari (hi), Telugu (te), and CJK punctuation.
+      const m = t.match(/^([\s\S]*[\u0900-\u0DFF\u0C00-\u0C7F\u3000-\u9FFF\uAC00-\uD7AF\u3400-\u4DBF。！？、，；：“”‘’「」【】〔〕《》·…—～]+)/);
       if (m) t = m[1].trim();
     }
     return t;
   }
+
+  // Wrap target-language text in a .needs-ruby span (resolved by applyRuby).
+  // Falls back to esc(text) for Latin-script languages.
+  function targetSpan(text, lang) {
+    const clean = cleanForTTS(text, lang);
+    if (!clean) return '';
+    if (!needsRuby(lang)) return esc(clean);
+    return `<span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(lang)}">${esc(clean)}</span>`;
+  }
+
 
   // Speakable target line: ruby-annotated text + 🔊 button.
   // The .needs-ruby span is resolved asynchronously by applyRuby().
@@ -972,6 +988,7 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
+    if (needsRuby(player.lang)) applyRuby(root);
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
   }

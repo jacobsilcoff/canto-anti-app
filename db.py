@@ -341,7 +341,13 @@ async def _run_migrations(db) -> None:
             continue
         with open(os.path.join(MIGRATIONS_DIR, fname), encoding="utf-8") as f:
             script = f.read()
-        await db.executescript(script)
+        try:
+            await db.executescript(script)
+        except Exception as e:
+            # "duplicate column name" means the baseline schema already includes
+            # this column — treat as a no-op so fresh installs aren't blocked.
+            if "duplicate column name" not in str(e).lower():
+                raise
         await db.execute("INSERT INTO schema_migrations (version) VALUES (?)", (fname,))
         await db.commit()
 
