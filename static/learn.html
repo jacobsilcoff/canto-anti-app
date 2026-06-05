@@ -109,19 +109,19 @@
     .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
     .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
 
-    /* player layout: fixed-height column so the action button never jumps.
-       The exercise area flexes, so feedback appearing shrinks it instead of
-       pushing the button down. */
-    #state-player { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
-    #exercise-root { flex: 1 1 auto; min-height: 0; }
+    /* player layout: natural height (content sizes to itself — no full-viewport
+       gap for short exercises). The feedback slot is RESERVED below, so feedback
+       appearing doesn't push the action button down. */
+    #state-player { display: flex; flex-direction: column; }
     .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
     .grammar-badge { align-self: flex-start; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
     .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
 
     /* feedback + action */
-    .feedback { border-radius: 12px; padding: 14px 16px; margin: 18px 0; font-weight: 600; display: none; }
-    .feedback.correct { background: #e7f6ec; color: #166534; display: block; }
-    .feedback.wrong { background: #fdecea; color: #9b1c1c; display: block; }
+    /* always block + reserved min-height so showing feedback never shifts the button */
+    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; }
+    .feedback.correct { background: #e7f6ec; color: #166534; }
+    .feedback.wrong { background: #fdecea; color: #9b1c1c; }
     .feedback small { display: block; font-weight: 400; margin-top: 4px; }
     .player-action { width: 100%; }
 
@@ -152,16 +152,21 @@
     .teach-gloss { color: var(--text); margin-top: 2px; }
     .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
     .teach-item.teach-grammar { display: block; }
-    .teach-explain { color: var(--text); font-size: 0.95rem; line-height: 1.5; margin-top: 8px; }
-    .minimal-pairs { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-    .mp-card { background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-    .mp-line { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+    /* LLM-authored teach blocks */
+    .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
+    .tb-note { margin-top: 12px; background: #fffbeb; border: 1px solid #fde68a; border-left: 3px solid #f59e0b; border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: #92400e; }
+    .tb-examples { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .tb-ex { background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+    .tb-line { display: flex; align-items: center; gap: 10px; }
+    .tb-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
+    .tb-target .opt-roman { font-size: 0.78rem; }
+    .tb-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .mp-card { margin-top: 12px; background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .mp-line { padding: 5px 0; }
     .mp-line + .mp-line { border-top: 1px dashed var(--border); }
-    .mp-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
-    .mp-target .opt-roman { font-size: 0.78rem; }
-    .mp-gloss { color: var(--text-muted); font-size: 0.85rem; }
+    .mp-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
     .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: #3730a3; }
-    .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; }
+    .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; flex-shrink: 0; }
     .teach-table-wrap { margin-top: 12px; overflow-x: auto; }
     .teach-table-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
     .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
@@ -743,57 +748,81 @@
     }
   }
 
+  // Speakable target line: text (+ optional romanization) and a 🔊 button.
+  function speakLine(text, roman) {
+    const line = document.createElement('div');
+    line.className = 'tb-line';
+    line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
+      <div class="tb-target">${esc(text || '')}${roman ? ` <span class="opt-roman">${esc(roman)}</span>` : ''}</div>`;
+    line.querySelector('button').onclick = () => playTTS(text, player.lang);
+    return line;
+  }
+
+  // Render one LLM-authored teach block (prose / table / examples / contrast / note).
+  function renderBlock(b) {
+    if (b.type === 'prose') {
+      const d = document.createElement('div'); d.className = 'tb-prose'; d.textContent = b.text || ''; return d;
+    }
+    if (b.type === 'note') {
+      const d = document.createElement('div'); d.className = 'tb-note'; d.textContent = b.text || ''; return d;
+    }
+    if (b.type === 'table') {
+      const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
+      let h = b.title ? `<div class="teach-table-title">${esc(b.title)}</div>` : '';
+      h += '<table class="teach-table">';
+      if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
+      h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+      wrap.innerHTML = h; return wrap;
+    }
+    if (b.type === 'examples') {
+      const box = document.createElement('div'); box.className = 'tb-examples';
+      (b.items || []).forEach(it => {
+        const card = document.createElement('div'); card.className = 'tb-ex';
+        card.appendChild(speakLine(it.text, it.roman));
+        if (it.gloss) { const g = document.createElement('div'); g.className = 'tb-gloss'; g.textContent = it.gloss; card.appendChild(g); }
+        box.appendChild(card);
+      });
+      return box;
+    }
+    if (b.type === 'contrast') {
+      const card = document.createElement('div'); card.className = 'mp-card';
+      [b.a, b.b].forEach(s => {
+        const wrap = document.createElement('div'); wrap.className = 'mp-line';
+        wrap.appendChild(speakLine(s.text, s.roman));
+        if (s.gloss) { const g = document.createElement('div'); g.className = 'mp-gloss'; g.textContent = s.gloss; wrap.appendChild(g); }
+        card.appendChild(wrap);
+      });
+      if (b.label) { const c = document.createElement('div'); c.className = 'mp-contrast'; c.textContent = '↕ ' + b.label; card.appendChild(c); }
+      return card;
+    }
+    return null;
+  }
+
   function renderTeach(teach) {
     document.getElementById('teach-intro').textContent = teach.intro || '';
     const wrap = document.getElementById('teach-items');
     wrap.innerHTML = '';
     (teach.items || []).forEach(it => {
-      const pairs = it.minimal_pairs || [];
-      const isGrammar = it.grammar && (it.explain || pairs.length);
+      const blocks = it.blocks || [];
+      const isGrammar = it.grammar && blocks.length;
       const row = document.createElement('div');
       row.className = 'teach-item' + (isGrammar ? ' teach-grammar' : '');
       row.innerHTML = `<div class="teach-text">
           <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
           <div class="teach-gloss">${esc(it.gloss || '')}</div>
-          ${it.explain ? `<div class="teach-explain">${esc(it.explain)}</div>` : ''}
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
-      (it.tables || []).forEach(t => {
-        const wrap = document.createElement('div');
-        wrap.className = 'teach-table-wrap';
-        let h = t.title ? `<div class="teach-table-title">${esc(t.title)}</div>` : '';
-        h += '<table class="teach-table">';
-        if ((t.columns || []).length) h += '<thead><tr>' + t.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
-        h += '<tbody>' + (t.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
-        wrap.innerHTML = h;
-        row.querySelector('.teach-text').appendChild(wrap);
-      });
-      if (pairs.length) {
-        const box = document.createElement('div');
-        box.className = 'minimal-pairs';
-        pairs.forEach(p => {
-          const card = document.createElement('div');
-          card.className = 'mp-card';
-          [['a', p.a_text, p.a_gloss, p.a_roman], ['b', p.b_text, p.b_gloss, p.b_roman]].forEach(([_, t, g, r]) => {
-            const line = document.createElement('div');
-            line.className = 'mp-line';
-            line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
-              <div><div class="mp-target">${esc(t || '')}${r ? ` <span class="opt-roman">${esc(r)}</span>` : ''}</div>
-              <div class="mp-gloss">${esc(g || '')}</div></div>`;
-            line.querySelector('button').onclick = () => playTTS(t, player.lang);
-            card.appendChild(line);
-          });
-          if (p.contrast) card.innerHTML += `<div class="mp-contrast">↕ ${esc(p.contrast)}</div>`;
-          box.appendChild(card);
-        });
-        row.querySelector('.teach-text').appendChild(box);
-      }
-      const speak = it.audio || (isGrammar ? '' : it.target);  // grammar labels aren't speakable
-      if (speak) {
-        const btn = document.createElement('button');
-        btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
-        btn.onclick = () => playTTS(speak, player.lang);
-        row.appendChild(btn);
+      if (isGrammar) {
+        const body = row.querySelector('.teach-text');
+        blocks.forEach(b => { const el = renderBlock(b); if (el) body.appendChild(el); });
+      } else {
+        const speak = it.audio || it.target;
+        if (speak) {
+          const btn = document.createElement('button');
+          btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
+          btn.onclick = () => playTTS(speak, player.lang);
+          row.appendChild(btn);
+        }
       }
       wrap.appendChild(row);
     });

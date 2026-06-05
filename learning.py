@@ -135,17 +135,22 @@ def _build_curriculum_prompt(target_lang: str, level: str, known_summary: str | 
         "already read and pronounce the script (that is handled separately). E.g. never make "
         "concepts like \"high level tone\" or \"the letter é\".\n"
         "- Organise into 6–8 UNITS, each a coherent theme with a one-line objective.\n"
-        "- GRAMMAR AND SENTENCE CONSTRUCTION ARE THE BACKBONE. Think of this like the "
-        "chapters of a grammar book: most lessons should center on ONE grammar point "
-        "(how to build/transform sentences) and introduce only the MINIMAL vocabulary "
-        "needed to illustrate it. Vocabulary is comparatively trivial — do not pad "
-        "lessons with long word lists.\n"
-        "- Each lesson is small: ideally ONE grammar concept plus AT MOST ~2–3 new "
-        "vocab items, and it REUSES earlier vocab/grammar to build sentences. Prefer "
-        "reusing words the learner already knows over teaching new ones. Spend more "
-        "lessons on features English speakers find UN-intuitive (gender/agreement, "
-        "aspect/tense, classifiers, word order, honorifics) and breeze past what "
-        "transfers from English.\n"
+        "- EVERY LESSON MUST BE COHERENT, like a single chapter of a textbook: its "
+        "title, objective, and concepts must all describe the SAME thing. Never mix "
+        "unrelated material into a lesson (e.g. do NOT put verb conjugation or noun "
+        "gender inside a lesson titled \"Hello & Goodbye\"). The title must accurately "
+        "summarise what is actually taught.\n"
+        "- Each lesson picks the organising principle that fits its focus:\n"
+        "  • a COMMUNICATIVE topic (greetings, ordering food, directions) — teach that "
+        "topic deeply, including its OWN nuances and usage rules (e.g. for greetings: "
+        "bonjour vs salut register, bonsoir/time-of-day, tu vs vous); OR\n"
+        "  • a GRAMMAR point (present tense, gender of nouns, negation, word order) — a "
+        "focused grammar chapter, with just enough common vocabulary to illustrate it.\n"
+        "- Favour DEPTH over breadth: a small, focused lesson (~4–7 related concepts) "
+        "that fully teaches one thing beats a grab-bag. Reuse earlier vocab/grammar to "
+        "build examples rather than piling on new words. Spend more lessons on what "
+        "English speakers find UN-intuitive (gender/agreement, aspect/tense, "
+        "classifiers, word order, honorifics) and breeze past what transfers.\n"
         "- Progress strictly from foundational to more complex; never use a grammar "
         "point or word in a lesson before it has been introduced.\n"
         "- For each lesson, list the new concepts. A concept is either:\n"
@@ -368,9 +373,7 @@ async def generate_lesson(
             if art:
                 grammar_teach.append({
                     "grammar": True, "target": (c.get("label") or target or gloss),
-                    "gloss": gloss, "explain": (art.get("explain") or "").strip(),
-                    "tables": art.get("tables") or [],
-                    "minimal_pairs": art.get("minimal_pairs") or [],
+                    "gloss": gloss, "blocks": art.get("blocks") or [],
                 })
                 grammar_ex += [dict(e) for e in (art.get("exercises") or [])]
             else:

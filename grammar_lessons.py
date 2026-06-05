@@ -1,30 +1,30 @@
-"""Grammar-first lesson content — generator + critic pipeline (IDEAS item 43).
+"""Grammar lesson content — generator + critic pipeline (IDEAS item 43).
 
 Produces a VERIFIED canonical artifact per (lang, concept). Generation is
 allowed to be expensive (run offline, cached in db.concept_content, SHARED
-across users); playback is cheap. A *generator* LLM writes the explicit rule,
-minimal pairs, and drills; a *critic* LLM independently re-derives and verifies
-each item (grammaticality, accurate translation, correct answer key). Items the
-critic rejects are DROPPED — the lesson keeps the rest (decision: thinner but
-correct beats complete but wrong).
+across users); playback is cheap.
 
-Where we have a free, NON-LLM oracle we cross-check deterministically, breaking
-the generator/critic shared-blind-spot problem exactly where LLMs slip most:
-  - romanization → our offline romanizers (tokenizer.romanize_text), never the LLM
-  - French present-tense forms → grammar.py (answer key + option list computed,
-    not trusted from the model)
+Design principle — **liberal in what you SHOW, strict in what you GRADE**:
+  - The TEACH content is authored FREELY by the LLM as an ordered list of typed
+    "blocks" (prose, arbitrary tables, examples, contrast, note) — like a page
+    of a grammar textbook. This generalises across languages (the model picks
+    whatever paradigm tables / explanations the language needs); we render the
+    blocks ourselves so styling stays consistent and audio/romanization survive.
+    A *critic* pass verifies each block and drops the ones it rejects.
+  - The INTERACTIONS (drills) stay CONSTRAINED to a few exercise types with
+    strict, verified answer keys — a wrong answer key actively mis-teaches. Where
+    a free non-LLM oracle exists we use it: romanization is recomputed
+    (tokenizer.romanize_text, never the model) and French present-tense cloze
+    answers/options come from grammar.py.
 
-Artifact shape (every target string verified, every roman computed):
+Items the critic rejects are DROPPED (thinner-but-correct over complete-but-wrong).
+
+Artifact shape:
 {
-  "concept_key": "...", "lang": "fr", "label": "...", "gloss": "...",
-  "explain": "<explicit English rule>",
-  "minimal_pairs": [
-     {"a_text","a_gloss","a_roman","b_text","b_gloss","b_roman","contrast"}
-  ],
-  "exercises": [ <choice cloze / word_bank reorder / choice minimal-pair> ]
+  "concept_key", "lang", "label", "gloss",
+  "blocks": [ {type:"prose"|"table"|"examples"|"contrast"|"note", ...}, ... ],
+  "exercises": [ <choice cloze / word_bank reorder / choice contrast-recognition> ]
 }
-The artifact carries `explain` + `minimal_pairs` for the TEACH screen and a list
-of ready-to-play `exercises` (reusing the existing choice / word_bank renderers).
 """
 import asyncio
 import os
@@ -56,99 +56,96 @@ def _generate_prompt(lang: str, concept: dict) -> str:
     label = (concept.get("label") or "").strip()
     gloss = (concept.get("gloss") or "").strip()
     return (
-        f"You are an expert {name} grammar teacher writing ONE explicit grammar "
-        f"lesson for an English speaker. Teach grammar the way a good textbook does: "
-        f"state the rule plainly, then show it with minimal pairs and drills.\n\n"
-        f"Grammar point: {label or gloss}\n"
-        f"Meaning / scope: {gloss}\n"
+        f"You are an expert {name} teacher writing ONE focused lesson for an English "
+        f"speaker — the page of a grammar textbook that covers this point, plus a few "
+        f"drills. Be explicit and concrete; teach what English speakers actually get "
+        f"wrong.\n\n"
+        f"Lesson focus: {label or gloss}\n"
+        f"Scope: {gloss}\n"
         f"Language notes:\n{rules}\n\n"
-        "Produce, as JSON:\n"
-        '- "explain": 2–4 sentences of plain English stating the rule EXPLICITLY '
-        "(when/how it applies, and where it differs from English — focus on what an "
-        "English speaker would get wrong). No fluff.\n"
-        '- "minimal_pairs": 2 pairs of short sentences that differ in EXACTLY ONE '
-        "feature illustrating this rule (e.g. singular vs plural subject, present vs "
-        "past). Each pair: a_text, a_gloss (English), b_text, b_gloss, and contrast "
-        "(one phrase naming the single feature that differs). Keep vocabulary very "
-        "common and reuse the same words across the pair so ONLY the grammar changes.\n"
-        '- "cloze": 3 fill-in-the-blank sentences drilling this rule. Each: '
-        '"sentence" (the full correct sentence with exactly one blank written as '
-        '"___"), "gloss" (English), "answer" (the word that fills the blank — it must '
-        'NOT already appear elsewhere in the sentence). If the blank IS a single '
-        'conjugated verb, ALSO give "verb" (the plain, NON-reflexive infinitive) and '
-        '"person" (one of je/tu/il/nous/vous/ils). For reflexive/pronominal verbs '
-        "(s'appeler, se lever) or any blank that isn't exactly one conjugated verb, "
-        'OMIT "verb"/"person" and just give the full "answer". Use simple vocabulary.\n'
-        '- "reorder": 2 short correct sentences for a word-ordering drill. Each: '
-        '"sentence" (the full correct sentence) and "tokens" (its words in correct '
-        "order as an array — split on words, keep punctuation attached). 3–6 tokens.\n"
-        '- "tables" (OPTIONAL, usually omit): include a small reference table ONLY if '
-        "it genuinely clarifies a PARADIGM other than a single verb's conjugation "
-        "(e.g. definite articles by gender/number, subject pronouns, noun endings). Do "
-        "NOT make a verb-conjugation table — the app inserts a verified one "
-        'automatically. Each table: {"title": "...", "columns": [header labels] (or [] '
-        'for no header row), "rows": [["cell", ...], ...]}. Keep tables ≤6 rows, every '
-        "cell correct.\n\n"
-        "Every target sentence must be fully grammatical and natural. Return ONLY "
-        "valid JSON in exactly this shape, no other text:\n"
-        "{\n"
-        '  "explain": "...",\n'
-        '  "minimal_pairs": [{"a_text":"...","a_gloss":"...","b_text":"...","b_gloss":"...","contrast":"..."}],\n'
+        "Author the TEACHING content as an ordered list of BLOCKS (\"blocks\"). Use as "
+        "many as the focus needs, in a natural teaching order. Block types:\n"
+        '  {"type":"prose","text":"<plain-English explanation>"}\n'
+        '  {"type":"table","title":"<short title>","columns":["<header>", ...] (or [] '
+        'for no header row),"rows":[["<cell>", ...], ...]}\n'
+        '  {"type":"examples","items":[{"text":"<target phrase/sentence>","gloss":"<English>"}]}\n'
+        '  {"type":"contrast","a":{"text":"<target>","gloss":"<English>"},'
+        '"b":{"text":"<target>","gloss":"<English>"},"label":"<the ONE feature that differs>"}\n'
+        '  {"type":"note","text":"<short tip or common-mistake warning>"}\n'
+        "Guidance: open with a prose block stating the rule EXPLICITLY (when/how it "
+        "applies, where English misleads). Use a TABLE whenever a paradigm "
+        "(conjugation, articles, pronouns, cases, politeness levels…) reads more "
+        "clearly as a grid — make whatever table the language needs, every cell "
+        "correct. Use CONTRAST blocks for minimal pairs that differ in exactly one "
+        "feature. Keep target text natural and vocabulary common. Cover ONLY this "
+        "focus — do not drift into unrelated grammar.\n\n"
+        "Then drills:\n"
+        '- "cloze": 3 fill-in-the-blank drills. Each: "sentence" (full correct '
+        'sentence with exactly one blank "___"), "gloss" (English), "answer" (the word '
+        "filling the blank — must NOT already appear elsewhere in the sentence). If the "
+        'blank IS a single conjugated verb, ALSO give "verb" (plain NON-reflexive '
+        'infinitive) and "person" (je/tu/il/nous/vous/ils). For reflexive/pronominal '
+        'verbs or any blank that is not exactly one conjugated verb, OMIT verb/person.\n'
+        '- "reorder": 2 short correct sentences. Each: "sentence" + "tokens" (its words '
+        "in correct order; keep punctuation attached). 3–6 tokens.\n\n"
+        "Return ONLY valid JSON in exactly this shape, no other text:\n"
+        '{ "blocks": [ ... ],\n'
         '  "cloze": [{"sentence":"...","gloss":"...","answer":"...","verb":"...","person":"..."}],\n'
-        '  "reorder": [{"sentence":"...","tokens":["...","..."]}],\n'
-        '  "tables": [{"title":"...","columns":["..."],"rows":[["...","..."]]}]\n'
-        "}\n"
+        '  "reorder": [{"sentence":"...","tokens":["...","..."]}] }\n'
     )
+
+
+def _block_summary(b: dict) -> str:
+    t = b.get("type")
+    if t in ("prose", "note"):
+        return f'{t}: "{(b.get("text") or "")[:300]}"'
+    if t == "table":
+        head = " | ".join(str(c) for c in (b.get("columns") or [])) or "(no header)"
+        rows = " ; ".join("/".join(str(c) for c in r) for r in (b.get("rows") or []))
+        return f'table "{b.get("title","")}" [{head}] {rows}'
+    if t == "examples":
+        return "examples: " + " ; ".join(
+            f'"{it.get("text","")}"="{it.get("gloss","")}"' for it in (b.get("items") or []))
+    if t == "contrast":
+        a, bb = b.get("a") or {}, b.get("b") or {}
+        return (f'contrast A:"{a.get("text","")}"="{a.get("gloss","")}" '
+                f'B:"{bb.get("text","")}"="{bb.get("gloss","")}" differs:{b.get("label","")}')
+    return f"{t}: (unknown)"
 
 
 def _critic_prompt(lang: str, gen: dict) -> str:
     """Ask a fresh pass to INDEPENDENTLY re-derive and judge each item. Returns
     boolean verdict arrays aligned by index — items judged false are dropped."""
     name = LANG_INFO[lang]["name"]
-    pairs = gen.get("minimal_pairs") or []
+    blocks = gen.get("blocks") or []
     cloze = gen.get("cloze") or []
     reorder = gen.get("reorder") or []
-    tables = gen.get("tables") or []
-
-    def _pair(p):
-        return f'   A: "{p.get("a_text","")}" = "{p.get("a_gloss","")}" | B: "{p.get("b_text","")}" = "{p.get("b_gloss","")}" | differs in: {p.get("contrast","")}'
 
     def _cloze(c):
         s = (c.get("sentence", "") or "").replace("___", f'[{c.get("answer","")}]')
         return f'   "{s}" = "{c.get("gloss","")}"'
 
-    def _reorder(r):
-        return f'   "{r.get("sentence","")}"'
-
-    def _table(t):
-        head = " | ".join(str(c) for c in (t.get("columns") or [])) or "(no header)"
-        rows = " ; ".join("/".join(str(c) for c in r) for r in (t.get("rows") or []))
-        return f'   "{t.get("title","")}" [{head}] {rows}'
-
     body = (
-        "MINIMAL PAIRS (each must be two grammatical sentences whose English glosses "
-        "are accurate AND that really differ in only the stated feature):\n"
-        + ("\n".join(f"{i}.{_pair(p)}" for i, p in enumerate(pairs)) or "   (none)")
-        + "\n\nCLOZE (the bracketed word must be the correct fill; sentence grammatical; "
-        "gloss accurate):\n"
+        "TEACH BLOCKS (reject a block if ANY target-language sentence is "
+        "ungrammatical/unnatural, ANY table cell is wrong, ANY English gloss is "
+        "inaccurate, a contrast doesn't really differ in only its stated feature, or "
+        "the prose states something false):\n"
+        + ("\n".join(f"{i}. {_block_summary(b)}" for i, b in enumerate(blocks)) or "   (none)")
+        + "\n\nCLOZE (the bracketed word must be the correct fill; sentence "
+        "grammatical; gloss accurate; the answer must not duplicate a word already in "
+        "the sentence):\n"
         + ("\n".join(f"{i}.{_cloze(c)}" for i, c in enumerate(cloze)) or "   (none)")
         + "\n\nREORDER (must be a fully grammatical, natural sentence):\n"
-        + ("\n".join(f"{i}.{_reorder(r)}" for i, r in enumerate(reorder)) or "   (none)")
-        + "\n\nTABLES (EVERY cell must be correct; reject the whole table if any cell "
-        "is wrong):\n"
-        + ("\n".join(f"{i}.{_table(t)}" for i, t in enumerate(tables)) or "   (none)")
+        + ("\n".join(f'{i}.   "{r.get("sentence","")}"' for i, r in enumerate(reorder)) or "   (none)")
     )
     return (
-        f"You are a meticulous {name} grammar examiner. Independently re-derive each "
-        f"item below FROM SCRATCH (don't just skim it) and decide if it is fully "
-        f"correct: grammatical, naturally phrased, the English gloss accurate, and "
-        f"(for cloze) the bracketed answer the correct, agreeing form that fits where "
-        f"the blank is. Be strict — reject anything with an agreement error, a wrong "
-        f"form, a mistranslation, OR a cloze whose bracketed answer duplicates a word "
-        f"already in the sentence or doesn't grammatically fit the blank.\n\n"
+        f"You are a meticulous {name} examiner. Independently re-derive each item below "
+        f"FROM SCRATCH (don't just skim it) and decide if it is fully correct. Be "
+        f"strict — reject anything with a grammar error, a wrong form, an inaccurate "
+        f"gloss, or a factually wrong explanation.\n\n"
         f"{body}\n\n"
         "Return ONLY JSON with one boolean per item, aligned by index, true = keep:\n"
-        '{ "minimal_pairs": [true, ...], "cloze": [true, ...], "reorder": [true, ...], "tables": [true, ...] }'
+        '{ "blocks": [true, ...], "cloze": [true, ...], "reorder": [true, ...] }'
     )
 
 
@@ -222,33 +219,51 @@ def _free_cloze(concept_key: str, sentence: str, gloss: str, answer: str,
     }
 
 
-def _verb_from_concept(concept: dict) -> str:
-    """The conjugable infinitive a grammar concept teaches (the curriculum puts it
-    in `label`), or "". Used to attach an engine-computed conjugation table."""
-    cand = re.sub(r"\s*\([^)]*\)\s*", "", concept.get("label", "") or "").strip().lower()
-    return cand if cand and grammar.conjugate_present(cand) else ""
+def _clean_block(b: dict, rom) -> dict | None:
+    """Normalise one teach block and compute romanization on target text.
+    Unknown types and empty blocks are dropped."""
+    t = b.get("type")
+    if t in ("prose", "note"):
+        text = (b.get("text") or "").strip()
+        return {"type": t, "text": text} if text else None
+    if t == "table":
+        rows = [[str(c) for c in r] for r in (b.get("rows") or []) if isinstance(r, list) and r]
+        if not rows:
+            return None
+        return {"type": "table", "title": (b.get("title") or "").strip(),
+                "columns": [str(c) for c in (b.get("columns") or [])], "rows": rows}
+    if t == "examples":
+        items = []
+        for it in (b.get("items") or []):
+            tx = (it.get("text") or "").strip()
+            if tx:
+                items.append({"text": tx, "gloss": (it.get("gloss") or "").strip(), "roman": rom(tx)})
+        return {"type": "examples", "items": items} if items else None
+    if t == "contrast":
+        a, bb = b.get("a") or {}, b.get("b") or {}
+        at, bt = (a.get("text") or "").strip(), (bb.get("text") or "").strip()
+        if not (at and bt):
+            return None
+        return {"type": "contrast",
+                "a": {"text": at, "gloss": (a.get("gloss") or "").strip(), "roman": rom(at)},
+                "b": {"text": bt, "gloss": (bb.get("gloss") or "").strip(), "roman": rom(bt)},
+                "label": (b.get("label") or "").strip()}
+    return None
 
 
-def _clean_table(t: dict) -> dict | None:
-    rows = [[str(c) for c in r] for r in (t.get("rows") or []) if isinstance(r, list) and r]
-    if not rows:
-        return None
-    return {"title": (t.get("title") or "").strip(),
-            "columns": [str(c) for c in (t.get("columns") or [])], "rows": rows}
-
-
-def _minimal_pair_ex(concept_key: str, pair: dict) -> dict:
-    """A recognition drill reinforcing the contrast: given one sentence's English
-    meaning, pick which of the two target sentences expresses it."""
+def _contrast_ex(concept_key: str, block: dict) -> dict:
+    """Recognition drill from a contrast block: given one side's English meaning,
+    pick which target sentence expresses it."""
+    a, b = block["a"], block["b"]
     flip = random.random() < 0.5
-    correct = pair["b_text"] if flip else pair["a_text"]
-    prompt = pair["b_gloss"] if flip else pair["a_gloss"]
-    opts = [pair["a_text"], pair["b_text"]]
+    correct = b["text"] if flip else a["text"]
+    prompt = b["gloss"] if flip else a["gloss"]
+    opts = [a["text"], b["text"]]
     random.shuffle(opts)
     return {
         "type": "choice", "grammar": True, "concept_key": concept_key,
         "instruction": "Which sentence means this?", "prompt": prompt, "prompt_lang": "english",
-        "options": opts, "answer": opts.index(correct), "tip": pair.get("contrast", ""),
+        "options": opts, "answer": opts.index(correct), "tip": block.get("label", ""),
     }
 
 
@@ -277,35 +292,30 @@ async def generate_grammar_content(
     R = tokenizer.romanize_text
     has_rom = bool(LANG_INFO[lang].get("romanization"))
 
-    gen = await call_json(_generate_prompt(lang, concept)) or {}
-    raw_pairs = gen.get("minimal_pairs") or []
-    raw_cloze = gen.get("cloze") or []
-    raw_reorder = gen.get("reorder") or []
-
-    raw_tables = gen.get("tables") or []
-
-    crit = await call_json(_critic_prompt(lang, gen)) or {}
-    keep_pairs = _verdicts(crit, "minimal_pairs", len(raw_pairs))
-    keep_cloze = _verdicts(crit, "cloze", len(raw_cloze))
-    keep_reorder = _verdicts(crit, "reorder", len(raw_reorder))
-    keep_tables = _verdicts(crit, "tables", len(raw_tables))
-
     def rom(s: str) -> str:
         return R(s, lang) if (has_rom and s) else ""
 
-    # Minimal pairs (kept ones) → teach contrast blocks + a recognition drill each.
-    pairs, exercises = [], []
-    for p, ok in zip(raw_pairs, keep_pairs):
-        a, b = (p.get("a_text") or "").strip(), (p.get("b_text") or "").strip()
-        if not (ok and a and b):
+    gen = await call_json(_generate_prompt(lang, concept)) or {}
+    raw_blocks = gen.get("blocks") or []
+    raw_cloze = gen.get("cloze") or []
+    raw_reorder = gen.get("reorder") or []
+
+    crit = await call_json(_critic_prompt(lang, gen)) or {}
+    keep_blocks = _verdicts(crit, "blocks", len(raw_blocks))
+    keep_cloze = _verdicts(crit, "cloze", len(raw_cloze))
+    keep_reorder = _verdicts(crit, "reorder", len(raw_reorder))
+
+    # Teach blocks (kept ones) — author-ordered; contrast blocks also seed a drill.
+    blocks, exercises = [], []
+    for b, ok in zip(raw_blocks, keep_blocks):
+        if not ok:
             continue
-        pair = {
-            "a_text": a, "a_gloss": (p.get("a_gloss") or "").strip(), "a_roman": rom(a),
-            "b_text": b, "b_gloss": (p.get("b_gloss") or "").strip(), "b_roman": rom(b),
-            "contrast": (p.get("contrast") or "").strip(),
-        }
-        pairs.append(pair)
-        exercises.append(_minimal_pair_ex(key, pair))
+        cleaned = _clean_block(b, rom)
+        if not cleaned:
+            continue
+        blocks.append(cleaned)
+        if cleaned["type"] == "contrast":
+            exercises.append(_contrast_ex(key, cleaned))
 
     # Cloze drills — conjugation answers computed from the engine where possible.
     answer_pool = [(c.get("answer") or "").strip() for c in raw_cloze]
@@ -344,26 +354,10 @@ async def generate_grammar_content(
         exercises.append(ex)
 
     random.shuffle(exercises)
-
-    # Tables: an ENGINE-computed conjugation table first (authoritative — never
-    # the LLM), then any OTHER paradigm tables the critic approved.
-    tables = []
-    verb = _verb_from_concept(concept)
-    if verb:
-        ct = grammar.conjugation_table(verb, lang)
-        if ct:
-            tables.append(ct)
-    for t, ok in zip(raw_tables, keep_tables):
-        cleaned = _clean_table(t) if ok else None
-        if cleaned:
-            tables.append(cleaned)
-
     return {
         "concept_key": key, "lang": lang,
         "label": (concept.get("label") or "").strip(),
         "gloss": (concept.get("gloss") or "").strip(),
-        "explain": (gen.get("explain") or "").strip(),
-        "minimal_pairs": pairs,
-        "tables": tables,
+        "blocks": blocks,
         "exercises": exercises,
     }
