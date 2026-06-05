@@ -216,7 +216,28 @@ async def generate_curriculum(
 EXERCISE_TYPES = ("choice", "word_bank", "listening", "match")
 
 
-def _build_materialize_prompt(target_lang: str, concepts: list[dict], prior_count: int = 0) -> str:
+def _prior_lessons_block(lesson_num: int, prior_summaries: list[dict]) -> str:
+    """Build the numbered prior-lessons context block for the materialize prompt."""
+    if prior_summaries:
+        lines = "\n".join(
+            f'  Lesson {s["lesson_num"]} ({s["title"]}): {s["summary"]}'
+            for s in prior_summaries
+        )
+        history = f"Prior lessons already covered (do NOT re-teach these as new):\n{lines}\n"
+    else:
+        history = (
+            "No prior vocabulary lessons yet — but the learner may have completed a "
+            "foundations track covering the writing system and sounds.\n"
+        )
+    return f"{history}This is Lesson {lesson_num}."
+
+
+def _build_materialize_prompt(
+    target_lang: str,
+    concepts: list[dict],
+    lesson_num: int = 1,
+    prior_summaries: list[dict] | None = None,
+) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     rules = info["rules"]
@@ -225,20 +246,11 @@ def _build_materialize_prompt(target_lang: str, concepts: list[dict], prior_coun
         for c in concepts
     ]
     items = "\n".join(lines)
-    if prior_count > 0:
-        placement = (
-            f"The learner has already covered {prior_count} words/phrases in earlier lessons. "
-            "This is NOT their first lesson."
-        )
-    else:
-        placement = (
-            "This is an early lesson, but the learner may have completed a foundations "
-            "track before this."
-        )
+    context_block = _prior_lessons_block(lesson_num, prior_summaries or [])
     return (
         f"You are preparing one {name} lesson for an English speaker.\n"
         f"Language notes:\n{rules}\n\n"
-        f"Lesson context: {placement}\n\n"
+        f"{context_block}\n\n"
         f"For each item below, give the single most natural, correct everyday {name} "
         f"word or phrase for that meaning (citation/dictionary form, no romanisation).\n"
         f"IMPORTANT — teach the nuances, don't flatten them: when several items have "
@@ -251,15 +263,23 @@ def _build_materialize_prompt(target_lang: str, concepts: list[dict], prior_coun
         f'- "intro": 1–2 sentences in ENGLISH introducing the specific topic of THIS '
         f'lesson. Be specific to what is being taught — do NOT write a generic welcome, '
         f'do NOT say "Welcome to your first lesson", do NOT assume this is the '
-        f'learner\'s first experience. No {name} words or romanisation in the intro.\n'
+        f'learner\'s first experience. You MAY reference earlier lessons by number '
+        f'(e.g. "Building on Lesson 2…") if genuinely relevant. '
+        f'No {name} words or romanisation in the intro.\n'
         f'- "notes": a one-sentence plain-English usage note for ANY item that has a '
         f'useful nuance, is easily confused with another item, or is a grammar point '
         f'(keyed by its key). English only — no {name} words or romanisation in notes. '
-        f'Empty object if truly none.\n\n'
+        f'Empty object if truly none.\n'
+        f'- "summary": one sentence (≤ 30 words) naming the specific concepts taught in '
+        f'this lesson — English glosses, key distinctions. This is stored so future '
+        f'lessons know what Lesson {lesson_num} covered. Be specific: list the items, '
+        f'not just the topic. Example format: '
+        f'"Covered hello/goodbye, thank-you (formal vs informal), and sorry."\n\n'
         "Return ONLY valid JSON in this exact shape:\n"
         '{ "targets": { "<key>": "<target word/phrase>", ... },\n'
         '  "intro": "...",\n'
-        '  "notes": { "<key>": "<one-sentence note>", ... } }'
+        '  "notes": { "<key>": "<one-sentence note>", ... },\n'
+        '  "summary": "..." }'
     )
 
 
@@ -352,23 +372,31 @@ async def generate_lesson(
     api_key: str,
     model: str = DEFAULT_MODEL,
     grammar_content: dict | None = None,
+    lesson_num: int = 1,
+    prior_summaries: list[dict] | None = None,
 ) -> dict:
     """Build a segmented lesson: materialise each concept's accurate target via
     one translation call, then deterministically build teach+practice SEGMENTS.
     `lesson` = {title, objective, concepts:[{kind,key,label,gloss}]}.
     `grammar_content` maps a grammar concept key → its verified canonical artifact
     (grammar_lessons.generate_grammar_content) for the grammar-first segment.
-    Returns {"segments": [ {"teach": {...}, "exercises": [...]}, ... ]}."""
+    `lesson_num` is the 1-based sequential position in the course; `prior_summaries`
+    is a list of {num, title, summary} dicts for all prior lessons with summaries.
+    Returns {"segments": [...], "summary": "<brief summary of this lesson>"}."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     concepts = lesson.get("concepts", []) or []
     prior_concepts = prior_concepts or []
 
-    prompt = _build_materialize_prompt(target_lang, concepts, prior_count=len(prior_concepts))
+    prompt = _build_materialize_prompt(
+        target_lang, concepts,
+        lesson_num=lesson_num, prior_summaries=prior_summaries or [],
+    )
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     targets = raw.get("targets") or {}
     notes = raw.get("notes") or {}
     intro = (raw.get("intro") or "").strip()
+    lesson_summary = (raw.get("summary") or "").strip()
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
 
@@ -430,7 +458,7 @@ async def generate_lesson(
 
     if not segments:
         segments = [{"teach": {"items": [], "intro": intro}, "exercises": []}]
-    return {"segments": segments}
+    return {"segments": segments, "summary": lesson_summary}
 
 
 def _verb_infinitive(concept: dict, target: str) -> str:

@@ -262,7 +262,8 @@ async def init():
                 title TEXT,
                 objective TEXT,
                 content TEXT,              -- JSON exercises; NULL = not yet generated
-                concepts_introduced TEXT   -- JSON array of concept keys
+                concepts_introduced TEXT,  -- JSON array of concept keys
+                summary TEXT               -- brief summary for future-lesson context
             )
         """)
         await db.execute("""
@@ -1717,6 +1718,16 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
             concepts = [by_key[k] for k in keys if k in by_key]
         lesson["concepts"] = concepts
 
+        # Global 1-based lesson number within the course.
+        async with db.execute(
+            """SELECT COUNT(*) FROM course_lessons l2
+               JOIN course_units u2 ON u2.id = l2.unit_id
+               WHERE u2.course_id=?
+                 AND (u2.idx < ? OR (u2.idx = ? AND l2.idx < ?))""",
+            (course_id, lesson["unit_idx"], lesson["unit_idx"], lesson["lesson_idx"]),
+        ) as cur:
+            lesson["lesson_num"] = (await cur.fetchone())[0] + 1
+
         # Prior concepts (introduced in earlier lessons) — distractor pool.
         async with db.execute(
             """SELECT cc.label, cc.gloss FROM course_concepts cc
@@ -1727,6 +1738,23 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
             (course_id, lesson["unit_idx"], lesson["unit_idx"], lesson["lesson_idx"]),
         ) as cur:
             lesson["prior_concepts"] = [dict(r) for r in await cur.fetchall()]
+
+        # Numbered summaries of prior lessons — context for the lesson generator.
+        async with db.execute(
+            """SELECT lesson_num, title, summary FROM (
+                 SELECT l2.id, l2.title, l2.summary,
+                        u2.idx AS unit_idx, l2.idx AS lesson_idx,
+                        ROW_NUMBER() OVER (ORDER BY u2.idx, l2.idx) AS lesson_num
+                 FROM course_lessons l2
+                 JOIN course_units u2 ON u2.id = l2.unit_id
+                 WHERE u2.course_id=?
+               )
+               WHERE (unit_idx < ? OR (unit_idx = ? AND lesson_idx < ?))
+                 AND summary IS NOT NULL
+               ORDER BY lesson_num""",
+            (course_id, lesson["unit_idx"], lesson["unit_idx"], lesson["lesson_idx"]),
+        ) as cur:
+            lesson["prior_lesson_summaries"] = [dict(r) for r in await cur.fetchall()]
 
         lesson["content"] = json.loads(lesson["content"]) if lesson["content"] else None
 
@@ -1758,6 +1786,16 @@ async def set_lesson_content(user_id: int, lesson_id: int, content: dict) -> boo
         )
         await db.commit()
         return True
+
+
+async def set_lesson_summary(lesson_id: int, summary: str) -> None:
+    """Store the AI-generated summary for a lesson (used as context for future lessons)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE course_lessons SET summary=? WHERE id=?",
+            (summary.strip(), lesson_id),
+        )
+        await db.commit()
 
 
 async def complete_lesson(user_id: int, lesson_id: int, score: int) -> bool:
