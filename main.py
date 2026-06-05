@@ -1777,6 +1777,22 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
     return {"success": True}
 
 
+@app.get("/api/ruby")
+@limiter.limit("300/minute")
+async def ruby(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """Tokenise `text` and return per-token romanization for ruby rendering.
+    Returns [{text, roman, is_word}] — same data shape the reader uses internally.
+    Empty `roman` means no annotation needed (Latin script or punctuation)."""
+    text = (text or "").strip()[:500]
+    if not text or lang not in translation.LANG_INFO:
+        return []
+    tokens = tokenizer.tokenize(text, lang)
+    words = [t["text"] for t in tokens if t["is_word"]]
+    rmap = tokenizer.romanize_words(words, lang) if words else {}
+    return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "", "is_word": t["is_word"]}
+            for t in tokens]
+
+
 @app.get("/api/tts")
 @limiter.limit("120/minute")
 async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):

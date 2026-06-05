@@ -86,6 +86,8 @@
     .opt.wrong { border-color: var(--again); background: #fdecea; }
     .opt:disabled { cursor: default; }
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
+    ruby { ruby-align: center; }
+    rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
 
     /* word bank */
     .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
@@ -753,6 +755,42 @@
     }
   }
 
+  // Ruby cache: text → HTML string, keyed per-lang.
+  const _rubyCache = {};
+
+  // Fetch per-token romanization from /api/ruby and return <ruby> HTML for `text`.
+  // For Latin-script languages (no romanization) returns just esc(text).
+  // Results are cached for the lifetime of the page.
+  async function rubyHtml(text, lang) {
+    if (!text) return '';
+    const key = lang + '\0' + text;
+    if (_rubyCache[key] !== undefined) return _rubyCache[key];
+    try {
+      const tokens = await fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`).then(r => r.json());
+      if (!Array.isArray(tokens) || !tokens.length) throw new Error();
+      const hasRoman = tokens.some(t => t.roman);
+      if (!hasRoman) { _rubyCache[key] = esc(text); return _rubyCache[key]; }
+      const html = tokens.map(t => {
+        if (!t.is_word || !t.roman) return esc(t.text);
+        return `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`;
+      }).join('');
+      _rubyCache[key] = html;
+    } catch {
+      _rubyCache[key] = esc(text);
+    }
+    return _rubyCache[key];
+  }
+
+  // Apply ruby annotation to every .needs-ruby element inside `container`.
+  // Elements carry data-text and data-lang; innerHTML is replaced with ruby HTML.
+  async function applyRuby(container) {
+    const els = container.querySelectorAll('.needs-ruby');
+    await Promise.all([...els].map(async el => {
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang);
+      el.classList.remove('needs-ruby');
+    }));
+  }
+
   // Render basic markdown (bold/italic) safely: escape HTML first, then mark up.
   function renderMarkdown(text) {
     return esc(text || '')
@@ -776,13 +814,14 @@
     return t;
   }
 
-  // Speakable target line: text rendered with markdown, optional romanization, 🔊 button.
-  function speakLine(text, roman, lang) {
+  // Speakable target line: ruby-annotated text + 🔊 button.
+  // The .needs-ruby span is resolved asynchronously by applyRuby().
+  function speakLine(text, lang) {
     const line = document.createElement('div');
     line.className = 'tb-line';
-    line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
-      <div class="tb-target">${renderMarkdown(text || '')}${roman ? ` <span class="opt-roman">${esc(roman)}</span>` : ''}</div>`;
     const l = lang || (player && player.lang);
+    line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
+      <div class="tb-target"><span class="needs-ruby" data-text="${esc(cleanForTTS(text, l))}" data-lang="${esc(l)}">${esc(text || '')}</span></div>`;
     line.querySelector('button').onclick = () => playTTS(cleanForTTS(text, l), l);
     return line;
   }
@@ -799,21 +838,28 @@
     }
     if (b.type === 'table') {
       const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
+      const l = player && player.lang;
+      // Each td gets a .needs-ruby span (resolved by applyRuby) and a TTS click handler.
+      const cell = c => {
+        const clean = cleanForTTS(c, l);
+        return `<td><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
+      };
       let h = b.title ? `<div class="teach-table-title">${esc(b.title)}</div>` : '';
       h += '<table class="teach-table">';
       if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
-      h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+      h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
       wrap.innerHTML = h;
       wrap.querySelectorAll('td').forEach(td => {
-        td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), player && player.lang); if (t) playTTS(t, player.lang); };
+        td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), l); if (t) playTTS(t, l); };
       });
+      applyRuby(wrap);
       return wrap;
     }
     if (b.type === 'examples') {
       const box = document.createElement('div'); box.className = 'tb-examples';
       (b.items || []).forEach(it => {
         const card = document.createElement('div'); card.className = 'tb-ex';
-        card.appendChild(speakLine(it.text, it.roman));
+        card.appendChild(speakLine(it.text));
         if (it.gloss) { const g = document.createElement('div'); g.className = 'tb-gloss'; g.textContent = it.gloss; card.appendChild(g); }
         box.appendChild(card);
       });
@@ -823,7 +869,7 @@
       const card = document.createElement('div'); card.className = 'mp-card';
       [b.a, b.b].forEach(s => {
         const wrap = document.createElement('div'); wrap.className = 'mp-line';
-        wrap.appendChild(speakLine(s.text, s.roman));
+        wrap.appendChild(speakLine(s.text));
         if (s.gloss) { const g = document.createElement('div'); g.className = 'mp-gloss'; g.textContent = s.gloss; wrap.appendChild(g); }
         card.appendChild(wrap);
       });
@@ -838,13 +884,18 @@
     document.getElementById('teach-intro').textContent = teach.intro || '';
     const wrap = document.getElementById('teach-items');
     wrap.innerHTML = '';
+    const lang = player && player.lang;
     (teach.items || []).forEach(it => {
       const blocks = it.blocks || [];
       const isGrammar = it.grammar && blocks.length;
       const row = document.createElement('div');
       row.className = 'teach-item' + (isGrammar ? ' teach-grammar' : '');
+      // .needs-ruby spans are resolved by applyRuby() below.
+      const targetHtml = it.target
+        ? `<span class="needs-ruby" data-text="${esc(it.target)}" data-lang="${esc(lang)}">${esc(it.target)}</span>`
+        : '';
       row.innerHTML = `<div class="teach-text">
-          <div class="teach-target">${esc(it.target || '')}${it.target_roman ? ` <span class="opt-roman">${esc(it.target_roman)}</span>` : ''}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
+          <div class="teach-target">${targetHtml}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
           <div class="teach-gloss">${esc(it.gloss || '')}</div>
           ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
         </div>`;
@@ -856,12 +907,14 @@
         if (speak) {
           const btn = document.createElement('button');
           btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
-          btn.onclick = () => playTTS(speak, player.lang);
+          btn.onclick = () => playTTS(speak, lang);
           row.appendChild(btn);
         }
       }
       wrap.appendChild(row);
     });
+    // Resolve ruby annotations asynchronously (non-blocking).
+    applyRuby(wrap);
   }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
