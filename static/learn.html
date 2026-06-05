@@ -173,8 +173,10 @@
     .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
     .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
     .teach-table th { background: #f0f2f8; font-weight: 600; }
-    .teach-table td { cursor: pointer; }
+    .teach-table td { cursor: pointer; position: relative; padding-right: 22px; }
+    .teach-table td::after { content: '🔊'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; opacity: 0.2; pointer-events: none; transition: opacity 0.15s; }
     .teach-table td:hover { background: #eef4fe; }
+    .teach-table td:hover::after { opacity: 0.6; }
 
     /* completed lesson + continue CTA */
     .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
@@ -751,23 +753,49 @@
     }
   }
 
-  // Speakable target line: text (+ optional romanization) and a 🔊 button.
-  function speakLine(text, roman) {
+  // Render basic markdown (bold/italic) safely: escape HTML first, then mark up.
+  function renderMarkdown(text) {
+    return esc(text || '')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  }
+
+  // Return just the target-language portion of a (possibly mixed) string for TTS.
+  // Strips parenthetical romanization (which contains tone numbers), markdown markers,
+  // and for CJK/Hangul scripts, trailing ASCII text the generator sometimes appends.
+  function cleanForTTS(text, lang) {
+    let t = (text || '')
+      .replace(/\([^)]*\)/g, '')   // strip all parentheticals (romanization/notes)
+      .replace(/\*+/g, '')          // strip markdown markers
+      .trim();
+    if (['yue', 'cmn', 'ko'].includes(lang)) {
+      // Trim trailing Latin/ASCII after the last CJK/Hangul/CJK-punctuation character.
+      const m = t.match(/^([\s\S]*[　-鿿가-힯㐀-䶿豈-﫿。！？、，；：""''「」【】〔〕《》·…—～]+)/);
+      if (m) t = m[1].trim();
+    }
+    return t;
+  }
+
+  // Speakable target line: text rendered with markdown, optional romanization, 🔊 button.
+  function speakLine(text, roman, lang) {
     const line = document.createElement('div');
     line.className = 'tb-line';
     line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
-      <div class="tb-target">${esc(text || '')}${roman ? ` <span class="opt-roman">${esc(roman)}</span>` : ''}</div>`;
-    line.querySelector('button').onclick = () => playTTS(text, player.lang);
+      <div class="tb-target">${renderMarkdown(text || '')}${roman ? ` <span class="opt-roman">${esc(roman)}</span>` : ''}</div>`;
+    const l = lang || (player && player.lang);
+    line.querySelector('button').onclick = () => playTTS(cleanForTTS(text, l), l);
     return line;
   }
 
   // Render one LLM-authored teach block (prose / table / examples / contrast / note).
   function renderBlock(b) {
     if (b.type === 'prose') {
-      const d = document.createElement('div'); d.className = 'tb-prose'; d.textContent = b.text || ''; return d;
+      const d = document.createElement('div'); d.className = 'tb-prose';
+      d.innerHTML = renderMarkdown(b.text || ''); return d;
     }
     if (b.type === 'note') {
-      const d = document.createElement('div'); d.className = 'tb-note'; d.textContent = b.text || ''; return d;
+      const d = document.createElement('div'); d.className = 'tb-note';
+      d.innerHTML = renderMarkdown(b.text || ''); return d;
     }
     if (b.type === 'table') {
       const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
@@ -777,7 +805,7 @@
       h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
       wrap.innerHTML = h;
       wrap.querySelectorAll('td').forEach(td => {
-        td.onclick = () => { const t = td.textContent.trim(); if (t) playTTS(t, player.lang); };
+        td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), player && player.lang); if (t) playTTS(t, player.lang); };
       });
       return wrap;
     }
@@ -799,7 +827,8 @@
         if (s.gloss) { const g = document.createElement('div'); g.className = 'mp-gloss'; g.textContent = s.gloss; wrap.appendChild(g); }
         card.appendChild(wrap);
       });
-      if (b.label) { const c = document.createElement('div'); c.className = 'mp-contrast'; c.textContent = '↕ ' + b.label; card.appendChild(c); }
+      if (b.label) { const c = document.createElement('div'); c.className = 'mp-contrast';
+        c.innerHTML = '↕ ' + renderMarkdown(b.label); card.appendChild(c); }
       return card;
     }
     return null;
