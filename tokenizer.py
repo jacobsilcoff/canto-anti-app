@@ -64,6 +64,23 @@ def split_sentences(tokens: list[Token]) -> list[str]:
     return sentences
 
 
+def romanize_text(text: str, lang: str) -> str:
+    """Romanise a whole target-language string for display hints (jyutping/IAST/…).
+
+    Returns an empty string for Latin-script languages or when no romaniser
+    exists. Use this rather than trusting AI-generated romanisation.
+    """
+    if not text:
+        return ""
+    words = [t["text"] for t in tokenize(text, lang) if t["is_word"]]
+    if not words:
+        return ""
+    rmap = romanize_words(words, lang)
+    if not rmap:
+        return ""
+    return " ".join(rmap.get(w, w) for w in words).strip()
+
+
 def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     """Return a mapping of word text → romanization string for the given words.
 

@@ -31,6 +31,9 @@ import srs
 import starter_deck
 import tokenizer
 import translation
+import learning
+import grammar_lessons
+import foundations
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -197,6 +200,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -221,6 +225,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/",         "Add Vocab",  "translate"),
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
+        link("/learn",    "Learn",      "learn"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -622,6 +627,11 @@ async def cards_page():
 @app.get("/reader", response_class=HTMLResponse)
 async def reader_page():
     return _html("reader.html", active="/reader")
+
+
+@app.get("/learn", response_class=HTMLResponse)
+async def learn_page():
+    return _html("learn.html", active="/learn")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -1592,6 +1602,212 @@ async def list_languages():
             for code, info in translation.LANG_INFO.items()
         ]
     }
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+class CreateCourseRequest(BaseModel):
+    target_lang: str | None = None
+    level: str = "A1"
+
+
+@app.post("/api/courses")
+@limiter.limit("6/minute;30/day")
+async def create_course(request: Request, req: CreateCourseRequest, user: dict = Depends(current_user)):
+    """Generate a CEFR-scaffolded course skeleton and persist it."""
+    lang = req.target_lang or await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    if req.level not in learning.LEVELS:
+        raise HTTPException(400, "Unsupported level")
+    access = await _resolve_gemini(user)
+    try:
+        curriculum = await learning.generate_curriculum(
+            lang, req.level, api_key=access.api_key, model=access.model_reader,
+        )
+    except Exception:
+        raise HTTPException(502, "Course generation failed — please try again.")
+    if not curriculum.get("units"):
+        raise HTTPException(502, "Course generation returned no units — please try again.")
+    # Prepend the Foundations track (script/sounds) for languages that have one,
+    # so it gates the front of the path. Its lessons carry pre-built content.
+    foundation_units = foundations.build_units(lang)
+    curriculum["units"] = foundation_units + curriculum.get("units", [])
+    course_id = await db.create_course(user["id"], lang, req.level, curriculum)
+    return await db.get_course(user["id"], course_id)
+
+
+@app.get("/api/courses")
+async def list_courses(user: dict = Depends(current_user)):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"courses": await db.get_courses(user["id"], target_lang=lang)}
+
+
+@app.get("/api/courses/active")
+async def active_course(user: dict = Depends(current_user)):
+    """The current language's active course (full nested structure), or null."""
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"course": await db.get_active_course(user["id"], lang)}
+
+
+@app.get("/api/courses/{course_id}")
+async def get_course(course_id: int, user: dict = Depends(current_user)):
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    return course
+
+
+@app.delete("/api/courses/{course_id}")
+async def delete_course(course_id: int, user: dict = Depends(current_user)):
+    await db.delete_course(user["id"], course_id)
+    return {"success": True}
+
+
+@app.post("/api/courses/{course_id}/extend")
+@limiter.limit("4/minute;20/day")
+async def extend_course(request: Request, course_id: int, user: dict = Depends(current_user)):
+    """Continue the path: generate the next CEFR level's units, building on
+    everything taught so far, and append them to the course."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    next_level = learning._next_level(course["level"])
+    if not next_level:
+        raise HTTPException(400, "You've reached the top CEFR level.")
+    access = await _resolve_gemini(user)
+    digest = await db.get_course_concept_digest(course_id)
+    try:
+        curriculum = await learning.generate_curriculum(
+            course["target_lang"], next_level, known_summary=digest,
+            api_key=access.api_key, model=access.model_reader,
+        )
+    except Exception:
+        raise HTTPException(502, "Couldn't generate more units — please try again.")
+    if not curriculum.get("units"):
+        raise HTTPException(502, "Generation returned no units — please try again.")
+    await db.append_units(user["id"], course_id, curriculum, next_level)
+    return await db.get_course(user["id"], course_id)
+
+
+async def _ensure_grammar_content(lesson: dict, access) -> dict:
+    """Resolve each grammar concept's VERIFIED canonical artifact from the shared
+    (lang, concept_key) cache, generating + critic-checking it on a miss. Shared
+    across users; generation is the expensive step, replay is cheap."""
+    lang = lesson["target_lang"]
+    out: dict = {}
+    for c in lesson["concepts"]:
+        if c.get("kind") != "grammar":
+            continue
+        key = (c.get("key") or "").strip()
+        if not key:
+            continue
+        art = await db.get_concept_content(lang, key)
+        if art is None:
+            # Uses grammar_lessons.GENERATION_MODEL (a more capable model than the
+            # cheap reader model) — generated once, cached + shared across users.
+            art = await grammar_lessons.generate_grammar_content(
+                lang, c, api_key=access.api_key,
+            )
+            await db.set_concept_content(lang, key, art)
+        out[key] = art
+    return out
+
+
+async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
+    """Generate the exercises for a lesson and cache them."""
+    access = await _resolve_gemini(user)
+    grammar_content = await _ensure_grammar_content(lesson, access)
+    result = await learning.generate_lesson(
+        lesson["target_lang"],
+        {"title": lesson["title"], "objective": lesson["objective"], "concepts": lesson["concepts"]},
+        lesson.get("prior_concepts") or [],
+        api_key=access.api_key, model=access.model_reader,
+        grammar_content=grammar_content,
+    )
+    total_ex = sum(len(s.get("exercises") or []) for s in (result.get("segments") or []))
+    if not total_ex:
+        raise HTTPException(502, "Lesson generation returned no exercises — try again.")
+    await db.set_lesson_content(user["id"], lesson["id"], result)
+    return result
+
+
+def _lesson_response(lesson: dict, content: dict) -> dict:
+    return {
+        "id": lesson["id"],
+        "title": lesson["title"],
+        "objective": lesson["objective"],
+        "target_lang": lesson["target_lang"],
+        "completed": lesson.get("completed", False),
+        "score": lesson.get("score"),
+        "content": content,
+    }
+
+
+@app.get("/api/lessons/{lesson_id}")
+@limiter.limit("20/minute")
+async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
+    """Return a lesson's exercises, generating + caching them on first open."""
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    content = lesson["content"] or await _generate_lesson_content(user, lesson)
+    return _lesson_response(lesson, content)
+
+
+@app.post("/api/lessons/{lesson_id}/regenerate")
+@limiter.limit("10/minute;40/day")
+async def regenerate_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    content = await _generate_lesson_content(user, lesson)
+    return _lesson_response(lesson, content)
+
+
+class CompleteLessonRequest(BaseModel):
+    score: int = 0
+
+
+@app.post("/api/lessons/{lesson_id}/complete")
+async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
+    ok = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
+    if not ok:
+        raise HTTPException(404, "Lesson not found")
+    return {"success": True}
+
+
+@app.get("/api/ruby")
+@limiter.limit("300/minute")
+async def ruby(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """Tokenise `text` and return per-token romanization for ruby rendering.
+    Returns [{text, roman, is_word}] — same data shape the reader uses internally.
+    Empty `roman` means no annotation needed (Latin script or punctuation)."""
+    text = (text or "").strip()[:500]
+    if not text or lang not in translation.LANG_INFO:
+        return []
+    tokens = tokenizer.tokenize(text, lang)
+    words = [t["text"] for t in tokens if t["is_word"]]
+    rmap = tokenizer.romanize_words(words, lang) if words else {}
+    return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "", "is_word": t["is_word"]}
+            for t in tokens]
+
+
+@app.get("/api/tts")
+@limiter.limit("120/minute")
+async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """On-demand TTS for the lesson player (and other UI). Returns MP3."""
+    text = (text or "").strip()
+    if not text:
+        raise HTTPException(400, "text required")
+    if lang not in translation.LANG_INFO:
+        lang = "yue"
+    try:
+        data = await audio.generate(text[:200], lang)
+    except Exception:
+        raise HTTPException(502, "TTS failed")
+    return Response(content=data, media_type="audio/mpeg",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ── Admin: user management ────────────────────────────────────────────────────

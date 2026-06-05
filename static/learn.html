@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Learn</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+
+    /* States */
+    .learn-center { text-align: center; padding: 48px 16px; }
+    .learn-center h2 { font-size: 1.3rem; margin-bottom: 8px; }
+    .learn-center p { color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .cta-btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 11px 22px; font-size: 0.98rem; font-weight: 600; cursor: pointer; }
+    .cta-btn:disabled { opacity: 0.6; cursor: default; }
+    .cta-btn.secondary { background: none; color: var(--primary); border: 1px solid var(--primary); }
+    .level-row { display: inline-flex; gap: 8px; margin-bottom: 18px; }
+    .level-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-size: 0.9rem; }
+    .level-chip.active { border-color: var(--primary); color: var(--primary); background: #eef4fe; }
+
+    /* Course header */
+    .course-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .course-title { font-size: 1.4rem; font-weight: 700; }
+    .course-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    .course-regen { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; font-size: 0.82rem; }
+    .course-regen:hover { border-color: var(--again); color: var(--again); }
+
+    /* Units + lessons (vertical path) */
+    .unit { margin-bottom: 28px; }
+    .unit-head { margin-bottom: 12px; }
+    .unit-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+    .unit-name { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
+    .unit-obj { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+
+    .lesson { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .lesson.locked { opacity: 0.55; }
+    .lesson.available { border-color: var(--primary); box-shadow: var(--shadow); }
+    .lesson-node { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
+    .lesson.done .lesson-node { background: var(--good); }
+    .lesson.available .lesson-node { background: var(--primary); }
+    .lesson.locked .lesson-node { background: var(--border); color: var(--text-muted); }
+    .lesson-body { flex: 1; min-width: 0; }
+    .lesson-name { font-weight: 600; }
+    .lesson-obj { color: var(--text-muted); font-size: 0.84rem; margin-top: 2px; }
+    .lesson-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; }
+    .lesson-status { font-size: 0.74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
+    .lesson-status.done { background: #dcfce7; color: #166534; }
+    .lesson-status.available { background: #e0ecfd; color: #1a4fa0; }
+    .lesson-status.locked { background: #f1f3f4; color: #80868b; }
+
+    .learn-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; }
+    .err { color: var(--again); font-size: 0.88rem; margin-top: 10px; }
+    .lesson.clickable { cursor: pointer; }
+    .lesson.clickable:hover { border-color: var(--primary); }
+
+    /* ── Lesson player ── */
+    .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+    .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
+    .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; }
+    .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); }
+    .ex-prompt.english { font-family: inherit; }
+    .ex-roman { text-align: center; color: var(--text-muted); font-size: 1rem; margin-bottom: 18px; font-style: italic; }
+    .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
+    .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
+    .audio-center { text-align: center; margin: 16px 0 26px; }
+
+    .opt-list { display: flex; flex-direction: column; gap: 10px; }
+    .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .opt.english { font-family: inherit; }
+    .opt.selected { border-color: var(--primary); background: #eef4fe; }
+    .opt.correct { border-color: var(--good); background: #e7f6ec; }
+    .opt.wrong { border-color: var(--again); background: #fdecea; }
+    .opt:disabled { cursor: default; }
+    .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
+    ruby { ruby-align: center; }
+    rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
+
+    /* word bank */
+    .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
+    .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .tile.placeholder { visibility: hidden; }
+    .tile.selected { border-color: var(--primary); background: #eef4fe; }
+    .tile:disabled { cursor: default; }
+
+    /* block build (Hangul syllable assembly) */
+    .bb-preview { font-size: 3rem; text-align: center; font-family: var(--script-font, inherit); min-height: 3.4rem; line-height: 3.4rem; color: var(--text); }
+    .bb-jamo { text-align: center; color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.3em; min-height: 1.2rem; margin-bottom: 14px; font-family: var(--script-font, inherit); }
+    .bb-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 10px 0 6px; }
+    .bb-row { flex-direction: row; flex-wrap: wrap; }
+
+    /* match */
+    .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; min-width: 0; overflow-wrap: break-word; }
+    .match-item.target { font-family: var(--script-font, inherit); }
+    .match-item.selected { border-color: var(--primary); background: #eef4fe; }
+    .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
+    .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
+
+    /* player layout: natural height; constrained so nothing inside can widen the page */
+    #state-player { display: flex; flex-direction: column; width: 100%; min-width: 0; overflow-x: hidden; }
+    .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .grammar-badge { align-self: flex-start; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
+
+    /* feedback + action */
+    /* always block + reserved min-height so showing feedback never shifts the button.
+       width:100% + overflow:hidden stop feedback text from widening the column. */
+    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
+    .feedback.correct { background: #e7f6ec; color: #166534; }
+    .feedback.wrong { background: #fdecea; color: #9b1c1c; }
+    /* exercise root: never let content overflow and widen the page */
+    #exercise-root { width: 100%; overflow: hidden; }
+    .feedback small { display: block; font-weight: 400; margin-top: 4px; }
+    .player-action { width: 100%; }
+
+    /* results */
+    .results-emoji { font-size: 3rem; }
+    .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
+
+    /* ── Reinforcing animations ── */
+    @keyframes pop { 0% { opacity: 0; } 100% { opacity: 1; } }
+    .feedback.correct, .feedback.wrong { animation: pop .18s ease both; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+    .shake { animation: shake .4s ease; }
+    @keyframes bounceIn { 0% { transform: scale(0); } 55% { transform: scale(1.25); } 75% { transform: scale(.92); } 100% { transform: scale(1); } }
+    .bounce-in { animation: bounceIn .6s ease both; }
+    @keyframes optpop { 50% { transform: scale(1.04); } }
+    .opt.correct, .tile.correct { animation: optpop .3s ease; }
+    .lesson.done .lesson-node { transition: transform .2s; }
+    @keyframes nodepop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .audio-play:active, .tile:active, .opt:active { transform: scale(.96); }
+    .confetti-piece { position: fixed; top: -14px; width: 9px; height: 14px; z-index: 9999; pointer-events: none; border-radius: 2px; }
+
+    /* teach screen */
+    .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; }
+    .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .teach-text { flex: 1; min-width: 0; }
+    .teach-target { font-size: 1.25rem; font-family: var(--script-font, inherit); }
+    .teach-target .opt-roman { font-size: 0.8rem; }
+    .teach-gloss { color: var(--text); margin-top: 2px; }
+    .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
+    .teach-item.teach-grammar { display: block; }
+    /* LLM-authored teach blocks */
+    .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
+    .tb-note { margin-top: 12px; background: #fffbeb; border: 1px solid #fde68a; border-left: 3px solid #f59e0b; border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: #92400e; }
+    .tb-examples { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .tb-ex { background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+    .tb-line { display: flex; align-items: center; gap: 10px; }
+    .tb-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
+    .tb-target .opt-roman { font-size: 0.78rem; }
+    .tb-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .mp-card { margin-top: 12px; background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .mp-line { padding: 5px 0; }
+    .mp-line + .mp-line { border-top: 1px dashed var(--border); }
+    .mp-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: #3730a3; }
+    .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; flex-shrink: 0; }
+    .teach-table-wrap { margin-top: 12px; overflow-x: auto; }
+    .teach-table-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
+    .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+    .teach-table th { background: #f0f2f8; font-weight: 600; }
+    .teach-table td { cursor: pointer; position: relative; padding-right: 22px; }
+    .teach-table td::after { content: '🔊'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; opacity: 0.2; pointer-events: none; transition: opacity 0.15s; }
+    .teach-table td:hover { background: #eef4fe; }
+    .teach-table td:hover::after { opacity: 0.6; }
+
+    /* completed lesson + continue CTA */
+    .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
+    .lesson-replay { font-size: 0.74rem; color: var(--primary); margin-top: 4px; }
+    #course-cta .learn-center { padding: 28px 16px 8px; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="learn-page">
+  <div id="state-loading" class="learn-center"><span class="spinner"></span></div>
+
+  <!-- No course yet -->
+  <div id="state-empty" class="learn-center" style="display:none">
+    <h2>Learn <span id="empty-lang">your language</span> from the ground up</h2>
+    <p>Generate a personalised course — units and bite-size lessons that build on each<br>other, tuned to this language. You can regenerate it anytime.</p>
+    <div class="level-row" id="level-row">
+      <div class="level-chip active" data-level="A1">A1 · Beginner</div>
+      <div class="level-chip" data-level="A2">A2 · Elementary</div>
+    </div>
+    <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Generate my course</button></div>
+    <div class="err" id="create-err" style="display:none"></div>
+  </div>
+
+  <!-- Generating -->
+  <div id="state-generating" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p>Designing your course…<br>This takes around 15&ndash;30 seconds.</p>
+  </div>
+
+  <!-- Course -->
+  <div id="state-course" style="display:none">
+    <div class="course-head">
+      <div>
+        <div class="course-title" id="course-title"></div>
+        <div class="course-sub" id="course-sub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
+        <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
+      </div>
+    </div>
+    <div id="units"></div>
+    <div id="course-cta"></div>
+    <div class="learn-note">Tap an available lesson to start.</div>
+  </div>
+
+  <!-- Lesson loading (first-time generation) -->
+  <div id="state-lesson-loading" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p>Building this lesson…</p>
+  </div>
+
+  <!-- Teach screen (before exercises) -->
+  <div id="state-teach" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
+      <div style="flex:1;font-weight:600" id="teach-title"></div>
+      <button class="course-regen" onclick="regenerateCurrentLesson()" title="Regenerate this lesson">↻</button>
+    </div>
+    <p class="teach-intro" id="teach-intro"></p>
+    <div id="teach-items"></div>
+    <button class="cta-btn player-action" id="teach-action" onclick="startExercises()">Start exercises →</button>
+  </div>
+
+  <!-- Lesson player -->
+  <div id="state-player" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
+      <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
+    </div>
+    <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
+    <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
+    <div id="exercise-root"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
+  </div>
+
+  <!-- Results -->
+  <div id="state-results" class="learn-center" style="display:none">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-score" id="results-score"></div>
+    <p id="results-msg">Lesson complete!</p>
+    <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
+    <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
+  </div>
+</main>
+
+<script>
+  let selectedLevel = 'A1';
+  let langName = 'your language';
+  let LANGS = [];
+  let currentCourse = null;
+  let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
+
+  const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+  function show(state) {
+    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
+      document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
+  }
+
+  function esc(s) {
+    const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML;
+  }
+
+  async function init() {
+    show('loading');
+    // Resolve current language name for the empty-state copy.
+    try {
+      const [settings, langs] = await Promise.all([
+        fetch('/api/settings').then(r => r.json()).catch(() => ({})),
+        fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
+      ]);
+      LANGS = langs.languages || [];
+      const code = settings.default_target_lang || 'yue';
+      const l = LANGS.find(x => x.code === code);
+      langName = l ? l.name : code;
+    } catch {}
+    document.getElementById('empty-lang').textContent = langName;
+
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); }
+      else { show('empty'); }
+    } catch {
+      show('empty');
+    }
+  }
+
+  document.getElementById('level-row').addEventListener('click', e => {
+    const chip = e.target.closest('.level-chip');
+    if (!chip) return;
+    selectedLevel = chip.dataset.level;
+    document.querySelectorAll('.level-chip').forEach(c => c.classList.toggle('active', c === chip));
+  });
+
+  async function createCourse() {
+    document.getElementById('create-err').style.display = 'none';
+    show('generating');
+    try {
+      const res = await fetch('/api/courses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: selectedLevel }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+        throw new Error(msg);
+      }
+      const course = await res.json();
+      renderCourse(course);
+      show('course');
+    } catch (e) {
+      show('empty');
+      const el = document.getElementById('create-err');
+      el.textContent = e.message || 'Generation failed — please try again.';
+      el.style.display = '';
+    }
+  }
+
+  async function regenerate() {
+    if (!confirm('Regenerate this course? Your current course map will be replaced.')) return;
+    const id = document.getElementById('state-course').dataset.courseId;
+    show('generating');
+    try {
+      if (id) await fetch('/api/courses/' + id, { method: 'DELETE' });
+      await createCourse();
+    } catch {
+      init();
+    }
+  }
+
+  function toggleUnlockAll() {
+    unlockAll = !unlockAll;
+    localStorage.setItem('learn_unlock_all', unlockAll ? '1' : '0');
+    if (currentCourse) renderCourse(currentCourse);
+  }
+
+  function renderCourse(course) {
+    currentCourse = course;
+    document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
+    document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
+    document.getElementById('state-course').dataset.courseId = course.id;
+    document.getElementById('course-title').textContent = course.title || (course.target_lang + ' ' + course.level);
+    const units = course.units || [];
+    const nLessons = units.reduce((s, u) => s + (u.lessons || []).length, 0);
+    const nDone = units.reduce((s, u) => s + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+    document.getElementById('course-sub').textContent =
+      `${units.length} units · ${nLessons} lessons · ${nDone}/${nLessons} done`;
+
+    const wrap = document.getElementById('units');
+    wrap.innerHTML = '';
+    units.forEach((u, ui) => {
+      const sec = document.createElement('div');
+      sec.className = 'unit';
+      let html = `<div class="unit-head">
+        <div class="unit-title">Unit ${ui + 1}</div>
+        <div class="unit-name">${esc(u.title)}</div>
+        ${u.objective ? `<div class="unit-obj">${esc(u.objective)}</div>` : ''}
+      </div>`;
+      (u.lessons || []).forEach((l, li) => {
+        const st = l.status || 'locked';
+        const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
+        const meta = l.concept_count
+          ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
+        const clickable = unlockAll || (st === 'available' || st === 'done');
+        const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
+        html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openLesson(${l.id})"` : ''}>
+          <div class="lesson-node">${node}</div>
+          <div class="lesson-body">
+            <div class="lesson-name">${esc(l.title)}</div>
+            ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
+            ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
+            ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
+          </div>
+          <div class="lesson-status ${st}">${badge}</div>
+        </div>`;
+      });
+      sec.innerHTML = html;
+      wrap.appendChild(sec);
+    });
+
+    // Continue-the-path CTA when the whole course is complete.
+    const cta = document.getElementById('course-cta');
+    cta.innerHTML = '';
+    const allDone = nLessons > 0 && nDone === nLessons;
+    if (allDone) {
+      const next = LEVELS[LEVELS.indexOf(course.level) + 1];
+      cta.innerHTML = next
+        ? `<div class="learn-center"><h2>Level ${esc(course.level)} complete! 🎉</h2>
+             <p>You've finished every lesson. Ready to go further?</p>
+             <button class="cta-btn" onclick="extendCourse()">Continue to ${esc(next)}</button></div>`
+        : `<div class="learn-center"><h2>🏆 You've reached the top level!</h2></div>`;
+    }
+  }
+
+  // ── Lesson player ───────────────────────────────────────────────────────────
+  let player = null;
+  let _audio = null;
+
+  function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
+  function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
+  function playTTS(text, lang) {
+    if (!text) return;
+    try { if (_audio) _audio.pause(); } catch {}
+    _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    _audio.play().catch(() => {});
+  }
+
+  // ── Sound effects (synthesized, no asset files) ─────────────────────────────
+  let muted = localStorage.getItem('learn_muted') === '1';
+  let _sfxCtx = null;
+  function _sfx() {
+    try {
+      if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_sfxCtx.state === 'suspended') _sfxCtx.resume();
+      return _sfxCtx;
+    } catch { return null; }
+  }
+  function _beep(freq, start, dur, type = 'sine', vol = 0.16) {
+    if (muted) return;
+    const ac = _sfx(); if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    correct() { _beep(587, 0, 0.13, 'sine', 0.16); _beep(880, 0.08, 0.2, 'sine', 0.16); },
+    wrong() { _beep(196, 0, 0.18, 'sine', 0.15); _beep(150, 0.07, 0.24, 'sine', 0.13); },
+    complete() { [523, 659, 784, 1047].forEach((f, i) => _beep(f, i * 0.1, 0.32, 'triangle', 0.16)); },
+    tap() { _beep(520, 0, 0.04, 'sine', 0.05); },
+  };
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem('learn_muted', muted ? '1' : '0');
+    const b = document.getElementById('mute-toggle');
+    if (b) b.textContent = muted ? '🔇' : '🔊';
+    if (!muted) sfx.tap();
+  }
+  function confetti() {
+    if (muted) { /* still show confetti even if muted */ }
+    const colors = ['#f94144', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#f3722c', '#ff6ec7', '#1a73e8'];
+    for (let i = 0; i < 40; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.background = colors[i % colors.length];
+      document.body.appendChild(p);
+      const dur = 1500 + Math.random() * 1300;
+      p.animate([
+        { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+        { transform: `translateY(${88 + Math.random() * 12}vh) rotate(${360 + Math.random() * 540}deg)`, opacity: 0.9 },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.6,.4,1)' });
+      setTimeout(() => p.remove(), dur);
+    }
+  }
+
+  // ── Hangul jamo composition (for block_build) ───────────────────────────────
+  // Compose a sequence of typed jamo into one syllable block, like a Korean IME:
+  // consonant + vowel(+vowel compound) + optional final(+final compound).
+  const HJ = {
+    CHO: ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'],
+    JUNG: ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'],
+    JONG: ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'],
+    CV: { 'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ','ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ','ㅡㅣ':'ㅢ' },
+    CF: { 'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ' },
+  };
+  function composeJamo(seq) {
+    if (!seq.length) return '';
+    const isV = j => HJ.JUNG.includes(j), isC = j => HJ.CHO.includes(j);
+    let i = 0;
+    if (!isC(seq[0])) return seq.join('');
+    const cho = seq[i++];
+    if (i >= seq.length || !isV(seq[i])) return seq.join('');
+    let jung = seq[i++];
+    if (i < seq.length && isV(seq[i]) && HJ.CV[jung + seq[i]]) { jung = HJ.CV[jung + seq[i]]; i++; }
+    let jong = '';
+    if (i < seq.length && HJ.JONG.includes(seq[i]) && seq[i]) {
+      jong = seq[i++];
+      if (i < seq.length && HJ.CF[jong + seq[i]]) { jong = HJ.CF[jong + seq[i]]; i++; }
+    }
+    if (i < seq.length) return seq.join('');   // leftover → not a single clean block
+    const ci = HJ.CHO.indexOf(cho), ji = HJ.JUNG.indexOf(jung), ki = jong ? HJ.JONG.indexOf(jong) : 0;
+    if (ci < 0 || ji < 0) return seq.join('');
+    return String.fromCharCode(0xAC00 + (ci * 21 + ji) * 28 + ki);
+  }
+  function isHangulSyllable(s) { return s.length === 1 && s >= '가' && s <= '힣'; }
+
+  // Each exercise type: render(ex, root, lang) -> controller
+  //   controller: { isReady():bool, grade():bool, answerText():string, lock(correct):void }
+  // To add a type: add an entry here + its schema in learning.py's _EXERCISE_CONTRACT.
+  const EXERCISE_TYPES = {
+    choice: {
+      render(ex, root, lang) {
+        let sel = null;
+        const targetPrompt = ex.prompt_lang === 'target';
+        const optsTarget = ex.prompt_lang === 'english';
+        let html = `<div class="ex-instruction">${esc(ex.instruction || 'Choose the correct answer')}</div>`;
+        if (ex.prompt) {
+          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${esc(ex.prompt)}</div>`;
+          if (targetPrompt && ex.prompt_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+        }
+        if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
+        html += `<div class="opt-list" id="opts"></div>`;
+        root.innerHTML = html;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button');
+          b.className = 'opt' + (optsTarget ? '' : ' english');
+          b.type = 'button';
+          b.innerHTML = esc(o) + (optsTarget && ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    listening: {
+      render(ex, root, lang) {
+        let sel = null;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'What did you hear?')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
+          <div class="opt-list" id="opts"></div>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
+          b.innerHTML = esc(o) + (ex.options_roman && ex.options_roman[i] ? ` <span class="opt-roman">${esc(ex.options_roman[i])}</span>` : '');
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]) + (ex.audio_roman ? ` (${esc(ex.audio_roman)})` : ''),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    word_bank: {
+      render(ex, root, lang) {
+        const answer = ex.answer_tokens || [];
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the sentence')}</div>
+          ${ex.audio ? `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>` : ''}
+          <div class="wb-answer" id="wb-answer"></div>
+          <div class="wb-bank" id="wb-bank"></div>`;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const ansEl = document.getElementById('wb-answer');
+        const bankEl = document.getElementById('wb-bank');
+        shuffle([...answer, ...(ex.distractor_tokens || [])]).forEach(tok => {
+          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button'; t.textContent = tok;
+          t.onclick = () => { if (player.graded) return; (t.parentElement === bankEl ? ansEl : bankEl).appendChild(t); updateAction(); };
+          bankEl.appendChild(t);
+        });
+        const placed = () => [...ansEl.children].map(c => c.textContent);
+        return {
+          isReady: () => ansEl.children.length > 0,
+          grade: () => { const p = placed(); return p.length === answer.length && p.every((t, i) => t === answer[i]); },
+          answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
+          lock: () => [...ansEl.children, ...bankEl.children].forEach(c => c.disabled = true),
+        };
+      },
+    },
+    match: {
+      render(ex, root, lang) {
+        const pairs = ex.pairs || [];
+        const left = shuffle(pairs.map((p, i) => ({ txt: p.target, roman: p.target_roman, id: i, side: 't' })));
+        const right = shuffle(pairs.map((p, i) => ({ txt: p.english, id: i, side: 'e' })));
+        let selEl = null, selItem = null, matched = 0;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Match the pairs')}</div><div class="match-grid" id="mg"></div>`;
+        const grid = document.getElementById('mg');
+        const rows = Math.max(left.length, right.length);
+        for (let i = 0; i < rows; i++) {
+          [left[i], right[i]].forEach(item => {
+            if (!item) return;
+            const el = document.createElement('button');
+            el.className = 'match-item' + (item.side === 't' ? ' target' : '');
+            el.type = 'button';
+            el.innerHTML = esc(item.txt) + (item.side === 't' && item.roman ? `<div class="opt-roman">${esc(item.roman)}</div>` : '');
+            el.onclick = () => {
+              if (player.graded || el.classList.contains('matched')) return;
+              if (!selEl) { selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selEl === el) { el.classList.remove('selected'); selEl = null; return; }
+              if (selItem.side === item.side) { selEl.classList.remove('selected'); selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selItem.id === item.id) {
+                selEl.classList.remove('selected'); selEl.classList.add('matched'); el.classList.add('matched');
+                selEl = null; matched++; updateAction();
+              } else {
+                const a = selEl, b = el; a.classList.add('flash-wrong'); b.classList.add('flash-wrong');
+                setTimeout(() => { a.classList.remove('flash-wrong', 'selected'); b.classList.remove('flash-wrong'); }, 450);
+                selEl = null;
+              }
+            };
+            grid.appendChild(el);
+          });
+        }
+        return { isReady: () => matched === pairs.length, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
+    block_build: {
+      render(ex, root, lang) {
+        // Tap jamo like a Korean keyboard; they auto-compose into the block.
+        const consonants = ex.consonants || [...new Set([...(ex.initials || []).map(x => x.j),
+          ...(ex.finals || []).map(x => x.j).filter(j => j && j !== '∅')])];
+        const vowels = ex.vowels || (ex.medials || []).map(x => x.j);
+        let typed = [];
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Spell the syllable')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button>
+            ${ex.roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
+          <div class="bb-preview" id="bb-preview">·</div>
+          <div class="bb-jamo" id="bb-typed"></div>
+          <div class="bb-label">Consonants</div><div class="opt-list bb-row" id="bb-cons"></div>
+          <div class="bb-label">Vowels</div><div class="opt-list bb-row" id="bb-vows"></div>
+          <button class="course-regen" type="button" id="bb-back" style="margin-top:14px">⌫ Backspace</button>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const preview = document.getElementById('bb-preview');
+        const typedEl = document.getElementById('bb-typed');
+        const refresh = () => {
+          const c = composeJamo(typed);
+          preview.textContent = c || '·';
+          typedEl.textContent = typed.join(' ');
+          updateAction();
+        };
+        const mkKey = (containerId, jamo) => {
+          const el = document.getElementById(containerId);
+          jamo.forEach(j => {
+            const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = j;
+            b.onclick = () => { if (player.graded) return; if (typed.length < 5) { typed.push(j); sfx.tap(); refresh(); } };
+            el.appendChild(b);
+          });
+        };
+        mkKey('bb-cons', consonants);
+        mkKey('bb-vows', vowels);
+        document.getElementById('bb-back').onclick = () => { if (player.graded) return; typed.pop(); refresh(); };
+        return {
+          isReady: () => isHangulSyllable(composeJamo(typed)),
+          grade: () => composeJamo(typed) === ex.target,
+          answerText: () => esc(ex.target) + (ex.roman ? ` (${esc(ex.roman)})` : ''),
+          lock: () => { root.querySelectorAll('.tile, #bb-back').forEach(c => c.disabled = true); },
+        };
+      },
+    },
+  };
+
+  function updateBar() {
+    const pct = player ? Math.min(100, Math.round(player.answered / player.total * 100)) : 0;
+    document.getElementById('player-bar-fill').style.width = pct + '%';
+  }
+  function updateAction() {
+    if (!player || player.graded) return;
+    document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
+  }
+
+  async function openLesson(lessonId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      // Normalise to segments (back-compat with old single-block lessons).
+      let segments = content.segments;
+      if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
+      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      // Allow info-only lessons (teach with no exercises); only fail if truly empty.
+      const hasContent = segments.some(sg => (sg.exercises || []).length ||
+        (sg.teach && ((sg.teach.items || []).length || sg.teach.intro)));
+      if (!hasContent) throw new Error('empty lesson');
+      player = {
+        lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
+        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        controller: null, graded: false,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch {
+      alert('Could not load this lesson — please try again.');
+      show('course');
+    }
+  }
+
+  function startSegment(i) {
+    player.segIdx = i;
+    const seg = player.segments[i];
+    const teach = seg.teach;
+    if (teach && ((teach.items || []).length || teach.intro)) {
+      const n = player.segments.length;
+      document.getElementById('teach-title').textContent =
+        n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
+      const hasEx = (seg.exercises || []).length > 0;
+      document.getElementById('teach-action').textContent =
+        !hasEx ? 'Got it →' : (i === 0 ? 'Start exercises →' : 'Continue →');
+      renderTeach(teach);
+      show('teach');
+    } else {
+      startExercises();
+    }
+  }
+
+  // Advance past a finished segment: next segment, then end-of-lesson review, then finish.
+  function afterSegment() {
+    if (player.segIdx < player.segments.length - 1) {
+      startSegment(player.segIdx + 1);
+    } else if (player.mistakes.length) {
+      player.reviewStarted = true;
+      player.queue = player.mistakes.map(e => ({ ...e, _review: true }));
+      player.mistakes = [];
+      player.idx = 0;
+      show('player');
+      renderExercise();
+    } else {
+      finishLesson();
+    }
+  }
+
+  // Ruby cache: text → HTML string, keyed per-lang.
+  const _rubyCache = {};
+
+  // Fetch per-token romanization from /api/ruby and return <ruby> HTML for `text`.
+  // For Latin-script languages (no romanization) returns just esc(text).
+  // Results are cached for the lifetime of the page.
+  async function rubyHtml(text, lang) {
+    if (!text) return '';
+    const key = lang + '\0' + text;
+    if (_rubyCache[key] !== undefined) return _rubyCache[key];
+    try {
+      const tokens = await fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`).then(r => r.json());
+      if (!Array.isArray(tokens) || !tokens.length) throw new Error();
+      const hasRoman = tokens.some(t => t.roman);
+      if (!hasRoman) { _rubyCache[key] = esc(text); return _rubyCache[key]; }
+      const html = tokens.map(t => {
+        if (!t.is_word || !t.roman) return esc(t.text);
+        return `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`;
+      }).join('');
+      _rubyCache[key] = html;
+    } catch {
+      _rubyCache[key] = esc(text);
+    }
+    return _rubyCache[key];
+  }
+
+  // Apply ruby annotation to every .needs-ruby element inside `container`.
+  // Elements carry data-text and data-lang; innerHTML is replaced with ruby HTML.
+  async function applyRuby(container) {
+    const els = container.querySelectorAll('.needs-ruby');
+    await Promise.all([...els].map(async el => {
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang);
+      el.classList.remove('needs-ruby');
+    }));
+  }
+
+  // Render basic markdown (bold/italic) safely: escape HTML first, then mark up.
+  function renderMarkdown(text) {
+    return esc(text || '')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  }
+
+  // Return just the target-language portion of a (possibly mixed) string for TTS.
+  // Strips parenthetical romanization (which contains tone numbers), markdown markers,
+  // and for CJK/Hangul scripts, trailing ASCII text the generator sometimes appends.
+  function cleanForTTS(text, lang) {
+    let t = (text || '')
+      .replace(/\([^)]*\)/g, '')   // strip all parentheticals (romanization/notes)
+      .replace(/\*+/g, '')          // strip markdown markers
+      .trim();
+    if (['yue', 'cmn', 'ko'].includes(lang)) {
+      // Trim trailing Latin/ASCII after the last CJK/Hangul/CJK-punctuation character.
+      const m = t.match(/^([\s\S]*[　-鿿가-힯㐀-䶿豈-﫿。！？、，；：""''「」【】〔〕《》·…—～]+)/);
+      if (m) t = m[1].trim();
+    }
+    return t;
+  }
+
+  // Speakable target line: ruby-annotated text + 🔊 button.
+  // The .needs-ruby span is resolved asynchronously by applyRuby().
+  function speakLine(text, lang) {
+    const line = document.createElement('div');
+    line.className = 'tb-line';
+    const l = lang || (player && player.lang);
+    line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
+      <div class="tb-target"><span class="needs-ruby" data-text="${esc(cleanForTTS(text, l))}" data-lang="${esc(l)}">${esc(text || '')}</span></div>`;
+    line.querySelector('button').onclick = () => playTTS(cleanForTTS(text, l), l);
+    return line;
+  }
+
+  // Render one LLM-authored teach block (prose / table / examples / contrast / note).
+  function renderBlock(b) {
+    if (b.type === 'prose') {
+      const d = document.createElement('div'); d.className = 'tb-prose';
+      d.innerHTML = renderMarkdown(b.text || ''); return d;
+    }
+    if (b.type === 'note') {
+      const d = document.createElement('div'); d.className = 'tb-note';
+      d.innerHTML = renderMarkdown(b.text || ''); return d;
+    }
+    if (b.type === 'table') {
+      const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
+      const l = player && player.lang;
+      // Each td gets a .needs-ruby span (resolved by applyRuby) and a TTS click handler.
+      const cell = c => {
+        const clean = cleanForTTS(c, l);
+        return `<td><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
+      };
+      let h = b.title ? `<div class="teach-table-title">${esc(b.title)}</div>` : '';
+      h += '<table class="teach-table">';
+      if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
+      h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
+      wrap.innerHTML = h;
+      wrap.querySelectorAll('td').forEach(td => {
+        td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), l); if (t) playTTS(t, l); };
+      });
+      applyRuby(wrap);
+      return wrap;
+    }
+    if (b.type === 'examples') {
+      const box = document.createElement('div'); box.className = 'tb-examples';
+      (b.items || []).forEach(it => {
+        const card = document.createElement('div'); card.className = 'tb-ex';
+        card.appendChild(speakLine(it.text));
+        if (it.gloss) { const g = document.createElement('div'); g.className = 'tb-gloss'; g.textContent = it.gloss; card.appendChild(g); }
+        box.appendChild(card);
+      });
+      return box;
+    }
+    if (b.type === 'contrast') {
+      const card = document.createElement('div'); card.className = 'mp-card';
+      [b.a, b.b].forEach(s => {
+        const wrap = document.createElement('div'); wrap.className = 'mp-line';
+        wrap.appendChild(speakLine(s.text));
+        if (s.gloss) { const g = document.createElement('div'); g.className = 'mp-gloss'; g.textContent = s.gloss; wrap.appendChild(g); }
+        card.appendChild(wrap);
+      });
+      if (b.label) { const c = document.createElement('div'); c.className = 'mp-contrast';
+        c.innerHTML = '↕ ' + renderMarkdown(b.label); card.appendChild(c); }
+      return card;
+    }
+    return null;
+  }
+
+  function renderTeach(teach) {
+    document.getElementById('teach-intro').textContent = teach.intro || '';
+    const wrap = document.getElementById('teach-items');
+    wrap.innerHTML = '';
+    const lang = player && player.lang;
+    (teach.items || []).forEach(it => {
+      const blocks = it.blocks || [];
+      const isGrammar = it.grammar && blocks.length;
+      const row = document.createElement('div');
+      row.className = 'teach-item' + (isGrammar ? ' teach-grammar' : '');
+      // .needs-ruby spans are resolved by applyRuby() below.
+      const targetHtml = it.target
+        ? `<span class="needs-ruby" data-text="${esc(it.target)}" data-lang="${esc(lang)}">${esc(it.target)}</span>`
+        : '';
+      row.innerHTML = `<div class="teach-text">
+          <div class="teach-target">${targetHtml}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
+          <div class="teach-gloss">${esc(it.gloss || '')}</div>
+          ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
+        </div>`;
+      if (isGrammar) {
+        const body = row.querySelector('.teach-text');
+        blocks.forEach(b => { const el = renderBlock(b); if (el) body.appendChild(el); });
+      } else {
+        const speak = it.audio || it.target;
+        if (speak) {
+          const btn = document.createElement('button');
+          btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
+          btn.onclick = () => playTTS(speak, lang);
+          row.appendChild(btn);
+        }
+      }
+      wrap.appendChild(row);
+    });
+    // Resolve ruby annotations asynchronously (non-blocking).
+    applyRuby(wrap);
+  }
+
+  function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
+    const seg = player.segments[player.segIdx];
+    player.queue = (seg.exercises || []).map(e => ({ ...e }));
+    player.idx = 0;
+    if (!player.queue.length) { afterSegment(); return; }
+    show('player');
+    renderExercise();
+  }
+
+  async function regenerateCurrentLesson() {
+    if (!player) return;
+    const id = player.lessonId;
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + id + '/regenerate', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      openLesson(id);
+    } catch {
+      alert('Could not regenerate — please try again.');
+      openLesson(id);
+    }
+  }
+
+  async function extendCourse() {
+    const id = document.getElementById('state-course').dataset.courseId;
+    show('generating');
+    try {
+      const res = await fetch('/api/courses/' + id + '/extend', { method: 'POST' });
+      if (!res.ok) { const m = (await res.json().catch(() => ({}))).detail || 'Could not add more units.'; throw new Error(m); }
+      const course = await res.json();
+      renderCourse(course);
+      show('course');
+    } catch (e) {
+      alert(e.message || 'Could not add more units — please try again.');
+      refreshAndShowCourse();
+    }
+  }
+
+  function renderExercise() {
+    const ex = player.queue[player.idx];
+    const root = document.getElementById('exercise-root');
+    const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
+    document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
+    document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
+    player.graded = false;
+    player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
+    const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
+    updateBar(); updateAction();
+  }
+
+  function onAction() {
+    if (!player) return;
+    const a = document.getElementById('player-action');
+    if (!player.graded) {
+      if (!player.controller.isReady()) return;
+      const ex = player.queue[player.idx];
+      const correct = player.controller.grade();
+      player.controller.lock(correct);
+      player.graded = true;
+      if (correct) {
+        if (!ex._review) player.firstPassCorrect++;
+      } else if (ex._review) {
+        player.queue.push({ ...ex });          // retry this mistake again later
+      } else {
+        player.mistakes.push(ex);              // review it at the end of the lesson
+      }
+      const fb = document.getElementById('feedback');
+      const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
+      if (correct) {
+        fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip;
+        sfx.correct();
+      } else {
+        const at = player.controller.answerText ? player.controller.answerText() : '';
+        fb.className = 'feedback wrong';
+        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
+        sfx.wrong();
+        const root = document.getElementById('exercise-root');
+        root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
+      }
+      try { if (navigator.vibrate) navigator.vibrate(correct ? 15 : [0, 30, 30, 30]); } catch {}
+      const lastSeg = player.segIdx >= player.segments.length - 1;
+      const isLastEx = player.idx >= player.queue.length - 1;
+      const willReview = (!player.reviewStarted && player.mistakes.length > 0) || (player.reviewStarted && !correct);
+      a.textContent = (lastSeg && isLastEx && !willReview) ? 'Finish' : 'Continue';
+      a.disabled = false;
+    } else {
+      player.answered++;
+      player.idx++;
+      if (player.idx >= player.queue.length) {
+        if (player.reviewStarted) finishLesson();   // review queue exhausted
+        else afterSegment();                         // next segment / start review / finish
+      } else {
+        renderExercise();
+      }
+    }
+  }
+
+  async function finishLesson() {
+    const total = player.total;
+    const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
+    try {
+      await fetch('/api/lessons/' + player.lessonId + '/complete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }),
+      });
+    } catch {}
+    document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
+    const emoji = document.getElementById('results-emoji');
+    emoji.textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
+    document.getElementById('results-msg').textContent =
+      total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
+    show('results');
+    emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
+    sfx.complete();
+    if (score >= 60) confetti();
+    try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+  }
+
+  function quitLesson() {
+    if (confirm('Quit this lesson? This attempt won\'t be saved.')) { player = null; refreshAndShowCourse(); }
+  }
+  function retryLesson() { if (player) openLesson(player.lessonId); }
+  function backToMap() { player = null; refreshAndShowCourse(); }
+
+  async function refreshAndShowCourse() {
+    show('loading');
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); } else { show('empty'); }
+    } catch { show('empty'); }
+  }
+
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login';
+  }
+
+  init();
+</script>
+</body>
+</html>

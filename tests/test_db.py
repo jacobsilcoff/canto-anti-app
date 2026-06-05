@@ -271,3 +271,174 @@ async def test_multilang_card_no_romanization(fresh_db):
     card = await db.get_card(user_id, card_id)
     assert card["target_lang"] == "fr"
     assert card["romanization"] == ""
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+_CURRIC = {
+    "level": "A1", "language": "French",
+    "units": [
+        {"title": "Greetings", "theme": "social", "objective": "Say hello",
+         "lessons": [
+            {"title": "Hello & Goodbye", "objective": "Greet",
+             "new_concepts": [
+                {"kind": "vocab", "key": "greeting_hello", "label": "Bonjour", "gloss": "hello"},
+                {"kind": "vocab", "key": "greeting_goodbye", "label": "Au revoir", "gloss": "goodbye"},
+             ]},
+            {"title": "My Name", "objective": "Introduce",
+             "new_concepts": [{"kind": "grammar", "key": "verb_to_be_je", "label": "suis", "gloss": "am"}]},
+         ]},
+        {"title": "Numbers", "theme": "math", "objective": "Count",
+         "lessons": [
+            {"title": "0-10", "objective": "Count to ten",
+             "new_concepts": [{"kind": "vocab", "key": "number_1", "label": "un", "gloss": "one"}]},
+         ]},
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_create_and_get_course(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    course = await db.get_course(user_id, cid)
+    assert course["title"] == "French A1"
+    assert len(course["units"]) == 2
+    assert [u["title"] for u in course["units"]] == ["Greetings", "Numbers"]
+    first_unit = course["units"][0]
+    assert len(first_unit["lessons"]) == 2
+    assert first_unit["lessons"][0]["concept_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_course_unlock_progression(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    course = await db.get_course(user_id, cid)
+    statuses = [l["status"] for u in course["units"] for l in u["lessons"]]
+    assert statuses == ["available", "locked", "locked"]
+
+
+@pytest.mark.asyncio
+async def test_active_course_and_delete(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1", _CURRIC)
+    active = await db.get_active_course(user_id, "fr")
+    assert active is not None and active["id"] == cid
+    assert await db.get_active_course(user_id, "es") is None  # different language
+    await db.delete_course(user_id, cid)
+    assert await db.get_courses(user_id) == []
+    assert await db.get_active_course(user_id, "fr") is None
+
+
+@pytest.mark.asyncio
+async def test_courses_are_siloed_by_user(fresh_db):
+    admin_id = fresh_db
+    other_id = await db.create_user("other", auth.hash_password("pw"))
+    cid = await db.create_course(admin_id, "fr", "A1", _CURRIC)
+    assert await db.get_course(other_id, cid) is None
+    assert await db.get_courses(other_id) == []
+
+
+@pytest.mark.asyncio
+async def test_get_lesson_has_concepts(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    course = await db.get_course(uid, cid)
+    lid = course["units"][0]["lessons"][0]["id"]
+    lesson = await db.get_lesson(uid, lid)
+    assert lesson["title"] == "Hello & Goodbye"
+    assert lesson["target_lang"] == "fr"
+    assert {c["key"] for c in lesson["concepts"]} == {"greeting_hello", "greeting_goodbye"}
+    assert lesson["content"] is None
+    assert lesson["prior_concepts"] == []
+
+
+@pytest.mark.asyncio
+async def test_lesson_content_roundtrip(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    course = await db.get_course(uid, cid)
+    lid = course["units"][0]["lessons"][0]["id"]
+    content = {"exercises": [{"type": "choice", "answer": 0}]}
+    assert await db.set_lesson_content(uid, lid, content)
+    assert (await db.get_lesson(uid, lid))["content"] == content
+
+
+@pytest.mark.asyncio
+async def test_complete_lesson_unlocks_next(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    course = await db.get_course(uid, cid)
+    lid = course["units"][0]["lessons"][0]["id"]
+    assert await db.complete_lesson(uid, lid, 90)
+    statuses = [l["status"] for u in (await db.get_course(uid, cid))["units"] for l in u["lessons"]]
+    assert statuses[0] == "done" and statuses[1] == "available"
+    lesson = await db.get_lesson(uid, lid)
+    assert lesson["completed"] and lesson["score"] == 90
+
+
+@pytest.mark.asyncio
+async def test_prior_concepts_accumulate(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    course = await db.get_course(uid, cid)
+    l2 = course["units"][0]["lessons"][1]["id"]
+    prior = {c["gloss"] for c in (await db.get_lesson(uid, l2))["prior_concepts"]}
+    assert "hello" in prior and "goodbye" in prior
+
+
+@pytest.mark.asyncio
+async def test_lesson_ownership(fresh_db):
+    admin = fresh_db
+    other = await db.create_user("o2", auth.hash_password("pw"))
+    cid = await db.create_course(admin, "fr", "A1", _CURRIC)
+    lid = (await db.get_course(admin, cid))["units"][0]["lessons"][0]["id"]
+    assert await db.get_lesson(other, lid) is None
+    assert not await db.set_lesson_content(other, lid, {"x": 1})
+    assert not await db.complete_lesson(other, lid, 50)
+
+
+_CURRIC2 = {
+    "level": "A2", "language": "French",
+    "units": [
+        {"title": "Past Tense", "theme": "grammar", "objective": "Talk about the past",
+         "lessons": [
+            {"title": "Yesterday", "objective": "Past events",
+             "new_concepts": [{"kind": "grammar", "key": "passe_compose", "label": "passé composé", "gloss": "past tense"}]},
+         ]},
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_concept_digest(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    digest = await db.get_course_concept_digest(cid)
+    assert "hello" in digest and "goodbye" in digest
+
+
+@pytest.mark.asyncio
+async def test_append_units_extends_course(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1", _CURRIC)
+    before = await db.get_course(uid, cid)
+    n_units_before = len(before["units"])
+    added = await db.append_units(uid, cid, _CURRIC2, "A2")
+    assert added == 1
+    after = await db.get_course(uid, cid)
+    assert len(after["units"]) == n_units_before + 1
+    assert after["level"] == "A2"
+    # appended unit comes last and its lesson is locked (earlier ones not done)
+    assert after["units"][-1]["title"] == "Past Tense"
+    # unit indices stay contiguous and ordered
+    assert [u["idx"] for u in after["units"]] == list(range(len(after["units"])))
+
+
+@pytest.mark.asyncio
+async def test_append_units_respects_ownership(fresh_db):
+    admin = fresh_db
+    other = await db.create_user("o3", auth.hash_password("pw"))
+    cid = await db.create_course(admin, "fr", "A1", _CURRIC)
+    assert await db.append_units(other, cid, _CURRIC2, "A2") == 0
