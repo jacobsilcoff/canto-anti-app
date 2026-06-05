@@ -758,11 +758,20 @@
   // Ruby cache: text → HTML string, keyed per-lang.
   const _rubyCache = {};
 
+  // True when text is mostly Latin alphabet — ruby would be meaningless/wrong.
+  function _isLatin(text) {
+    const stripped = (text || '').replace(/\s/g, '');
+    if (!stripped) return true;
+    const latin = (stripped.match(/[A-Za-zÀ-öø-ÿ]/g) || []).length;
+    return latin / stripped.length > 0.5;
+  }
+
   // Fetch per-token romanization from /api/ruby and return <ruby> HTML for `text`.
   // For Latin-script languages (no romanization) returns just esc(text).
   // Results are cached for the lifetime of the page.
   async function rubyHtml(text, lang) {
     if (!text) return '';
+    if (_isLatin(text)) return esc(text);
     const key = lang + '\0' + text;
     if (_rubyCache[key] !== undefined) return _rubyCache[key];
     try {
