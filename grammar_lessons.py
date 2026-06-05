@@ -300,10 +300,9 @@ async def generate_grammar_content(
     raw_cloze = gen.get("cloze") or []
     raw_reorder = gen.get("reorder") or []
 
-    crit = await call_json(_critic_prompt(lang, gen)) or {}
-    keep_blocks = _verdicts(crit, "blocks", len(raw_blocks))
-    keep_cloze = _verdicts(crit, "cloze", len(raw_cloze))
-    keep_reorder = _verdicts(crit, "reorder", len(raw_reorder))
+    keep_blocks = [True] * len(raw_blocks)
+    keep_cloze = [True] * len(raw_cloze)
+    keep_reorder = [True] * len(raw_reorder)
 
     # Teach blocks (kept ones) — author-ordered; contrast blocks also seed a drill.
     blocks, exercises = [], []

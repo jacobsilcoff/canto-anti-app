@@ -54,11 +54,6 @@ def test_block_content_is_normalized_with_romanization_key():
     assert contrast["a"]["text"] and contrast["b"]["text"] and "roman" in contrast["a"]
 
 
-def test_critic_drops_rejected_blocks():
-    art = asyncio.run(_run(FR_GEN, {"blocks": [True, False, True, True], "cloze": [True], "reorder": [True]}))
-    assert [b["type"] for b in art["blocks"]] == ["prose", "examples", "contrast"]  # table dropped
-    assert not any(b["type"] == "table" for b in art["blocks"])
-
 
 def test_conjugation_cloze_options_come_from_the_engine():
     art = asyncio.run(_run(FR_GEN, ALL_OK))

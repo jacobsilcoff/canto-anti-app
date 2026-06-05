@@ -118,10 +118,13 @@
     .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
 
     /* feedback + action */
-    /* always block + reserved min-height so showing feedback never shifts the button */
-    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; }
+    /* always block + reserved min-height so showing feedback never shifts the button.
+       width:100% + overflow:hidden stop feedback text from widening the column. */
+    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
     .feedback.correct { background: #e7f6ec; color: #166534; }
     .feedback.wrong { background: #fdecea; color: #9b1c1c; }
+    /* exercise root: never let content overflow and widen the page */
+    #exercise-root { width: 100%; overflow: hidden; }
     .feedback small { display: block; font-weight: 400; margin-top: 4px; }
     .player-action { width: 100%; }
 
