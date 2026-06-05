@@ -102,17 +102,15 @@
     .bb-row { flex-direction: row; flex-wrap: wrap; }
 
     /* match */
-    .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; }
+    .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; min-width: 0; overflow-wrap: break-word; }
     .match-item.target { font-family: var(--script-font, inherit); }
     .match-item.selected { border-color: var(--primary); background: #eef4fe; }
     .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
     .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
 
-    /* player layout: natural height (content sizes to itself — no full-viewport
-       gap for short exercises). The feedback slot is RESERVED below, so feedback
-       appearing doesn't push the action button down. */
-    #state-player { display: flex; flex-direction: column; }
+    /* player layout: natural height; constrained so nothing inside can widen the page */
+    #state-player { display: flex; flex-direction: column; width: 100%; min-width: 0; overflow-x: hidden; }
     .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
     .grammar-badge { align-self: flex-start; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
     .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
@@ -133,8 +131,8 @@
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
 
     /* ── Reinforcing animations ── */
-    @keyframes pop { 0% { transform: scale(.92); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
-    .feedback.correct, .feedback.wrong { animation: pop .22s ease both; }
+    @keyframes pop { 0% { opacity: 0; } 100% { opacity: 1; } }
+    .feedback.correct, .feedback.wrong { animation: pop .18s ease both; }
     @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
     .shake { animation: shake .4s ease; }
     @keyframes bounceIn { 0% { transform: scale(0); } 55% { transform: scale(1.25); } 75% { transform: scale(.92); } 100% { transform: scale(1); } }
@@ -175,6 +173,8 @@
     .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
     .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
     .teach-table th { background: #f0f2f8; font-weight: 600; }
+    .teach-table td { cursor: pointer; }
+    .teach-table td:hover { background: #eef4fe; }
 
     /* completed lesson + continue CTA */
     .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
@@ -775,7 +775,11 @@
       h += '<table class="teach-table">';
       if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
       h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
-      wrap.innerHTML = h; return wrap;
+      wrap.innerHTML = h;
+      wrap.querySelectorAll('td').forEach(td => {
+        td.onclick = () => { const t = td.textContent.trim(); if (t) playTTS(t, player.lang); };
+      });
+      return wrap;
     }
     if (b.type === 'examples') {
       const box = document.createElement('div'); box.className = 'tb-examples';
