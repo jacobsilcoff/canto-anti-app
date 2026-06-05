@@ -78,7 +78,14 @@ def _generate_prompt(lang: str, concept: dict) -> str:
         "clearly as a grid — make whatever table the language needs, every cell "
         "correct. Use CONTRAST blocks for minimal pairs that differ in exactly one "
         "feature. Keep target text natural and vocabulary common. Cover ONLY this "
-        "focus — do not drift into unrelated grammar.\n\n"
+        "focus — do not drift into unrelated grammar.\n"
+        f"CRITICAL — romanisation: write ALL {name} text in NATIVE SCRIPT ONLY. "
+        "Do NOT include romanisation, transliteration, pinyin, jyutping, or any "
+        "pronunciation guide inline anywhere — not in prose, not in table cells, "
+        "not in example/contrast `text` fields, not in cloze sentences. "
+        "Tables MUST NOT have a romanisation/pronunciation column. "
+        "Romanisation is added automatically by a ruby engine; if you embed it "
+        "inline it will appear doubled.\n\n"
         "Then drills:\n"
         '- "cloze": 3 fill-in-the-blank drills. Each: "sentence" (full correct '
         'sentence with exactly one blank "___"), "gloss" (English), "answer" (the word '

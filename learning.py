@@ -216,7 +216,7 @@ async def generate_curriculum(
 EXERCISE_TYPES = ("choice", "word_bank", "listening", "match")
 
 
-def _build_materialize_prompt(target_lang: str, concepts: list[dict]) -> str:
+def _build_materialize_prompt(target_lang: str, concepts: list[dict], prior_count: int = 0) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     rules = info["rules"]
@@ -225,9 +225,20 @@ def _build_materialize_prompt(target_lang: str, concepts: list[dict]) -> str:
         for c in concepts
     ]
     items = "\n".join(lines)
+    if prior_count > 0:
+        placement = (
+            f"The learner has already covered {prior_count} words/phrases in earlier lessons. "
+            "This is NOT their first lesson."
+        )
+    else:
+        placement = (
+            "This is an early lesson, but the learner may have completed a foundations "
+            "track before this."
+        )
     return (
-        f"You are preparing one beginner {name} lesson for an English speaker.\n"
+        f"You are preparing one {name} lesson for an English speaker.\n"
         f"Language notes:\n{rules}\n\n"
+        f"Lesson context: {placement}\n\n"
         f"For each item below, give the single most natural, correct everyday {name} "
         f"word or phrase for that meaning (citation/dictionary form, no romanisation).\n"
         f"IMPORTANT — teach the nuances, don't flatten them: when several items have "
@@ -237,10 +248,14 @@ def _build_materialize_prompt(target_lang: str, concepts: list[dict]) -> str:
         f"distinctions are the whole point of the lesson.\n"
         f"Items:\n{items}\n\n"
         f"Also write:\n"
-        f'- "intro": 1–2 friendly sentences introducing this lesson.\n'
+        f'- "intro": 1–2 sentences in ENGLISH introducing the specific topic of THIS '
+        f'lesson. Be specific to what is being taught — do NOT write a generic welcome, '
+        f'do NOT say "Welcome to your first lesson", do NOT assume this is the '
+        f'learner\'s first experience. No {name} words or romanisation in the intro.\n'
         f'- "notes": a one-sentence plain-English usage note for ANY item that has a '
         f'useful nuance, is easily confused with another item, or is a grammar point '
-        f'(keyed by its key). Empty object if truly none.\n\n'
+        f'(keyed by its key). English only — no {name} words or romanisation in notes. '
+        f'Empty object if truly none.\n\n'
         "Return ONLY valid JSON in this exact shape:\n"
         '{ "targets": { "<key>": "<target word/phrase>", ... },\n'
         '  "intro": "...",\n'
@@ -349,7 +364,7 @@ async def generate_lesson(
     concepts = lesson.get("concepts", []) or []
     prior_concepts = prior_concepts or []
 
-    prompt = _build_materialize_prompt(target_lang, concepts)
+    prompt = _build_materialize_prompt(target_lang, concepts, prior_count=len(prior_concepts))
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     targets = raw.get("targets") or {}
     notes = raw.get("notes") or {}
