@@ -33,7 +33,6 @@ import tokenizer
 import translation
 import learning
 import grammar_lessons
-import foundations
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -1612,28 +1611,13 @@ class CreateCourseRequest(BaseModel):
 
 
 @app.post("/api/courses")
-@limiter.limit("6/minute;30/day")
+@limiter.limit("10/minute;20/day")
 async def create_course(request: Request, req: CreateCourseRequest, user: dict = Depends(current_user)):
-    """Generate a CEFR-scaffolded course skeleton and persist it."""
+    """Create an empty course. Lessons are generated one at a time via /next."""
     lang = req.target_lang or await db.get_setting(user["id"], "default_target_lang") or "yue"
     if lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    if req.level not in learning.LEVELS:
-        raise HTTPException(400, "Unsupported level")
-    access = await _resolve_gemini(user)
-    try:
-        curriculum = await learning.generate_curriculum(
-            lang, req.level, api_key=access.api_key, model=access.model_reader,
-        )
-    except Exception:
-        raise HTTPException(502, "Course generation failed — please try again.")
-    if not curriculum.get("units"):
-        raise HTTPException(502, "Course generation returned no units — please try again.")
-    # Prepend the Foundations track (script/sounds) for languages that have one,
-    # so it gates the front of the path. Its lessons carry pre-built content.
-    foundation_units = foundations.build_units(lang)
-    curriculum["units"] = foundation_units + curriculum.get("units", [])
-    course_id = await db.create_course(user["id"], lang, req.level, curriculum)
+    course_id = await db.create_course(user["id"], lang, req.level or "A1")
     return await db.get_course(user["id"], course_id)
 
 
@@ -1664,39 +1648,12 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
-@app.post("/api/courses/{course_id}/extend")
-@limiter.limit("4/minute;20/day")
-async def extend_course(request: Request, course_id: int, user: dict = Depends(current_user)):
-    """Continue the path: generate the next CEFR level's units, building on
-    everything taught so far, and append them to the course."""
-    course = await db.get_course(user["id"], course_id)
-    if not course:
-        raise HTTPException(404, "Course not found")
-    next_level = learning._next_level(course["level"])
-    if not next_level:
-        raise HTTPException(400, "You've reached the top CEFR level.")
-    access = await _resolve_gemini(user)
-    digest = await db.get_course_concept_digest(course_id)
-    try:
-        curriculum = await learning.generate_curriculum(
-            course["target_lang"], next_level, known_summary=digest,
-            api_key=access.api_key, model=access.model_reader,
-        )
-    except Exception:
-        raise HTTPException(502, "Couldn't generate more units — please try again.")
-    if not curriculum.get("units"):
-        raise HTTPException(502, "Generation returned no units — please try again.")
-    await db.append_units(user["id"], course_id, curriculum, next_level)
-    return await db.get_course(user["id"], course_id)
-
-
-async def _ensure_grammar_content(lesson: dict, access) -> dict:
-    """Resolve each grammar concept's VERIFIED canonical artifact from the shared
-    (lang, concept_key) cache, generating + critic-checking it on a miss. Shared
-    across users; generation is the expensive step, replay is cheap."""
-    lang = lesson["target_lang"]
+async def _ensure_grammar_content_for_concepts(
+    concepts: list[dict], lang: str, access
+) -> dict:
+    """Resolve grammar artifacts for grammar-kind concepts (shared cache)."""
     out: dict = {}
-    for c in lesson["concepts"]:
+    for c in concepts:
         if c.get("kind") != "grammar":
             continue
         key = (c.get("key") or "").strip()
@@ -1704,8 +1661,6 @@ async def _ensure_grammar_content(lesson: dict, access) -> dict:
             continue
         art = await db.get_concept_content(lang, key)
         if art is None:
-            # Uses grammar_lessons.GENERATION_MODEL (a more capable model than the
-            # cheap reader model) — generated once, cached + shared across users.
             art = await grammar_lessons.generate_grammar_content(
                 lang, c, api_key=access.api_key,
             )
@@ -1714,59 +1669,90 @@ async def _ensure_grammar_content(lesson: dict, access) -> dict:
     return out
 
 
-async def _generate_lesson_content(user: dict, lesson: dict) -> dict:
-    """Generate the exercises for a lesson and cache them."""
+@app.post("/api/courses/{course_id}/next")
+@limiter.limit("10/minute;40/day")
+async def next_lesson(request: Request, course_id: int, user: dict = Depends(current_user)):
+    """Generate, persist, and return the next lesson for a course."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+
     access = await _resolve_gemini(user)
-    grammar_content = await _ensure_grammar_content(lesson, access)
-    result = await learning.generate_lesson(
-        lesson["target_lang"],
-        {"title": lesson["title"], "objective": lesson["objective"], "concepts": lesson["concepts"]},
-        lesson.get("prior_concepts") or [],
-        api_key=access.api_key, model=access.model_reader,
-        grammar_content=grammar_content,
-        lesson_num=lesson.get("lesson_num", 1),
-        prior_summaries=lesson.get("prior_lesson_summaries") or [],
+    ctx = await db.get_next_lesson_context(course_id)
+
+    try:
+        lesson_data = await learning.generate_next_lesson(
+            course["target_lang"],
+            course["level"],
+            ctx["lesson_num"],
+            ctx["concept_registry"],
+            ctx["unit_summaries"],
+            ctx["recent_summaries"],
+            api_key=access.api_key,
+            model=access.model_reader,
+        )
+    except Exception:
+        raise HTTPException(502, "Lesson generation failed — please try again.")
+
+    if not lesson_data.get("concepts"):
+        raise HTTPException(502, "Lesson generation returned no concepts — please try again.")
+
+    grammar_content = await _ensure_grammar_content_for_concepts(
+        lesson_data["concepts"], course["target_lang"], access
     )
-    total_ex = sum(len(s.get("exercises") or []) for s in (result.get("segments") or []))
+    result = learning.build_lesson_segments(
+        course["target_lang"], lesson_data, grammar_content, ctx["prior_concepts"]
+    )
+
+    total_ex = sum(len(s.get("exercises") or []) for s in result.get("segments") or [])
     if not total_ex:
-        raise HTTPException(502, "Lesson generation returned no exercises — try again.")
-    await db.set_lesson_content(user["id"], lesson["id"], result)
-    if result.get("summary"):
-        await db.set_lesson_summary(lesson["id"], result["summary"])
-    return result
+        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
+
+    lesson_id = await db.create_lesson(
+        course_id,
+        ctx["lesson_num"],
+        lesson_data["title"],
+        lesson_data["objective"],
+        lesson_data["concepts"],
+        {"segments": result["segments"]},
+        lesson_data["summary"],
+        {"prompt": lesson_data["_raw_prompt"], "response": lesson_data["_raw_response"]},
+    )
+
+    if lesson_data.get("close_unit") and lesson_data.get("unit_title"):
+        await db.close_unit(
+            course_id,
+            lesson_data["unit_title"],
+            lesson_data.get("unit_summary") or "",
+        )
+
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    return _lesson_response(lesson, lesson["content"])
 
 
 def _lesson_response(lesson: dict, content: dict) -> dict:
     return {
-        "id": lesson["id"],
-        "title": lesson["title"],
-        "objective": lesson["objective"],
+        "id":         lesson["id"],
+        "title":      lesson["title"],
+        "objective":  lesson["objective"],
         "target_lang": lesson["target_lang"],
-        "completed": lesson.get("completed", False),
-        "score": lesson.get("score"),
-        "content": content,
+        "completed":  lesson.get("completed", False),
+        "score":      lesson.get("score"),
+        "content":    content,
+        "llm_debug":  lesson.get("llm_debug"),
     }
 
 
 @app.get("/api/lessons/{lesson_id}")
-@limiter.limit("20/minute")
+@limiter.limit("60/minute")
 async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
-    """Return a lesson's exercises, generating + caching them on first open."""
+    """Return a lesson (content was generated and stored when the lesson was created)."""
     lesson = await db.get_lesson(user["id"], lesson_id)
     if not lesson:
         raise HTTPException(404, "Lesson not found")
-    content = lesson["content"] or await _generate_lesson_content(user, lesson)
-    return _lesson_response(lesson, content)
-
-
-@app.post("/api/lessons/{lesson_id}/regenerate")
-@limiter.limit("10/minute;40/day")
-async def regenerate_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
-    lesson = await db.get_lesson(user["id"], lesson_id)
-    if not lesson:
-        raise HTTPException(404, "Lesson not found")
-    content = await _generate_lesson_content(user, lesson)
-    return _lesson_response(lesson, content)
+    if not lesson.get("content"):
+        raise HTTPException(404, "Lesson content not available")
+    return _lesson_response(lesson, lesson["content"])
 
 
 class CompleteLessonRequest(BaseModel):

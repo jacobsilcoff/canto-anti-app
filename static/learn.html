@@ -195,23 +195,23 @@
 
   <!-- No course yet -->
   <div id="state-empty" class="learn-center" style="display:none">
-    <h2>Learn <span id="empty-lang">your language</span> from the ground up</h2>
-    <p>Generate a personalised course — units and bite-size lessons that build on each<br>other, tuned to this language. You can regenerate it anytime.</p>
+    <h2>Learn <span id="empty-lang">your language</span></h2>
+    <p>One lesson at a time, adapting as you go.<br>Each lesson is generated fresh based on what you've already learned.</p>
     <div class="level-row" id="level-row">
       <div class="level-chip active" data-level="A1">A1 · Beginner</div>
       <div class="level-chip" data-level="A2">A2 · Elementary</div>
     </div>
-    <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Generate my course</button></div>
+    <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Start course</button></div>
     <div class="err" id="create-err" style="display:none"></div>
   </div>
 
-  <!-- Generating -->
+  <!-- Generating next lesson -->
   <div id="state-generating" class="learn-center" style="display:none">
     <h2><span class="spinner"></span></h2>
-    <p>Designing your course…<br>This takes around 15&ndash;30 seconds.</p>
+    <p id="generating-msg">Generating your lesson…<br>This takes 10–20 seconds.</p>
   </div>
 
-  <!-- Course -->
+  <!-- Course map -->
   <div id="state-course" style="display:none">
     <div class="course-head">
       <div>
@@ -221,18 +221,30 @@
       <div style="display:flex;gap:8px;align-items:center">
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
-        <button class="course-regen" onclick="regenerate()">↻ Regenerate</button>
+        <button class="course-regen" onclick="regenerate()">↻ New course</button>
       </div>
     </div>
     <div id="units"></div>
     <div id="course-cta"></div>
-    <div class="learn-note">Tap an available lesson to start.</div>
+    <div class="learn-note" id="course-note">Tap an available lesson to start.</div>
   </div>
 
-  <!-- Lesson loading (first-time generation) -->
+  <!-- Lesson loading -->
   <div id="state-lesson-loading" class="learn-center" style="display:none">
     <h2><span class="spinner"></span></h2>
-    <p>Building this lesson…</p>
+    <p>Loading lesson…</p>
+  </div>
+
+  <!-- Debug modal -->
+  <div id="debug-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:24px 12px">
+    <div style="background:#fff;border-radius:14px;max-width:760px;margin:0 auto;padding:24px;position:relative">
+      <button onclick="closeDebug()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
+      <h3 style="margin:0 0 16px;font-size:1.05rem">LLM Debug — Lesson <span id="debug-lesson-num"></span></h3>
+      <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Prompt sent to the model:</p>
+      <pre id="debug-prompt" style="background:#f5f5f5;border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0 0 18px"></pre>
+      <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Raw model response:</p>
+      <pre id="debug-response" style="background:#f5f5f5;border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0"></pre>
+    </div>
   </div>
 
   <!-- Teach screen (before exercises) -->
@@ -240,7 +252,6 @@
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
       <div style="flex:1;font-weight:600" id="teach-title"></div>
-      <button class="course-regen" onclick="regenerateCurrentLesson()" title="Regenerate this lesson">↻</button>
     </div>
     <p class="teach-intro" id="teach-intro"></p>
     <div id="teach-items"></div>
@@ -277,8 +288,6 @@
   let currentCourse = null;
   let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
 
-  const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-
   function show(state) {
     ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
@@ -290,7 +299,6 @@
 
   async function init() {
     show('loading');
-    // Resolve current language name for the empty-state copy.
     try {
       const [settings, langs] = await Promise.all([
         fetch('/api/settings').then(r => r.json()).catch(() => ({})),
@@ -321,37 +329,36 @@
 
   async function createCourse() {
     document.getElementById('create-err').style.display = 'none';
-    show('generating');
+    document.getElementById('create-btn').disabled = true;
     try {
       const res = await fetch('/api/courses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level: selectedLevel }),
       });
       if (!res.ok) {
-        const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+        const msg = (await res.json().catch(() => ({}))).detail || 'Failed — please try again.';
         throw new Error(msg);
       }
       const course = await res.json();
       renderCourse(course);
       show('course');
+      // Auto-generate the first lesson
+      await generateNextLesson(course.id);
     } catch (e) {
       show('empty');
+      document.getElementById('create-btn').disabled = false;
       const el = document.getElementById('create-err');
-      el.textContent = e.message || 'Generation failed — please try again.';
+      el.textContent = e.message || 'Failed — please try again.';
       el.style.display = '';
     }
   }
 
   async function regenerate() {
-    if (!confirm('Regenerate this course? Your current course map will be replaced.')) return;
+    if (!confirm('Start a new course? Your current course will be deleted.')) return;
     const id = document.getElementById('state-course').dataset.courseId;
-    show('generating');
-    try {
-      if (id) await fetch('/api/courses/' + id, { method: 'DELETE' });
-      await createCourse();
-    } catch {
-      init();
-    }
+    if (id) await fetch('/api/courses/' + id, { method: 'DELETE' }).catch(() => {});
+    show('empty');
+    document.getElementById('create-btn').disabled = false;
   }
 
   function toggleUnlockAll() {
@@ -360,36 +367,99 @@
     if (currentCourse) renderCourse(currentCourse);
   }
 
+  // ── Debug panel ─────────────────────────────────────────────────────────────
+
+  function openDebug(lessonId, lessonNum) {
+    fetch('/api/lessons/' + lessonId)
+      .then(r => r.json())
+      .then(lesson => {
+        const debug = lesson.llm_debug || {};
+        document.getElementById('debug-lesson-num').textContent = lessonNum || lessonId;
+        document.getElementById('debug-prompt').textContent = debug.prompt || '(no prompt stored)';
+        document.getElementById('debug-response').textContent = debug.response || '(no response stored)';
+        document.getElementById('debug-modal').style.display = '';
+      })
+      .catch(() => alert('Could not load debug info.'));
+  }
+
+  function closeDebug() {
+    document.getElementById('debug-modal').style.display = 'none';
+  }
+
+  document.getElementById('debug-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('debug-modal')) closeDebug();
+  });
+
+  // ── Generate next lesson ─────────────────────────────────────────────────────
+
+  async function generateNextLesson(courseId) {
+    document.getElementById('generating-msg').innerHTML =
+      'Generating your lesson&hellip;<br>This takes 10&ndash;20 seconds.';
+    show('generating');
+    try {
+      const res = await fetch('/api/courses/' + courseId + '/next', { method: 'POST' });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+        throw new Error(msg);
+      }
+      const lesson = await res.json();
+      // Refresh course map then auto-open the new lesson
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); }
+      await openLesson(lesson.id);
+    } catch (e) {
+      await refreshAndShowCourse();
+      alert(e.message || 'Could not generate lesson — please try again.');
+    }
+  }
+
+  // ── Course map ───────────────────────────────────────────────────────────────
+
   function renderCourse(course) {
     currentCourse = course;
     document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
     document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
     document.getElementById('state-course').dataset.courseId = course.id;
-    document.getElementById('course-title').textContent = course.title || (course.target_lang + ' ' + course.level);
+    document.getElementById('course-title').textContent =
+      (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
+
     const units = course.units || [];
-    const nLessons = units.reduce((s, u) => s + (u.lessons || []).length, 0);
-    const nDone = units.reduce((s, u) => s + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+    const nLessons = course.lesson_count || 0;
+    const nDone = course.done_count || 0;
+    const nUnits = units.filter(u => !u.in_progress).length;
     document.getElementById('course-sub').textContent =
-      `${units.length} units · ${nLessons} lessons · ${nDone}/${nLessons} done`;
+      nLessons === 0
+        ? 'No lessons yet'
+        : `${nUnits} unit${nUnits !== 1 ? 's' : ''} · ${nLessons} lesson${nLessons !== 1 ? 's' : ''} · ${nDone}/${nLessons} done`;
 
     const wrap = document.getElementById('units');
     wrap.innerHTML = '';
     units.forEach((u, ui) => {
       const sec = document.createElement('div');
       sec.className = 'unit';
-      let html = `<div class="unit-head">
-        <div class="unit-title">Unit ${ui + 1}</div>
-        <div class="unit-name">${esc(u.title)}</div>
-        ${u.objective ? `<div class="unit-obj">${esc(u.objective)}</div>` : ''}
-      </div>`;
+      let header = '';
+      if (u.in_progress) {
+        header = `<div class="unit-head">
+          <div class="unit-title" style="color:var(--text-muted)">In progress</div>
+        </div>`;
+      } else {
+        header = `<div class="unit-head">
+          <div class="unit-title">Unit ${ui + 1}</div>
+          <div class="unit-name">${esc(u.title)}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+      }
+      let html = header;
       (u.lessons || []).forEach((l, li) => {
         const st = l.status || 'locked';
-        const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : (li + 1));
+        const num = l.lesson_num || (li + 1);
+        const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : num);
         const meta = l.concept_count
           ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
         const clickable = unlockAll || (st === 'available' || st === 'done');
         const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
-        html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openLesson(${l.id})"` : ''}>
+        html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}" style="position:relative"
+            ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
           <div class="lesson-node">${node}</div>
           <div class="lesson-body">
             <div class="lesson-name">${esc(l.title)}</div>
@@ -397,25 +467,27 @@
             ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
             ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
           </div>
-          <div class="lesson-status ${st}">${badge}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <div class="lesson-status ${st}">${badge}</div>
+            <button onclick="event.stopPropagation();openDebug(${l.id},${num})"
+              title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>
+          </div>
         </div>`;
       });
       sec.innerHTML = html;
       wrap.appendChild(sec);
     });
 
-    // Continue-the-path CTA when the whole course is complete.
+    // CTA: "Generate next lesson" button (always shown)
     const cta = document.getElementById('course-cta');
-    cta.innerHTML = '';
-    const allDone = nLessons > 0 && nDone === nLessons;
-    if (allDone) {
-      const next = LEVELS[LEVELS.indexOf(course.level) + 1];
-      cta.innerHTML = next
-        ? `<div class="learn-center"><h2>Level ${esc(course.level)} complete! 🎉</h2>
-             <p>You've finished every lesson. Ready to go further?</p>
-             <button class="cta-btn" onclick="extendCourse()">Continue to ${esc(next)}</button></div>`
-        : `<div class="learn-center"><h2>🏆 You've reached the top level!</h2></div>`;
-    }
+    const hasPending = (units[units.length - 1] || {}).in_progress;
+    const hasAvailable = units.some(u => (u.lessons || []).some(l => l.status === 'available'));
+    const ctaLabel = nLessons === 0 ? 'Generate first lesson' : 'Generate next lesson';
+    cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
+      <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
+      ${hasAvailable && !hasPending ? '<p class="learn-note" style="margin-top:8px">Complete available lessons before generating more for best results.</p>' : ''}
+    </div>`;
+    document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
   }
 
   // ── Lesson player ───────────────────────────────────────────────────────────
@@ -949,35 +1021,6 @@
     if (!player.queue.length) { afterSegment(); return; }
     show('player');
     renderExercise();
-  }
-
-  async function regenerateCurrentLesson() {
-    if (!player) return;
-    const id = player.lessonId;
-    show('lesson-loading');
-    try {
-      const res = await fetch('/api/lessons/' + id + '/regenerate', { method: 'POST' });
-      if (!res.ok) throw new Error();
-      openLesson(id);
-    } catch {
-      alert('Could not regenerate — please try again.');
-      openLesson(id);
-    }
-  }
-
-  async function extendCourse() {
-    const id = document.getElementById('state-course').dataset.courseId;
-    show('generating');
-    try {
-      const res = await fetch('/api/courses/' + id + '/extend', { method: 'POST' });
-      if (!res.ok) { const m = (await res.json().catch(() => ({}))).detail || 'Could not add more units.'; throw new Error(m); }
-      const course = await res.json();
-      renderCourse(course);
-      show('course');
-    } catch (e) {
-      alert(e.message || 'Could not add more units — please try again.');
-      refreshAndShowCourse();
-    }
   }
 
   function renderExercise() {
