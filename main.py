@@ -1668,22 +1668,12 @@ def _next_batch(concepts: list[dict]) -> list[dict]:
     return batch
 
 
-@app.post("/api/courses/{course_id}/next")
-@limiter.limit("10/minute;40/day")
-async def next_lesson(request: Request, course_id: int, user: dict = Depends(current_user)):
-    """Author, persist, and return the next micro-lesson, consuming 1–2 concepts
-    from the course's active unit plan (drafting a new unit plan when needed)."""
-    course = await db.get_course(user["id"], course_id)
-    if not course:
-        raise HTTPException(404, "Course not found")
-
-    access = await _resolve_gemini(user)
-    # Admin-only knob: run the whole authoring pipeline on the premium model to
-    # compare quality. Everyone else (and non-admins) use the normal reader model.
-    premium = (bool(user.get("is_admin"))
-               and await db.get_setting(user["id"], "lesson_premium") == "1")
-    lesson_model = grammar_lessons.GENERATION_MODEL if premium else access.model_reader
-
+async def _author_next_lesson(course: dict, access, lesson_model: str) -> int:
+    """Author + persist ONE micro-lesson, consuming 1–2 concepts from the course's
+    active unit plan (drafting a new unit plan when the current one is exhausted).
+    Re-reads context each call, so calling it in a loop builds on prior lessons.
+    Returns the new lesson_id; raises HTTPException(502) on generation failure."""
+    course_id = course["id"]
     ctx = await db.get_next_lesson_context(course_id)
     plan = await db.get_active_plan(course_id)
     plan_prompt = plan_response = ""
@@ -1744,9 +1734,43 @@ async def next_lesson(request: Request, course_id: int, user: dict = Depends(cur
     #    place so the NEXT call closes it (keeping the in-progress roadmap intact).
     plan["cursor"] = cursor + len(batch)
     await db.set_active_plan(course_id, plan)
+    return lesson_id
 
-    lesson = await db.get_lesson(user["id"], lesson_id)
-    return _lesson_response(lesson, lesson["content"])
+
+@app.post("/api/courses/{course_id}/next")
+@limiter.limit("10/minute;40/day")
+async def next_lesson(request: Request, course_id: int, count: int = 1,
+                      user: dict = Depends(current_user)):
+    """Author the next `count` micro-lessons (1–6) and return them. Generating
+    several at once lets the learner browse ahead and see how content evolves.
+
+    count==1 returns the full lesson (the player auto-opens it); count>1 returns
+    a lightweight summary list (the UI just refreshes the roadmap)."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+
+    access = await _resolve_gemini(user)
+    # Admin-only knob: run the whole authoring pipeline on the premium model to
+    # compare quality. Everyone else (and non-admins) use the normal reader model.
+    premium = (bool(user.get("is_admin"))
+               and await db.get_setting(user["id"], "lesson_premium") == "1")
+    lesson_model = grammar_lessons.GENERATION_MODEL if premium else access.model_reader
+
+    count = max(1, min(int(count), 6))
+    lesson_ids: list[int] = []
+    for _ in range(count):
+        try:
+            lesson_ids.append(await _author_next_lesson(course, access, lesson_model))
+        except HTTPException:
+            if not lesson_ids:      # nothing succeeded → surface the error
+                raise
+            break                   # partial batch → return what we have
+
+    if count == 1:
+        lesson = await db.get_lesson(user["id"], lesson_ids[0])
+        return _lesson_response(lesson, lesson["content"])
+    return {"generated": len(lesson_ids), "lesson_ids": lesson_ids}
 
 
 def _lesson_response(lesson: dict, content: dict) -> dict:

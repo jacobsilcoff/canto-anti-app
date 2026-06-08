@@ -80,7 +80,7 @@ Returns due review faces (next_review ≤ now) + new faces up to the daily cap (
 
 ### AI Learning Path — unit-plan-first micro-lessons
 
-Two-level adaptive generation, all in `learning.py` (orchestrated by `main.next_lesson`):
+Language-agnostic — works for every `LANG_INFO` language (native script + per-language romanization via `tokenizer`; the `grammar.py` conjugation oracle only engages for French). Two-level adaptive generation, all in `learning.py`, orchestrated by `main._author_next_lesson` (the per-lesson helper) which `main.next_lesson` loops `count` times (1–6; the UI's "Generate" button batches `BATCH_AHEAD`=5 so the learner can browse ahead). Each looped call re-reads context, so a batch builds on the lessons just authored:
 
 1. **Unit plan** (`generate_unit_plan`) — once per unit. One LLM call drafts a coherent *chapter*: an ordered list of 6–10 concepts (vocab + grammar **interleaved**, foundational first). Stored as JSON on `courses.active_plan` with a `cursor`. **Coherence lives here** — the unit is the chapter; each lesson is a micro-step within it.
 2. **Micro-lesson** (`author_lesson`) — once per lesson. One LLM call authors the WHOLE small lesson (teach blocks AND drills) for the next **1–2 concepts** from the plan (`main._next_batch`: a grammar concept teaches alone; two consecutive vocab concepts pair up). Grammar and vocab are **not** segregated — the model sees one palette and picks what the point needs. This unified authoring is what makes teach and practice cohere.

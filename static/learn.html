@@ -392,21 +392,30 @@
 
   // ── Generate next lesson ─────────────────────────────────────────────────────
 
-  async function generateNextLesson(courseId) {
+  const BATCH_AHEAD = 5;   // lessons generated per "Generate" so you can browse ahead
+
+  async function generateNextLesson(courseId, count = BATCH_AHEAD) {
     document.getElementById('generating-msg').innerHTML =
-      'Generating your lesson&hellip;<br>This takes 10&ndash;20 seconds.';
+      `Generating ${count} lesson${count > 1 ? 's' : ''}&hellip;<br>` +
+      (count > 1 ? 'This can take up to a minute.' : 'This takes 10&ndash;20 seconds.');
     show('generating');
     try {
-      const res = await fetch('/api/courses/' + courseId + '/next', { method: 'POST' });
+      const res = await fetch(`/api/courses/${courseId}/next?count=${count}`, { method: 'POST' });
       if (!res.ok) {
         const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
         throw new Error(msg);
       }
-      const lesson = await res.json();
-      // Refresh course map then auto-open the new lesson
-      const { course } = await fetch('/api/courses/active').then(r => r.json());
-      if (course) { renderCourse(course); show('course'); }
-      await openLesson(lesson.id);
+      const data = await res.json();
+      // Let you browse ahead through the freshly generated lessons without
+      // having to play through earlier ones first.
+      if (!unlockAll) { unlockAll = true; localStorage.setItem('learn_unlock_all', '1'); }
+      if (count === 1 && data.id) {           // single → open it to play
+        const { course } = await fetch('/api/courses/active').then(r => r.json());
+        if (course) { renderCourse(course); show('course'); }
+        await openLesson(data.id);
+      } else {                                 // batch → land on the roadmap to browse
+        await refreshAndShowCourse();
+      }
     } catch (e) {
       await refreshAndShowCourse();
       alert(e.message || 'Could not generate lesson — please try again.');
@@ -478,14 +487,12 @@
       wrap.appendChild(sec);
     });
 
-    // CTA: "Generate next lesson" button (always shown)
+    // CTA: batch-generate (browse ahead) + a single-lesson option.
     const cta = document.getElementById('course-cta');
-    const hasPending = (units[units.length - 1] || {}).in_progress;
-    const hasAvailable = units.some(u => (u.lessons || []).some(l => l.status === 'available'));
-    const ctaLabel = nLessons === 0 ? 'Generate first lesson' : 'Generate next lesson';
+    const ctaLabel = nLessons === 0 ? `Generate first ${BATCH_AHEAD} lessons` : `Generate ${BATCH_AHEAD} more lessons`;
     cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
       <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
-      ${hasAvailable && !hasPending ? '<p class="learn-note" style="margin-top:8px">Complete available lessons before generating more for best results.</p>' : ''}
+      <button class="course-regen" style="margin-top:8px" onclick="generateNextLesson(${course.id}, 1)">+1 lesson</button>
     </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
   }
