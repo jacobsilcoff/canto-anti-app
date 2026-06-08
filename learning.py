@@ -1,360 +1,429 @@
-"""Adaptive lesson generation — one lesson at a time (IDEAS item 43).
+"""Adaptive lesson generation — unit-plan-first, unified micro-lesson authoring.
 
-Two-step flow:
-  1. generate_next_lesson()  — one LLM call: decides what to teach next AND
-     materialises vocab concept targets. Returns lesson metadata + close_unit
-     signal + raw LLM strings for the debug panel.
-  2. build_lesson_segments() — deterministic exercise building. Pure/no-LLM.
-     Grammar concepts go through grammar_lessons.generate_grammar_content()
-     separately (shared cache, heavier model, amortised across users).
+Two levels (IDEAS item 43):
 
-Memory passed to generation (three tiers, compact):
-  Tier 1 — concept registry  : every concept key/label/gloss introduced so far
-  Tier 2 — unit summaries    : one paragraph per completed unit
-  Tier 3 — recent lessons    : full summaries of the last 2–3 lessons
+  1. generate_unit_plan()  — once per unit. One LLM call drafts a coherent
+     chapter: an ordered list of 6–10 concepts (vocab + grammar, interleaved).
+     Stored on the course as the "active plan"; each micro-lesson consumes 1–2
+     concepts from it in order. This is where COHERENCE lives — the unit is the
+     chapter, the lesson is a micro-step.
+
+  2. author_lesson()       — once per micro-lesson. ONE LLM call authors the
+     WHOLE small lesson together: free-form teach blocks AND the drills, for the
+     1–2 concepts handed to it. Grammar and vocab are NOT segregated — the model
+     sees one palette (block types + drill kinds) and picks what the point needs.
+
+Design principle — **liberal in what you SHOW, strict in what you GRADE**:
+  - Teach blocks are authored freely (prose/table/examples/contrast/note) and
+    rendered by the client; a free oracle recomputes romanization on every cell.
+  - Drills are authored as {correct answer + distractors}; WE assemble the graded
+    exercise (place the known-correct option, shuffle, index) so the answer key is
+    correct by construction. Romanization comes from tokenizer, French present-
+    tense cloze answers/options from grammar.py — never the model.
+
+Memory passed to generation (compact, three tiers):
+  Tier 1 — concept registry : every concept key/label/gloss introduced so far
+  Tier 2 — unit summaries   : one line per completed unit
+  Tier 3 — recent lessons   : summaries of the last 2–3 lessons (continuity)
 """
 import asyncio
+import json
+import os
 import random
-import re
 
 import grammar
 import tokenizer
+from grammar_lessons import _clean_block, _conj_cloze, _free_cloze
 from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
 
-_SEGMENT_SIZE = 3   # vocab concepts taught per segment
-_SEG_BUDGET   = 8   # max exercises per segment
+# A real, hand-written micro-lesson used as a few-shot example in the author
+# prompt. Editing this file is the intended way to steer lesson STYLE implicitly
+# (the model pattern-matches its shape and quality). See examples/lesson_fr.json.
+_EXAMPLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "examples", "lesson_example.json")
 
 
-# ── Prompt ────────────────────────────────────────────────────────────────────
+def _load_example() -> dict:
+    try:
+        with open(_EXAMPLE_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
 
-def _build_next_lesson_prompt(
-    target_lang: str,
-    level_target: str,
-    lesson_num: int,
-    concept_registry: list[dict],
-    unit_summaries: list[dict],
-    recent_summaries: list[dict],
+
+# ── Memory blocks (shared by both prompts) ───────────────────────────────────
+
+def _registry_block(concept_registry: list[dict]) -> str:
+    if not concept_registry:
+        return ("No concepts taught yet — this is the very start of the course. "
+                "Begin with the absolute basics.")
+    lines = "\n".join(
+        f'{c.get("key","?")} | {c.get("label","?")} | {c.get("gloss","")}'
+        for c in concept_registry
+    )
+    return ("Concepts already taught (do NOT re-introduce these; you MAY reuse them "
+            "in examples and drills):\n" + lines)
+
+
+def _units_block(unit_summaries: list[dict]) -> str:
+    if not unit_summaries:
+        return "No completed units yet."
+    lines = "\n".join(
+        f'Unit {i + 1} "{u.get("title", "")}": {u.get("summary", "")}'
+        for i, u in enumerate(unit_summaries)
+    )
+    return "Completed units:\n" + lines
+
+
+def _recent_block(recent_summaries: list[dict]) -> str:
+    if not recent_summaries:
+        return ""
+    lines = "\n".join(
+        f'Lesson {s.get("lesson_num", "?")} "{s.get("title", "")}": {s.get("summary", "")}'
+        for s in recent_summaries
+    )
+    return "Recent lessons (for continuity):\n" + lines + "\n\n"
+
+
+def _lang_preamble(info: dict) -> str:
+    rom = info["romanization"]
+    rom_note = (f"Romanisation scheme: {rom}.\n" if rom else
+                "This language uses the Latin alphabet — no romanisation needed.\n")
+    return (f"Target language: {info['name']}\n"
+            f"Writing system: {info['script']}\n"
+            f"{rom_note}"
+            f"Language-specific notes:\n{info['rules']}\n\n")
+
+
+# ── Unit plan ────────────────────────────────────────────────────────────────
+
+def _build_unit_plan_prompt(
+    target_lang: str, level_target: str, unit_num: int,
+    concept_registry: list[dict], unit_summaries: list[dict],
 ) -> str:
-    info   = LANG_INFO[target_lang]
-    name   = info["name"]
-    script = info["script"]
-    rom    = info["romanization"]
-    rules  = info["rules"]
-
-    # Tier 1: concept registry
-    if concept_registry:
-        reg_lines = "\n".join(
-            f'{c.get("key","?")} | {c.get("label","?")} | {c.get("gloss","")}'
-            for c in concept_registry
-        )
-        reg_block = (
-            "Concepts already taught (do NOT introduce these as new — you may use "
-            "them in examples or build on them):\n" + reg_lines
-        )
-    else:
-        reg_block = (
-            "No concepts taught yet — this is the very first lesson. "
-            "Begin with the absolute basics."
-        )
-
-    # Tier 2: completed unit summaries
-    if unit_summaries:
-        unit_lines = "\n".join(
-            f'Unit {i + 1} "{u.get("title", "")}": {u.get("summary", "")}'
-            for i, u in enumerate(unit_summaries)
-        )
-        unit_block = "Completed units:\n" + unit_lines
-    else:
-        unit_block = "No completed units yet."
-
-    # Tier 3: recent lesson summaries
-    recent_block = ""
-    if recent_summaries:
-        rec_lines = "\n".join(
-            f'Lesson {s.get("lesson_num", "?")} "{s.get("title", "")}": {s.get("summary", "")}'
-            for s in recent_summaries
-        )
-        recent_block = "Recent lessons:\n" + rec_lines + "\n\n"
-
-    rom_note = (
-        f"Romanisation scheme: {rom}.\n" if rom else
-        "This language uses the Latin alphabet — no romanisation needed.\n"
-    )
-
+    info = LANG_INFO[target_lang]
+    name = info["name"]
     return (
-        f"You are an expert {name} teacher. Generate the NEXT lesson in an adaptive "
-        f"course for an English speaker learning {name}.\n\n"
-        f"Target language: {name}\n"
-        f"Writing system: {script}\n"
-        f"{rom_note}"
-        f"Proficiency goal: {level_target} (loose guidance — trust your judgment on pacing)\n"
-        f"Language-specific notes:\n{rules}\n\n"
-        f"── WHAT'S BEEN TAUGHT SO FAR ──\n"
-        f"{reg_block}\n\n"
-        f"{unit_block}\n\n"
-        f"{recent_block}"
-        f"This is Lesson {lesson_num}.\n\n"
-        f"── LESSON DESIGN RULES ──\n"
-        f"• Teach ONE focused topic or grammar point — do NOT mix unrelated material.\n"
-        f"• Do NOT re-introduce any concept already listed above as new.\n"
-        f"• Vocab concepts: label = most natural everyday {name} word/phrase in native "
-        f"script, citation form, NO romanisation in the label. Provide it in \"targets\" too.\n"
-        f"• Grammar concepts: label = concise pattern name; gloss = one-line English "
-        f"explanation. No target entry needed (handled by a separate grammar pipeline).\n"
-        f"• 4–7 tightly related concepts per lesson. Depth over breadth.\n"
-        f"• Where glosses overlap (e.g. two ways to say 'thank you'), distinguish them "
-        f"in the gloss and add a note explaining when to use each.\n\n"
-        f"── UNIT BOUNDARY ──\n"
-        f"A unit is a coherent communicative theme (~4–8 lessons). After this lesson, "
-        f"should the current unit be closed? If yes: close_unit=true, provide unit_title "
-        f"(short English name) and unit_summary (one sentence). Otherwise close_unit=false.\n\n"
-        f"── RETURN FORMAT ──\n"
+        f"You are an expert {name} curriculum designer building a Duolingo-style "
+        f"course for an English speaker (proficiency goal {level_target}; loose "
+        f"guidance — trust your judgment on pacing).\n\n"
+        f"{_lang_preamble(info)}"
+        f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
+        f"{_units_block(unit_summaries)}\n\n"
+        f"── YOUR TASK ──\n"
+        f"Design Unit {unit_num}: ONE coherent chapter. It is either a communicative "
+        f"theme (e.g. greetings, ordering food, talking about family) or a focused "
+        f"grammar area (e.g. the present tense, articles & gender) — never a grab-bag.\n"
+        f"List 6–10 concepts in TEACHING ORDER (foundational first; each builds on the "
+        f"previous). Mix vocab and grammar as the theme needs. Each micro-lesson will "
+        f"later teach 1–2 of these in order, so they must form a sensible sequence.\n"
+        f"• vocab concept: label = the most natural everyday {name} word/phrase in "
+        f"NATIVE SCRIPT, citation form, NO romanisation. gloss = English meaning.\n"
+        f"• grammar concept: label = concise pattern name (English ok); gloss = "
+        f"one-line English explanation of the rule.\n"
+        f"• key = stable snake_case English-gloss identifier (e.g. greeting_hello, "
+        f"present_tense_er). Do NOT reuse a key already taught.\n\n"
         f"Return ONLY valid JSON, no other text:\n"
-        "{{\n"
-        '  "title": "short English lesson title",\n'
-        '  "objective": "what the learner can do after this (one sentence)",\n'
+        '{\n'
+        '  "title": "<short English chapter title>",\n'
+        '  "objective": "<what the learner can do after this unit, one sentence>",\n'
+        '  "summary": "<one-sentence description for future-unit context>",\n'
         '  "concepts": [\n'
-        f'    {{"kind":"vocab","key":"<snake_case_key>","label":"<{name} native script>","gloss":"<English>"}},\n'
-        f'    {{"kind":"grammar","key":"<snake_case_key>","label":"<grammar name>","gloss":"<one-line explanation>"}}\n'
-        "  ],\n"
-        '  "targets": {{"<key>": "<native script form>"}},\n'
-        '  "intro": "1-2 English sentences introducing this specific topic",\n'
-        '  "notes": {{"<key>": "<one-sentence usage note>"}},\n'
-        '  "summary": "<30 words or less listing the specific items taught>",\n'
-        '  "close_unit": false,\n'
-        '  "unit_title": null,\n'
-        '  "unit_summary": null\n'
-        "}}\n"
-        "(targets: vocab concepts only; grammar concepts are handled by a separate pipeline)"
+        f'    {{"kind":"vocab","key":"<snake_case>","label":"<{name} native script>","gloss":"<English>"}},\n'
+        '    {"kind":"grammar","key":"<snake_case>","label":"<pattern name>","gloss":"<one-line rule>"}\n'
+        '  ]\n'
+        '}'
     )
 
 
-# ── Generation ────────────────────────────────────────────────────────────────
-
-async def generate_next_lesson(
+async def generate_unit_plan(
     target_lang: str,
     level_target: str = "A1",
-    lesson_num: int = 1,
+    unit_num: int = 1,
     concept_registry: list[dict] | None = None,
     unit_summaries: list[dict] | None = None,
-    recent_summaries: list[dict] | None = None,
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
 ) -> dict:
-    """One LLM call: decide what to teach + materialise vocab targets.
-
-    Returns lesson metadata, targets, close_unit signal, and raw LLM strings
-    (stored as llm_debug_json for the in-app debug panel).
-    """
+    """One LLM call: draft a unit's ordered concept outline. Returns
+    {title, objective, summary, concepts:[...], _raw_prompt, _raw_response}."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-
-    prompt = _build_next_lesson_prompt(
-        target_lang, level_target, lesson_num,
-        concept_registry or [], unit_summaries or [], recent_summaries or [],
+    prompt = _build_unit_plan_prompt(
+        target_lang, level_target, unit_num,
+        concept_registry or [], unit_summaries or [],
     )
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
 
+    concepts = []
+    for c in (parsed.get("concepts") or []):
+        key = (c.get("key") or "").strip()
+        if not key:
+            continue
+        concepts.append({
+            "kind":  (c.get("kind") or "vocab").strip(),
+            "key":   key,
+            "label": (c.get("label") or "").strip(),
+            "gloss": (c.get("gloss") or "").strip(),
+        })
     return {
-        "title":         (parsed.get("title")       or "").strip(),
-        "objective":     (parsed.get("objective")   or "").strip(),
-        "concepts":      parsed.get("concepts")     or [],
-        "targets":       parsed.get("targets")      or {},
-        "intro":         (parsed.get("intro")       or "").strip(),
-        "notes":         parsed.get("notes")        or {},
-        "summary":       (parsed.get("summary")     or "").strip(),
-        "close_unit":    bool(parsed.get("close_unit")),
-        "unit_title":    (parsed.get("unit_title")   or "").strip() or None,
-        "unit_summary":  (parsed.get("unit_summary") or "").strip() or None,
+        "title":     (parsed.get("title") or "").strip(),
+        "objective": (parsed.get("objective") or "").strip(),
+        "summary":   (parsed.get("summary") or "").strip(),
+        "concepts":  concepts,
         "_raw_prompt":   prompt,
         "_raw_response": raw or "",
     }
 
 
-# ── Segment building (deterministic, no LLM) ─────────────────────────────────
+# ── Micro-lesson authoring ───────────────────────────────────────────────────
 
-def _pick_options(correct: str, pool: list[str], n: int = 4) -> tuple[list[str], int]:
-    seen = {correct}
-    distractors: list[str] = []
-    for p in pool:
-        p = (p or "").strip()
-        if p and p not in seen:
-            seen.add(p)
-            distractors.append(p)
-    random.shuffle(distractors)
-    opts = [correct] + distractors[: max(0, n - 1)]
+# Block types the model may use to TEACH (rendered client-side, romanization
+# recomputed by us). Drill kinds the model may use to PRACTISE (we assemble the
+# graded exercise from {answer + distractors} so the key is correct by build).
+_DRILL_KINDS = """\
+  {"kind":"recognition","concept":"<key>","target":"<native word/phrase>","gloss":"<English meaning>","distractors":["<other English meaning>", ...]}
+  {"kind":"production","concept":"<key>","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
+  {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other native form>", ...]}
+  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English of the sentence>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
+  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...]}
+  {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
+
+_BLOCK_TYPES = """\
+  {"type":"prose","text":"<plain-English explanation>"}
+  {"type":"table","title":"<short title>","columns":["<header>", ...],"rows":[["<cell>", ...], ...]}
+  {"type":"examples","items":[{"text":"<native phrase>","gloss":"<English>"}, ...]}
+  {"type":"contrast","a":{"text":"<native>","gloss":"<English>"},"b":{"text":"<native>","gloss":"<English>"},"label":"<the ONE feature that differs>"}
+  {"type":"note","text":"<short tip / common-mistake warning>"}"""
+
+
+def _concepts_block(concepts: list[dict]) -> str:
+    lines = []
+    for c in concepts:
+        kind = c.get("kind") or "vocab"
+        lines.append(f'• [{kind}] {c.get("key","")} — {c.get("label","")} = {c.get("gloss","")}')
+    return "\n".join(lines)
+
+
+def _example_block() -> str:
+    ex = _load_example()
+    if not ex.get("input") or not ex.get("output"):
+        return ""
+    return (
+        "── EXAMPLE (a different language/topic — match its SHAPE and brevity, not its "
+        "content) ──\n"
+        "INPUT concepts:\n" + json.dumps(ex["input"], ensure_ascii=False) + "\n"
+        "GOOD OUTPUT:\n" + json.dumps(ex["output"], ensure_ascii=False, indent=1) + "\n\n"
+    )
+
+
+def _build_lesson_prompt(
+    target_lang: str, concepts: list[dict], recent_summaries: list[dict],
+) -> str:
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    native_rule = (
+        f"CRITICAL — write ALL {name} text in NATIVE SCRIPT ONLY. Never include "
+        "romanisation/transliteration/pinyin/jyutping inline anywhere (prose, table "
+        "cells, examples, sentences). A ruby engine adds it automatically above the "
+        "characters; inline it would double and corrupt the display."
+    ) if info["romanization"] else (
+        f"Write all {name} text naturally (Latin alphabet; no pronunciation respelling)."
+    )
+    return (
+        f"You are an expert {name} teacher authoring ONE short Duolingo-style lesson "
+        f"for an English speaker — a tightly-focused micro-step. Author the teaching "
+        f"text AND the practice drills TOGETHER so they reinforce each other.\n\n"
+        f"{_lang_preamble(info)}"
+        f"{_recent_block(recent_summaries)}"
+        f"── TEACH EXACTLY THESE {len(concepts)} CONCEPT(S) ──\n{_concepts_block(concepts)}\n\n"
+        f"{native_rule}\n\n"
+        f"── TEACH BLOCKS ──\nAuthor 2–5 ordered blocks (like a page of a textbook). "
+        f"Open with prose stating the point plainly (when/how it applies, where English "
+        f"misleads). Use a TABLE for any paradigm (conjugation, articles, genders…), "
+        f"every cell correct, headers in English; if two rows would share a first-column "
+        f"label, add a qualifier so they're distinguishable. Use EXAMPLES for vocab and "
+        f"CONTRAST for minimal pairs. Block types:\n{_BLOCK_TYPES}\n\n"
+        f"── DRILLS ──\nAuthor 4–7 drills. EVERY drill must practise one of the concepts "
+        f"above (set \"concept\" to its key). Give the CORRECT answer plus plausible "
+        f"DISTRACTORS — never an index; we build and shuffle the options. Distractors "
+        f"must be wrong-but-tempting (same category/length). Mix kinds; lead with easier "
+        f"recognition, end with production or reorder. Kinds:\n{_DRILL_KINDS}\n\n"
+        f"{_example_block()}"
+        f"── REMEMBER ──\n"
+        f"• Teach ONLY the concept(s) listed — do not drift.\n"
+        f"• {native_rule}\n"
+        f"• Every drill tests a listed concept; distractors are wrong on purpose.\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        '  "title": "<short English lesson title>",\n'
+        '  "objective": "<what the learner can do after this, one sentence>",\n'
+        '  "intro": "<1 English sentence introducing this micro-lesson>",\n'
+        '  "summary": "<20 words or less listing the specific items taught>",\n'
+        '  "teach": [ <blocks> ],\n'
+        '  "drills": [ <drills> ]\n'
+        '}'
+    )
+
+
+# ── Drill assembly (we own the answer key) ───────────────────────────────────
+
+def _pick_options(correct: str, distractors: list[str], n: int = 4) -> tuple[list[str], int]:
+    """Shuffle [correct] + de-duped distractors into n options; return (opts, idx)."""
+    seen = {correct.lower()}
+    pool = []
+    for d in distractors:
+        d = (d or "").strip()
+        if d and d.lower() not in seen:
+            seen.add(d.lower())
+            pool.append(d)
+    random.shuffle(pool)
+    opts = [correct] + pool[: max(0, n - 1)]
     random.shuffle(opts)
     return opts, opts.index(correct)
 
 
-def _recognition_ex(it: dict, gloss_pool: list[str]) -> dict:
-    opts, ans = _pick_options(it["gloss"], gloss_pool)
-    return {
-        "type": "choice", "concept_key": it["key"],
-        "instruction": "What does this mean?",
-        "prompt": it["target"], "prompt_lang": "target", "prompt_roman": it["roman"],
-        "audio": it["target"], "options": opts, "answer": ans, "tip": it.get("note", ""),
-    }
+def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
+    """Turn one authored drill into a frontend exercise object, or None to drop."""
+    kind = (d.get("kind") or "").strip()
+    key = (d.get("concept") or "").strip()
+    is_grammar = kinds.get(key) == "grammar"
+    target = (d.get("target") or "").strip()
+    gloss = (d.get("gloss") or "").strip()
+    distract = d.get("distractors") or []
+
+    if kind == "recognition":
+        if not target or not gloss:
+            return None
+        opts, ans = _pick_options(gloss, distract)
+        if len(opts) < 2:
+            return None
+        return {"type": "choice", "concept_key": key, "grammar": is_grammar,
+                "instruction": "What does this mean?", "prompt": target,
+                "prompt_lang": "target", "prompt_roman": rom(target),
+                "audio": target, "options": opts, "answer": ans, "tip": gloss}
+
+    if kind == "production":
+        if not target or not gloss:
+            return None
+        opts, ans = _pick_options(target, distract)
+        if len(opts) < 2:
+            return None
+        return {"type": "choice", "concept_key": key, "grammar": is_grammar,
+                "instruction": "How do you say this?", "prompt": gloss,
+                "prompt_lang": "english", "options": opts,
+                "options_roman": [rom(o) for o in opts], "answer": ans, "tip": ""}
+
+    if kind == "listening":
+        if not target:
+            return None
+        opts, ans = _pick_options(target, distract)
+        if len(opts) < 2:
+            return None
+        return {"type": "listening", "concept_key": key, "grammar": is_grammar,
+                "instruction": "What did you hear?", "audio": target,
+                "audio_roman": rom(target), "options": opts,
+                "options_roman": [rom(o) for o in opts], "answer": ans, "tip": gloss}
+
+    if kind == "cloze":
+        sentence = (d.get("sentence") or "").strip()
+        answer = (d.get("answer") or "").strip()
+        verb = (d.get("verb") or "").strip().lower()
+        person = (d.get("person") or "").strip().lower()
+        ex = None
+        if grammar.has_conjugation(lang) and verb and person:
+            ex = _conj_cloze(key, lang, sentence, gloss, verb, person, answer)
+        if ex is None:
+            ex = _free_cloze(key, sentence, gloss, answer, distract)
+        if ex is None:
+            return None
+        ex["grammar"] = is_grammar
+        ex["prompt_roman"] = rom(sentence)
+        return ex
+
+    if kind == "reorder":
+        sentence = (d.get("sentence") or "").strip()
+        tokens = [t for t in (d.get("tokens") or []) if (t or "").strip()]
+        if len(tokens) < 2:
+            return None
+        return {"type": "word_bank", "concept_key": key, "grammar": is_grammar,
+                "instruction": "Put the words in the correct order",
+                "answer_tokens": tokens, "distractor_tokens": [],
+                "audio": sentence, "answer_roman": rom(sentence)}
+
+    if kind == "match":
+        pairs = []
+        for p in (d.get("pairs") or []):
+            t = (p.get("target") or "").strip()
+            e = (p.get("english") or "").strip()
+            if t and e:
+                pairs.append({"target": t, "target_roman": rom(t), "english": e})
+        if len(pairs) < 2:
+            return None
+        return {"type": "match", "concept_key": key, "grammar": is_grammar,
+                "instruction": "Match the pairs", "pairs": pairs[:5]}
+
+    return None
 
 
-def _production_ex(it: dict, target_pool: list[str], lang: str) -> dict:
-    R = tokenizer.romanize_text
-    opts, ans = _pick_options(it["target"], target_pool)
-    return {
-        "type": "choice", "concept_key": it["key"],
-        "instruction": "How do you say this?",
-        "prompt": it["gloss"], "prompt_lang": "english", "audio": "",
-        "options": opts, "options_roman": [R(o, lang) for o in opts],
-        "answer": ans, "tip": it.get("note", ""),
-    }
+def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> dict:
+    """Validate + assemble authored output into the stored lesson content.
+    Pure/deterministic. Returns {"segments": [...]} (one teach→drill segment).
 
-
-def _listening_ex(it: dict, target_pool: list[str], lang: str) -> dict:
-    R = tokenizer.romanize_text
-    opts, ans = _pick_options(it["target"], target_pool)
-    return {
-        "type": "listening", "concept_key": it["key"],
-        "instruction": "What did you hear?",
-        "audio": it["target"], "audio_roman": it["roman"],
-        "options": opts, "options_roman": [R(o, lang) for o in opts],
-        "answer": ans, "tip": it.get("note", ""),
-    }
-
-
-def _match_ex(items: list[dict]) -> dict:
-    return {
-        "type": "match", "instruction": "Match the pairs",
-        "pairs": [
-            {"target": it["target"], "target_roman": it["roman"], "english": it["gloss"]}
-            for it in items[:5]
-        ],
-    }
-
-
-def _segment_exercises(
-    group: list[dict], lang: str,
-    gloss_pool: list[str], target_pool: list[str],
-    refresh_items: list[dict],
-) -> list[dict]:
-    recog  = [_recognition_ex(it, gloss_pool) for it in group]
-    extras = [_production_ex(it, target_pool, lang) for it in group]
-    if refresh_items:
-        for it in random.sample(refresh_items, min(2, len(refresh_items))):
-            e = _recognition_ex(it, gloss_pool)
-            e["instruction"] = "Review: what does this mean?"
-            extras.append(e)
-    if group:
-        extras.append(_listening_ex(group[0], target_pool, lang))
-    if len(group) >= 3:
-        extras.append(_match_ex(group))
-    exercises = recog + extras[: max(0, _SEG_BUDGET - len(recog))]
-    random.shuffle(exercises)
-    return exercises
-
-
-def _verb_infinitive(concept: dict, target: str) -> str:
-    gloss = (concept.get("gloss") or "").strip().lower()
-    is_verbish = gloss.startswith("to ") or "verb" in (concept.get("key", "") + gloss)
-    if not is_verbish:
-        return ""
-    for cand in (concept.get("label", ""), target):
-        c = re.sub(r"\s*\([^)]*\)\s*", "", cand or "").strip().lower()
-        if c and grammar.conjugate_present(c):
-            return c
-    return ""
-
-
-def build_lesson_segments(
-    target_lang: str,
-    lesson_data: dict,
-    grammar_content: dict | None = None,
-    prior_concepts: list[dict] | None = None,
-) -> dict:
-    """Build teach + exercise segments from pre-materialised lesson data.
-    Pure/deterministic — no LLM calls.
-
-    `lesson_data`     — output of generate_next_lesson()
-    `grammar_content` — {concept_key: grammar_lessons artifact}
-    Returns {"segments": [...]}.
+    `authored` — output of author_lesson() ({intro, teach:[blocks], drills:[...]}).
     """
-    prior_concepts  = prior_concepts or []
-    concepts        = lesson_data.get("concepts") or []
-    targets         = lesson_data.get("targets")  or {}
-    notes           = lesson_data.get("notes")    or {}
-    intro           = lesson_data.get("intro")    or ""
-
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
-    grammar_content = grammar_content or {}
 
-    items: list[dict]         = []
-    grammar_teach: list[dict] = []
-    grammar_ex: list[dict]    = []
+    def rom(s: str) -> str:
+        return R(s, target_lang) if (has_rom and s) else ""
 
-    for c in concepts:
-        key    = c.get("key") or ""
-        gloss  = (c.get("gloss") or "").strip()
-        target = (targets.get(key) or "").strip()
-        note   = (notes.get(key)   or "").strip()
-        roman  = R(target, target_lang) if (has_rom and target) else ""
+    kinds = {(c.get("key") or "").strip(): (c.get("kind") or "vocab") for c in concepts}
 
-        if c.get("kind") == "grammar":
-            art = grammar_content.get(key)
-            if art:
-                grammar_teach.append({
-                    "grammar": True,
-                    "target": (c.get("label") or target or gloss),
-                    "gloss": gloss,
-                    "blocks": art.get("blocks") or [],
-                })
-                grammar_ex += [dict(e) for e in (art.get("exercises") or [])]
-            else:
-                grammar_teach.append({
-                    "target": c.get("label") or target or gloss,
-                    "target_roman": roman, "gloss": gloss,
-                    "note": note, "grammar": True,
-                })
-        elif target:
-            items.append({"key": key, "gloss": gloss, "target": target,
-                          "roman": roman, "note": note})
+    blocks = []
+    for b in (authored.get("teach") or []):
+        cleaned = _clean_block(b, rom)
+        if cleaned:
+            blocks.append(cleaned)
 
-    gloss_pool  = ([it["gloss"]  for it in items]
-                   + [(c.get("gloss")  or "").strip() for c in prior_concepts])
-    target_pool = ([it["target"] for it in items]
-                   + [(c.get("label")  or "").strip() for c in prior_concepts])
+    exercises = []
+    for d in (authored.get("drills") or []):
+        ex = _assemble_drill(d, target_lang, kinds, rom)
+        if ex:
+            exercises.append(ex)
+    random.shuffle(exercises)
 
-    def _teach_item(it: dict) -> dict:
-        return {"target": it["target"], "target_roman": it["roman"],
-                "gloss": it["gloss"], "note": it.get("note", "")}
+    segment = {
+        "teach": {"intro": (authored.get("intro") or "").strip(), "blocks": blocks},
+        "exercises": exercises,
+    }
+    return {"segments": [segment]}
 
-    segments: list[dict] = []
 
-    if grammar_teach or grammar_ex:
-        if not grammar_ex and grammar.has_conjugation(target_lang):
-            for c in concepts:
-                inf = _verb_infinitive(c, targets.get(c.get("key", ""), ""))
-                if inf:
-                    grammar_ex += grammar.build_conjugation_exercises(inf, c.get("key"), n=2)
-        segments.append({
-            "teach":     {"items": grammar_teach, "intro": intro},
-            "exercises": grammar_ex,
-        })
-        intro = ""
+async def author_lesson(
+    target_lang: str,
+    concepts: list[dict],
+    recent_summaries: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """One LLM call: author teach blocks + drills for these 1–2 concepts together,
+    then validate/assemble. Returns lesson metadata + content + raw strings.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [])
+    raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+    parsed = _parse_json(raw) or {}
 
-    groups  = [items[i:i + _SEGMENT_SIZE] for i in range(0, len(items), _SEGMENT_SIZE)]
-    refresh: list[dict] = []
-    for group in groups:
-        teach = {"items": [_teach_item(it) for it in group]}
-        if not segments:
-            teach["intro"] = intro
-            intro = ""
-        exercises = _segment_exercises(group, target_lang, gloss_pool, target_pool, refresh)
-        segments.append({"teach": teach, "exercises": exercises})
-        refresh = refresh + group
-
-    if not segments:
-        segments = [{"teach": {"items": [], "intro": intro}, "exercises": []}]
-
-    return {"segments": segments}
+    content = assemble_lesson(target_lang, concepts, parsed)
+    return {
+        "title":     (parsed.get("title") or "").strip(),
+        "objective": (parsed.get("objective") or "").strip(),
+        "summary":   (parsed.get("summary") or "").strip(),
+        "content":   content,
+        "_raw_prompt":   prompt,
+        "_raw_response": raw or "",
+    }

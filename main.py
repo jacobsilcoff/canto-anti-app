@@ -1000,6 +1000,9 @@ async def get_settings(user: dict = Depends(current_user)):
         "model_reader": _valid_model(await db.get_setting(user["id"], "model_reader")),
         "available_models": translation.MODEL_ALLOWLIST,
         "default_model": translation.DEFAULT_MODEL,
+        # Admin-only: author Learning-Path lessons on the premium model.
+        "lesson_premium": await db.get_setting(user["id"], "lesson_premium") == "1",
+        "lesson_premium_model": grammar_lessons.GENERATION_MODEL,
     }
 
 
@@ -1012,6 +1015,7 @@ class SettingsUpdate(BaseModel):
     gemini_api_key: str | None = None
     model_translate: str | None = None
     model_reader: str | None = None
+    lesson_premium: bool | None = None
 
 
 @app.put("/api/settings")
@@ -1045,6 +1049,10 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.model_reader not in translation.MODEL_ALLOWLIST:
             raise HTTPException(400, "Unsupported model")
         await db.set_setting(user["id"], "model_reader", req.model_reader)
+    if req.lesson_premium is not None:
+        if not user.get("is_admin"):
+            raise HTTPException(403, "Admins only")
+        await db.set_setting(user["id"], "lesson_premium", "1" if req.lesson_premium else "0")
     return {"success": True}
 
 
@@ -1648,83 +1656,94 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
-async def _ensure_grammar_content_for_concepts(
-    concepts: list[dict], lang: str, access
-) -> dict:
-    """Resolve grammar artifacts for grammar-kind concepts (shared cache)."""
-    out: dict = {}
-    for c in concepts:
-        if c.get("kind") != "grammar":
-            continue
-        key = (c.get("key") or "").strip()
-        if not key:
-            continue
-        art = await db.get_concept_content(lang, key)
-        if art is None:
-            art = await grammar_lessons.generate_grammar_content(
-                lang, c, api_key=access.api_key,
-            )
-            await db.set_concept_content(lang, key, art)
-        out[key] = art
-    return out
+def _next_batch(concepts: list[dict]) -> list[dict]:
+    """Take the next 1–2 concepts from a unit plan: a grammar concept is taught
+    alone (denser); up to two consecutive vocab concepts pair up."""
+    if not concepts:
+        return []
+    batch = [concepts[0]]
+    if (concepts[0].get("kind") == "vocab" and len(concepts) > 1
+            and concepts[1].get("kind") == "vocab"):
+        batch.append(concepts[1])
+    return batch
 
 
 @app.post("/api/courses/{course_id}/next")
 @limiter.limit("10/minute;40/day")
 async def next_lesson(request: Request, course_id: int, user: dict = Depends(current_user)):
-    """Generate, persist, and return the next lesson for a course."""
+    """Author, persist, and return the next micro-lesson, consuming 1–2 concepts
+    from the course's active unit plan (drafting a new unit plan when needed)."""
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
 
     access = await _resolve_gemini(user)
-    ctx = await db.get_next_lesson_context(course_id)
+    # Admin-only knob: run the whole authoring pipeline on the premium model to
+    # compare quality. Everyone else (and non-admins) use the normal reader model.
+    premium = (bool(user.get("is_admin"))
+               and await db.get_setting(user["id"], "lesson_premium") == "1")
+    lesson_model = grammar_lessons.GENERATION_MODEL if premium else access.model_reader
 
+    ctx = await db.get_next_lesson_context(course_id)
+    plan = await db.get_active_plan(course_id)
+    plan_prompt = plan_response = ""
+
+    # 1. Ensure an active unit plan with concepts still to teach.
+    if not plan or plan.get("cursor", 0) >= len(plan.get("concepts") or []):
+        if plan and plan.get("concepts"):   # previous unit finished → close it
+            await db.close_unit(course_id, plan.get("title") or "Unit", plan.get("summary") or "")
+        try:
+            plan = await learning.generate_unit_plan(
+                course["target_lang"], course["level"],
+                len(ctx["unit_summaries"]) + 1,
+                ctx["concept_registry"], ctx["unit_summaries"],
+                api_key=access.api_key, model=lesson_model,
+            )
+        except Exception:
+            raise HTTPException(502, "Unit planning failed — please try again.")
+        if not plan.get("concepts"):
+            raise HTTPException(502, "Unit planning returned no concepts — please try again.")
+        plan_prompt = plan.pop("_raw_prompt", "")
+        plan_response = plan.pop("_raw_response", "")
+        plan["cursor"] = 0
+        await db.set_active_plan(course_id, plan)
+
+    # 2. Author the micro-lesson for the next 1–2 concepts.
+    cursor = plan.get("cursor", 0)
+    batch = _next_batch(plan["concepts"][cursor:])
     try:
-        lesson_data = await learning.generate_next_lesson(
-            course["target_lang"],
-            course["level"],
-            ctx["lesson_num"],
-            ctx["concept_registry"],
-            ctx["unit_summaries"],
-            ctx["recent_summaries"],
-            api_key=access.api_key,
-            model=access.model_reader,
+        authored = await learning.author_lesson(
+            course["target_lang"], batch, ctx["recent_summaries"],
+            api_key=access.api_key, model=lesson_model,
         )
     except Exception:
         raise HTTPException(502, "Lesson generation failed — please try again.")
 
-    if not lesson_data.get("concepts"):
-        raise HTTPException(502, "Lesson generation returned no concepts — please try again.")
-
-    grammar_content = await _ensure_grammar_content_for_concepts(
-        lesson_data["concepts"], course["target_lang"], access
-    )
-    result = learning.build_lesson_segments(
-        course["target_lang"], lesson_data, grammar_content, ctx["prior_concepts"]
-    )
-
-    total_ex = sum(len(s.get("exercises") or []) for s in result.get("segments") or [])
+    content = authored["content"]
+    total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
     if not total_ex:
         raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
 
+    # Merge both LLM calls into the {prompt, response} the debug panel reads.
+    sep = "\n\n══════ LESSON AUTHOR ══════\n\n"
+    debug = {
+        "prompt":   (plan_prompt + sep + authored["_raw_prompt"]) if plan_prompt else authored["_raw_prompt"],
+        "response": (plan_response + sep + authored["_raw_response"]) if plan_response else authored["_raw_response"],
+    }
+
     lesson_id = await db.create_lesson(
-        course_id,
-        ctx["lesson_num"],
-        lesson_data["title"],
-        lesson_data["objective"],
-        lesson_data["concepts"],
-        {"segments": result["segments"]},
-        lesson_data["summary"],
-        {"prompt": lesson_data["_raw_prompt"], "response": lesson_data["_raw_response"]},
+        course_id, ctx["lesson_num"],
+        authored["title"], authored["objective"],
+        batch,                # only the taught concepts get registered
+        content,
+        authored["summary"],
+        debug,
     )
 
-    if lesson_data.get("close_unit") and lesson_data.get("unit_title"):
-        await db.close_unit(
-            course_id,
-            lesson_data["unit_title"],
-            lesson_data.get("unit_summary") or "",
-        )
+    # 3. Advance the cursor. If the unit is now exhausted we leave the plan in
+    #    place so the NEXT call closes it (keeping the in-progress roadmap intact).
+    plan["cursor"] = cursor + len(batch)
+    await db.set_active_plan(course_id, plan)
 
     lesson = await db.get_lesson(user["id"], lesson_id)
     return _lesson_response(lesson, lesson["content"])

@@ -10,3 +10,4 @@ spike_output/
 *.pub
 *.pem
 .mcp.json
+verbecc.log

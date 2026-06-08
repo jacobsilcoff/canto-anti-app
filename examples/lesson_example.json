@@ -1,0 +1,28 @@
+{
+  "_comment": "Few-shot golden example for the micro-lesson author (learning.author_lesson). Edit this to steer lesson STYLE/quality implicitly — the model matches its SHAPE, not its content. Deliberately Spanish so it never leaks answers into other target languages. 'input' = the concepts handed to a lesson; 'output' = the JSON the model should return for them.",
+  "input": {
+    "concepts": [
+      {"kind": "grammar", "key": "definite_articles_gender", "label": "el / la", "gloss": "'the' agrees with the noun's gender: el (masculine), la (feminine)"},
+      {"kind": "vocab", "key": "noun_mesa", "label": "la mesa", "gloss": "the table"}
+    ]
+  },
+  "output": {
+    "title": "Saying \"the\": el and la",
+    "objective": "Pick el or la to match a noun's gender.",
+    "intro": "Every Spanish noun has a gender, and the word for \"the\" changes to match it.",
+    "summary": "el (masc.) vs la (fem.); el libro, la mesa",
+    "teach": [
+      {"type": "prose", "text": "Spanish nouns are either **masculine** or **feminine**, and the word for \"the\" changes to match. Use **el** with masculine nouns and **la** with feminine nouns. English never does this, so it takes practice — learn each noun together with its article."},
+      {"type": "table", "title": "The two forms of \"the\"", "columns": ["Gender", "\"the\"", "Example noun"], "rows": [["Masculine", "el", "libro"], ["Feminine", "la", "mesa"]]},
+      {"type": "examples", "items": [{"text": "el libro", "gloss": "the book"}, {"text": "la mesa", "gloss": "the table"}]},
+      {"type": "note", "text": "Gender is mostly arbitrary — a table isn't \"more feminine\" than a book. When you learn a new noun, memorize its article with it."}
+    ],
+    "drills": [
+      {"kind": "recognition", "concept": "noun_mesa", "target": "la mesa", "gloss": "the table", "distractors": ["the book", "the chair", "the door"]},
+      {"kind": "production", "concept": "definite_articles_gender", "gloss": "the book", "target": "el libro", "distractors": ["la libro", "el mesa", "la mesa"]},
+      {"kind": "cloze", "concept": "definite_articles_gender", "sentence": "___ mesa es nueva.", "answer": "La", "gloss": "The table is new.", "distractors": ["El", "Los", "Las"]},
+      {"kind": "listening", "concept": "noun_mesa", "target": "la mesa", "gloss": "the table", "distractors": ["el libro", "la puerta", "el vaso"]},
+      {"kind": "match", "concept": "definite_articles_gender", "pairs": [{"target": "el libro", "english": "the book"}, {"target": "la mesa", "english": "the table"}]}
+    ]
+  }
+}
