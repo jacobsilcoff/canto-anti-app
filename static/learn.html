@@ -775,7 +775,7 @@
       const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
       // Allow info-only lessons (teach with no exercises); only fail if truly empty.
       const hasContent = segments.some(sg => (sg.exercises || []).length ||
-        (sg.teach && ((sg.teach.items || []).length || sg.teach.intro)));
+        (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
       if (!hasContent) throw new Error('empty lesson');
       player = {
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
@@ -798,7 +798,7 @@
     player.segIdx = i;
     const seg = player.segments[i];
     const teach = seg.teach;
-    if (teach && ((teach.items || []).length || teach.intro)) {
+    if (teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length)) {
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
@@ -982,6 +982,10 @@
     const wrap = document.getElementById('teach-items');
     wrap.innerHTML = '';
     const lang = player && player.lang;
+    // Free-form teach blocks (prose/table/examples/contrast/note) — the unified
+    // authored lesson's main teaching content.
+    (teach.blocks || []).forEach(b => { const el = renderBlock(b); if (el) wrap.appendChild(el); });
+    // Legacy vocab "items" word-list (back-compat with older lessons).
     (teach.items || []).forEach(it => {
       const blocks = it.blocks || [];
       const isGrammar = it.grammar && blocks.length;

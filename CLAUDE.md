@@ -45,9 +45,9 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `srs.py` | SM-2 with sub-day learning steps; pure/stateless — takes card state, returns new state |
 | `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai TBD, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby |
 | `auth.py` | scrypt password hashing + timing-safe verification |
-| `learning.py` | AI Learning Path — CEFR curriculum generation + deterministic segmented-lesson assembly (vocab + grammar-first segments) |
+| `learning.py` | AI Learning Path — unit-plan generation + unified micro-lesson authoring (teach blocks + drills together) + deterministic drill assembly/validation |
 | `grammar.py` | Reliable verb conjugation engine (French present) — rules + curated irregulars; an independent oracle, never trusts the LLM |
-| `grammar_lessons.py` | Generator + **critic** pipeline producing the VERIFIED canonical grammar artifact (explicit rule + minimal pairs + cloze/reorder drills) per `(lang, concept)` |
+| `grammar_lessons.py` | Legacy per-concept grammar generator (shared `concept_content` cache); **no longer called by the lesson route** — `learning.py` reuses its block/cloze helpers + `GENERATION_MODEL` |
 | `foundations.py` | Curated script/pronunciation module (Hangul jamo engine); gates non-Latin scripts |
 
 ### Database schema
@@ -57,8 +57,8 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 - **labels / card_labels** — per-user tags; many-to-many with cards
 - **users** — scrypt-hashed passwords, is_admin flag
 - **user_settings** — key-value store (new_cards_per_day, default_target_lang)
-- **courses / course_units / course_lessons / course_concepts / course_progress** — per-user AI Learning Path (curriculum skeleton; `course_lessons.content` = cached generated exercises, NULL until first open)
-- **concept_content** — `(lang, concept_key)` → verified canonical grammar artifact, **shared across users** (not user-scoped); the expensive-once generator+critic output
+- **courses / course_units / course_lessons / course_concepts** — per-user AI Learning Path. `courses.active_plan` = JSON outline of the in-progress unit (`{title, objective, summary, concepts:[...], cursor}`), NULL between units. `course_lessons.content` = the authored `{segments:[...]}` (set at creation, since lessons are authored one at a time). Units still close reactively (`close_unit` back-assigns `unit_id` when a plan is exhausted). `course_concepts` registers only concepts actually taught.
+- **concept_content** — `(lang, concept_key)` → legacy shared grammar artifact; **retained but unused** by the new lesson path.
 
 Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately. New words are **staggered** — only the primary `target` face is introduced first; `source`/`pronunciation` unlock once the primary graduates (see `db.get_study_session`).
 
@@ -78,20 +78,25 @@ Returns due review faces (next_review ≤ now) + new faces up to the daily cap (
 
 `POST /api/translate` → `translation.translate()` builds a language-specific Gemini prompt → parses JSON response into up to 3 candidates (for ambiguous inputs) with target_text, romanization, notes, priority. `POST /api/cards` then generates audio via edge-tts and stores everything including the MP3 BLOB.
 
-### AI Learning Path — grammar-first lessons
+### AI Learning Path — unit-plan-first micro-lessons
 
-A lesson is assembled deterministically from a curriculum's concepts (`learning.generate_lesson`). **Vocab** concepts → recognition/production/listening/match segments. **Grammar** concepts → a dedicated **grammar-first segment** (explicit English rule + minimal pairs in the teach screen, then cloze/reorder drills) — kept OUT of the vocab pipeline so we never ask an ambiguous "how do you say X" where several forms fit.
+Two-level adaptive generation, all in `learning.py` (orchestrated by `main.next_lesson`):
 
-Grammar content is produced by a **generator + critic** pipeline (`grammar_lessons.generate_grammar_content`) on the principle **liberal in what you SHOW, strict in what you GRADE**:
+1. **Unit plan** (`generate_unit_plan`) — once per unit. One LLM call drafts a coherent *chapter*: an ordered list of 6–10 concepts (vocab + grammar **interleaved**, foundational first). Stored as JSON on `courses.active_plan` with a `cursor`. **Coherence lives here** — the unit is the chapter; each lesson is a micro-step within it.
+2. **Micro-lesson** (`author_lesson`) — once per lesson. One LLM call authors the WHOLE small lesson (teach blocks AND drills) for the next **1–2 concepts** from the plan (`main._next_batch`: a grammar concept teaches alone; two consecutive vocab concepts pair up). Grammar and vocab are **not** segregated — the model sees one palette and picks what the point needs. This unified authoring is what makes teach and practice cohere.
 
-- **Teach content is authored freely** by the generator as an ordered list of typed **blocks** (`prose`, `table` with arbitrary columns/rows, `examples`, `contrast`, `note`) — like a page of a grammar textbook. This generalises across languages (the model picks whatever paradigm tables/explanations the language needs — conjugation, articles, cases, politeness levels); we render the blocks ourselves (`renderBlock` in learn.html) so styling stays consistent and audio/romanization survive. **No hardcoded language-specific presentation, no raw HTML.**
-- **Interactions stay constrained** to a few exercise types with **strict, verified answer keys** (a wrong answer key actively mis-teaches): `choice` cloze + contrast-recognition, `word_bank` reorder.
+Principle **liberal in what you SHOW, strict in what you GRADE**:
 
-A *critic* LLM independently re-derives and judges **each block and each drill**; **rejected items are dropped** (thinner-but-correct over complete-but-wrong). Where a free non-LLM oracle exists it guards the graded items: **romanization** is recomputed (`tokenizer.romanize_text`, never the model) and **French present-tense** cloze answers/options come from `grammar.py` (override only fires when the model's own cloze answer is a real paradigm cell; reflexive/pronominal verbs are refused via `grammar.is_reflexive`). The verified artifact (`blocks`, `exercises`) is cached **shared across users** in `concept_content (lang, concept_key)`. Generation uses a **more capable model** (`grammar_lessons.GENERATION_MODEL`, default `gemini-2.5-pro`, override via `GRAMMAR_MODEL` env) for both generator and critic — it runs once per concept and is shared, so cost amortizes to ~zero per user; only vocab materialization stays on the cheap reader model. Orchestrated in `main._ensure_grammar_content` (cache-miss → generate+verify+store) before `generate_lesson`.
+- **Teach blocks** are authored freely as an ordered list of typed blocks (`prose`, `table`, `examples`, `contrast`, `note`) — a page of a textbook. Rendered client-side by `renderBlock` (learn.html); romanization on every cell is recomputed by us. **No hardcoded language-specific presentation, no raw HTML.**
+- **Drills** are authored as `{correct answer + distractors}` (a few constrained kinds: recognition / production / listening / cloze / reorder / match) — **never an answer index**. We assemble the graded exercise ourselves (`assemble_lesson` → `_assemble_drill`): place the known-correct option, shuffle, index. So the answer key is **correct by construction**. Free non-LLM oracles still guard graded items: **romanization** via `tokenizer.romanize_text` (never the model), and **French present-tense** cloze answers/options via `grammar.py` (`_conj_cloze`, fires only when the model tags `verb`/`person` and its answer is a real paradigm cell; else `_free_cloze`). Drills that can't be validated are **dropped**.
 
-Curriculum generation (`_build_curriculum_prompt`) enforces **per-lesson coherence**: every lesson is a single coherent chapter whose title, objective, and concepts all match — either a communicative topic (greetings, taught with its own register/time-of-day/tu-vous nuances) or a focused grammar point — never a grab-bag (no conjugation shoved into a "Hello & Goodbye" lesson).
+A real, hand-written **few-shot golden example** (`examples/lesson_example.json`, deliberately Spanish so it never leaks answers into other targets) is injected into the author prompt — edit it to steer lesson STYLE implicitly. Default model is the cheap reader model; an **admin-only** `lesson_premium` user-setting runs the whole pipeline (plan + author) on `grammar_lessons.GENERATION_MODEL` (default `gemini-2.5-pro`) to compare quality.
 
-NOT yet built (deferred): controlled-vocab **enrichment** (filling drill slots from the user's known SRS deck via typed slots), a grammar-**DAG** syllabus, more tenses/languages, and error-correction drills.
+Stored lesson `content` = `{"segments":[{"teach":{"intro","blocks":[...]}, "exercises":[...drills...]}]}` (one teach→drill segment per micro-lesson; the player still supports multi-segment + end-of-lesson mistake review).
+
+`grammar_lessons.py` (the older per-concept generator that produced a shared `concept_content` artifact) is **no longer called by the lesson route** — only its block/cloze helpers (`_clean_block`, `_conj_cloze`, `_free_cloze`) and `GENERATION_MODEL` are reused by `learning.py`. The `concept_content` table is retained but unused by the new path.
+
+NOT yet built (deferred): per-concept **mastery ledger** + free-text `learner_profile` feeding the planner (the substrate for a future weakness-detecting chatbot); first-class up-front **unit rows** with a visible roadmap (currently units still close reactively when a plan is exhausted, via `close_unit`); controlled-vocab **enrichment** from the user's SRS deck; more tenses/languages; error-correction drills.
 
 ### Multi-language support
 

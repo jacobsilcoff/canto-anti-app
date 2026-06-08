@@ -279,6 +279,20 @@
     <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
   </div>
 
+  <div class="settings-section" id="admin-lesson-section" style="display:none">
+    <div class="settings-section-title">Learning Path (admin)</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Author lessons with the premium model</div>
+        <div class="settings-desc" id="lesson-premium-desc">Use the stronger model for unit planning + lesson authoring (slower, costs more)</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="settings-lesson-premium" onchange="saveLessonPremium()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
   <div class="settings-section" id="admin-create-section" style="display:none">
     <div class="settings-section-title">Create user</div>
     <form class="create-form" onsubmit="createUser(event)">
@@ -530,7 +544,7 @@
     try {
       const me = await fetch('/api/me').then(r => r.json());
       if (me.is_admin) {
-        ['admin-create-section', 'admin-users-section'].forEach(id => {
+        ['admin-lesson-section', 'admin-create-section', 'admin-users-section'].forEach(id => {
           document.getElementById(id).style.display = '';
         });
         await loadUsers();
@@ -672,6 +686,11 @@
     document.getElementById('settings-audio-romanization').checked = settings.audio_show_romanization !== false;
     document.getElementById('settings-auto-add-vocab').checked = !!settings.auto_add_reader_vocab;
     document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
+    document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
+    if (settings.lesson_premium_model) {
+      document.getElementById('lesson-premium-desc').textContent =
+        `Use ${settings.lesson_premium_model} for unit planning + lesson authoring (slower, costs more)`;
+    }
 
     const sel = document.getElementById('settings-default-lang');
     sel.innerHTML = '';
@@ -824,6 +843,23 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveLessonPremium() {
+    const checked = document.getElementById('settings-lesson-premium').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_premium: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_premium = checked;
+      showToast('Lesson model preference saved.');
+    } catch {
+      document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
       showToast('Failed to save setting.');
     }
   }

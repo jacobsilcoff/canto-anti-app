@@ -240,6 +240,7 @@ async def init():
                 target_lang TEXT    NOT NULL,
                 level       TEXT    NOT NULL DEFAULT 'A1',
                 status      TEXT    NOT NULL DEFAULT 'active',
+                active_plan TEXT,            -- JSON outline of the in-progress unit (concepts + cursor); NULL between units
                 created_at  TEXT             DEFAULT (datetime('now'))
             )
         """)
@@ -1592,6 +1593,31 @@ async def delete_course(user_id: int, course_id: int) -> None:
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
+        await db.commit()
+
+
+async def get_active_plan(course_id: int) -> dict | None:
+    """The in-progress unit's outline (concepts + cursor), or None between units."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT active_plan FROM courses WHERE id=?", (course_id,)
+        ) as cur:
+            row = await cur.fetchone()
+    if not row or not row[0]:
+        return None
+    try:
+        return json.loads(row[0])
+    except (ValueError, TypeError):
+        return None
+
+
+async def set_active_plan(course_id: int, plan: dict | None) -> None:
+    """Store (or clear, when plan is None) the in-progress unit outline."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE courses SET active_plan=? WHERE id=?",
+            (json.dumps(plan) if plan is not None else None, course_id),
+        )
         await db.commit()
 
 
