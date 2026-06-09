@@ -121,6 +121,25 @@ def test_romanization_recomputed_for_logographic():
     assert reorder["answer_roman"]
 
 
+def test_reorder_glossary_filtered_to_real_tokens():
+    # The reorder glossary keeps only {token: gloss} for tokens that are actually
+    # tiles and have a non-empty gloss — stray/blank entries are dropped.
+    concepts = [{"kind": "vocab", "key": "iam", "label": "我係", "gloss": "I am"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "iam", "sentence": "我係學生",
+         "tokens": ["我", "係", "學生"],
+         "glossary": [
+             {"token": "我", "gloss": "I"},
+             {"token": "係", "gloss": "am"},
+             {"token": "唔", "gloss": "not"},     # not a tile → dropped
+             {"token": "學生", "gloss": ""},       # blank gloss → dropped
+         ]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    wb = next(e for e in exs if e["type"] == "word_bank")
+    assert wb["glossary"] == {"我": "I", "係": "am"}
+
+
 def test_french_cloze_uses_conjugation_oracle():
     # When the model tags a cloze with verb+person, grammar.py is authoritative:
     # the correct option must be the engine's paradigm cell, regardless of order.

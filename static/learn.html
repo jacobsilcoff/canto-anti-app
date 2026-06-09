@@ -92,7 +92,10 @@
     /* word bank */
     .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
     .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .wb-slot { display: inline-flex; }
+    .wb-slot.empty { border-radius: 10px; background: var(--border); opacity: 0.4; }
+    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
+    .tile-gloss { display: block; font-size: 0.62rem; color: var(--text-muted); margin-top: 3px; font-family: var(--reading-font, sans-serif); letter-spacing: 0.02em; }
     .tile.placeholder { visibility: hidden; }
     .tile.selected { border-color: var(--primary); background: #eef4fe; }
     .tile:disabled { cursor: default; }
@@ -664,17 +667,40 @@
         if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
         const ansEl = document.getElementById('wb-answer');
         const bankEl = document.getElementById('wb-bank');
+        // Each tile lives in a fixed home "slot" in the bank. Moving a tile into
+        // the answer row leaves the slot in place (frozen at its rendered size) so
+        // the bank never reflows — like Duolingo's empty word boxes.
+        const glossary = ex.glossary || {};
         shuffle([...answer, ...(ex.distractor_tokens || [])]).forEach(tok => {
-          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button'; t.innerHTML = targetSpan(tok, lang);
-          t.onclick = () => { if (player.graded) return; (t.parentElement === bankEl ? ansEl : bankEl).appendChild(t); updateAction(); };
-          bankEl.appendChild(t);
+          const slot = document.createElement('span'); slot.className = 'wb-slot';
+          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button';
+          t.dataset.tok = tok;                       // grade against the raw token, not ruby-mangled textContent
+          // Untaught helper word → show its English/POS gloss under the tile.
+          const gl = glossary[tok];
+          t.innerHTML = targetSpan(tok, lang) + (gl ? `<small class="tile-gloss">${esc(gl)}</small>` : '');
+          t.onclick = () => {
+            if (player.graded) return;
+            if (t.parentElement === slot) {          // bank → answer: freeze the slot's footprint
+              slot.style.width = slot.offsetWidth + 'px';
+              slot.style.height = slot.offsetHeight + 'px';
+              slot.classList.add('empty');
+              ansEl.appendChild(t);
+            } else {                                  // answer → bank: restore the slot
+              slot.classList.remove('empty');
+              slot.style.width = ''; slot.style.height = '';
+              slot.appendChild(t);
+            }
+            updateAction();
+          };
+          slot.appendChild(t);
+          bankEl.appendChild(slot);
         });
-        const placed = () => [...ansEl.children].map(c => c.textContent);
+        const placed = () => [...ansEl.querySelectorAll('.tile')].map(c => c.dataset.tok);
         return {
-          isReady: () => ansEl.children.length > 0,
+          isReady: () => ansEl.querySelectorAll('.tile').length > 0,
           grade: () => { const p = placed(); return p.length === answer.length && p.every((t, i) => t === answer[i]); },
           answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
-          lock: () => [...ansEl.children, ...bankEl.children].forEach(c => c.disabled = true),
+          lock: () => root.querySelectorAll('.tile').forEach(c => c.disabled = true),
         };
       },
     },

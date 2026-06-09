@@ -1715,6 +1715,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         authored = await learning.author_lesson(
             course["target_lang"], batch, ctx["recent_summaries"],
             api_key=access.api_key, model=lesson_model,
+            taught=ctx["concept_registry"],
         )
     except Exception:
         raise HTTPException(502, "Lesson generation failed — please try again.")

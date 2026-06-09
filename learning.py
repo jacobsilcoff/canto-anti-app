@@ -86,8 +86,14 @@ def _recent_block(recent_summaries: list[dict]) -> str:
 
 def _lang_preamble(info: dict) -> str:
     rom = info["romanization"]
-    rom_note = (f"Romanisation scheme: {rom}.\n" if rom else
-                "This language uses the Latin alphabet — no romanisation needed.\n")
+    rom_note = (
+        f"Do NOT write any {rom} romanisation/transliteration — our system computes "
+        f"it from the native script and renders it as ruby automatically. Everything "
+        f"you output is post-processed (romanisation added, audio synthesised, options "
+        f"shuffled & keyed); emit native script ONLY.\n"
+        if rom else
+        "This language uses the Latin alphabet — no romanisation needed.\n"
+    )
     return (f"Target language: {info['name']}\n"
             f"Writing system: {info['script']}\n"
             f"{rom_note}"
@@ -210,7 +216,7 @@ _DRILL_KINDS = """\
   {"kind":"production","concept":"<key>","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
   {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other native form>", ...]}
   {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English of the sentence>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
-  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...]}
+  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...],"glossary":[{"token":"<exact token from tokens>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
   {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
 
 _BLOCK_TYPES = """\
@@ -243,6 +249,7 @@ def _example_block() -> str:
 
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
+    taught: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
@@ -254,12 +261,16 @@ def _build_lesson_prompt(
     ) if info["romanization"] else (
         f"Write all {name} text naturally (Latin alphabet; no pronunciation respelling)."
     )
+    taught_block = ""
+    if taught:
+        taught_block = f"── ALREADY TAUGHT (the learner knows these) ──\n{_registry_block(taught)}\n\n"
     return (
         f"You are an expert {name} teacher authoring ONE short Duolingo-style lesson "
         f"for an English speaker — a tightly-focused micro-step. Author the teaching "
         f"text AND the practice drills TOGETHER so they reinforce each other.\n\n"
         f"{_lang_preamble(info)}"
         f"{_recent_block(recent_summaries)}"
+        f"{taught_block}"
         f"── TEACH EXACTLY THESE {len(concepts)} CONCEPT(S) ──\n{_concepts_block(concepts)}\n\n"
         f"{native_rule}\n\n"
         f"── TEACH BLOCKS ──\nAuthor 2–5 ordered blocks (like a page of a textbook). "
@@ -284,6 +295,12 @@ def _build_lesson_prompt(
         f"• When two taught words share a loose English gloss, the prompt MUST use the "
         f"disambiguating gloss (e.g. \"Hello (informal)\", \"Good evening\") so exactly "
         f"one option is right.\n"
+        f"GLOSS UNTAUGHT WORDS — a reorder sentence may need a helper word the learner "
+        f"has NOT been taught (not a concept above, not in ALREADY TAUGHT). For each such "
+        f"token, add a `glossary` entry {{token, gloss}} so we can show its meaning under "
+        f"the tile. Keep glosses to 1–2 words; use a POS abbreviation (PRT particle, AUX, "
+        f"CONJ, CL classifier, PREP) for grammatical function words with no clean English. "
+        f"Do NOT gloss words the learner already knows.\n"
         f"Otherwise distractors should be tempting (same category/length). Mix kinds; "
         f"lead with easier recognition, end with production or reorder. Kinds:\n{_DRILL_KINDS}\n\n"
         f"{_example_block()}"
@@ -384,9 +401,19 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         tokens = [t for t in (d.get("tokens") or []) if (t or "").strip()]
         if len(tokens) < 2:
             return None
+        # Glosses for helper words the learner hasn't been taught (token → short
+        # English / POS abbrev). Keep only entries whose token is actually a tile.
+        tokset = set(tokens)
+        glossary = {}
+        for g in (d.get("glossary") or []):
+            tok = (g.get("token") or "").strip()
+            gl = (g.get("gloss") or "").strip()
+            if tok in tokset and gl:
+                glossary[tok] = gl
         return {"type": "word_bank", "concept_key": key, "grammar": is_grammar,
                 "instruction": "Put the words in the correct order",
                 "answer_tokens": tokens, "distractor_tokens": [],
+                "glossary": glossary,
                 "audio": sentence, "answer_roman": rom(sentence)}
 
     if kind == "match":
@@ -445,13 +472,17 @@ async def author_lesson(
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
+    taught: list[dict] | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for these 1–2 concepts together,
     then validate/assemble. Returns lesson metadata + content + raw strings.
+
+    `taught` — concepts the learner already knows (so the model glosses only the
+    genuinely-new helper words used in reorder sentences).
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [])
+    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught)
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
 
