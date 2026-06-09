@@ -176,7 +176,7 @@
     .confetti-piece { position: fixed; top: -14px; width: 9px; height: 14px; z-index: 9999; pointer-events: none; border-radius: 2px; }
 
     /* teach screen */
-    .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; }
+    .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; white-space: pre-line; }
     .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .teach-text { flex: 1; min-width: 0; }
     .teach-target { font-size: 1.25rem; font-family: var(--script-font, inherit); }
@@ -602,6 +602,9 @@
     if (_ttsCache[key]) return;
     const a = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
     a.preload = 'auto';
+    // load() forces the browser to start the HTTP request now — without it,
+    // browsers may defer fetching until play() is called, defeating the cache.
+    try { a.load(); } catch {}
     _ttsCache[key] = a;
   }
   function playTTS(text, lang) {
@@ -1020,18 +1023,22 @@
         for (const ex of (blk.examples || []))
           if (ex.native) { _prewarmTTS(ex.native, lang); if (needsRuby(lang) && !_isLatin(ex.native)) _fetchTokens(ex.native, lang); }
       }
-      // Exercises
+      // Exercises — since all exercise text now gets hover/tap tooltips (hideRoman=true
+      // with vocabGlossary), pre-warm ruby for every native-language string that will
+      // receive a .needs-ruby span: prompt, all option strings, match targets, tiles.
       for (const ex of (seg.exercises || [])) {
         if (ex.audio) _prewarmTTS(ex.audio, lang);
         if (ex.prompt && needsRuby(lang) && !_isLatin(ex.prompt)) _fetchTokens(ex.prompt, lang);
-        // Listening options are native text
-        if (ex.type === 'listening')
-          for (const opt of (ex.options || []))
-            if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
-        // Reorder tiles
-        if (ex.type === 'reorder')
-          for (const tok of (ex.tokens || []))
-            if (tok && needsRuby(lang) && !_isLatin(tok)) _fetchTokens(tok, lang);
+        // All option strings (listening choices are native; choice options may be native
+        // when prompt_lang is 'english' and optsTarget is true)
+        for (const opt of (ex.options || []))
+          if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
+        // Match exercise target column
+        for (const pair of (ex.pairs || []))
+          if (pair.target && needsRuby(lang) && !_isLatin(pair.target)) _fetchTokens(pair.target, lang);
+        // Word-bank / reorder tiles
+        for (const tok of [...(ex.answer_tokens || []), ...(ex.distractor_tokens || [])])
+          if (tok && needsRuby(lang) && !_isLatin(tok)) _fetchTokens(tok, lang);
       }
     }
   }
@@ -1145,10 +1152,11 @@
     if (b.type === 'table') {
       const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
       const l = player && player.lang;
-      // Each td gets a .needs-ruby span (resolved by applyRuby) and a TTS click handler.
+      // Store clean TTS text as data-tts BEFORE applyRuby runs — afterwards
+      // td.textContent includes the <rt> romanization content and would be read aloud.
       const cell = c => {
         const clean = cleanForTTS(c, l);
-        return `<td><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
+        return `<td data-tts="${esc(clean)}"><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
       };
       let h = b.title ? `<div class="teach-table-title">${esc(b.title)}</div>` : '';
       h += '<table class="teach-table">';
@@ -1156,7 +1164,8 @@
       h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
       wrap.innerHTML = h;
       wrap.querySelectorAll('td').forEach(td => {
-        td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), l); if (t) playTTS(t, l); };
+        // Use data-tts (set before ruby annotation) — never td.textContent after the fact.
+        td.onclick = () => { const t = td.dataset.tts; if (t) playTTS(t, l); };
       });
       applyRuby(wrap, player && player.vocabGlossary);   // teach → hover/tap glosses
       return wrap;
@@ -1245,9 +1254,10 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
-    // NO glossary in exercises (would reveal a recognition answer). `hide_roman`
-    // (reading drills) tucks romanization into a tooltip so it isn't a spoiler.
-    if (needsRuby(player.lang)) applyRuby(root, null, ex.hide_roman);
+    // Always hide inline ruby in exercises — both romanization and gloss go into
+    // the hover/tap .gl tooltip on each word. This lets learners check pronunciation
+    // and meaning word-by-word without them being shown upfront (Duolingo-style).
+    if (needsRuby(player.lang)) applyRuby(root, player.vocabGlossary, true);
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
