@@ -164,58 +164,35 @@ def test_reorder_glossary_filtered_to_real_tokens():
     assert wb["glossary"] == {"我": "I", "係": "am"}
 
 
-def test_vocab_glossary_concept_labels_always_included():
-    # Current lesson concepts are always in vocab_glossary (being introduced now),
-    # even if they appear in known_words (edge case: user added SRS card before lesson).
-    concepts = [{"kind": "vocab", "key": "hello", "label": "你好", "gloss": "hello"}]
-    authored = {
-        "teach": [], "drills": [],
-        "vocab_glossary": {"你好": "hello", "我": "I"},
-    }
-    known = {"你好": "hello", "我": "I"}   # both "known"
-    content = learning.assemble_lesson("yue", concepts, authored, known_words=known)
-    vg = content["vocab_glossary"]
-    assert vg["你好"] == "hello"   # concept label always included
-    assert "我" not in vg          # known helper word filtered out
-
-
-def test_vocab_glossary_filters_known_words():
-    # LLM-provided helper words that the learner already knows (SRS / previous lessons)
-    # are excluded from vocab_glossary; truly new ones are kept.
+def test_vocab_glossary_includes_all_words_and_concepts():
+    # Glosses are hidden behind hover/tap, so we keep EVERY word the model offers
+    # plus the concepts being introduced — no known-word filtering.
     concepts = [{"kind": "vocab", "key": "eat", "label": "食", "gloss": "eat"}]
     authored = {
         "teach": [], "drills": [],
-        "vocab_glossary": {
-            "我": "I",           # known from SRS → should be filtered
-            "喺": "at/in",      # not known → should be kept
-        },
+        "vocab_glossary": {"我": "I", "喺": "at/in", "食": "consume(LLM)"},
     }
-    known = {"我": "I"}
-    content = learning.assemble_lesson("yue", concepts, authored, known_words=known)
-    vg = content["vocab_glossary"]
-    assert "我" not in vg
+    vg = learning.assemble_lesson("yue", concepts, authored)["vocab_glossary"]
+    assert vg["我"] == "I"           # simple word kept (not filtered)
     assert vg["喺"] == "at/in"
-    assert vg["食"] == "eat"    # concept label always included
+    assert vg["食"] == "eat"         # concept label wins over the LLM's gloss
 
 
-def test_vocab_glossary_augments_word_bank_tiles():
-    # vocab_glossary should flow into word-bank tile glossaries for unknown tiles.
+def test_vocab_glossary_does_not_augment_word_bank_tiles():
+    # Tile glosses come ONLY from the drill's own `glossary` (focused helper words),
+    # never the broad vocab_glossary — so tiles don't get over-glossed.
     concepts = [{"kind": "vocab", "key": "eat", "label": "食", "gloss": "eat"}]
     authored = {
         "teach": [], "drills": [
             {"kind": "reorder", "concept": "eat", "sentence": "我食飯",
              "tokens": ["我", "食", "飯"],
-             "glossary": []},   # LLM provided no explicit glossary
+             "glossary": [{"token": "飯", "gloss": "rice/meal"}]},
         ],
-        "vocab_glossary": {"我": "I", "飯": "rice/meal"},
+        "vocab_glossary": {"我": "I", "飯": "rice/meal", "食": "eat"},
     }
-    # 我 is known (SRS), 飯 is not
-    known = {"我": "I"}
-    exs = learning.assemble_lesson("yue", concepts, authored, known_words=known)["segments"][0]["exercises"]
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
     wb = next(e for e in exs if e["type"] == "word_bank")
-    assert "我" not in wb["glossary"]     # known → not annotated
-    assert wb["glossary"]["飯"] == "rice/meal"   # unknown → annotated
-    assert wb["glossary"]["食"] == "eat"          # concept label → annotated
+    assert wb["glossary"] == {"飯": "rice/meal"}   # only the drill's own glossary
 
 
 def test_french_cloze_uses_conjugation_oracle():

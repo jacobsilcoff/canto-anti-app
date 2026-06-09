@@ -88,9 +88,19 @@
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
     ruby { ruby-align: center; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
-    /* per-token gloss label shown below unknown words in teach blocks */
-    .tok-wrap { display: inline-flex; flex-direction: column; align-items: center; vertical-align: bottom; }
-    .tok-gloss { font-size: 0.58em; color: var(--primary); font-family: var(--reading-font, sans-serif); letter-spacing: 0.01em; line-height: 1.1; margin-top: 1px; }
+    /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
+       dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
+    .gl { position: relative; cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
+    .gl::after {
+      content: attr(data-gloss);
+      position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+      margin-top: 5px; white-space: nowrap; max-width: 60vw; overflow: hidden; text-overflow: ellipsis;
+      background: var(--text); color: #fff; font-size: 0.72rem; line-height: 1.25;
+      font-style: normal; font-weight: 400; font-family: var(--reading-font, sans-serif);
+      padding: 3px 8px; border-radius: 6px; box-shadow: var(--shadow);
+      opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 30;
+    }
+    .gl:hover::after, .gl:focus::after { opacity: 1; }
 
     /* word bank */
     .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
@@ -908,24 +918,25 @@
     return _tokenCache[key];
   }
 
-  // Build <ruby> HTML from a token array, annotating unknown tokens with a gloss label.
-  // glossary: {native_token: english_gloss} — words to annotate (typically the lesson's
-  // vocab_glossary, filtered server-side to exclude already-known words).
+  // Build <ruby> HTML from a token array. When `glossary` is given, every token it
+  // covers becomes a hover/tap-revealable `.gl` span (the gloss is hidden until then,
+  // so it stays inline and never clutters the text). Glossing is used for TEACH text
+  // only — never exercise prompts, which would leak the answer.
   function _tokensToHtml(tokens, glossary) {
     if (!Array.isArray(tokens) || !tokens.length) return '';
     const hasRoman = tokens.some(t => t.roman);
     return tokens.map(t => {
-      const g = (glossary || {})[t.text];
       const inner = (hasRoman && t.is_word && t.roman)
         ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`
         : esc(t.text);
+      const g = t.is_word ? (glossary || {})[t.text] : null;
       return g
-        ? `<span class="tok-wrap">${inner}<span class="tok-gloss">${esc(g)}</span></span>`
+        ? `<span class="gl" tabindex="0" data-gloss="${esc(g)}">${inner}</span>`
         : inner;
     }).join('');
   }
 
-  // Return <ruby>-annotated HTML for `text`, with per-token gloss labels for unknown words.
+  // Return <ruby>-annotated HTML for `text`. Pass `glossary` to enable hover/tap glosses.
   // Falls back to esc(text) for Latin-script languages or on fetch error.
   async function rubyHtml(text, lang, glossary) {
     if (!text) return '';
@@ -935,11 +946,10 @@
     return _tokensToHtml(tokens, glossary);
   }
 
-  // Apply ruby + gloss annotations to every .needs-ruby element inside `container`.
-  // Uses player.vocabGlossary if available so every native token in the lesson gets
-  // a gloss label for words the learner hasn't seen before.
-  async function applyRuby(container) {
-    const glossary = (player && player.vocabGlossary) || {};
+  // Apply ruby to every .needs-ruby element inside `container`. Pass `glossary`
+  // (the lesson's vocab_glossary) ONLY for teach content so words get a hover/tap
+  // gloss; omit it for exercise prompts so answers aren't revealed.
+  async function applyRuby(container, glossary) {
     const els = container.querySelectorAll('.needs-ruby');
     await Promise.all([...els].map(async el => {
       el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary);
@@ -1023,7 +1033,7 @@
       wrap.querySelectorAll('td').forEach(td => {
         td.onclick = () => { const t = cleanForTTS(td.textContent.trim(), l); if (t) playTTS(t, l); };
       });
-      applyRuby(wrap);
+      applyRuby(wrap, player && player.vocabGlossary);   // teach → hover/tap glosses
       return wrap;
     }
     if (b.type === 'examples') {
@@ -1088,8 +1098,9 @@
       }
       wrap.appendChild(row);
     });
-    // Resolve ruby annotations asynchronously (non-blocking).
-    applyRuby(wrap);
+    // Resolve ruby annotations asynchronously (non-blocking). Teach text gets
+    // hover/tap glosses from the lesson's vocab_glossary.
+    applyRuby(wrap, player && player.vocabGlossary);
   }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
@@ -1109,7 +1120,8 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
-    if (needsRuby(player.lang)) applyRuby(root);
+    if (needsRuby(player.lang)) applyRuby(root);   // NO glossary — would reveal the answer
+
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
   }

@@ -1722,15 +1722,11 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     # 2. Author the micro-lesson for the next 1–2 concepts.
     cursor = plan.get("cursor", 0)
     batch = _next_batch(plan["concepts"][cursor:])
-    known_words: dict[str, str] = {}
-    if user_id:
-        known_words = await db.get_known_words(user_id, course["target_lang"])
     try:
         authored = await learning.author_lesson(
             course["target_lang"], batch, ctx["recent_summaries"],
             api_key=access.api_key, model=lesson_model,
             taught=ctx["concept_registry"],
-            known_words=known_words,
         )
     except Exception:
         raise HTTPException(502, "Lesson generation failed — please try again.")

@@ -287,12 +287,12 @@ def _build_lesson_prompt(
         f"Lead with recognition, end with production or reorder. Kinds:\n{_DRILL_KINDS}\n\n"
         f"{_example_block()}"
         f"── VOCAB GLOSSARY ──\n"
-        f"List every native token you use in teach blocks (examples, table cells, "
-        f"contrast phrases) or in cloze/reorder exercises that is NOT one of the "
-        f"concepts above and NOT in ALREADY TAUGHT. Values: 1–3 word English gloss. "
-        f"Include content words AND common function words (particles, auxiliaries). "
-        f"We filter out words the learner already knows — err on the side of listing "
-        f"more rather than fewer.\n\n"
+        f"`vocab_glossary` = an English gloss for EVERY distinct native word that "
+        f"appears in your TEACH BLOCKS (prose, examples, table cells, contrast) — "
+        f"content words AND function words (particles, auxiliaries: use a short gloss "
+        f"or a POS tag like PRT/AUX/CL). Gloss EVERYTHING, even simple or already-"
+        f"taught words; the learner sees these only on tap/hover, so completeness "
+        f"helps and over-listing costs nothing. Values: 1–3 words.\n\n"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         '  "title": "<short English lesson title>",\n'
@@ -448,20 +448,17 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     return None
 
 
-def assemble_lesson(
-    target_lang: str,
-    concepts: list[dict],
-    authored: dict,
-    known_words: dict[str, str] | None = None,
-) -> dict:
+def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> dict:
     """Validate + assemble authored output into the stored lesson content.
     Pure/deterministic. Returns {"vocab_glossary": {...}, "segments": [...]}
 
-    `authored`    — output of author_lesson() ({intro, teach, drills, vocab_glossary}).
-    `known_words` — {native_text: english} of words the learner already knows
-                    (from SRS cards + previously-taught course concepts). Tokens in
-                    this set are excluded from the lesson's vocab_glossary so we don't
-                    annotate things the learner already knows.
+    `authored` — output of author_lesson() ({intro, teach, drills, vocab_glossary}).
+
+    `vocab_glossary` = {native_word: English} for words used in TEACH text. The
+    client reveals these on hover/tap (hidden by default), so we don't try to guess
+    which words the learner knows — we keep every gloss the model offers, plus the
+    concepts being introduced now. (Exercise prompts are never glossed client-side,
+    so this can't leak answers.)
     """
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
     R = tokenizer.romanize_text
@@ -470,23 +467,20 @@ def assemble_lesson(
         return R(s, target_lang) if (has_rom and s) else ""
 
     kinds = {(c.get("key") or "").strip(): (c.get("kind") or "vocab") for c in concepts}
-    known = known_words or {}
 
-    # ── Build vocab_glossary ─────────────────────────────────────────────────
-    # Concept labels being introduced NOW always get a gloss entry (they're new).
+    # Concept labels being introduced NOW always get a gloss entry.
     concept_glossary = {
         c["label"].strip(): c["gloss"].strip()
         for c in concepts
         if (c.get("label") or "").strip() and (c.get("gloss") or "").strip()
     }
-    # LLM-provided helper word glossary — filter out anything already known.
     llm_glossary = {}
     for k, v in (authored.get("vocab_glossary") or {}).items():
         k = (k or "").strip()
         v = (v or "").strip()
-        if k and v and k not in known:
+        if k and v:
             llm_glossary[k] = v
-    # Merge: concept entries take priority over LLM entries.
+    # Concept entries take priority over LLM entries for the same word.
     vocab_glossary = {**llm_glossary, **concept_glossary}
 
     blocks = []
@@ -501,14 +495,6 @@ def assemble_lesson(
         if ex:
             exercises.append(ex)
     random.shuffle(exercises)
-
-    # Augment word-bank tile glossaries from vocab_glossary for any tiles whose
-    # gloss wasn't explicitly provided by the LLM.
-    for ex in exercises:
-        if ex["type"] == "word_bank":
-            for tok in ex.get("answer_tokens", []):
-                if tok not in ex["glossary"] and tok in vocab_glossary and tok not in known:
-                    ex["glossary"][tok] = vocab_glossary[tok]
 
     segment = {
         "teach": {"intro": (authored.get("intro") or "").strip(), "blocks": blocks},
@@ -525,15 +511,12 @@ async def author_lesson(
     api_key: str,
     model: str = DEFAULT_MODEL,
     taught: list[dict] | None = None,
-    known_words: dict[str, str] | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for these 1–2 concepts together,
     then validate/assemble. Returns lesson metadata + content + raw strings.
 
-    `taught`      — concepts the learner already knows (so the model glosses only
-                    genuinely-new helper words used in reorder sentences).
-    `known_words` — {native_text: english} from SRS + previous course concepts;
-                    used to filter vocab_glossary so we don't annotate known words.
+    `taught` — concepts the learner already knows (so the model doesn't re-teach
+               them and the reorder glossary marks only genuinely-new helper words).
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -541,7 +524,7 @@ async def author_lesson(
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
 
-    content = assemble_lesson(target_lang, concepts, parsed, known_words=known_words)
+    content = assemble_lesson(target_lang, concepts, parsed)
     return {
         "title":     (parsed.get("title") or "").strip(),
         "objective": (parsed.get("objective") or "").strip(),
