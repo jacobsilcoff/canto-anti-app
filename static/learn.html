@@ -88,6 +88,9 @@
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
     ruby { ruby-align: center; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
+    /* per-token gloss label shown below unknown words in teach blocks */
+    .tok-wrap { display: inline-flex; flex-direction: column; align-items: center; vertical-align: bottom; }
+    .tok-gloss { font-size: 0.58em; color: var(--primary); font-family: var(--reading-font, sans-serif); letter-spacing: 0.01em; line-height: 1.1; margin-top: 1px; }
 
     /* word bank */
     .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
@@ -816,6 +819,10 @@
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         controller: null, graded: false,
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
+        // vocab_glossary: {native_token: english} — unknown words get a gloss label
+        // under each token in teach blocks and word-bank tiles (server-filtered to
+        // exclude words the learner already knows from SRS or previous lessons).
+        vocabGlossary: content.vocab_glossary || {},
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -862,8 +869,9 @@
     }
   }
 
-  // Ruby cache: text → HTML string, keyed per-lang.
-  const _rubyCache = {};
+  // Token cache: (lang, text) → Promise<token[]>.  Each token: {text, roman, is_word}.
+  // Separated from HTML rendering so the glossary (session-specific) doesn't pollute the cache.
+  const _tokenCache = {};
 
   // True when text is mostly Latin alphabet — ruby would be meaningless/wrong.
   function _isLatin(text) {
@@ -873,36 +881,52 @@
     return latin / stripped.length > 0.5;
   }
 
-  // Fetch per-token romanization from /api/ruby and return <ruby> HTML for `text`.
-  // For Latin-script languages (no romanization) returns just esc(text).
-  // Results are cached for the lifetime of the page.
-  async function rubyHtml(text, lang) {
-    if (!text) return '';
-    if (_isLatin(text)) return esc(text);
+  // Fetch per-token data from /api/ruby, cached for the page lifetime.
+  function _fetchTokens(text, lang) {
     const key = lang + '\0' + text;
-    if (_rubyCache[key] !== undefined) return _rubyCache[key];
-    try {
-      const tokens = await fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`).then(r => r.json());
-      if (!Array.isArray(tokens) || !tokens.length) throw new Error();
-      const hasRoman = tokens.some(t => t.roman);
-      if (!hasRoman) { _rubyCache[key] = esc(text); return _rubyCache[key]; }
-      const html = tokens.map(t => {
-        if (!t.is_word || !t.roman) return esc(t.text);
-        return `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`;
-      }).join('');
-      _rubyCache[key] = html;
-    } catch {
-      _rubyCache[key] = esc(text);
+    if (!_tokenCache[key]) {
+      _tokenCache[key] = fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`)
+        .then(r => r.json())
+        .catch(() => null);
     }
-    return _rubyCache[key];
+    return _tokenCache[key];
   }
 
-  // Apply ruby annotation to every .needs-ruby element inside `container`.
-  // Elements carry data-text and data-lang; innerHTML is replaced with ruby HTML.
+  // Build <ruby> HTML from a token array, annotating unknown tokens with a gloss label.
+  // glossary: {native_token: english_gloss} — words to annotate (typically the lesson's
+  // vocab_glossary, filtered server-side to exclude already-known words).
+  function _tokensToHtml(tokens, glossary) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const hasRoman = tokens.some(t => t.roman);
+    return tokens.map(t => {
+      const g = (glossary || {})[t.text];
+      const inner = (hasRoman && t.is_word && t.roman)
+        ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`
+        : esc(t.text);
+      return g
+        ? `<span class="tok-wrap">${inner}<span class="tok-gloss">${esc(g)}</span></span>`
+        : inner;
+    }).join('');
+  }
+
+  // Return <ruby>-annotated HTML for `text`, with per-token gloss labels for unknown words.
+  // Falls back to esc(text) for Latin-script languages or on fetch error.
+  async function rubyHtml(text, lang, glossary) {
+    if (!text) return '';
+    if (_isLatin(text)) return esc(text);
+    const tokens = await _fetchTokens(text, lang);
+    if (!tokens || !tokens.length) return esc(text);
+    return _tokensToHtml(tokens, glossary);
+  }
+
+  // Apply ruby + gloss annotations to every .needs-ruby element inside `container`.
+  // Uses player.vocabGlossary if available so every native token in the lesson gets
+  // a gloss label for words the learner hasn't seen before.
   async function applyRuby(container) {
+    const glossary = (player && player.vocabGlossary) || {};
     const els = container.querySelectorAll('.needs-ruby');
     await Promise.all([...els].map(async el => {
-      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang);
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary);
       el.classList.remove('needs-ruby');
     }));
   }

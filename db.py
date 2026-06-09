@@ -1830,6 +1830,45 @@ async def get_mastery_summary(user_id: int, lang: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_known_words(user_id: int, lang: str) -> dict[str, str]:
+    """Return {native_text: english_gloss} for every word/phrase the user already knows.
+
+    Sources:
+    • SRS cards      — target_text → source_text   (user has explicitly added/studied this)
+    • course_concepts — label → gloss               (taught in any previous lesson in this lang)
+
+    Used at lesson assembly to filter the vocab_glossary: only tokens NOT in this dict
+    get annotated with a gloss for the learner.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        result: dict[str, str] = {}
+        # SRS cards: user has intentionally studied these target_text values.
+        async with db.execute(
+            "SELECT target_text, source_text FROM cards WHERE user_id=? AND target_lang=?",
+            (user_id, lang),
+        ) as cur:
+            async for row in cur:
+                t = (row["target_text"] or "").strip()
+                s = (row["source_text"] or "").strip()
+                if t and s:
+                    result[t] = s
+        # Course concepts: every label the learner has been taught (across all courses).
+        async with db.execute(
+            """SELECT cc.label, cc.gloss
+               FROM course_concepts cc
+               JOIN courses c ON cc.course_id = c.id
+               WHERE c.user_id = ? AND c.target_lang = ?""",
+            (user_id, lang),
+        ) as cur:
+            async for row in cur:
+                lbl = (row["label"] or "").strip()
+                gl = (row["gloss"] or "").strip()
+                if lbl and gl:
+                    result[lbl] = gl
+        return result
+
+
 async def get_concept_content(lang: str, concept_key: str) -> dict | None:
     """Verified canonical grammar artifact for (lang, concept_key), or None.
     Shared across users — not ownership-scoped."""
