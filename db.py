@@ -1492,10 +1492,14 @@ async def create_course(user_id: int, target_lang: str, level: str) -> int:
 
 
 async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
-    """Persist pre-built Foundations (reading) units + lessons at the front of a
+    """Persist pre-built Foundations (reading) units + lessons at the FRONT of a
     course. Each unit becomes a CLOSED course_units row (theme='foundations') with
     its lessons assigned and content already set. These don't register vocab
-    concepts (graphemes aren't course concepts) and are skippable in get_course.
+    concepts and are skippable in get_course.
+
+    When the course already has AI units (backfill), existing units are shifted up
+    to keep foundations at idx 0..N-1. Lesson numbers continue from MAX(lesson_num)
+    so they don't collide with existing lessons.
 
     `units` — output of foundations.build_units(): [{title, objective, lessons:[
               {title, objective, content}]}].
@@ -1503,13 +1507,22 @@ async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
     if not units:
         return
     async with aiosqlite.connect(DB_PATH) as db:
-        # Continue numbering after anything already present (defensive — normally 0).
+        # If AI units already exist, shift them to make room for foundations at front.
         async with db.execute(
-            "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
+            "SELECT COUNT(*) FROM course_units WHERE course_id=?", (course_id,)
         ) as cur:
-            unit_idx = (await cur.fetchone())[0] + 1
+            existing = (await cur.fetchone())[0]
+        if existing:
+            await db.execute(
+                "UPDATE course_units SET idx = idx + ? WHERE course_id=?",
+                (len(units), course_id),
+            )
+        unit_idx = 0
+
+        # lesson_num continues from existing max so there are no collisions.
         async with db.execute(
-            "SELECT COUNT(*) FROM course_lessons WHERE course_id=?", (course_id,)
+            "SELECT COALESCE(MAX(lesson_num), 0) FROM course_lessons WHERE course_id=?",
+            (course_id,),
         ) as cur:
             lesson_num = (await cur.fetchone())[0] + 1
 

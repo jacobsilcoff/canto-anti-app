@@ -1647,9 +1647,15 @@ async def list_courses(user: dict = Depends(current_user)):
 
 @app.get("/api/courses/active")
 async def active_course(user: dict = Depends(current_user)):
-    """The current language's active course (full nested structure), or null."""
+    """The current language's active course (full nested structure), or null.
+    Auto-seeds the Foundations track for any existing course that predates it."""
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    return {"course": await db.get_active_course(user["id"], lang)}
+    course = await db.get_active_course(user["id"], lang)
+    if course and foundations.has_foundations(lang):
+        if not any(u.get("theme") == "foundations" for u in (course.get("units") or [])):
+            await db.seed_foundation_units(course["id"], foundations.build_units(lang))
+            course = await db.get_active_course(user["id"], lang)
+    return {"course": course}
 
 
 @app.get("/api/courses/{course_id}")

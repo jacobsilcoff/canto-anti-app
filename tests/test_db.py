@@ -440,3 +440,71 @@ async def test_close_unit_assigns_all_pending_lessons(fresh_db):
     assert len(course["units"][0]["lessons"]) == 2
     # no more in_progress virtual unit
     assert not any(u.get("in_progress") for u in course["units"])
+
+
+# ── Foundations seeding ────────────────────────────────────────────────────────
+
+_F_UNITS = [
+    {"title": "Script Basics", "objective": "obj1", "lessons": [
+        {"title": "Intro",     "objective": "", "content": {"segments": []}},
+        {"title": "Consonants","objective": "", "content": {"segments": []}},
+    ]},
+    {"title": "Vowels", "objective": "obj2", "lessons": [
+        {"title": "Vowels", "objective": "", "content": {"segments": []}},
+    ]},
+]
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_on_empty_course(fresh_db):
+    """Foundations seeded into a brand-new course start at idx 0."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "ko", "A1")
+    await db.seed_foundation_units(cid, _F_UNITS)
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    assert len(f_units) == 2
+    # idx values start at 0 and are contiguous
+    idxs = sorted(u["idx"] for u in f_units)
+    assert idxs == [0, 1]
+    # lessons are present
+    total = sum(len(u["lessons"]) for u in f_units)
+    assert total == 3
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_prepends_to_existing_ai_units(fresh_db):
+    """Backfill: foundations are inserted at the front; existing AI units shift up."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    # Create one AI lesson and close it into a unit (idx 0)
+    await db.create_lesson(cid, 1, "AI Lesson", "obj", _CONCEPTS_L1, _CONTENT, "s")
+    await db.close_unit(cid, "AI Unit", "first AI unit")
+    course_before = await db.get_course(uid, cid)
+    assert course_before["units"][0]["title"] == "AI Unit"
+    assert course_before["units"][0]["idx"] == 0
+
+    # Now backfill 2 foundations units
+    await db.seed_foundation_units(cid, _F_UNITS)
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    ai_units = [u for u in course["units"] if u["theme"] != "foundations"]
+    # Foundations are at front (lowest idx values)
+    assert len(f_units) == 2
+    assert len(ai_units) == 1
+    assert max(u["idx"] for u in f_units) < min(u["idx"] for u in ai_units)
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_idempotent_guard(fresh_db):
+    """Calling seed twice would double the units — callers must check first.
+    This test just verifies the second call isn't silently ignored; callers
+    are responsible for the 'already seeded?' guard."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "ko", "A1")
+    await db.seed_foundation_units(cid, _F_UNITS)
+    await db.seed_foundation_units(cid, _F_UNITS)   # called again
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    # Two calls → four foundation units (2×2). Guard belongs in the caller.
+    assert len(f_units) == 4

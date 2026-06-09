@@ -44,6 +44,19 @@
     .unit-name { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
     .unit-obj { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
 
+    /* Foundations collapsible section */
+    .foundations-section { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+    .foundations-toggle { width: 100%; display: flex; align-items: center; gap: 8px; background: var(--surface); border: none; padding: 13px 16px; cursor: pointer; text-align: left; }
+    .foundations-toggle:hover { background: #f5f7ff; }
+    .foundations-icon { font-size: 1rem; flex-shrink: 0; }
+    .foundations-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+    .foundations-badge { background: #eef4fe; color: var(--primary); border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
+    .foundations-progress { color: var(--text-muted); font-size: 0.78rem; margin-left: 4px; }
+    .foundations-chevron { margin-left: auto; color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
+    .foundations-body { padding: 4px 12px 4px; }
+    .foundations-body .unit { margin-bottom: 16px; }
+    .foundations-body .unit:last-child { margin-bottom: 8px; }
+
     .lesson { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
     .lesson.locked { opacity: 0.55; }
     .lesson.available { border-color: var(--primary); box-shadow: var(--shadow); }
@@ -383,6 +396,16 @@
     if (currentCourse) renderCourse(currentCourse);
   }
 
+  // Foundations section collapse — default collapsed (hidden); '0' = expanded.
+  function toggleFoundations() {
+    const isNowCollapsed = localStorage.getItem('learn_foundations_collapsed') === '0';
+    localStorage.setItem('learn_foundations_collapsed', isNowCollapsed ? '1' : '0');
+    const body    = document.getElementById('foundations-body');
+    const chevron = document.getElementById('foundations-chevron');
+    if (body)    body.style.display = isNowCollapsed ? 'none' : '';
+    if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
+  }
+
   // ── Debug panel ─────────────────────────────────────────────────────────────
 
   function openDebug(lessonId, lessonNum) {
@@ -440,6 +463,32 @@
 
   // ── Course map ───────────────────────────────────────────────────────────────
 
+  // Shared: build the HTML for one lesson row (used for both foundations & AI).
+  function _lessonHtml(l, li) {
+    const st = l.status || 'locked';
+    const num = l.lesson_num || (li + 1);
+    const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : num);
+    const meta = l.concept_count
+      ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
+    const clickable = unlockAll || st === 'available' || st === 'done';
+    const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
+    return `<div class="lesson ${st}${clickable ? ' clickable' : ''}" style="position:relative"
+        ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+      <div class="lesson-node">${node}</div>
+      <div class="lesson-body">
+        <div class="lesson-name">${esc(l.title)}</div>
+        ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
+        ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
+        ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div class="lesson-status ${st}">${badge}</div>
+        <button onclick="event.stopPropagation();openDebug(${l.id},${num})"
+          title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>
+      </div>
+    </div>`;
+  }
+
   function renderCourse(course) {
     currentCourse = course;
     document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
@@ -448,32 +497,68 @@
     document.getElementById('course-title').textContent =
       (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
 
-    const units = course.units || [];
+    const allUnits  = course.units || [];
+    const foundUnits = allUnits.filter(u => u.theme === 'foundations');
+    const aiUnits    = allUnits.filter(u => u.theme !== 'foundations');
+
     const nLessons = course.lesson_count || 0;
-    const nDone = course.done_count || 0;
-    const nUnits = units.filter(u => !u.in_progress).length;
+    const nDone    = course.done_count   || 0;
+    // Count only AI units for the "N units" display (foundations is a fixed track).
+    const nAiUnits = aiUnits.filter(u => !u.in_progress).length;
     document.getElementById('course-sub').textContent =
       nLessons === 0
         ? 'No lessons yet'
-        : `${nUnits} unit${nUnits !== 1 ? 's' : ''} · ${nLessons} lesson${nLessons !== 1 ? 's' : ''} · ${nDone}/${nLessons} done`;
+        : `${nAiUnits} unit${nAiUnits !== 1 ? 's' : ''} · ${nLessons} lesson${nLessons !== 1 ? 's' : ''} · ${nDone}/${nLessons} done`;
 
     const wrap = document.getElementById('units');
     wrap.innerHTML = '';
-    let unitNo = 0;   // number only AI (vocab) units; Foundations units are labelled separately
-    units.forEach((u, ui) => {
+
+    // ── Foundations collapsible section ────────────────────────────────────────
+    if (foundUnits.length > 0) {
+      // Collapse state: default collapsed (hidden). '0' = expanded, anything else = collapsed.
+      const collapsed = localStorage.getItem('learn_foundations_collapsed') !== '0';
+      const fTotal = foundUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+      const fDone  = foundUnits.reduce((n, u) =>
+        n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+
+      const section = document.createElement('div');
+      section.className = 'foundations-section';
+      section.innerHTML = `
+        <button class="foundations-toggle" onclick="toggleFoundations()">
+          <span class="foundations-icon">📖</span>
+          <span class="foundations-label">Reading Track</span>
+          <span class="foundations-badge">optional</span>
+          <span class="foundations-progress">${fDone}/${fTotal}</span>
+          <span class="foundations-chevron" id="foundations-chevron"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="foundations-body" id="foundations-body"
+          style="${collapsed ? 'display:none' : ''}"></div>`;
+
+      const body = section.querySelector('#foundations-body');
+      foundUnits.forEach(u => {
+        const unitDiv = document.createElement('div');
+        unitDiv.className = 'unit';
+        let html = `<div class="unit-head">
+          <div class="unit-title" style="color:var(--text-muted)">${esc(u.title)}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+        (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
+        unitDiv.innerHTML = html;
+        body.appendChild(unitDiv);
+      });
+      wrap.appendChild(section);
+    }
+
+    // ── AI (vocab) units ───────────────────────────────────────────────────────
+    let unitNo = 0;
+    aiUnits.forEach(u => {
       const sec = document.createElement('div');
       sec.className = 'unit';
-      const isFoundation = u.theme === 'foundations';
       let header = '';
       if (u.in_progress) {
         header = `<div class="unit-head">
           <div class="unit-title" style="color:var(--text-muted)">In progress</div>
-        </div>`;
-      } else if (isFoundation) {
-        header = `<div class="unit-head">
-          <div class="unit-title">📖 Reading · optional</div>
-          <div class="unit-name">${esc(u.title)}</div>
-          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
         </div>`;
       } else {
         unitNo += 1;
@@ -484,30 +569,7 @@
         </div>`;
       }
       let html = header;
-      (u.lessons || []).forEach((l, li) => {
-        const st = l.status || 'locked';
-        const num = l.lesson_num || (li + 1);
-        const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : num);
-        const meta = l.concept_count
-          ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
-        const clickable = unlockAll || (st === 'available' || st === 'done');
-        const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
-        html += `<div class="lesson ${st}${clickable ? ' clickable' : ''}" style="position:relative"
-            ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
-          <div class="lesson-node">${node}</div>
-          <div class="lesson-body">
-            <div class="lesson-name">${esc(l.title)}</div>
-            ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
-            ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
-            ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <div class="lesson-status ${st}">${badge}</div>
-            <button onclick="event.stopPropagation();openDebug(${l.id},${num})"
-              title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>
-          </div>
-        </div>`;
-      });
+      (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
       sec.innerHTML = html;
       wrap.appendChild(sec);
     });
