@@ -153,3 +153,43 @@ async def test_active_plan_roundtrip(fresh_db):
     assert got["cursor"] == 0
     await db.set_active_plan(cid, None)
     assert await db.get_active_plan(cid) is None
+
+
+# ── Mastery ledger ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_mastery_record_and_retrieve(fresh_db):
+    uid = fresh_db
+    results = [
+        {"concept_key": "greeting_hello", "correct": 3, "total": 4},
+        {"concept_key": "article_el_la",  "correct": 1, "total": 5},
+    ]
+    await db.record_concept_results(uid, "es", results)
+    summary = await db.get_mastery_summary(uid, "es")
+    by_key = {r["concept_key"]: r for r in summary}
+    assert by_key["greeting_hello"]["correct"] == 3
+    assert by_key["greeting_hello"]["total"] == 4
+    assert by_key["article_el_la"]["correct"] == 1
+
+
+@pytest.mark.asyncio
+async def test_mastery_increments_on_second_attempt(fresh_db):
+    uid = fresh_db
+    await db.record_concept_results(uid, "fr", [{"concept_key": "present_er", "correct": 2, "total": 3}])
+    await db.record_concept_results(uid, "fr", [{"concept_key": "present_er", "correct": 3, "total": 3}])
+    summary = await db.get_mastery_summary(uid, "fr")
+    assert summary[0]["correct"] == 5
+    assert summary[0]["total"] == 6
+
+
+@pytest.mark.asyncio
+async def test_mastery_ignores_bad_rows(fresh_db):
+    uid = fresh_db
+    await db.record_concept_results(uid, "yue", [
+        {"concept_key": "",          "correct": 1, "total": 1},   # blank key
+        {"concept_key": "good_key",  "correct": 0, "total": 0},   # zero total
+        {"concept_key": "valid_key", "correct": 1, "total": 2},
+    ])
+    summary = await db.get_mastery_summary(uid, "yue")
+    assert len(summary) == 1
+    assert summary[0]["concept_key"] == "valid_key"

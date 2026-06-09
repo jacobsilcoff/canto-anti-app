@@ -1003,6 +1003,7 @@ async def get_settings(user: dict = Depends(current_user)):
         # Admin-only: author Learning-Path lessons on the premium model.
         "lesson_premium": await db.get_setting(user["id"], "lesson_premium") == "1",
         "lesson_premium_model": grammar_lessons.GENERATION_MODEL,
+        "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
     }
 
 
@@ -1016,6 +1017,7 @@ class SettingsUpdate(BaseModel):
     model_translate: str | None = None
     model_reader: str | None = None
     lesson_premium: bool | None = None
+    learner_profile: str | None = None
 
 
 @app.put("/api/settings")
@@ -1053,6 +1055,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if not user.get("is_admin"):
             raise HTTPException(403, "Admins only")
         await db.set_setting(user["id"], "lesson_premium", "1" if req.lesson_premium else "0")
+    if req.learner_profile is not None:
+        await db.set_setting(user["id"], "learner_profile", req.learner_profile[:2000].strip())
     return {"success": True}
 
 
@@ -1668,7 +1672,7 @@ def _next_batch(concepts: list[dict]) -> list[dict]:
     return batch
 
 
-async def _author_next_lesson(course: dict, access, lesson_model: str) -> int:
+async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
     """Author + persist ONE micro-lesson, consuming 1–2 concepts from the course's
     active unit plan (drafting a new unit plan when the current one is exhausted).
     Re-reads context each call, so calling it in a loop builds on prior lessons.
@@ -1682,12 +1686,18 @@ async def _author_next_lesson(course: dict, access, lesson_model: str) -> int:
     if not plan or plan.get("cursor", 0) >= len(plan.get("concepts") or []):
         if plan and plan.get("concepts"):   # previous unit finished → close it
             await db.close_unit(course_id, plan.get("title") or "Unit", plan.get("summary") or "")
+        learner_profile = ""
+        mastery: list[dict] = []
+        if user_id:
+            learner_profile = await db.get_setting(user_id, "learner_profile") or ""
+            mastery = await db.get_mastery_summary(user_id, course["target_lang"])
         try:
             plan = await learning.generate_unit_plan(
                 course["target_lang"], course["level"],
                 len(ctx["unit_summaries"]) + 1,
                 ctx["concept_registry"], ctx["unit_summaries"],
                 api_key=access.api_key, model=lesson_model,
+                learner_profile=learner_profile, mastery=mastery,
             )
         except Exception:
             raise HTTPException(502, "Unit planning failed — please try again.")
@@ -1761,7 +1771,7 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
     lesson_ids: list[int] = []
     for _ in range(count):
         try:
-            lesson_ids.append(await _author_next_lesson(course, access, lesson_model))
+            lesson_ids.append(await _author_next_lesson(course, access, lesson_model, user["id"]))
         except HTTPException:
             if not lesson_ids:      # nothing succeeded → surface the error
                 raise
@@ -1800,6 +1810,7 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
 
 class CompleteLessonRequest(BaseModel):
     score: int = 0
+    results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes
 
 
 @app.post("/api/lessons/{lesson_id}/complete")
@@ -1807,7 +1818,21 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
     ok = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
     if not ok:
         raise HTTPException(404, "Lesson not found")
+    if req.results:
+        lesson = await db.get_lesson(user["id"], lesson_id)
+        if lesson:
+            await db.record_concept_results(user["id"], lesson["target_lang"], req.results)
     return {"success": True}
+
+
+@app.get("/api/mastery")
+async def get_mastery(lang: str | None = None, user: dict = Depends(current_user)):
+    """Per-concept mastery stats for the requesting user.
+    If `lang` is omitted, uses the user's default_target_lang."""
+    if not lang or lang not in translation.LANG_INFO:
+        lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    rows = await db.get_mastery_summary(user["id"], lang)
+    return {"lang": lang, "concepts": rows}
 
 
 @app.get("/api/ruby")

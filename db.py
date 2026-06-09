@@ -293,6 +293,19 @@ async def init():
                 PRIMARY KEY (lang, concept_key)
             )
         """)
+        # Per-user, per-language concept mastery ledger. Incremented when a lesson
+        # is completed; fed back to the unit planner to steer around weak spots.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS concept_mastery (
+                user_id     INTEGER NOT NULL,
+                lang        TEXT    NOT NULL,
+                concept_key TEXT    NOT NULL,
+                correct     INTEGER NOT NULL DEFAULT 0,
+                total       INTEGER NOT NULL DEFAULT 0,
+                last_seen   TEXT,
+                PRIMARY KEY (user_id, lang, concept_key)
+            )
+        """)
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -1777,6 +1790,44 @@ async def complete_lesson(user_id: int, lesson_id: int, score: int) -> bool:
         )
         await db.commit()
         return True
+
+
+async def record_concept_results(user_id: int, lang: str, results: list[dict]) -> None:
+    """Upsert per-concept mastery by incrementing correct + total counters."""
+    if not results:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        for r in results:
+            key = (r.get("concept_key") or "").strip()
+            correct = max(0, int(r.get("correct") or 0))
+            total = max(0, int(r.get("total") or 0))
+            if not key or total == 0:
+                continue
+            await db.execute(
+                """INSERT INTO concept_mastery
+                       (user_id, lang, concept_key, correct, total, last_seen)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'))
+                   ON CONFLICT(user_id, lang, concept_key) DO UPDATE SET
+                       correct   = correct  + excluded.correct,
+                       total     = total    + excluded.total,
+                       last_seen = excluded.last_seen""",
+                (user_id, lang, key, correct, total),
+            )
+        await db.commit()
+
+
+async def get_mastery_summary(user_id: int, lang: str) -> list[dict]:
+    """Return per-concept mastery rows for a user+language, most-practised first."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT concept_key, correct, total, last_seen
+               FROM concept_mastery WHERE user_id=? AND lang=?
+               ORDER BY total DESC""",
+            (user_id, lang),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
 
 
 async def get_concept_content(lang: str, concept_key: str) -> dict | None:

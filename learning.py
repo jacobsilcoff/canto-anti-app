@@ -99,14 +99,34 @@ def _lang_preamble(info: dict) -> str:
 def _build_unit_plan_prompt(
     target_lang: str, level_target: str, unit_num: int,
     concept_registry: list[dict], unit_summaries: list[dict],
+    learner_profile: str = "", mastery: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
+
+    profile_section = ""
+    if learner_profile.strip():
+        profile_section = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n"
+
+    mastery_section = ""
+    if mastery:
+        weak = [m for m in mastery
+                if m["total"] >= 3 and m["correct"] / m["total"] < 0.7]
+        if weak:
+            weak_str = ", ".join(m["concept_key"] for m in weak[:10])
+            mastery_section = (
+                f"── CONCEPTS NEEDING REINFORCEMENT (seen ≥3×, <70% accuracy) ──\n"
+                f"{weak_str}\n"
+                f"If the theme fits naturally, weave in extra practice or revisit these.\n\n"
+            )
+
     return (
         f"You are an expert {name} curriculum designer building a Duolingo-style "
         f"course for an English speaker (proficiency goal {level_target}; loose "
         f"guidance — trust your judgment on pacing).\n\n"
         f"{_lang_preamble(info)}"
+        f"{profile_section}"
+        f"{mastery_section}"
         f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
         f"{_units_block(unit_summaries)}\n\n"
         f"── YOUR TASK ──\n"
@@ -144,6 +164,8 @@ async def generate_unit_plan(
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
+    learner_profile: str = "",
+    mastery: list[dict] | None = None,
 ) -> dict:
     """One LLM call: draft a unit's ordered concept outline. Returns
     {title, objective, summary, concepts:[...], _raw_prompt, _raw_response}."""
@@ -152,6 +174,7 @@ async def generate_unit_plan(
     prompt = _build_unit_plan_prompt(
         target_lang, level_target, unit_num,
         concept_registry or [], unit_summaries or [],
+        learner_profile=learner_profile, mastery=mastery,
     )
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}

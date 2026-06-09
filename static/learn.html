@@ -789,6 +789,7 @@
         segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         controller: null, graded: false,
+        conceptResults: {},   // concept_key → {correct, total} for mastery ledger
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -1063,6 +1064,12 @@
       } else {
         player.mistakes.push(ex);              // review it at the end of the lesson
       }
+      // Track first-pass outcomes per concept for the mastery ledger.
+      if (!ex._review && ex.concept_key) {
+        const m = player.conceptResults[ex.concept_key] || (player.conceptResults[ex.concept_key] = { correct: 0, total: 0 });
+        m.total++;
+        if (correct) m.correct++;
+      }
       const fb = document.getElementById('feedback');
       const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
       if (correct) {
@@ -1098,8 +1105,12 @@
     const total = player.total;
     const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
     try {
+      const results = Object.entries(player.conceptResults).map(([k, v]) => ({
+        concept_key: k, correct: v.correct, total: v.total,
+      }));
       await fetch('/api/lessons/' + player.lessonId + '/complete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score, results }),
       });
     } catch {}
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';

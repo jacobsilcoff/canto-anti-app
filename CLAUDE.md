@@ -56,8 +56,9 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 - **card_faces** — one row per face per card (`source`, `target`, `pronunciation`); each face has independent SM-2 state (next_review, interval_days, ease_factor, repetitions, first_seen_date, learning_step). `learning_step` non-NULL = card is in (re)learning with sub-day steps; NULL = graduated review card.
 - **labels / card_labels** — per-user tags; many-to-many with cards
 - **users** — scrypt-hashed passwords, is_admin flag
-- **user_settings** — key-value store (new_cards_per_day, default_target_lang)
+- **user_settings** — key-value store (new_cards_per_day, default_target_lang, learner_profile, …)
 - **courses / course_units / course_lessons / course_concepts** — per-user AI Learning Path. `courses.active_plan` = JSON outline of the in-progress unit (`{title, objective, summary, concepts:[...], cursor}`), NULL between units. `course_lessons.content` = the authored `{segments:[...]}` (set at creation, since lessons are authored one at a time). Units still close reactively (`close_unit` back-assigns `unit_id` when a plan is exhausted). `course_concepts` registers only concepts actually taught.
+- **concept_mastery** — `(user_id, lang, concept_key, correct, total, last_seen)`. Incremented each time the learner completes a lesson (first-pass drill outcomes only). Fed back to the unit planner: weak concepts (≥3 attempts, <70% accuracy) are surfaced in the prompt so the planner can weave in extra practice.
 - **concept_content** — `(lang, concept_key)` → legacy shared grammar artifact; **retained but unused** by the new lesson path.
 
 Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately. New words are **staggered** — only the primary `target` face is introduced first; `source`/`pronunciation` unlock once the primary graduates (see `db.get_study_session`).
