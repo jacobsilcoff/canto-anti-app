@@ -431,6 +431,8 @@ def _lesson_taught_graphemes(lesson: dict) -> list[dict]:
 def _build_lesson_content(lesson: dict, taught: list[dict], script_type: str, lang: str) -> dict:
     if script_type == "abugida":
         return _build_abugida_lesson_content(lesson, taught, lang)
+    if script_type == "tonal":
+        return _build_tonal_lesson_content(lesson, lang)
     return _build_hangul_lesson_content(lesson, taught)
 
 
@@ -558,3 +560,382 @@ _TELUGU_TRACK = {
 
 FOUNDATIONS["hi"] = _DEVANAGARI_TRACK
 FOUNDATIONS["te"] = _TELUGU_TRACK
+
+
+# ── Tonal engine (Cantonese yue / Mandarin cmn) ───────────────────────────────
+# Teaches the PHONOLOGICAL system: syllable structure, tones, initials, finals.
+# No character literacy is assumed — romanisation (jyutping / pinyin) is the
+# notation being learned. Native characters appear only as audio/prompt sources.
+# hide_roman on exercises prevents inline ruby (romanisation IS what's tested).
+
+# Data constructors ─────────────────────────────────────────────────────────────
+# tone definition: number, description, Chao contour string
+TN = lambda n, desc, contour: {"number": n, "desc": desc, "contour": contour}
+# tone pair word: char, romanisation, audio text for TTS, English meaning, tone#
+TP = lambda char, roman, audio, meaning, tone_num: {
+    "char": char, "roman": roman, "audio": audio, "meaning": meaning, "tone_num": tone_num}
+# initial: symbol label, representative char, romanisation, audio, meaning, note
+TI = lambda sym, char, roman, audio, meaning, note="": {
+    "sym": sym, "char": char, "roman": roman, "audio": audio, "meaning": meaning, "note": note}
+# final: char, romanisation, audio, meaning, note
+TF = lambda char, roman, audio, meaning, note="": {
+    "char": char, "roman": roman, "audio": audio, "meaning": meaning, "note": note}
+
+
+# ── Cantonese (yue) tonal data ─────────────────────────────────────────────────
+_YUE_TONE_DEFS = [
+    TN(1, "high level",  "55"),
+    TN(2, "high rising", "25"),
+    TN(3, "mid level",   "33"),
+    TN(4, "low falling", "21"),
+    TN(5, "low rising",  "23"),
+    TN(6, "low level",   "22"),
+]
+
+# Minimal set 1: si1–si6 (詩·史·試·時·市·事)
+_YUE_PAIRS_SI = [
+    TP("詩", "si1", "詩", "poem",     1),
+    TP("史", "si2", "史", "history",  2),
+    TP("試", "si3", "試", "to try",   3),
+    TP("時", "si4", "時", "time",     4),
+    TP("市", "si5", "市", "market",   5),
+    TP("事", "si6", "事", "matter",   6),
+]
+
+# Minimal set 2: fu1–fu6 (夫·虎·副·扶·婦·父)
+_YUE_PAIRS_FU = [
+    TP("夫", "fu1", "夫", "husband",    1),
+    TP("虎", "fu2", "虎", "tiger",      2),
+    TP("副", "fu3", "副", "deputy",     3),
+    TP("扶", "fu4", "扶", "to support", 4),
+    TP("婦", "fu5", "婦", "woman",      5),
+    TP("父", "fu6", "父", "father",     6),
+]
+
+_YUE_INITIALS = [
+    TI("ng-", "我",  "ngo5",   "我",  "I / me",        "Like 'ng' in 'sing' — but at the START of a syllable"),
+    TI("gw-", "瓜",  "gwaa1",  "瓜",  "melon",          "'g' with rounded lips"),
+    TI("kw-", "礦",  "kwong3", "礦",  "mine / mineral", "Aspirated rounded 'k'"),
+    TI("j-",  "一",  "jat1",   "一",  "one",            "Like English 'y' — NOT French 'j'"),
+    TI("z-",  "字",  "zi6",    "字",  "character",      "A buzzy 'dz' sound"),
+    TI("c-",  "次",  "ci3",    "次",  "time / occasion","Aspirated 'ts'"),
+]
+
+_YUE_FINALS = [
+    TF("啊",  "aa3",    "啊",   "ah! (exclamation)",    "Long 'aa' — like 'father'"),
+    TF("飛",  "fei1",   "飛",   "to fly",               "-ei diphthong"),
+    TF("好",  "hou2",   "好",   "good",                 "-ou diphthong — like 'low'"),
+    TF("香",  "hoeng1", "香",   "fragrant",             "'oe' + -ng — a rounded 'e'"),
+    TF("入",  "jap6",   "入",   "to enter",             "Final -p (unreleased stop)"),
+    TF("八",  "baat3",  "八",   "eight",                "Final -t (unreleased stop)"),
+    TF("北",  "bak1",   "北",   "north",                "Final -k (unreleased stop)"),
+    TF("心",  "sam1",   "心",   "heart",                "Final -m"),
+    TF("安",  "on1",    "安",   "peace",                "Final -n"),
+    TF("生",  "saang1", "生",   "born / raw",           "Long 'aa' + final -ng"),
+]
+
+_CANTONESE_TRACK = {
+    "script_type": "tonal",
+    "title": "Cantonese Sounds",
+    "units": [
+        {"title": "How Cantonese Sounds Work",
+         "objective": "Syllable structure and the jyutping romanisation system",
+         "lessons": [
+            {"title": "Syllables & Jyutping", "type": "info",
+             "intro": (
+                 "Cantonese syllables follow a fixed pattern: INITIAL + FINAL + TONE. "
+                 "The INITIAL is an opening consonant (optional). The FINAL is a vowel "
+                 "core plus an optional coda (nasal or unreleased stop). The TONE is one "
+                 "of SIX distinct pitches — they change meaning entirely:\n\n"
+                 "詩·史·試·時·市·事 are all 'si', differing only in tone.\n\n"
+                 "Jyutping romanises Cantonese with a digit at the end for the tone: "
+                 "si1 = poem, si6 = matter. You'll train your ear on all six tones first."
+             )},
+         ]},
+        {"title": "The Six Tones",
+         "objective": "Hear and distinguish all six Cantonese tones",
+         "lessons": [
+            {"title": "Tones 1, 2 & 3", "type": "tones",
+             "tone_defs": _YUE_TONE_DEFS[:3],
+             "pairs": _YUE_PAIRS_SI[:3],
+             "intro": (
+                 "The high/mid tones — they differ in movement:\n"
+                 "• Tone 1 (55): stays high and flat — 詩 si1 (poem)\n"
+                 "• Tone 2 (25): rises — 史 si2 (history)\n"
+                 "• Tone 3 (33): stays mid and flat — 試 si3 (to try)"
+             )},
+            {"title": "Tones 4, 5 & 6", "type": "tones",
+             "tone_defs": _YUE_TONE_DEFS[3:],
+             "pairs": _YUE_PAIRS_SI[3:],
+             "intro": (
+                 "The low tones — all start low, but move differently:\n"
+                 "• Tone 4 (21): falls — 時 si4 (time)\n"
+                 "• Tone 5 (23): rises from low — 市 si5 (market)\n"
+                 "• Tone 6 (22): stays low and flat — 事 si6 (matter)"
+             )},
+            {"title": "All Six Tones", "type": "tones",
+             "tone_defs": _YUE_TONE_DEFS,
+             "pairs": _YUE_PAIRS_FU,
+             "intro": (
+                 "Consolidate all six tones on a fresh minimal set: "
+                 "夫·虎·副·扶·婦·父 (fu1–fu6). "
+                 "Listen for the overall pitch shape — high/mid vs low, flat vs moving."
+             )},
+         ]},
+        {"title": "Key Sounds",
+         "objective": "Initials and finals that are new for English speakers",
+         "lessons": [
+            {"title": "Tricky Initials", "type": "initials",
+             "initials": _YUE_INITIALS,
+             "intro": (
+                 "Most initials map to familiar English sounds. These six need extra attention:\n"
+                 "• ng- opens a syllable (in English it only ends words)\n"
+                 "• gw- and kw- are labialised velars (rounded lips + back of tongue)\n"
+                 "• j- sounds like English 'y' (not French 'j')\n"
+                 "• z- and c- are affricate sounds ('dz' and aspirated 'ts')"
+             )},
+            {"title": "Finals & Endings", "type": "finals",
+             "finals": _YUE_FINALS,
+             "intro": (
+                 "Cantonese finals are rich: long vowels (aa), diphthongs (ei, ou), the "
+                 "rounded vowel oe, and three unreleased final stops (-p, -t, -k) that "
+                 "cut a syllable short. There are also three nasal endings: -m, -n, -ng."
+             )},
+         ]},
+    ],
+}
+
+
+# ── Mandarin (cmn) tonal data ──────────────────────────────────────────────────
+_CMN_TONE_DEFS = [
+    TN(1, "flat (high)", "55"),
+    TN(2, "rising",      "35"),
+    TN(3, "dipping",     "214"),
+    TN(4, "falling",     "51"),
+]
+
+# Minimal set 1: mā·má·mǎ·mà (妈·麻·马·骂)
+_CMN_PAIRS_MA = [
+    TP("妈", "mā",  "妈", "mom",      1),
+    TP("麻", "má",  "麻", "hemp",     2),
+    TP("马", "mǎ",  "马", "horse",    3),
+    TP("骂", "mà",  "骂", "to scold", 4),
+]
+
+# Minimal set 2: tāng·táng·tǎng·tàng (汤·糖·躺·烫)
+_CMN_PAIRS_TANG = [
+    TP("汤", "tāng", "汤", "soup",         1),
+    TP("糖", "táng", "糖", "sugar / candy", 2),
+    TP("躺", "tǎng", "躺", "to lie down",  3),
+    TP("烫", "tàng", "烫", "scalding hot", 4),
+]
+
+_CMN_INITIALS = [
+    TI("zh", "找", "zhǎo", "找", "to look for",  "Retroflex — tongue curled back (hard 'j')"),
+    TI("z",  "走", "zǒu",  "走", "to walk",      "NOT retroflex — flat 'dz'"),
+    TI("ch", "吃", "chī",  "吃", "to eat",       "Retroflex 'ch' — tongue curled back"),
+    TI("sh", "是", "shì",  "是", "to be",        "Retroflex 'sh' — tongue curled back"),
+    TI("r",  "人", "rén",  "人", "person",       "Retroflex — a buzzy, curled 'r'"),
+    TI("x",  "小", "xiǎo", "小", "small",        "Palatal 'sh' — tongue forward"),
+    TI("q",  "七", "qī",   "七", "seven",        "Aspirated palatal 'ch' — tongue forward"),
+    TI("j",  "家", "jiā",  "家", "home / family","Unaspirated palatal — like 'j' in 'jeep'"),
+]
+
+_CMN_FINALS = [
+    TF("鱼", "yú",    "鱼",  "fish",          "Rounded front vowel — like French 'u'"),
+    TF("哦", "ò",     "哦",  "oh (particle)", "Pure round 'o'"),
+    TF("爱", "ài",    "爱",  "love",          "-ai diphthong"),
+    TF("好", "hǎo",   "好",  "good",          "-ao diphthong — like 'how'"),
+    TF("安", "ān",    "安",  "peace",         "Final -n"),
+    TF("生", "shēng", "生",  "born / raw",    "Final -ng"),
+    TF("儿", "ér",    "儿",  "child",         "Rhotacized 'er' — like 'her'"),
+]
+
+_MANDARIN_TRACK = {
+    "script_type": "tonal",
+    "title": "Mandarin Sounds",
+    "units": [
+        {"title": "How Mandarin Sounds Work",
+         "objective": "Syllable structure and the pinyin romanisation system",
+         "lessons": [
+            {"title": "Syllables & Pinyin", "type": "info",
+             "intro": (
+                 "Mandarin syllables follow the pattern: INITIAL + FINAL + TONE. "
+                 "There are four tones (plus an unstressed neutral tone on some particles):\n\n"
+                 "• mā (Tone 1): high and flat\n"
+                 "• má (Tone 2): rises\n"
+                 "• mǎ (Tone 3): dips then rises\n"
+                 "• mà (Tone 4): falls sharply\n\n"
+                 "妈·麻·马·骂 are all 'ma' — only the tone distinguishes them. "
+                 "Pinyin puts tone marks over the vowel (ā á ǎ à)."
+             )},
+         ]},
+        {"title": "The Four Tones",
+         "objective": "Recognise and distinguish all four Mandarin tones",
+         "lessons": [
+            {"title": "Tones 1 & 2", "type": "tones",
+             "tone_defs": _CMN_TONE_DEFS[:2],
+             "pairs": [_CMN_PAIRS_MA[0], _CMN_PAIRS_MA[1],
+                       _CMN_PAIRS_TANG[0], _CMN_PAIRS_TANG[1]],
+             "intro": (
+                 "• Tone 1: stay HIGH and flat — mā 妈 (mom), tāng 汤 (soup)\n"
+                 "• Tone 2: RISE — má 麻 (hemp), táng 糖 (sugar)"
+             )},
+            {"title": "Tones 3 & 4", "type": "tones",
+             "tone_defs": _CMN_TONE_DEFS[2:],
+             "pairs": [_CMN_PAIRS_MA[2], _CMN_PAIRS_MA[3],
+                       _CMN_PAIRS_TANG[2], _CMN_PAIRS_TANG[3]],
+             "intro": (
+                 "• Tone 3: DIP down then up — mǎ 马 (horse), tǎng 躺 (lie down)\n"
+                 "• Tone 4: FALL sharply — mà 骂 (to scold), tàng 烫 (scalding)"
+             )},
+            {"title": "All Four Tones", "type": "tones",
+             "tone_defs": _CMN_TONE_DEFS,
+             "pairs": _CMN_PAIRS_MA + _CMN_PAIRS_TANG,
+             "intro": (
+                 "Distinguish all four tones across both sets — 妈·麻·马·骂 and 汤·糖·躺·烫. "
+                 "Focus on the overall pitch shape: flat high / rising / dip-rise / sharp fall."
+             )},
+         ]},
+        {"title": "Key Sounds",
+         "objective": "Initials and finals that differ from English",
+         "lessons": [
+            {"title": "Retroflex & Palatal Initials", "type": "initials",
+             "initials": _CMN_INITIALS,
+             "intro": (
+                 "Mandarin has three sibilant series — each distinct:\n"
+                 "• zh / ch / sh / r: RETROFLEX — tongue curled back\n"
+                 "• z / c / s: flat sibilants — tongue flat, no curl\n"
+                 "• j / q / x: PALATAL — tongue near the hard palate, lips spread\n"
+                 "These are often confused by learners. Drill the contrasts carefully."
+             )},
+            {"title": "Key Finals", "type": "finals",
+             "finals": _CMN_FINALS,
+             "intro": (
+                 "Key Mandarin finals to notice: ü (written 'u' after j/q/x/y) is a "
+                 "rounded front vowel like French 'u'. The -n vs -ng distinction is important. "
+                 "The 'er' final is rhotacized — unique to Mandarin."
+             )},
+         ]},
+    ],
+}
+
+
+# ── Tonal lesson builder ──────────────────────────────────────────────────────
+
+def _tone_label(t: dict) -> str:
+    return f"Tone {t['number']} — {t['desc']} ({t['contour']})"
+
+
+def _build_tonal_lesson_content(lesson: dict, lang: str) -> dict:
+    """Build {segments:[...]} content for a tonal-script-type Foundations lesson."""
+    ltype = lesson["type"]
+
+    if ltype == "info":
+        return {"segments": [{"teach": {"intro": lesson["intro"], "items": []}, "exercises": []}]}
+
+    if ltype == "tones":
+        tone_defs = lesson["tone_defs"]
+        pairs     = lesson["pairs"]
+        labels    = [_tone_label(t) for t in tone_defs]
+        roman_pool = [p["roman"] for p in pairs]
+
+        exs = []
+        # hear audio → pick tone name
+        for p in pairs:
+            t_idx = next(i for i, t in enumerate(tone_defs) if t["number"] == p["tone_num"])
+            opts, ans = _options(labels[t_idx], labels)
+            exs.append({
+                "type": "choice", "instruction": "What tone do you hear?",
+                "audio": p["audio"], "hide_roman": True,
+                "options": opts, "answer": ans,
+                "tip": f"{p['roman']} — {p['meaning']}",
+            })
+        # hear audio → pick correct romanisation
+        for p in pairs:
+            opts, ans = _options(p["roman"], roman_pool)
+            exs.append({
+                "type": "choice", "instruction": "Which romanisation matches what you hear?",
+                "audio": p["audio"], "hide_roman": True,
+                "options": opts, "answer": ans,
+                "tip": p["meaning"],
+            })
+
+        random.shuffle(exs)
+        tone_desc = {t["number"]: _tone_label(t) for t in tone_defs}
+        teach = {
+            "intro": lesson.get("intro", ""),
+            "items": [{"target": p["char"], "target_roman": p["roman"],
+                       "gloss": p["meaning"], "note": tone_desc.get(p["tone_num"], ""),
+                       "audio": p["audio"]} for p in pairs],
+        }
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "initials":
+        items    = lesson["initials"]
+        sym_pool = list(dict.fromkeys(i["sym"] for i in items))
+        roman_pool = [i["roman"] for i in items]
+
+        exs = []
+        for item in items:
+            opts, ans = _options(item["sym"], sym_pool)
+            exs.append({
+                "type": "choice", "instruction": "What initial consonant do you hear?",
+                "audio": item["audio"], "hide_roman": True,
+                "options": opts, "answer": ans,
+                "tip": f"{item['roman']} — {item['meaning']}",
+            })
+        for item in items:
+            opts, ans = _options(item["roman"], roman_pool)
+            exs.append({
+                "type": "choice", "instruction": "Which syllable did you hear?",
+                "audio": item["audio"], "hide_roman": True,
+                "options": opts, "answer": ans,
+                "tip": item["meaning"],
+            })
+
+        random.shuffle(exs)
+        teach = {
+            "intro": lesson.get("intro", ""),
+            "items": [{"target": i["char"], "target_roman": i["roman"],
+                       "gloss": i["meaning"], "note": i.get("note", ""),
+                       "audio": i["audio"]} for i in items],
+        }
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "finals":
+        items      = lesson["finals"]
+        roman_pool = [f["roman"] for f in items]
+        char_pool  = [f["char"]  for f in items]
+
+        exs = []
+        for item in items:
+            opts, ans = _options(item["roman"], roman_pool)
+            exs.append({
+                "type": "choice", "instruction": "Which romanisation matches what you hear?",
+                "audio": item["audio"], "hide_roman": True,
+                "options": opts, "answer": ans,
+                "tip": item.get("note", item["meaning"]),
+            })
+        for item in items[:5]:
+            opts, ans = _options(item["char"], char_pool)
+            exs.append({
+                "type": "listening", "instruction": "What did you hear?", "hide_roman": True,
+                "audio": item["audio"], "audio_roman": item["roman"],
+                "options": opts, "options_roman": ["" for _ in opts], "answer": ans,
+            })
+
+        random.shuffle(exs)
+        teach = {
+            "intro": lesson.get("intro", ""),
+            "items": [{"target": f["char"], "target_roman": f["roman"],
+                       "gloss": f["meaning"], "note": f.get("note", ""),
+                       "audio": f["audio"]} for f in items],
+        }
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    return {"segments": [{"teach": {"intro": "", "items": []}, "exercises": []}]}
+
+
+FOUNDATIONS["yue"] = _CANTONESE_TRACK
+FOUNDATIONS["cmn"] = _MANDARIN_TRACK

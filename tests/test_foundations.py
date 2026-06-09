@@ -135,3 +135,81 @@ def test_foundations_exercises_hide_romanization(lang):
                 for e in s["exercises"]:
                     if e["type"] in ("choice", "listening", "match", "block_build"):
                         assert e.get("hide_roman") is True, f"{lang}: {e['type']} must hide_roman"
+
+
+# ── Tonal tracks (yue / cmn) ──────────────────────────────────────────────────
+
+@__import__("pytest").mark.parametrize("lang", ["yue", "cmn"])
+def test_tonal_tracks_exist(lang):
+    assert F.has_foundations(lang)
+    assert F.FOUNDATIONS[lang]["script_type"] == "tonal"
+
+
+@__import__("pytest").mark.parametrize("lang", ["yue", "cmn"])
+def test_tonal_units_have_content(lang):
+    units = F.build_units(lang)
+    assert len(units) >= 3
+    for u in units:
+        assert u["theme"] == "foundations"
+        for l in u["lessons"]:
+            assert "segments" in l["content"]
+            for s in l["content"]["segments"]:
+                assert "teach" in s and "exercises" in s
+
+
+@__import__("pytest").mark.parametrize("lang", ["yue", "cmn"])
+def test_tonal_exercises_hide_roman(lang):
+    """All tonal foundation exercises must set hide_roman (romanisation is tested)."""
+    for u in F.build_units(lang):
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for e in s["exercises"]:
+                    if e["type"] in ("choice", "listening"):
+                        assert e.get("hide_roman") is True, \
+                            f"{lang}: {e['type']} missing hide_roman"
+
+
+@__import__("pytest").mark.parametrize("lang", ["yue", "cmn"])
+def test_tonal_tone_exercises_have_valid_answers(lang):
+    """Every choice exercise must have answer in [0, len(options))."""
+    for u in F.build_units(lang):
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for e in s["exercises"]:
+                    if e["type"] == "choice":
+                        assert 0 <= e["answer"] < len(e["options"]), \
+                            f"{lang}: answer {e['answer']} out of range for {e['options']}"
+
+
+def test_yue_six_tones_covered():
+    """The Cantonese track must have tone pairs for all six tones."""
+    units = F.build_units("yue")
+    all_tone_nums = set()
+    for u in units:
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for item in s["teach"].get("items", []):
+                    roman = item.get("target_roman", "")
+                    if roman and roman[-1].isdigit():
+                        all_tone_nums.add(int(roman[-1]))
+    assert all_tone_nums >= {1, 2, 3, 4, 5, 6}, \
+        f"Missing tones: {({1,2,3,4,5,6} - all_tone_nums)}"
+
+
+def test_cmn_four_tones_covered():
+    """The Mandarin track must have tone pairs for all four tones."""
+    units = F.build_units("cmn")
+    tone_marks = {"ā": 1, "á": 2, "ǎ": 3, "à": 4,
+                  "ē": 1, "é": 2, "ě": 3, "è": 4,
+                  "ī": 1, "í": 2, "ǐ": 3, "ì": 4,
+                  "ō": 1, "ó": 2, "ǒ": 3, "ò": 4,
+                  "ū": 1, "ú": 2, "ǔ": 3, "ù": 4}
+    found = set()
+    for u in units:
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for item in s["teach"].get("items", []):
+                    for ch in item.get("target_roman", ""):
+                        if ch in tone_marks:
+                            found.add(tone_marks[ch])
+    assert found >= {1, 2, 3, 4}, f"Missing tones: {({1,2,3,4} - found)}"
