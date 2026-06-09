@@ -38,11 +38,25 @@
     .course-regen:hover { border-color: var(--again); color: var(--again); }
 
     /* Units + lessons (vertical path) */
-    .unit { margin-bottom: 28px; }
-    .unit-head { margin-bottom: 12px; }
+    .unit { margin-bottom: 20px; }
+    .unit-head { margin-bottom: 0; }
     .unit-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
     .unit-name { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
     .unit-obj { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    /* Collapsible unit toggle */
+    .unit-toggle { width: 100%; display: flex; align-items: center; background: none; border: none; padding: 6px 0 10px; cursor: pointer; text-align: left; gap: 8px; }
+    .unit-toggle:hover .unit-title { opacity: 0.75; }
+    .unit-progress { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .unit-chevron { color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
+    .unit-body { padding-bottom: 4px; }
+    /* Inline lesson-generation skeleton rows */
+    .gen-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; animation: genPulse 1.6s ease-in-out infinite; }
+    .gen-node { width: 40px; height: 40px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+    .gen-lines { flex: 1; }
+    .gen-line { height: 11px; background: var(--border); border-radius: 6px; margin-bottom: 6px; }
+    .gen-line.short { width: 55%; margin-bottom: 0; }
+    .gen-label { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 4px 0 10px; }
+    @keyframes genPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.75; } }
 
     /* Foundations collapsible section */
     .foundations-section { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
@@ -254,6 +268,7 @@
       </div>
     </div>
     <div id="units"></div>
+    <div id="course-gen-area"></div>
     <div id="course-cta"></div>
     <div class="learn-note" id="course-note">Tap an available lesson to start.</div>
   </div>
@@ -316,8 +331,13 @@
   let LANGS = [];
   let currentCourse = null;
   let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
+  let _currentState = 'loading';
+  let _generating = false;    // true while a /next API call is in-flight
+  let _genCount = 0;          // lesson count requested (for the label)
+  let _genError = null;       // last error message from generation
 
   function show(state) {
+    _currentState = state;
     ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
   }
@@ -369,10 +389,11 @@
         throw new Error(msg);
       }
       const course = await res.json();
+      currentCourse = course;
       renderCourse(course);
       show('course');
-      // Auto-generate the first lesson
-      await generateNextLesson(course.id);
+      // Fire generation in background — spinner shows inline, user sees the map immediately.
+      generateNextLesson(course.id);
     } catch (e) {
       show('empty');
       document.getElementById('create-btn').disabled = false;
@@ -394,6 +415,16 @@
     unlockAll = !unlockAll;
     localStorage.setItem('learn_unlock_all', unlockAll ? '1' : '0');
     if (currentCourse) renderCourse(currentCourse);
+  }
+
+  // Per-unit collapse toggle. Key: 'learn_unit_<id>'; '1'=open '0'=closed. No entry=auto.
+  function toggleUnit(id) {
+    const body    = document.getElementById('unit-body-' + id);
+    const chevron = document.getElementById('unit-chevron-' + id);
+    const nowOpen = body && body.style.display !== 'none';
+    localStorage.setItem('learn_unit_' + id, nowOpen ? '0' : '1');
+    if (body)    body.style.display = nowOpen ? 'none' : '';
+    if (chevron) chevron.style.transform = nowOpen ? '' : 'rotate(90deg)';
   }
 
   // Foundations section collapse — default collapsed (hidden); '0' = expanded.
@@ -434,30 +465,34 @@
   const BATCH_AHEAD = 5;   // lessons generated per "Generate" so you can browse ahead
 
   async function generateNextLesson(courseId, count = BATCH_AHEAD) {
-    document.getElementById('generating-msg').innerHTML =
-      `Generating ${count} lesson${count > 1 ? 's' : ''}&hellip;<br>` +
-      (count > 1 ? 'This can take up to a minute.' : 'This takes 10&ndash;20 seconds.');
-    show('generating');
+    if (_generating) return;
+    _generating = true;
+    _genCount = count;
+    _genError = null;
+    // Stay on course page — show inline spinner, never navigate away.
+    if (_currentState === 'generating') show('course');
+    if (currentCourse) renderCourse(currentCourse);
     try {
       const res = await fetch(`/api/courses/${courseId}/next?count=${count}`, { method: 'POST' });
       if (!res.ok) {
         const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
         throw new Error(msg);
       }
-      const data = await res.json();
-      // Let you browse ahead through the freshly generated lessons without
-      // having to play through earlier ones first.
+      // Unlock browse-ahead so newly generated lessons are all playable.
       if (!unlockAll) { unlockAll = true; localStorage.setItem('learn_unlock_all', '1'); }
-      if (count === 1 && data.id) {           // single → open it to play
-        const { course } = await fetch('/api/courses/active').then(r => r.json());
-        if (course) { renderCourse(course); show('course'); }
-        await openLesson(data.id);
-      } else {                                 // batch → land on the roadmap to browse
-        await refreshAndShowCourse();
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) {
+        currentCourse = course;
+        renderCourse(course);
+        // Only switch to course view if the user isn't mid-lesson.
+        if (!['teach', 'player', 'results'].includes(_currentState)) show('course');
       }
     } catch (e) {
-      await refreshAndShowCourse();
-      alert(e.message || 'Could not generate lesson — please try again.');
+      _genError = e.message || 'Could not generate lesson — please try again.';
+      if (currentCourse) renderCourse(currentCourse);
+    } finally {
+      _generating = false;
+      if (currentCourse) renderCourse(currentCourse);
     }
   }
 
@@ -551,37 +586,77 @@
       wrap.appendChild(section);
     }
 
-    // ── AI (vocab) units ───────────────────────────────────────────────────────
+    // ── AI (vocab) units — collapsible ────────────────────────────────────────
     let unitNo = 0;
     aiUnits.forEach(u => {
+      const lessons = u.lessons || [];
+      const hasAvailable = lessons.some(l => l.status === 'available');
+      const nDoneU = lessons.filter(l => l.status === 'done').length;
+      // Collapse logic: force-open when there are actionable lessons; otherwise
+      // respect localStorage override, defaulting to collapsed.
+      const stored = localStorage.getItem('learn_unit_' + u.id);
+      const collapsed = hasAvailable ? false : (stored !== '1');
+
       const sec = document.createElement('div');
       sec.className = 'unit';
-      let header = '';
+
+      let titleHtml = '';
       if (u.in_progress) {
-        header = `<div class="unit-head">
-          <div class="unit-title" style="color:var(--text-muted)">In progress</div>
-        </div>`;
+        titleHtml = `<div class="unit-title" style="color:var(--text-muted)">In progress</div>`;
       } else {
         unitNo += 1;
-        header = `<div class="unit-head">
-          <div class="unit-title">Unit ${unitNo}</div>
+        titleHtml = `<div class="unit-title">Unit ${unitNo}</div>
           <div class="unit-name">${esc(u.title)}</div>
-          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
-        </div>`;
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}`;
       }
-      let html = header;
-      (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
-      sec.innerHTML = html;
+      const progressLabel = lessons.length ? `${nDoneU}/${lessons.length}` : '';
+
+      sec.innerHTML = `
+        <button class="unit-toggle" onclick="toggleUnit(${u.id})">
+          <div class="unit-head" style="flex:1;min-width:0">${titleHtml}</div>
+          ${progressLabel ? `<span class="unit-progress">${progressLabel}</span>` : ''}
+          <span class="unit-chevron" id="unit-chevron-${u.id}"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="unit-body" id="unit-body-${u.id}" style="${collapsed ? 'display:none' : ''}"></div>`;
+
+      const body = sec.querySelector('.unit-body');
+      lessons.forEach((l, li) => { body.innerHTML += _lessonHtml(l, li); });
       wrap.appendChild(sec);
     });
 
-    // CTA: batch-generate (browse ahead) + a single-lesson option.
+    // ── Inline generation area ─────────────────────────────────────────────────
+    const genArea = document.getElementById('course-gen-area');
+    if (_generating) {
+      const skeletonRow = () => `<div class="gen-row">
+        <div class="gen-node"></div>
+        <div class="gen-lines">
+          <div class="gen-line"></div>
+          <div class="gen-line short"></div>
+        </div>
+      </div>`;
+      genArea.innerHTML =
+        skeletonRow().repeat(Math.min(_genCount, 3)) +
+        `<p class="gen-label"><span class="spinner"></span> Generating ${_genCount} lesson${_genCount !== 1 ? 's' : ''}…</p>`;
+    } else if (_genError) {
+      genArea.innerHTML = `<p class="gen-label" style="color:var(--danger)">${esc(_genError)}
+        <button class="course-regen" style="margin-left:8px"
+          onclick="_genError=null;generateNextLesson(${course.id})">Retry</button></p>`;
+    } else {
+      genArea.innerHTML = '';
+    }
+
+    // CTA: hide buttons while generating; show them when idle.
     const cta = document.getElementById('course-cta');
-    const ctaLabel = nLessons === 0 ? `Generate first ${BATCH_AHEAD} lessons` : `Generate ${BATCH_AHEAD} more lessons`;
-    cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
-      <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
-      <button class="course-regen" style="margin-top:8px" onclick="generateNextLesson(${course.id}, 1)">+1 lesson</button>
-    </div>`;
+    if (_generating) {
+      cta.innerHTML = '';
+    } else {
+      const ctaLabel = nLessons === 0 ? `Generate first ${BATCH_AHEAD} lessons` : `Generate ${BATCH_AHEAD} more lessons`;
+      cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
+        <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
+        <button class="course-regen" style="margin-top:8px" onclick="generateNextLesson(${course.id}, 1)">+1 lesson</button>
+      </div>`;
+    }
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
   }
 
