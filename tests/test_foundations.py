@@ -110,3 +110,28 @@ def test_abugida_blends_use_concat_and_valid_keyboard(lang):
                         used = F.decompose_indic(e["target"])
                         offered = set(e["consonants"]) | set(e["vowels"])
                         assert used <= offered, f"{lang}: {e['target']} outside keyboard"
+
+
+def test_telugu_vowel_audio_has_visarga():
+    """The Telugu voice can't articulate a bare independent vowel — appending a
+    visarga makes the spoken clip audible. Display + romanisation stay the bare
+    letter; only the spoken `audio` is the visarga'd form."""
+    for v in F._TE_VOWELS:
+        assert v["audio"] == v["symbol"] + "ః", f"{v['symbol']} audio should carry visarga"
+        assert v["audio"] != v["symbol"]
+        assert v["roman"] and "ః" not in v["roman"]   # romanisation untouched
+    # Hindi vowels (which the voice handles fine) must NOT be altered.
+    for v in F._HI_VOWELS:
+        assert v["audio"] == v["symbol"]
+
+
+@__import__("pytest").mark.parametrize("lang", ["ko", "hi", "te"])
+def test_foundations_exercises_hide_romanization(lang):
+    """Foundations is the reading track, so every exercise that shows target text
+    must set hide_roman (romanisation is the answer → never shown inline)."""
+    for u in F.build_units(lang):
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for e in s["exercises"]:
+                    if e["type"] in ("choice", "listening", "match", "block_build"):
+                        assert e.get("hide_roman") is True, f"{lang}: {e['type']} must hide_roman"

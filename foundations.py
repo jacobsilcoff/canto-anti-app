@@ -168,18 +168,21 @@ def _options(correct: str, pool: list[str], n: int = 4) -> tuple[list[str], int]
     return opts, opts.index(correct)
 
 
+# Foundations is the READING track, so romanisation must never be shown inline —
+# it's the very thing the learner is being tested on (a spoiler). `hide_roman`
+# tells the player to tuck romanisation into a tap/hover tooltip instead of ruby.
 def _grapheme_to_sound(g: dict, roman_pool: list[str]) -> dict:
     opts, ans = _options(g["roman"], roman_pool)
     return {
         "type": "choice", "instruction": "What sound does this letter make?",
         "prompt": g["symbol"], "prompt_lang": "target", "audio": g["audio"],
-        "options": opts, "answer": ans, "tip": g.get("note", ""),
+        "options": opts, "answer": ans, "tip": g.get("note", ""), "hide_roman": True,
     }
 
 
 def _grapheme_match(graphemes: list[dict]) -> dict:
     return {
-        "type": "match", "instruction": "Match each letter to its sound",
+        "type": "match", "instruction": "Match each letter to its sound", "hide_roman": True,
         "pairs": [{"target": g["symbol"], "target_roman": "", "english": g["roman"]} for g in graphemes[:5]],
     }
 
@@ -190,7 +193,7 @@ def _block_build(target: str, cons_pool: list[dict], vowel_pool: list[dict]) -> 
     consonants + vowels; the frontend composes + grades against `target`."""
     return {
         "type": "block_build", "instruction": "Spell the syllable you hear",
-        "audio": target, "roman": _romanize_ko(target), "target": target,
+        "audio": target, "roman": _romanize_ko(target), "target": target, "hide_roman": True,
         "consonants": [c["symbol"] for c in cons_pool],
         "vowels": [v["symbol"] for v in vowel_pool],
     }
@@ -201,7 +204,7 @@ def _read_word(word: str, roman_pool: list[str], meaning: str, lang: str = "ko")
     opts, ans = _options(roman, roman_pool)
     return {
         "type": "choice", "instruction": "How do you read this?",
-        "prompt": word, "prompt_lang": "target", "audio": word,
+        "prompt": word, "prompt_lang": "target", "audio": word, "hide_roman": True,
         "options": opts, "answer": ans, "tip": (f"means: {meaning}" if meaning else ""),
     }
 
@@ -209,7 +212,7 @@ def _read_word(word: str, roman_pool: list[str], meaning: str, lang: str = "ko")
 def _listen_word(word: str, word_pool: list[str], lang: str = "ko") -> dict:
     opts, ans = _options(word, word_pool)
     return {
-        "type": "listening", "instruction": "What did you hear?",
+        "type": "listening", "instruction": "What did you hear?", "hide_roman": True,
         "audio": word, "audio_roman": _romanize(word, lang),
         "options": opts, "options_roman": [_romanize(o, lang) for o in opts], "answer": ans,
     }
@@ -352,7 +355,7 @@ def _blend_build(target: str, cons_syms: list[str], matra_syms: list[str], lang:
     string equality against `target`."""
     return {
         "type": "block_build", "compose": "concat",
-        "instruction": "Build the syllable you hear",
+        "instruction": "Build the syllable you hear", "hide_roman": True,
         "audio": target, "roman": _romanize(target, lang), "target": target,
         "consonants": cons_syms, "vowels": matra_syms,
     }
@@ -507,6 +510,14 @@ _DEVANAGARI_TRACK = {
 # ── Telugu track (abugida) ────────────────────────────────────────────────────
 _TE_VOWELS = [IV("అ", "a"), IV("ఆ", "aa"), IV("ఇ", "i"), IV("ఈ", "ii"),
               IV("ఉ", "u"), IV("ఊ", "uu"), IV("ఎ", "e"), IV("ఒ", "o")]
+# TTS workaround: the Telugu neural voice barely articulates a BARE independent
+# vowel (mean ≈ −40 dB — effectively silent), while consonants/syllables are fine.
+# Appending a visarga (ః, a soft /h/ release) makes the clip audible (≈ −5 dB) and
+# the pronunciation is still essentially the pure vowel ("a" → "ah"). Display +
+# romanisation stay the bare letter; only the spoken `audio` changes.
+_TE_VISARGA = "ః"
+for _tv in _TE_VOWELS:
+    _tv["audio"] = _tv["symbol"] + _TE_VISARGA
 _TE_CONS_1 = [IC("క", "ka"), IC("గ", "ga"), IC("న", "na"),
               IC("మ", "ma"), IC("ర", "ra"), IC("ల", "la")]
 _TE_CONS_2 = [IC("త", "ta"), IC("ద", "da"), IC("ప", "pa"),

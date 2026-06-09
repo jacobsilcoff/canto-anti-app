@@ -633,7 +633,7 @@
         if (ex.prompt) {
           const pHtml = targetPrompt ? targetSpan(ex.prompt, lang) : esc(ex.prompt);
           html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${pHtml}</div>`;
-          if (targetPrompt && ex.prompt_roman && !needsRuby(lang)) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+          if (targetPrompt && ex.prompt_roman && !needsRuby(lang) && !ex.hide_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
         }
         if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
         html += `<div class="opt-list" id="opts"></div>`;
@@ -778,7 +778,7 @@
         let typed = [];
         root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Spell the syllable')}</div>
           <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button>
-            ${ex.roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
+            ${ex.roman && !ex.hide_roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
           <div class="bb-preview" id="bb-preview">·</div>
           <div class="bb-jamo" id="bb-typed"></div>
           <div class="bb-label">Consonants</div><div class="opt-list bb-row" id="bb-cons"></div>
@@ -918,41 +918,48 @@
     return _tokenCache[key];
   }
 
-  // Build <ruby> HTML from a token array. When `glossary` is given, every token it
-  // covers becomes a hover/tap-revealable `.gl` span (the gloss is hidden until then,
-  // so it stays inline and never clutters the text). Glossing is used for TEACH text
-  // only — never exercise prompts, which would leak the answer.
-  function _tokensToHtml(tokens, glossary) {
+  // Build <ruby> HTML from a token array.
+  //   - normally: romanization shows inline as ruby; an optional `glossary` adds a
+  //     hover/tap `.gl` tooltip (used for TEACH text, never exercise prompts).
+  //   - hideRoman: romanization is NOT shown inline — it's tucked into the `.gl`
+  //     tooltip instead (combined with the gloss, "rom · meaning"). Used in the
+  //     reading (foundations) exercises so the romanization isn't a spoiler.
+  function _tokensToHtml(tokens, glossary, hideRoman) {
     if (!Array.isArray(tokens) || !tokens.length) return '';
     const hasRoman = tokens.some(t => t.roman);
     return tokens.map(t => {
-      const inner = (hasRoman && t.is_word && t.roman)
+      const inner = (!hideRoman && hasRoman && t.is_word && t.roman)
         ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`
         : esc(t.text);
+      const parts = [];
+      if (hideRoman && t.is_word && t.roman) parts.push(t.roman);
       const g = t.is_word ? (glossary || {})[t.text] : null;
-      return g
-        ? `<span class="gl" tabindex="0" data-gloss="${esc(g)}">${inner}</span>`
+      if (g) parts.push(g);
+      const tip = parts.join(' · ');
+      return tip
+        ? `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>`
         : inner;
     }).join('');
   }
 
-  // Return <ruby>-annotated HTML for `text`. Pass `glossary` to enable hover/tap glosses.
-  // Falls back to esc(text) for Latin-script languages or on fetch error.
-  async function rubyHtml(text, lang, glossary) {
+  // Return <ruby>-annotated HTML for `text`. `glossary` enables hover/tap glosses;
+  // `hideRoman` moves romanization from inline ruby into that tooltip.
+  async function rubyHtml(text, lang, glossary, hideRoman) {
     if (!text) return '';
     if (_isLatin(text)) return esc(text);
     const tokens = await _fetchTokens(text, lang);
     if (!tokens || !tokens.length) return esc(text);
-    return _tokensToHtml(tokens, glossary);
+    return _tokensToHtml(tokens, glossary, hideRoman);
   }
 
   // Apply ruby to every .needs-ruby element inside `container`. Pass `glossary`
   // (the lesson's vocab_glossary) ONLY for teach content so words get a hover/tap
-  // gloss; omit it for exercise prompts so answers aren't revealed.
-  async function applyRuby(container, glossary) {
+  // gloss; omit it for exercise prompts so answers aren't revealed. Pass
+  // `hideRoman` for reading exercises so romanization is hidden behind the tooltip.
+  async function applyRuby(container, glossary, hideRoman) {
     const els = container.querySelectorAll('.needs-ruby');
     await Promise.all([...els].map(async el => {
-      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary);
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary, hideRoman);
       el.classList.remove('needs-ruby');
     }));
   }
@@ -1120,7 +1127,9 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
-    if (needsRuby(player.lang)) applyRuby(root);   // NO glossary — would reveal the answer
+    // NO glossary in exercises (would reveal a recognition answer). `hide_roman`
+    // (reading drills) tucks romanization into a tooltip so it isn't a spoiler.
+    if (needsRuby(player.lang)) applyRuby(root, null, ex.hide_roman);
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
