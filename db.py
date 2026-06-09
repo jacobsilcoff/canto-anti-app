@@ -250,7 +250,8 @@ async def init():
                 course_id INTEGER NOT NULL,
                 idx       INTEGER NOT NULL DEFAULT 0,
                 title     TEXT    NOT NULL DEFAULT '',
-                summary   TEXT    NOT NULL DEFAULT ''
+                summary   TEXT    NOT NULL DEFAULT '',
+                theme     TEXT    NOT NULL DEFAULT ''
             )
         """)
         await db.execute("""
@@ -1490,6 +1491,50 @@ async def create_course(user_id: int, target_lang: str, level: str) -> int:
         return cur.lastrowid
 
 
+async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
+    """Persist pre-built Foundations (reading) units + lessons at the front of a
+    course. Each unit becomes a CLOSED course_units row (theme='foundations') with
+    its lessons assigned and content already set. These don't register vocab
+    concepts (graphemes aren't course concepts) and are skippable in get_course.
+
+    `units` — output of foundations.build_units(): [{title, objective, lessons:[
+              {title, objective, content}]}].
+    """
+    if not units:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Continue numbering after anything already present (defensive — normally 0).
+        async with db.execute(
+            "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            unit_idx = (await cur.fetchone())[0] + 1
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_lessons WHERE course_id=?", (course_id,)
+        ) as cur:
+            lesson_num = (await cur.fetchone())[0] + 1
+
+        for u in units:
+            cur = await db.execute(
+                "INSERT INTO course_units (course_id, idx, title, summary, theme) VALUES (?, ?, ?, ?, 'foundations')",
+                (course_id, unit_idx, (u.get("title") or "").strip(), (u.get("objective") or "").strip()),
+            )
+            unit_id = cur.lastrowid
+            unit_idx += 1
+            for lsn in (u.get("lessons") or []):
+                await db.execute(
+                    """INSERT INTO course_lessons
+                       (course_id, unit_id, lesson_num, title, objective, content, concepts_json, summary)
+                       VALUES (?, ?, ?, ?, ?, ?, '[]', '')""",
+                    (
+                        course_id, unit_id, lesson_num,
+                        (lsn.get("title") or "").strip(), (lsn.get("objective") or "").strip(),
+                        json.dumps(lsn.get("content")) if lsn.get("content") is not None else None,
+                    ),
+                )
+                lesson_num += 1
+        await db.commit()
+
+
 async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict]:
     """List the user's courses (optionally filtered by language), newest first."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1520,14 +1565,30 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
 
         # Completed units (those with assigned lessons)
         async with db.execute(
-            "SELECT id, idx, title, summary FROM course_units WHERE course_id=? ORDER BY idx",
+            "SELECT id, idx, title, summary, theme FROM course_units WHERE course_id=? ORDER BY idx",
             (course_id,),
         ) as cur:
             units = [dict(r) for r in await cur.fetchall()]
 
-        first_available_set = False
+        # Locking: Foundations (reading) lessons are SKIPPABLE — always available
+        # if not done, so the learner can do them in any order or jump straight to
+        # vocab. The AI vocab lessons keep strict sequential locking among THEMSELVES
+        # (first incomplete one available), independent of foundations progress.
+        ai_available_set = False
+
+        def _status(lesson: dict, is_foundation: bool) -> str:
+            nonlocal ai_available_set
+            if lesson["completed_at"] is not None:
+                return "done"
+            if is_foundation:
+                return "available"          # skippable — never gated
+            if not ai_available_set:
+                ai_available_set = True
+                return "available"
+            return "locked"
 
         for unit in units:
+            is_foundation = unit.get("theme") == "foundations"
             async with db.execute(
                 """SELECT id, lesson_num, title, objective, score, completed_at,
                           (SELECT COUNT(*) FROM course_concepts
@@ -1537,16 +1598,10 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
             ) as cur:
                 lessons = [dict(r) for r in await cur.fetchall()]
             for l in lessons:
-                if l["completed_at"] is not None:
-                    l["status"] = "done"
-                elif not first_available_set:
-                    l["status"] = "available"
-                    first_available_set = True
-                else:
-                    l["status"] = "locked"
+                l["status"] = _status(l, is_foundation)
             unit["lessons"] = lessons
 
-        # Pending lessons (unit_id IS NULL) = current in-progress unit
+        # Pending lessons (unit_id IS NULL) = current in-progress AI unit (never foundations)
         async with db.execute(
             """SELECT id, lesson_num, title, objective, score, completed_at,
                       (SELECT COUNT(*) FROM course_concepts
@@ -1557,18 +1612,12 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
             pending = [dict(r) for r in await cur.fetchall()]
 
         for l in pending:
-            if l["completed_at"] is not None:
-                l["status"] = "done"
-            elif not first_available_set:
-                l["status"] = "available"
-                first_available_set = True
-            else:
-                l["status"] = "locked"
+            l["status"] = _status(l, False)
 
         if pending:
             units.append({
                 "id": None, "idx": len(units),
-                "title": None, "summary": None,
+                "title": None, "summary": None, "theme": "",
                 "lessons": pending, "in_progress": True,
             })
 

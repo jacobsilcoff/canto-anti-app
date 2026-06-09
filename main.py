@@ -33,6 +33,7 @@ import tokenizer
 import translation
 import learning
 import grammar_lessons
+import foundations
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -1630,6 +1631,11 @@ async def create_course(request: Request, req: CreateCourseRequest, user: dict =
     if lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
     course_id = await db.create_course(user["id"], lang, req.level or "A1")
+    # Non-Latin scripts get a pre-built, skippable Foundations (reading) track
+    # prepended — the learner masters the writing system before/alongside vocab.
+    foundation_units = foundations.build_units(lang)
+    if foundation_units:
+        await db.seed_foundation_units(course_id, foundation_units)
     return await db.get_course(user["id"], course_id)
 
 

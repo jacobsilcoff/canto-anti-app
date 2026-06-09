@@ -449,17 +449,26 @@
 
     const wrap = document.getElementById('units');
     wrap.innerHTML = '';
+    let unitNo = 0;   // number only AI (vocab) units; Foundations units are labelled separately
     units.forEach((u, ui) => {
       const sec = document.createElement('div');
       sec.className = 'unit';
+      const isFoundation = u.theme === 'foundations';
       let header = '';
       if (u.in_progress) {
         header = `<div class="unit-head">
           <div class="unit-title" style="color:var(--text-muted)">In progress</div>
         </div>`;
-      } else {
+      } else if (isFoundation) {
         header = `<div class="unit-head">
-          <div class="unit-title">Unit ${ui + 1}</div>
+          <div class="unit-title">📖 Reading · optional</div>
+          <div class="unit-name">${esc(u.title)}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+      } else {
+        unitNo += 1;
+        header = `<div class="unit-head">
+          <div class="unit-title">Unit ${unitNo}</div>
           <div class="unit-name">${esc(u.title)}</div>
           ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
         </div>`;
