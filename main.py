@@ -1661,14 +1661,19 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
 
 
 def _next_batch(concepts: list[dict]) -> list[dict]:
-    """Take the next 1–2 concepts from a unit plan: a grammar concept is taught
-    alone (denser); up to two consecutive vocab concepts pair up."""
+    """Take the next concepts from a unit plan for one micro-lesson. A grammar
+    concept is taught alone (denser); straightforward vocab packs together — up to
+    THREE consecutive vocab concepts, since simple words can be introduced
+    implicitly (glossed in a drill) rather than each needing a full teach block."""
     if not concepts:
         return []
     batch = [concepts[0]]
-    if (concepts[0].get("kind") == "vocab" and len(concepts) > 1
-            and concepts[1].get("kind") == "vocab"):
-        batch.append(concepts[1])
+    if concepts[0].get("kind") == "vocab":
+        for c in concepts[1:3]:
+            if c.get("kind") == "vocab":
+                batch.append(c)
+            else:
+                break
     return batch
 
 
