@@ -293,6 +293,32 @@ def _build_lesson_prompt(
 
 # ── Drill assembly (we own the answer key) ───────────────────────────────────
 
+def _order_tokens_from_sentence(sentence: str, tokens: list[str]) -> list[str] | None:
+    """Return `tokens` reordered to match their left-to-right position in `sentence`.
+
+    The model sometimes returns the tiles in the wrong order while `sentence` is
+    correct. We walk the sentence (spaces stripped) greedily, matching each
+    remaining token at the current position. Returns None if the tokens don't
+    tile the sentence exactly (drill should be dropped in that case).
+    """
+    target = sentence.replace(" ", "")
+    remaining = list(tokens)
+    result = []
+    pos = 0
+    while remaining:
+        matched = False
+        for i, tok in enumerate(remaining):
+            if target[pos: pos + len(tok)] == tok:
+                result.append(tok)
+                remaining.pop(i)
+                pos += len(tok)
+                matched = True
+                break
+        if not matched:
+            return None
+    return result if pos == len(target) else None
+
+
 def _pick_options(correct: str, distractors: list[str], n: int = 4) -> tuple[list[str], int]:
     """Shuffle [correct] + de-duped distractors into n options; return (opts, idx)."""
     seen = {correct.lower()}
@@ -371,9 +397,15 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         tokens = [t for t in (d.get("tokens") or []) if (t or "").strip()]
         if len(tokens) < 2:
             return None
+        # Re-derive correct token order from the sentence — the model sometimes
+        # returns the tiles in the wrong order while `sentence` is correct.
+        # Drop the drill if the tokens don't tile the sentence exactly.
+        ordered = _order_tokens_from_sentence(sentence, tokens)
+        if ordered is None:
+            return None
         # Glosses for helper words the learner hasn't been taught (token → short
         # English / POS abbrev). Keep only entries whose token is actually a tile.
-        tokset = set(tokens)
+        tokset = set(ordered)
         glossary = {}
         for g in (d.get("glossary") or []):
             tok = (g.get("token") or "").strip()
@@ -382,7 +414,7 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
                 glossary[tok] = gl
         return {"type": "word_bank", "concept_key": key, "grammar": is_grammar,
                 "instruction": "Put the words in the correct order",
-                "answer_tokens": tokens, "distractor_tokens": [],
+                "answer_tokens": ordered, "distractor_tokens": [],
                 "glossary": glossary,
                 "audio": sentence, "answer_roman": rom(sentence)}
 

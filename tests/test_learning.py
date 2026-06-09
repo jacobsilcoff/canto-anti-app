@@ -121,6 +121,30 @@ def test_romanization_recomputed_for_logographic():
     assert reorder["answer_roman"]
 
 
+def test_reorder_tokens_reordered_from_sentence():
+    # The model returned tokens in wrong order ("香港人你係") but sentence correct
+    # ("你係香港人"). Assembly must reorder tokens to match the sentence.
+    concepts = [{"kind": "vocab", "key": "hk_person", "label": "香港人", "gloss": "Hong Kong person"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "hk_person", "sentence": "你係香港人",
+         "tokens": ["香港人", "你", "係"]},   # wrong order from model
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    wb = next(e for e in exs if e["type"] == "word_bank")
+    assert wb["answer_tokens"] == ["你", "係", "香港人"]
+
+
+def test_reorder_dropped_when_tokens_dont_tile_sentence():
+    # If the model's tokens can't tile the sentence exactly, drop the drill.
+    concepts = [{"kind": "vocab", "key": "test", "label": "你好", "gloss": "hello"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "test", "sentence": "你好嗎",
+         "tokens": ["你", "好"]},   # missing 嗎 — can't tile sentence
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    assert exs == []
+
+
 def test_reorder_glossary_filtered_to_real_tokens():
     # The reorder glossary keeps only {token: gloss} for tokens that are actually
     # tiles and have a non-empty gloss — stray/blank entries are dropped.
