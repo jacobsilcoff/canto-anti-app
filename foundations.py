@@ -659,19 +659,19 @@ _CANTONESE_TRACK = {
              "tone_defs": _YUE_TONE_DEFS[:3],
              "pairs": _YUE_PAIRS_SI[:3],
              "intro": (
-                 "The high/mid tones — they differ in movement:\n"
-                 "• Tone 1 (55): stays high and flat — 詩 si1 (poem)\n"
-                 "• Tone 2 (25): rises — 史 si2 (history)\n"
-                 "• Tone 3 (33): stays mid and flat — 試 si3 (to try)"
+                 "The high and mid tones — differ in movement:\n"
+                 "• Tone 1: stays high and flat — 詩 si1 (poem)\n"
+                 "• Tone 2: rises — 史 si2 (history)\n"
+                 "• Tone 3: stays mid and flat — 試 si3 (to try)"
              )},
             {"title": "Tones 4, 5 & 6", "type": "tones",
              "tone_defs": _YUE_TONE_DEFS[3:],
              "pairs": _YUE_PAIRS_SI[3:],
              "intro": (
                  "The low tones — all start low, but move differently:\n"
-                 "• Tone 4 (21): falls — 時 si4 (time)\n"
-                 "• Tone 5 (23): rises from low — 市 si5 (market)\n"
-                 "• Tone 6 (22): stays low and flat — 事 si6 (matter)"
+                 "• Tone 4: falls — 時 si4 (time)\n"
+                 "• Tone 5: rises from low — 市 si5 (market)\n"
+                 "• Tone 6: stays low and flat — 事 si6 (matter)"
              )},
             {"title": "All Six Tones", "type": "tones",
              "tone_defs": _YUE_TONE_DEFS,
@@ -824,7 +824,7 @@ _MANDARIN_TRACK = {
 # ── Tonal lesson builder ──────────────────────────────────────────────────────
 
 def _tone_label(t: dict) -> str:
-    return f"Tone {t['number']} — {t['desc']} ({t['contour']})"
+    return f"Tone {t['number']} — {t['desc']}"
 
 
 def _build_tonal_lesson_content(lesson: dict, lang: str) -> dict:

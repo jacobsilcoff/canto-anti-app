@@ -466,8 +466,9 @@
   // Shared: build the HTML for one lesson row (used for both foundations & AI).
   function _lessonHtml(l, li) {
     const st = l.status || 'locked';
-    const num = l.lesson_num || (li + 1);
-    const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : num);
+    const displayNum = li + 1;                          // 1-based position within this unit
+    const dbgNum = l.lesson_num || displayNum;          // course-wide sequence (debug only)
+    const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : displayNum);
     const meta = l.concept_count
       ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
     const clickable = unlockAll || st === 'available' || st === 'done';
@@ -483,7 +484,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <div class="lesson-status ${st}">${badge}</div>
-        <button onclick="event.stopPropagation();openDebug(${l.id},${num})"
+        <button onclick="event.stopPropagation();openDebug(${l.id},${dbgNum})"
           title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>
       </div>
     </div>`;
@@ -591,10 +592,28 @@
   function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
+
+  // TTS pre-load cache: key → Audio element (preload='auto').
+  const _ttsCache = {};
+  function _ttsKey(text, lang) { return lang + '\0' + text; }
+  function _prewarmTTS(text, lang) {
+    if (!text) return;
+    const key = _ttsKey(text, lang);
+    if (_ttsCache[key]) return;
+    const a = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    a.preload = 'auto';
+    _ttsCache[key] = a;
+  }
   function playTTS(text, lang) {
     if (!text) return;
-    try { if (_audio) _audio.pause(); } catch {}
-    _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    const key = _ttsKey(text, lang);
+    if (_ttsCache[key]) {
+      _audio = _ttsCache[key];
+      try { _audio.currentTime = 0; } catch {}
+    } else {
+      _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    }
     _audio.play().catch(() => {});
   }
 
@@ -901,15 +920,16 @@
       const hasContent = segments.some(sg => (sg.exercises || []).length ||
         (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
       if (!hasContent) throw new Error('empty lesson');
+      // Fire-and-forget: kick off TTS + ruby fetches for the whole lesson so
+      // everything is cached by the time the learner reaches each exercise.
+      _prefetchLesson(content, lesson.target_lang);
+
       player = {
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
         segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         controller: null, graded: false,
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
-        // vocab_glossary: {native_token: english} — unknown words get a gloss label
-        // under each token in teach blocks and word-bank tiles (server-filtered to
-        // exclude words the learner already knows from SRS or previous lessons).
         vocabGlossary: content.vocab_glossary || {},
       };
       const sc = scriptClassFor(player.lang);
@@ -978,6 +998,42 @@
         .catch(() => null);
     }
     return _tokenCache[key];
+  }
+
+  // Pre-warm TTS audio + ruby token caches for an entire lesson, fired
+  // immediately after the lesson JSON loads (before the first screen renders).
+  // This way audio/ruby are in the browser cache by the time the learner
+  // reaches each exercise — no per-exercise loading delay.
+  function _prefetchLesson(content, lang) {
+    const segments = content.segments || [];
+    for (const seg of segments) {
+      // Teach items: pre-load audio + ruby for each target
+      for (const it of ((seg.teach || {}).items || [])) {
+        _prewarmTTS(it.audio || it.target, lang);
+        if (it.target && needsRuby(lang) && !_isLatin(it.target)) _fetchTokens(it.target, lang);
+      }
+      // Teach blocks (table cells, example native text)
+      for (const blk of ((seg.teach || {}).blocks || [])) {
+        for (const row of (blk.rows || []))
+          for (const cell of row)
+            if (cell && needsRuby(lang) && !_isLatin(cell)) _fetchTokens(cell, lang);
+        for (const ex of (blk.examples || []))
+          if (ex.native) { _prewarmTTS(ex.native, lang); if (needsRuby(lang) && !_isLatin(ex.native)) _fetchTokens(ex.native, lang); }
+      }
+      // Exercises
+      for (const ex of (seg.exercises || [])) {
+        if (ex.audio) _prewarmTTS(ex.audio, lang);
+        if (ex.prompt && needsRuby(lang) && !_isLatin(ex.prompt)) _fetchTokens(ex.prompt, lang);
+        // Listening options are native text
+        if (ex.type === 'listening')
+          for (const opt of (ex.options || []))
+            if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
+        // Reorder tiles
+        if (ex.type === 'reorder')
+          for (const tok of (ex.tokens || []))
+            if (tok && needsRuby(lang) && !_isLatin(tok)) _fetchTokens(tok, lang);
+      }
+    }
   }
 
   // Build <ruby> HTML from a token array.
