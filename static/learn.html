@@ -754,7 +754,14 @@
     },
     block_build: {
       render(ex, root, lang) {
-        // Tap jamo like a Korean keyboard; they auto-compose into the block.
+        // Tap letters that auto-compose into the syllable. Two composition modes:
+        //   'concat' (abugida — Devanagari/Telugu): code points just concatenate.
+        //   default (Hangul): jamo compose into a precomposed block via composeJamo.
+        const isConcat = ex.compose === 'concat';
+        const compose = isConcat ? (seq => seq.join('')) : composeJamo;
+        const isComplete = isConcat
+          ? (s => !!s)                       // any non-empty string is a valid attempt
+          : isHangulSyllable;                // Hangul must be a real syllable block
         const consonants = ex.consonants || [...new Set([...(ex.initials || []).map(x => x.j),
           ...(ex.finals || []).map(x => x.j).filter(j => j && j !== '∅')])];
         const vowels = ex.vowels || (ex.medials || []).map(x => x.j);
@@ -772,7 +779,7 @@
         const preview = document.getElementById('bb-preview');
         const typedEl = document.getElementById('bb-typed');
         const refresh = () => {
-          const c = composeJamo(typed);
+          const c = compose(typed);
           preview.textContent = c || '·';
           typedEl.textContent = typed.join(' ');
           updateAction();
@@ -789,8 +796,8 @@
         mkKey('bb-vows', vowels);
         document.getElementById('bb-back').onclick = () => { if (player.graded) return; typed.pop(); refresh(); };
         return {
-          isReady: () => isHangulSyllable(composeJamo(typed)),
-          grade: () => composeJamo(typed) === ex.target,
+          isReady: () => isComplete(compose(typed)),
+          grade: () => compose(typed) === ex.target,
           answerText: () => esc(ex.target) + (ex.roman ? ` (${esc(ex.roman)})` : ''),
           lock: () => { root.querySelectorAll('.tile, #bb-back').forEach(c => c.disabled = true); },
         };

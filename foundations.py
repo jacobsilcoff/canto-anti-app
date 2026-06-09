@@ -72,6 +72,19 @@ def _romanize_ko(text: str) -> str:
         return ""
 
 
+def _romanize(text: str, lang: str) -> str:
+    """Offline romanisation for a Foundations target, dispatched by language.
+    Korean uses korean-romanizer; Indic scripts reuse the reader's tokenizer
+    oracle (indic-transliteration). Never the AI."""
+    if lang == "ko":
+        return _romanize_ko(text)
+    try:
+        import tokenizer
+        return tokenizer.romanize_text(text, lang)
+    except Exception:
+        return ""
+
+
 # ── Curated Hangul content ────────────────────────────────────────────────────
 # Each grapheme: (symbol, romanised sound, representative syllable to voice, note)
 V = lambda s, r, a, n="": {"symbol": s, "roman": r, "audio": a, "note": n, "kind": "vowel"}
@@ -183,8 +196,8 @@ def _block_build(target: str, cons_pool: list[dict], vowel_pool: list[dict]) -> 
     }
 
 
-def _read_word(word: str, roman_pool: list[str], meaning: str) -> dict:
-    roman = _romanize_ko(word)
+def _read_word(word: str, roman_pool: list[str], meaning: str, lang: str = "ko") -> dict:
+    roman = _romanize(word, lang)
     opts, ans = _options(roman, roman_pool)
     return {
         "type": "choice", "instruction": "How do you read this?",
@@ -193,12 +206,12 @@ def _read_word(word: str, roman_pool: list[str], meaning: str) -> dict:
     }
 
 
-def _listen_word(word: str, word_pool: list[str]) -> dict:
+def _listen_word(word: str, word_pool: list[str], lang: str = "ko") -> dict:
     opts, ans = _options(word, word_pool)
     return {
         "type": "listening", "instruction": "What did you hear?",
-        "audio": word, "audio_roman": _romanize_ko(word),
-        "options": opts, "options_roman": [_romanize_ko(o) for o in opts], "answer": ans,
+        "audio": word, "audio_roman": _romanize(word, lang),
+        "options": opts, "options_roman": [_romanize(o, lang) for o in opts], "answer": ans,
     }
 
 
@@ -209,14 +222,14 @@ def _teach_item_grapheme(g: dict) -> dict:
             "note": g.get("note", ""), "audio": g["audio"]}
 
 
-def _teach_item_word(word: str, meaning: str) -> dict:
-    return {"target": word, "target_roman": _romanize_ko(word), "gloss": meaning,
+def _teach_item_word(word: str, meaning: str, lang: str = "ko") -> dict:
+    return {"target": word, "target_roman": _romanize(word, lang), "gloss": meaning,
             "note": "", "audio": word}
 
 
-def _build_lesson_content(lesson: dict, taught: list[dict]) -> dict:
-    """Build the {segments:[...]} content for one Foundations lesson. `taught` is
-    the list of graphemes known BEFORE this lesson (for distractors/words)."""
+def _build_hangul_lesson_content(lesson: dict, taught: list[dict]) -> dict:
+    """Build the {segments:[...]} content for one Hangul Foundations lesson.
+    `taught` is the list of graphemes known BEFORE this lesson (for distractors/words)."""
     ltype = lesson["type"]
     taught_romans = [g["roman"] for g in taught]
     taught_vowels = [g for g in taught if g["kind"] == "vowel"]
@@ -310,22 +323,227 @@ def _build_lesson_content(lesson: dict, taught: list[dict]) -> dict:
     return {"segments": [{"teach": {"intro": "", "items": []}, "exercises": []}]}
 
 
+# ── Abugida engine (Devanagari, Telugu, …) ────────────────────────────────────
+# Indic scripts are ALREADY decomposed at the code-point level: a syllable like
+# कि (ki) is stored as क (consonant) + ि (vowel-sign/matra) — two code points.
+# So decomposition is plain character iteration, and composition is plain string
+# concatenation — far simpler than the Hangul jamo math above.
+
+def decompose_indic(text: str) -> set[str]:
+    """Return the set of code points used to write `text` (spaces ignored).
+    Because Indic stores consonant + matra as separate code points, this already
+    splits a syllable into its taught units. Words using an untaught sign
+    (incl. virama → conjuncts) won't validate, which conveniently keeps early
+    word lessons to simple, non-conjunct syllables."""
+    return {ch for ch in text if not ch.isspace()}
+
+
+# Grapheme constructors for abugida data. audio = a representative pronounceable
+# unit (the letter itself for vowels/consonants; a demo syllable for a matra,
+# which can't be voiced alone).
+IV = lambda s, r, n="": {"symbol": s, "roman": r, "audio": s, "note": n, "kind": "vowel"}
+IC = lambda s, r, n="": {"symbol": s, "roman": r, "audio": s, "note": n, "kind": "consonant"}
+IM = lambda s, r, demo, n="": {"symbol": s, "roman": r, "audio": demo, "note": n, "kind": "matra"}
+
+
+def _blend_build(target: str, cons_syms: list[str], matra_syms: list[str], lang: str) -> dict:
+    """Abugida syllable-assembly: tap a consonant then a vowel-sign; they
+    CONCATENATE (compose='concat' on the client) into the akshara. Graded by
+    string equality against `target`."""
+    return {
+        "type": "block_build", "compose": "concat",
+        "instruction": "Build the syllable you hear",
+        "audio": target, "roman": _romanize(target, lang), "target": target,
+        "consonants": cons_syms, "vowels": matra_syms,
+    }
+
+
+def _build_abugida_lesson_content(lesson: dict, taught: list[dict], lang: str) -> dict:
+    """Build the {segments:[...]} content for one abugida Foundations lesson."""
+    ltype = lesson["type"]
+    taught_romans = [g["roman"] for g in taught]
+    taught_cons = [g for g in taught if g["kind"] == "consonant"]
+
+    if ltype == "info":
+        return {"segments": [{"teach": {"intro": lesson["intro"], "items": []}, "exercises": []}]}
+
+    if ltype == "graphemes":
+        graphemes = lesson["graphemes"]
+        roman_pool = [g["roman"] for g in graphemes] + taught_romans
+        exs = [_grapheme_to_sound(g, roman_pool) for g in graphemes]
+        if len(graphemes) >= 3:
+            exs.append(_grapheme_match(graphemes))
+        random.shuffle(exs)
+        teach = {"intro": lesson.get("intro", ""), "items": [_teach_item_grapheme(g) for g in graphemes]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "matras":
+        # Teach vowel-signs by blending them onto a known consonant.
+        matras = lesson["graphemes"]
+        cons_pool = taught_cons or [IC("क", "ka")]
+        cons_syms = [c["symbol"] for c in cons_pool]
+        matra_syms = [m["symbol"] for m in matras]
+        roman_pool = [m["roman"] for m in matras] + taught_romans
+        exs = [_grapheme_to_sound(m, roman_pool) for m in matras]
+        # A blend per matra (consonant + that sign) + a couple of bare-consonant
+        # (inherent-vowel) syllables for contrast.
+        base = cons_pool[0]["symbol"]
+        for m in matras:
+            exs.append(_blend_build(base + m["symbol"], cons_syms, matra_syms, lang))
+        for c in cons_pool[:2]:
+            exs.append(_blend_build(c["symbol"], cons_syms, matra_syms, lang))
+        random.shuffle(exs)
+        teach = {"intro": lesson.get("intro", ""),
+                 "items": [{"target": base + m["symbol"], "target_roman": _romanize(base + m["symbol"], lang),
+                            "gloss": f"{base} + {m['symbol']} = “{m['roman']}”", "note": m.get("note", ""),
+                            "audio": base + m["symbol"]} for m in matras]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "words":
+        known = {g["symbol"] for g in taught}
+        valid = [(w, m) for (w, m) in lesson["words"] if decompose_indic(w) <= known][:6]
+        word_pool = [w for w, _ in valid]
+        roman_pool = [_romanize(w, lang) for w in word_pool]
+        exs = [_read_word(w, roman_pool, m, lang) for w, m in valid]
+        for w, _ in valid[:3]:
+            exs.append(_listen_word(w, word_pool, lang))
+        random.shuffle(exs)
+        teach = {"intro": "Words you can now read with the letters you know:",
+                 "items": [_teach_item_word(w, m, lang) for w, m in valid]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    return {"segments": [{"teach": {"intro": "", "items": []}, "exercises": []}]}
+
+
+# ── Dispatch + build ──────────────────────────────────────────────────────────
+
+def _lesson_taught_graphemes(lesson: dict) -> list[dict]:
+    """Graphemes a lesson adds to the learner's known set (for word validation).
+    Both `graphemes` and `matras` lessons carry a `graphemes` list."""
+    if lesson["type"] in ("graphemes", "matras"):
+        return lesson.get("graphemes", [])
+    return []
+
+
+def _build_lesson_content(lesson: dict, taught: list[dict], script_type: str, lang: str) -> dict:
+    if script_type == "abugida":
+        return _build_abugida_lesson_content(lesson, taught, lang)
+    return _build_hangul_lesson_content(lesson, taught)
+
+
 def build_units(lang: str) -> list[dict]:
     """Return Foundations units (with lessons carrying pre-built `content`) to be
     prepended to a course for `lang`. Empty list if the language has no track."""
     track = FOUNDATIONS.get(lang)
     if not track:
         return []
+    script_type = track.get("script_type", "alphabetic")
     taught: list[dict] = []
     units = []
     for u in track["units"]:
         lessons = []
         for lsn in u["lessons"]:
-            content = _build_lesson_content(lsn, list(taught))
+            content = _build_lesson_content(lsn, list(taught), script_type, lang)
             lessons.append({"title": lsn["title"], "objective": "", "content": content})
-            # accumulate graphemes taught by this lesson
-            if lsn["type"] == "graphemes":
-                taught += lsn["graphemes"]
+            taught += _lesson_taught_graphemes(lsn)
         units.append({"title": u["title"], "theme": "foundations",
                       "objective": u.get("objective", ""), "lessons": lessons})
     return units
+
+
+# ── Hindi / Devanagari track (abugida) ────────────────────────────────────────
+_HI_VOWELS = [IV("अ", "a"), IV("आ", "aa"), IV("इ", "i"), IV("ई", "ii"),
+              IV("उ", "u"), IV("ऊ", "uu"), IV("ए", "e"), IV("ओ", "o")]
+_HI_CONS_1 = [IC("क", "ka"), IC("ग", "ga"), IC("न", "na"),
+              IC("म", "ma"), IC("र", "ra"), IC("ल", "la")]
+_HI_CONS_2 = [IC("त", "ta"), IC("द", "da"), IC("प", "pa"),
+              IC("ब", "ba"), IC("स", "sa"), IC("ह", "ha")]
+_HI_CONS_3 = [IC("च", "cha"), IC("ज", "ja"), IC("य", "ya"),
+              IC("व", "va"), IC("श", "sha"), IC("ट", "ṭa")]
+# Matras (vowel signs). The inherent vowel is 'a'; a matra replaces it.
+_HI_MATRAS = [IM("ा", "aa", "का"), IM("ि", "i", "कि"), IM("ी", "ii", "की"),
+              IM("ु", "u", "कु"), IM("ू", "uu", "कू"), IM("े", "e", "के"), IM("ो", "o", "को")]
+
+_HI_WORDS_1 = [("कल", "yesterday/tomorrow"), ("नल", "tap"), ("मन", "mind"),
+               ("कम", "less"), ("गरम", "warm"), ("नरम", "soft"), ("कमल", "lotus"), ("मगर", "but")]
+_HI_WORDS_2 = [("नाम", "name"), ("काम", "work"), ("पानी", "water"), ("दिन", "day"),
+               ("रात", "night"), ("नाक", "nose"), ("माला", "garland"), ("बस", "bus")]
+_HI_WORDS_3 = [("चाय", "tea"), ("जल", "water"), ("वन", "forest"),
+               ("शाम", "evening"), ("समय", "time"), ("नया", "new")]
+
+_DEVANAGARI_TRACK = {
+    "script_type": "abugida",
+    "title": "Read Hindi",
+    "units": [
+        {"title": "How Devanagari Works", "objective": "How the script works + the vowels", "lessons": [
+            {"title": "How Devanagari Works", "type": "info",
+             "intro": "Hindi is written in Devanagari — an abugida. Each consonant carries a "
+                      "built-in “a” sound (क = “ka”). A vowel SIGN (matra) attached to a consonant "
+                      "changes that vowel; full vowel LETTERS are used at the start of a word. It's "
+                      "very regular — learn the letters and you can read almost anything."},
+            {"title": "Vowels", "type": "graphemes", "graphemes": _HI_VOWELS,
+             "intro": "These are the independent vowel letters (used at the start of a word)."},
+        ]},
+        {"title": "First Consonants", "objective": "Core consonants and your first words", "lessons": [
+            {"title": "Consonants क ग न म र ल", "type": "graphemes", "graphemes": _HI_CONS_1,
+             "intro": "Each consonant already includes an “a”: क = “ka”, न = “na”. Read them aloud."},
+            {"title": "Your First Words", "type": "words", "words": _HI_WORDS_1},
+            {"title": "Consonants त द प ब स ह", "type": "graphemes", "graphemes": _HI_CONS_2},
+        ]},
+        {"title": "Vowel Signs", "objective": "Matras change a consonant's vowel", "lessons": [
+            {"title": "Matras (Vowel Signs)", "type": "matras", "graphemes": _HI_MATRAS,
+             "intro": "A matra attaches to a consonant and replaces its built-in “a”. "
+                      "क + ा → का (kaa), क + ि → कि (ki). Build a few."},
+            {"title": "More Words", "type": "words", "words": _HI_WORDS_2},
+        ]},
+        {"title": "More Letters", "objective": "The rest of the core consonants", "lessons": [
+            {"title": "Consonants च ज य व श ट", "type": "graphemes", "graphemes": _HI_CONS_3},
+            {"title": "Reading Practice", "type": "words", "words": _HI_WORDS_3},
+        ]},
+    ],
+}
+
+
+# ── Telugu track (abugida) ────────────────────────────────────────────────────
+_TE_VOWELS = [IV("అ", "a"), IV("ఆ", "aa"), IV("ఇ", "i"), IV("ఈ", "ii"),
+              IV("ఉ", "u"), IV("ఊ", "uu"), IV("ఎ", "e"), IV("ఒ", "o")]
+_TE_CONS_1 = [IC("క", "ka"), IC("గ", "ga"), IC("న", "na"),
+              IC("మ", "ma"), IC("ర", "ra"), IC("ల", "la")]
+_TE_CONS_2 = [IC("త", "ta"), IC("ద", "da"), IC("ప", "pa"),
+              IC("బ", "ba"), IC("స", "sa"), IC("హ", "ha")]
+_TE_MATRAS = [IM("ా", "aa", "కా"), IM("ి", "i", "కి"), IM("ీ", "ii", "కీ"),
+              IM("ు", "u", "కు"), IM("ూ", "uu", "కూ"), IM("ె", "e", "కె"), IM("ొ", "o", "కొ")]
+
+_TE_WORDS_1 = [("కమల", "lotus"), ("మన", "our")]
+_TE_WORDS_2 = [("నీరు", "water"), ("పులి", "tiger"), ("కాకి", "crow"),
+               ("పాము", "snake"), ("మామ", "uncle"), ("కమల", "lotus")]
+
+_TELUGU_TRACK = {
+    "script_type": "abugida",
+    "title": "Read Telugu",
+    "units": [
+        {"title": "How Telugu Works", "objective": "How the script works + the vowels", "lessons": [
+            {"title": "How Telugu Works", "type": "info",
+             "intro": "Telugu is written in its own script — an abugida. Each consonant carries a "
+                      "built-in “a” sound (క = “ka”). A vowel SIGN attached to a consonant changes "
+                      "that vowel; full vowel LETTERS appear at the start of a word."},
+            {"title": "Vowels", "type": "graphemes", "graphemes": _TE_VOWELS,
+             "intro": "These are the independent vowel letters."},
+        ]},
+        {"title": "First Consonants", "objective": "Core consonants", "lessons": [
+            {"title": "Consonants క గ న మ ర ల", "type": "graphemes", "graphemes": _TE_CONS_1,
+             "intro": "Each consonant already includes an “a”: క = “ka”, న = “na”."},
+            {"title": "Your First Words", "type": "words", "words": _TE_WORDS_1},
+            {"title": "Consonants త ద ప బ స హ", "type": "graphemes", "graphemes": _TE_CONS_2},
+        ]},
+        {"title": "Vowel Signs", "objective": "Signs change a consonant's vowel", "lessons": [
+            {"title": "Vowel Signs", "type": "matras", "graphemes": _TE_MATRAS,
+             "intro": "A vowel sign attaches to a consonant and replaces its built-in “a”. "
+                      "క + ా → కా (kaa), క + ి → కి (ki). Build a few."},
+            {"title": "Reading Practice", "type": "words", "words": _TE_WORDS_2},
+        ]},
+    ],
+}
+
+FOUNDATIONS["hi"] = _DEVANAGARI_TRACK
+FOUNDATIONS["te"] = _TELUGU_TRACK

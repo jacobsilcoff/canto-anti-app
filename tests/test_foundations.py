@@ -64,3 +64,49 @@ def test_block_build_targets_are_valid():
                         offered = set(e["consonants"]) | set(e["vowels"])
                         assert used <= offered, f"{e['target']} needs jamo outside the keyboard"
     assert seen > 0
+
+
+# ── Abugida engine (Hindi / Telugu) ──────────────────────────────────────────
+
+def test_indic_decompose_is_char_iteration():
+    # कि = क + ि (two code points); the abugida is already decomposed.
+    assert F.decompose_indic("कि") == {"क", "ि"}
+    assert F.decompose_indic("नाम") == {"न", "ा", "म"}
+    assert F.decompose_indic("కాకి") == {"క", "ా", "ి"}
+
+
+def test_abugida_tracks_exist():
+    assert F.has_foundations("hi")
+    assert F.has_foundations("te")
+    assert F.FOUNDATIONS["hi"]["script_type"] == "abugida"
+    assert F.FOUNDATIONS["te"]["script_type"] == "abugida"
+
+
+@__import__("pytest").mark.parametrize("lang", ["hi", "te"])
+def test_abugida_words_only_use_taught_letters(lang):
+    """Every word in a 'words' lesson must decompose to letters taught so far."""
+    track = F.FOUNDATIONS[lang]
+    units = F.build_units(lang)
+    taught: set[str] = set()
+    tlessons = [l for u in track["units"] for l in u["lessons"]]
+    blessons = [l for u in units for l in u["lessons"]]
+    for tl, bl in zip(tlessons, blessons):
+        if tl["type"] == "words":
+            items = [it["target"] for s in bl["content"]["segments"] for it in s["teach"]["items"]]
+            assert items, f"{lang}: a words lesson produced no readable words"
+            for w in items:
+                assert F.decompose_indic(w) <= taught, f"{lang}: {w} uses an untaught letter"
+        taught |= {g["symbol"] for g in F._lesson_taught_graphemes(tl)}
+
+
+@__import__("pytest").mark.parametrize("lang", ["hi", "te"])
+def test_abugida_blends_use_concat_and_valid_keyboard(lang):
+    for u in F.build_units(lang):
+        for l in u["lessons"]:
+            for s in l["content"]["segments"]:
+                for e in s["exercises"]:
+                    if e["type"] == "block_build":
+                        assert e["compose"] == "concat"
+                        used = F.decompose_indic(e["target"])
+                        offered = set(e["consonants"]) | set(e["vowels"])
+                        assert used <= offered, f"{lang}: {e['target']} outside keyboard"

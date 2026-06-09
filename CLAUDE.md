@@ -48,7 +48,7 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `learning.py` | AI Learning Path — unit-plan generation + unified micro-lesson authoring (teach blocks + drills together) + deterministic drill assembly/validation |
 | `grammar.py` | Reliable verb conjugation engine (French present) — rules + curated irregulars; an independent oracle, never trusts the LLM |
 | `grammar_lessons.py` | Legacy per-concept grammar generator (shared `concept_content` cache); **no longer called by the lesson route** — `learning.py` reuses its block/cloze helpers + `GENERATION_MODEL` |
-| `foundations.py` | Curated script/pronunciation module (Hangul jamo engine); gates non-Latin scripts |
+| `foundations.py` | Curated **reading** track for non-Latin scripts — deterministic, no LLM. Per-script-type engines: Hangul jamo (Korean) + abugida (Hindi/Telugu). `build_units()` returns pre-built course units; wired into course creation as a **skippable** prepended track |
 
 ### Database schema
 
@@ -57,7 +57,7 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 - **labels / card_labels** — per-user tags; many-to-many with cards
 - **users** — scrypt-hashed passwords, is_admin flag
 - **user_settings** — key-value store (new_cards_per_day, default_target_lang, learner_profile, …)
-- **courses / course_units / course_lessons / course_concepts** — per-user AI Learning Path. `courses.active_plan` = JSON outline of the in-progress unit (`{title, objective, summary, concepts:[...], cursor}`), NULL between units. `course_lessons.content` = the authored `{segments:[...]}` (set at creation, since lessons are authored one at a time). Units still close reactively (`close_unit` back-assigns `unit_id` when a plan is exhausted). `course_concepts` registers only concepts actually taught.
+- **courses / course_units / course_lessons / course_concepts** — per-user AI Learning Path. `courses.active_plan` = JSON outline of the in-progress unit (`{title, objective, summary, concepts:[...], cursor}`), NULL between units. `course_lessons.content` = the authored `{segments:[...]}` (set at creation, since lessons are authored one at a time). Units still close reactively (`close_unit` back-assigns `unit_id` when a plan is exhausted). `course_concepts` registers only concepts actually taught. `course_units.theme` = `'foundations'` marks pre-built reading units (else `''`).
 - **concept_mastery** — `(user_id, lang, concept_key, correct, total, last_seen)`. Incremented each time the learner completes a lesson (first-pass drill outcomes only). Fed back to the unit planner: weak concepts (≥3 attempts, <70% accuracy) are surfaced in the prompt so the planner can weave in extra practice.
 - **concept_content** — `(lang, concept_key)` → legacy shared grammar artifact; **retained but unused** by the new lesson path.
 
@@ -98,7 +98,20 @@ Stored lesson `content` = `{"segments":[{"teach":{"intro","blocks":[...]}, "exer
 
 `grammar_lessons.py` (the older per-concept generator that produced a shared `concept_content` artifact) is **no longer called by the lesson route** — only its block/cloze helpers (`_clean_block`, `_conj_cloze`, `_free_cloze`) and `GENERATION_MODEL` are reused by `learning.py`. The `concept_content` table is retained but unused by the new path.
 
-NOT yet built (deferred): per-concept **mastery ledger** + free-text `learner_profile` feeding the planner (the substrate for a future weakness-detecting chatbot); first-class up-front **unit rows** with a visible roadmap (currently units still close reactively when a plan is exhausted, via `close_unit`); controlled-vocab **enrichment** from the user's SRS deck; more tenses/languages; error-correction drills.
+**Faster/implicit vocab:** `_next_batch` packs up to 3 consecutive vocab concepts into one micro-lesson (grammar still taught alone). The author prompt makes teach blocks **proportionate/optional** — straightforward vocab debuts directly in a glossed drill (no dedicated teach block); blocks are reserved for grammar and vocab needing explanation.
+
+**Unknown-word glossing (`vocab_glossary`):** every native token in teach blocks + word-bank tiles is glossed in English if the learner doesn't already know it. The known-words set is built deterministically by `db.get_known_words(user_id, lang)` from **SRS cards** (`target_text→source_text`) + **previously-taught course concepts** (`label→gloss`). `assemble_lesson` builds `content.vocab_glossary` = current concept labels (always) + LLM-supplied helper words filtered against known words. Frontend `applyRuby` renders a `.tok-gloss` label under each unknown token (decoupled from the romanization-token cache).
+
+NOT yet built (deferred): first-class up-front **unit rows** with a visible roadmap (units still close reactively via `close_unit`); controlled-vocab **enrichment** from the user's SRS deck into lessons; more tenses/languages; error-correction drills; a weakness-detecting tutor chatbot (mastery ledger + `learner_profile` are the substrate, now shipped).
+
+### Foundations — the reading track (non-Latin scripts)
+
+`foundations.py` teaches the writing/sound SYSTEM (script literacy), separate from the AI vocab course. **Fully deterministic — no LLM, ever.** Romanization comes from offline oracles (`korean-romanizer` for Korean; `tokenizer.romanize_text` / indic-transliteration for Hindi/Telugu).
+
+- **Generalizable = data + per-script-type engines.** A declarative track per language (`FOUNDATIONS[lang]` with `script_type` + ordered units of typed lessons: `info` / `graphemes` / `matras` / `words`). The only script-specific code is the engine: **Hangul** (jamo compose/decompose via codepoint math, `script_type="alphabetic"`) and **abugida** (Devanagari/Telugu, `script_type="abugida"`). Indic scripts are *already decomposed at the code-point level* (कि = क + ि), so `decompose_indic` is char iteration and composition is plain concatenation — the abugida engine is much simpler than Hangul. Adding a same-type language = data only.
+- **`build_units(lang)`** returns ordinary course units with pre-built `content = {segments:[...]}`, reusing the standard lesson player + exercise types (choice/listening/match + `block_build`). `block_build` has two compose modes: Hangul jamo math, or `compose:"concat"` for abugida (tap consonant + vowel-sign → concatenate; graded by string equality). Words lessons curate candidates and **filter by decomposition** to those using only letters taught so far.
+- **Wiring:** `main.create_course` calls `db.seed_foundation_units` for any language with a track, persisting the units as **closed** `course_units` rows (`theme='foundations'`) at the front. They register **no** vocab concepts (so the AI course still starts from an empty registry). **Skippable** — `get_course` marks all foundations lessons `available` (any order), while AI vocab lessons keep strict sequential locking among themselves, independent of foundations progress. Frontend labels the track "📖 Reading · optional".
+- Tracks today: **Korean** (Hangul), **Hindi** + **Telugu** (abugida). Chinese (yue/cmn) would be a different track type (tones + romanization literacy, no alphabet) — not yet built.
 
 ### Multi-language support
 
