@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+logger = logging.getLogger("app")
 
 
 def _rate_limit_key(request: Request) -> str:
@@ -1730,7 +1732,8 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
                 api_key=access.api_key, model=lesson_model,
                 learner_profile=learner_profile, mastery=mastery,
             )
-        except Exception:
+        except Exception as e:
+            logger.error("Unit planning failed lang=%s: %s", course["target_lang"], e, exc_info=True)
             raise HTTPException(502, "Unit planning failed — please try again.")
         if not plan.get("concepts"):
             raise HTTPException(502, "Unit planning returned no concepts — please try again.")
@@ -1748,12 +1751,17 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             api_key=access.api_key, model=lesson_model,
             taught=ctx["concept_registry"],
         )
-    except Exception:
+    except Exception as e:
+        logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
+                     course["target_lang"], [c.get("key") for c in batch], e, exc_info=True)
         raise HTTPException(502, "Lesson generation failed — please try again.")
 
     content = authored["content"]
     total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
     if not total_ex:
+        logger.error("Lesson has no exercises lang=%s concepts=%s raw=%r",
+                     course["target_lang"], [c.get("key") for c in batch],
+                     authored.get("_raw_response", "")[:500])
         raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
 
     # Merge both LLM calls into the {prompt, response} the debug panel reads.
