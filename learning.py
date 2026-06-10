@@ -213,7 +213,7 @@ _DRILL_KINDS = """\
   {"kind":"recognition","concept":"<key>","target":"<native word/phrase>","gloss":"<English meaning>","distractors":["<other English meaning>", ...]}
   {"kind":"production","concept":"<key>","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
   {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other native form>", ...]}
-  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English of the sentence>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
+  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<full English translation of the sentence, shown to learner before they answer — must uniquely identify the answer>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
   {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...],"glossary":[{"token":"<exact token from tokens>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
   {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
 
@@ -276,11 +276,13 @@ def _build_lesson_prompt(
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
-        f"• CLOZE: the sentence must force exactly one filler. Don't blank a slot where "
-        f"multiple taught words fit (e.g. interchangeable greetings like "
-        f"Bonjour/Bonsoir/Salut — add context that forces one, or use "
-        f"recognition/production instead). When two words share a gloss, disambiguate "
-        f"in the prompt (\"Hello (informal)\", \"Good evening\").\n"
+        f"• CLOZE: the sentence must force exactly one filler — the learner sees the "
+        f"full English translation of the sentence alongside the blank, so the answer "
+        f"must be the only word that makes the English gloss true. Pronouns are the "
+        f"hardest: '___係香港人' with gloss 'He is from Hong Kong' correctly forces 佢. "
+        f"Don't blank a slot where multiple taught words fit; use recognition/production "
+        f"instead. The `gloss` field must be a full English sentence (not a fragment), "
+        f"matching the native sentence word-for-word so the learner can map each part.\n"
         f"• REORDER glossary: for helper tokens the learner doesn't know, add "
         f"`glossary` entries {{token, gloss}} (1–2 words or POS: PRT/AUX/CONJ/CL/PREP). "
         f"Don't gloss words already taught.\n"

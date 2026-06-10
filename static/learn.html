@@ -101,6 +101,7 @@
     .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); }
     .ex-prompt.english { font-family: inherit; }
     .ex-roman { text-align: center; color: var(--text-muted); font-size: 1rem; margin-bottom: 18px; font-style: italic; }
+    .ex-translation { text-align: center; color: var(--text-muted); font-size: 0.9rem; font-style: italic; margin: 2px 0 16px; }
     .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
     .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
     .audio-center { text-align: center; margin: 16px 0 26px; }
@@ -795,6 +796,9 @@
           const pHtml = targetPrompt ? targetSpan(ex.prompt, lang) : esc(ex.prompt);
           html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${pHtml}</div>`;
           if (targetPrompt && ex.prompt_roman && !needsRuby(lang) && !ex.hide_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+          // Cloze: show the English sentence translation before the options so the
+          // learner knows which word is needed without ambiguity (textbook style).
+          if (ex.is_cloze && ex.tip) html += `<div class="ex-translation">${esc(ex.tip)}</div>`;
         }
         if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
         html += `<div class="opt-list" id="opts"></div>`;

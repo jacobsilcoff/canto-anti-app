@@ -203,7 +203,7 @@ def _conj_cloze(concept_key: str, lang: str, sentence: str, gloss: str,
     opts = [correct] + distractors[:3]
     random.shuffle(opts)
     return {
-        "type": "choice", "grammar": True, "concept_key": concept_key,
+        "type": "choice", "grammar": True, "concept_key": concept_key, "is_cloze": True,
         "instruction": "Fill in the blank", "prompt": sentence, "prompt_lang": "target",
         "options": opts, "answer": opts.index(correct), "tip": gloss,
     }
@@ -227,7 +227,7 @@ def _free_cloze(concept_key: str, sentence: str, gloss: str, answer: str,
     opts = [answer] + distractors[:3]
     random.shuffle(opts)
     return {
-        "type": "choice", "grammar": True, "concept_key": concept_key,
+        "type": "choice", "grammar": True, "concept_key": concept_key, "is_cloze": True,
         "instruction": "Fill in the blank", "prompt": sentence, "prompt_lang": "target",
         "options": opts, "answer": opts.index(answer), "tip": gloss,
     }
