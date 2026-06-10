@@ -1792,18 +1792,35 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
     if not course:
         raise HTTPException(404, "Course not found")
 
-    access = await _resolve_gemini(user)
+    # Resolve access + check quota without metering yet — we meter per lesson below.
+    access = await _resolve_gemini(user, meter=False)
     # Admin-only knob: run the whole authoring pipeline on the premium model to
     # compare quality. Everyone else (and non-admins) use the normal reader model.
     premium = (bool(user.get("is_admin"))
                and await db.get_setting(user["id"], "lesson_premium") == "1")
     lesson_model = grammar_lessons.GENERATION_MODEL if premium else access.model_reader
 
+    # Metered = shared key, not admin, no own API key. Bill one usage unit per
+    # lesson authored (not per batch) so generating 5 at once costs 5, not 1.
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    metered = not own_enc and not user.get("is_admin")
+
     count = max(1, min(int(count), 6))
     lesson_ids: list[int] = []
     for _ in range(count):
+        if metered:
+            # Re-check quota before each lesson (earlier passes may have consumed it).
+            if await db.get_usage(user["id"]) >= _plan_limit(user):
+                if not lesson_ids:
+                    raise HTTPException(402, (
+                        f"You've used your {_plan_limit(user)} free AI lessons this month. "
+                        "Add your own Gemini key in Settings for unlimited use."
+                    ))
+                break
         try:
             lesson_ids.append(await _author_next_lesson(course, access, lesson_model, user["id"]))
+            if metered:
+                await db.increment_usage(user["id"])
         except HTTPException:
             if not lesson_ids:      # nothing succeeded → surface the error
                 raise

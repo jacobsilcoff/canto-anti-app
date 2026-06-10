@@ -338,6 +338,7 @@
   let langName = 'your language';
   let LANGS = [];
   let currentCourse = null;
+  let isAdmin = false;
   let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
   let _currentState = 'loading';
   let _generating = false;    // true while a /next API call is in-flight
@@ -362,6 +363,8 @@
         fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
       ]);
       LANGS = langs.languages || [];
+      isAdmin = !!settings.is_admin;
+      document.getElementById('unlock-toggle').style.display = isAdmin ? '' : 'none';
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -535,8 +538,8 @@
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <div class="lesson-status ${st}">${badge}</div>
-        <button onclick="event.stopPropagation();openDebug(${l.id},${dbgNum})"
-          title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>
+        ${isAdmin ? `<button onclick="event.stopPropagation();openDebug(${l.id},${dbgNum})"
+          title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>` : ''}
       </div>
     </div>`;
   }
