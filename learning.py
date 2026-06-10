@@ -52,16 +52,23 @@ def _load_example() -> dict:
 
 # ── Memory blocks (shared by both prompts) ───────────────────────────────────
 
+_REGISTRY_CAP = 150   # most recent concepts included in prompts (bounds prompt size)
+
+
 def _registry_block(concept_registry: list[dict]) -> str:
     if not concept_registry:
         return ("No concepts taught yet — this is the very start of the course. "
                 "Begin with the absolute basics.")
+    recent = concept_registry[-_REGISTRY_CAP:]
     lines = "\n".join(
         f'{c.get("key","?")} | {c.get("label","?")} | {c.get("gloss","")}'
-        for c in concept_registry
+        for c in recent
     )
-    return ("Concepts already taught (do NOT re-introduce these; you MAY reuse them "
-            "in examples and drills):\n" + lines)
+    omitted = len(concept_registry) - len(recent)
+    head = (f"Concepts already taught ({omitted} earlier ones omitted; do NOT "
+            if omitted else "Concepts already taught (do NOT ")
+    return (head + "re-introduce these; you MAY reuse them in examples and drills):\n"
+            + lines)
 
 
 def _units_block(unit_summaries: list[dict]) -> str:
@@ -257,15 +264,34 @@ def _example_block() -> str:
     )
 
 
+def _review_block(review: list[dict]) -> str:
+    if not review:
+        return ""
+    lines = "\n".join(
+        f'• {c.get("key","")} — {c.get("label","")} = {c.get("gloss","")}'
+        for c in review
+    )
+    return (
+        f"── REVIEW (interleaving) ──\n"
+        f"These previously-taught concepts are due for review:\n{lines}\n"
+        f"In ADDITION to the drills for the new concepts, include EXACTLY "
+        f"{len(review)} drill(s) whose \"concept\" is one of these review keys — "
+        f"use fresh sentences/contexts (not the ones they were taught with), and "
+        f"where natural COMBINE them with the new concepts. Place review drills "
+        f"between the new-concept drills, not all at the end.\n\n"
+    )
+
+
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
-    taught: list[dict] | None = None,
+    taught: list[dict] | None = None, review: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     taught_block = ""
     if taught:
         taught_block = f"── ALREADY TAUGHT (the learner knows these) ──\n{_registry_block(taught)}\n\n"
+    n_drills = "8–12" if review else "7–10"
     return (
         f"You are an expert {name} teacher. Author ONE focused micro-lesson "
         f"(teach blocks + drills together) for an English speaker.\n\n"
@@ -289,7 +315,8 @@ def _build_lesson_prompt(
         f"target-language word order diverges from English (e.g. verb-final sentences, "
         f"topic-comment structure, copula-less sentences, postpositions/particles).\n"
         f"Block types:\n{_BLOCK_TYPES}\n\n"
-        f"── DRILLS ──\nAuthor 7–10 drills for these concepts, in EASY → HARD order "
+        f"{_review_block(review or [])}"
+        f"── DRILLS ──\nAuthor {n_drills} drills for these concepts, in EASY → HARD order "
         f"(DO NOT shuffle — the order is intentional and the learner sees them in sequence).\n"
         f"Suggested ordering: recognition (warm-up) → listening → production → cloze → "
         f"reorder (hardest — pure recall + construction). Include at least 2 reorder "
@@ -336,36 +363,58 @@ def _order_tokens_from_sentence(sentence: str, tokens: list[str]) -> list[str] |
     """Return `tokens` reordered to match their left-to-right position in `sentence`.
 
     The model sometimes returns the tiles in the wrong order while `sentence` is
-    correct. We walk the sentence (spaces stripped) greedily, matching each
-    remaining token at the current position. Returns None if the tokens don't
-    tile the sentence exactly (drill should be dropped in that case).
+    correct. We tile the sentence (spaces stripped) with the tokens via DFS with
+    backtracking, trying longer tokens first at each position (a greedy walk
+    fails when a short token shadows a longer one, e.g. tiles 好/你好 against
+    你好…). Returns None if the tokens can't tile the sentence exactly (drill
+    should be dropped in that case).
     """
     target = sentence.replace(" ", "")
-    remaining = list(tokens)
-    result = []
-    pos = 0
-    while remaining:
-        matched = False
-        for i, tok in enumerate(remaining):
-            if target[pos: pos + len(tok)] == tok:
-                result.append(tok)
-                remaining.pop(i)
-                pos += len(tok)
-                matched = True
-                break
-        if not matched:
-            return None
-    return result if pos == len(target) else None
+
+    def walk(pos: int, remaining: list[str]) -> list[str] | None:
+        if not remaining:
+            return [] if pos == len(target) else None
+        tried = set()
+        # Longest-first so 你好 is preferred over 你 when both match.
+        for tok in sorted(set(remaining), key=len, reverse=True):
+            if tok in tried:
+                continue
+            tried.add(tok)
+            if target.startswith(tok, pos):
+                rest = list(remaining)
+                rest.remove(tok)
+                tail = walk(pos + len(tok), rest)
+                if tail is not None:
+                    return [tok] + tail
+        return None
+
+    return walk(0, list(tokens))
+
+
+def _norm(s: str) -> str:
+    """Normalise an option for duplicate detection: casefold, collapse whitespace,
+    strip terminal punctuation and leading English fillers ('the cat' ≈ 'cat').
+    Catches model distractors that are the correct answer in disguise."""
+    s = " ".join((s or "").split()).casefold()
+    s = s.rstrip(".!?。！？…,，;；:：")
+    for art in ("the ", "a ", "an ", "to "):
+        if s.startswith(art):
+            s = s[len(art):]
+            break
+    return s.strip()
 
 
 def _pick_options(correct: str, distractors: list[str], n: int = 4) -> tuple[list[str], int]:
-    """Shuffle [correct] + de-duped distractors into n options; return (opts, idx)."""
-    seen = {correct.lower()}
+    """Shuffle [correct] + de-duped distractors into n options; return (opts, idx).
+    Distractors equal to the answer after normalisation are dropped — they would
+    make the drill ambiguous (two arguably-correct options)."""
+    seen = {_norm(correct)}
     pool = []
     for d in distractors:
         d = (d or "").strip()
-        if d and d.lower() not in seen:
-            seen.add(d.lower())
+        key = _norm(d)
+        if d and key and key not in seen:
+            seen.add(key)
             pool.append(d)
     random.shuffle(pool)
     opts = [correct] + pool[: max(0, n - 1)]
@@ -407,6 +456,11 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "listening":
         if not target:
             return None
+        # Homophones are undecidable by ear: drop distractors whose romanization
+        # matches the answer's (e.g. 嗰 vs 個, both go3 — free offline oracle).
+        target_rom = _norm(rom(target))
+        if target_rom:
+            distract = [d for d in distract if _norm(rom((d or "").strip())) != target_rom]
         opts, ans = _pick_options(target, distract)
         if len(opts) < 2:
             return None
@@ -428,7 +482,10 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         if ex is None:
             return None
         ex["grammar"] = is_grammar
-        ex["prompt_roman"] = rom(sentence)
+        # Romanize around the blank — romanize_text would silently swallow "___".
+        ex["prompt_roman"] = " ___ ".join(
+            rom(part.strip()) for part in sentence.split("___")
+        ).strip() if "___" in sentence else rom(sentence)
         return ex
 
     if kind == "reorder":
@@ -534,20 +591,24 @@ async def author_lesson(
     api_key: str,
     model: str = DEFAULT_MODEL,
     taught: list[dict] | None = None,
+    review: list[dict] | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for these 1–2 concepts together,
     then validate/assemble. Returns lesson metadata + content + raw strings.
 
     `taught` — concepts the learner already knows (so the model doesn't re-teach
                them and the reorder glossary marks only genuinely-new helper words).
+    `review` — previously-taught concepts to interleave as review drills (spiral
+               review). They join the assembly's kinds/glossary maps but are NOT
+               re-registered — the caller persists only `concepts`.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught)
+    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review)
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
 
-    content = assemble_lesson(target_lang, concepts, parsed)
+    content = assemble_lesson(target_lang, concepts + list(review or []), parsed)
     return {
         "title":     (parsed.get("title") or "").strip(),
         "objective": (parsed.get("objective") or "").strip(),

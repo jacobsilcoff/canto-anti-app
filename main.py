@@ -1688,6 +1688,31 @@ async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+def _filter_new_concepts(concepts: list[dict], registry: list[dict]) -> list[dict]:
+    """Drop concepts already registered for this course (by key, or by native
+    label for vocab) and dedupe within the list itself. The unit planner is told
+    not to repeat concepts, but nothing else enforces it — without this filter a
+    duplicate is silently swallowed by INSERT OR IGNORE and re-taught."""
+    seen_keys = {(c.get("key") or "").strip() for c in registry}
+    seen_labels = {(c.get("label") or "").strip()
+                   for c in registry if (c.get("kind") or "vocab") == "vocab"}
+    seen_labels.discard("")
+    out = []
+    for c in concepts:
+        key = (c.get("key") or "").strip()
+        label = (c.get("label") or "").strip()
+        is_vocab = (c.get("kind") or "vocab") == "vocab"
+        if not key or key in seen_keys:
+            continue
+        if is_vocab and label and label in seen_labels:
+            continue
+        seen_keys.add(key)
+        if is_vocab and label:
+            seen_labels.add(label)
+        out.append(c)
+    return out
+
+
 def _next_batch(concepts: list[dict]) -> list[dict]:
     """Take the next concepts from a unit plan for one micro-lesson. A grammar
     concept is taught alone (denser); straightforward vocab packs together — up to
@@ -1705,6 +1730,28 @@ def _next_batch(concepts: list[dict]) -> list[dict]:
     return batch
 
 
+def _pick_review_concepts(registry: list[dict], batch: list[dict],
+                          mastery: list[dict], lesson_num: int, n: int = 2) -> list[dict]:
+    """Spiral review: pick up to `n` previously-taught concepts to interleave as
+    review drills in this lesson. Weak concepts first (≥3 attempts, <70% accuracy),
+    then the rest rotated by lesson number so successive lessons revisit different
+    old material instead of always the same one."""
+    batch_keys = {(c.get("key") or "").strip() for c in batch}
+    pool = [c for c in registry if (c.get("key") or "").strip() not in batch_keys]
+    if not pool:
+        return []
+    acc = {m["concept_key"]: m for m in mastery}
+    weak = [c for c in pool
+            if (m := acc.get((c.get("key") or "").strip()))
+            and m["total"] >= 3 and m["correct"] / m["total"] < 0.7]
+    picked = weak[:n]
+    rest = [c for c in pool if c not in picked]
+    if len(picked) < n and rest:
+        start = lesson_num % len(rest)
+        picked += (rest[start:] + rest[:start])[: n - len(picked)]
+    return picked
+
+
 async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
     """Author + persist ONE micro-lesson, consuming 1–2 concepts from the course's
     active unit plan (drafting a new unit plan when the current one is exhausted).
@@ -1714,16 +1761,25 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     ctx = await db.get_next_lesson_context(course_id)
     plan = await db.get_active_plan(course_id)
     plan_prompt = plan_response = ""
+    mastery: list[dict] = []
+    if user_id:
+        mastery = await db.get_mastery_summary(user_id, course["target_lang"])
+
+    # Drop not-yet-taught plan concepts that duplicate the registry (covers
+    # stale plans drafted before dedup enforcement). A fully-duplicate tail
+    # counts as an exhausted plan and triggers a fresh unit below.
+    if plan and plan.get("concepts"):
+        cur = plan.get("cursor", 0)
+        plan["concepts"] = plan["concepts"][:cur] + _filter_new_concepts(
+            plan["concepts"][cur:], ctx["concept_registry"])
 
     # 1. Ensure an active unit plan with concepts still to teach.
     if not plan or plan.get("cursor", 0) >= len(plan.get("concepts") or []):
         if plan and plan.get("concepts"):   # previous unit finished → close it
             await db.close_unit(course_id, plan.get("title") or "Unit", plan.get("summary") or "")
         learner_profile = ""
-        mastery: list[dict] = []
         if user_id:
             learner_profile = await db.get_setting(user_id, "learner_profile") or ""
-            mastery = await db.get_mastery_summary(user_id, course["target_lang"])
         try:
             plan = await learning.generate_unit_plan(
                 course["target_lang"], course["level"],
@@ -1735,6 +1791,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         except Exception as e:
             logger.error("Unit planning failed lang=%s: %s", course["target_lang"], e, exc_info=True)
             raise HTTPException(502, "Unit planning failed — please try again.")
+        plan["concepts"] = _filter_new_concepts(plan.get("concepts") or [], ctx["concept_registry"])
         if not plan.get("concepts"):
             raise HTTPException(502, "Unit planning returned no concepts — please try again.")
         plan_prompt = plan.pop("_raw_prompt", "")
@@ -1742,14 +1799,16 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         plan["cursor"] = 0
         await db.set_active_plan(course_id, plan)
 
-    # 2. Author the micro-lesson for the next 1–2 concepts.
+    # 2. Author the micro-lesson for the next 1–2 concepts, interleaving up to
+    #    2 review drills for previously-taught concepts (weakest first).
     cursor = plan.get("cursor", 0)
     batch = _next_batch(plan["concepts"][cursor:])
+    review = _pick_review_concepts(ctx["concept_registry"], batch, mastery, ctx["lesson_num"])
     try:
         authored = await learning.author_lesson(
             course["target_lang"], batch, ctx["recent_summaries"],
             api_key=access.api_key, model=lesson_model,
-            taught=ctx["concept_registry"],
+            taught=ctx["concept_registry"], review=review,
         )
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",

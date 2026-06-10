@@ -213,6 +213,172 @@ def test_french_cloze_uses_conjugation_oracle():
     assert cloze["options"][cloze["answer"]] == "parlons"
 
 
+# ── Drill validation: distractor hygiene + reorder backtracking ──────────────
+
+def test_recognition_drops_disguised_duplicate_distractors():
+    # "The table." normalizes to the same thing as the correct gloss "the table"
+    # — keeping it would make two options arguably correct.
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "recognition", "concept": "mesa", "target": "la mesa",
+         "gloss": "the table",
+         "distractors": ["The table.", "a table", "the book", "the door"]},
+    ]}
+    exs = learning.assemble_lesson("es", concepts, authored)["segments"][0]["exercises"]
+    recog = exs[0]
+    norm = [o.casefold().rstrip(".") for o in recog["options"]]
+    assert norm.count("the table") == 1          # disguised dupes removed
+    assert "a table" not in norm                 # article-stripped dupe removed
+    assert recog["options"][recog["answer"]] == "the table"
+
+
+def test_listening_drops_homophone_distractors(monkeypatch):
+    # Two characters that romanize identically are undecidable by ear, so the
+    # homophonous distractor must go. Romanization is stubbed so the test doesn't
+    # depend on the pycantonese dictionary's exact tones.
+    fake = {"個": "go3", "嗰": "go3", "你": "nei5", "好": "hou2"}
+    monkeypatch.setattr(learning.tokenizer, "romanize_text",
+                        lambda s, lang: fake.get(s, s))
+    concepts = [{"kind": "vocab", "key": "go3", "label": "個", "gloss": "classifier"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "listening", "concept": "go3", "target": "個",
+         "gloss": "classifier", "distractors": ["嗰", "你", "好"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    listen = exs[0]
+    assert "嗰" not in listen["options"]
+    assert listen["options"][listen["answer"]] == "個"
+
+
+def test_listening_dropped_when_all_distractors_homophonous(monkeypatch):
+    # If every distractor sounds identical to the answer, the drill is undecidable
+    # → fewer than 2 options → dropped entirely.
+    monkeypatch.setattr(learning.tokenizer, "romanize_text",
+                        lambda s, lang: "go3")
+    concepts = [{"kind": "vocab", "key": "go3", "label": "個", "gloss": "classifier"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "listening", "concept": "go3", "target": "個",
+         "gloss": "classifier", "distractors": ["嗰"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    assert exs == []
+
+
+def test_reorder_backtracks_when_short_token_shadows_long():
+    # Tokens 你 and 你好 both match at position 0 of 你好你 — a greedy walk that
+    # consumes 你 first dead-ends; backtracking must find 你好+你.
+    concepts = [{"kind": "vocab", "key": "t", "label": "你好", "gloss": "hello"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "t", "sentence": "你好你",
+         "tokens": ["你", "你好"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    wb = next(e for e in exs if e["type"] == "word_bank")
+    assert wb["answer_tokens"] == ["你好", "你"]
+
+
+def test_order_tokens_backtracking_unit():
+    f = learning._order_tokens_from_sentence
+    assert f("你好你", ["你", "你好"]) == ["你好", "你"]
+    assert f("aabaa", ["aa", "b", "aa"]) == ["aa", "b", "aa"]
+    assert f("你好嗎", ["你", "好"]) is None        # can't tile → drop
+
+
+def test_cloze_prompt_roman_preserves_blank():
+    concepts = [{"kind": "vocab", "key": "p", "label": "佢", "gloss": "he/she"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "cloze", "concept": "p", "sentence": "___係香港人",
+         "answer": "佢", "gloss": "He is a Hong Konger.",
+         "distractors": ["我", "你"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    cloze = exs[0]
+    assert "___" in cloze["prompt_roman"]
+
+
+def test_registry_block_caps_length():
+    registry = [{"key": f"k{i}", "label": f"l{i}", "gloss": "g"} for i in range(200)]
+    block = learning._registry_block(registry)
+    assert "k199" in block                  # newest kept
+    assert "k0" not in block                # oldest dropped
+    assert "omitted" in block
+
+
+# ── Spiral review ─────────────────────────────────────────────────────────────
+
+def test_review_concepts_flag_kinds_but_lesson_registers_only_batch():
+    # A review grammar concept's drills must carry grammar=True even though the
+    # concept isn't in the lesson's new batch.
+    batch = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    review = [{"kind": "grammar", "key": "articles", "label": "el / la", "gloss": "the (m/f)"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "recognition", "concept": "mesa", "target": "la mesa",
+         "gloss": "the table", "distractors": ["the book", "the door"]},
+        {"kind": "recognition", "concept": "articles", "target": "el libro",
+         "gloss": "the book", "distractors": ["the table", "the door"]},
+    ]}
+    exs = learning.assemble_lesson("es", batch + review, authored)["segments"][0]["exercises"]
+    flags = {e["concept_key"]: e["grammar"] for e in exs}
+    assert flags["mesa"] is False
+    assert flags["articles"] is True
+
+
+def test_review_block_in_prompt():
+    review = [{"kind": "vocab", "key": "casa", "label": "casa", "gloss": "house"}]
+    prompt = learning._build_lesson_prompt("es", _CONCEPTS, [], None, review)
+    assert "REVIEW (interleaving)" in prompt
+    assert "casa" in prompt
+    assert "8–12" in prompt
+    # Without review: no section, original drill count.
+    prompt2 = learning._build_lesson_prompt("es", _CONCEPTS, [], None, None)
+    assert "REVIEW (interleaving)" not in prompt2
+    assert "7–10" in prompt2
+
+
+def test_pick_review_concepts_prefers_weak_then_rotates():
+    import main
+    registry = [{"kind": "vocab", "key": f"k{i}", "label": f"l{i}", "gloss": "g"}
+                for i in range(5)]
+    batch = [registry[0]]                       # k0 excluded (being taught now)
+    mastery = [
+        {"concept_key": "k3", "correct": 1, "total": 5},   # weak → must be picked
+        {"concept_key": "k2", "correct": 5, "total": 5},   # strong
+        {"concept_key": "k4", "correct": 2, "total": 2},   # too few attempts
+    ]
+    picked = main._pick_review_concepts(registry, batch, mastery, lesson_num=7)
+    keys = [c["key"] for c in picked]
+    assert len(keys) == 2
+    assert "k3" in keys                          # weak concept always included
+    assert "k0" not in keys                      # batch excluded
+    # Rotation: different lesson numbers pick different filler concepts.
+    other = main._pick_review_concepts(registry, batch, mastery, lesson_num=8)
+    assert [c["key"] for c in other] != keys or len(registry) <= 3
+
+
+def test_pick_review_concepts_empty_registry():
+    import main
+    assert main._pick_review_concepts([], [], [], 1) == []
+
+
+# ── Plan concept dedup (main._filter_new_concepts) ───────────────────────────
+
+def test_filter_new_concepts_drops_registry_dupes():
+    import main
+    registry = [
+        {"kind": "vocab", "key": "hello", "label": "你好", "gloss": "hello"},
+        {"kind": "grammar", "key": "copula", "label": "係", "gloss": "to be"},
+    ]
+    plan = [
+        {"kind": "vocab", "key": "hello", "label": "哈囉", "gloss": "hi"},        # dup key
+        {"kind": "vocab", "key": "hello2", "label": "你好", "gloss": "hello"},    # dup vocab label
+        {"kind": "vocab", "key": "thanks", "label": "多謝", "gloss": "thanks"},   # new
+        {"kind": "vocab", "key": "thanks", "label": "唔該", "gloss": "thanks"},   # dup within plan
+        {"kind": "grammar", "key": "aspect", "label": "係", "gloss": "..."},      # grammar may share label
+    ]
+    out = main._filter_new_concepts(plan, registry)
+    assert [c["key"] for c in out] == ["thanks", "aspect"]
+
+
 # ── Active unit plan persistence ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
