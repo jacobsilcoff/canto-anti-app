@@ -117,17 +117,17 @@
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
     /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
        dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
-    .gl { position: relative; cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
-    .gl::after {
-      content: attr(data-gloss);
-      position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
-      margin-top: 5px; white-space: nowrap; max-width: 60vw; overflow: hidden; text-overflow: ellipsis;
-      background: var(--text); color: #fff; font-size: 0.72rem; line-height: 1.25;
+    .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
+    /* Tooltip is a JS-positioned floating div (#gl-tip) — no ::after so it can
+       be clamped to viewport bounds regardless of where the word sits on screen. */
+    #gl-tip {
+      display: none; position: fixed; z-index: 1000; pointer-events: none;
+      background: var(--text); color: #fff; font-size: 0.72rem; line-height: 1.4;
       font-style: normal; font-weight: 400; font-family: var(--reading-font, sans-serif);
-      padding: 3px 8px; border-radius: 6px; box-shadow: var(--shadow);
-      opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 30;
+      padding: 4px 9px; border-radius: 6px; box-shadow: var(--shadow);
+      max-width: 220px; word-break: break-word;
+      transition: opacity 0.1s;
     }
-    .gl:hover::after, .gl:focus::after { opacity: 1; }
 
     /* word bank */
     .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
@@ -324,6 +324,8 @@
     <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
   </div>
 </main>
+<!-- Shared floating tooltip for .gl[data-gloss] spans — positioned by JS -->
+<div id="gl-tip" aria-hidden="true"></div>
 
 <script>
   let selectedLevel = 'A1';
@@ -1433,6 +1435,60 @@
     try { await fetch('/api/logout', { method: 'POST' }); } catch {}
     location.href = '/login';
   }
+
+  // ── Viewport-clamped tooltip for .gl[data-gloss] spans ─────────────────────
+  // The CSS ::after approach can't clamp to viewport bounds, so we use one shared
+  // fixed-position div repositioned on every show().
+  (function () {
+    const tip = document.getElementById('gl-tip');
+    let _visible = false;
+
+    function showTip(el) {
+      const gloss = el.dataset.gloss;
+      if (!gloss) { hideTip(); return; }
+      tip.textContent = gloss;
+      tip.style.maxWidth = Math.min(220, window.innerWidth - 16) + 'px';
+      tip.style.display = 'block';
+      _visible = true;
+
+      const r  = el.getBoundingClientRect();
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Centre horizontally on the word, clamped to 8 px from each edge.
+      const left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, vw - tw - 8));
+      // Prefer below; flip above when there isn't room.
+      const top  = (r.bottom + th + 8 > vh && r.top - th - 5 > 0)
+        ? r.top - th - 5
+        : r.bottom + 5;
+
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    }
+
+    function hideTip() { if (_visible) { tip.style.display = 'none'; _visible = false; } }
+
+    // Mouse
+    document.addEventListener('mouseover', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      gl ? showTip(gl) : hideTip();
+    });
+
+    // Keyboard / tap focus
+    document.addEventListener('focusin', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      if (gl) showTip(gl);
+    });
+    document.addEventListener('focusout', hideTip);
+
+    // Dismiss on scroll or touch-outside
+    document.addEventListener('scroll', hideTip, { passive: true });
+    document.addEventListener('touchstart', e => {
+      if (!(e.target.closest && e.target.closest('.gl[data-gloss]'))) hideTip();
+    }, { passive: true });
+  })();
 
   init();
 </script>
