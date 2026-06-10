@@ -941,6 +941,12 @@ async def create_card(
     audio_data = await audio.generate(target_text, req.target_lang)
     notes = (req.notes or "").strip() or None
 
+    # Fill missing romanization from the offline oracle (lesson "Add to deck"
+    # and tutor chips send none) — never ask the LLM for it.
+    romanization = req.romanization.strip()
+    if not romanization and translation.LANG_INFO[req.target_lang].get("romanization"):
+        romanization = tokenizer.romanize_text(target_text, req.target_lang)
+
     # Collect extra label ids — story label if reader_text_id provided.
     extra_label_ids: list[int] = list(req.label_ids or [])
     if req.reader_text_id:
@@ -952,7 +958,7 @@ async def create_card(
         user_id=user["id"],
         source_text=req.source_text.strip(),
         target_text=target_text,
-        romanization=req.romanization.strip(),
+        romanization=romanization,
         target_lang=req.target_lang,
         audio_data=audio_data,
         notes=notes,
@@ -974,6 +980,21 @@ async def create_card(
         pass
 
     return {"card_id": card_id, "notes": notes, "labels": []}
+
+
+class CardStatusRequest(BaseModel):
+    words: list[str]
+    lang: str
+
+
+@app.post("/api/cards/status")
+async def card_statuses(req: CardStatusRequest, user: dict = Depends(current_user)):
+    """Deck status for a list of words: {word: 'known'|'weak'}; absent = not in
+    deck. Used by lesson results + tutor 'Add to deck' chips to avoid duplicates."""
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    words = [w.strip() for w in req.words[:100] if (w or "").strip()]
+    return {"statuses": await db.get_word_statuses(user["id"], words, req.lang)}
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -1688,14 +1709,19 @@ async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
-def _filter_new_concepts(concepts: list[dict], registry: list[dict]) -> list[dict]:
+def _filter_new_concepts(concepts: list[dict], registry: list[dict],
+                         known_texts: set[str] | None = None) -> list[dict]:
     """Drop concepts already registered for this course (by key, or by native
     label for vocab) and dedupe within the list itself. The unit planner is told
     not to repeat concepts, but nothing else enforces it — without this filter a
-    duplicate is silently swallowed by INSERT OR IGNORE and re-taught."""
+    duplicate is silently swallowed by INSERT OR IGNORE and re-taught.
+
+    `known_texts` — native words from the user's SRS deck; vocab concepts whose
+    label matches one are dropped too (the learner already knows them)."""
     seen_keys = {(c.get("key") or "").strip() for c in registry}
     seen_labels = {(c.get("label") or "").strip()
                    for c in registry if (c.get("kind") or "vocab") == "vocab"}
+    seen_labels |= (known_texts or set())
     seen_labels.discard("")
     out = []
     for c in concepts:
@@ -1762,16 +1788,22 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     plan = await db.get_active_plan(course_id)
     plan_prompt = plan_response = ""
     mastery: list[dict] = []
+    known_words: list[dict] = []
+    weak_words: list[dict] = []
     if user_id:
         mastery = await db.get_mastery_summary(user_id, course["target_lang"])
+        known_words = await db.get_known_words(user_id, course["target_lang"])
+        weak_words = await db.get_weak_cards(user_id, course["target_lang"])
+    known_texts = {(w.get("target_text") or "").strip() for w in known_words}
 
-    # Drop not-yet-taught plan concepts that duplicate the registry (covers
-    # stale plans drafted before dedup enforcement). A fully-duplicate tail
-    # counts as an exhausted plan and triggers a fresh unit below.
+    # Drop not-yet-taught plan concepts that duplicate the registry or words the
+    # learner already knows from their SRS deck (covers stale plans drafted
+    # before dedup enforcement). A fully-duplicate tail counts as an exhausted
+    # plan and triggers a fresh unit below.
     if plan and plan.get("concepts"):
         cur = plan.get("cursor", 0)
         plan["concepts"] = plan["concepts"][:cur] + _filter_new_concepts(
-            plan["concepts"][cur:], ctx["concept_registry"])
+            plan["concepts"][cur:], ctx["concept_registry"], known_texts)
 
     # 1. Ensure an active unit plan with concepts still to teach.
     if not plan or plan.get("cursor", 0) >= len(plan.get("concepts") or []):
@@ -1787,11 +1819,13 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
                 ctx["concept_registry"], ctx["unit_summaries"],
                 api_key=access.api_key, model=lesson_model,
                 learner_profile=learner_profile, mastery=mastery,
+                known_words=known_words,
             )
         except Exception as e:
             logger.error("Unit planning failed lang=%s: %s", course["target_lang"], e, exc_info=True)
             raise HTTPException(502, "Unit planning failed — please try again.")
-        plan["concepts"] = _filter_new_concepts(plan.get("concepts") or [], ctx["concept_registry"])
+        plan["concepts"] = _filter_new_concepts(plan.get("concepts") or [],
+                                                ctx["concept_registry"], known_texts)
         if not plan.get("concepts"):
             raise HTTPException(502, "Unit planning returned no concepts — please try again.")
         plan_prompt = plan.pop("_raw_prompt", "")
@@ -1809,6 +1843,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             course["target_lang"], batch, ctx["recent_summaries"],
             api_key=access.api_key, model=lesson_model,
             taught=ctx["concept_registry"], review=review,
+            known_words=known_words, weak_words=weak_words,
         )
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
@@ -1907,6 +1942,7 @@ def _lesson_response(lesson: dict, content: dict) -> dict:
         "target_lang": lesson["target_lang"],
         "completed":  lesson.get("completed", False),
         "score":      lesson.get("score"),
+        "concepts":   lesson.get("concepts", []),   # results screen "Add to deck"
         "content":    content,
         "llm_debug":  lesson.get("llm_debug"),
     }

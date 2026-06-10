@@ -175,6 +175,16 @@
     /* results */
     .results-emoji { font-size: 3rem; }
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
+    /* "New words → deck" panel on the results screen */
+    .rv-panel { max-width: 420px; margin: 20px auto 4px; text-align: left; }
+    .rv-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+    .rv-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+    .rv-word { font-size: 1.15rem; font-family: var(--script-font, inherit); }
+    .rv-gloss { color: var(--text-muted); font-size: 0.85rem; flex: 1; min-width: 0; }
+    .rv-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .rv-add:disabled { opacity: 0.6; cursor: default; }
+    .rv-in-deck { color: var(--good); font-size: 0.78rem; font-weight: 600; flex-shrink: 0; }
+    .rv-all { display: block; margin: 4px auto 0; background: none; border: none; color: var(--primary); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }
 
     /* ── Reinforcing animations ── */
     @keyframes pop { 0% { opacity: 0; } 100% { opacity: 1; } }
@@ -326,6 +336,7 @@
     <div class="results-emoji" id="results-emoji">🎉</div>
     <div class="results-score" id="results-score"></div>
     <p id="results-msg">Lesson complete!</p>
+    <div id="results-vocab"></div>
     <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
     <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
   </div>
@@ -1032,6 +1043,7 @@
         controller: null, graded: false,
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
         vocabGlossary: content.vocab_glossary || {},
+        concepts: lesson.concepts || [],   // for the results "Add to deck" panel
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -1438,10 +1450,80 @@
     document.getElementById('results-msg').textContent =
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
     show('results');
+    renderResultsVocab();   // async fill of the "New words → deck" panel
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
     sfx.complete();
     if (score >= 60) confetti();
     try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+  }
+
+  // ── Results screen: add this lesson's new vocab to the SRS deck ────────────
+  async function renderResultsVocab() {
+    const wrap = document.getElementById('results-vocab');
+    wrap.innerHTML = '';
+    if (!player) return;
+    const vocab = (player.concepts || []).filter(c =>
+      (c.kind || 'vocab') === 'vocab' && (c.label || '').trim() && (c.gloss || '').trim());
+    if (!vocab.length) return;
+
+    let statuses = {};
+    try {
+      const res = await fetch('/api/cards/status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: vocab.map(v => v.label), lang: player.lang }),
+      });
+      statuses = (await res.json()).statuses || {};
+    } catch {}
+
+    const panel = document.createElement('div');
+    panel.className = 'rv-panel ' + scriptClassFor(player.lang);
+    panel.innerHTML = `<div class="rv-title">New words from this lesson</div>`;
+    const addable = [];
+    vocab.forEach(v => {
+      const row = document.createElement('div');
+      row.className = 'rv-row';
+      const inDeck = !!statuses[v.label];
+      row.innerHTML = `<div class="rv-word">${targetSpan(v.label, player.lang)}</div>
+        <div class="rv-gloss">${esc(v.gloss)}</div>`;
+      if (inDeck) {
+        row.insertAdjacentHTML('beforeend', '<span class="rv-in-deck">✓ In your deck</span>');
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'rv-add'; btn.type = 'button'; btn.textContent = '＋ Add';
+        btn.onclick = () => addWordToDeck(v, btn);
+        row.appendChild(btn);
+        addable.push([v, btn]);
+      }
+      panel.appendChild(row);
+    });
+    if (addable.length > 1) {
+      const all = document.createElement('button');
+      all.className = 'rv-all'; all.type = 'button';
+      all.textContent = `Add all ${addable.length} to flashcards`;
+      all.onclick = () => { all.disabled = true; addable.forEach(([v, b]) => addWordToDeck(v, b)); };
+      panel.appendChild(all);
+    }
+    wrap.appendChild(panel);
+    applyRuby(panel);   // inline ruby — no spoiler concern on the results screen
+  }
+
+  async function addWordToDeck(v, btn) {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: v.gloss, target_text: v.label,
+          target_lang: player.lang, priority: 3,
+          notes: 'From lesson: ' + (player.title || ''),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      btn.outerHTML = '<span class="rv-in-deck">✓ Added</span>';
+    } catch {
+      btn.disabled = false; btn.textContent = '＋ Add';
+    }
   }
 
   function quitLesson() {

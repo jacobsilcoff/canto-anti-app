@@ -71,6 +71,14 @@ def _registry_block(concept_registry: list[dict]) -> str:
             + lines)
 
 
+def _word_list_block(words: list[dict]) -> str:
+    """Compact `word = gloss` lines for SRS-deck word lists in prompts."""
+    return "\n".join(
+        f'{w.get("target_text","")} = {w.get("gloss","")}'
+        for w in words if (w.get("target_text") or "").strip()
+    )
+
+
 def _units_block(unit_summaries: list[dict]) -> str:
     if not unit_summaries:
         return "No completed units yet."
@@ -113,6 +121,7 @@ def _build_unit_plan_prompt(
     target_lang: str, level_target: str, unit_num: int,
     concept_registry: list[dict], unit_summaries: list[dict],
     learner_profile: str = "", mastery: list[dict] | None = None,
+    known_words: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
@@ -120,6 +129,16 @@ def _build_unit_plan_prompt(
     profile_section = ""
     if learner_profile.strip():
         profile_section = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n"
+
+    deck_section = ""
+    if known_words:
+        deck_section = (
+            f"── FLASHCARD VOCAB THE LEARNER ALREADY KNOWS (from their SRS deck) ──\n"
+            f"{_word_list_block(known_words)}\n"
+            f"Do NOT propose these as new vocab concepts — the learner knows them. "
+            f"You MAY (and should) rely on them when sequencing grammar: a grammar "
+            f"point is easier to teach through familiar words.\n\n"
+        )
 
     mastery_section = ""
     if mastery:
@@ -139,6 +158,7 @@ def _build_unit_plan_prompt(
         f"{_lang_preamble(info)}"
         f"{profile_section}"
         f"{mastery_section}"
+        f"{deck_section}"
         f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
         f"{_units_block(unit_summaries)}\n\n"
         f"── YOUR TASK ──\n"
@@ -177,6 +197,7 @@ async def generate_unit_plan(
     model: str = DEFAULT_MODEL,
     learner_profile: str = "",
     mastery: list[dict] | None = None,
+    known_words: list[dict] | None = None,
 ) -> dict:
     """One LLM call: draft a unit's ordered concept outline. Returns
     {title, objective, summary, concepts:[...], _raw_prompt, _raw_response}."""
@@ -186,6 +207,7 @@ async def generate_unit_plan(
         target_lang, level_target, unit_num,
         concept_registry or [], unit_summaries or [],
         learner_profile=learner_profile, mastery=mastery,
+        known_words=known_words,
     )
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
@@ -285,12 +307,30 @@ def _review_block(review: list[dict]) -> str:
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
     taught: list[dict] | None = None, review: list[dict] | None = None,
+    known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
     taught_block = ""
     if taught:
         taught_block = f"── ALREADY TAUGHT (the learner knows these) ──\n{_registry_block(taught)}\n\n"
+    deck_block = ""
+    if known_words:
+        deck_block = (
+            f"── LEARNER'S KNOWN FLASHCARD WORDS (their SRS deck) ──\n"
+            f"{_word_list_block(known_words)}\n"
+            f"PREFER these when you need extra words in example sentences and drills — "
+            f"they need no glossing and make the new material feel familiar.\n\n"
+        )
+    weak_block = ""
+    if weak_words:
+        weak_block = (
+            f"── STRUGGLING FLASHCARD WORDS ──\n"
+            f"{_word_list_block(weak_words)}\n"
+            f"The learner keeps failing these in flashcard review. If one fits "
+            f"naturally, work 1–2 of them into example sentences or drills (set the "
+            f"drill's \"concept\" to the lesson concept it practises). Don't force it.\n\n"
+        )
     n_drills = "8–12" if review else "7–10"
     return (
         f"You are an expert {name} teacher. Author ONE focused micro-lesson "
@@ -298,6 +338,8 @@ def _build_lesson_prompt(
         f"{_lang_preamble(info)}"
         f"{_recent_block(recent_summaries)}"
         f"{taught_block}"
+        f"{deck_block}"
+        f"{weak_block}"
         f"── TEACH EXACTLY THESE {len(concepts)} CONCEPT(S) ──\n{_concepts_block(concepts)}\n\n"
         f"── TEACH BLOCKS ──\n"
         f"Write a TEXTBOOK PAGE for these concepts. The learner should finish the teach "
@@ -592,6 +634,8 @@ async def author_lesson(
     model: str = DEFAULT_MODEL,
     taught: list[dict] | None = None,
     review: list[dict] | None = None,
+    known_words: list[dict] | None = None,
+    weak_words: list[dict] | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for these 1–2 concepts together,
     then validate/assemble. Returns lesson metadata + content + raw strings.
@@ -601,10 +645,13 @@ async def author_lesson(
     `review` — previously-taught concepts to interleave as review drills (spiral
                review). They join the assembly's kinds/glossary maps but are NOT
                re-registered — the caller persists only `concepts`.
+    `known_words` / `weak_words` — the learner's SRS deck (strong words to build
+               with, struggling words to weave in for extra practice).
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review)
+    prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review,
+                                  known_words=known_words, weak_words=weak_words)
     raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
     parsed = _parse_json(raw) or {}
 

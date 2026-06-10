@@ -395,6 +395,75 @@ async def test_active_plan_roundtrip(fresh_db):
     assert await db.get_active_plan(cid) is None
 
 
+# ── SRS deck → lesson generation ─────────────────────────────────────────────
+
+async def _seed_card(uid, target, gloss, lang="yue", *, interval=0.0, reps=0,
+                     step=None, ease=2.5, seen=True):
+    cid = await db.create_card(uid, gloss, target, target_lang=lang)
+    if seen:
+        await db.update_face_review(uid, cid, "target", {
+            "interval_days": interval, "ease_factor": ease, "repetitions": reps,
+            "next_review": "2030-01-01", "learning_step": step,
+        })
+    return cid
+
+
+@pytest.mark.asyncio
+async def test_get_known_words_filters_and_orders(fresh_db):
+    uid = fresh_db
+    await _seed_card(uid, "你好", "hello", interval=10, reps=4)          # strong
+    await _seed_card(uid, "多謝", "thanks", interval=3, reps=1)          # known (interval)
+    await _seed_card(uid, "再見", "goodbye", interval=0.01, reps=1, step=1)  # in learning
+    await _seed_card(uid, "唔該", "excuse me", seen=False)               # never seen
+    sus = await _seed_card(uid, "犀利", "amazing", interval=20, reps=5)  # suspended
+    await db.set_card_suspended(uid, sus, True)
+    await _seed_card(uid, "bonjour", "hello", lang="fr", interval=10, reps=4)  # other lang
+
+    words = await db.get_known_words(uid, "yue")
+    texts = [w["target_text"] for w in words]
+    assert texts == ["你好", "多謝"]          # strongest first; others excluded
+    assert words[0]["gloss"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_get_weak_cards_finds_low_ease_and_relapsed(fresh_db):
+    uid = fresh_db
+    await _seed_card(uid, "你好", "hello", interval=10, reps=4, ease=2.6)       # strong
+    await _seed_card(uid, "難", "difficult", interval=1, reps=3, ease=1.5)      # low ease
+    await _seed_card(uid, "跌", "to fall", reps=2, step=0, ease=2.5)            # relapsed
+    await _seed_card(uid, "新", "new", reps=0, step=0, ease=2.5)                # brand new, not weak
+    weak = await db.get_weak_cards(uid, "yue")
+    texts = {w["target_text"] for w in weak}
+    assert texts == {"難", "跌"}
+    assert weak[0]["target_text"] == "難"     # lowest ease first
+
+
+def test_prompts_include_deck_sections():
+    known = [{"target_text": "你好", "gloss": "hello"}]
+    weak = [{"target_text": "難", "gloss": "difficult"}]
+    p = learning._build_lesson_prompt("yue", _CONCEPTS, [], None, None,
+                                      known_words=known, weak_words=weak)
+    assert "KNOWN FLASHCARD WORDS" in p and "你好 = hello" in p
+    assert "STRUGGLING FLASHCARD WORDS" in p and "難 = difficult" in p
+    # Absent lists → no sections.
+    p2 = learning._build_lesson_prompt("yue", _CONCEPTS, [], None, None)
+    assert "FLASHCARD" not in p2
+
+    up = learning._build_unit_plan_prompt("yue", "A1", 1, [], [], known_words=known)
+    assert "ALREADY KNOWS" in up and "你好 = hello" in up
+
+
+def test_filter_new_concepts_drops_known_deck_words():
+    import main
+    plan = [
+        {"kind": "vocab", "key": "hello", "label": "你好", "gloss": "hello"},
+        {"kind": "vocab", "key": "thanks", "label": "多謝", "gloss": "thanks"},
+        {"kind": "grammar", "key": "copula", "label": "你好", "gloss": "..."},  # grammar exempt
+    ]
+    out = main._filter_new_concepts(plan, [], known_texts={"你好"})
+    assert [c["key"] for c in out] == ["thanks", "copula"]
+
+
 # ── Mastery ledger ────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

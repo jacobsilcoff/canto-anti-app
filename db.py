@@ -2062,6 +2062,52 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
     return result
 
 
+async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> list[dict]:
+    """The user's well-known deck words, strongest first — fed into lesson/tutor
+    prompts so generation builds on what the learner already knows.
+
+    'Known' = the primary `target` face has graduated (no learning step, seen at
+    least once) AND has real traction (repetitions ≥ 2 or interval ≥ 3 days).
+    Returns lean rows: [{target_text, gloss}] (gloss = the card's English side).
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT c.target_text, c.source_text AS gloss
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL
+                 AND (cf.repetitions >= 2 OR cf.interval_days >= 3)
+               ORDER BY cf.interval_days DESC, cf.repetitions DESC, c.id ASC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_weak_cards(user_id: int, target_lang: str, limit: int = 12) -> list[dict]:
+    """Deck words the user keeps struggling with (low ease or relapsed into
+    learning after having been seen), weakest first — surfaced to the lesson
+    author / tutor so they get extra in-context practice.
+    Returns lean rows: [{target_text, gloss}]."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT c.target_text, c.source_text AS gloss
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.first_seen_date IS NOT NULL
+                 AND (cf.ease_factor <= 2.0
+                      OR (cf.learning_step IS NOT NULL AND cf.repetitions > 0))
+               ORDER BY cf.ease_factor ASC, c.id ASC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_cefr_distribution(user_id: int) -> dict:
     """Return counts of cards at each CEFR level plus an unlabelled count."""
     async with aiosqlite.connect(DB_PATH) as db:
