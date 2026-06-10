@@ -365,6 +365,9 @@
       LANGS = langs.languages || [];
       isAdmin = !!settings.is_admin;
       document.getElementById('unlock-toggle').style.display = isAdmin ? '' : 'none';
+      // A past bug force-enabled unlock-all for everyone after generating; clear
+      // the stale flag for non-admins so sequential locking works again.
+      if (!isAdmin && unlockAll) { unlockAll = false; localStorage.removeItem('learn_unlock_all'); }
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -497,8 +500,6 @@
         const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
         throw new Error(msg);
       }
-      // Unlock browse-ahead so newly generated lessons are all playable.
-      if (!unlockAll) { unlockAll = true; localStorage.setItem('learn_unlock_all', '1'); }
       const { course } = await fetch('/api/courses/active').then(r => r.json());
       if (course) {
         currentCourse = course;
@@ -1357,10 +1358,10 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
-    // Always hide inline ruby in exercises — both romanization and gloss go into
-    // the hover/tap .gl tooltip on each word. This lets learners check pronunciation
-    // and meaning word-by-word without them being shown upfront (Duolingo-style).
-    if (needsRuby(player.lang)) applyRuby(root, player.vocabGlossary, true);
+    // Always hide inline ruby in exercises — romanization goes into the hover/tap
+    // .gl tooltip on each word. NEVER pass the vocab glossary here: a recognition
+    // prompt would reveal its own English answer on hover (glossing is teach-only).
+    if (needsRuby(player.lang)) applyRuby(root, null, true);
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
