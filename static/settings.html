@@ -983,11 +983,13 @@
 
   async function loadStreak() {
     try {
-      const { streak } = await fetch('/api/streak').then(r => r.json());
-      if (streak > 0) {
-        const text = `🔥 ${streak}`;
+      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const parts = [];
+      if (streak > 0) parts.push(`🔥 ${streak}`);
+      if (points > 0) parts.push(`⭐ ${points}`);
+      if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
-          el.textContent = text; el.style.display = '';
+          el.textContent = parts.join(' · '); el.style.display = '';
         });
       }
     } catch {}

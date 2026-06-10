@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_NAME}} — Tutor</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .tutor-page { max-width: 720px; margin: 0 auto; padding: 12px 16px 0; flex: 1; display: flex; flex-direction: column; width: 100%; }
+
+    /* Top bar: conversation chips + points */
+    .tutor-top { display: flex; align-items: center; gap: 8px; padding: 4px 0 10px; }
+    .conv-strip { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
+    .conv-strip::-webkit-scrollbar { display: none; }
+    .conv-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer; white-space: nowrap; color: var(--text-muted); flex-shrink: 0; }
+    .conv-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft, #eef4fe); }
+    .conv-chip .conv-x { border: none; background: none; cursor: pointer; color: inherit; opacity: 0.5; font-size: 0.8rem; padding: 0 0 0 2px; line-height: 1; }
+    .conv-chip .conv-x:hover { opacity: 1; }
+    .tutor-points { font-size: 0.85rem; font-weight: 700; color: var(--text); background: var(--bg); border-radius: 999px; padding: 5px 11px; flex-shrink: 0; transition: transform 0.15s; }
+    .tutor-points.bump { transform: scale(1.25); }
+    .ruby-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; flex-shrink: 0; }
+    .ruby-toggle.on { border-color: var(--primary); color: var(--primary); }
+
+    /* Thread */
+    .thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 16px; }
+    .bubble { max-width: 86%; border-radius: 16px; padding: 10px 14px; line-height: 1.55; font-size: 1rem; position: relative; word-break: break-word; }
+    .bubble.user { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 5px; font-family: var(--script-font, inherit); }
+    .bubble.tutor { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+    .bubble.system { align-self: center; background: none; border: 1px dashed var(--border); color: var(--text-muted); font-size: 0.85rem; max-width: 94%; text-align: center; }
+    .bubble-reply { font-family: var(--script-font, inherit); font-size: 1.05rem; }
+    .bubble-tools { display: flex; gap: 8px; margin-top: 6px; }
+    .bubble-speak { border: none; background: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); padding: 0; }
+    .bubble-speak:hover { color: var(--primary); }
+    ruby { ruby-align: center; }
+    rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
+    .bubble.user rt { color: rgba(255,255,255,0.8); }
+    .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
+
+    /* Correction cards inside a tutor bubble */
+    .corr-card { margin-top: 10px; background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a); border-left: 3px solid var(--warn-strong, #f59e0b); border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
+    .corr-quote { color: var(--text-muted); text-decoration: line-through; font-family: var(--script-font, inherit); }
+    .corr-fixed { font-weight: 600; font-family: var(--script-font, inherit); font-size: 1rem; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+    .corr-why { color: var(--text-muted); margin-top: 3px; font-size: 0.82rem; }
+
+    /* "New word" chips inside a tutor bubble */
+    .ni-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .ni-chip { display: flex; align-items: center; gap: 10px; background: var(--surface-alt, #f7f8fc); border: 1px solid var(--border); border-radius: 10px; padding: 7px 11px; }
+    .ni-word { font-family: var(--script-font, inherit); font-size: 1.05rem; }
+    .ni-rom { color: var(--text-muted); font-size: 0.74rem; font-style: italic; }
+    .ni-gloss { color: var(--text-muted); font-size: 0.84rem; flex: 1; min-width: 0; }
+    .ni-notes { color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; font-style: italic; }
+    .ni-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 3px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .ni-add:disabled { opacity: 0.6; cursor: default; }
+    .ni-in-deck { color: var(--good); font-size: 0.74rem; font-weight: 600; flex-shrink: 0; }
+
+    /* Typing indicator */
+    .typing { display: inline-flex; gap: 4px; padding: 4px 2px; }
+    .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; animation: blink 1.2s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100% { opacity: 0.25; } 40% { opacity: 0.9; } }
+
+    /* Composer */
+    .composer { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 14px; display: flex; gap: 8px; align-items: flex-end; }
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 14px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 130px; line-height: 1.4; }
+    .composer textarea:focus { outline: none; border-color: var(--primary); }
+    .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .composer button:disabled { opacity: 0.5; cursor: default; }
+
+    /* Points toast */
+    .pt-toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 0.88rem; font-weight: 600; box-shadow: var(--shadow); z-index: 999; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
+    .pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+    /* Shared gloss tooltip (same mechanism as learn.html) */
+    #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
+      background: var(--text); color: #fff; font-size: 0.72rem; line-height: 1.4;
+      font-style: normal; font-weight: 400; padding: 4px 9px; border-radius: 6px;
+      box-shadow: var(--shadow); max-width: 220px; word-break: break-word; }
+
+    main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main>
+  <div class="tutor-page">
+    <div class="tutor-top">
+      <div class="conv-strip" id="conv-strip"></div>
+      <button class="ruby-toggle" id="ruby-toggle" title="Show/hide pronunciation" style="display:none"></button>
+      <span class="tutor-points" id="tutor-points" style="display:none"></span>
+    </div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      <textarea id="composer-input" rows="1" placeholder="Say something…" enterkeyhint="send"></textarea>
+      <button id="composer-send" title="Send" disabled>➤</button>
+    </div>
+  </div>
+</main>
+<div class="pt-toast" id="pt-toast"></div>
+<div id="gl-tip" aria-hidden="true"></div>
+
+<script>
+  let LANGS = [];
+  let lang = 'yue';
+  let langName = 'your language';
+  let conversations = [];
+  let currentConv = null;       // conversation id or null (created on first send)
+  let pointsTotal = 0;
+  let sending = false;
+  let rubyInline = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
+
+  // ── Ruby / TTS helpers (same proven mechanism as learn.html) ────────────────
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
+  function needsRuby(l) { return RUBY_LANGS.has(l); }
+  function _isLatin(text) {
+    const stripped = (text || '').replace(/\s/g, '');
+    if (!stripped) return true;
+    const latin = (stripped.match(/[A-Za-zÀ-öø-ÿ]/g) || []).length;
+    return latin / stripped.length > 0.5;
+  }
+  const _tokenCache = {};
+  function _fetchTokens(text, l) {
+    const key = l + '\0' + text;
+    if (!_tokenCache[key]) {
+      _tokenCache[key] = fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(l)}`)
+        .then(r => r.json()).catch(() => null);
+    }
+    return _tokenCache[key];
+  }
+  function _tokensToHtml(tokens, hideRoman) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const hasRoman = tokens.some(t => t.roman);
+    return tokens.map(t => {
+      const inner = (!hideRoman && hasRoman && t.is_word && t.roman)
+        ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>` : esc(t.text);
+      return (hideRoman && t.is_word && t.roman)
+        ? `<span class="gl" tabindex="0" data-gloss="${esc(t.roman)}">${inner}</span>` : inner;
+    }).join('');
+  }
+  async function rubyHtml(text, l, hideRoman) {
+    if (!text) return '';
+    if (_isLatin(text)) return esc(text);
+    const tokens = await _fetchTokens(text, l);
+    if (!tokens || !tokens.length) return esc(text);
+    return _tokensToHtml(tokens, hideRoman);
+  }
+  async function applyRuby(container, hideRoman) {
+    const els = container.querySelectorAll('.needs-ruby');
+    await Promise.all([...els].map(async el => {
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, hideRoman);
+      el.classList.remove('needs-ruby');
+    }));
+  }
+  function targetSpan(text, l) {
+    if (!text) return '';
+    if (!needsRuby(l)) return esc(text);
+    return `<span class="needs-ruby" data-text="${esc(text)}" data-lang="${esc(l)}">${esc(text)}</span>`;
+  }
+  function cleanForTTS(text, l) {
+    let t = (text || '').replace(/\([^)]*\)/g, '').replace(/\*+/g, '').trim();
+    if (RUBY_LANGS.has(l)) {
+      const m = t.match(/^([\s\S]*[ऀ-෿ఀ-౿　-鿿가-힯㐀-䶿。！？、，；：“”‘’「」【】〔〕《》·…—～]+)/);
+      if (m) t = m[1].trim();
+    }
+    return t;
+  }
+  let _audio = null;
+  function playTTS(text, l) {
+    if (!text) return;
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(l));
+    _audio.play().catch(() => {});
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      const [langs, convRes] = await Promise.all([
+        fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
+        fetch('/api/tutor/conversations').then(r => r.json()),
+      ]);
+      LANGS = langs.languages || [];
+      lang = convRes.lang || 'yue';
+      const l = LANGS.find(x => x.code === lang);
+      langName = l ? l.name : lang;
+      conversations = convRes.conversations || [];
+      setPoints(convRes.points || 0);
+    } catch {}
+    document.getElementById('thread').className = 'thread ' + scriptClassFor(lang);
+    document.querySelector('.composer textarea').classList.add(scriptClassFor(lang));
+    const rt = document.getElementById('ruby-toggle');
+    if (needsRuby(lang)) { rt.style.display = ''; updateRubyToggle(); }
+    renderConvStrip();
+    if (conversations.length) openConversation(conversations[0].id);
+    else renderWelcome();
+    loadStreak();
+  }
+
+  function updateRubyToggle() {
+    const rt = document.getElementById('ruby-toggle');
+    rt.textContent = rubyInline ? 'あ Ruby on' : 'あ Ruby off';
+    rt.classList.toggle('on', rubyInline);
+  }
+  document.getElementById('ruby-toggle').onclick = () => {
+    rubyInline = !rubyInline;
+    localStorage.setItem('tutor_ruby_inline', rubyInline ? '1' : '0');
+    updateRubyToggle();
+    if (currentConv) openConversation(currentConv);   // re-render with new mode
+  };
+
+  function setPoints(n, bump) {
+    pointsTotal = n;
+    const el = document.getElementById('tutor-points');
+    el.textContent = `⭐ ${n}`;
+    el.style.display = n > 0 ? '' : 'none';
+    if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+
+  // ── Conversation strip ───────────────────────────────────────────────────────
+  function renderConvStrip() {
+    const strip = document.getElementById('conv-strip');
+    strip.innerHTML = '';
+    const plus = document.createElement('button');
+    plus.className = 'conv-chip';
+    plus.textContent = '＋ New chat';
+    plus.onclick = newConversation;
+    strip.appendChild(plus);
+    conversations.forEach(c => {
+      const chip = document.createElement('button');
+      chip.className = 'conv-chip' + (c.id === currentConv ? ' active' : '');
+      chip.innerHTML = `<span>${esc(c.title || 'New chat')}</span><span class="conv-x" title="Delete">✕</span>`;
+      chip.onclick = e => {
+        if (e.target.classList.contains('conv-x')) { deleteConversation(c.id); return; }
+        if (c.id !== currentConv) openConversation(c.id);
+      };
+      strip.appendChild(chip);
+    });
+  }
+
+  async function newConversation() {
+    currentConv = null;
+    renderConvStrip();
+    renderWelcome();
+    document.getElementById('composer-input').focus();
+  }
+
+  async function deleteConversation(id) {
+    if (!confirm('Delete this conversation?')) return;
+    await fetch('/api/tutor/conversations/' + id, { method: 'DELETE' }).catch(() => {});
+    conversations = conversations.filter(c => c.id !== id);
+    if (currentConv === id) { currentConv = null; renderWelcome(); }
+    renderConvStrip();
+  }
+
+  async function openConversation(id) {
+    currentConv = id;
+    renderConvStrip();
+    const thread = document.getElementById('thread');
+    thread.innerHTML = '';
+    try {
+      const conv = await fetch('/api/tutor/conversations/' + id).then(r => r.json());
+      (conv.messages || []).forEach(m => appendMessage(m, false));
+      scrollThread();
+    } catch {}
+  }
+
+  function renderWelcome() {
+    const thread = document.getElementById('thread');
+    thread.innerHTML = '';
+    const b = document.createElement('div');
+    b.className = 'bubble system';
+    b.innerHTML = `👋 I'm your ${esc(langName)} tutor. Talk to me in ${esc(langName)} as much as
+      you can — I'll keep the conversation going, fix slips gently, and teach you new
+      words you can save to your flashcards. Don't worry about mistakes: if you don't
+      know a word, talk around it! Earn ⭐ by using what you've learned.`;
+    thread.appendChild(b);
+  }
+
+  // ── Messages ─────────────────────────────────────────────────────────────────
+  function scrollThread() {
+    const t = document.getElementById('thread');
+    t.scrollTop = t.scrollHeight;
+  }
+
+  function appendMessage(m, animate = true) {
+    const thread = document.getElementById('thread');
+    const b = document.createElement('div');
+    if (m.role === 'user') {
+      b.className = 'bubble user';
+      b.textContent = m.text || '';
+      thread.appendChild(b);
+      scrollThread();
+      return b;
+    }
+    if (m.role === 'system') {
+      b.className = 'bubble system';
+      b.textContent = m.text || '';
+      thread.appendChild(b);
+      scrollThread();
+      return b;
+    }
+    // Tutor bubble: reply + tools + corrections + new items.
+    b.className = 'bubble tutor';
+    const reply = m.reply || '';
+    b.innerHTML = `<div class="bubble-reply">${targetSpan(reply, lang)}</div>
+      <div class="bubble-tools"><button class="bubble-speak" title="Listen">🔊 Listen</button></div>`;
+    b.querySelector('.bubble-speak').onclick = () => playTTS(cleanForTTS(reply, lang), lang);
+
+    (m.corrections || []).forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'corr-card';
+      card.innerHTML = `${c.quote ? `<div class="corr-quote">${esc(c.quote)}</div>` : ''}
+        <div class="corr-fixed"><button class="bubble-speak" title="Listen">🔊</button>
+          <span>${targetSpan(c.corrected, lang)}</span>
+          ${c.corrected_roman && !needsRuby(lang) ? `<span class="ni-rom">${esc(c.corrected_roman)}</span>` : ''}</div>
+        ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}`;
+      card.querySelector('.bubble-speak').onclick = () => playTTS(cleanForTTS(c.corrected, lang), lang);
+      b.appendChild(card);
+    });
+
+    const items = m.new_items || [];
+    if (items.length) {
+      const list = document.createElement('div');
+      list.className = 'ni-list';
+      items.forEach(it => list.appendChild(newItemChip(it)));
+      b.appendChild(list);
+      markInDeck(list, items);
+    }
+
+    thread.appendChild(b);
+    applyRuby(b, !rubyInline);     // inline ruby, or tucked into hover tooltips
+    scrollThread();
+    return b;
+  }
+
+  function newItemChip(it) {
+    const chip = document.createElement('div');
+    chip.className = 'ni-chip';
+    chip.dataset.word = it.target_text;
+    chip.innerHTML = `<button class="bubble-speak" title="Listen">🔊</button>
+      <div style="flex:1;min-width:0">
+        <span class="ni-word">${targetSpan(it.target_text, lang)}</span>
+        ${it.romanization && !needsRuby(lang) ? ` <span class="ni-rom">${esc(it.romanization)}</span>` : ''}
+        <div class="ni-gloss">${esc(it.english)}</div>
+        ${it.notes ? `<div class="ni-notes">${esc(it.notes)}</div>` : ''}
+      </div>`;
+    chip.querySelector('.bubble-speak').onclick = () => playTTS(it.target_text, lang);
+    const btn = document.createElement('button');
+    btn.className = 'ni-add'; btn.type = 'button'; btn.textContent = '＋ Add';
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        const res = await fetch('/api/cards', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_text: it.english, target_text: it.target_text,
+            romanization: it.romanization || '', target_lang: lang,
+            notes: it.notes || 'From tutor chat', priority: 3,
+          }),
+        });
+        if (!res.ok) throw new Error();
+        btn.outerHTML = '<span class="ni-in-deck">✓ Added</span>';
+      } catch { btn.disabled = false; btn.textContent = '＋ Add'; }
+    };
+    chip.appendChild(btn);
+    return chip;
+  }
+
+  // Replace Add buttons with "In deck" for words already saved.
+  async function markInDeck(list, items) {
+    try {
+      const res = await fetch('/api/cards/status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: items.map(i => i.target_text), lang }),
+      });
+      const statuses = (await res.json()).statuses || {};
+      list.querySelectorAll('.ni-chip').forEach(chip => {
+        if (statuses[chip.dataset.word]) {
+          const btn = chip.querySelector('.ni-add');
+          if (btn) btn.outerHTML = '<span class="ni-in-deck">✓ In deck</span>';
+        }
+      });
+    } catch {}
+  }
+
+  function showPointsToast(awards) {
+    if (!awards || !awards.length) return;
+    const total = awards.reduce((n, p) => n + (p.points || 0), 0);
+    const what = awards.map(p => p.concept).filter(Boolean).join(', ');
+    const toast = document.getElementById('pt-toast');
+    toast.textContent = `+${total} ⭐${what ? ' — ' + what : ''}`;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  // ── Sending ──────────────────────────────────────────────────────────────────
+  const input = document.getElementById('composer-input');
+  const sendBtn = document.getElementById('composer-send');
+
+  input.addEventListener('input', () => {
+    sendBtn.disabled = !input.value.trim() || sending;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 130) + 'px';
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.onclick = send;
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || sending) return;
+    sending = true;
+    sendBtn.disabled = true;
+    input.value = ''; input.style.height = 'auto';
+
+    // First message of a fresh chat: clear the welcome bubble, create the conv.
+    if (!currentConv) document.getElementById('thread').innerHTML = '';
+    appendMessage({ role: 'user', text });
+    const typing = document.createElement('div');
+    typing.className = 'bubble tutor';
+    typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+    document.getElementById('thread').appendChild(typing);
+    scrollThread();
+
+    try {
+      if (!currentConv) {
+        const res = await fetch('/api/tutor/conversations', { method: 'POST' });
+        if (!res.ok) throw new Error('Could not start a conversation.');
+        const conv = await res.json();
+        currentConv = conv.id;
+        conversations.unshift({ id: conv.id, title: text.slice(0, 60) });
+      }
+      const res = await fetch(`/api/tutor/conversations/${currentConv}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail
+          || (res.status === 402 ? 'You\'ve hit your monthly AI limit — add your own Gemini key in Settings.'
+            : res.status === 429 ? 'Slow down a little — try again in a minute.'
+              : 'The tutor couldn\'t reply — please try again.');
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      typing.remove();
+      appendMessage(data.message);
+      const gained = (data.message.points || []).reduce((n, p) => n + (p.points || 0), 0);
+      if (gained > 0) { showPointsToast(data.message.points); }
+      setPoints(data.points_total || 0, gained > 0);
+      // Keep the chip title in sync with the server (first message becomes title).
+      const c = conversations.find(x => x.id === currentConv);
+      if (c && !c.title) c.title = text.slice(0, 60);
+      renderConvStrip();
+    } catch (e) {
+      typing.remove();
+      appendMessage({ role: 'system', text: e.message || 'Something went wrong — please try again.' });
+    } finally {
+      sending = false;
+      sendBtn.disabled = !input.value.trim();
+      input.focus();
+    }
+  }
+
+  // ── Gloss tooltip (shared mechanism with learn.html) ─────────────────────────
+  (function () {
+    const tip = document.getElementById('gl-tip');
+    let _visible = false;
+    function showTip(el) {
+      const gloss = el.dataset.gloss;
+      if (!gloss) { hideTip(); return; }
+      tip.textContent = gloss;
+      tip.style.maxWidth = Math.min(220, window.innerWidth - 16) + 'px';
+      tip.style.display = 'block';
+      _visible = true;
+      const r = el.getBoundingClientRect();
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      const left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, window.innerWidth - tw - 8));
+      const top = (r.bottom + th + 8 > window.innerHeight && r.top - th - 5 > 0) ? r.top - th - 5 : r.bottom + 5;
+      tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    }
+    function hideTip() { if (_visible) { tip.style.display = 'none'; _visible = false; } }
+    document.addEventListener('mouseover', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      gl ? showTip(gl) : hideTip();
+    });
+    document.addEventListener('focusin', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      if (gl) showTip(gl);
+    });
+    document.addEventListener('focusout', hideTip);
+    document.addEventListener('scroll', hideTip, { passive: true });
+  })();
+
+  // ── Nav helpers ──────────────────────────────────────────────────────────────
+  function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('nav-dropdown');
+    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
+  });
+  async function loadStreak() {
+    try {
+      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const parts = [];
+      if (streak > 0) parts.push(`🔥 ${streak}`);
+      if (points > 0) parts.push(`⭐ ${points}`);
+      if (parts.length) {
+        document.querySelectorAll('.streak-display').forEach(el => {
+          el.textContent = parts.join(' · ');
+          el.style.display = '';
+        });
+      }
+    } catch {}
+  }
+  async function doLogout() {
+    await fetch('/api/logout', { method: 'POST' });
+    location.href = '/login';
+  }
+
+  init();
+</script>
+</body>
+</html>
