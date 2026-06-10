@@ -261,8 +261,25 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
 
 
 def _parse_json(text: str) -> dict:
-    if text.startswith("```"):
-        text = text.split("\n", 1)[-1].rsplit("```", 1)[0]
+    """Parse the first JSON object from the model response.
+
+    Handles bare JSON, JSON inside ```...``` code fences, and responses
+    with a preamble or suffix (e.g. 'Here is the lesson:\n{...}\nDone.').
+    """
+    if not text:
+        raise ValueError("Empty response from model")
+    # Strip markdown code fences
+    if "```" in text:
+        inner = text.split("```", 1)[1]
+        # skip optional language tag line (```json)
+        if "\n" in inner:
+            inner = inner.split("\n", 1)[1]
+        text = inner.rsplit("```", 1)[0]
+    # Skip any preamble before the first { and trim trailing text after the last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end >= start:
+        text = text[start:end + 1]
     return json.loads(text)
 
 
