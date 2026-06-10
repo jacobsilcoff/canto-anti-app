@@ -251,7 +251,11 @@ def _clean_block(b: dict, rom) -> dict | None:
         for it in (b.get("items") or []):
             tx = (it.get("text") or "").strip()
             if tx:
-                items.append({"text": tx, "gloss": (it.get("gloss") or "").strip(), "roman": rom(tx)})
+                item = {"text": tx, "gloss": (it.get("gloss") or "").strip(), "roman": rom(tx)}
+                lit = (it.get("lit") or "").strip()
+                if lit:
+                    item["lit"] = lit
+                items.append(item)
         return {"type": "examples", "items": items} if items else None
     if t == "contrast":
         a, bb = b.get("a") or {}, b.get("b") or {}

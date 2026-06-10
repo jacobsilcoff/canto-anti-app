@@ -1671,6 +1671,28 @@ async def delete_course(user_id: int, course_id: int) -> None:
         await db.commit()
 
 
+async def delete_ai_lessons(course_id: int) -> None:
+    """Delete all non-foundation units (and their lessons/concepts) from a course.
+    Foundation units (theme='foundations') are preserved. Resets active_plan."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM course_units WHERE course_id=? AND theme != 'foundations'",
+            (course_id,)
+        ) as cur:
+            unit_ids = [r[0] for r in await cur.fetchall()]
+        if unit_ids:
+            ph = ",".join("?" * len(unit_ids))
+            await db.execute(f"DELETE FROM course_lessons WHERE unit_id IN ({ph})", unit_ids)
+            await db.execute(f"DELETE FROM course_units WHERE id IN ({ph})", unit_ids)
+        # Also clear pending lessons (unit_id IS NULL = in-progress unit not yet closed)
+        await db.execute(
+            "DELETE FROM course_lessons WHERE course_id=? AND unit_id IS NULL", (course_id,)
+        )
+        await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
+        await db.commit()
+
+
 async def get_active_plan(course_id: int) -> dict | None:
     """The in-progress unit's outline (concepts + cursor), or None between units."""
     async with aiosqlite.connect(DB_PATH) as db:

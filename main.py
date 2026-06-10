@@ -1672,6 +1672,20 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+@app.delete("/api/courses/{course_id}/ai_lessons")
+async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
+    """Delete only AI-generated lessons, preserving the foundations reading track."""
+    import aiosqlite as _aiosqlite
+    async with _aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user["id"])
+        ) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(status_code=404, detail="Course not found")
+    await db.delete_ai_lessons(course_id)
+    return {"success": True}
+
+
 def _next_batch(concepts: list[dict]) -> list[dict]:
     """Take the next concepts from a unit plan for one micro-lesson. A grammar
     concept is taught alone (denser); straightforward vocab packs together — up to

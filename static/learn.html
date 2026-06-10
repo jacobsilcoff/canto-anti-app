@@ -208,6 +208,7 @@
     .tb-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
     .tb-target .opt-roman { font-size: 0.78rem; }
     .tb-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .tb-lit { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-top: 2px; }
     .mp-card { margin-top: 12px; background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
     .mp-line { padding: 5px 0; }
     .mp-line + .mp-line { border-top: 1px dashed var(--border); }
@@ -265,6 +266,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" onclick="resetAiLessons()" title="Delete AI lessons, keep reading track">↺ Reset lessons</button>
         <button class="course-regen" onclick="regenerate()">↻ New course</button>
       </div>
     </div>
@@ -404,6 +406,14 @@
       el.textContent = e.message || 'Failed — please try again.';
       el.style.display = '';
     }
+  }
+
+  async function resetAiLessons() {
+    if (!confirm('Reset AI-generated lessons? Your reading track will be preserved.')) return;
+    const id = document.getElementById('state-course').dataset.courseId;
+    if (!id) return;
+    await fetch('/api/courses/' + id + '/ai_lessons', { method: 'DELETE' }).catch(() => {});
+    await refreshAndShowCourse();
   }
 
   async function regenerate() {
@@ -1256,6 +1266,7 @@
       (b.items || []).forEach(it => {
         const card = document.createElement('div'); card.className = 'tb-ex';
         card.appendChild(speakLine(it.text));
+        if (it.lit) { const l = document.createElement('div'); l.className = 'tb-lit'; l.textContent = '(lit. ' + it.lit + ')'; card.appendChild(l); }
         if (it.gloss) { const g = document.createElement('div'); g.className = 'tb-gloss'; g.textContent = it.gloss; card.appendChild(g); }
         box.appendChild(card);
       });

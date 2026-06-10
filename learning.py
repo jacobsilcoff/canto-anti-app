@@ -218,11 +218,23 @@ _DRILL_KINDS = """\
   {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
 
 _BLOCK_TYPES = """\
-  {"type":"prose","text":"<plain-English explanation>"}
-  {"type":"table","title":"<short title>","columns":["<header>", ...],"rows":[["<cell>", ...], ...]}
-  {"type":"examples","items":[{"text":"<native phrase>","gloss":"<English>"}, ...]}
-  {"type":"contrast","a":{"text":"<native>","gloss":"<English>"},"b":{"text":"<native>","gloss":"<English>"},"label":"<the ONE feature that differs>"}
-  {"type":"note","text":"<short tip / common-mistake warning>"}"""
+  {"type":"prose","text":"<English explanation — **bold** and *italic* markdown supported>"}
+    → Flowing paragraph. Use for rules, patterns, conceptual explanations.
+  {"type":"table","title":"<short English title>","columns":["<English header>",...],"rows":[["<cell>",...], ...]}
+    → Paradigm grid rendered as a table. Ideal for pronoun charts, conjugation tables,
+      classifier lists, gender/article tables. Headers in English; cells in native script
+      (ruby + audio added automatically by us). Use whenever a pattern reads clearest as a grid.
+  {"type":"examples","items":[{"text":"<native sentence>","gloss":"<natural English>","lit":"<word-for-word literal gloss>"},...]}
+    → Example sentences shown as: native (with speaker button) / (lit. ...) / English.
+      The `lit` field is powerful for grammar — include it whenever target-language word
+      order diverges from English (e.g. verb-final, no copula, topic-comment, particles).
+      Omit `lit` when the order matches English closely.
+  {"type":"contrast","a":{"text":"<native>","gloss":"<English>"},"b":{"text":"<native>","gloss":"<English>"},"label":"<single differing feature>"}
+    → Two sentences side-by-side. Use for: ✓ correct vs ✗ wrong, minimal pairs,
+      near-synonyms with different nuance. Label names the single differing feature.
+  {"type":"note","text":"<tip, 'Don't say X — say Y', or exception — **bold** supported>"}
+    → Highlighted callout box. Use for common learner errors, important exceptions,
+      'don't say...' warnings."""""
 
 
 def _concepts_block(concepts: list[dict]) -> str:
@@ -261,18 +273,28 @@ def _build_lesson_prompt(
         f"{_recent_block(recent_summaries)}"
         f"{taught_block}"
         f"── TEACH EXACTLY THESE {len(concepts)} CONCEPT(S) ──\n{_concepts_block(concepts)}\n\n"
-        f"── TEACH BLOCKS ──\nTeach PROPORTIONATELY — don't over-explain simple words. "
-        f"Author 1–4 ordered blocks total (a short textbook page). Use PROSE to state a "
-        f"point plainly, TABLE for paradigms (conjugations, articles, genders — headers "
-        f"in English), EXAMPLES for vocab, CONTRAST for minimal pairs, NOTE for "
-        f"tips/common mistakes.\n"
-        f"Straightforward, transparent vocab does NOT need its own teach block — let it "
-        f"debut directly in a drill, where its English gloss is shown automatically. "
-        f"Reserve teach blocks for grammar and for vocab that genuinely needs explaining "
-        f"(non-obvious meaning, false friends, tricky usage, register). A lesson of only "
-        f"simple vocab may need just one short EXAMPLES block, or none at all.\n"
+        f"── TEACH BLOCKS ──\n"
+        f"Write a TEXTBOOK PAGE for these concepts. The learner should finish the teach "
+        f"section with a thorough understanding — not just surface familiarity.\n"
+        f"• GRAMMAR concepts: aim for 4–8 blocks. Open with a PROSE rule, follow with a "
+        f"TABLE if there's a paradigm (pronoun charts, tone tables, aspect markers), then "
+        f"EXAMPLES with `lit` fields where word order diverges from English, then at "
+        f"least one NOTE about a common learner error or 'Don't say X — say Y'.\n"
+        f"• VOCAB concepts: proportionate depth. Simple everyday words can debut in a "
+        f"drill (gloss shown automatically) with no teach block. Reserve teach blocks for "
+        f"vocab with non-obvious meaning, false friends, tricky usage, or register. A "
+        f"vocab-only lesson might need just one short EXAMPLES block, or none at all.\n"
+        f"The `lit` (literal, word-for-word) field in examples is the most powerful "
+        f"grammar teaching tool — it shows HOW the structure works. Include it whenever "
+        f"target-language word order diverges from English (e.g. verb-final sentences, "
+        f"topic-comment structure, copula-less sentences, postpositions/particles).\n"
         f"Block types:\n{_BLOCK_TYPES}\n\n"
-        f"── DRILLS ──\nAuthor 4–7 drills for the concepts above (\"concept\" = its key). "
+        f"── DRILLS ──\nAuthor 7–10 drills for these concepts, in EASY → HARD order "
+        f"(DO NOT shuffle — the order is intentional and the learner sees them in sequence).\n"
+        f"Suggested ordering: recognition (warm-up) → listening → production → cloze → "
+        f"reorder (hardest — pure recall + construction). Include at least 2 reorder "
+        f"drills for grammar concepts; reorder tiles expose word-order rules better than "
+        f"any other drill type.\n"
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
@@ -283,10 +305,10 @@ def _build_lesson_prompt(
         f"Don't blank a slot where multiple taught words fit; use recognition/production "
         f"instead. The `gloss` field must be a full English sentence (not a fragment), "
         f"matching the native sentence word-for-word so the learner can map each part.\n"
-        f"• REORDER glossary: for helper tokens the learner doesn't know, add "
-        f"`glossary` entries {{token, gloss}} (1–2 words or POS: PRT/AUX/CONJ/CL/PREP). "
-        f"Don't gloss words already taught.\n"
-        f"Lead with recognition, end with production or reorder. Kinds:\n{_DRILL_KINDS}\n\n"
+        f"• REORDER: `tokens` must tile the `sentence` exactly (no spaces). For helper "
+        f"tokens the learner doesn't know, add `glossary` entries {{token, gloss}} "
+        f"(1–2 words or POS: PRT/AUX/CONJ/CL/PREP). Don't gloss words already taught.\n"
+        f"Drill kinds:\n{_DRILL_KINDS}\n\n"
         f"{_example_block()}"
         f"── VOCAB GLOSSARY ──\n"
         f"`vocab_glossary` = an English gloss for EVERY distinct native word that "
@@ -496,7 +518,6 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
         ex = _assemble_drill(d, target_lang, kinds, rom)
         if ex:
             exercises.append(ex)
-    random.shuffle(exercises)
 
     segment = {
         "teach": {"intro": (authored.get("intro") or "").strip(), "blocks": blocks},
