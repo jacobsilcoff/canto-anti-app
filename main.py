@@ -35,6 +35,7 @@ import translation
 import learning
 import grammar_lessons
 import foundations
+import tutor
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -203,6 +204,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
         "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
+        "tutor":     f'<svg {_i}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -228,6 +230,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
         link("/learn",    "Learn",      "learn"),
+        link("/tutor",    "Tutor",      "tutor"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -634,6 +637,11 @@ async def reader_page():
 @app.get("/learn", response_class=HTMLResponse)
 async def learn_page():
     return _html("learn.html", active="/learn")
+
+
+@app.get("/tutor", response_class=HTMLResponse)
+async def tutor_page():
+    return _html("tutor.html", active="/tutor")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -1343,7 +1351,9 @@ async def cefr_distribution(user: dict = Depends(current_user)):
 
 @app.get("/api/streak")
 async def get_streak(user: dict = Depends(current_user)):
-    return {"streak": await db.get_streak(user["id"])}
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"streak": await db.get_streak(user["id"]),
+            "points": await db.get_points_total(user["id"], lang)}
 
 
 @app.get("/api/audio/{card_id}")
@@ -1985,6 +1995,118 @@ async def get_mastery(lang: str | None = None, user: dict = Depends(current_user
         lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     rows = await db.get_mastery_summary(user["id"], lang)
     return {"lang": lang, "concepts": rows}
+
+
+# ── Tutor chat ─────────────────────────────────────────────────────────────────
+
+class TutorMessageRequest(BaseModel):
+    text: str
+
+
+async def _tutor_lang(user: dict) -> str:
+    return await db.get_setting(user["id"], "default_target_lang") or "yue"
+
+
+@app.get("/api/tutor/conversations")
+async def tutor_conversations(user: dict = Depends(current_user)):
+    lang = await _tutor_lang(user)
+    return {"lang": lang,
+            "conversations": await db.list_tutor_conversations(user["id"], lang),
+            "points": await db.get_points_total(user["id"], lang)}
+
+
+@app.post("/api/tutor/conversations")
+@limiter.limit("10/minute")
+async def tutor_new_conversation(request: Request, user: dict = Depends(current_user)):
+    lang = await _tutor_lang(user)
+    conv_id = await db.create_tutor_conversation(user["id"], lang)
+    return {"id": conv_id, "lang": lang}
+
+
+@app.get("/api/tutor/conversations/{conv_id}")
+async def tutor_get_conversation(conv_id: int, user: dict = Depends(current_user)):
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    messages = []
+    for m in await db.get_tutor_messages(user["id"], conv_id):
+        if m["role"] == "tutor":
+            try:
+                payload = json.loads(m["content"])
+            except (ValueError, TypeError):
+                payload = {"reply": m["content"]}
+            messages.append({"id": m["id"], "role": "tutor", **payload})
+        else:
+            messages.append({"id": m["id"], "role": "user", "text": m["content"]})
+    return {"id": conv["id"], "lang": conv["lang"], "title": conv["title"],
+            "messages": messages}
+
+
+@app.delete("/api/tutor/conversations/{conv_id}")
+async def tutor_delete_conversation(conv_id: int, user: dict = Depends(current_user)):
+    await db.delete_tutor_conversation(user["id"], conv_id)
+    return {"success": True}
+
+
+@app.post("/api/tutor/conversations/{conv_id}/messages")
+@limiter.limit("20/minute;400/day")
+async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRequest,
+                             user: dict = Depends(current_user)):
+    """One learner message → one tutor reply (1 metered LLM call, like translate)."""
+    text = (req.text or "").strip()[:1000]
+    if not text:
+        raise HTTPException(400, "text required")
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    lang = conv["lang"]
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    # Context: what the learner knows (deck + course registry + weak spots).
+    known_words = await db.get_known_words(user["id"], lang)
+    weak_words = await db.get_weak_cards(user["id"], lang, limit=8)
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    registry: list[dict] = []
+    level = "A1"
+    if course:
+        level = course.get("level") or "A1"
+        ctx = await db.get_next_lesson_context(course["id"])
+        registry = ctx["concept_registry"]
+
+    # History for the prompt: prior turns as plain text (tutor turns = reply only).
+    history = []
+    for m in await db.get_tutor_messages(user["id"], conv_id):
+        if m["role"] == "tutor":
+            try:
+                history.append({"role": "tutor", "text": json.loads(m["content"]).get("reply", "")})
+            except (ValueError, TypeError):
+                history.append({"role": "tutor", "text": m["content"]})
+        else:
+            history.append({"role": "user", "text": m["content"]})
+
+    try:
+        out = await tutor.respond(
+            lang, text, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile,
+            known_words=known_words, concept_registry=registry,
+            weak_concepts=weak_words,
+        )
+    except Exception as e:
+        logger.error("Tutor reply failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't reply — please try again.")
+
+    payload = {k: out[k] for k in ("reply", "corrections", "new_items", "points")}
+    await db.add_tutor_message(user["id"], conv_id, "user", text)
+    await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False))
+    for p in payload["points"]:
+        await db.add_points(user["id"], lang, p["points"],
+                            f'{p.get("concept", "")}: {p.get("reason", "")}'.strip(": "))
+
+    return {"message": {"role": "tutor", **payload},
+            "points_total": await db.get_points_total(user["id"], lang)}
 
 
 @app.get("/api/ruby")

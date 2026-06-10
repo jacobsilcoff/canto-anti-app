@@ -307,6 +307,39 @@ async def init():
                 PRIMARY KEY (user_id, lang, concept_key)
             )
         """)
+        # Tutor chat — per-user conversations with the AI tutor. Tutor turns store
+        # the structured JSON payload (reply + corrections + new_items + points).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tutor_conversations (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                lang       TEXT    NOT NULL,
+                title      TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    DEFAULT (datetime('now')),
+                updated_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tutor_messages (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                role            TEXT    NOT NULL,
+                content         TEXT    NOT NULL,
+                created_at      TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        # Light gamification: append-only points ledger (tutor awards points when
+        # the learner correctly uses known vocab/grammar in conversation).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS points_ledger (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                lang       TEXT    NOT NULL,
+                points     INTEGER NOT NULL,
+                reason     TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -323,6 +356,8 @@ async def init():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_units_course    ON course_units(course_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_lessons_course  ON course_lessons(course_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_concepts_course ON course_concepts(course_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_tutor_msgs_conv ON tutor_messages(conversation_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_points_user     ON points_ledger(user_id, lang)")
 
 
 async def _run_migrations(db) -> None:
@@ -2161,3 +2196,121 @@ async def get_streak(user_id: int) -> int:
         elif d < expected:
             break
     return streak
+
+
+# ── Tutor chat ─────────────────────────────────────────────────────────────────
+
+async def create_tutor_conversation(user_id: int, lang: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT INTO tutor_conversations (user_id, lang) VALUES (?, ?)",
+            (user_id, lang),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def list_tutor_conversations(user_id: int, lang: str, limit: int = 30) -> list[dict]:
+    """Most recent first. Lean rows for the conversation drawer."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, created_at, updated_at
+               FROM tutor_conversations
+               WHERE user_id=? AND lang=?
+               ORDER BY updated_at DESC, id DESC LIMIT ?""",
+            (user_id, lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_tutor_conversation(user_id: int, conv_id: int) -> dict | None:
+    """Ownership-checked conversation row, or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, lang, title FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def delete_tutor_conversation(user_id: int, conv_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM tutor_messages WHERE conversation_id IN "
+            "(SELECT id FROM tutor_conversations WHERE id=? AND user_id=?)",
+            (conv_id, user_id),
+        )
+        await db.execute(
+            "DELETE FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        )
+        await db.commit()
+
+
+async def get_tutor_messages(user_id: int, conv_id: int, limit: int = 200) -> list[dict]:
+    """Messages in chronological order (ownership-checked via the join)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT m.id, m.role, m.content, m.created_at
+               FROM tutor_messages m
+               JOIN tutor_conversations c ON c.id = m.conversation_id
+               WHERE m.conversation_id=? AND c.user_id=?
+               ORDER BY m.id ASC LIMIT ?""",
+            (conv_id, user_id, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str) -> int | None:
+    """Append a message (ownership-checked). The first user message becomes the
+    conversation title. Returns the message id, or None if not the owner."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT title FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        cur = await db.execute(
+            "INSERT INTO tutor_messages (conversation_id, role, content) VALUES (?, ?, ?)",
+            (conv_id, role, content),
+        )
+        msg_id = cur.lastrowid
+        if role == "user" and not (row[0] or "").strip():
+            await db.execute(
+                "UPDATE tutor_conversations SET title=? WHERE id=?",
+                (content[:60], conv_id),
+            )
+        await db.execute(
+            "UPDATE tutor_conversations SET updated_at=datetime('now') WHERE id=?",
+            (conv_id,),
+        )
+        await db.commit()
+        return msg_id
+
+
+# ── Points ledger (light gamification) ──────────────────────────────────────────
+
+async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> None:
+    if points <= 0:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO points_ledger (user_id, lang, points, reason) VALUES (?, ?, ?, ?)",
+            (user_id, lang, int(points), (reason or "").strip()[:200]),
+        )
+        await db.commit()
+
+
+async def get_points_total(user_id: int, lang: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(points), 0) FROM points_ledger WHERE user_id=? AND lang=?",
+            (user_id, lang),
+        ) as cur:
+            return (await cur.fetchone())[0]
