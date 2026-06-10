@@ -1788,6 +1788,29 @@ def _pick_review_concepts(registry: list[dict], batch: list[dict],
     return picked
 
 
+def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
+    """Turn a generation exception into a specific, actionable message for the
+    client. `stage` is 'Unit planning' or 'Lesson generation'."""
+    name = type(e).__name__
+    status = getattr(e, "status_code", None) or getattr(e, "code", None)
+    msg = str(e).lower()
+    premium = "pro" in (model or "")
+    # Model overloaded / 5xx from the Gemini backend (ServerError after retries).
+    if name == "ServerError" or status in (500, 502, 503, 504) or "overload" in msg or "unavailable" in msg:
+        extra = " The premium model is slower and busier — switching it off in Settings is more reliable." if premium else ""
+        return (f"{stage} failed: the AI model ({model}) is overloaded right now. "
+                f"Wait a moment and tap Generate again.{extra}")
+    # Quota / rate limit straight from the provider.
+    if status == 429 or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
+        return (f"{stage} failed: the AI provider rate-limited the request. "
+                f"Wait a minute and try again.")
+    # JSON parsing / empty body — the model returned something unusable.
+    if name in ("ValueError", "JSONDecodeError") or "json" in msg or "expecting value" in msg:
+        return (f"{stage} failed: the AI returned a malformed response. "
+                f"This is usually transient — tap Generate to try again.")
+    return f"{stage} failed — please try again."
+
+
 async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
     """Author + persist ONE micro-lesson, consuming 1–2 concepts from the course's
     active unit plan (drafting a new unit plan when the current one is exhausted).
@@ -1833,7 +1856,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             )
         except Exception as e:
             logger.error("Unit planning failed lang=%s: %s", course["target_lang"], e, exc_info=True)
-            raise HTTPException(502, "Unit planning failed — please try again.")
+            raise HTTPException(502, _gen_error_detail(e, "Unit planning", lesson_model))
         plan["concepts"] = _filter_new_concepts(plan.get("concepts") or [],
                                                 ctx["concept_registry"], known_texts)
         if not plan.get("concepts"):
@@ -1858,7 +1881,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
                      course["target_lang"], [c.get("key") for c in batch], e, exc_info=True)
-        raise HTTPException(502, "Lesson generation failed — please try again.")
+        raise HTTPException(502, _gen_error_detail(e, "Lesson generation", lesson_model))
 
     content = authored["content"]
     total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])

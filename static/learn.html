@@ -356,7 +356,7 @@
   let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
   let _currentState = 'loading';
   let _generating = false;    // true while a /next API call is in-flight
-  let _genCount = 0;          // lesson count requested (for the label)
+  let _genCount = 0;          // lessons still to author this batch (for the label)
   let _genError = null;       // last error message from generation
 
   function show(state) {
@@ -498,8 +498,26 @@
 
   // ── Generate next lesson ─────────────────────────────────────────────────────
 
-  const BATCH_AHEAD = 5;   // lessons generated per "Generate" so you can browse ahead
+  const BATCH_AHEAD = 5;   // lessons offered per "Generate" so you can browse ahead
 
+  // A failed fetch (no response) throws a TypeError; Safari words it "Load failed",
+  // Chrome "Failed to fetch". On the slow premium model one lesson can take ~45s,
+  // so we never want a single request to author the whole batch — that would run
+  // 2+ minutes and trip a network/proxy timeout. Turn those into a clear message.
+  function _humanizeGenError(e, madeSoFar) {
+    const m = (e && e.message) || '';
+    const networkish = (e instanceof TypeError) || /load failed|failed to fetch|networkerror|timed? ?out/i.test(m);
+    if (networkish) {
+      return madeSoFar > 0
+        ? 'The connection dropped before the batch finished — but the lessons made so far were saved. Tap Generate to continue.'
+        : 'The lesson took too long and the connection dropped (this can happen on the premium model). It may have still been saved — tap Generate to retry.';
+    }
+    return m || 'Could not generate lesson — please try again.';
+  }
+
+  // Author lessons ONE request at a time (each request = one model call) and
+  // refresh the map after each, so a slow model can't make a single request long
+  // enough to time out, and partial progress is always kept + shown.
   async function generateNextLesson(courseId, count = BATCH_AHEAD) {
     if (_generating) return;
     _generating = true;
@@ -508,21 +526,31 @@
     // Stay on course page — show inline spinner, never navigate away.
     if (_currentState === 'generating') show('course');
     if (currentCourse) renderCourse(currentCourse);
+
+    let made = 0;
     try {
-      const res = await fetch(`/api/courses/${courseId}/next?count=${count}`, { method: 'POST' });
-      if (!res.ok) {
-        const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
-        throw new Error(msg);
-      }
-      const { course } = await fetch('/api/courses/active').then(r => r.json());
-      if (course) {
-        currentCourse = course;
-        renderCourse(course);
-        // Only switch to course view if the user isn't mid-lesson.
-        if (!['teach', 'player', 'results'].includes(_currentState)) show('course');
+      for (let i = 0; i < count; i++) {
+        _genCount = count - i;                 // remaining, for the skeleton label
+        if (currentCourse) renderCourse(currentCourse);
+        const res = await fetch(`/api/courses/${courseId}/next?count=1`, { method: 'POST' });
+        if (!res.ok) {
+          // Quota (402) / rate-limit (429) / generation (502): surface the server's
+          // detail. If earlier lessons in this batch succeeded, stop quietly with a note.
+          const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+          if (made > 0) { _genError = `Stopped after ${made} lesson${made === 1 ? '' : 's'}: ${msg}`; break; }
+          throw new Error(msg);
+        }
+        made++;
+        // Refresh the roadmap progressively so each new lesson appears as it lands.
+        const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+        if (course) {
+          currentCourse = course;
+          renderCourse(course);
+          if (!['teach', 'player', 'results'].includes(_currentState)) show('course');
+        }
       }
     } catch (e) {
-      _genError = e.message || 'Could not generate lesson — please try again.';
+      _genError = _humanizeGenError(e, made);
       if (currentCourse) renderCourse(currentCourse);
     } finally {
       _generating = false;
