@@ -42,7 +42,15 @@ LANG_INFO = {
         "rules": (
             "- Use Traditional Chinese characters with authentic Cantonese vocabulary "
             "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
-            "- Provide jyutping romanisation (e.g. nei5 hou2 aa3)"
+            "- Provide jyutping romanisation (e.g. nei5 hou2 aa3)\n"
+            "- CRITICAL — yes/no questions: ALWAYS use the A-唔-A (verb-not-verb) pattern. "
+            "NEVER use 嗎 as a question particle — 嗎 is Mandarin, not Cantonese. "
+            "Examples: 係唔係 (not 係嗎), 食唔食 (not 食嗎), 有冇 (contracted from 有唔有). "
+            "The pattern is: positive verb + 唔 + same verb (e.g. 你係唔係香港人? = Are you from HK?). "
+            "For stative verbs (係, 係, 好, etc.) always show the full A-唔-A form in examples.\n"
+            "- Aspect markers: 咗 (completion 了-equivalent), 緊 (progressive), 過 (experiential), 喇 (changed state)\n"
+            "- Sentence-final particles convey attitude — 囉 (obviousness), 喎 (hearsay/surprise), 㗎 (assertion/emphasis), 呀 (softener), 囉喎, etc.\n"
+            "- Do NOT use Mandarin grammar structures, particles, or vocabulary"
         ),
     },
     "cmn": {

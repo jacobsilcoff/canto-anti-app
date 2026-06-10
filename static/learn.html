@@ -224,6 +224,9 @@
     .teach-table td::after { content: '🔊'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; opacity: 0.2; pointer-events: none; transition: opacity 0.15s; }
     .teach-table td:hover { background: #eef4fe; }
     .teach-table td:hover::after { opacity: 0.6; }
+    .teach-table td.no-audio { cursor: default; padding-right: 12px; }
+    .teach-table td.no-audio::after { display: none; }
+    .teach-table td.no-audio:hover { background: none; }
 
     /* completed lesson + continue CTA */
     .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
@@ -1254,11 +1257,16 @@
       if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
       h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
       wrap.innerHTML = h;
-      wrap.querySelectorAll('td').forEach(td => {
-        // Use data-tts (set before ruby annotation) — never td.textContent after the fact.
-        td.onclick = () => { const t = td.dataset.tts; if (t) playTTS(t, l); };
-      });
       applyRuby(wrap, player && player.vocabGlossary);   // teach → hover/tap glosses
+      // For logographic languages, detect English label cells (no ruby annotation)
+      // and mark them no-audio. For Latin-script languages no ruby exists anywhere,
+      // so all cells stay clickable.
+      const logographic = wrap.querySelector('ruby') !== null;
+      wrap.querySelectorAll('td').forEach(td => {
+        if (logographic && !td.querySelector('ruby')) { td.classList.add('no-audio'); return; }
+        const t = td.dataset.tts;
+        if (t) td.onclick = () => playTTS(t, l);
+      });
       return wrap;
     }
     if (b.type === 'examples') {
