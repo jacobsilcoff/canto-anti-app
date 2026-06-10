@@ -27,7 +27,7 @@
     .gen-option-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .gen-submit-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
-    .gen-submit-btn:hover:not(:disabled) { background: var(--primary-dark, #1a56db); }
+    .gen-submit-btn:hover:not(:disabled) { background: var(--primary-hover); }
 
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
@@ -39,7 +39,7 @@
     .saved-item-title { font-weight: 600; font-size: 0.95rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .saved-item-meta { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
     .saved-item-delete { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px; border-radius: 6px; flex-shrink: 0; }
-    .saved-item-delete:hover { color: #e53e3e; background: rgba(229,62,62,.08); }
+    .saved-item-delete:hover { color: var(--danger); background: var(--danger-soft); }
 
     /* ── Reader view ── */
     .reader-view { display: none; }
@@ -78,21 +78,21 @@
     /* ── Legend ── */
     .reader-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.8rem; color: var(--text-muted, #888); }
     .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
-    .legend-dot.known { background: #22c55e; }
-    .legend-dot.weak   { background: #f59e0b; }
-    .legend-dot.new    { background: #94a3b8; }
+    .legend-dot.known { background: var(--reader-known); }
+    .legend-dot.weak   { background: var(--warn-accent); }
+    .legend-dot.new    { background: var(--text-faint); }
 
     /* ── Text body ── */
     .reader-text { font-size: 1.4rem; line-height: 2.2; font-family: var(--script-font, 'Noto Sans TC'), sans-serif; color: var(--text); overflow-wrap: break-word; }
     .reader-text.latin { font-size: 1.05rem; line-height: 1.9; font-family: inherit; }
     .sentence { cursor: pointer; border-radius: 4px; }
-    .sentence.active { background: rgba(99,102,241,.07); }
+    .sentence.active { background: var(--sentence-active); }
     .token {}
     .token.word { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background 0.1s; }
-    .token.word.known { color: #16a34a; }
-    .token.word.weak  { color: #b45309; }
+    .token.word.known { color: var(--reader-known); }
+    .token.word.weak  { color: var(--reader-weak); }
     .token.word.new   { color: var(--text); opacity: 0.55; }
-    .token.word:hover, .token.word.tapped { background: rgba(99,102,241,.15); }
+    .token.word:hover, .token.word.tapped { background: var(--word-hover); }
     ruby { ruby-align: center; }
     rt { font-size: 0.38em; font-family: inherit; letter-spacing: 0; visibility: hidden; }
     .reader-text.show-rom rt { visibility: visible; opacity: 0.7; }
@@ -105,7 +105,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.08);
+      box-shadow: var(--shadow-pop);
       padding: 14px 16px;
       z-index: 200;
       min-width: 200px;
@@ -117,21 +117,21 @@
     .tooltip-eng  { font-size: 0.95rem; color: var(--text); margin-bottom: 8px; }
     .tooltip-notes { font-size: 0.8rem; color: var(--text-muted, #888); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 10px; }
     .tooltip-status-badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; font-weight: 600; }
-    .tooltip-status-badge.known { background: #dcfce7; color: #166534; }
-    .tooltip-status-badge.weak  { background: #fef3c7; color: #92400e; }
-    .tooltip-status-badge.new   { background: #f1f5f9; color: #475569; }
+    .tooltip-status-badge.known { background: var(--good-soft); color: var(--good-strong); }
+    .tooltip-status-badge.weak  { background: var(--warn-soft); color: var(--warn-strong); }
+    .tooltip-status-badge.new   { background: var(--neutral-soft); color: var(--text-muted); }
     .tooltip-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); padding: 4px 0; }
-    .tooltip-error  { font-size: 0.82rem; color: #e53e3e; }
+    .tooltip-error  { font-size: 0.82rem; color: var(--danger); }
     .tooltip-actions { display: flex; gap: 8px; align-items: center; }
     .tooltip-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
     .tooltip-add-btn:disabled { opacity: 0.5; cursor: default; }
-    .tooltip-add-btn.added { background: #22c55e; }
+    .tooltip-add-btn.added { background: var(--good); }
     .tooltip-alt-meaning { background: var(--bg, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
     .tooltip-alt-label { font-weight: 600; color: var(--text-muted, #888); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
     .tooltip-update-meaning-btn { display: block; margin-top: 6px; background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
     .tooltip-update-meaning-btn:hover { background: var(--primary); color: #fff; }
     .tooltip-flag-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: var(--text-muted, #888); cursor: pointer; }
-    .tooltip-flag-btn:hover { border-color: #f59e0b; color: #b45309; }
+    .tooltip-flag-btn:hover { border-color: var(--warn-accent); color: var(--reader-weak); }
     .tooltip-close { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; color: var(--text-muted, #bbb); font-size: 1rem; padding: 2px 6px; }
     .tooltip-close:hover { color: var(--text); }
     .play-btn { background: none; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; color: var(--text-muted, #888); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; flex-shrink: 0; }
@@ -145,10 +145,10 @@
     .loading-steps { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 320px; }
     .loading-step { display: flex; align-items: center; gap: 12px; font-size: 0.92rem; color: var(--text-muted, #888); }
     .loading-step.active { color: var(--text); }
-    .loading-step.done { color: #16a34a; }
+    .loading-step.done { color: var(--good); }
     .step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .step-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
-    .step-check { color: #16a34a; font-size: 1rem; }
+    .step-check { color: var(--good); font-size: 1rem; }
     .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); margin: auto; }
 
     /* ── Paging ── */

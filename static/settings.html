@@ -61,7 +61,7 @@
     .user-name { font-size: 0.9rem; font-weight: 500; }
     .user-name .admin-tag {
       display: inline-block;
-      background: #e8f0fe;
+      background: var(--primary-soft);
       color: var(--primary);
       font-size: 0.65rem;
       font-weight: 700;
@@ -82,8 +82,8 @@
       cursor: pointer;
       white-space: nowrap;
     }
-    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
-    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: #fdecea; }
+    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
     .create-form {
       display: flex;
       flex-wrap: wrap;
@@ -159,7 +159,7 @@
         <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
       </div>
       <div class="settings-desc" id="plan-note"></div>
-      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:#e67e22"></div>
+      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--hard)"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
         <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
@@ -170,7 +170,7 @@
   </div>
 
   <!-- Cancel subscription confirmation modal -->
-  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;align-items:center;justify-content:center">
     <div style="background:var(--surface);border-radius:var(--radius);padding:28px 24px;max-width:380px;width:90%;box-shadow:var(--shadow)">
       <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
       <div style="color:var(--text-muted);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
@@ -374,7 +374,7 @@
       `${used} / ${limit} AI translations this month`;
     const bar = document.getElementById('plan-usage-bar');
     bar.style.width = pct + '%';
-    bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? '#f59e0b' : 'var(--primary)');
+    bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? 'var(--warn-accent)' : 'var(--primary)');
 
     const note = document.getElementById('plan-note');
     const cancelNote = document.getElementById('plan-cancel-note');
@@ -537,7 +537,7 @@
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
-        msg.style.color = '#16a34a';
+        msg.style.color = 'var(--good)';
         msg.textContent = body.email_changed
           ? 'Saved! Check your email to verify the new address.'
           : 'Profile saved.';
@@ -907,7 +907,7 @@
         body: JSON.stringify({ learner_profile: val }),
       });
       if (!res.ok) throw new Error();
-      msg.style.color = '#16a34a'; msg.textContent = 'Saved.';
+      msg.style.color = 'var(--good)'; msg.textContent = 'Saved.';
       setTimeout(() => { msg.textContent = ''; }, 2000);
     } catch {
       msg.style.color = 'var(--again)'; msg.textContent = 'Failed to save.';
@@ -928,7 +928,7 @@
       list.innerHTML = '';
       concepts.forEach(c => {
         const pct = c.total ? Math.round(c.correct / c.total * 100) : 0;
-        const color = pct >= 80 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
+        const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn-accent)' : 'var(--again)';
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)';
         row.innerHTML = `

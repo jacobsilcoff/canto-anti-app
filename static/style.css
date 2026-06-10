@@ -4,17 +4,47 @@
 :root {
   --bg: #f8f9fa;
   --surface: #ffffff;
+  --surface-alt: #f7f8fc;           /* example cards, subtle panels */
+  --surface-raised: #ffffff;        /* chips/badges sitting on a surface */
+  --surface-hover: #e0e0e0;
   --border: #e0e0e0;
   --primary: #1a73e8;
   --primary-hover: #1557b0;
+  --on-primary: #ffffff;            /* text/icons on a --primary background */
+  --primary-soft: #e8f0fe;          /* selected/active tint */
+  --primary-soft-2: #e0ecfd;        /* slightly stronger tint (status badges) */
+  --primary-strong: #1a4fa0;        /* readable primary text on soft tint */
   --text: #202124;
   --text-muted: #5f6368;
+  --text-faint: #b8b8b8;            /* faint icon buttons, disabled fills */
+  --good-soft: #e7f6ec;             /* correct-answer backgrounds */
+  --good-strong: #166534;           /* readable green text on soft tint */
+  --warn-soft: #fffbeb;             /* note/callout backgrounds */
+  --warn-border: #fde68a;
+  --warn-accent: #f59e0b;
+  --warn-strong: #92400e;
+  --danger: #d32f2f;
+  --danger-soft: #fdecea;           /* wrong-answer backgrounds */
+  --danger-strong: #9b1c1c;
+  --grammar-soft: #eef2ff;          /* grammar badges/tags */
+  --grammar-border: #c7d2fe;
+  --grammar-strong: #3730a3;
+  --neutral-soft: #f1f3f4;          /* locked/disabled badges */
+  --neutral-strong: #80868b;
+  --reader-known: #16a34a;          /* reader word-status: in deck & strong */
+  --reader-weak: #b45309;           /* reader word-status: in deck but shaky */
+  --sentence-active: rgba(99,102,241,.07);
+  --word-hover: rgba(99,102,241,.15);
+  --focus-ring: rgba(26,115,232,0.12);
+  --overlay: rgba(0,0,0,0.5);       /* modal scrims */
+  --tooltip-bg: #333333;            /* toasts + tooltips (light text on top) */
   --chinese-font: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', serif;
   --devanagari-font: 'Noto Sans Devanagari', 'Nirmala UI', sans-serif;
   --telugu-font: 'Noto Sans Telugu', 'Gautami', sans-serif;
   --hangul-font: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
+  --shadow-pop: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
   --again: #d32f2f;
   --hard: #f57c00;
   --good: #388e3c;
@@ -146,9 +176,9 @@ button svg.icon, a svg.icon { pointer-events: none; }
 .lang-btn.active {
   border-color: var(--primary);
   color: var(--primary);
-  background: #e8f0fe;
+  background: var(--primary-soft);
 }
-.lang-btn:hover:not(.active) { border-color: #aaa; }
+.lang-btn:hover:not(.active) { border-color: var(--text-faint); }
 
 .swap-btn {
   background: none;
@@ -231,7 +261,7 @@ textarea {
   min-height: 50px;
 }
 .translate-btn:hover { background: var(--primary-hover); }
-.translate-btn:disabled { background: #aaa; cursor: not-allowed; }
+.translate-btn:disabled { background: var(--text-faint); cursor: not-allowed; }
 
 /* ── Output Panel ───────────────────────────────────────────────────────── */
 .output-panel {
@@ -300,7 +330,7 @@ textarea {
 }
 .audio-btn .icon { width: 15px; height: 15px; vertical-align: 0; }
 .audio-btn:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
-.audio-btn.playing { background: #e8f0fe; border-color: var(--primary); color: var(--primary); }
+.audio-btn.playing { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
 
 .saved-indicator {
   font-size: 0.85rem;
@@ -446,7 +476,7 @@ textarea {
   cursor: pointer;
   transition: all 0.15s;
 }
-.reveal-btn:hover { background: #e8f0fe; }
+.reveal-btn:hover { background: var(--primary-soft); }
 
 .rating-hint {
   text-align: center;
@@ -551,7 +581,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -616,7 +646,7 @@ textarea {
 .edit-card-btn, .delete-card-btn {
   background: none;
   border: none;
-  color: #b8b8b8;
+  color: var(--text-faint);
   cursor: pointer;
   width: 28px;
   height: 28px;
@@ -669,7 +699,7 @@ textarea {
 }
 .edit-save-btn { background: var(--primary); color: white; }
 .edit-save-btn:hover { filter: brightness(1.1); }
-.edit-save-btn:disabled { background: #aaa; cursor: not-allowed; }
+.edit-save-btn:disabled { background: var(--text-faint); cursor: not-allowed; }
 .edit-cancel-btn { background: var(--border); color: var(--text-muted); }
 .edit-cancel-btn:hover { filter: brightness(0.95); }
 
@@ -679,7 +709,7 @@ textarea {
   color: var(--primary);
   border: 2px solid var(--primary);
 }
-.cta-btn.secondary:hover { background: #e8f0fe; }
+.cta-btn.secondary:hover { background: var(--primary-soft); }
 
 /* ── Settings-style select (shared with admin page) ──────────────────────── */
 .settings-select {
@@ -705,7 +735,7 @@ textarea {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(80px);
-  background: #333;
+  background: var(--tooltip-bg);
   color: white;
   padding: 10px 20px;
   border-radius: 8px;
@@ -741,7 +771,7 @@ textarea {
 
 /* Static chips (read-only display in answer reveal, card list) */
 .label-chip-static {
-  background: #e8f0fe;
+  background: var(--primary-soft);
   color: var(--primary);
   border-radius: 12px;
   padding: 3px 9px;
@@ -768,7 +798,7 @@ textarea {
 }
 
 .lp-chip {
-  background: #e8f0fe;
+  background: var(--primary-soft);
   color: var(--primary);
   border-radius: 999px;
   padding: 4px 4px 4px 12px;
@@ -797,7 +827,7 @@ textarea {
   font-family: inherit;
   transition: opacity 0.15s, background 0.15s;
 }
-.lp-remove:hover { opacity: 1; background: rgba(26,115,232,0.12); }
+.lp-remove:hover { opacity: 1; background: var(--focus-ring); }
 
 .lp-placeholder {
   font-size: 0.8rem;
@@ -821,7 +851,7 @@ textarea {
 .lp-search:focus {
   border-color: var(--primary);
   background: var(--surface);
-  box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .lp-search::placeholder { color: var(--text-muted); }
 
@@ -833,7 +863,7 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+  box-shadow: var(--shadow-pop);
   max-height: 240px;
   overflow-y: auto;
   z-index: 300;
@@ -993,7 +1023,7 @@ textarea {
   transition: all 0.15s;
   flex-shrink: 0;
 }
-.filter-manage-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
+.filter-manage-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 .filter-manage-btn .icon { vertical-align: 0; }
 
 /* ── Review: notes + labels ─────────────────────────────────────────────── */
@@ -1072,7 +1102,7 @@ textarea {
   cursor: pointer;
   white-space: nowrap;
 }
-.suggest-cards-btn:hover { background: var(--primary); color: #fff; }
+.suggest-cards-btn:hover { background: var(--primary); color: var(--on-primary); }
 .label-suggest-panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1124,7 +1154,7 @@ textarea {
   z-index: 30;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  box-shadow: var(--shadow-pop);
 }
 .canonical-result-row {
   padding: 8px 12px;
@@ -1136,7 +1166,7 @@ textarea {
 .canonical-result-row:hover { background: var(--surface-hover, var(--border)); }
 .canonical-current { margin-top: 6px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .canonical-chip {
-  background: var(--primary-soft, #e8f0fe);
+  background: var(--primary-soft);
   color: var(--primary);
   border-radius: 6px;
   padding: 2px 8px;
@@ -1237,7 +1267,7 @@ textarea.edit-input {
   padding: 6px 12px 10px;
   flex-direction: column;
   z-index: 9;
-  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-pop);
 }
 .nav-dropdown.open { display: flex; }
 .nav-dropdown .nav-link {

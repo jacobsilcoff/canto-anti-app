@@ -28,7 +28,7 @@
     .cta-btn.secondary { background: none; color: var(--primary); border: 1px solid var(--primary); }
     .level-row { display: inline-flex; gap: 8px; margin-bottom: 18px; }
     .level-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-size: 0.9rem; }
-    .level-chip.active { border-color: var(--primary); color: var(--primary); background: #eef4fe; }
+    .level-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 
     /* Course header */
     .course-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -61,10 +61,10 @@
     /* Foundations collapsible section */
     .foundations-section { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
     .foundations-toggle { width: 100%; display: flex; align-items: center; gap: 8px; background: var(--surface); border: none; padding: 13px 16px; cursor: pointer; text-align: left; }
-    .foundations-toggle:hover { background: #f5f7ff; }
+    .foundations-toggle:hover { background: var(--surface-alt); }
     .foundations-icon { font-size: 1rem; flex-shrink: 0; }
     .foundations-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
-    .foundations-badge { background: #eef4fe; color: var(--primary); border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
+    .foundations-badge { background: var(--primary-soft); color: var(--primary); border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
     .foundations-progress { color: var(--text-muted); font-size: 0.78rem; margin-left: 4px; }
     .foundations-chevron { margin-left: auto; color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
     .foundations-body { padding: 4px 12px 4px; }
@@ -83,9 +83,9 @@
     .lesson-obj { color: var(--text-muted); font-size: 0.84rem; margin-top: 2px; }
     .lesson-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; }
     .lesson-status { font-size: 0.74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
-    .lesson-status.done { background: #dcfce7; color: #166534; }
-    .lesson-status.available { background: #e0ecfd; color: #1a4fa0; }
-    .lesson-status.locked { background: #f1f3f4; color: #80868b; }
+    .lesson-status.done { background: var(--good-soft); color: var(--good-strong); }
+    .lesson-status.available { background: var(--primary-soft-2); color: var(--primary-strong); }
+    .lesson-status.locked { background: var(--neutral-soft); color: var(--neutral-strong); }
 
     .learn-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; }
     .err { color: var(--again); font-size: 0.88rem; margin-top: 10px; }
@@ -109,9 +109,9 @@
     .opt-list { display: flex; flex-direction: column; gap: 10px; }
     .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
     .opt.english { font-family: inherit; }
-    .opt.selected { border-color: var(--primary); background: #eef4fe; }
-    .opt.correct { border-color: var(--good); background: #e7f6ec; }
-    .opt.wrong { border-color: var(--again); background: #fdecea; }
+    .opt.selected { border-color: var(--primary); background: var(--primary-soft); }
+    .opt.correct { border-color: var(--good); background: var(--good-soft); }
+    .opt.wrong { border-color: var(--again); background: var(--danger-soft); }
     .opt:disabled { cursor: default; }
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
     ruby { ruby-align: center; }
@@ -138,7 +138,7 @@
     .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
     .tile-gloss { display: block; font-size: 0.62rem; color: var(--text-muted); margin-top: 3px; font-family: var(--reading-font, sans-serif); letter-spacing: 0.02em; }
     .tile.placeholder { visibility: hidden; }
-    .tile.selected { border-color: var(--primary); background: #eef4fe; }
+    .tile.selected { border-color: var(--primary); background: var(--primary-soft); }
     .tile:disabled { cursor: default; }
 
     /* block build (Hangul syllable assembly) */
@@ -151,22 +151,22 @@
     .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
     .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; min-width: 0; overflow-wrap: break-word; }
     .match-item.target { font-family: var(--script-font, inherit); }
-    .match-item.selected { border-color: var(--primary); background: #eef4fe; }
-    .match-item.matched { border-color: var(--good); background: #e7f6ec; color: var(--text-muted); cursor: default; opacity: 0.6; }
-    .match-item.flash-wrong { border-color: var(--again); background: #fdecea; }
+    .match-item.selected { border-color: var(--primary); background: var(--primary-soft); }
+    .match-item.matched { border-color: var(--good); background: var(--good-soft); color: var(--text-muted); cursor: default; opacity: 0.6; }
+    .match-item.flash-wrong { border-color: var(--again); background: var(--danger-soft); }
 
     /* player layout: natural height; constrained so nothing inside can widen the page */
     #state-player { display: flex; flex-direction: column; width: 100%; min-width: 0; overflow-x: hidden; }
-    .review-badge { align-self: flex-start; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
-    .grammar-badge { align-self: flex-start; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
-    .teach-tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
+    .review-badge { align-self: flex-start; background: var(--warn-soft); color: var(--warn-strong); border: 1px solid var(--warn-border); border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .grammar-badge { align-self: flex-start; background: var(--grammar-soft); color: var(--grammar-strong); border: 1px solid var(--grammar-border); border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .teach-tag { display: inline-block; background: var(--grammar-soft); color: var(--grammar-strong); border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
 
     /* feedback + action */
     /* always block + reserved min-height so showing feedback never shifts the button.
        width:100% + overflow:hidden stop feedback text from widening the column. */
     .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
-    .feedback.correct { background: #e7f6ec; color: #166534; }
-    .feedback.wrong { background: #fdecea; color: #9b1c1c; }
+    .feedback.correct { background: var(--good-soft); color: var(--good-strong); }
+    .feedback.wrong { background: var(--danger-soft); color: var(--danger-strong); }
     /* exercise root: never let content overflow and widen the page */
     #exercise-root { width: 100%; overflow: hidden; }
     .feedback small { display: block; font-weight: 400; margin-top: 4px; }
@@ -211,35 +211,35 @@
     .teach-item.teach-grammar { display: block; }
     /* LLM-authored teach blocks */
     .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
-    .tb-note { margin-top: 12px; background: #fffbeb; border: 1px solid #fde68a; border-left: 3px solid #f59e0b; border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: #92400e; }
+    .tb-note { margin-top: 12px; background: var(--warn-soft); border: 1px solid var(--warn-border); border-left: 3px solid var(--warn-accent); border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: var(--warn-strong); }
     .tb-examples { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .tb-ex { background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+    .tb-ex { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
     .tb-line { display: flex; align-items: center; gap: 10px; }
     .tb-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
     .tb-target .opt-roman { font-size: 0.78rem; }
     .tb-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
     .tb-lit { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-top: 2px; }
-    .mp-card { margin-top: 12px; background: #f7f8fc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .mp-card { margin-top: 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
     .mp-line { padding: 5px 0; }
     .mp-line + .mp-line { border-top: 1px dashed var(--border); }
     .mp-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
-    .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: #3730a3; }
+    .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: var(--grammar-strong); }
     .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; flex-shrink: 0; }
     .teach-table-wrap { margin-top: 12px; overflow-x: auto; }
     .teach-table-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
     .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
     .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
-    .teach-table th { background: #f0f2f8; font-weight: 600; }
+    .teach-table th { background: var(--neutral-soft); font-weight: 600; }
     .teach-table td { cursor: pointer; position: relative; padding-right: 22px; }
     .teach-table td::after { content: '🔊'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; opacity: 0.2; pointer-events: none; transition: opacity 0.15s; }
-    .teach-table td:hover { background: #eef4fe; }
+    .teach-table td:hover { background: var(--primary-soft); }
     .teach-table td:hover::after { opacity: 0.6; }
     .teach-table td.no-audio { cursor: default; padding-right: 12px; }
     .teach-table td.no-audio::after { display: none; }
     .teach-table td.no-audio:hover { background: none; }
 
     /* completed lesson + continue CTA */
-    .lesson.done .lesson-status.done { background: #dcfce7; color: #166534; }
+    .lesson.done .lesson-status.done { background: var(--good-soft); color: var(--good-strong); }
     .lesson-replay { font-size: 0.74rem; color: var(--primary); margin-top: 4px; }
     #course-cta .learn-center { padding: 28px 16px 8px; }
   </style>
@@ -296,14 +296,14 @@
   </div>
 
   <!-- Debug modal -->
-  <div id="debug-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow:auto;padding:24px 12px">
-    <div style="background:#fff;border-radius:14px;max-width:760px;margin:0 auto;padding:24px;position:relative">
+  <div id="debug-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;overflow:auto;padding:24px 12px">
+    <div style="background:var(--surface);border-radius:14px;max-width:760px;margin:0 auto;padding:24px;position:relative">
       <button onclick="closeDebug()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
       <h3 style="margin:0 0 16px;font-size:1.05rem">LLM Debug — Lesson <span id="debug-lesson-num"></span></h3>
       <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Prompt sent to the model:</p>
-      <pre id="debug-prompt" style="background:#f5f5f5;border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0 0 18px"></pre>
+      <pre id="debug-prompt" style="background:var(--neutral-soft);border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0 0 18px"></pre>
       <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Raw model response:</p>
-      <pre id="debug-response" style="background:#f5f5f5;border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0"></pre>
+      <pre id="debug-response" style="background:var(--neutral-soft);border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0"></pre>
     </div>
   </div>
 
