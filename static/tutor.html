@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Tutor</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="manifest" href="/manifest.json">
@@ -76,12 +79,12 @@
     .composer button:disabled { opacity: 0.5; cursor: default; }
 
     /* Points toast */
-    .pt-toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 0.88rem; font-weight: 600; box-shadow: var(--shadow); z-index: 999; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
+    .pt-toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); background: var(--tooltip-bg); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 0.88rem; font-weight: 600; box-shadow: var(--shadow); z-index: 999; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
     .pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
 
     /* Shared gloss tooltip (same mechanism as learn.html) */
     #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
-      background: var(--text); color: #fff; font-size: 0.72rem; line-height: 1.4;
+      background: var(--tooltip-bg); color: #fff; font-size: 0.72rem; line-height: 1.4;
       font-style: normal; font-weight: 400; padding: 4px 9px; border-radius: 6px;
       box-shadow: var(--shadow); max-width: 220px; word-break: break-word; }
 

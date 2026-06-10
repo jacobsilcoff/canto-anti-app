@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Settings</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="manifest" href="/manifest.json">
@@ -110,6 +113,12 @@
     .create-form input[type="text"]:focus,
     .create-form input[type="password"]:focus { border-color: var(--primary); }
     .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; }
+
+    /* Appearance: Auto / Light / Dark segmented control */
+    .theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+    .theme-seg button { background: var(--surface); border: none; padding: 7px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .theme-seg button + button { border-left: 1px solid var(--border); }
+    .theme-seg button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -145,6 +154,21 @@
     <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="settings-btn primary" onclick="saveProfile()">Save profile</button>
       <span id="profile-msg" style="font-size:0.82rem"></span>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Appearance</div>
+    <div class="settings-row">
+      <div style="flex:1;min-width:0">
+        <div class="settings-label">Theme</div>
+        <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+      </div>
+      <div class="theme-seg" id="theme-seg">
+        <button type="button" data-pref="auto">Auto</button>
+        <button type="button" data-pref="light">Light</button>
+        <button type="button" data-pref="dark">Dark</button>
+      </div>
     </div>
   </div>
 
@@ -980,6 +1004,25 @@
       showToast('Failed to save setting.');
     }
   }
+
+  // ── Appearance (theme) — localStorage-only, applied by /static/theme.js ────
+  (function () {
+    const seg = document.getElementById('theme-seg');
+    if (!seg) return;
+    function sync() {
+      const pref = localStorage.getItem('theme') || 'auto';
+      seg.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('active', b.dataset.pref === pref));
+    }
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button[data-pref]');
+      if (!b) return;
+      // theme.js (deferred) has loaded by the time a click can happen.
+      if (window.setThemePref) setThemePref(b.dataset.pref);
+      sync();
+    });
+    sync();
+  })();
 
   async function loadStreak() {
     try {
