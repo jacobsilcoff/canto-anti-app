@@ -2121,7 +2121,7 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
         logger.error("Tutor reply failed lang=%s: %s", lang, e, exc_info=True)
         raise HTTPException(502, "The tutor couldn't reply — please try again.")
 
-    payload = {k: out[k] for k in ("reply", "corrections", "new_items", "points")}
+    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points")}
     await db.add_tutor_message(user["id"], conv_id, "user", text)
     await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False))
     for p in payload["points"]:

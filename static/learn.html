@@ -282,8 +282,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
-        <button class="course-regen" onclick="resetAiLessons()" title="Delete AI lessons, keep reading track">↺ Reset lessons</button>
-        <button class="course-regen" onclick="regenerate()">↻ New course</button>
+        <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
       </div>
     </div>
     <div id="units"></div>
@@ -432,19 +431,11 @@
   }
 
   async function resetAiLessons() {
-    if (!confirm('Reset AI-generated lessons? Your reading track will be preserved.')) return;
+    if (!confirm('Restart the course? All AI-generated lessons are cleared and the path starts fresh. Your reading track and flashcards are kept.')) return;
     const id = document.getElementById('state-course').dataset.courseId;
     if (!id) return;
     await fetch('/api/courses/' + id + '/ai_lessons', { method: 'DELETE' }).catch(() => {});
     await refreshAndShowCourse();
-  }
-
-  async function regenerate() {
-    if (!confirm('Start a new course? Your current course will be deleted.')) return;
-    const id = document.getElementById('state-course').dataset.courseId;
-    if (id) await fetch('/api/courses/' + id, { method: 'DELETE' }).catch(() => {});
-    show('empty');
-    document.getElementById('create-btn').disabled = false;
   }
 
   function toggleUnlockAll() {
@@ -1575,6 +1566,15 @@
     try { await fetch('/api/logout', { method: 'POST' }); } catch {}
     location.href = '/login';
   }
+
+  // ── Mobile nav (the {{NAV}} hamburger calls these) ─────────────────────────
+  function toggleMobileMenu() {
+    document.getElementById('nav-dropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('nav-dropdown');
+    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
+  });
 
   // ── Viewport-clamped tooltip for .gl[data-gloss] spans ─────────────────────
   // The CSS ::after approach can't clamp to viewport bounds, so we use one shared

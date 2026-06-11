@@ -149,3 +149,25 @@ def test_normalize_no_romanization_for_latin():
         {"reply": "ok", "new_items": [{"target_text": "bonjour", "english": "hello"}]},
         "fr", raw="")
     assert out["new_items"][0]["romanization"] == ""
+
+
+def test_normalize_keeps_reply_en_and_gloss():
+    out = tutor._normalize(
+        {"reply": "我好肚餓", "reply_en": "I'm very hungry",
+         "gloss": {"我": "I", "好": "very", "肚餓": "hungry", "": "blank", "x": ""}},
+        "yue", raw="")
+    assert out["reply_en"] == "I'm very hungry"
+    assert out["gloss"] == {"我": "I", "好": "very", "肚餓": "hungry"}   # blank entries dropped
+
+
+def test_normalize_drops_new_items_user_already_used_or_knows():
+    # 食 appears in the learner's own message; 飯 is in their deck — neither is
+    # "new". 麵 is genuinely new and survives.
+    parsed = {"reply": "好", "new_items": [
+        {"target_text": "食", "english": "to eat"},
+        {"target_text": "飯", "english": "rice"},
+        {"target_text": "麵", "english": "noodles"},
+    ]}
+    out = tutor._normalize(parsed, "yue", raw="",
+                           user_msg="我想食嘢", known_texts={"飯", "水"})
+    assert [it["target_text"] for it in out["new_items"]] == ["麵"]

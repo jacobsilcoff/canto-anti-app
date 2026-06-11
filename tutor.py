@@ -69,50 +69,100 @@ def build_tutor_prompt(
                 f"Gently work these into the conversation when natural.\n\n")
 
     return (
-        f"You are a warm, encouraging {name} tutor having a written conversation "
-        f"with an English-speaking learner (level {level}).\n\n"
+        f"You are a warm, witty {name} conversation partner and tutor chatting with an "
+        f"English-speaking learner (level {level}).\n\n"
         f"{_lang_preamble(info)}"
         f"── HOW TO TUTOR ──\n"
-        f"• Reply MOSTLY in {name}, with short sentences built from words the learner "
-        f"knows (lists below). Use English sparingly — brief glosses in parentheses, "
-        f"short grammar notes, gentle nudges. The lower the learner's level, the more "
-        f"English scaffolding is okay, but always lead with {name}.\n"
-        f"• Respond to the learner's MEANING first — keep the conversation alive. If "
-        f"they made errors but got the point across, praise the attempt, answer them, "
-        f"and put the fix in `corrections` (not in the reply).\n"
-        f"• If they ask how to say something (or visibly talk around a gap): encourage "
-        f"the workaround, then teach the proper expression — give an example sentence, "
-        f"related words, or a memorable origin/etymology note when genuinely "
-        f"interesting. Put each teachable word/phrase in `new_items` so the learner "
-        f"can save it to their flashcards.\n"
-        f"• Keep replies SHORT (1–4 sentences) and end with a question or prompt that "
-        f"invites the learner to write more {name}.\n"
-        f"• Award points ONLY when the learner correctly uses a word or structure "
-        f"from the lists below — 1 point for a word, 2–3 for a full structure or an "
-        f"impressive sentence. Never award points for English.\n\n"
+        f"• Write your `reply` ENTIRELY in {name}. No English in the reply itself — "
+        f"English lives only in the structured fields below. Calibrate vocabulary and "
+        f"grammar to the learner's level and the word lists below; if you must use a "
+        f"word they're unlikely to know, keep it short and add it to `new_items`.\n"
+        f"• Be a real conversation partner, NOT a quiz bot. Ask OPEN-ENDED questions "
+        f"(almost never yes/no), react with genuine curiosity and personality, tell "
+        f"tiny stories, drop the occasional fun cultural tidbit, and gently push the "
+        f"learner to say MORE than they think they can. Keep changing the topic so it "
+        f"never feels like a form to fill out.\n"
+        f"• Respond to the learner's MEANING first — never stall. If they made mistakes "
+        f"but got the idea across, run with it and put the fix in `corrections` (NOT in "
+        f"the reply).\n"
+        f"• If they grope for something they can't say, applaud the workaround, then "
+        f"teach a natural way to say it via `new_items` (a short example, a related "
+        f"word, or a memorable origin when it helps).\n"
+        f"• `reply_en` = a faithful, natural English translation of your WHOLE reply "
+        f"(the learner reveals it only when stuck). `gloss` = a word-by-word English "
+        f"gloss of EVERY distinct {name} word in your reply (content AND function "
+        f"words) so they can decode it piece by piece.\n"
+        f"• Award points ONLY when the learner correctly USES a word/structure from the "
+        f"lists — 1 for a word, 2–3 for a full structure or an impressive sentence. "
+        f"Never for English, and never for a word you just handed them.\n"
+        f"• Keep replies SHORT (1–3 sentences) so the conversation stays brisk.\n\n"
         f"{profile}{deck}{concepts}{weak}"
         f"{_history_block(history or [])}"
         f"Learner's new message: {user_msg.strip()}\n\n"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
-        f'  "reply": "<your {name}-dominant reply>",\n'
+        f'  "reply": "<entirely in {name}>",\n'
+        f'  "reply_en": "<natural English translation of the whole reply>",\n'
+        f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
         '  "corrections": [{"quote":"<what the learner wrote>","corrected":"<natural version>","explanation":"<short English why>"}],\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage/etymology, optional>"}],\n'
         '  "points": [{"concept":"<the word/structure used>","points":1,"reason":"<short English>"}]\n'
         '}\n'
-        'corrections/new_items/points may be empty arrays. Do not repeat a new_item '
-        'already offered earlier in the conversation.'
+        'corrections/new_items/points may be empty arrays. Do NOT put a word in '
+        '`new_items` that the learner already used or that appears in their known-words '
+        'list — only genuinely new expressions you are teaching.'
     )
 
 
-def _normalize(parsed: dict, target_lang: str, raw: str) -> dict:
-    """Strict, deterministic clean-up of the model's structured reply."""
+MAX_GLOSS = 40          # word-for-word gloss entries kept per reply
+
+
+def _strip_for_match(s: str) -> str:
+    """Loose key for 'did the learner already use this word': drop spaces and
+    punctuation, casefold. Works for both CJK (no spaces) and spaced scripts."""
+    return "".join(ch for ch in (s or "").casefold() if ch.isalnum())
+
+
+def _normalize(parsed: dict, target_lang: str, raw: str,
+               user_msg: str = "", known_texts: set[str] | None = None) -> dict:
+    """Strict, deterministic clean-up of the model's structured reply.
+
+    `user_msg` / `known_texts` are used to drop `new_items` the learner already
+    used in this message or already has in their deck — those aren't new words."""
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
 
     def rom(s: str) -> str:
         return tokenizer.romanize_text(s, target_lang) if (has_rom and s) else ""
 
     reply = (parsed.get("reply") or "").strip() or raw.strip()
+    reply_en = (parsed.get("reply_en") or "").strip()
+
+    # Word-for-word gloss for the reply (English on tap). Native key → English.
+    gloss = {}
+    raw_gloss = parsed.get("gloss")
+    if isinstance(raw_gloss, dict):
+        for k, v in raw_gloss.items():
+            k = (k or "").strip()
+            v = (v or "").strip() if isinstance(v, str) else ""
+            if k and v and k not in gloss:
+                gloss[k] = v
+            if len(gloss) >= MAX_GLOSS:
+                break
+
+    # Words the learner already used (this message) or already knows (deck) —
+    # used to suppress redundant new_items.
+    used = _strip_for_match(user_msg)
+    known_keys = {_strip_for_match(t) for t in (known_texts or set())}
+    known_keys.discard("")
+
+    def _already_has(target: str) -> bool:
+        key = _strip_for_match(target)
+        if not key:
+            return False
+        if key in known_keys:
+            return True
+        # The learner "used" it if the (punctuation-stripped) word is in their message.
+        return key in used
 
     # Filter first, clip after — malformed entries shouldn't consume slots.
     corrections = []
@@ -141,6 +191,8 @@ def _normalize(parsed: dict, target_lang: str, raw: str) -> dict:
         english = (it.get("english") or "").strip()
         if not target or not english:
             continue
+        if _already_has(target):          # learner already used or knows it
+            continue
         new_items.append({
             "target_text":  target,
             "english":      english,
@@ -166,8 +218,8 @@ def _normalize(parsed: dict, target_lang: str, raw: str) -> dict:
             "reason":  (p.get("reason") or "").strip(),
         })
 
-    return {"reply": reply, "corrections": corrections,
-            "new_items": new_items, "points": points}
+    return {"reply": reply, "reply_en": reply_en, "gloss": gloss,
+            "corrections": corrections, "new_items": new_items, "points": points}
 
 
 async def respond(
@@ -205,7 +257,8 @@ async def respond(
             parsed = None
     if not isinstance(parsed, dict):
         parsed = {}                          # graceful fallback: raw text as reply
-    out = _normalize(parsed, target_lang, raw)
+    known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+    out = _normalize(parsed, target_lang, raw, user_msg=user_msg, known_texts=known_texts)
     out["_raw_prompt"] = prompt
     out["_raw_response"] = raw or ""
     return out
