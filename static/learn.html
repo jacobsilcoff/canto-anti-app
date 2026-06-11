@@ -122,8 +122,10 @@
     /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
        dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
     .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
-    /* Ungloss­ed teach words: tap to fetch a translation (hybrid live lookup). */
-    .gl-live { cursor: pointer; border-bottom: 1px dotted var(--border); }
+    /* Ungloss­ed teach words: tap to fetch a translation (hybrid live lookup).
+       Underline only on hover/focus so dense teach text stays clean. */
+    .gl-live { cursor: pointer; border-bottom: 1px dotted transparent; }
+    .gl-live:hover, .gl-live:focus { border-bottom-color: var(--text-muted); }
     /* Tooltip is a JS-positioned floating div (#gl-tip) — no ::after so it can
        be clamped to viewport bounds regardless of where the word sits on screen. */
     #gl-tip {
@@ -1199,8 +1201,9 @@
       if (tip)
         return `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>`;
       // Teach word with no stored gloss → make it tap-to-translate (hybrid:
-      // free stored glosses above, live AI fallback here). Never for exercises.
-      if (liveLookup && t.is_word && /[^\sA-Za-z0-9.,!?;:'"-]/.test(t.text))
+      // free stored glosses above, live AI fallback here). Any real word in any
+      // script (Latin words just have no ruby). Never for exercises.
+      if (liveLookup && t.is_word)
         return `<span class="gl gl-live" tabindex="0" data-lw="${esc(t.text)}">${inner}</span>`;
       return inner;
     }).join('');
@@ -1211,7 +1214,9 @@
   // marks ungloss­ed teach words for tap-to-translate.
   async function rubyHtml(text, lang, glossary, hideRoman, liveLookup) {
     if (!text) return '';
-    if (_isLatin(text)) return esc(text);
+    // Latin scripts need no ruby — but with liveLookup on we still tokenise so
+    // each word can be tapped for a translation (just without romanization).
+    if (_isLatin(text) && !liveLookup) return esc(text);
     const tokens = await _fetchTokens(text, lang);
     if (!tokens || !tokens.length) return esc(text);
     return _tokensToHtml(tokens, glossary, hideRoman, liveLookup);
