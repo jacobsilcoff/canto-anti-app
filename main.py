@@ -2031,12 +2031,33 @@ async def _tutor_lang(user: dict) -> str:
     return await db.get_setting(user["id"], "default_target_lang") or "yue"
 
 
+async def _tutor_messages_payload(user_id: int, conv_id: int) -> list[dict]:
+    """Stored messages → client shape (tutor turns are their JSON payload)."""
+    messages = []
+    for m in await db.get_tutor_messages(user_id, conv_id):
+        if m["role"] == "tutor":
+            try:
+                payload = json.loads(m["content"])
+            except (ValueError, TypeError):
+                payload = {"reply": m["content"]}
+            messages.append({"id": m["id"], "role": "tutor", **payload})
+        else:
+            messages.append({"id": m["id"], "role": "user", "text": m["content"]})
+    return messages
+
+
 @app.get("/api/tutor/conversations")
 async def tutor_conversations(user: dict = Depends(current_user)):
     lang = await _tutor_lang(user)
-    return {"lang": lang,
-            "conversations": await db.list_tutor_conversations(user["id"], lang),
-            "points": await db.get_points_total(user["id"], lang)}
+    convs = await db.list_tutor_conversations(user["id"], lang)
+    out = {"lang": lang, "conversations": convs,
+           "points": await db.get_points_total(user["id"], lang)}
+    # Include the most recent conversation's messages so the page renders in one
+    # round trip (the client would otherwise immediately fetch it anyway).
+    if convs:
+        out["latest"] = {"id": convs[0]["id"],
+                         "messages": await _tutor_messages_payload(user["id"], convs[0]["id"])}
+    return out
 
 
 @app.post("/api/tutor/conversations")
@@ -2052,18 +2073,8 @@ async def tutor_get_conversation(conv_id: int, user: dict = Depends(current_user
     conv = await db.get_tutor_conversation(user["id"], conv_id)
     if not conv:
         raise HTTPException(404, "Conversation not found")
-    messages = []
-    for m in await db.get_tutor_messages(user["id"], conv_id):
-        if m["role"] == "tutor":
-            try:
-                payload = json.loads(m["content"])
-            except (ValueError, TypeError):
-                payload = {"reply": m["content"]}
-            messages.append({"id": m["id"], "role": "tutor", **payload})
-        else:
-            messages.append({"id": m["id"], "role": "user", "text": m["content"]})
     return {"id": conv["id"], "lang": conv["lang"], "title": conv["title"],
-            "messages": messages}
+            "messages": await _tutor_messages_payload(user["id"], conv_id)}
 
 
 @app.delete("/api/tutor/conversations/{conv_id}")
@@ -2147,6 +2158,40 @@ async def ruby(request: Request, text: str, lang: str = "yue", user: dict = Depe
     rmap = tokenizer.romanize_words(words, lang) if words else {}
     return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "", "is_word": t["is_word"]}
             for t in tokens]
+
+
+class RubyBatchRequest(BaseModel):
+    texts: list[str]
+    lang: str = "yue"
+
+
+@app.post("/api/ruby/batch")
+@limiter.limit("60/minute")
+async def ruby_batch(request: Request, req: RubyBatchRequest, user: dict = Depends(current_user)):
+    """Tokenise many texts in one round trip (tutor chat renders a whole
+    conversation at once — per-bubble GET /api/ruby was N requests).
+    Returns {results: {<original text>: [{text, roman, is_word}, ...]}}."""
+    if req.lang not in translation.LANG_INFO:
+        return {"results": {}}
+
+    def _tokens(text: str) -> list[dict]:
+        tokens = tokenizer.tokenize(text, req.lang)
+        words = [t["text"] for t in tokens if t["is_word"]]
+        rmap = tokenizer.romanize_words(words, req.lang) if words else {}
+        return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
+                 "is_word": t["is_word"]} for t in tokens]
+
+    def _all() -> dict:
+        results = {}
+        for raw in req.texts[:80]:
+            text = (raw or "").strip()[:500]
+            if not text or raw in results:
+                continue
+            results[raw] = _tokens(text)
+        return results
+
+    # Tokenization is sync CPU work (jieba/pycantonese) — keep the event loop free.
+    return {"results": await asyncio.to_thread(_all)}
 
 
 @app.get("/api/tts")

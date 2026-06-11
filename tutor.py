@@ -27,7 +27,7 @@ TUTOR_MODEL = "gemini-2.5-flash"   # better conversational quality than -lite, s
 
 HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
-MAX_NEW_ITEMS = 5
+MAX_NEW_ITEMS = 3
 MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
 
 
@@ -88,6 +88,20 @@ def build_tutor_prompt(
         f"• If they grope for something they can't say, applaud the workaround, then "
         f"teach a natural way to say it via `new_items` (a short example, a related "
         f"word, or a memorable origin when it helps).\n"
+        f"• `new_items` = flashcard suggestions — be VERY selective. At most 2 per "
+        f"message, and an empty list is normal. Only high-frequency, immediately "
+        f"reusable words or short set phrases that were CENTRAL to this exchange: the "
+        f"word the learner was groping for, or the one key word in your reply they "
+        f"likely don't know. Never proper nouns, niche/literary words, full sentences, "
+        f"or words included just because they happened to appear.\n"
+        f"• DRILL MODE: if the learner asks to be drilled / to practice (e.g. \"drill "
+        f"me\"), switch modes: each message poses exactly ONE short English phrase for "
+        f"them to say in {name}, exercising the pattern or words just taught (vary the "
+        f"vocabulary, keep it level-appropriate). When they answer, judge it (use "
+        f"`corrections` as usual), give the natural version, then pose the next phrase. "
+        f"After ~4 items give a one-line recap and return to normal conversation. The "
+        f"English phrase-to-translate is the ONE exception to the no-English-in-reply "
+        f"rule.\n"
         f"• `reply_en` = a faithful, natural English translation of your WHOLE reply "
         f"(the learner reveals it only when stuck). `gloss` = a word-by-word English "
         f"gloss of EVERY distinct {name} word in your reply (content AND function "

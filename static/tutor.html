@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <meta name="theme-color" content="#f8f9fa">
   <script src="/static/theme.js" defer></script>
@@ -17,19 +17,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* Fixed-height chat column: header stays put, the thread is the ONLY scroller,
-       composer is pinned. min-height:0 at every level lets the thread shrink
-       instead of the whole page growing (which pushed old messages off-screen). */
-    .tutor-page { max-width: 720px; margin: 0 auto; padding: 12px 16px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+    /* ChatGPT-style fixed chat: the page itself never scrolls — the thread is
+       the ONLY scroller and the composer stays pinned above the keyboard.
+       html/body are locked to the viewport; a visualViewport handler keeps the
+       body height in sync when the mobile keyboard opens (iOS doesn't resize
+       the layout viewport on its own). */
+    html, body { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+    main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .tutor-page { max-width: 720px; margin: 0 auto; padding: 8px 14px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
 
-    /* Top bar: conversation chips + points */
-    .tutor-top { display: flex; align-items: center; gap: 8px; padding: 4px 0 10px; flex-shrink: 0; }
-    /* Current-chat button (opens the conversations drawer) + quick new-chat */
+    /* Top bar: current chat + new chat + points */
+    .tutor-top { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; flex-shrink: 0; }
     .chats-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; color: var(--text); flex: 1; min-width: 0; max-width: 100%; }
     .chats-btn .cb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; text-align: left; }
     .chats-btn .cb-chevron { color: var(--text-muted); flex-shrink: 0; }
     .new-chat-btn { border: 1px solid var(--border); background: var(--surface); color: var(--primary); border-radius: 999px; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; line-height: 1; }
     .new-chat-btn:hover { border-color: var(--primary); }
+    .tutor-points { font-size: 0.85rem; font-weight: 700; color: var(--text); background: var(--bg); border-radius: 999px; padding: 5px 11px; flex-shrink: 0; transition: transform 0.15s; }
+    .tutor-points.bump { transform: scale(1.25); }
 
     /* Conversations drawer (slides in from the left; full-height list) */
     .chats-drawer { position: fixed; inset: 0; z-index: 500; display: none; }
@@ -52,37 +57,48 @@
     .chat-row-time { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
     .chat-del { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 0.95rem; padding: 6px; border-radius: 6px; flex-shrink: 0; }
     .chat-del:hover { color: var(--danger); background: var(--danger-soft); }
-    .tutor-points { font-size: 0.85rem; font-weight: 700; color: var(--text); background: var(--bg); border-radius: 999px; padding: 5px 11px; flex-shrink: 0; transition: transform 0.15s; }
-    .tutor-points.bump { transform: scale(1.25); }
-    .ruby-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; flex-shrink: 0; }
-    .ruby-toggle.on { border-color: var(--primary); color: var(--primary); }
 
     /* Thread (the only scrolling region) */
-    .thread { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 16px; }
+    .thread { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 16px; }
     .bubble { max-width: 86%; border-radius: 16px; padding: 10px 14px; line-height: 1.55; font-size: 1rem; position: relative; word-break: break-word; }
     .bubble.user { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 5px; font-family: var(--script-font, inherit); }
     .bubble.tutor { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
     .bubble.system { align-self: center; background: none; border: 1px dashed var(--border); color: var(--text-muted); font-size: 0.85rem; max-width: 94%; text-align: center; }
     .bubble-reply { font-family: var(--script-font, inherit); font-size: 1.05rem; }
     .bubble-en { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); color: var(--text-muted); font-size: 0.9rem; line-height: 1.45; }
-    .bubble-tools { display: flex; gap: 6px; margin-top: 7px; }
-    .bubble-speak, .bubble-en-toggle { border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 0.78rem; color: var(--text-muted); padding: 2px 9px; border-radius: 999px; line-height: 1.4; }
-    .bubble-speak:hover, .bubble-en-toggle:hover { color: var(--primary); border-color: var(--primary); }
-    .bubble-en-toggle.on { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
     ruby { ruby-align: center; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
     .bubble.user rt { color: rgba(255,255,255,0.8); }
     .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
 
+    /* Per-bubble tool buttons (icon-only, reader-style あ with strike when off) */
+    .bubble-tools { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .tool-btn { border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--text-muted); width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.82rem; padding: 0; line-height: 1; position: relative; flex-shrink: 0; }
+    .tool-btn:hover { color: var(--primary); border-color: var(--primary); }
+    .tool-btn.on { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+    .rom-toggle-off::after { content: ''; position: absolute; left: 50%; top: 50%; width: 60%; height: 1.5px; background: currentColor; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
+    .drill-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: 0 12px; height: 30px; font-size: 0.78rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .drill-btn:hover { color: var(--primary); border-color: var(--primary); }
+    .drill-btn:disabled { opacity: 0.5; cursor: default; }
+    .mini-speak { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; color: var(--text-muted); flex-shrink: 0; line-height: 1; }
+    .mini-speak:hover { color: var(--primary); }
+
+    /* Collapsible extras (corrections / new-word suggestions) */
+    .xtra { margin-top: 8px; border-top: 1px dashed var(--border); }
+    .xtra-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; padding: 7px 0 3px; text-align: left; }
+    .xtra-chev { margin-left: auto; transition: transform 0.15s; font-size: 0.7rem; }
+    .xtra.open .xtra-chev { transform: rotate(180deg); }
+    .xtra:not(.open) .xtra-body { display: none; }
+
     /* Correction cards inside a tutor bubble */
-    .corr-card { margin-top: 10px; background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a); border-left: 3px solid var(--warn-strong, #f59e0b); border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
+    .corr-card { margin-top: 6px; background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a); border-left: 3px solid var(--warn-strong, #f59e0b); border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
     .corr-quote { color: var(--text-muted); text-decoration: line-through; font-family: var(--script-font, inherit); }
     .corr-fixed { font-weight: 600; font-family: var(--script-font, inherit); font-size: 1rem; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
     .corr-why { color: var(--text-muted); margin-top: 3px; font-size: 0.82rem; }
 
     /* "New word" chips inside a tutor bubble */
-    .ni-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-    .ni-chip { display: flex; align-items: center; gap: 10px; background: var(--surface-alt, #f7f8fc); border: 1px solid var(--border); border-radius: 10px; padding: 7px 11px; }
+    .ni-list { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 4px; }
+    .ni-chip { display: flex; align-items: center; gap: 8px; background: var(--surface-alt, #f7f8fc); border: 1px solid var(--border); border-radius: 10px; padding: 7px 9px 7px 11px; }
     .ni-word { font-family: var(--script-font, inherit); font-size: 1.05rem; }
     .ni-rom { color: var(--text-muted); font-size: 0.74rem; font-style: italic; }
     .ni-gloss { color: var(--text-muted); font-size: 0.84rem; flex: 1; min-width: 0; }
@@ -90,6 +106,8 @@
     .ni-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 3px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
     .ni-add:disabled { opacity: 0.6; cursor: default; }
     .ni-in-deck { color: var(--good); font-size: 0.74rem; font-weight: 600; flex-shrink: 0; }
+    .ni-x { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 0.85rem; padding: 4px 6px; border-radius: 6px; flex-shrink: 0; line-height: 1; }
+    .ni-x:hover { color: var(--danger); background: var(--danger-soft); }
 
     /* Typing indicator */
     .typing { display: inline-flex; gap: 4px; padding: 4px 2px; }
@@ -98,9 +116,9 @@
     .typing span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes blink { 0%,80%,100% { opacity: 0.25; } 40% { opacity: 0.9; } }
 
-    /* Composer (pinned to the bottom of the chat column) */
-    .composer { flex-shrink: 0; background: var(--bg); padding: 10px 0 14px; display: flex; gap: 8px; align-items: flex-end; }
-    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 14px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 130px; line-height: 1.4; }
+    /* Composer (pinned to the bottom; safe-area aware) */
+    .composer { flex-shrink: 0; background: var(--bg); padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: flex-end; }
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 130px; line-height: 1.4; }
     .composer textarea:focus { outline: none; border-color: var(--primary); }
     .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .composer button:disabled { opacity: 0.5; cursor: default; }
@@ -115,12 +133,10 @@
       font-style: normal; font-weight: 400; padding: 4px 9px; border-radius: 6px;
       box-shadow: var(--shadow); max-width: 220px; word-break: break-word; }
 
-    main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-
     @media (max-width: 600px) {
-      .tutor-page { padding: 8px 10px 0; }
+      .tutor-page { padding: 6px 10px 0; }
       .bubble { max-width: 92%; }
-      .composer { padding: 8px 0 10px; }
+      .composer { padding-top: 6px; }
     }
   </style>
 </head>
@@ -135,8 +151,6 @@
         💬 <span class="cb-title" id="current-chat-title">New chat</span> <span class="cb-chevron">▾</span>
       </button>
       <button class="new-chat-btn" id="new-chat-btn" title="New conversation">＋</button>
-      <button class="ruby-toggle" id="tts-toggle" title="Auto-play the tutor's voice"></button>
-      <button class="ruby-toggle" id="ruby-toggle" title="Show/hide pronunciation" style="display:none"></button>
       <span class="tutor-points" id="tutor-points" style="display:none"></span>
     </div>
     <div class="thread" id="thread"></div>
@@ -170,74 +184,79 @@
   let currentConv = null;       // conversation id or null (created on first send)
   let pointsTotal = 0;
   let sending = false;
-  let rubyInline = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
-  let autoTTS = localStorage.getItem('tutor_auto_tts') === '1';        // default OFF
+  let rubyDefault = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
+
+  const DRILL_MSG = 'Drill me on that — give me one short phrase at a time to translate, and check my answers.';
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
-  // ── Ruby / TTS helpers (same proven mechanism as learn.html) ────────────────
+  // ── Ruby helpers ─────────────────────────────────────────────────────────────
   const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
   function needsRuby(l) { return RUBY_LANGS.has(l); }
-  function _isLatin(text) {
-    const stripped = (text || '').replace(/\s/g, '');
-    if (!stripped) return true;
-    const latin = (stripped.match(/[A-Za-zÀ-öø-ÿ]/g) || []).length;
-    return latin / stripped.length > 0.5;
-  }
+
+  // Token cache (lang+text → [{text, roman, is_word}]) filled by ONE batched
+  // request per render — per-bubble GET /api/ruby was N round-trips and made
+  // opening a conversation visibly slow.
   const _tokenCache = {};
-  function _fetchTokens(text, l) {
-    const key = l + '\0' + text;
-    if (!_tokenCache[key]) {
-      _tokenCache[key] = fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(l)}`)
-        .then(r => r.json()).catch(() => null);
+  function _ck(t) { return lang + '\0' + t; }
+  async function fetchTokensBatch(texts) {
+    if (!texts.length) return;
+    try {
+      const res = await fetch('/api/ruby/batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts, lang }),
+      });
+      const results = (await res.json()).results || {};
+      texts.forEach(t => { _tokenCache[_ck(t)] = results[t] || []; });
+    } catch {
+      texts.forEach(t => { if (!(_ck(t) in _tokenCache)) _tokenCache[_ck(t)] = []; });
     }
-    return _tokenCache[key];
   }
-  // Build per-token HTML. `glossary` (native word → English) adds a hover/tap
-  // tooltip; `hideRoman` moves the jyutping/romanization from inline ruby into
-  // that tooltip ("rom · meaning"). Mirrors learn.html so tutor replies get the
-  // same reader-style word-by-word reveal.
-  function _tokensToHtml(tokens, glossary, hideRoman) {
+
+  // Per-token HTML. Inline ruby when the bubble has it on; the tap/hover
+  // tooltip shows the English gloss ONLY (romanization already lives in the
+  // ruby — no redundant second way to see it).
+  function _tokensToHtml(tokens, glossary, showRuby) {
     if (!Array.isArray(tokens) || !tokens.length) return '';
     const hasRoman = tokens.some(t => t.roman);
     return tokens.map(t => {
-      const inner = (!hideRoman && hasRoman && t.is_word && t.roman)
+      const inner = (showRuby && hasRoman && t.is_word && t.roman)
         ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>` : esc(t.text);
-      const parts = [];
-      if (hideRoman && t.is_word && t.roman) parts.push(t.roman);
       const g = t.is_word ? (glossary || {})[t.text] : null;
-      if (g) parts.push(g);
-      const tip = parts.join(' · ');
-      return tip ? `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>` : inner;
+      return g ? `<span class="gl" tabindex="0" data-gloss="${esc(g)}">${inner}</span>` : inner;
     }).join('');
   }
-  async function rubyHtml(text, l, glossary, hideRoman) {
-    if (!text) return '';
-    // Latin text with no glossary needs no processing; with a glossary we still
-    // tokenise so each word can carry its English on tap (reader-style).
-    if (_isLatin(text) && !glossary) return esc(text);
-    const tokens = await _fetchTokens(text, l);
-    if (!tokens || !tokens.length) return esc(text);
-    return _tokensToHtml(tokens, glossary, hideRoman);
+
+  // Paint every .rb span in a bubble from the token cache (sync — cache must
+  // already be filled). Re-runs cheaply when the bubble's あ toggle flips.
+  function paintRuby(b) {
+    b.querySelectorAll('.rb').forEach(s => {
+      const tokens = _tokenCache[_ck(s.dataset.text)];
+      if (!tokens || !tokens.length) { s.textContent = s.dataset.text; return; }
+      const gloss = ('glossed' in s.dataset) ? (b._gloss || {}) : null;
+      s.innerHTML = _tokensToHtml(tokens, gloss, b._ruby !== false);
+    });
   }
-  async function applyRuby(container, glossary, hideRoman) {
-    const els = container.querySelectorAll('.needs-ruby');
-    await Promise.all([...els].map(async el => {
-      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary, hideRoman);
-      el.classList.remove('needs-ruby');
+
+  async function renderRubyAll(bubbles) {
+    const needed = new Set();
+    bubbles.forEach(b => b.querySelectorAll('.rb').forEach(s => {
+      if (!(_ck(s.dataset.text) in _tokenCache)) needed.add(s.dataset.text);
     }));
+    await fetchTokensBatch([...needed]);
+    bubbles.forEach(paintRuby);
   }
-  function targetSpan(text, l) {
+
+  function rbSpan(text, glossed) {
     if (!text) return '';
-    if (!needsRuby(l)) return esc(text);
-    return `<span class="needs-ruby" data-text="${esc(text)}" data-lang="${esc(l)}">${esc(text)}</span>`;
+    return `<span class="rb" data-text="${esc(text)}"${glossed ? ' data-glossed="1"' : ''}>${esc(text)}</span>`;
   }
-  // The tutor reply is always wrapped (even Latin) so its words can be glossed.
-  function replySpan(text, l) {
+  function targetSpan(text) {
     if (!text) return '';
-    return `<span class="needs-ruby" data-text="${esc(text)}" data-lang="${esc(l)}">${esc(text)}</span>`;
+    return needsRuby(lang) ? rbSpan(text) : esc(text);
   }
+
   function cleanForTTS(text, l) {
     let t = (text || '').replace(/\([^)]*\)/g, '').replace(/\*+/g, '').trim();
     if (RUBY_LANGS.has(l)) {
@@ -256,6 +275,7 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────────
   async function init() {
+    let latest = null;
     try {
       const [langs, convRes] = await Promise.all([
         fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
@@ -266,41 +286,27 @@
       const l = LANGS.find(x => x.code === lang);
       langName = l ? l.name : lang;
       conversations = convRes.conversations || [];
+      latest = convRes.latest || null;
       setPoints(convRes.points || 0);
     } catch {}
     document.getElementById('thread').className = 'thread ' + scriptClassFor(lang);
     document.querySelector('.composer textarea').classList.add(scriptClassFor(lang));
-    const rt = document.getElementById('ruby-toggle');
-    if (needsRuby(lang)) { rt.style.display = ''; updateRubyToggle(); }
-    updateTtsToggle();
     updateCurrentTitle();
-    if (conversations.length) openConversation(conversations[0].id);
-    else renderWelcome();
+    if (conversations.length) {
+      // The list response already carries the newest conversation's messages —
+      // render straight away instead of a second round trip.
+      if (latest && latest.id === conversations[0].id) {
+        currentConv = latest.id;
+        updateCurrentTitle();
+        renderMessages(latest.messages || []);
+      } else {
+        openConversation(conversations[0].id);
+      }
+    } else {
+      renderWelcome();
+    }
     loadStreak();
   }
-
-  function updateRubyToggle() {
-    const rt = document.getElementById('ruby-toggle');
-    rt.textContent = rubyInline ? 'あ Ruby on' : 'あ Ruby off';
-    rt.classList.toggle('on', rubyInline);
-  }
-  document.getElementById('ruby-toggle').onclick = () => {
-    rubyInline = !rubyInline;
-    localStorage.setItem('tutor_ruby_inline', rubyInline ? '1' : '0');
-    updateRubyToggle();
-    if (currentConv) openConversation(currentConv);   // re-render with new mode
-  };
-
-  function updateTtsToggle() {
-    const t = document.getElementById('tts-toggle');
-    t.textContent = autoTTS ? '🔊 Auto' : '🔈 Auto';
-    t.classList.toggle('on', autoTTS);
-  }
-  document.getElementById('tts-toggle').onclick = () => {
-    autoTTS = !autoTTS;
-    localStorage.setItem('tutor_auto_tts', autoTTS ? '1' : '0');
-    updateTtsToggle();
-  };
 
   function setPoints(n, bump) {
     pointsTotal = n;
@@ -371,6 +377,7 @@
 
   async function newConversation() {
     closeChats();
+    _openGen++;                    // invalidate any in-flight conversation load
     currentConv = null;
     updateCurrentTitle();
     renderWelcome();
@@ -381,21 +388,37 @@
     if (!confirm('Delete this conversation?')) return;
     await fetch('/api/tutor/conversations/' + id, { method: 'DELETE' }).catch(() => {});
     conversations = conversations.filter(c => c.id !== id);
-    if (currentConv === id) { currentConv = null; renderWelcome(); }
+    if (currentConv === id) { _openGen++; currentConv = null; renderWelcome(); }
     updateCurrentTitle();
     renderChatsList();
   }
 
+  // Generation guard: clicking between chats quickly used to interleave both
+  // fetches into the thread (conversations rendered one after the other).
+  let _openGen = 0;
   async function openConversation(id) {
+    const gen = ++_openGen;
     currentConv = id;
     updateCurrentTitle();
-    const thread = document.getElementById('thread');
-    thread.innerHTML = '';
+    document.getElementById('thread').innerHTML = '';
     try {
       const conv = await fetch('/api/tutor/conversations/' + id).then(r => r.json());
-      (conv.messages || []).forEach(m => appendMessage(m, false));
-      scrollThread();
+      if (gen !== _openGen) return;          // user moved on — drop this render
+      renderMessages(conv.messages || []);
     } catch {}
+  }
+
+  function renderMessages(messages) {
+    const thread = document.getElementById('thread');
+    thread.innerHTML = '';
+    const tutorBubbles = [];
+    messages.forEach(m => {
+      const b = appendMessage(m, false);
+      if (m.role === 'tutor') tutorBubbles.push(b);
+    });
+    scrollThread();
+    renderRubyAll(tutorBubbles).then(scrollThread);
+    markInDeck(thread);
   }
 
   function renderWelcome() {
@@ -416,6 +439,22 @@
     t.scrollTop = t.scrollHeight;
   }
 
+  // Collapsible section inside a tutor bubble (corrections / new words).
+  // Fresh messages start open; history loads collapsed to keep the thread tidy.
+  function collapsible(label, count, body, startOpen) {
+    const wrap = document.createElement('div');
+    wrap.className = 'xtra' + (startOpen ? ' open' : '');
+    const head = document.createElement('button');
+    head.className = 'xtra-head';
+    head.type = 'button';
+    head.innerHTML = `${label} · ${count} <span class="xtra-chev">▾</span>`;
+    head.onclick = () => wrap.classList.toggle('open');
+    body.classList.add('xtra-body');
+    wrap.appendChild(head);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
   function appendMessage(m, animate = true) {
     const thread = document.getElementById('thread');
     const b = document.createElement('div');
@@ -433,52 +472,73 @@
       scrollThread();
       return b;
     }
-    // Tutor bubble: reply (target language) + tools + corrections + new items.
+    // Tutor bubble: reply + per-line tools + collapsible corrections/new items.
     b.className = 'bubble tutor';
+    b._gloss = m.gloss || {};
+    b._ruby = rubyDefault;
     const reply = m.reply || '';
     const replyEn = (m.reply_en || '').trim();
-    b.innerHTML = `<div class="bubble-reply">${replySpan(reply, lang)}</div>
-      ${replyEn ? `<div class="bubble-en" style="display:none">${esc(replyEn)}</div>` : ''}
-      <div class="bubble-tools">
-        <button class="bubble-speak" title="Listen">🔊</button>
-        ${replyEn ? `<button class="bubble-en-toggle" title="Show English">Aa</button>` : ''}
-      </div>`;
-    b.querySelector('.bubble-speak').onclick = () => playTTS(cleanForTTS(reply, lang), lang);
-    const enToggle = b.querySelector('.bubble-en-toggle');
+    b.innerHTML = `<div class="bubble-reply">${rbSpan(reply, true)}</div>
+      ${replyEn ? `<div class="bubble-en" style="display:none">${esc(replyEn)}</div>` : ''}`;
+
+    const corr = m.corrections || [];
+    const items = m.new_items || [];
+
+    const tools = document.createElement('div');
+    tools.className = 'bubble-tools';
+    tools.innerHTML = `<button class="tool-btn speak" title="Listen">🔊</button>
+      ${replyEn ? `<button class="tool-btn en" title="Show English">Aa</button>` : ''}
+      ${needsRuby(lang) ? `<button class="tool-btn rb-toggle${b._ruby ? '' : ' rom-toggle-off'}" title="Toggle romanization">あ</button>` : ''}
+      ${(corr.length || items.length) ? `<button class="drill-btn" title="Practice this with quick drills">🎯 Drill</button>` : ''}`;
+    b.appendChild(tools);
+
+    tools.querySelector('.speak').onclick = () => playTTS(cleanForTTS(reply, lang), lang);
+    const enToggle = tools.querySelector('.en');
     if (enToggle) {
-      const enDiv = b.querySelector('.bubble-en');
       enToggle.onclick = () => {
+        const enDiv = b.querySelector('.bubble-en');
         const showing = enDiv.style.display !== 'none';
         enDiv.style.display = showing ? 'none' : '';
         enToggle.classList.toggle('on', !showing);
       };
     }
+    const rbToggle = tools.querySelector('.rb-toggle');
+    if (rbToggle) {
+      rbToggle.onclick = () => {
+        b._ruby = !b._ruby;
+        rubyDefault = b._ruby;                       // remember for new bubbles
+        localStorage.setItem('tutor_ruby_inline', b._ruby ? '1' : '0');
+        rbToggle.classList.toggle('rom-toggle-off', !b._ruby);
+        paintRuby(b);
+      };
+    }
+    const drill = tools.querySelector('.drill-btn');
+    if (drill) drill.onclick = () => { if (!sending) send(DRILL_MSG); };
 
-    (m.corrections || []).forEach(c => {
-      const card = document.createElement('div');
-      card.className = 'corr-card';
-      card.innerHTML = `${c.quote ? `<div class="corr-quote">${esc(c.quote)}</div>` : ''}
-        <div class="corr-fixed"><button class="bubble-speak" title="Listen">🔊</button>
-          <span>${targetSpan(c.corrected, lang)}</span>
-          ${c.corrected_roman && !needsRuby(lang) ? `<span class="ni-rom">${esc(c.corrected_roman)}</span>` : ''}</div>
-        ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}`;
-      card.querySelector('.bubble-speak').onclick = () => playTTS(cleanForTTS(c.corrected, lang), lang);
-      b.appendChild(card);
-    });
+    if (corr.length) {
+      const body = document.createElement('div');
+      corr.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'corr-card';
+        card.innerHTML = `${c.quote ? `<div class="corr-quote">${esc(c.quote)}</div>` : ''}
+          <div class="corr-fixed"><button class="mini-speak" title="Listen">🔊</button>
+            <span>${targetSpan(c.corrected)}</span>
+            ${c.corrected_roman && !needsRuby(lang) ? `<span class="ni-rom">${esc(c.corrected_roman)}</span>` : ''}</div>
+          ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}`;
+        card.querySelector('.mini-speak').onclick = () => playTTS(cleanForTTS(c.corrected, lang), lang);
+        body.appendChild(card);
+      });
+      b.appendChild(collapsible('✏️ Corrections', corr.length, body, animate));
+    }
 
-    const items = m.new_items || [];
     if (items.length) {
       const list = document.createElement('div');
       list.className = 'ni-list';
       items.forEach(it => list.appendChild(newItemChip(it)));
-      b.appendChild(list);
-      markInDeck(list, items);
+      b.appendChild(collapsible('💡 New words', items.length, list, animate));
     }
 
     thread.appendChild(b);
-    // Reply words get jyutping (ruby or hover) + their English gloss on tap;
-    // corrections / new-item words just get ruby (no gloss in m.gloss for them).
-    applyRuby(b, m.gloss || {}, !rubyInline);
     scrollThread();
     return b;
   }
@@ -487,14 +547,14 @@
     const chip = document.createElement('div');
     chip.className = 'ni-chip';
     chip.dataset.word = it.target_text;
-    chip.innerHTML = `<button class="bubble-speak" title="Listen">🔊</button>
+    chip.innerHTML = `<button class="mini-speak" title="Listen">🔊</button>
       <div style="flex:1;min-width:0">
-        <span class="ni-word">${targetSpan(it.target_text, lang)}</span>
+        <span class="ni-word">${targetSpan(it.target_text)}</span>
         ${it.romanization && !needsRuby(lang) ? ` <span class="ni-rom">${esc(it.romanization)}</span>` : ''}
         <div class="ni-gloss">${esc(it.english)}</div>
         ${it.notes ? `<div class="ni-notes">${esc(it.notes)}</div>` : ''}
       </div>`;
-    chip.querySelector('.bubble-speak').onclick = () => playTTS(it.target_text, lang);
+    chip.querySelector('.mini-speak').onclick = () => playTTS(it.target_text, lang);
     const btn = document.createElement('button');
     btn.className = 'ni-add'; btn.type = 'button'; btn.textContent = '＋ Add';
     btn.onclick = async () => {
@@ -513,18 +573,30 @@
       } catch { btn.disabled = false; btn.textContent = '＋ Add'; }
     };
     chip.appendChild(btn);
+    const x = document.createElement('button');
+    x.className = 'ni-x'; x.type = 'button'; x.title = 'Dismiss'; x.textContent = '✕';
+    x.onclick = () => {
+      const group = chip.closest('.xtra');
+      chip.remove();
+      if (group && !group.querySelector('.ni-chip')) group.remove();
+    };
+    chip.appendChild(x);
     return chip;
   }
 
-  // Replace Add buttons with "In deck" for words already saved.
-  async function markInDeck(list, items) {
+  // Replace Add buttons with "In deck" for words already saved — ONE status
+  // call per render (was one per message).
+  async function markInDeck(container) {
+    const chips = [...container.querySelectorAll('.ni-chip')].filter(c => c.querySelector('.ni-add'));
+    if (!chips.length) return;
+    const words = [...new Set(chips.map(c => c.dataset.word))];
     try {
       const res = await fetch('/api/cards/status', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words: items.map(i => i.target_text), lang }),
+        body: JSON.stringify({ words, lang }),
       });
       const statuses = (await res.json()).statuses || {};
-      list.querySelectorAll('.ni-chip').forEach(chip => {
+      chips.forEach(chip => {
         if (statuses[chip.dataset.word]) {
           const btn = chip.querySelector('.ni-add');
           if (btn) btn.outerHTML = '<span class="ni-in-deck">✓ In deck</span>';
@@ -555,14 +627,14 @@
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
-  sendBtn.onclick = send;
+  sendBtn.onclick = () => send();
 
-  async function send() {
-    const text = input.value.trim();
+  async function send(textOverride) {
+    const text = (typeof textOverride === 'string' ? textOverride : input.value).trim();
     if (!text || sending) return;
     sending = true;
     sendBtn.disabled = true;
-    input.value = ''; input.style.height = 'auto';
+    if (typeof textOverride !== 'string') { input.value = ''; input.style.height = 'auto'; }
 
     // First message of a fresh chat: clear the welcome bubble, create the conv.
     if (!currentConv) document.getElementById('thread').innerHTML = '';
@@ -581,7 +653,8 @@
         currentConv = conv.id;
         conversations.unshift({ id: conv.id, title: text.slice(0, 60) });
       }
-      const res = await fetch(`/api/tutor/conversations/${currentConv}/messages`, {
+      const convAtSend = currentConv;
+      const res = await fetch(`/api/tutor/conversations/${convAtSend}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
@@ -594,14 +667,18 @@
       }
       const data = await res.json();
       typing.remove();
-      appendMessage(data.message);
-      if (autoTTS && data.message.reply) playTTS(cleanForTTS(data.message.reply, lang), lang);
+      // Only render into the thread if the user hasn't switched chats meanwhile.
+      if (currentConv === convAtSend) {
+        const b = appendMessage(data.message);
+        renderRubyAll([b]).then(scrollThread);
+        markInDeck(b);
+      }
       const gained = (data.message.points || []).reduce((n, p) => n + (p.points || 0), 0);
       if (gained > 0) { showPointsToast(data.message.points); }
       setPoints(data.points_total || 0, gained > 0);
       // Keep the local list in sync: first message becomes the title, and this
       // conversation moves to the top (most recent) with a fresh timestamp.
-      const c = conversations.find(x => x.id === currentConv);
+      const c = conversations.find(x => x.id === convAtSend);
       if (c) {
         if (!c.title) c.title = text.slice(0, 60);
         c.updated_at = new Date().toISOString();
@@ -614,9 +691,24 @@
     } finally {
       sending = false;
       sendBtn.disabled = !input.value.trim();
-      input.focus();
+      if (typeof textOverride !== 'string') input.focus();
     }
   }
+
+  // ── Keyboard / viewport fit (mobile) ─────────────────────────────────────────
+  // iOS doesn't shrink the layout viewport when the keyboard opens; keep the
+  // body sized to the *visual* viewport so the composer stays visible.
+  (function () {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const fit = () => {
+      if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;   // ignore pinch-zoom
+      document.body.style.height = vv.height + 'px';
+      window.scrollTo(0, 0);
+      scrollThread();
+    };
+    vv.addEventListener('resize', fit);
+  })();
 
   // ── Gloss tooltip (shared mechanism with learn.html) ─────────────────────────
   (function () {
@@ -645,7 +737,7 @@
       if (gl) showTip(gl);
     });
     document.addEventListener('focusout', hideTip);
-    document.addEventListener('scroll', hideTip, { passive: true });
+    document.addEventListener('scroll', hideTip, { passive: true, capture: true });
   })();
 
   // ── Nav helpers ──────────────────────────────────────────────────────────────
