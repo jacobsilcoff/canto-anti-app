@@ -24,13 +24,34 @@
 
     /* Top bar: conversation chips + points */
     .tutor-top { display: flex; align-items: center; gap: 8px; padding: 4px 0 10px; flex-shrink: 0; }
-    .conv-strip { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
-    .conv-strip::-webkit-scrollbar { display: none; }
-    .conv-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer; white-space: nowrap; color: var(--text-muted); flex-shrink: 0; max-width: 60vw; }
-    .conv-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; }
-    .conv-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft, #eef4fe); }
-    .conv-chip .conv-x { border: none; background: none; cursor: pointer; color: inherit; opacity: 0.5; font-size: 0.8rem; padding: 0 0 0 2px; line-height: 1; }
-    .conv-chip .conv-x:hover { opacity: 1; }
+    /* Current-chat button (opens the conversations drawer) + quick new-chat */
+    .chats-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; color: var(--text); flex: 1; min-width: 0; max-width: 100%; }
+    .chats-btn .cb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; text-align: left; }
+    .chats-btn .cb-chevron { color: var(--text-muted); flex-shrink: 0; }
+    .new-chat-btn { border: 1px solid var(--border); background: var(--surface); color: var(--primary); border-radius: 999px; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; line-height: 1; }
+    .new-chat-btn:hover { border-color: var(--primary); }
+
+    /* Conversations drawer (slides in from the left; full-height list) */
+    .chats-drawer { position: fixed; inset: 0; z-index: 500; display: none; }
+    .chats-drawer.open { display: block; }
+    .chats-scrim { position: absolute; inset: 0; background: var(--overlay); }
+    .chats-panel { position: absolute; top: 0; left: 0; bottom: 0; width: min(340px, 86vw); background: var(--surface); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.2s ease; }
+    .chats-drawer.open .chats-panel { transform: translateX(0); }
+    .chats-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+    .chats-head h3 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .chats-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 2px 6px; }
+    .chats-new { margin: 12px 14px 6px; padding: 10px; border: 1px solid var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .chats-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px 16px; }
+    .chats-empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 24px 16px; }
+    .chat-row { display: flex; align-items: center; gap: 8px; padding: 10px 10px; border-radius: 10px; cursor: pointer; }
+    .chat-row:hover { background: var(--surface-alt); }
+    .chat-row.active { background: var(--primary-soft); }
+    .chat-row-main { flex: 1; min-width: 0; }
+    .chat-row-title { font-size: 0.92rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-row.active .chat-row-title { color: var(--primary); font-weight: 600; }
+    .chat-row-time { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+    .chat-del { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 0.95rem; padding: 6px; border-radius: 6px; flex-shrink: 0; }
+    .chat-del:hover { color: var(--danger); background: var(--danger-soft); }
     .tutor-points { font-size: 0.85rem; font-weight: 700; color: var(--text); background: var(--bg); border-radius: 999px; padding: 5px 11px; flex-shrink: 0; transition: transform 0.15s; }
     .tutor-points.bump { transform: scale(1.25); }
     .ruby-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; flex-shrink: 0; }
@@ -110,7 +131,10 @@
 <main>
   <div class="tutor-page">
     <div class="tutor-top">
-      <div class="conv-strip" id="conv-strip"></div>
+      <button class="chats-btn" id="chats-btn" title="Your conversations">
+        💬 <span class="cb-title" id="current-chat-title">New chat</span> <span class="cb-chevron">▾</span>
+      </button>
+      <button class="new-chat-btn" id="new-chat-btn" title="New conversation">＋</button>
       <button class="ruby-toggle" id="tts-toggle" title="Auto-play the tutor's voice"></button>
       <button class="ruby-toggle" id="ruby-toggle" title="Show/hide pronunciation" style="display:none"></button>
       <span class="tutor-points" id="tutor-points" style="display:none"></span>
@@ -122,6 +146,19 @@
     </div>
   </div>
 </main>
+
+<!-- Conversations drawer -->
+<div class="chats-drawer" id="chats-drawer">
+  <div class="chats-scrim" id="chats-scrim"></div>
+  <div class="chats-panel">
+    <div class="chats-head">
+      <h3>Conversations</h3>
+      <button class="chats-close" id="chats-close" title="Close">✕</button>
+    </div>
+    <button class="chats-new" id="chats-new">＋ New chat</button>
+    <div class="chats-list" id="chats-list"></div>
+  </div>
+</div>
 <div class="pt-toast" id="pt-toast"></div>
 <div id="gl-tip" aria-hidden="true"></div>
 
@@ -236,7 +273,7 @@
     const rt = document.getElementById('ruby-toggle');
     if (needsRuby(lang)) { rt.style.display = ''; updateRubyToggle(); }
     updateTtsToggle();
-    renderConvStrip();
+    updateCurrentTitle();
     if (conversations.length) openConversation(conversations[0].id);
     else renderWelcome();
     loadStreak();
@@ -273,30 +310,69 @@
     if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
 
-  // ── Conversation strip ───────────────────────────────────────────────────────
-  function renderConvStrip() {
-    const strip = document.getElementById('conv-strip');
-    strip.innerHTML = '';
-    const plus = document.createElement('button');
-    plus.className = 'conv-chip';
-    plus.textContent = '＋ New chat';
-    plus.onclick = newConversation;
-    strip.appendChild(plus);
+  // ── Conversations (header button + drawer) ───────────────────────────────────
+  function _relTime(iso) {
+    if (!iso) return '';
+    // Server sends UTC 'YYYY-MM-DD HH:MM:SS' (SQLite); local bumps use ISO.
+    let t = Date.parse(iso);
+    if (isNaN(t)) t = Date.parse(iso.replace(' ', 'T') + 'Z');
+    if (isNaN(t)) return '';
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(t).toLocaleDateString();
+  }
+
+  function updateCurrentTitle() {
+    const c = conversations.find(x => x.id === currentConv);
+    document.getElementById('current-chat-title').textContent =
+      (c && c.title) ? c.title : 'New chat';
+  }
+
+  function renderChatsList() {
+    const list = document.getElementById('chats-list');
+    list.innerHTML = '';
+    if (!conversations.length) {
+      list.innerHTML = '<div class="chats-empty">No conversations yet.<br>Start chatting below!</div>';
+      return;
+    }
     conversations.forEach(c => {
-      const chip = document.createElement('button');
-      chip.className = 'conv-chip' + (c.id === currentConv ? ' active' : '');
-      chip.innerHTML = `<span>${esc(c.title || 'New chat')}</span><span class="conv-x" title="Delete">✕</span>`;
-      chip.onclick = e => {
-        if (e.target.classList.contains('conv-x')) { deleteConversation(c.id); return; }
+      const row = document.createElement('div');
+      row.className = 'chat-row' + (c.id === currentConv ? ' active' : '');
+      row.innerHTML = `<div class="chat-row-main">
+          <div class="chat-row-title">${esc(c.title || 'New chat')}</div>
+          <div class="chat-row-time">${esc(_relTime(c.updated_at || c.created_at))}</div>
+        </div>
+        <button class="chat-del" title="Delete">🗑</button>`;
+      row.querySelector('.chat-row-main').onclick = () => {
+        closeChats();
         if (c.id !== currentConv) openConversation(c.id);
       };
-      strip.appendChild(chip);
+      row.querySelector('.chat-del').onclick = e => { e.stopPropagation(); deleteConversation(c.id); };
+      list.appendChild(row);
     });
   }
 
+  function openChats() {
+    renderChatsList();
+    document.getElementById('chats-drawer').classList.add('open');
+  }
+  function closeChats() {
+    document.getElementById('chats-drawer').classList.remove('open');
+  }
+  document.getElementById('chats-btn').onclick = openChats;
+  document.getElementById('new-chat-btn').onclick = newConversation;
+  document.getElementById('chats-close').onclick = closeChats;
+  document.getElementById('chats-scrim').onclick = closeChats;
+  document.getElementById('chats-new').onclick = newConversation;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChats(); });
+
   async function newConversation() {
+    closeChats();
     currentConv = null;
-    renderConvStrip();
+    updateCurrentTitle();
     renderWelcome();
     document.getElementById('composer-input').focus();
   }
@@ -306,12 +382,13 @@
     await fetch('/api/tutor/conversations/' + id, { method: 'DELETE' }).catch(() => {});
     conversations = conversations.filter(c => c.id !== id);
     if (currentConv === id) { currentConv = null; renderWelcome(); }
-    renderConvStrip();
+    updateCurrentTitle();
+    renderChatsList();
   }
 
   async function openConversation(id) {
     currentConv = id;
-    renderConvStrip();
+    updateCurrentTitle();
     const thread = document.getElementById('thread');
     thread.innerHTML = '';
     try {
@@ -522,10 +599,15 @@
       const gained = (data.message.points || []).reduce((n, p) => n + (p.points || 0), 0);
       if (gained > 0) { showPointsToast(data.message.points); }
       setPoints(data.points_total || 0, gained > 0);
-      // Keep the chip title in sync with the server (first message becomes title).
+      // Keep the local list in sync: first message becomes the title, and this
+      // conversation moves to the top (most recent) with a fresh timestamp.
       const c = conversations.find(x => x.id === currentConv);
-      if (c && !c.title) c.title = text.slice(0, 60);
-      renderConvStrip();
+      if (c) {
+        if (!c.title) c.title = text.slice(0, 60);
+        c.updated_at = new Date().toISOString();
+        conversations = [c, ...conversations.filter(x => x.id !== c.id)];
+      }
+      updateCurrentTitle();
     } catch (e) {
       typing.remove();
       appendMessage({ role: 'system', text: e.message || 'Something went wrong — please try again.' });
