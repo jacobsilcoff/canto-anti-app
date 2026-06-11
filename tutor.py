@@ -94,14 +94,18 @@ def build_tutor_prompt(
         f"word the learner was groping for, or the one key word in your reply they "
         f"likely don't know. Never proper nouns, niche/literary words, full sentences, "
         f"or words included just because they happened to appear.\n"
-        f"• DRILL MODE: if the learner asks to be drilled / to practice (e.g. \"drill "
-        f"me\"), switch modes: each message poses exactly ONE short English phrase for "
-        f"them to say in {name}, exercising the pattern or words just taught (vary the "
-        f"vocabulary, keep it level-appropriate). When they answer, judge it (use "
-        f"`corrections` as usual), give the natural version, then pose the next phrase. "
-        f"After ~4 items give a one-line recap and return to normal conversation. The "
-        f"English phrase-to-translate is the ONE exception to the no-English-in-reply "
-        f"rule.\n"
+        f"• Set `drill` to a SHORT skill label (e.g. \"if…then…\", \"-er verb "
+        f"conjugation\", \"comparatives\", \"past tense\") ONLY when THIS reply just "
+        f"taught a GENERALIZABLE grammar structure or sentence pattern the learner "
+        f"could practice by analogy. Leave it \"\" for ordinary chat, a one-off vocab "
+        f"word, or when you are already mid-drill. This unlocks a 'Drill' button.\n"
+        f"• DRILL MODE: when your OWN previous message posed an English phrase for the "
+        f"learner to translate, their new message is their attempt — judge it via "
+        f"`corrections`, confirm the natural version, then pose the NEXT short English "
+        f"phrase exercising the same pattern (vary the vocabulary, keep it "
+        f"level-appropriate). After ~4 items give a one-line recap and return to "
+        f"normal conversation. The English phrase-to-translate is the ONE exception to "
+        f"the no-English-in-reply rule.\n"
         f"• `reply_en` = a faithful, natural English translation of your WHOLE reply "
         f"(the learner reveals it only when stuck). `gloss` = a word-by-word English "
         f"gloss of EVERY distinct {name} word in your reply (content AND function "
@@ -120,7 +124,8 @@ def build_tutor_prompt(
         f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
         '  "corrections": [{"quote":"<what the learner wrote>","corrected":"<natural version>","explanation":"<short English why>"}],\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage/etymology, optional>"}],\n'
-        '  "points": [{"concept":"<the word/structure used>","points":1,"reason":"<short English>"}]\n'
+        '  "points": [{"concept":"<the word/structure used>","points":1,"reason":"<short English>"}],\n'
+        '  "drill": "<short skill label if you just taught a generalizable pattern, else empty>"\n'
         '}\n'
         'corrections/new_items/points may be empty arrays. Do NOT put a word in '
         '`new_items` that the learner already used or that appears in their known-words '
@@ -232,8 +237,32 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
             "reason":  (p.get("reason") or "").strip(),
         })
 
+    drill = (parsed.get("drill") or "").strip()[:60] if isinstance(parsed.get("drill"), str) else ""
+
     return {"reply": reply, "reply_en": reply_en, "gloss": gloss,
-            "corrections": corrections, "new_items": new_items, "points": points}
+            "corrections": corrections, "new_items": new_items, "points": points,
+            "drill": drill}
+
+
+async def _run(prompt: str, target_lang: str, *, api_key: str, model: str,
+               user_msg: str = "", known_texts: set[str] | None = None) -> dict:
+    """Call the model, parse JSON (one retry), normalize. Never hard-fails: a
+    malformed side-channel degrades to a plain-text reply."""
+    raw = ""
+    parsed = None
+    for _ in range(2):                       # one retry on malformed JSON
+        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+        try:
+            parsed = _parse_json(raw)
+            break
+        except (ValueError, TypeError):
+            parsed = None
+    if not isinstance(parsed, dict):
+        parsed = {}                          # graceful fallback: raw text as reply
+    out = _normalize(parsed, target_lang, raw, user_msg=user_msg, known_texts=known_texts)
+    out["_raw_prompt"] = prompt
+    out["_raw_response"] = raw or ""
+    return out
 
 
 async def respond(
@@ -249,9 +278,7 @@ async def respond(
     concept_registry: list[dict] | None = None,
     weak_concepts: list[dict] | None = None,
 ) -> dict:
-    """One LLM call → normalized structured reply. On JSON-parse failure, retry
-    once; then degrade to a plain-text reply (the chat must never hard-fail on a
-    malformed side-channel)."""
+    """One LLM call → normalized structured reply."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = build_tutor_prompt(
@@ -260,19 +287,73 @@ async def respond(
         known_words=known_words, concept_registry=concept_registry,
         weak_concepts=weak_concepts,
     )
-    raw = ""
-    parsed = None
-    for _ in range(2):                       # one retry on malformed JSON
-        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
-        try:
-            parsed = _parse_json(raw)
-            break
-        except (ValueError, TypeError):
-            parsed = None
-    if not isinstance(parsed, dict):
-        parsed = {}                          # graceful fallback: raw text as reply
     known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
-    out = _normalize(parsed, target_lang, raw, user_msg=user_msg, known_texts=known_texts)
-    out["_raw_prompt"] = prompt
-    out["_raw_response"] = raw or ""
-    return out
+    return await _run(prompt, target_lang, api_key=api_key, model=model,
+                      user_msg=user_msg, known_texts=known_texts)
+
+
+def build_drill_prompt(
+    target_lang: str,
+    skill: str,
+    history: list[dict] | None = None,
+    *,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+) -> str:
+    """Kick off a focused practice drill on one generalizable skill — the tutor
+    poses ONE English phrase to translate. Separate prompt so the learner never
+    sees a 'drill me' instruction in the chat (the button calls this directly)."""
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
+    deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
+            if known_words else "")
+    return (
+        f"You are a {name} tutor running a quick, encouraging PRACTICE DRILL with an "
+        f"English-speaking learner (level {level}).\n\n"
+        f"{_lang_preamble(info)}"
+        f"The learner just tapped 'Drill' to practice this structure/skill: "
+        f"\"{skill}\".\n\n"
+        f"── HOW TO START ──\n"
+        f"• In ONE short message: a friendly one-line lead-in IN {name}, then pose "
+        f"EXACTLY ONE concrete English phrase for the learner to translate into {name} "
+        f"that exercises \"{skill}\". Do NOT translate it for them.\n"
+        f"• Keep it level-appropriate and answerable with familiar vocabulary. The "
+        f"English phrase-to-translate is the only English allowed in `reply`.\n"
+        f"• `reply_en` = English translation of your lead-in (NOT the answer to the "
+        f"drill). `gloss` = word-by-word gloss of the {name} words in your lead-in.\n\n"
+        f"{profile}{deck}"
+        f"{_history_block(history or [])}"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        f'  "reply": "<{name} lead-in + the ONE English phrase to translate>",\n'
+        f'  "reply_en": "<English translation of the lead-in>",\n'
+        f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
+        '  "corrections": [],\n'
+        '  "new_items": [],\n'
+        '  "points": [],\n'
+        '  "drill": ""\n'
+        '}\n'
+    )
+
+
+async def start_drill(
+    target_lang: str,
+    skill: str,
+    history: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+) -> dict:
+    """One LLM call → the opening drill turn (same payload shape as `respond`)."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = build_drill_prompt(
+        target_lang, skill, history,
+        level=level, learner_profile=learner_profile, known_words=known_words,
+    )
+    return await _run(prompt, target_lang, api_key=api_key, model=model)

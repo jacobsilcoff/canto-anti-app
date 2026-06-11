@@ -408,7 +408,11 @@ _PLAN_WIDGET = """
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown))
+    # Replace only the FIRST {{NAV}} (the one in <header>). The nav markup is
+    # multi-line HTML; substituting it into a later occurrence (e.g. a literal
+    # "{{NAV}}" inside a // comment in a <script>) would break out of the comment
+    # and inject raw <nav> HTML into the JS, killing the whole script.
+    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
@@ -2133,7 +2137,7 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
         logger.error("Tutor reply failed lang=%s: %s", lang, e, exc_info=True)
         raise HTTPException(502, "The tutor couldn't reply — please try again.")
 
-    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points")}
+    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
     await db.add_tutor_message(user["id"], conv_id, "user", text)
     await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False))
     for p in payload["points"]:
@@ -2142,6 +2146,57 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
 
     return {"message": {"role": "tutor", **payload},
             "points_total": await db.get_points_total(user["id"], lang)}
+
+
+class TutorDrillRequest(BaseModel):
+    skill: str
+
+
+@app.post("/api/tutor/conversations/{conv_id}/drill")
+@limiter.limit("20/minute;400/day")
+async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
+                      user: dict = Depends(current_user)):
+    """Start a practice drill on one skill the tutor just taught. Stores ONLY a
+    tutor message — the learner never sees a 'drill me' prompt in the chat. The
+    tutor's own drill question keeps the model in drill mode on follow-up turns."""
+    skill = (req.skill or "").strip()[:80]
+    if not skill:
+        raise HTTPException(400, "skill required")
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    lang = conv["lang"]
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    known_words = await db.get_known_words(user["id"], lang)
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    level = course.get("level") or "A1" if course else "A1"
+
+    history = []
+    for m in await db.get_tutor_messages(user["id"], conv_id):
+        if m["role"] == "tutor":
+            try:
+                history.append({"role": "tutor", "text": json.loads(m["content"]).get("reply", "")})
+            except (ValueError, TypeError):
+                history.append({"role": "tutor", "text": m["content"]})
+        else:
+            history.append({"role": "user", "text": m["content"]})
+
+    try:
+        out = await tutor.start_drill(
+            lang, skill, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile, known_words=known_words,
+        )
+    except Exception as e:
+        logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't start the drill — please try again.")
+
+    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
+    await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False))
+    return {"message": {"role": "tutor", **payload}}
 
 
 @app.get("/api/ruby")

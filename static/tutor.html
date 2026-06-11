@@ -90,7 +90,11 @@
     .xtra.open .xtra-chev { transform: rotate(180deg); }
     .xtra:not(.open) .xtra-body { display: none; }
 
-    /* Correction cards inside a tutor bubble */
+    /* Corrections — attached UNDER the learner's own message (right-aligned),
+       since a correction is about what they just said. */
+    .corr-wrap { align-self: flex-end; max-width: 86%; width: 100%; }
+    .corr-wrap .xtra { border-top: none; margin-top: 2px; }
+    .corr-wrap .xtra-head { justify-content: flex-end; }
     .corr-card { margin-top: 6px; background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a); border-left: 3px solid var(--warn-strong, #f59e0b); border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
     .corr-quote { color: var(--text-muted); text-decoration: line-through; font-family: var(--script-font, inherit); }
     .corr-fixed { font-weight: 600; font-family: var(--script-font, inherit); font-size: 1rem; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
@@ -118,7 +122,7 @@
 
     /* Composer (pinned to the bottom; safe-area aware) */
     .composer { flex-shrink: 0; background: var(--bg); padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: flex-end; }
-    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 130px; line-height: 1.4; }
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 110px; line-height: 1.4; }
     .composer textarea:focus { outline: none; border-color: var(--primary); }
     .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .composer button:disabled { opacity: 0.5; cursor: default; }
@@ -185,8 +189,6 @@
   let pointsTotal = 0;
   let sending = false;
   let rubyDefault = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
-
-  const DRILL_MSG = 'Drill me on that — give me one short phrase at a time to translate, and check my answers.';
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
@@ -411,13 +413,19 @@
   function renderMessages(messages) {
     const thread = document.getElementById('thread');
     thread.innerHTML = '';
-    const tutorBubbles = [];
+    const rubyEls = [];
+    let lastUser = null;
     messages.forEach(m => {
       const b = appendMessage(m, false);
-      if (m.role === 'tutor') tutorBubbles.push(b);
+      if (m.role === 'user') lastUser = b;
+      if (m.role === 'tutor') {
+        rubyEls.push(b);
+        const cw = renderCorrections(lastUser, m.corrections, false);   // history: collapsed
+        if (cw) rubyEls.push(cw);
+      }
     });
     scrollThread();
-    renderRubyAll(tutorBubbles).then(scrollThread);
+    renderRubyAll(rubyEls).then(scrollThread);
     markInDeck(thread);
   }
 
@@ -455,6 +463,30 @@
     return wrap;
   }
 
+  // Corrections live UNDER the learner's message (right-aligned), inserted as a
+  // sibling right after the user bubble they critique.
+  function renderCorrections(afterBubble, corrections, startOpen) {
+    if (!afterBubble || !corrections || !corrections.length) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'corr-wrap';
+    const body = document.createElement('div');
+    corrections.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'corr-card';
+      card.innerHTML = `${c.quote ? `<div class="corr-quote">${esc(c.quote)}</div>` : ''}
+        <div class="corr-fixed"><button class="mini-speak" title="Listen">🔊</button>
+          <span>${targetSpan(c.corrected)}</span>
+          ${c.corrected_roman && !needsRuby(lang) ? `<span class="ni-rom">${esc(c.corrected_roman)}</span>` : ''}</div>
+        ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}`;
+      card.querySelector('.mini-speak').onclick = () => playTTS(cleanForTTS(c.corrected, lang), lang);
+      body.appendChild(card);
+    });
+    wrap.appendChild(collapsible('✏️ Correction' + (corrections.length > 1 ? 's' : ''),
+                                 corrections.length, body, startOpen));
+    afterBubble.insertAdjacentElement('afterend', wrap);
+    return wrap;
+  }
+
   function appendMessage(m, animate = true) {
     const thread = document.getElementById('thread');
     const b = document.createElement('div');
@@ -481,15 +513,15 @@
     b.innerHTML = `<div class="bubble-reply">${rbSpan(reply, true)}</div>
       ${replyEn ? `<div class="bubble-en" style="display:none">${esc(replyEn)}</div>` : ''}`;
 
-    const corr = m.corrections || [];
     const items = m.new_items || [];
+    const drillSkill = (m.drill || '').trim();
 
     const tools = document.createElement('div');
     tools.className = 'bubble-tools';
     tools.innerHTML = `<button class="tool-btn speak" title="Listen">🔊</button>
       ${replyEn ? `<button class="tool-btn en" title="Show English">Aa</button>` : ''}
       ${needsRuby(lang) ? `<button class="tool-btn rb-toggle${b._ruby ? '' : ' rom-toggle-off'}" title="Toggle romanization">あ</button>` : ''}
-      ${(corr.length || items.length) ? `<button class="drill-btn" title="Practice this with quick drills">🎯 Drill</button>` : ''}`;
+      ${drillSkill ? `<button class="drill-btn" title="Practice this pattern">🎯 Drill: ${esc(drillSkill)}</button>` : ''}`;
     b.appendChild(tools);
 
     tools.querySelector('.speak').onclick = () => playTTS(cleanForTTS(reply, lang), lang);
@@ -513,23 +545,7 @@
       };
     }
     const drill = tools.querySelector('.drill-btn');
-    if (drill) drill.onclick = () => { if (!sending) send(DRILL_MSG); };
-
-    if (corr.length) {
-      const body = document.createElement('div');
-      corr.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'corr-card';
-        card.innerHTML = `${c.quote ? `<div class="corr-quote">${esc(c.quote)}</div>` : ''}
-          <div class="corr-fixed"><button class="mini-speak" title="Listen">🔊</button>
-            <span>${targetSpan(c.corrected)}</span>
-            ${c.corrected_roman && !needsRuby(lang) ? `<span class="ni-rom">${esc(c.corrected_roman)}</span>` : ''}</div>
-          ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}`;
-        card.querySelector('.mini-speak').onclick = () => playTTS(cleanForTTS(c.corrected, lang), lang);
-        body.appendChild(card);
-      });
-      b.appendChild(collapsible('✏️ Corrections', corr.length, body, animate));
-    }
+    if (drill) drill.onclick = () => { if (!sending) startDrill(drillSkill, drill); };
 
     if (items.length) {
       const list = document.createElement('div');
@@ -619,26 +635,35 @@
   const input = document.getElementById('composer-input');
   const sendBtn = document.getElementById('composer-send');
 
+  // Cap the textarea relative to the *visible* viewport so it shrinks when the
+  // keyboard is up (otherwise a tall box eats the whole area above the keyboard).
+  function composerMax() {
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 600;
+    return Math.max(54, Math.min(110, Math.round(vh * 0.22)));
+  }
+  function growInput() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, composerMax()) + 'px';
+  }
   input.addEventListener('input', () => {
     sendBtn.disabled = !input.value.trim() || sending;
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 130) + 'px';
+    growInput();
   });
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
   sendBtn.onclick = () => send();
 
-  async function send(textOverride) {
-    const text = (typeof textOverride === 'string' ? textOverride : input.value).trim();
+  async function send() {
+    const text = input.value.trim();
     if (!text || sending) return;
     sending = true;
     sendBtn.disabled = true;
-    if (typeof textOverride !== 'string') { input.value = ''; input.style.height = 'auto'; }
+    input.value = ''; input.style.height = 'auto';
 
     // First message of a fresh chat: clear the welcome bubble, create the conv.
     if (!currentConv) document.getElementById('thread').innerHTML = '';
-    appendMessage({ role: 'user', text });
+    const userBubble = appendMessage({ role: 'user', text });
     const typing = document.createElement('div');
     typing.className = 'bubble tutor';
     typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
@@ -670,7 +695,8 @@
       // Only render into the thread if the user hasn't switched chats meanwhile.
       if (currentConv === convAtSend) {
         const b = appendMessage(data.message);
-        renderRubyAll([b]).then(scrollThread);
+        const cw = renderCorrections(userBubble, data.message.corrections, true);
+        renderRubyAll(cw ? [b, cw] : [b]).then(scrollThread);
         markInDeck(b);
       }
       const gained = (data.message.points || []).reduce((n, p) => n + (p.points || 0), 0);
@@ -691,23 +717,78 @@
     } finally {
       sending = false;
       sendBtn.disabled = !input.value.trim();
-      if (typeof textOverride !== 'string') input.focus();
+      input.focus();
+    }
+  }
+
+  // Drill: the tutor offered a generalizable pattern. We ask the server to begin
+  // a drill on it — NO visible "drill me" message; the tutor's drill question is
+  // the next bubble, and the learner just answers it normally.
+  async function startDrill(skill, btn) {
+    if (!skill || !currentConv || sending) return;
+    sending = true;
+    sendBtn.disabled = true;
+    if (btn) { btn.disabled = true; btn.textContent = '🎯 …'; }
+    const typing = document.createElement('div');
+    typing.className = 'bubble tutor';
+    typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+    document.getElementById('thread').appendChild(typing);
+    scrollThread();
+    const convAtSend = currentConv;
+    try {
+      const res = await fetch(`/api/tutor/conversations/${convAtSend}/drill`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail
+          || (res.status === 402 ? 'You\'ve hit your monthly AI limit — add your own Gemini key in Settings.'
+            : res.status === 429 ? 'Slow down a little — try again in a minute.'
+              : 'Couldn\'t start the drill — please try again.');
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      typing.remove();
+      if (btn) btn.remove();          // consumed — one drill per offer
+      if (currentConv === convAtSend) {
+        const b = appendMessage(data.message);
+        renderRubyAll([b]).then(scrollThread);
+      }
+    } catch (e) {
+      typing.remove();
+      if (btn) { btn.disabled = false; btn.textContent = '🎯 Drill: ' + skill; }
+      appendMessage({ role: 'system', text: e.message || 'Something went wrong — please try again.' });
+    } finally {
+      sending = false;
+      sendBtn.disabled = !input.value.trim();
     }
   }
 
   // ── Keyboard / viewport fit (mobile) ─────────────────────────────────────────
-  // iOS doesn't shrink the layout viewport when the keyboard opens; keep the
-  // body sized to the *visual* viewport so the composer stays visible.
+  // iOS doesn't shrink the layout viewport when the keyboard opens, so the chat
+  // column would stay full-height and the composer would sit BELOW the keyboard.
+  // Pin the page to the *visual* viewport (height + offset) so the layout
+  // compresses above the keyboard and the composer rides just on top of it.
   (function () {
     const vv = window.visualViewport;
     if (!vv) return;
     const fit = () => {
       if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;   // ignore pinch-zoom
-      document.body.style.height = vv.height + 'px';
+      const h = Math.round(vv.height);
+      document.documentElement.style.height = h + 'px';
+      document.body.style.height = h + 'px';
+      // iOS pushes the layout viewport up under the keyboard — undo it.
       window.scrollTo(0, 0);
-      scrollThread();
+      growInput();
     };
     vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    // When the box is focused the keyboard animates in; re-fit after it settles
+    // and keep the latest text in view.
+    input.addEventListener('focus', () => {
+      setTimeout(() => { fit(); scrollThread(); }, 120);
+    });
+    fit();
   })();
 
   // ── Gloss tooltip (shared mechanism with learn.html) ─────────────────────────
