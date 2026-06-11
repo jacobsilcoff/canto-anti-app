@@ -27,7 +27,10 @@
        this is what stops iOS from scrolling up to "reveal the caret" on every
        keystroke (which made the composer flash above the keyboard). The JS only
        keeps the body HEIGHT synced to the visible viewport. */
-    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+    /* min-height:0 is critical — the global `body { min-height:100dvh }` would
+       otherwise floor the body at full height (dvh does NOT shrink for the
+       keyboard), so the JS-set height couldn't compress the chat above it. */
+    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden; overscroll-behavior: none; }
     main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .tutor-page { max-width: 720px; margin: 0 auto; padding: 8px 14px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
 
