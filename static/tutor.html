@@ -816,6 +816,20 @@
       setTimeout(() => { fit(); scrollThread(); }, 120);
     });
     fit();
+
+    // Stop iOS's document rubber-band: dragging on the composer (or any
+    // non-scroller) otherwise bounces the whole fixed page and reveals empty
+    // space below the textbox. overscroll-behavior alone doesn't cover this on
+    // iOS Safari — we must preventDefault touchmove everywhere EXCEPT real
+    // scrollers (the thread / chats list) and the composer when it actually
+    // overflows (so a long draft can still be scrolled).
+    document.addEventListener('touchmove', e => {
+      const t = e.target;
+      if (t.closest && t.closest('.thread, .chats-list')) return;
+      const ce = t.closest && t.closest('#composer-input');
+      if (ce && ce.scrollHeight > ce.clientHeight + 1) return;
+      e.preventDefault();
+    }, { passive: false });
   })();
 
   // ── Gloss tooltip (shared mechanism with learn.html) ─────────────────────────
