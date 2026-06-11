@@ -787,16 +787,21 @@
   // ── Keyboard / viewport fit (mobile) ─────────────────────────────────────────
   // iOS doesn't shrink the layout viewport when the keyboard opens, so the chat
   // column would stay full-height and the composer would sit BELOW the keyboard.
-  // The body is position:fixed (see CSS) so the browser can't scroll it — that
-  // alone kills the per-keystroke flash (iOS used to scroll the page up to reveal
-  // the caret, and our old scrollTo(0,0) fought it). Here we only keep the body
-  // HEIGHT synced to the visible viewport so the composer rides above the keyboard.
+  // The body is position:fixed (see CSS); we size it to the *visible* viewport so
+  // the whole chat compresses above the keyboard. Crucially we also follow
+  // visualViewport.offsetTop: when iOS scrolls the layout viewport to reveal the
+  // focused input, a fixed body pinned at top:0 would get dragged off-screen (the
+  // composer "shoots to the top"). Tracking offsetTop moves the body WITH the
+  // visible area — following iOS rather than scrollTo-fighting it (no flash). This
+  // is the MDN visualViewport pattern, using `top` (not transform) so position:
+  // fixed descendants — the drawer, tooltip, toast — keep their viewport anchoring.
   (function () {
     const vv = window.visualViewport;
     if (!vv) return;
     const fit = () => {
       if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;   // ignore pinch-zoom
       document.body.style.height = Math.round(vv.height) + 'px';
+      document.body.style.top = Math.round(vv.offsetTop) + 'px';
       // Keyboard up ⇒ the visible viewport is meaningfully shorter than the
       // layout viewport. Drop the home-indicator safe-area padding then.
       const kbOpen = (window.innerHeight - vv.height) > 100;
@@ -804,6 +809,7 @@
       growInput();
     };
     vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
     // When the box is focused the keyboard animates in; re-fit after it settles
     // and keep the latest text in view.
     input.addEventListener('focus', () => {
