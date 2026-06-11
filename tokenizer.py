@@ -7,8 +7,11 @@ Token = dict
 # CJK: 。！？; Latin: . ! ?; Devanagari danda: । ॥; also newlines.
 _SENTENCE_ENDERS = re.compile(r'[。！？.!?।॥\n]')
 
-# Punctuation that must never be swallowed inside a word token.
-_INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉\n])')
+# Punctuation that must never be swallowed inside a word token. Includes the
+# middle-dot family (· U+00B7, ・ U+30FB, ‧ U+2027, • U+2022) used to list
+# individual syllables (詩·史·試·時·市·事) — splitting on them lets each character
+# become its own token and get its own romanization.
+_INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉·・‧•\n])')
 # Opening/closing quote characters — we avoid splitting mid-quote.
 _OPEN_QUOTES = set('"«「『')
 _CLOSE_QUOTES = set('"»」』')
@@ -114,25 +117,21 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     if lang == "yue":
         try:
             import pycantonese
-            full_text = "".join(words)
-            pairs = pycantonese.characters_to_jyutping(full_text)
-            # Build a segment-level map from whatever characters_to_jyutping produces.
-            seg_map: dict[str, str] = {}
-            for seg, rom in pairs:
-                if rom and seg not in seg_map:
-                    seg_map[seg] = rom
+
+            def _jyut(s: str) -> str:
+                # Romanize one word on its own. Romanizing each word individually
+                # (rather than one big join) keeps single characters working —
+                # a batched join can re-segment '詩史試時市事' into chunks whose
+                # keys never match the individual characters we asked about.
+                roms = [rom for _seg, rom in pycantonese.characters_to_jyutping(s) if rom]
+                return " ".join(roms)
+
             for word in words:
                 if word in result:
                     continue
-                if word in seg_map:
-                    result[word] = seg_map[word]
-                else:
-                    # characters_to_jyutping and segment() use different internal
-                    # tokenisers so multi-char words may not appear as keys.
-                    # Assemble from per-character entries when available.
-                    parts = [seg_map.get(c) for c in word]
-                    if all(parts):
-                        result[word] = " ".join(parts)  # type: ignore[arg-type]
+                rom = _jyut(word)
+                if rom:
+                    result[word] = rom
         except Exception:
             pass
     elif lang == "cmn":

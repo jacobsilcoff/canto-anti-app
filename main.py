@@ -2012,6 +2012,7 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
         lesson = await db.get_lesson(user["id"], lesson_id)
         if lesson:
             await db.record_concept_results(user["id"], lesson["target_lang"], req.results)
+    await db.record_study_activity(user["id"])   # lessons count toward the 🔥 streak
     return {"success": True}
 
 
@@ -2140,6 +2141,7 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
     payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
     await db.add_tutor_message(user["id"], conv_id, "user", text)
     await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False))
+    await db.record_study_activity(user["id"])   # tutor turns count toward the 🔥 streak
     for p in payload["points"]:
         await db.add_points(user["id"], lang, p["points"],
                             f'{p.get("concept", "")}: {p.get("reason", "")}'.strip(": "))

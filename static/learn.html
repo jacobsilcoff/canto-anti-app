@@ -117,8 +117,11 @@
     .opt.wrong { border-color: var(--again); background: var(--danger-soft); }
     .opt:disabled { cursor: default; }
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
-    ruby { ruby-align: center; }
+    ruby { ruby-align: center; line-height: 1; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
+    /* Reserve vertical room for romanization ruby ALWAYS, so it loading in (or a
+       reading exercise hiding it) never re-spaces / jumps the teach text. */
+    .tb-prose, .tb-note, .teach-target, .tb-target, .teach-table td { line-height: 2.0; }
     /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
        dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
     .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
@@ -217,7 +220,7 @@
     .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
     .teach-item.teach-grammar { display: block; }
     /* LLM-authored teach blocks */
-    .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
+    .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 2.0; margin-top: 10px; white-space: pre-wrap; }
     .tb-note { margin-top: 12px; background: var(--warn-soft); border: 1px solid var(--warn-border); border-left: 3px solid var(--warn-accent); border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: var(--warn-strong); }
     .tb-examples { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     .tb-ex { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
@@ -398,6 +401,22 @@
     } catch {
       show('empty');
     }
+    loadStreak();
+  }
+
+  async function loadStreak() {
+    try {
+      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const parts = [];
+      if (streak > 0) parts.push(`🔥 ${streak}`);
+      if (points > 0) parts.push(`⭐ ${points}`);
+      if (parts.length) {
+        document.querySelectorAll('.streak-display').forEach(el => {
+          el.textContent = parts.join(' · ');
+          el.style.display = '';
+        });
+      }
+    } catch {}
   }
 
   document.getElementById('level-row').addEventListener('click', e => {
@@ -1235,6 +1254,49 @@
     }));
   }
 
+  // Text nodes inside markdown-rendered teach prose/notes mix English with
+  // inline target-language examples (e.g. 詩·史·試·時·市·事). Walk the text nodes
+  // and ruby-annotate only those containing target script, so each example gets
+  // jyutping + a meaning tooltip (stored gloss, else live tap-to-translate) —
+  // without disturbing surrounding English or the markdown (bold/italic) nodes.
+  const _HAS_TARGET = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}]/u;
+  // A maximal run of target-script characters (optionally joined by middle dots,
+  // 詩·史·試…). We ruby-ize only these runs and leave surrounding English alone —
+  // tokenising a whole mixed "the syllable si: 詩·史" node merges the Latin and
+  // the first character into one un-romanizable token.
+  const _TARGET_RUN = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}·・‧•]+/gu;
+  async function applyProseRuby(container, glossary, liveLookup) {
+    const lang = player && player.lang;
+    if (!lang || !needsRuby(lang)) return;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        if (!n.nodeValue || !_HAS_TARGET.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+        if (n.parentElement && n.parentElement.closest('ruby, .gl')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    await Promise.all(nodes.map(async n => {
+      const text = n.nodeValue;
+      // Split into alternating English / target-run segments, keeping order.
+      const segs = [];
+      let cursor = 0, m;
+      _TARGET_RUN.lastIndex = 0;
+      while ((m = _TARGET_RUN.exec(text)) !== null) {
+        if (m.index > cursor) segs.push({ run: false, v: text.slice(cursor, m.index) });
+        segs.push({ run: true, v: m[0] });
+        cursor = m.index + m[0].length;
+      }
+      if (cursor < text.length) segs.push({ run: false, v: text.slice(cursor) });
+      const html = await Promise.all(segs.map(s =>
+        s.run ? rubyHtml(s.v, lang, glossary, false, liveLookup) : Promise.resolve(esc(s.v))));
+      const span = document.createElement('span');
+      span.innerHTML = html.join('');
+      n.replaceWith(span);
+    }));
+  }
+
   // Render basic markdown (bold/italic) safely: escape HTML first, then mark up.
   function renderMarkdown(text) {
     return esc(text || '')
@@ -1289,11 +1351,17 @@
   function renderBlock(b) {
     if (b.type === 'prose') {
       const d = document.createElement('div'); d.className = 'tb-prose';
-      d.innerHTML = renderMarkdown(b.text || ''); return d;
+      d.innerHTML = renderMarkdown(b.text || '');
+      // liveLookup ON even for foundations: prose is explanatory teach text (not a
+      // graded exercise), so tapping an example word for its meaning is welcome.
+      applyProseRuby(d, player && player.vocabGlossary, true);
+      return d;
     }
     if (b.type === 'note') {
       const d = document.createElement('div'); d.className = 'tb-note';
-      d.innerHTML = renderMarkdown(b.text || ''); return d;
+      d.innerHTML = renderMarkdown(b.text || '');
+      applyProseRuby(d, player && player.vocabGlossary, true);
+      return d;
     }
     if (b.type === 'table') {
       const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';

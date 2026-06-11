@@ -2200,6 +2200,18 @@ async def get_streak(user_id: int) -> int:
     return streak
 
 
+async def record_study_activity(user_id: int) -> None:
+    """Mark today as an active learning day for the streak. Called for ANY
+    meaningful activity — SRS reviews, completing a lesson, or a tutor turn —
+    so the 🔥 streak reflects all study, not only flashcard reviews."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
+        await db.commit()
+
+
 # ── Tutor chat ─────────────────────────────────────────────────────────────────
 
 async def create_tutor_conversation(user_id: int, lang: str) -> int:
