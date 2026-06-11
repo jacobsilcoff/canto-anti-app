@@ -36,6 +36,7 @@ import learning
 import grammar_lessons
 import foundations
 import tutor
+import embeddings
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -2036,6 +2037,30 @@ async def _tutor_lang(user: dict) -> str:
     return await db.get_setting(user["id"], "default_target_lang") or "yue"
 
 
+async def _known_word_vectors(lang: str, known_words: list[dict], api_key: str,
+                              cap: int = 120) -> dict[str, list[float]]:
+    """Embedding vectors for the learner's known deck words, via the shared DB cache
+    (embed only the misses, then store). Returns {word: vector}; degrades to {} on
+    any embedding error so the tutor drill still works without snapping."""
+    words = [(w.get("target_text") or "").strip() for w in (known_words or [])]
+    words = [w for w in words if w][:cap]
+    if not words:
+        return {}
+    cached = await db.get_cached_embeddings(lang, embeddings.EMBED_MODEL, words)
+    missing = [w for w in words if w not in cached]
+    if missing:
+        try:
+            vecs = await embeddings.embed(missing, api_key)
+        except Exception as e:
+            logger.warning("known-word embedding failed lang=%s: %s", lang, e)
+            vecs = []
+        if vecs:
+            packed = {w: embeddings.pack(v) for w, v in zip(missing, vecs)}
+            await db.put_cached_embeddings(lang, embeddings.EMBED_MODEL, packed)
+            cached.update(packed)
+    return {w: embeddings.unpack(b) for w, b in cached.items()}
+
+
 async def _tutor_messages_payload(user_id: int, conv_id: int) -> list[dict]:
     """Stored messages → client shape (tutor turns are their JSON payload)."""
     messages = []
@@ -2175,6 +2200,9 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
     learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
     course = await db.get_active_course(user["id"], lang)
     level = course.get("level") or "A1" if course else "A1"
+    # Embedding-anchored vocab: snap the construction's example words to known deck
+    # words so the drill practices the form with familiar vocabulary.
+    known_vecs = await _known_word_vectors(lang, known_words, access.api_key)
 
     history = []
     for m in await db.get_tutor_messages(user["id"], conv_id):
@@ -2191,6 +2219,7 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
             lang, skill, history,
             api_key=access.api_key, model=tutor.TUTOR_MODEL,
             level=level, learner_profile=learner_profile, known_words=known_words,
+            known_word_vectors=known_vecs,
         )
     except Exception as e:
         logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)

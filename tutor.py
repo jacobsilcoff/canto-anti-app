@@ -19,6 +19,7 @@ plain-text reply rather than an error bubble.
 import asyncio
 import json
 
+import embeddings
 import tokenizer
 from learning import _lang_preamble, _registry_block, _word_list_block
 from translation import LANG_INFO, _call, _parse_json
@@ -29,6 +30,11 @@ HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
 MAX_NEW_ITEMS = 4       # a little headroom for multiple ways to say an asked-for phrase
 MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
+
+# Construction-drill vocab snapping (embedding-anchored).
+SNAP_THRESHOLD = 0.62   # cosine ≥ this ⇒ a known word can stand in for a filler
+MAX_PALETTE = 12        # known words handed to the drill as the content palette
+MAX_TEACH = 3           # construction fillers with no close known match → taught
 
 
 def _history_block(history: list[dict]) -> str:
@@ -307,6 +313,84 @@ async def respond(
                       user_msg=user_msg, known_texts=known_texts)
 
 
+def build_construction_examples_prompt(target_lang: str, construction: str, level: str) -> str:
+    """Call-1 of the construction drill: surface the CONTENT WORDS a construction's
+    examples naturally use, so we can embed them and snap to the learner's vocab."""
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    return (
+        f"You are a {name} teacher analyzing a grammatical CONSTRUCTION so a learner "
+        f"(level {level}) can drill it.\n\n"
+        f"{_lang_preamble(info)}"
+        f"Construction to analyze: \"{construction}\".\n\n"
+        f"Give 3–4 short, natural {name} example sentences that use this construction, "
+        f"and list the CONTENT WORDS that fill its open slots — the swappable nouns, "
+        f"verbs and adjectives, NOT the grammatical machinery of the construction itself "
+        f"and NOT function words. Aim for ~8 common content words, each with a one-word "
+        f"English gloss.\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        f'  "examples": ["<short {name} sentence>", ...],\n'
+        f'  "content_words": [{{"word":"<{name} content word>","english":"<gloss>"}}, ...]\n'
+        '}\n'
+    )
+
+
+async def _plan_drill_vocab(
+    target_lang: str,
+    construction: str,
+    *,
+    api_key: str,
+    model: str,
+    level: str,
+    known_word_vectors: dict[str, list[float]],
+) -> tuple[list[str], list[dict]]:
+    """Embedding-anchored vocab plan for a construction drill.
+
+    Asks the model which content words the construction's examples use (call 1),
+    embeds them, and snaps each to the nearest word the learner already knows.
+    Returns (palette, teach):
+      • palette = known deck words that fit the construction's slots → drill from these
+      • teach   = fillers with no close known match → introduce as new vocab
+    """
+    prompt = build_construction_examples_prompt(target_lang, construction, level)
+    raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+    parsed = _parse_json(raw)
+
+    cwords: list[tuple[str, str]] = []     # (word, english)
+    seen: set[str] = set()
+    for it in (parsed.get("content_words") or []):
+        if not isinstance(it, dict):
+            continue
+        w = (it.get("word") or "").strip()
+        key = _strip_for_match(w)
+        if not w or key in seen:
+            continue
+        seen.add(key)
+        cwords.append((w, (it.get("english") or "").strip()))
+    if not cwords:
+        return [], []
+
+    fvecs = await embeddings.embed([w for w, _ in cwords], api_key)
+    known_items = list(known_word_vectors.items())
+    known_keys = {_strip_for_match(w) for w in known_word_vectors}
+
+    palette: list[str] = []
+    teach: list[dict] = []
+    for (w, en), fv in zip(cwords, fvecs):
+        if _strip_for_match(w) in known_keys:      # the learner already has this exact word
+            if w not in palette:
+                palette.append(w)
+            continue
+        label, score = embeddings.nearest(fv, known_items) if known_items else ("", -1.0)
+        if score >= SNAP_THRESHOLD and label:
+            if label not in palette:
+                palette.append(label)
+        elif en:
+            teach.append({"target_text": w, "english": en})
+    return palette[:MAX_PALETTE], teach[:MAX_TEACH]
+
+
 def build_drill_prompt(
     target_lang: str,
     skill: str,
@@ -315,15 +399,38 @@ def build_drill_prompt(
     level: str = "A1",
     learner_profile: str = "",
     known_words: list[dict] | None = None,
+    palette: list[str] | None = None,
+    teach: list[dict] | None = None,
 ) -> str:
     """Kick off a focused practice drill on one generalizable skill — the tutor
     poses ONE English phrase to translate. Separate prompt so the learner never
-    sees a 'drill me' instruction in the chat (the button calls this directly)."""
+    sees a 'drill me' instruction in the chat (the button calls this directly).
+
+    `palette` (known words that fit the construction) and `teach` (new fillers being
+    introduced) come from the embedding-anchored vocab plan, steering the drill to
+    practice the form with vocabulary the learner already knows."""
     info = LANG_INFO[target_lang]
     name = info["name"]
     profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
     deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
             if known_words else "")
+    palette_block = ""
+    if palette:
+        palette_block = (
+            f"── BUILD FROM THESE KNOWN WORDS ──\n"
+            f"The learner already knows these words and they fit this construction. Use "
+            f"THEM as the content of your drill phrases (rotate through them across the "
+            f"drill) so the ONLY new thing the learner practices is the construction:\n"
+            f"{', '.join(palette)}\n\n"
+        )
+    teach_block = ""
+    if teach:
+        teach_block = (
+            f"── NEW WORDS BEING INTRODUCED ──\n"
+            f"The construction needs these and the learner has no close equivalent, so "
+            f"they're shown as new vocab alongside the drill — feel free to use them:\n"
+            f"{', '.join((t.get('target_text','') + ' (' + t.get('english','') + ')') for t in teach)}\n\n"
+        )
     return (
         f"You are a {name} tutor running a quick, encouraging PRACTICE DRILL with an "
         f"English-speaking learner (level {level}).\n\n"
@@ -335,15 +442,16 @@ def build_drill_prompt(
         f"• In ONE short message: a friendly one-line lead-in IN {name}, then pose "
         f"EXACTLY ONE concrete English phrase for the learner to translate into {name} "
         f"that exercises \"{skill}\". Do NOT translate it for them.\n"
-        f"• Build the phrase from words the learner already KNOWS (use the deck/known "
-        f"list below) so the ONLY new thing they're practicing is the construction "
-        f"itself. If the construction needs a word they don't have, pick the simplest "
-        f"known substitute, or teach ONE simple word via `new_items`.\n"
+        f"• Build the phrase from words the learner already KNOWS — prefer the "
+        f"'BUILD FROM THESE KNOWN WORDS' palette when present, otherwise the deck list "
+        f"below — so the ONLY new thing they're practicing is the construction itself. "
+        f"If the construction needs a word they don't have, pick the simplest known "
+        f"substitute, or teach ONE simple word via `new_items`.\n"
         f"• Keep it level-appropriate. The English phrase-to-translate is the only "
         f"English allowed in `reply`.\n"
         f"• `reply_en` = English translation of your lead-in (NOT the answer to the "
         f"drill). `gloss` = word-by-word gloss of the {name} words in your lead-in.\n\n"
-        f"{profile}{deck}"
+        f"{profile}{deck}{palette_block}{teach_block}"
         f"{_history_block(history or [])}"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
@@ -358,6 +466,29 @@ def build_drill_prompt(
     )
 
 
+def _merge_teach_items(out: dict, teach: list[dict], target_lang: str) -> dict:
+    """Append the embedding-derived 'teach' fillers to new_items deterministically
+    (don't rely on the model echoing them), oracle romanization, deduped + capped."""
+    has_rom = bool(LANG_INFO[target_lang].get("romanization"))
+    existing = {_strip_for_match(it["target_text"]) for it in out["new_items"]}
+    for t in teach:
+        if len(out["new_items"]) >= MAX_NEW_ITEMS:
+            break
+        target = (t.get("target_text") or "").strip()
+        english = (t.get("english") or "").strip()
+        key = _strip_for_match(target)
+        if not target or not english or not key or key in existing:
+            continue
+        existing.add(key)
+        out["new_items"].append({
+            "target_text":  target,
+            "english":      english,
+            "romanization": tokenizer.romanize_text(target, target_lang) if has_rom else "",
+            "notes":        "",
+        })
+    return out
+
+
 async def start_drill(
     target_lang: str,
     skill: str,
@@ -368,12 +499,33 @@ async def start_drill(
     level: str = "A1",
     learner_profile: str = "",
     known_words: list[dict] | None = None,
+    known_word_vectors: dict[str, list[float]] | None = None,
 ) -> dict:
-    """One LLM call → the opening drill turn (same payload shape as `respond`)."""
+    """Open a construction drill. When `known_word_vectors` is supplied, first runs
+    the embedding-anchored vocab plan (LLM proposes the construction's content words
+    → snap each to the nearest known word) and steers the opener to drill the form
+    with familiar vocab; the unmatched fillers are surfaced as new-vocab chips. A
+    failure in the planning step degrades to the plain drill (still one opener call)."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
+
+    palette: list[str] = []
+    teach: list[dict] = []
+    if known_word_vectors:
+        try:
+            palette, teach = await _plan_drill_vocab(
+                target_lang, skill, api_key=api_key, model=model,
+                level=level, known_word_vectors=known_word_vectors,
+            )
+        except Exception:
+            palette, teach = [], []      # degrade gracefully — opener still runs
+
     prompt = build_drill_prompt(
         target_lang, skill, history,
         level=level, learner_profile=learner_profile, known_words=known_words,
+        palette=palette, teach=teach,
     )
-    return await _run(prompt, target_lang, api_key=api_key, model=model)
+    out = await _run(prompt, target_lang, api_key=api_key, model=model)
+    if teach:
+        out = _merge_teach_items(out, teach, target_lang)
+    return out

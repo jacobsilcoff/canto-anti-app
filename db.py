@@ -340,6 +340,18 @@ async def init():
                 created_at TEXT    DEFAULT (datetime('now'))
             )
         """)
+        # Word embedding cache — shared across users (a word embeds the same for
+        # everyone), keyed by (lang, model, word). vector = packed float32 BLOB.
+        # Powers the tutor's construction drills (snap example fillers to known vocab).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS embedding_cache (
+                lang   TEXT NOT NULL,
+                model  TEXT NOT NULL,
+                word   TEXT NOT NULL,
+                vector BLOB NOT NULL,
+                PRIMARY KEY (lang, model, word)
+            )
+        """)
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -2328,3 +2340,40 @@ async def get_points_total(user_id: int, lang: str) -> int:
             (user_id, lang),
         ) as cur:
             return (await cur.fetchone())[0]
+
+
+# ── Embedding cache ───────────────────────────────────────────────────────────
+# Shared word→vector cache (a word embeds the same for every user). Vectors are
+# stored as packed float32 BLOBs; pack/unpack live in embeddings.py.
+
+async def get_cached_embeddings(lang: str, model: str, words: list[str]) -> dict[str, bytes]:
+    """Return {word: vector_blob} for the cached subset of `words`."""
+    words = [w for w in {w for w in words} if w]
+    if not words:
+        return {}
+    out: dict[str, bytes] = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Chunk the IN-list to stay well under SQLite's variable limit.
+        for i in range(0, len(words), 400):
+            chunk = words[i:i + 400]
+            placeholders = ",".join("?" * len(chunk))
+            async with db.execute(
+                f"SELECT word, vector FROM embedding_cache "
+                f"WHERE lang=? AND model=? AND word IN ({placeholders})",
+                (lang, model, *chunk),
+            ) as cur:
+                async for row in cur:
+                    out[row[0]] = row[1]
+    return out
+
+
+async def put_cached_embeddings(lang: str, model: str, vectors: dict[str, bytes]) -> None:
+    """Insert {word: vector_blob}; ignore words already cached."""
+    if not vectors:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "INSERT OR IGNORE INTO embedding_cache (lang, model, word, vector) VALUES (?,?,?,?)",
+            [(lang, model, w, v) for w, v in vectors.items()],
+        )
+        await db.commit()
