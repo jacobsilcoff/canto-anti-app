@@ -27,7 +27,7 @@ TUTOR_MODEL = "gemini-2.5-flash"   # better conversational quality than -lite, s
 
 HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
-MAX_NEW_ITEMS = 3
+MAX_NEW_ITEMS = 4       # a little headroom for multiple ways to say an asked-for phrase
 MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
 
 
@@ -85,27 +85,39 @@ def build_tutor_prompt(
         f"• Respond to the learner's MEANING first — never stall. If they made mistakes "
         f"but got the idea across, run with it and put the fix in `corrections` (NOT in "
         f"the reply).\n"
-        f"• If they grope for something they can't say, applaud the workaround, then "
-        f"teach a natural way to say it via `new_items` (a short example, a related "
-        f"word, or a memorable origin when it helps).\n"
-        f"• `new_items` = flashcard suggestions — be VERY selective. At most 2 per "
-        f"message, and an empty list is normal. Only high-frequency, immediately "
-        f"reusable words or short set phrases that were CENTRAL to this exchange: the "
-        f"word the learner was groping for, or the one key word in your reply they "
-        f"likely don't know. Never proper nouns, niche/literary words, full sentences, "
-        f"or words included just because they happened to appear.\n"
-        f"• Set `drill` to a SHORT skill label (e.g. \"if…then…\", \"-er verb "
-        f"conjugation\", \"comparatives\", \"past tense\") ONLY when THIS reply just "
-        f"taught a GENERALIZABLE grammar structure or sentence pattern the learner "
-        f"could practice by analogy. Leave it \"\" for ordinary chat, a one-off vocab "
-        f"word, or when you are already mid-drill. This unlocks a 'Drill' button.\n"
+        f"• ENGLISH = A REQUEST FOR WORDS. Whenever the learner drops into English for "
+        f"something they can't yet say in {name} — a whole sentence, a single word "
+        f"they slipped in, or an explicit 'how do you say …?' — you MUST hand them the "
+        f"natural {name} way to say it. Offer 1–3 idiomatic options when they genuinely "
+        f"differ (register, nuance, formality), and put EACH option in `new_items` with "
+        f"a one-line note on when to use it. These asked-for/groped-for translations are "
+        f"REQUIRED and are EXEMPT from the selectivity limit below. Acknowledge their "
+        f"meaning and model the {name} expression in your reply.\n"
+        f"• OTHER `new_items` (things you volunteer, not asked for) = be VERY selective: "
+        f"at most 2, empty is normal. Only high-frequency, immediately reusable words or "
+        f"short set phrases CENTRAL to this exchange. Never proper nouns, niche/literary "
+        f"words, full sentences, or words included just because they appeared.\n"
+        f"• CORRECT THE CONSTRUCTION, NOT JUST THE WORDS. When you correct a grammar "
+        f"slip, identify the underlying CONSTRUCTION / form at play (e.g. 'comparative "
+        f"with 過', 'possessive with de', '-er present tense', 'if…then…') and name it "
+        f"in the correction's `construction` field. Make `explanation` about the RULE "
+        f"(how the form works in general), not just this one instance, so the fix "
+        f"generalizes. Leave `construction` \"\" for pure vocab/spelling slips.\n"
+        f"• Set `drill` to a SHORT construction/skill label ONLY when THIS turn surfaced "
+        f"a GENERALIZABLE construction worth practicing — either you just taught one, or "
+        f"a correction above exposed one the learner could drill (use the SAME label as "
+        f"that correction's `construction`). Leave it \"\" for ordinary chat, a one-off "
+        f"vocab word, or when you are already mid-drill. This unlocks a 'Drill' button.\n"
         f"• DRILL MODE: when your OWN previous message posed an English phrase for the "
         f"learner to translate, their new message is their attempt — judge it via "
         f"`corrections`, confirm the natural version, then pose the NEXT short English "
-        f"phrase exercising the same pattern (vary the vocabulary, keep it "
-        f"level-appropriate). After ~4 items give a one-line recap and return to "
-        f"normal conversation. The English phrase-to-translate is the ONE exception to "
-        f"the no-English-in-reply rule.\n"
+        f"phrase exercising the SAME construction. Build each phrase from words the "
+        f"learner already KNOWS (vary the vocabulary using their deck/known list above; "
+        f"if the construction needs a word they don't have, pick a known substitute or "
+        f"teach ONE simple word via `new_items`). Keep going until they've correctly "
+        f"produced 3–4 examples of the construction, THEN give a one-line recap and "
+        f"return to normal conversation. The English phrase-to-translate is the ONE "
+        f"exception to the no-English-in-reply rule.\n"
         f"• `reply_en` = a faithful, natural English translation of your WHOLE reply "
         f"(the learner reveals it only when stuck). `gloss` = a word-by-word English "
         f"gloss of EVERY distinct {name} word in your reply (content AND function "
@@ -122,14 +134,16 @@ def build_tutor_prompt(
         f'  "reply": "<entirely in {name}>",\n'
         f'  "reply_en": "<natural English translation of the whole reply>",\n'
         f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
-        '  "corrections": [{"quote":"<what the learner wrote>","corrected":"<natural version>","explanation":"<short English why>"}],\n'
+        '  "corrections": [{"quote":"<what the learner wrote>","corrected":"<natural version>","construction":"<the form/construction, e.g. comparative with 過; empty for pure vocab slips>","explanation":"<short English: the RULE, not just this case>"}],\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage/etymology, optional>"}],\n'
         '  "points": [{"concept":"<the word/structure used>","points":1,"reason":"<short English>"}],\n'
-        '  "drill": "<short skill label if you just taught a generalizable pattern, else empty>"\n'
+        '  "drill": "<short construction/skill label if a generalizable pattern surfaced, else empty>"\n'
         '}\n'
-        'corrections/new_items/points may be empty arrays. Do NOT put a word in '
-        '`new_items` that the learner already used or that appears in their known-words '
-        'list — only genuinely new expressions you are teaching.'
+        'corrections/new_items/points may be empty arrays. EXCEPTION: if the learner '
+        'asked how to say something or used English for a word they lack, `new_items` '
+        f'MUST contain the {name} rendering(s). Otherwise do NOT put a word in `new_items` '
+        'that the learner already used or that appears in their known-words list — only '
+        'genuinely new expressions you are teaching.'
     )
 
 
@@ -197,6 +211,7 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
             "quote":       (c.get("quote") or "").strip(),
             "corrected":   corrected,
             "corrected_roman": rom(corrected),
+            "construction": (c.get("construction") or "").strip()[:60],
             "explanation": (c.get("explanation") or "").strip(),
         })
 
@@ -313,14 +328,19 @@ def build_drill_prompt(
         f"You are a {name} tutor running a quick, encouraging PRACTICE DRILL with an "
         f"English-speaking learner (level {level}).\n\n"
         f"{_lang_preamble(info)}"
-        f"The learner just tapped 'Drill' to practice this structure/skill: "
-        f"\"{skill}\".\n\n"
+        f"The learner just tapped 'Drill' to practice this CONSTRUCTION/form: "
+        f"\"{skill}\". This is the first of 3–4 short examples you'll walk them "
+        f"through, all exercising the SAME construction with different vocabulary.\n\n"
         f"── HOW TO START ──\n"
         f"• In ONE short message: a friendly one-line lead-in IN {name}, then pose "
         f"EXACTLY ONE concrete English phrase for the learner to translate into {name} "
         f"that exercises \"{skill}\". Do NOT translate it for them.\n"
-        f"• Keep it level-appropriate and answerable with familiar vocabulary. The "
-        f"English phrase-to-translate is the only English allowed in `reply`.\n"
+        f"• Build the phrase from words the learner already KNOWS (use the deck/known "
+        f"list below) so the ONLY new thing they're practicing is the construction "
+        f"itself. If the construction needs a word they don't have, pick the simplest "
+        f"known substitute, or teach ONE simple word via `new_items`.\n"
+        f"• Keep it level-appropriate. The English phrase-to-translate is the only "
+        f"English allowed in `reply`.\n"
         f"• `reply_en` = English translation of your lead-in (NOT the answer to the "
         f"drill). `gloss` = word-by-word gloss of the {name} words in your lead-in.\n\n"
         f"{profile}{deck}"
