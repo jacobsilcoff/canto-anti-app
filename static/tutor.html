@@ -139,14 +139,11 @@
        keyboard, so that extra bottom padding just shows as a gap — drop it so the
        composer sits snug on top of the keyboard. (body.kb-open set in JS.) */
     body.kb-open .composer { padding-bottom: 8px; }
-    /* The composer is a contenteditable div, NOT a <textarea>, specifically so
-       iOS doesn't attach its form-accessory bar (the ‹ › / Done strip above the
-       keyboard) — that bar only appears for real form fields. It auto-grows with
-       its content up to max-height, then scrolls. -webkit-user-modify keeps
-       editing/paste plain-text on older WebKit (newer ones use plaintext-only). */
-    .composer .ce-input { flex: 1; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 110px; line-height: 1.4; box-sizing: border-box; overflow-y: auto; white-space: pre-wrap; word-break: break-word; outline: none; -webkit-user-modify: read-write-plaintext-only; }
-    .composer .ce-input:focus { border-color: var(--primary); }
-    .composer .ce-input:empty::before { content: attr(data-placeholder); color: var(--text-muted); pointer-events: none; }
+    /* min-height:0 overrides the global `textarea { min-height:120px }` (and the
+       150px media-query rule) — otherwise scrollHeight is floored at 120px and the
+       auto-grow can never shrink the box back to a single line. */
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); min-height: 0; max-height: 110px; line-height: 1.4; box-sizing: border-box; }
+    .composer textarea:focus { outline: none; border-color: var(--primary); }
     .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .composer button:disabled { opacity: 0.5; cursor: default; }
 
@@ -182,7 +179,7 @@
     </div>
     <div class="thread" id="thread"></div>
     <div class="composer">
-      <div id="composer-input" class="ce-input" contenteditable="plaintext-only" role="textbox" aria-multiline="true" enterkeyhint="send" data-placeholder="Say something…"></div>
+      <textarea id="composer-input" rows="1" placeholder="Say something…" enterkeyhint="send"></textarea>
       <button id="composer-send" title="Send" disabled>➤</button>
     </div>
   </div>
@@ -315,7 +312,7 @@
       setPoints(convRes.points || 0);
     } catch {}
     document.getElementById('thread').className = 'thread ' + scriptClassFor(lang);
-    document.querySelector('.composer .ce-input').classList.add(scriptClassFor(lang));
+    document.querySelector('.composer textarea').classList.add(scriptClassFor(lang));
     updateCurrentTitle();
     if (conversations.length) {
       // The list response already carries the newest conversation's messages —
@@ -664,23 +661,13 @@
     const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 600;
     return Math.max(54, Math.min(110, Math.round(vh * 0.22)));
   }
-  // The contenteditable div auto-sizes to its content; we only cap it (relative
-  // to the visible viewport so it shrinks when the keyboard is up).
   function growInput() {
-    input.style.maxHeight = composerMax() + 'px';
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, composerMax()) + 'px';
   }
   input.addEventListener('input', () => {
-    // A fully-deleted contenteditable can leave a stray <br>; clear it so the
-    // :empty placeholder shows again (only when there's genuinely no text).
-    if (input.textContent === '') input.innerHTML = '';
-    sendBtn.disabled = !input.innerText.trim() || sending;
+    sendBtn.disabled = !input.value.trim() || sending;
     growInput();
-  });
-  // Force plain-text paste (belt-and-braces with contenteditable=plaintext-only).
-  input.addEventListener('paste', e => {
-    e.preventDefault();
-    const t = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
-    document.execCommand('insertText', false, t);
   });
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -688,11 +675,11 @@
   sendBtn.onclick = () => send();
 
   async function send() {
-    const text = input.innerText.trim();
+    const text = input.value.trim();
     if (!text || sending) return;
     sending = true;
     sendBtn.disabled = true;
-    input.innerHTML = ''; growInput();
+    input.value = ''; input.style.height = 'auto';
 
     // First message of a fresh chat: clear the welcome bubble, create the conv.
     if (!currentConv) document.getElementById('thread').innerHTML = '';
@@ -749,7 +736,7 @@
       appendMessage({ role: 'system', text: e.message || 'Something went wrong — please try again.' });
     } finally {
       sending = false;
-      sendBtn.disabled = !input.innerText.trim();
+      sendBtn.disabled = !input.value.trim();
       input.focus();
     }
   }
@@ -793,7 +780,7 @@
       appendMessage({ role: 'system', text: e.message || 'Something went wrong — please try again.' });
     } finally {
       sending = false;
-      sendBtn.disabled = !input.innerText.trim();
+      sendBtn.disabled = !input.value.trim();
     }
   }
 
