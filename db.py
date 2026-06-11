@@ -1870,9 +1870,11 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
             """SELECT l.id, l.lesson_num, l.title, l.objective,
                       l.content, l.concepts_json, l.llm_debug_json,
                       l.score, l.completed_at,
-                      c.target_lang, c.level, c.id AS course_id
+                      c.target_lang, c.level, c.id AS course_id,
+                      COALESCE(u.theme, '') AS theme
                FROM course_lessons l
                JOIN courses c ON c.id = l.course_id
+               LEFT JOIN course_units u ON u.id = l.unit_id
                WHERE l.id=? AND c.user_id=?""",
             (lesson_id, user_id),
         ) as cur:

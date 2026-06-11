@@ -122,6 +122,8 @@
     /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
        dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
     .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
+    /* Ungloss­ed teach words: tap to fetch a translation (hybrid live lookup). */
+    .gl-live { cursor: pointer; border-bottom: 1px dotted var(--border); }
     /* Tooltip is a JS-positioned floating div (#gl-tip) — no ::after so it can
        be clamped to viewport bounds regardless of where the word sits on screen. */
     #gl-tip {
@@ -1066,6 +1068,7 @@
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
+        theme: lesson.theme || '',         // 'foundations' → no live word lookup
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -1181,7 +1184,7 @@
   //   - hideRoman: romanization is NOT shown inline — it's tucked into the `.gl`
   //     tooltip instead (combined with the gloss, "rom · meaning"). Used in the
   //     reading (foundations) exercises so the romanization isn't a spoiler.
-  function _tokensToHtml(tokens, glossary, hideRoman) {
+  function _tokensToHtml(tokens, glossary, hideRoman, liveLookup) {
     if (!Array.isArray(tokens) || !tokens.length) return '';
     const hasRoman = tokens.some(t => t.roman);
     return tokens.map(t => {
@@ -1193,30 +1196,36 @@
       const g = t.is_word ? (glossary || {})[t.text] : null;
       if (g) parts.push(g);
       const tip = parts.join(' · ');
-      return tip
-        ? `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>`
-        : inner;
+      if (tip)
+        return `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>`;
+      // Teach word with no stored gloss → make it tap-to-translate (hybrid:
+      // free stored glosses above, live AI fallback here). Never for exercises.
+      if (liveLookup && t.is_word && /[^\sA-Za-z0-9.,!?;:'"-]/.test(t.text))
+        return `<span class="gl gl-live" tabindex="0" data-lw="${esc(t.text)}">${inner}</span>`;
+      return inner;
     }).join('');
   }
 
   // Return <ruby>-annotated HTML for `text`. `glossary` enables hover/tap glosses;
-  // `hideRoman` moves romanization from inline ruby into that tooltip.
-  async function rubyHtml(text, lang, glossary, hideRoman) {
+  // `hideRoman` moves romanization from inline ruby into that tooltip; `liveLookup`
+  // marks ungloss­ed teach words for tap-to-translate.
+  async function rubyHtml(text, lang, glossary, hideRoman, liveLookup) {
     if (!text) return '';
     if (_isLatin(text)) return esc(text);
     const tokens = await _fetchTokens(text, lang);
     if (!tokens || !tokens.length) return esc(text);
-    return _tokensToHtml(tokens, glossary, hideRoman);
+    return _tokensToHtml(tokens, glossary, hideRoman, liveLookup);
   }
 
   // Apply ruby to every .needs-ruby element inside `container`. Pass `glossary`
   // (the lesson's vocab_glossary) ONLY for teach content so words get a hover/tap
   // gloss; omit it for exercise prompts so answers aren't revealed. Pass
   // `hideRoman` for reading exercises so romanization is hidden behind the tooltip.
-  async function applyRuby(container, glossary, hideRoman) {
+  // Pass `liveLookup` for teach text so ungloss­ed words become tap-to-translate.
+  async function applyRuby(container, glossary, hideRoman, liveLookup) {
     const els = container.querySelectorAll('.needs-ruby');
     await Promise.all([...els].map(async el => {
-      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary, hideRoman);
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary, hideRoman, liveLookup);
       el.classList.remove('needs-ruby');
     }));
   }
@@ -1295,7 +1304,7 @@
       if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
       h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
       wrap.innerHTML = h;
-      applyRuby(wrap, player && player.vocabGlossary);   // teach → hover/tap glosses
+      applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());   // teach → hover/tap glosses
       // For logographic languages, detect English label cells (no ruby annotation)
       // and mark them no-audio. For Latin-script languages no ruby exists anywhere,
       // so all cells stay clickable.
@@ -1371,9 +1380,14 @@
       wrap.appendChild(row);
     });
     // Resolve ruby annotations asynchronously (non-blocking). Teach text gets
-    // hover/tap glosses from the lesson's vocab_glossary.
-    applyRuby(wrap, player && player.vocabGlossary);
+    // hover/tap glosses from the lesson's vocab_glossary, with a live AI fallback
+    // for words it didn't gloss (hybrid; off for the foundations reading track).
+    applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
   }
+
+  // Live word lookup is enabled for AI-lesson teach text (not foundations, where
+  // romanization is the lesson and a "translation" would be meaningless).
+  function _liveLookupOn() { return !!player && player.theme !== 'foundations'; }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
@@ -1626,8 +1640,40 @@
     // Dismiss on scroll or touch-outside
     document.addEventListener('scroll', hideTip, { passive: true });
     document.addEventListener('touchstart', e => {
-      if (!(e.target.closest && e.target.closest('.gl[data-gloss]'))) hideTip();
+      if (!(e.target.closest && e.target.closest('.gl[data-gloss], .gl-live'))) hideTip();
     }, { passive: true });
+
+    // Hybrid live lookup: teach words the lesson didn't gloss are .gl-live.
+    // Tapping one fetches a translation on demand (reusing the reader endpoint),
+    // caches it for the session, and reveals it in the tooltip.
+    const _liveCache = {};
+    async function liveLookup(el) {
+      if (el.dataset.gloss) { showTip(el); return; }   // already resolved
+      const word = el.dataset.lw;
+      if (!word || !player) return;
+      const key = player.lang + '\0' + word;
+      if (_liveCache[key]) { el.dataset.gloss = _liveCache[key]; showTip(el); return; }
+      el.dataset.gloss = '…'; showTip(el);
+      try {
+        const res = await fetch('/api/reader/translate-word', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word, target_lang: player.lang }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const eng = (data.source_text || '').trim() || '(no translation)';
+        _liveCache[key] = eng;
+        el.dataset.gloss = eng;
+      } catch {
+        delete el.dataset.gloss;          // allow a retry on next tap
+        return;
+      }
+      showTip(el);
+    }
+    document.addEventListener('click', e => {
+      const gl = e.target.closest && e.target.closest('.gl-live');
+      if (gl) liveLookup(gl);
+    });
   })();
 
   init();

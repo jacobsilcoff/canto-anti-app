@@ -1975,6 +1975,7 @@ def _lesson_response(lesson: dict, content: dict) -> dict:
         "target_lang": lesson["target_lang"],
         "completed":  lesson.get("completed", False),
         "score":      lesson.get("score"),
+        "theme":      lesson.get("theme", ""),       # 'foundations' = reading track
         "concepts":   lesson.get("concepts", []),   # results screen "Add to deck"
         "content":    content,
         "llm_debug":  lesson.get("llm_debug"),
