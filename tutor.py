@@ -35,6 +35,13 @@ MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
 SNAP_THRESHOLD = 0.62   # cosine ≥ this ⇒ a known word can stand in for a filler
 MAX_PALETTE = 12        # known words handed to the drill as the content palette
 MAX_TEACH = 3           # construction fillers with no close known match → taught
+# Deck-size strategy: at/under SMALL_DECK_MAX we just hand the model the whole
+# known-words list (cheap, no embeddings); above it we embedding-snap a relevant
+# subset and pass only a small sample + the total count (so a 2000-word deck never
+# floods the prompt). LARGE_DECK_VECTOR_CAP bounds how many words we vectorise.
+SMALL_DECK_MAX = 150
+LARGE_DECK_VECTOR_CAP = 1500
+LARGE_DECK_SAMPLE = 40
 
 
 def _history_block(history: list[dict]) -> str:
@@ -401,19 +408,27 @@ def build_drill_prompt(
     known_words: list[dict] | None = None,
     palette: list[str] | None = None,
     teach: list[dict] | None = None,
+    deck_count: int = 0,
 ) -> str:
     """Kick off a focused practice drill on one generalizable skill — the tutor
     poses ONE English phrase to translate. Separate prompt so the learner never
     sees a 'drill me' instruction in the chat (the button calls this directly).
 
-    `palette` (known words that fit the construction) and `teach` (new fillers being
-    introduced) come from the embedding-anchored vocab plan, steering the drill to
-    practice the form with vocabulary the learner already knows."""
+    Vocab is tiered by deck size: small decks pass `known_words` wholesale; large
+    decks pass a `palette` (embedding-snapped to fit the construction) + a small
+    `known_words` SAMPLE + `deck_count` (so the prompt never carries 1000s of words).
+    `teach` = new fillers being introduced when nothing known was close enough."""
     info = LANG_INFO[target_lang]
     name = info["name"]
     profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
-    deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
-            if known_words else "")
+    large = bool(palette)   # the embedding path only runs for large decks
+    if not known_words:
+        deck = ""
+    elif large:
+        deck = (f"── SOME WORDS THE LEARNER KNOWS (a sample of ~{deck_count} total) ──\n"
+                f"{_word_list_block(known_words)}\n\n")
+    else:
+        deck = f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
     palette_block = ""
     if palette:
         palette_block = (
@@ -500,12 +515,15 @@ async def start_drill(
     learner_profile: str = "",
     known_words: list[dict] | None = None,
     known_word_vectors: dict[str, list[float]] | None = None,
+    deck_count: int = 0,
 ) -> dict:
-    """Open a construction drill. When `known_word_vectors` is supplied, first runs
-    the embedding-anchored vocab plan (LLM proposes the construction's content words
-    → snap each to the nearest known word) and steers the opener to drill the form
-    with familiar vocab; the unmatched fillers are surfaced as new-vocab chips. A
-    failure in the planning step degrades to the plain drill (still one opener call)."""
+    """Open a construction drill. For SMALL decks the caller passes the full
+    `known_words` list and no vectors → one opener call, no embeddings. For LARGE
+    decks the caller passes `known_word_vectors` (+ a small sample as `known_words`)
+    → we run the embedding-anchored vocab plan (LLM proposes the construction's
+    content words → snap each to the nearest known word), steer the opener to drill
+    the form with familiar vocab, and surface unmatched fillers as new-vocab chips.
+    Any failure in the planning step degrades to the plain opener (still one call)."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
 
@@ -523,7 +541,7 @@ async def start_drill(
     prompt = build_drill_prompt(
         target_lang, skill, history,
         level=level, learner_profile=learner_profile, known_words=known_words,
-        palette=palette, teach=teach,
+        palette=palette, teach=teach, deck_count=deck_count,
     )
     out = await _run(prompt, target_lang, api_key=api_key, model=model)
     if teach:

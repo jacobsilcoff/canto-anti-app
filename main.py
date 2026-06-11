@@ -2196,13 +2196,23 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
 
     access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
 
-    known_words = await db.get_known_words(user["id"], lang)
     learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
     course = await db.get_active_course(user["id"], lang)
     level = course.get("level") or "A1" if course else "A1"
-    # Embedding-anchored vocab: snap the construction's example words to known deck
-    # words so the drill practices the form with familiar vocabulary.
-    known_vecs = await _known_word_vectors(lang, known_words, access.api_key)
+
+    # Vocab strategy by deck size. Small decks: hand the model the whole known list
+    # (cheap, no embeddings). Large decks: embedding-snap a relevant subset to the
+    # construction so a 2000-word deck never floods the prompt (we pass only a small
+    # sample + the total count + the snapped palette).
+    known_count = await db.count_known_words(user["id"], lang)
+    if known_count <= tutor.SMALL_DECK_MAX:
+        known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
+        known_vecs = None
+    else:
+        deck = await db.get_known_words(user["id"], lang, limit=tutor.LARGE_DECK_VECTOR_CAP)
+        known_vecs = await _known_word_vectors(lang, deck, access.api_key,
+                                               cap=tutor.LARGE_DECK_VECTOR_CAP)
+        known_words = deck[:tutor.LARGE_DECK_SAMPLE]    # strongest-first sample for the prompt
 
     history = []
     for m in await db.get_tutor_messages(user["id"], conv_id):
@@ -2219,7 +2229,7 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
             lang, skill, history,
             api_key=access.api_key, model=tutor.TUTOR_MODEL,
             level=level, learner_profile=learner_profile, known_words=known_words,
-            known_word_vectors=known_vecs,
+            known_word_vectors=known_vecs, deck_count=known_count,
         )
     except Exception as e:
         logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)

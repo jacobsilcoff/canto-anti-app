@@ -2135,6 +2135,23 @@ async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> l
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def count_known_words(user_id: int, target_lang: str) -> int:
+    """How many words meet the same 'known' bar as get_known_words (no limit).
+    Used to pick the drill-vocab strategy: small decks pass the whole list to the
+    model; large decks fall back to embedding-snapping a relevant subset."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*)
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL
+                 AND (cf.repetitions >= 2 OR cf.interval_days >= 3)""",
+            (user_id, target_lang),
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
 async def get_weak_cards(user_id: int, target_lang: str, limit: int = 12) -> list[dict]:
     """Deck words the user keeps struggling with (low ease or relapsed into
     learning after having been seen), weakest first — surfaced to the lesson
