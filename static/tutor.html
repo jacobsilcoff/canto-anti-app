@@ -132,6 +132,10 @@
 
     /* Composer (pinned to the bottom; safe-area aware) */
     .composer { flex-shrink: 0; background: var(--bg); padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: flex-end; }
+    /* When the keyboard is up the home-indicator safe area is covered by the
+       keyboard, so that extra bottom padding just shows as a gap — drop it so the
+       composer sits snug on top of the keyboard. (body.kb-open set in JS.) */
+    body.kb-open .composer { padding-bottom: 8px; }
     /* min-height:0 overrides the global `textarea { min-height:120px }` (and the
        150px media-query rule) — otherwise scrollHeight is floored at 120px and the
        auto-grow can never shrink the box back to a single line. */
@@ -790,6 +794,10 @@
     const fit = () => {
       if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;   // ignore pinch-zoom
       document.body.style.height = Math.round(vv.height) + 'px';
+      // Keyboard up ⇒ the visible viewport is meaningfully shorter than the
+      // layout viewport. Drop the home-indicator safe-area padding then.
+      const kbOpen = (window.innerHeight - vv.height) > 100;
+      document.body.classList.toggle('kb-open', kbOpen);
       growInput();
     };
     vv.addEventListener('resize', fit);
