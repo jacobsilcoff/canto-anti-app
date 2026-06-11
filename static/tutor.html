@@ -22,7 +22,12 @@
        html/body are locked to the viewport; a visualViewport handler keeps the
        body height in sync when the mobile keyboard opens (iOS doesn't resize
        the layout viewport on its own). */
-    html, body { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+    html { height: 100%; overflow: hidden; }
+    /* body is position:fixed so the browser physically cannot scroll the page —
+       this is what stops iOS from scrolling up to "reveal the caret" on every
+       keystroke (which made the composer flash above the keyboard). The JS only
+       keeps the body HEIGHT synced to the visible viewport. */
+    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
     main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .tutor-page { max-width: 720px; margin: 0 auto; padding: 8px 14px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
 
@@ -127,7 +132,10 @@
 
     /* Composer (pinned to the bottom; safe-area aware) */
     .composer { flex-shrink: 0; background: var(--bg); padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: flex-end; }
-    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); max-height: 110px; line-height: 1.4; }
+    /* min-height:0 overrides the global `textarea { min-height:120px }` (and the
+       150px media-query rule) — otherwise scrollHeight is floored at 120px and the
+       auto-grow can never shrink the box back to a single line. */
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); min-height: 0; max-height: 110px; line-height: 1.4; box-sizing: border-box; }
     .composer textarea:focus { outline: none; border-color: var(--primary); }
     .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .composer button:disabled { opacity: 0.5; cursor: default; }
@@ -772,22 +780,19 @@
   // ── Keyboard / viewport fit (mobile) ─────────────────────────────────────────
   // iOS doesn't shrink the layout viewport when the keyboard opens, so the chat
   // column would stay full-height and the composer would sit BELOW the keyboard.
-  // Pin the page to the *visual* viewport (height + offset) so the layout
-  // compresses above the keyboard and the composer rides just on top of it.
+  // The body is position:fixed (see CSS) so the browser can't scroll it — that
+  // alone kills the per-keystroke flash (iOS used to scroll the page up to reveal
+  // the caret, and our old scrollTo(0,0) fought it). Here we only keep the body
+  // HEIGHT synced to the visible viewport so the composer rides above the keyboard.
   (function () {
     const vv = window.visualViewport;
     if (!vv) return;
     const fit = () => {
       if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;   // ignore pinch-zoom
-      const h = Math.round(vv.height);
-      document.documentElement.style.height = h + 'px';
-      document.body.style.height = h + 'px';
-      // iOS pushes the layout viewport up under the keyboard — undo it.
-      window.scrollTo(0, 0);
+      document.body.style.height = Math.round(vv.height) + 'px';
       growInput();
     };
     vv.addEventListener('resize', fit);
-    vv.addEventListener('scroll', fit);
     // When the box is focused the keyboard animates in; re-fit after it settles
     // and keep the latest text in view.
     input.addEventListener('focus', () => {
