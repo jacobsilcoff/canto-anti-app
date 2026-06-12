@@ -2058,6 +2058,21 @@ class TutorMessageRequest(BaseModel):
     text: str
 
 
+class CardAskCard(BaseModel):
+    target_text: str = ""
+    source_text: str = ""
+    romanization: str = ""
+    notes: str = ""
+    status: str = ""
+
+
+class CardAskRequest(BaseModel):
+    question: str
+    card: CardAskCard | None = None
+    history: list[dict] = []
+    lang: str | None = None
+
+
 async def _tutor_lang(user: dict) -> str:
     return await db.get_setting(user["id"], "default_target_lang") or "yue"
 
@@ -2219,6 +2234,52 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
 
     return {"message": {"role": "tutor", **payload},
             "points_total": await db.get_points_total(user["id"], lang)}
+
+
+@app.post("/api/tutor/ask")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
+    Nothing is stored — short follow-up history (if any) lives client-side and is
+    passed back in. Powers the 'Ask the tutor' pop-over on the study page."""
+    question = (req.question or "").strip()[:1000]
+    if not question:
+        raise HTTPException(400, "question required")
+    lang = req.lang if (req.lang in translation.LANG_INFO) else await _tutor_lang(user)
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    known_words = await db.get_known_words(user["id"], lang)
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    level = (course.get("level") or "A1") if course else "A1"
+
+    card = req.card.model_dump() if req.card else None
+    if card:
+        card = {k: (v or "").strip()[:600] for k, v in card.items()}
+
+    # Bounded, plain-text history for the prompt (last few turns of this pop-over).
+    history = []
+    for m in (req.history or [])[-8:]:
+        role = "tutor" if (m.get("role") == "tutor") else "user"
+        txt = (m.get("text") or "").strip()[:1000]
+        if txt:
+            history.append({"role": role, "text": txt})
+
+    try:
+        out = await tutor.ask_about_card(
+            lang, question, card, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile, known_words=known_words,
+        )
+    except Exception as e:
+        logger.error("Tutor card-ask failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't answer — please try again.")
+
+    await db.record_study_activity(user["id"])   # asking about a card counts as study
+    return {"message": {"role": "tutor",
+                        "reply": out["reply"], "new_items": out["new_items"]},
+            "lang": lang}
 
 
 class TutorDrillRequest(BaseModel):

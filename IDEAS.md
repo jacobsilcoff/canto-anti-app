@@ -2,6 +2,7 @@
 
 ## ✅ Shipped
 
+- **Contextual tutor pop-over on the flashcard page** — A 💬 button on the study card header opens a bottom-sheet chat that knows the card you're looking at (target/source/romanization/notes + SRS progress). One metered, **ephemeral** call per question (`POST /api/tutor/ask` → `tutor.ask_about_card`); short follow-ups are kept client-side and passed back in (nothing stored). The explanation comes back in **English** with examples in target script + romanization + glosses (study help, not conversation practice), and any words worth saving appear as ＋Add-to-deck chips (oracle romanization, deduped against the deck). Preset question chips ("Why this word here?", "Use it in a sentence", …) for one-tap asks. Verified end-to-end in the player (個 vs 隻 explained in English with examples; chips add to the deck). The reader-page half of the idea (knowing the current sentence/story) is still backlog #45.
 - **Inline LLM-graded construction drill in lessons** — The tutor's construction drill is now also a lesson exercise type (`construction_drill`): `assemble_lesson` auto-adds one per new grammar concept, and the lesson player renders a self-managed 4-turn "translate this phrase" widget graded by `POST /api/lesson/drill` (`tutor.run_lesson_drill`) — built from the learner's known words, oracle romanization, 1 metered call/turn, formative (doesn't skew the score). The one intentional exception to lesson determinism. Verified end-to-end in the player: start → judged turns with rule notes → 4/4 → Continue advances the lesson.
 - **Fix per-card embeddings / label suggest-cards** — `translation.get_embedding` used the dead `text-embedding-004` (404, silently returned None), so `cards.embedding` was never populated and `GET /api/labels/suggest-cards` always returned empty. It now delegates to `embeddings.embed` (`gemini-embedding-001`, 768-dim) — one embedding code path. Because every pre-existing card had a NULL embedding, `suggest-cards` lazily backfills a bounded batch (≤300/call) via new `main._backfill_card_embeddings` → `db.get_cards_missing_embedding`, so an established deck converges over a few calls. Verified end-to-end: "food and drink" surfaces drink/飲品, snack/小食, restaurant/餐廳 by cosine.
 - **Tutor — verify-then-snap drills (embeddings as a true fallback)** — Large-deck construction drills now run a cheap opener first (sample + CEFR profile + count, no embeddings) and ask it for the answer's `expected_words`; those are checked by cheap string membership against the full known set. Only when the opener leans on words the learner doesn't know do we lazily embed the deck, snap the misses to known substitutes, and regenerate the opener avoiding them. Result: 1 LLM call / 0 embeddings on success (the common case), 2 calls + 1 embed on a miss. Verified with stubs (pass→1 call/0 embed; fail→2 calls/1 embed + AVOID block in the regen).
@@ -62,19 +63,16 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
-## 45. Contextual tutor pop-over on Reader & Flashcard pages
+## 45. Contextual tutor pop-over on the Reader page (flashcards shipped)
 **Complexity: Medium | Cost: ~1 metered LLM call per question (same as a tutor turn)**
 
-Surface the tutor as a small floating chat window on **other** pages (reader, study/flashcards), seeded with **context about what the learner is currently looking at**, so they can ask a question without leaving the page and without re-typing what card/story/sentence they mean.
+The **flashcard** half shipped (see ✅ Shipped: the 💬 pop-over on the study page, ephemeral `POST /api/tutor/ask` → `tutor.ask_about_card`). Remaining: bring the same contextual pop-over to the **reader**, where the interesting/harder part lives.
 
-- **Trigger:** a small "Ask the tutor" button (💬) on the reader and study pages that slides up a compact chat pop-over (reuse the tutor bubble/ruby/gloss rendering — already a known follow-up to factor those helpers out of `learn.html`/`tutor.html` into a shared file).
-- **Context to inject** (the interesting part): a lightweight context payload sent with the first question —
-  - **Flashcards:** the current card's `source_text` / `target_text` / `romanization` / notes, plus its SRS state ("you're learning this", relapsed, etc.) so the tutor can answer "why is this 個 and not 隻?" or "give me another example sentence."
-  - **Reader:** the story title + the **current sentence** (and maybe a window of surrounding sentences) the learner is on, so "what does this 嘅 do here?" resolves against the actual text. Needs the reader to track/scroll-detect the active sentence.
-- **Backend:** likely a variant of `tutor.respond` that accepts a `context` block prepended to the prompt ("The learner is looking at this card/sentence: …"). Could be **ephemeral** (no stored conversation) for quick one-off questions, or optionally thread into the normal tutor history. Decision: ephemeral pop-over vs. persisted side-conversation.
-- **Reuse:** known-words / course-registry / learner-profile context is already assembled in `tutor.build_tutor_prompt`; this mostly adds a context section + a lightweight front-end widget. The new-items "Add to deck" chips work as-is and are especially nice here (ask about a word → add it).
+- **Context to inject:** the story title + the **current sentence** (and maybe a window of surrounding sentences) the learner is on, so "what does this 嘅 do here?" resolves against the actual text.
+- **Hard part:** the reader must reliably know the "current sentence" — a scroll/tap heuristic (e.g. tap a sentence to ask about it, or track the sentence nearest viewport center).
+- **Reuse:** the backend is mostly there — `tutor.ask_about_card` already takes a free-form `card` context block + question + ephemeral history; a reader variant would pass `{target_text: <sentence>, notes: <story title/context>}` (or a small dedicated `build_*` prompt if sentence-level help wants different guidance than word-level). The `/api/tutor/ask` route + the pop-over widget (CSS/JS in `cards.html`) can be lifted to `reader.html` — a good moment to finally factor the tutor bubble/ruby/gloss + pop-over into a shared file (long-standing follow-up).
 
-Biggest open questions: how the reader reliably knows the "current sentence" (scroll/tap heuristic), and whether to share the tutor's persisted history or keep these contextual asks ephemeral. Good incremental first cut: flashcard page only, ephemeral, single-question (no thread).
+Open question still: ephemeral one-off asks (current flashcard behavior) vs. threading reader asks into the persisted tutor history.
 
 ## 44. Per-card embedding coverage tidy-ups (low priority)
 **Complexity: Low | Cost: negligible**

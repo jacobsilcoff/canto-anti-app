@@ -320,6 +320,111 @@ async def respond(
                       user_msg=user_msg, known_texts=known_texts)
 
 
+# ── Contextual "ask about this card" (ephemeral study Q&A) ─────────────────────
+# A focused, English-allowed Q&A about the specific flashcard the learner is
+# looking at. Unlike `respond` (conversation practice, reply must be in-target),
+# this is study help: the tutor MAY explain in English but writes every example
+# in the target script. No stored conversation — history (if any) lives client-side.
+
+def _card_block(card: dict | None, name: str) -> str:
+    if not card:
+        return ""
+    tgt = (card.get("target_text") or "").strip()
+    src = (card.get("source_text") or "").strip()
+    rom = (card.get("romanization") or "").strip()
+    notes = (card.get("notes") or "").strip()
+    status = (card.get("status") or "").strip()
+    line = tgt or "(blank)"
+    if rom:
+        line += f" [{rom}]"
+    if src:
+        line += f" — “{src}”"
+    parts = [f"word/phrase: {line}"]
+    if notes:
+        parts.append(f"learner's saved notes: {notes}")
+    if status:
+        parts.append(f"the learner's progress: {status}")
+    return ("── THE FLASHCARD THE LEARNER IS STUDYING ──\n"
+            + "\n".join(parts) + "\n\n")
+
+
+def build_card_ask_prompt(
+    target_lang: str,
+    question: str,
+    card: dict | None,
+    history: list[dict] | None = None,
+    *,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+) -> str:
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+
+    profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
+    deck = ""
+    if known_words:
+        deck = (f"── WORDS THE LEARNER ALREADY KNOWS (their deck) ──\n"
+                f"{_word_list_block(known_words)}\n"
+                f"Prefer these in your example sentences; don't re-teach them as new_items.\n\n")
+
+    return (
+        f"You are a warm, expert {name} tutor helping an English-speaking learner "
+        f"(level {level}) who is reviewing a flashcard and has a question about it.\n\n"
+        f"{_lang_preamble(info)}"
+        f"── HOW TO ANSWER ──\n"
+        f"• ANSWER THE QUESTION the learner actually asked — directly, clearly, concisely. "
+        f"Write your EXPLANATION in ENGLISH (this is study help, NOT conversation practice — "
+        f"the learner is decoding a card and needs to understand). Write only the actual "
+        f"{name} words and example sentences in {name} script, each followed by its "
+        f"romanization and a short English gloss in parentheses.\n"
+        f"• Be concrete and useful: explain the underlying RULE or pattern (not just this one "
+        f"instance), give 1–2 SHORT example sentences in {name}, and mention a closely related "
+        f"word, contrast, or memory/etymology hook when it genuinely helps.\n"
+        f"• Calibrate to the learner's level and known words above; build examples from words "
+        f"they already know where possible.\n"
+        f"• If you mention {name} words or phrases worth saving to their deck, list them in "
+        f"`new_items` (at most 4; skip anything already in their deck/known list). Empty is fine.\n"
+        f"• Keep it focused — a few sentences, not an essay.\n\n"
+        f"{profile}{deck}{_card_block(card, name)}"
+        f"{_history_block(history or [])}"
+        f"Learner's question: {question.strip()}\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
+        '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}]\n'
+        '}\n'
+        'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
+        'the learner\'s known-words list.'
+    )
+
+
+async def ask_about_card(
+    target_lang: str,
+    question: str,
+    card: dict | None = None,
+    history: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+) -> dict:
+    """One LLM call → focused answer about a specific card. Ephemeral (no storage).
+    Returns the same normalized shape as `respond`; corrections/points/drill are
+    naturally empty here (the prompt only asks for reply + new_items)."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = build_card_ask_prompt(
+        target_lang, question, card, history,
+        level=level, learner_profile=learner_profile, known_words=known_words,
+    )
+    known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+    return await _run(prompt, target_lang, api_key=api_key, model=model,
+                      user_msg=question, known_texts=known_texts)
+
+
 def build_drill_prompt(
     target_lang: str,
     skill: str,
