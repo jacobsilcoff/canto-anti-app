@@ -2294,6 +2294,46 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
     return {"message": {"role": "tutor", **payload}}
 
 
+class LessonDrillRequest(BaseModel):
+    construction: str
+    history: list[dict] = []
+    answer: str | None = None
+    turn: int = 1
+
+
+@app.post("/api/lesson/drill")
+@limiter.limit("60/minute;800/day")
+async def lesson_drill(request: Request, req: LessonDrillRequest,
+                       user: dict = Depends(current_user)):
+    """One turn of an inline lesson construction-drill (LLM-graded). Stateless —
+    the lesson player passes the construction + the turns so far + the latest
+    answer; we pose the first phrase, or judge and advance. 1 metered call/turn."""
+    construction = (req.construction or "").strip()[:80]
+    if not construction:
+        raise HTTPException(400, "construction required")
+    lang = await _tutor_lang(user)
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
+    course = await db.get_active_course(user["id"], lang)
+    level = course.get("level") or "A1" if course else "A1"
+    answer = (req.answer or "").strip()[:500] or None
+
+    try:
+        out = await tutor.run_lesson_drill(
+            lang, construction, req.history[-2 * tutor.LESSON_DRILL_TURNS:], answer,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
+        )
+    except Exception as e:
+        logger.error("Lesson drill failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The drill couldn't continue — please try again.")
+
+    if answer is not None:
+        await db.record_study_activity(user["id"])   # answering a drill counts as study
+    return out
+
+
 @app.get("/api/ruby")
 @limiter.limit("300/minute")
 async def ruby(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):

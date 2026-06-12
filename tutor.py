@@ -30,6 +30,7 @@ HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
 MAX_NEW_ITEMS = 4       # a little headroom for multiple ways to say an asked-for phrase
 MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
+LESSON_DRILL_TURNS = 4  # how many phrases an inline lesson construction-drill poses
 
 # Construction-drill vocab snapping (embedding-anchored, verify-fail fallback only).
 SNAP_THRESHOLD = 0.62   # cosine ≥ this ⇒ a known word can stand in for a missed word
@@ -508,3 +509,139 @@ async def start_drill(
         learner_profile=learner_profile, known_words=known_words, large=True,
         deck_count=deck_count, cefr_stats=cefr_stats, palette=palette, avoid=misses,
     )
+
+
+# ── Inline lesson construction-drill ──────────────────────────────────────────
+# A tight, LLM-graded drill embedded in the lesson player: each turn poses ONE
+# English phrase to translate into the target language, exercising one construction
+# with vocabulary the learner knows, judging the previous attempt. Same trust model
+# as the rest of tutor — romanization recomputed by the oracle, fields normalized,
+# never hard-fails. One call per turn (start = no answer; then judge-and-advance).
+
+def build_lesson_drill_prompt(
+    target_lang: str,
+    construction: str,
+    history: list[dict],
+    answer: str | None,
+    *,
+    level: str,
+    known_words: list[dict] | None,
+    turn: int,
+    max_turns: int,
+) -> str:
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
+            if known_words else "")
+    convo = ""
+    if history:
+        lines = []
+        for h in history:
+            who = "You posed" if h.get("role") == "tutor" else "Learner answered"
+            lines.append(f"{who}: {(h.get('text') or '').strip()}")
+        convo = "── DRILL SO FAR ──\n" + "\n".join(lines) + "\n\n"
+    if answer is not None:
+        state = (f"The learner's answer to your last English phrase: \"{answer.strip()}\". "
+                 f"Judge it (this is attempt #{turn} of ~{max_turns}), then either pose the "
+                 f"NEXT English phrase or, if they've done ~{max_turns}, set done=true and "
+                 f"pose nothing more.\n\n")
+    else:
+        state = "Begin the drill: pose the FIRST English phrase. There is no answer to judge yet.\n\n"
+    return (
+        f"You are a {name} tutor running a tight PRACTICE DRILL embedded in a lesson "
+        f"(learner level {level}). The skill being drilled is the CONSTRUCTION/form: "
+        f"\"{construction}\".\n\n"
+        f"{_lang_preamble(info)}"
+        f"Each turn you pose EXACTLY ONE short, concrete English phrase for the learner to "
+        f"translate into {name}, all exercising \"{construction}\". Build every phrase from "
+        f"words the learner already KNOWS (use the list below); introduce a new word only if "
+        f"the construction truly needs it. Vary the vocabulary across turns. Do NOT translate "
+        f"the phrase for them.\n"
+        f"When judging an answer: decide if it's correct, give the natural {name} version, and "
+        f"a one-line English note about the RULE (how the construction works in general), not "
+        f"just this instance. Be encouraging.\n\n"
+        f"{deck}{convo}{state}"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        '  "feedback": {"correct": true, "corrected": "<the natural target-language answer; '
+        'empty on the very first turn>", "note": "<short English rule; empty on the first turn>"},\n'
+        f'  "phrase": "<the next English phrase to translate, or empty when done>",\n'
+        f'  "reply": "<one short {name} encouragement/lead-in>",\n'
+        f'  "reply_en": "<English translation of reply>",\n'
+        f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
+        '  "done": false\n'
+        '}\n'
+    )
+
+
+def _normalize_lesson_drill(parsed: dict, target_lang: str) -> dict:
+    has_rom = bool(LANG_INFO[target_lang].get("romanization"))
+
+    def rom(s: str) -> str:
+        return tokenizer.romanize_text(s, target_lang) if (has_rom and s) else ""
+
+    fb_raw = parsed.get("feedback") if isinstance(parsed.get("feedback"), dict) else {}
+    corrected = (fb_raw.get("corrected") or "").strip()
+    feedback = None
+    if corrected:
+        feedback = {
+            "correct":        bool(fb_raw.get("correct")),
+            "corrected":      corrected,
+            "corrected_roman": rom(corrected),
+            "note":           (fb_raw.get("note") or "").strip(),
+        }
+
+    gloss: dict[str, str] = {}
+    raw_gloss = parsed.get("gloss")
+    if isinstance(raw_gloss, dict):
+        for k, v in raw_gloss.items():
+            k = (k or "").strip()
+            v = (v or "").strip() if isinstance(v, str) else ""
+            if k and v and k not in gloss:
+                gloss[k] = v
+            if len(gloss) >= MAX_GLOSS:
+                break
+
+    return {
+        "feedback":  feedback,
+        "phrase":    (parsed.get("phrase") or "").strip(),
+        "reply":     (parsed.get("reply") or "").strip(),
+        "reply_en":  (parsed.get("reply_en") or "").strip(),
+        "gloss":     gloss,
+        "done":      bool(parsed.get("done")),
+    }
+
+
+async def run_lesson_drill(
+    target_lang: str,
+    construction: str,
+    history: list[dict] | None = None,
+    answer: str | None = None,
+    *,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+    known_words: list[dict] | None = None,
+    turn: int = 1,
+    max_turns: int = LESSON_DRILL_TURNS,
+) -> dict:
+    """One turn of an inline lesson construction-drill: pose the first phrase
+    (`answer=None`) or judge `answer` and advance. Parse-with-one-retry, normalize,
+    never hard-fail."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = build_lesson_drill_prompt(
+        target_lang, construction, history or [], answer,
+        level=level, known_words=known_words, turn=turn, max_turns=max_turns,
+    )
+    parsed = None
+    for _ in range(2):
+        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+        try:
+            parsed = _parse_json(raw)
+            break
+        except (ValueError, TypeError):
+            parsed = None
+    if not isinstance(parsed, dict):
+        parsed = {}
+    return _normalize_lesson_drill(parsed, target_lang)
