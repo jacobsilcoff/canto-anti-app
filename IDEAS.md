@@ -62,6 +62,14 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 44. Per-card embedding coverage tidy-ups (low priority)
+**Complexity: Low | Cost: negligible**
+
+Two small follow-ups from the per-card-embedding fix. Neither is urgent — the lazy backfill in `suggest-cards` (`db.get_cards_missing_embedding`, source-agnostic on `embedding IS NULL`) already covers every NULL-embedding card eventually:
+
+1. **Eagerly embed starter-deck + import cards.** `starter_deck.seed` and `import_vocab.py` create cards via `db.create_card` without generating an embedding, so those cards only get vectorised when the user later opens label-suggestions (the backfill). Could call the embed path at creation so they're covered immediately.
+2. **Batch the reader-generate embeddings.** `POST /api/reader/generate` embeds *awaited, one call per new word*, which slows the request when many words are added. Could collect the new cards and do a single batched `embeddings.embed([...])` (or hand them to the background backfill) instead of per-word.
+
 ## 41. Haitian Creole audio via Meta MMS
 **Complexity: Medium | Cost: $0 (local inference)**
 
