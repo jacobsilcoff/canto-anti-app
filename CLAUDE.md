@@ -50,7 +50,7 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai TBD, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby |
 | `auth.py` | scrypt password hashing + timing-safe verification |
 | `learning.py` | AI Learning Path — unit-plan generation + unified micro-lesson authoring (teach blocks + drills together) + deterministic drill assembly/validation |
-| `tutor.py` | Tutor chat — one single-prompt LLM call per learner message (history serialized in) + strict normalization of the structured reply (corrections / new_items / points); romanization always recomputed by the offline oracle. Construction drills add an embedding-anchored vocab plan (`_plan_drill_vocab`) |
+| `tutor.py` | Tutor chat — one single-prompt LLM call per learner message (history serialized in) + strict normalization of the structured reply (corrections / new_items / points); romanization always recomputed by the offline oracle. Construction drills tier vocab by deck size + verify-then-snap (`start_drill`) |
 | `embeddings.py` | Pure Gemini text-embedding wrapper (`gemini-embedding-001`, 768-dim) — `embed`, `cosine`, `nearest`, `pack`/`unpack`. No DB (caching orchestrated by callers). Powers the tutor's known-vocab snapping |
 | `grammar.py` | Reliable verb conjugation engine (French present) — rules + curated irregulars; an independent oracle, never trusts the LLM |
 | `grammar_lessons.py` | Legacy per-concept grammar generator (shared `concept_content` cache); **no longer called by the lesson route** — `learning.py` reuses its block/cloze helpers + `GENERATION_MODEL` |
