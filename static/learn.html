@@ -185,9 +185,8 @@
     /* Inline construction drill (LLM-graded, multi-turn) */
     .cd-wrap { display: flex; flex-direction: column; gap: 12px; }
     .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); }
-    .cd-lead { font-family: var(--script-font, inherit); font-size: 1.05rem; line-height: 2; color: var(--text-muted); }
-    .cd-lead ruby { line-height: 1; }
-    .cd-task { font-size: 1.25rem; margin-top: 6px; }
+    .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+    .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
     .cd-task b { font-weight: 700; }
     .cd-input-row { display: flex; gap: 8px; align-items: stretch; }
     .cd-input { flex: 1; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
@@ -197,15 +196,24 @@
     .cd-fb { border-radius: 12px; padding: 12px 14px; }
     .cd-fb.cd-correct { background: var(--good-soft); }
     .cd-fb.cd-wrong { background: var(--warn-soft, #fffbeb); }
-    .cd-fb-head { font-weight: 700; font-size: 0.9rem; }
+    .cd-fb-head { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
     .cd-fb.cd-correct .cd-fb-head { color: var(--good-strong); }
     .cd-fb.cd-wrong .cd-fb-head { color: var(--warn-strong, #b45309); }
-    .cd-fb-ans { font-family: var(--script-font, inherit); font-size: 1.1rem; line-height: 2; margin-top: 2px; }
+    .cd-fb-tag { display: inline-block; min-width: 64px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); vertical-align: middle; }
+    .cd-fb-you { font-size: 1.05rem; line-height: 1.5; margin-top: 2px; opacity: 0.85; }
+    .cd-fb-yourtext { text-decoration: line-through; text-decoration-color: var(--warn-strong, #b45309); text-decoration-thickness: 1px; }
+    .cd-fb-ans { font-size: 1.15rem; line-height: 2; margin-top: 2px; }
     .cd-fb-ans ruby { line-height: 1; }
+    .cd-fb-anstext { font-family: var(--script-font, inherit); font-weight: 600; }
     .cd-rom { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-left: 6px; }
-    .cd-fb-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 4px; }
+    .cd-fb-note { color: var(--text-muted); font-size: 0.85rem; margin-top: 6px; line-height: 1.45; }
     .cd-done { font-weight: 700; color: var(--good-strong); text-align: center; padding: 6px 0; }
-    .cd-loading { color: var(--text-muted); font-size: 1.4rem; text-align: center; padding: 10px; }
+    .cd-loading { color: var(--text-muted); font-size: 0.95rem; text-align: center; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .cd-dots { display: inline-flex; gap: 4px; }
+    .cd-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: cd-blink 1.2s infinite; }
+    .cd-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .cd-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes cd-blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
     .cd-err { color: var(--danger-strong); font-size: 0.9rem; }
     .cd-err button { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
 
@@ -900,7 +908,7 @@
             <div class="ex-instruction">🎯 Practice: <b>${esc(construction)}</b></div>
             <div class="cd-progress" id="cd-progress"></div>
             <div class="cd-feed" id="cd-feed"></div>
-            <div class="cd-prompt" id="cd-prompt"><div class="cd-loading">…</div></div>
+            <div class="cd-prompt" id="cd-prompt"><div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Starting drill…</div></div>
             <div class="cd-input-row" id="cd-input-row" style="display:none">
               <input type="text" id="cd-input" class="cd-input ${scriptClassFor(lang)}" placeholder="Type your answer…" autocomplete="off" autocapitalize="off" spellcheck="false">
               <button class="cd-submit" id="cd-submit" type="button">Check</button>
@@ -931,17 +939,25 @@
         function showPrompt(data) {
           if (!data || data.done || !data.phrase) return finish();
           history.push({ role: 'tutor', text: data.phrase });
-          const lead = data.reply ? `<div class="cd-lead">${targetSpan(data.reply, lang)}</div>` : '';
-          promptEl.innerHTML = lead + `<div class="cd-task">Translate: <b>${esc(data.phrase)}</b></div>`;
-          if (needsRuby(lang)) applyRuby(promptEl, data.gloss || null, false);
+          // The task is purely "translate this English phrase" — no target-language
+          // lead-in (it confusingly sat next to a different English sentence).
+          promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
           inputRow.style.display = ''; inputEl.value = ''; inputEl.focus();
         }
-        function showFeedback(fb) {
+        function showFeedback(fb, yourAnswer) {
           if (!fb) { feedEl.innerHTML = ''; return; }
           const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
+          // Show what the learner wrote, then the natural answer — but only echo
+          // "You wrote" when it actually differs from the model's natural version.
+          const yours = (yourAnswer || '').trim();
+          const same = yours && yours.replace(/\s+/g, '') === (fb.corrected || '').replace(/\s+/g, '');
+          const youRow = (yours && !same)
+            ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext ${scriptClassFor(lang)}">${esc(yours)}</span></div>`
+            : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
               <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
-              <div class="cd-fb-ans">${targetSpan(fb.corrected, lang)}${rom}</div>
+              ${youRow}
+              <div class="cd-fb-ans"><span class="cd-fb-tag">${fb.correct ? 'Natural' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
           try { if (navigator.vibrate) navigator.vibrate(fb.correct ? 15 : [0, 30, 30, 30]); } catch {}
@@ -957,10 +973,10 @@
           if (!ans) return;
           history.push({ role: 'user', text: ans });
           inputRow.style.display = 'none';
-          promptEl.innerHTML = `<div class="cd-loading">…</div>`;
+          promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
           const data = await call(ans);
           turn++; setProgress();
-          showFeedback(data && data.feedback);
+          showFeedback(data && data.feedback, ans);
           if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
           showPrompt(data);
         }

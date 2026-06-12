@@ -661,19 +661,18 @@ def build_lesson_drill_prompt(
         f"translate into {name}, all exercising \"{construction}\". Build every phrase from "
         f"words the learner already KNOWS (use the list below); introduce a new word only if "
         f"the construction truly needs it. Vary the vocabulary across turns. Do NOT translate "
-        f"the phrase for them.\n"
-        f"When judging an answer: decide if it's correct, give the natural {name} version, and "
-        f"a one-line English note about the RULE (how the construction works in general), not "
-        f"just this instance. Be encouraging.\n\n"
+        f"the phrase for them, and do NOT add any {name} commentary — the ONLY {name} text you "
+        f"produce is the natural answer inside `feedback.corrected` when judging.\n"
+        f"When judging an answer: decide if it's correct (accept any natural, correct {name} "
+        f"rendering — don't nitpick word choice that means the same thing), give the natural "
+        f"{name} version in `corrected`, and a one-line English `note` about the RULE (how the "
+        f"construction works in general), not just this instance. Be encouraging but concise.\n\n"
         f"{deck}{convo}{state}"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         '  "feedback": {"correct": true, "corrected": "<the natural target-language answer; '
         'empty on the very first turn>", "note": "<short English rule; empty on the first turn>"},\n'
         f'  "phrase": "<the next English phrase to translate, or empty when done>",\n'
-        f'  "reply": "<one short {name} encouragement/lead-in>",\n'
-        f'  "reply_en": "<English translation of reply>",\n'
-        f'  "gloss": {{"<{name} word>":"<English>", ...}},\n'
         '  "done": false\n'
         '}\n'
     )
@@ -696,23 +695,9 @@ def _normalize_lesson_drill(parsed: dict, target_lang: str) -> dict:
             "note":           (fb_raw.get("note") or "").strip(),
         }
 
-    gloss: dict[str, str] = {}
-    raw_gloss = parsed.get("gloss")
-    if isinstance(raw_gloss, dict):
-        for k, v in raw_gloss.items():
-            k = (k or "").strip()
-            v = (v or "").strip() if isinstance(v, str) else ""
-            if k and v and k not in gloss:
-                gloss[k] = v
-            if len(gloss) >= MAX_GLOSS:
-                break
-
     return {
         "feedback":  feedback,
         "phrase":    (parsed.get("phrase") or "").strip(),
-        "reply":     (parsed.get("reply") or "").strip(),
-        "reply_en":  (parsed.get("reply_en") or "").strip(),
-        "gloss":     gloss,
         "done":      bool(parsed.get("done")),
     }
 

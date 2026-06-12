@@ -2384,7 +2384,10 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
     try:
         out = await tutor.run_lesson_drill(
             lang, construction, req.history[-2 * tutor.LESSON_DRILL_TURNS:], answer,
-            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            # Fast/cheap model: posing a short phrase + judging a translation is a
+            # simple task, and the drill is formative (doesn't skew the score), so we
+            # favour responsiveness — the whole point is a snappy in-lesson drill.
+            api_key=access.api_key, model=translation.DEFAULT_MODEL,
             level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
         )
     except Exception as e:
