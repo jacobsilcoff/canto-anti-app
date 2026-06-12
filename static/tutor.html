@@ -667,8 +667,16 @@
     return Math.max(54, Math.min(110, Math.round(vh * 0.22)));
   }
   function growInput() {
+    const max = composerMax();
+    // Once the box is capped and overflowing, leave the height alone — resetting
+    // to `auto` each keystroke momentarily expands the textarea, reflows the
+    // composer and resets scrollTop, which reads as the text jumping up/down.
+    // We only need to re-measure while the content can still grow the box.
+    if (parseFloat(input.style.height) >= max && input.scrollHeight > max) return;
+    const prevTop = input.scrollTop;
     input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, composerMax()) + 'px';
+    input.style.height = Math.min(input.scrollHeight, max) + 'px';
+    input.scrollTop = prevTop;
   }
   input.addEventListener('input', () => {
     sendBtn.disabled = !input.value.trim() || sending;
