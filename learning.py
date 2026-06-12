@@ -618,6 +618,22 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
         if ex:
             exercises.append(ex)
 
+    # Inline construction drill for each NEW grammar concept: an interactive,
+    # LLM-graded "translate this phrase" practice (rendered by the lesson player,
+    # graded by /api/lesson/drill). Appended after the deterministic drills so the
+    # learner meets the form in graded drills first, then produces it freely.
+    for c in concepts:
+        if (c.get("kind") or "vocab") != "grammar":
+            continue
+        label = (c.get("label") or "").strip()
+        if label:
+            exercises.append({
+                "type": "construction_drill",
+                "concept_key": (c.get("key") or "").strip(),
+                "grammar": True,
+                "construction": label,
+            })
+
     segment = {
         "teach": {"intro": (authored.get("intro") or "").strip(), "blocks": blocks},
         "exercises": exercises,

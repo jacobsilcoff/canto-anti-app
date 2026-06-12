@@ -88,7 +88,10 @@ def test_assemble_drops_invalid_drills():
         ],
     }
     content = learning.assemble_lesson("es", _CONCEPTS, authored)
-    assert content["segments"][0]["exercises"] == []
+    # All authored drills are invalid → dropped. (A construction_drill is auto-added
+    # for grammar concepts; it's not an authored/graded drill, so exclude it here.)
+    graded = [e for e in content["segments"][0]["exercises"] if e["type"] != "construction_drill"]
+    assert graded == []
 
 
 def test_grammar_flag_tracks_concept_kind():
@@ -207,10 +210,10 @@ def test_french_cloze_uses_conjugation_oracle():
          "distractors": ["parle", "parles"]},
     ]}
     exs = learning.assemble_lesson("fr", concepts, authored)["segments"][0]["exercises"]
-    assert len(exs) == 1
-    cloze = exs[0]
-    assert cloze["type"] == "choice"
+    # The cloze, plus an auto-added construction_drill for the grammar concept.
+    cloze = next(e for e in exs if e["type"] == "choice")
     assert cloze["options"][cloze["answer"]] == "parlons"
+    assert any(e["type"] == "construction_drill" for e in exs)
 
 
 # ── Drill validation: distractor hygiene + reorder backtracking ──────────────

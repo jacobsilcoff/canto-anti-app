@@ -182,6 +182,33 @@
     .feedback small { display: block; font-weight: 400; margin-top: 4px; }
     .player-action { width: 100%; }
 
+    /* Inline construction drill (LLM-graded, multi-turn) */
+    .cd-wrap { display: flex; flex-direction: column; gap: 12px; }
+    .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); }
+    .cd-lead { font-family: var(--script-font, inherit); font-size: 1.05rem; line-height: 2; color: var(--text-muted); }
+    .cd-lead ruby { line-height: 1; }
+    .cd-task { font-size: 1.25rem; margin-top: 6px; }
+    .cd-task b { font-weight: 700; }
+    .cd-input-row { display: flex; gap: 8px; align-items: stretch; }
+    .cd-input { flex: 1; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
+    .cd-input:focus { outline: none; border-color: var(--primary); }
+    .cd-submit { background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 12px; padding: 0 18px; font-size: 1rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .cd-submit:disabled { opacity: 0.55; cursor: default; }
+    .cd-fb { border-radius: 12px; padding: 12px 14px; }
+    .cd-fb.cd-correct { background: var(--good-soft); }
+    .cd-fb.cd-wrong { background: var(--warn-soft, #fffbeb); }
+    .cd-fb-head { font-weight: 700; font-size: 0.9rem; }
+    .cd-fb.cd-correct .cd-fb-head { color: var(--good-strong); }
+    .cd-fb.cd-wrong .cd-fb-head { color: var(--warn-strong, #b45309); }
+    .cd-fb-ans { font-family: var(--script-font, inherit); font-size: 1.1rem; line-height: 2; margin-top: 2px; }
+    .cd-fb-ans ruby { line-height: 1; }
+    .cd-rom { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-left: 6px; }
+    .cd-fb-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 4px; }
+    .cd-done { font-weight: 700; color: var(--good-strong); text-align: center; padding: 6px 0; }
+    .cd-loading { color: var(--text-muted); font-size: 1.4rem; text-align: center; padding: 10px; }
+    .cd-err { color: var(--danger-strong); font-size: 0.9rem; }
+    .cd-err button { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
     /* results */
     .results-emoji { font-size: 3rem; }
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
@@ -859,6 +886,96 @@
   //   controller: { isReady():bool, grade():bool, answerText():string, lock(correct):void }
   // To add a type: add an entry here + its schema in learning.py's _EXERCISE_CONTRACT.
   const EXERCISE_TYPES = {
+    // Inline LLM-graded construction drill: a few turns of "translate this English
+    // phrase", judged by the tutor backend. Self-managed (its own submit button +
+    // turn loop); calls onDone() when finished so the player advances. Bypasses the
+    // one-shot grade contract — the player special-cases ex.type in renderExercise.
+    construction_drill: {
+      render(ex, root, lang, onDone) {
+        const construction = (ex.construction || ex.skill || '').trim();
+        const maxTurns = 4;
+        const history = [];      // [{role:'tutor'|'user', text}]
+        let turn = 0, busy = false;
+        root.innerHTML = `<div class="cd-wrap">
+            <div class="ex-instruction">🎯 Practice: <b>${esc(construction)}</b></div>
+            <div class="cd-progress" id="cd-progress"></div>
+            <div class="cd-feed" id="cd-feed"></div>
+            <div class="cd-prompt" id="cd-prompt"><div class="cd-loading">…</div></div>
+            <div class="cd-input-row" id="cd-input-row" style="display:none">
+              <input type="text" id="cd-input" class="cd-input ${scriptClassFor(lang)}" placeholder="Type your answer…" autocomplete="off" autocapitalize="off" spellcheck="false">
+              <button class="cd-submit" id="cd-submit" type="button">Check</button>
+            </div>
+            <button class="cta-btn cd-continue" id="cd-continue" type="button" style="display:none">Continue →</button>
+          </div>`;
+        const feedEl = root.querySelector('#cd-feed');
+        const promptEl = root.querySelector('#cd-prompt');
+        const inputRow = root.querySelector('#cd-input-row');
+        const inputEl = root.querySelector('#cd-input');
+        const submitEl = root.querySelector('#cd-submit');
+        const contEl = root.querySelector('#cd-continue');
+        const progEl = root.querySelector('#cd-progress');
+        const setProgress = () => { progEl.textContent = `${Math.min(turn, maxTurns)} / ${maxTurns}`; };
+        setProgress();
+
+        async function call(answer) {
+          busy = true; submitEl.disabled = true;
+          try {
+            const res = await fetch('/api/lesson/drill', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ construction, history, answer, turn: turn + 1, lang }),
+            });
+            if (!res.ok) throw new Error();
+            return await res.json();
+          } catch { return null; } finally { busy = false; submitEl.disabled = false; }
+        }
+        function showPrompt(data) {
+          if (!data || data.done || !data.phrase) return finish();
+          history.push({ role: 'tutor', text: data.phrase });
+          const lead = data.reply ? `<div class="cd-lead">${targetSpan(data.reply, lang)}</div>` : '';
+          promptEl.innerHTML = lead + `<div class="cd-task">Translate: <b>${esc(data.phrase)}</b></div>`;
+          if (needsRuby(lang)) applyRuby(promptEl, data.gloss || null, false);
+          inputRow.style.display = ''; inputEl.value = ''; inputEl.focus();
+        }
+        function showFeedback(fb) {
+          if (!fb) { feedEl.innerHTML = ''; return; }
+          const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
+          feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
+              <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
+              <div class="cd-fb-ans">${targetSpan(fb.corrected, lang)}${rom}</div>
+              ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
+          if (needsRuby(lang)) applyRuby(feedEl, null, false);
+          try { if (navigator.vibrate) navigator.vibrate(fb.correct ? 15 : [0, 30, 30, 30]); } catch {}
+        }
+        async function start() {
+          const data = await call(null);
+          if (!data) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          showPrompt(data);
+        }
+        async function submit() {
+          if (busy) return;
+          const ans = inputEl.value.trim();
+          if (!ans) return;
+          history.push({ role: 'user', text: ans });
+          inputRow.style.display = 'none';
+          promptEl.innerHTML = `<div class="cd-loading">…</div>`;
+          const data = await call(ans);
+          turn++; setProgress();
+          showFeedback(data && data.feedback);
+          if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
+          showPrompt(data);
+        }
+        function finish() {
+          inputRow.style.display = 'none'; promptEl.innerHTML = '';
+          feedEl.insertAdjacentHTML('beforeend', `<div class="cd-done">Drill complete! 🎉</div>`);
+          contEl.style.display = ''; contEl.onclick = () => onDone();
+          try { sfx.complete(); } catch {}
+        }
+        submitEl.onclick = submit;
+        inputEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+        start();
+        return { custom: true, isReady: () => false, grade: () => true, lock: () => {} };
+      },
+    },
     choice: {
       render(ex, root, lang) {
         let sel = null;
@@ -1478,6 +1595,19 @@
     document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
+    const action = document.getElementById('player-action');
+    // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
+    // hide the standard Check/Continue button and let it advance via onDone.
+    if (ex.type === 'construction_drill') {
+      action.style.display = 'none';
+      player.controller = EXERCISE_TYPES.construction_drill.render(ex, root, player.lang, () => {
+        if (!ex._review) player.firstPassCorrect++;   // formative — keep the score neutral
+        advanceExercise();
+      });
+      updateBar();
+      return;
+    }
+    action.style.display = '';
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
     // Always hide inline ruby in exercises — romanization goes into the hover/tap
     // .gl tooltip on each word. NEVER pass the vocab glossary here: a recognition
@@ -1530,14 +1660,18 @@
       a.textContent = (lastSeg && isLastEx && !willReview) ? 'Finish' : 'Continue';
       a.disabled = false;
     } else {
-      player.answered++;
-      player.idx++;
-      if (player.idx >= player.queue.length) {
-        if (player.reviewStarted) finishLesson();   // review queue exhausted
-        else afterSegment();                         // next segment / start review / finish
-      } else {
-        renderExercise();
-      }
+      advanceExercise();
+    }
+  }
+
+  function advanceExercise() {
+    player.answered++;
+    player.idx++;
+    if (player.idx >= player.queue.length) {
+      if (player.reviewStarted) finishLesson();   // review queue exhausted
+      else afterSegment();                         // next segment / start review / finish
+    } else {
+      renderExercise();
     }
   }
 

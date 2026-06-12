@@ -1325,6 +1325,19 @@ async def get_all_embeddings(user_id: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
+    """Cards with no stored embedding yet — for lazy backfill in suggest-cards."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, source_text, target_text
+               FROM cards WHERE user_id=? AND embedding IS NULL
+               ORDER BY id LIMIT ?""",
+            (user_id, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
     """Set (or clear) the canonical card pointer. Returns False if card not found."""
     async with aiosqlite.connect(DB_PATH) as db:

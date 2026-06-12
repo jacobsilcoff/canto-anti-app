@@ -2299,6 +2299,7 @@ class LessonDrillRequest(BaseModel):
     history: list[dict] = []
     answer: str | None = None
     turn: int = 1
+    lang: str | None = None
 
 
 @app.post("/api/lesson/drill")
@@ -2311,7 +2312,7 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
     construction = (req.construction or "").strip()[:80]
     if not construction:
         raise HTTPException(400, "construction required")
-    lang = await _tutor_lang(user)
+    lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
     access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
 
     known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
