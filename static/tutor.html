@@ -106,10 +106,18 @@
     .xtra:not(.open) .xtra-body { display: none; }
 
     /* Corrections — attached UNDER the learner's own message (right-aligned),
-       since a correction is about what they just said. */
+       since a correction is about what they just said. The toggle is a compact
+       amber pill that hugs the right edge (next to the learner's bubble), not a
+       full-width row with the label stranded on the far left. */
     .corr-wrap { align-self: flex-end; max-width: 86%; width: 100%; }
-    .corr-wrap .xtra { border-top: none; margin-top: 2px; }
-    .corr-wrap .xtra-head { justify-content: flex-end; }
+    .corr-wrap .xtra { border-top: none; margin-top: 2px; display: flex; flex-direction: column; align-items: flex-end; }
+    .corr-wrap .xtra-head {
+      width: auto; gap: 5px; padding: 4px 11px; border-radius: 999px;
+      background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a);
+      color: var(--warn-strong, #b45309);
+    }
+    .corr-wrap .xtra-head .xtra-chev { margin-left: 1px; }
+    .corr-wrap .xtra-body { width: 100%; }
     .corr-card { margin-top: 6px; background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a); border-left: 3px solid var(--warn-strong, #f59e0b); border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
     .corr-quote { color: var(--text-muted); text-decoration: line-through; font-family: var(--script-font, inherit); }
     .corr-fixed { font-weight: 600; font-family: var(--script-font, inherit); font-size: 1rem; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
