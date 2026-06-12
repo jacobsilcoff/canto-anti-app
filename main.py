@@ -941,6 +941,25 @@ async def _generate_and_store_embedding(card_id: int, text: str, api_key: str):
         await db.update_card_embedding(card_id, json.dumps(embedding))
 
 
+async def _backfill_card_embeddings(user_id: int, api_key: str, *, limit: int) -> None:
+    """Embed a bounded batch of cards that lack an embedding, storing each.
+    Best-effort — used by suggest-cards so a pre-existing deck converges over a
+    few calls (cards.embedding was NULL for all cards before embeddings worked)."""
+    missing = await db.get_cards_missing_embedding(user_id, limit)
+    if not missing:
+        return
+    texts = [f"{(c['source_text'] or '').strip()} {(c['target_text'] or '').strip()}".strip()
+             for c in missing]
+    try:
+        vecs = await embeddings.embed(texts, api_key)
+    except Exception as e:
+        logger.warning("card embedding backfill failed user=%s: %s", user_id, e)
+        return
+    for card, vec in zip(missing, vecs):
+        if vec:
+            await db.update_card_embedding(card["id"], json.dumps(vec))
+
+
 @app.post("/api/cards")
 async def create_card(
     req: CreateCardRequest,
@@ -1597,6 +1616,11 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
     if not query_embedding:
         return {"cards": []}
 
+    # Lazy backfill: existing cards predate working embeddings (the column is
+    # NULL until a card is (re)embedded). Embed a bounded batch of missing cards
+    # per call so the deck converges over a few requests. Best-effort.
+    await _backfill_card_embeddings(user["id"], access.api_key, limit=300)
+
     all_embeddings = await db.get_all_embeddings(user["id"])
     if not all_embeddings:
         return {"cards": []}
@@ -2228,15 +2252,20 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
     # sample + the total count + the snapped palette).
     known_count = await db.count_known_words(user["id"], lang)
     cefr_stats = ""
+    known_strings: list[str] | None = None
+    vectors_provider = None
     if known_count <= tutor.SMALL_DECK_MAX:
         known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
-        known_vecs = None
     else:
         deck = await db.get_known_words(user["id"], lang, limit=tutor.LARGE_DECK_VECTOR_CAP)
-        known_vecs = await _known_word_vectors(lang, deck, access.api_key,
-                                               cap=tutor.LARGE_DECK_VECTOR_CAP)
         known_words = deck[:tutor.LARGE_DECK_SAMPLE]    # strongest-first sample for the prompt
+        known_strings = [(w.get("target_text") or "").strip() for w in deck]
         cefr_stats = await _known_cefr_stats(user["id"], lang, access.api_key)
+        # Embed the deck lazily — only invoked if the cheap opener's answer leaned on
+        # words the learner doesn't know (verify-then-snap), so most drills skip it.
+        async def vectors_provider():
+            return await _known_word_vectors(lang, deck, access.api_key,
+                                             cap=tutor.LARGE_DECK_VECTOR_CAP)
 
     history = []
     for m in await db.get_tutor_messages(user["id"], conv_id):
@@ -2253,7 +2282,8 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
             lang, skill, history,
             api_key=access.api_key, model=tutor.TUTOR_MODEL,
             level=level, learner_profile=learner_profile, known_words=known_words,
-            known_word_vectors=known_vecs, deck_count=known_count, cefr_stats=cefr_stats,
+            deck_count=known_count, cefr_stats=cefr_stats,
+            known_word_strings=known_strings, known_vectors_provider=vectors_provider,
         )
     except Exception as e:
         logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)
