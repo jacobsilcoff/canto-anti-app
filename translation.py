@@ -507,19 +507,28 @@ async def generate_reader_text(
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
     name = info["name"]
-    rules = info["rules"]
+    # Strip romanization-providing instructions — they conflict with the reader's
+    # strict no-romanization requirement and cause the LLM to embed jyutping/pinyin
+    # directly in the generated text body.
+    _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
+    rules = "\n".join(
+        line for line in info["rules"].splitlines()
+        if not any(kw in line.lower() for kw in _roman_kw)
+    )
     difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
     num_paragraphs = max(1, min(10, int(num_paragraphs)))
 
     full_prompt = (
         f"Write a {name} text based on the following description.\n"
+        "IMPORTANT: Write ONLY native-script characters. Do NOT include any romanisation, "
+        "transliteration, pinyin, jyutping, romaja, IAST, or Latin characters (except for "
+        "proper nouns/brand names that are natively written in Latin script).\n"
         "Rules:\n"
         f"{rules}\n"
         f"{difficulty_rule}\n"
         f"- The text should be exactly {num_paragraphs} paragraph(s) long.\n"
         "- Write naturally, as if for a native speaker audience.\n"
-        "- Write ONLY the target-language text. Do NOT include romanisation, transliteration, "
-        "pinyin, jyutping, or any English translation in the text body.\n"
+        "- Do NOT include any romanisation or English translation anywhere in the content field.\n"
         "- Also provide a short English title (3–6 words) summarising the text.\n"
         "Return ONLY valid JSON, no other text:\n"
         '{ "title": "...", "content": "..." }\n\n'
