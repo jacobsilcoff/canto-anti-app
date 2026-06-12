@@ -2193,6 +2193,67 @@ async def get_cefr_distribution(user_id: int) -> dict:
     return levels
 
 
+_KNOWN_WHERE = (
+    "cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL "
+    "AND (cf.repetitions >= 2 OR cf.interval_days >= 3)"
+)
+
+
+async def get_known_cefr_distribution(user_id: int, target_lang: str) -> dict:
+    """CEFR-level counts among the learner's KNOWN words for one language (same bar
+    as get_known_words). Feeds the large-deck drill prompt a rough vocab profile."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""SELECT c.cefr_level AS lvl, COUNT(*) AS cnt
+                FROM cards c
+                JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+                WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                  AND {_KNOWN_WHERE}
+                GROUP BY c.cefr_level""",
+            (user_id, target_lang),
+        ) as cur:
+            rows = await cur.fetchall()
+    levels = {"A1": 0, "A2": 0, "B1": 0, "B2": 0, "C1": 0, "C2": 0, "unknown": 0}
+    for r in rows:
+        key = r["lvl"] if r["lvl"] in levels else "unknown"
+        levels[key] += r["cnt"]
+    return levels
+
+
+async def get_known_words_missing_cefr(user_id: int, target_lang: str, limit: int = 60) -> list[str]:
+    """Known words with no valid CEFR tag (added via lesson/tutor/starter paths that
+    skip translation's CEFR step) — for bounded lazy backfill."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            f"""SELECT c.target_text
+                FROM cards c
+                JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+                WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                  AND {_KNOWN_WHERE}
+                  AND (c.cefr_level IS NULL OR c.cefr_level NOT IN ('A1','A2','B1','B2','C1','C2'))
+                LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [r[0] for r in await cur.fetchall()]
+
+
+async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]) -> None:
+    """Backfill cefr_level on the user's cards by target_text (only where still unset)."""
+    valid = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    rows = [(lvl, user_id, target_lang, w) for w, lvl in mapping.items() if lvl in valid]
+    if not rows:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "UPDATE cards SET cefr_level = ? "
+            "WHERE user_id = ? AND target_lang = ? AND target_text = ? "
+            "AND (cefr_level IS NULL OR cefr_level NOT IN ('A1','A2','B1','B2','C1','C2'))",
+            rows,
+        )
+        await db.commit()
+
+
 async def get_streak(user_id: int) -> int:
     """Return the user's current study streak in days.
 

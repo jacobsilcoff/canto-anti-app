@@ -37,6 +37,7 @@ import grammar_lessons
 import foundations
 import tutor
 import embeddings
+import cefr
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -2037,6 +2038,27 @@ async def _tutor_lang(user: dict) -> str:
     return await db.get_setting(user["id"], "default_target_lang") or "yue"
 
 
+async def _known_cefr_stats(user_id: int, lang: str, api_key: str) -> str:
+    """A compact CEFR profile of the learner's known words, e.g. "A1:40, A2:22, B1:9".
+    Lazily backfills CEFR onto known cards that lack it (lesson/tutor/starter adds),
+    bounded per call and best-effort. Used in the large-deck drill prompt so the
+    model can pitch vocab without us dumping the whole deck."""
+    missing = await db.get_known_words_missing_cefr(user_id, lang, limit=60)
+    if missing:
+        try:
+            tagged = await cefr.tag(lang, missing, api_key)
+        except Exception as e:
+            logger.warning("CEFR backfill failed lang=%s: %s", lang, e)
+            tagged = {}
+        if tagged:
+            await db.set_cards_cefr(user_id, lang, tagged)
+    dist = await db.get_known_cefr_distribution(user_id, lang)
+    parts = [f"{lv}:{dist[lv]}" for lv in ("A1", "A2", "B1", "B2", "C1", "C2") if dist.get(lv)]
+    if dist.get("unknown"):
+        parts.append(f"untagged:{dist['unknown']}")
+    return ", ".join(parts)
+
+
 async def _known_word_vectors(lang: str, known_words: list[dict], api_key: str,
                               cap: int = 120) -> dict[str, list[float]]:
     """Embedding vectors for the learner's known deck words, via the shared DB cache
@@ -2205,6 +2227,7 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
     # construction so a 2000-word deck never floods the prompt (we pass only a small
     # sample + the total count + the snapped palette).
     known_count = await db.count_known_words(user["id"], lang)
+    cefr_stats = ""
     if known_count <= tutor.SMALL_DECK_MAX:
         known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
         known_vecs = None
@@ -2213,6 +2236,7 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
         known_vecs = await _known_word_vectors(lang, deck, access.api_key,
                                                cap=tutor.LARGE_DECK_VECTOR_CAP)
         known_words = deck[:tutor.LARGE_DECK_SAMPLE]    # strongest-first sample for the prompt
+        cefr_stats = await _known_cefr_stats(user["id"], lang, access.api_key)
 
     history = []
     for m in await db.get_tutor_messages(user["id"], conv_id):
@@ -2229,7 +2253,7 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
             lang, skill, history,
             api_key=access.api_key, model=tutor.TUTOR_MODEL,
             level=level, learner_profile=learner_profile, known_words=known_words,
-            known_word_vectors=known_vecs, deck_count=known_count,
+            known_word_vectors=known_vecs, deck_count=known_count, cefr_stats=cefr_stats,
         )
     except Exception as e:
         logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)

@@ -409,6 +409,7 @@ def build_drill_prompt(
     palette: list[str] | None = None,
     teach: list[dict] | None = None,
     deck_count: int = 0,
+    cefr_stats: str = "",
 ) -> str:
     """Kick off a focused practice drill on one generalizable skill — the tutor
     poses ONE English phrase to translate. Separate prompt so the learner never
@@ -425,8 +426,10 @@ def build_drill_prompt(
     if not known_words:
         deck = ""
     elif large:
-        deck = (f"── SOME WORDS THE LEARNER KNOWS (a sample of ~{deck_count} total) ──\n"
-                f"{_word_list_block(known_words)}\n\n")
+        profile = (f"The learner knows ~{deck_count} words"
+                   + (f" (CEFR spread — {cefr_stats})" if cefr_stats else "") + ". ")
+        deck = (f"── THE LEARNER'S VOCABULARY ──\n{profile}Here is a small sample of words "
+                f"they know (NOT the full list):\n{_word_list_block(known_words)}\n\n")
     else:
         deck = f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
     palette_block = ""
@@ -516,6 +519,7 @@ async def start_drill(
     known_words: list[dict] | None = None,
     known_word_vectors: dict[str, list[float]] | None = None,
     deck_count: int = 0,
+    cefr_stats: str = "",
 ) -> dict:
     """Open a construction drill. For SMALL decks the caller passes the full
     `known_words` list and no vectors → one opener call, no embeddings. For LARGE
@@ -541,7 +545,7 @@ async def start_drill(
     prompt = build_drill_prompt(
         target_lang, skill, history,
         level=level, learner_profile=learner_profile, known_words=known_words,
-        palette=palette, teach=teach, deck_count=deck_count,
+        palette=palette, teach=teach, deck_count=deck_count, cefr_stats=cefr_stats,
     )
     out = await _run(prompt, target_lang, api_key=api_key, model=model)
     if teach:
