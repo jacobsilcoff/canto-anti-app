@@ -567,16 +567,17 @@ async def translate_sentence(
         return {"english": "", "romanization": None}
 
 
-_EMBED_MODEL = "text-embedding-004"
-
-
 async def get_embedding(text: str, *, api_key: str) -> list[float] | None:
-    """Return a float embedding vector for text, or None on error."""
+    """Return a float embedding vector for text, or None on error.
+
+    Delegates to embeddings.embed (gemini-embedding-001, 768-dim) so there's a
+    single embedding code path. Imported locally because embeddings.py imports
+    from this module (avoids a circular import at load time).
+    """
     try:
-        result = await asyncio.to_thread(
-            lambda: _get_client(api_key).models.embed_content(model=_EMBED_MODEL, contents=[text])
-        )
-        return list(result.embeddings[0].values)
+        import embeddings
+        vecs = await embeddings.embed([text], api_key)
+        return vecs[0] if vecs else None
     except Exception:
         return None
 
