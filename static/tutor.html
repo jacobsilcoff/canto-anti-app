@@ -145,7 +145,8 @@
     /* min-height:0 overrides the global `textarea { min-height:120px }` (and the
        150px media-query rule) — otherwise scrollHeight is floored at 120px and the
        auto-grow can never shrink the box back to a single line. */
-    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); min-height: 0; max-height: 110px; line-height: 1.4; box-sizing: border-box; }
+    .composer textarea { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 18px; padding: 11px 14px; font-size: 1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); min-height: 0; max-height: 110px; line-height: 1.4; box-sizing: border-box; scrollbar-width: none; -ms-overflow-style: none; }
+    .composer textarea::-webkit-scrollbar { width: 0; height: 0; }
     .composer textarea:focus { outline: none; border-color: var(--primary); }
     .composer button { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .composer button:disabled { opacity: 0.5; cursor: default; }
