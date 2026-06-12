@@ -54,7 +54,8 @@
     .chats-head h3 { font-size: 1rem; font-weight: 700; margin: 0; }
     .chats-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 2px 6px; }
     .chats-new { margin: 12px 14px 6px; padding: 10px; border: 1px solid var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    .chats-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px 16px; }
+    .chats-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px 16px; scrollbar-width: none; -ms-overflow-style: none; }
+    .chats-list::-webkit-scrollbar { width: 0; height: 0; }
     .chats-empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 24px 16px; }
     .chat-row { display: flex; align-items: center; gap: 8px; padding: 10px 10px; border-radius: 10px; cursor: pointer; }
     .chat-row:hover { background: var(--surface-alt); }
@@ -67,7 +68,8 @@
     .chat-del:hover { color: var(--danger); background: var(--danger-soft); }
 
     /* Thread (the only scrolling region) */
-    .thread { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 16px; }
+    .thread { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 16px; scrollbar-width: none; -ms-overflow-style: none; }
+    .thread::-webkit-scrollbar { width: 0; height: 0; }
     .bubble { max-width: 86%; border-radius: 16px; padding: 10px 14px; line-height: 1.55; font-size: 1rem; position: relative; word-break: break-word; }
     .bubble.user { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 5px; font-family: var(--script-font, inherit); }
     .bubble.tutor { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
