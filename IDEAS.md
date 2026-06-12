@@ -62,6 +62,20 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 45. Contextual tutor pop-over on Reader & Flashcard pages
+**Complexity: Medium | Cost: ~1 metered LLM call per question (same as a tutor turn)**
+
+Surface the tutor as a small floating chat window on **other** pages (reader, study/flashcards), seeded with **context about what the learner is currently looking at**, so they can ask a question without leaving the page and without re-typing what card/story/sentence they mean.
+
+- **Trigger:** a small "Ask the tutor" button (💬) on the reader and study pages that slides up a compact chat pop-over (reuse the tutor bubble/ruby/gloss rendering — already a known follow-up to factor those helpers out of `learn.html`/`tutor.html` into a shared file).
+- **Context to inject** (the interesting part): a lightweight context payload sent with the first question —
+  - **Flashcards:** the current card's `source_text` / `target_text` / `romanization` / notes, plus its SRS state ("you're learning this", relapsed, etc.) so the tutor can answer "why is this 個 and not 隻?" or "give me another example sentence."
+  - **Reader:** the story title + the **current sentence** (and maybe a window of surrounding sentences) the learner is on, so "what does this 嘅 do here?" resolves against the actual text. Needs the reader to track/scroll-detect the active sentence.
+- **Backend:** likely a variant of `tutor.respond` that accepts a `context` block prepended to the prompt ("The learner is looking at this card/sentence: …"). Could be **ephemeral** (no stored conversation) for quick one-off questions, or optionally thread into the normal tutor history. Decision: ephemeral pop-over vs. persisted side-conversation.
+- **Reuse:** known-words / course-registry / learner-profile context is already assembled in `tutor.build_tutor_prompt`; this mostly adds a context section + a lightweight front-end widget. The new-items "Add to deck" chips work as-is and are especially nice here (ask about a word → add it).
+
+Biggest open questions: how the reader reliably knows the "current sentence" (scroll/tap heuristic), and whether to share the tutor's persisted history or keep these contextual asks ephemeral. Good incremental first cut: flashcard page only, ephemeral, single-question (no thread).
+
 ## 44. Per-card embedding coverage tidy-ups (low priority)
 **Complexity: Low | Cost: negligible**
 
