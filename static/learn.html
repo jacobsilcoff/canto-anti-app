@@ -543,9 +543,12 @@
     try {
       const info = await fetch('/api/streak').then(r => r.json());
       _streakInfo = info;
+      const fmtN = n => n >= 10000 ? Math.round(n/1000)+'k' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n);
+      const numSpan = n => { const s=fmtN(n),f=n.toLocaleString(); return s===f?s:`<span style="cursor:pointer" title="${f}" onclick="this.textContent=this.textContent==='${s}'?'${f}':'${s}'">${s}</span>`; };
+      const ic = n => `<span style="display:inline-flex;align-items:center;gap:3px">${n}</span>`;
       const parts = [];
-      if (info.streak > 0) parts.push(`${_ic.flame} ${info.streak}`);
-      if (info.points > 0) parts.push(`${_ic.star} ${info.points}`);
+      if (info.streak > 0) parts.push(ic(`${numSpan(info.streak)} ${_ic.flame}`));
+      if (info.points > 0) parts.push(ic(`${numSpan(info.points)} ${_ic.star}`));
       if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
           el.innerHTML = parts.join('<span style="opacity:0.4;margin:0 4px">·</span>');

@@ -3181,10 +3181,10 @@ async def reader_comprehension(request: Request, req: ComprehensionRequest, user
         "- Do NOT make the question about the title alone; use details from the body\n"
     )
     try:
-        raw = await translation._call(prompt, model=access.model_reader, api_key=access.api_key)
+        raw = await asyncio.to_thread(translation._call, prompt, access.api_key, access.model_reader)
+        data = translation._parse_json(raw)
     except Exception as e:
         raise HTTPException(502, f"AI error: {e}")
-    data = translation._parse_json(raw)
     if not isinstance(data, dict) or not isinstance(data.get("options"), list) or len(data["options"]) < 4:
         raise HTTPException(502, "Could not generate a valid question")
     correct = int(data.get("correct", 0))
