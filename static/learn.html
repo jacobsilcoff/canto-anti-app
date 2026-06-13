@@ -1835,7 +1835,10 @@
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
-    player.queue = (seg.exercises || []).map(e => ({ ...e }));
+    let exs = (seg.exercises || []).map(e => ({ ...e }));
+    // drillsOnly: only the LLM-graded construction drills (skip recognition/word-bank/etc.)
+    if (player.drillsOnly) exs = exs.filter(e => e.type === 'construction_drill');
+    player.queue = exs;
     player.idx = 0;
     if (!player.queue.length) { afterSegment(); return; }
     show('player');
