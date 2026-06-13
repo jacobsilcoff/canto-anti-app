@@ -2496,6 +2496,13 @@ async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
         logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)
         raise HTTPException(502, "The tutor couldn't start the drill — please try again.")
 
+    # A blank opener (transient empty/blocked model response, even after the retry
+    # in start_drill) must NOT be persisted — it would render as an empty drill
+    # panel that stays broken on reload. Surface a clean retry instead.
+    if not (out.get("reply") or "").strip():
+        logger.warning("Tutor drill opener returned a blank reply lang=%s skill=%r", lang, skill)
+        raise HTTPException(502, "The tutor couldn't start the drill — please try again.")
+
     payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
     payload["drill"] = ""
     # The opener's own message id becomes the drill-group id; mark the conversation

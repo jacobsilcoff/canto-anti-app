@@ -612,11 +612,25 @@ async def start_drill(
         raise ValueError(f"Unsupported target language: {target_lang}")
 
     large = bool(known_word_strings)
-    out = await _drill_opener(
-        target_lang, skill, history, api_key=api_key, model=model, level=level,
-        learner_profile=learner_profile, known_words=known_words, large=large,
-        deck_count=deck_count, cefr_stats=cefr_stats,
-    )
+
+    async def opener(**extra):
+        # Retry once on a BLANK reply — an empty opener (transient model hiccup /
+        # safety stop) would otherwise render as an empty drill panel and get
+        # persisted, leaving the learner a contentless box.
+        o = await _drill_opener(
+            target_lang, skill, history, api_key=api_key, model=model, level=level,
+            learner_profile=learner_profile, known_words=known_words, large=large,
+            deck_count=deck_count, cefr_stats=cefr_stats, **extra,
+        )
+        if not (o.get("reply") or "").strip():
+            o = await _drill_opener(
+                target_lang, skill, history, api_key=api_key, model=model, level=level,
+                learner_profile=learner_profile, known_words=known_words, large=large,
+                deck_count=deck_count, cefr_stats=cefr_stats, **extra,
+            )
+        return o
+
+    out = await opener()
     if not large:
         return out
 
@@ -632,11 +646,10 @@ async def start_drill(
     except Exception:
         return out                          # embedding failed → keep the cheap opener
 
-    return await _drill_opener(
-        target_lang, skill, history, api_key=api_key, model=model, level=level,
-        learner_profile=learner_profile, known_words=known_words, large=True,
-        deck_count=deck_count, cefr_stats=cefr_stats, palette=palette, avoid=misses,
-    )
+    regen = await opener(palette=palette, avoid=misses)
+    # If the regen came back blank, keep the (non-blank) first opener rather than
+    # shipping an empty drill.
+    return regen if (regen.get("reply") or "").strip() else out
 
 
 # ── Inline lesson construction-drill ──────────────────────────────────────────

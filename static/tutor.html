@@ -81,6 +81,7 @@
     .corr-fixed, .ni-word { line-height: 2.0; }
     .corr-fixed ruby, .ni-word ruby { line-height: 1; }
     .bubble-en { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); color: var(--text-muted); font-size: 0.9rem; line-height: 1.45; }
+    .bubble-empty { color: var(--text-muted); font-size: 0.9rem; font-style: italic; }
     ruby { ruby-align: center; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
     .bubble.user rt { color: rgba(255,255,255,0.8); }
@@ -575,7 +576,12 @@
     b._ruby = rubyDefault;
     const reply = m.reply || '';
     const replyEn = (m.reply_en || '').trim();
-    b.innerHTML = `<div class="bubble-reply">${rbSpan(reply, true)}</div>
+    // A blank reply (a failed/empty model response, incl. older persisted drills)
+    // would otherwise render as an empty bubble — show a clear placeholder instead.
+    const replyHtml = reply.trim()
+      ? rbSpan(reply, true)
+      : '<span class="bubble-empty">⚠️ This didn’t load — please try again.</span>';
+    b.innerHTML = `<div class="bubble-reply">${replyHtml}</div>
       ${replyEn ? `<div class="bubble-en" style="display:none">${esc(replyEn)}</div>` : ''}`;
 
     const items = m.new_items || [];
@@ -873,6 +879,11 @@
         throw new Error(msg);
       }
       const data = await res.json();
+      // Defensive: a blank opener would render as an empty, confusing panel — treat
+      // it as a failure (the backend already guards this, but never show a void).
+      if (!((data.message && data.message.reply) || '').trim()) {
+        throw new Error('The tutor couldn’t start the drill — please try again.');
+      }
       typing.remove();
       if (btn) btn.remove();          // consumed — one drill per offer
       if (currentConv === convAtSend) {
