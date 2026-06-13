@@ -701,15 +701,26 @@ def build_lesson_drill_prompt(
         f"produce is the natural answer inside `feedback.corrected` when judging.\n"
         f"When judging an answer: decide if it's correct (accept any natural, correct {name} "
         f"rendering — don't nitpick word choice that means the same thing). Give the natural "
-        f"{name} version in `corrected`. For the `note`: when WRONG, first name the specific "
-        f"error (e.g. 'Wrong particle: 喺 not 係 for location', 'Missing aspect marker 咗', "
-        f"'Tone 3 not tone 1 here') then state the rule in one sentence. When CORRECT, "
-        f"optionally confirm the pattern or point out a subtlety. Be encouraging but concise.\n\n"
+        f"{name} version in `corrected`. CRITICAL: base your `note` ONLY on characters and "
+        f"words the learner actually wrote — never reference a particle, classifier, or word "
+        f"that does not appear in their answer. For the `note`: when WRONG, name the specific "
+        f"error first (e.g. 'Wrong particle: 喺 not 係 for location', 'Missing aspect marker "
+        f"咗') then state the rule in one sentence. When CORRECT, confirm what the learner "
+        f"actually used (e.g. 'Good — 本 is the correct classifier for books'). "
+        f"If there is another equally natural way to say the same thing (e.g. 我本書 vs "
+        f"我嘅書), set `alternative` to that other form and `alt_note` to one English sentence "
+        f"on when to prefer each. Omit `alternative` when there is no meaningful variant. "
+        f"Be encouraging but concise.\n\n"
         f"{deck}{convo}{state}"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
-        '  "feedback": {"correct": true, "corrected": "<the natural target-language answer; '
-        'empty on the very first turn>", "note": "<short English rule; empty on the first turn>"},\n'
+        '  "feedback": {\n'
+        '    "correct": true,\n'
+        '    "corrected": "<natural target-language answer; empty on the very first turn>",\n'
+        '    "note": "<wrong: \'Error: [specific]. Rule: [one sentence]\'; correct: confirm what they used; empty first turn>",\n'
+        '    "alternative": "<another equally natural correct form, omit if none>",\n'
+        '    "alt_note": "<one sentence: when to prefer corrected vs alternative; omit if no alternative>"\n'
+        '  },\n'
         f'  "phrase": "<the next English phrase to translate, or empty when done>",\n'
         '  "done": false\n'
         '}\n'
@@ -724,13 +735,17 @@ def _normalize_lesson_drill(parsed: dict, target_lang: str) -> dict:
 
     fb_raw = parsed.get("feedback") if isinstance(parsed.get("feedback"), dict) else {}
     corrected = (fb_raw.get("corrected") or "").strip()
+    alternative = (fb_raw.get("alternative") or "").strip()
     feedback = None
     if corrected:
         feedback = {
-            "correct":        bool(fb_raw.get("correct")),
-            "corrected":      corrected,
-            "corrected_roman": rom(corrected),
-            "note":           (fb_raw.get("note") or "").strip(),
+            "correct":          bool(fb_raw.get("correct")),
+            "corrected":        corrected,
+            "corrected_roman":  rom(corrected),
+            "note":             (fb_raw.get("note") or "").strip(),
+            "alternative":      alternative,
+            "alternative_roman": rom(alternative) if alternative else "",
+            "alt_note":         (fb_raw.get("alt_note") or "").strip(),
         }
 
     return {
