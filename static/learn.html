@@ -1104,18 +1104,16 @@
           const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
           const altRom = (fb.alternative_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.alternative_roman)}</span>` : '';
           const yours = (yourAnswer || '').trim();
-          // "same" = the learner's answer and the natural form differ only in whitespace.
-          const same = yours && yours.replace(/\s+/g, '') === (fb.corrected || '').replace(/\s+/g, '');
-          // Always echo what the learner wrote when correct so they can see what was graded.
-          // When wrong, only show it if it differs from the answer (avoids redundancy).
-          const showYou = yours && (fb.correct || !same);
-          const youRow = showYou
-            ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext ${scriptClassFor(lang)}${fb.correct ? '' : ' cd-struck'}">${esc(yours)}</span></div>`
+          // Always echo what the learner wrote — use targetSpan so ruby gets applied.
+          // Strike-through only on wrong answers.
+          const youRow = yours
+            ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext${fb.correct ? '' : ' cd-struck'}">${targetSpan(yours, lang)}</span></div>`
             : '';
-          // Show answer row when wrong, or when correct but the natural form is
-          // genuinely different (not just whitespace).
-          const ansRow = (!fb.correct || !same)
-            ? `<div class="cd-fb-ans"><span class="cd-fb-tag">${fb.correct ? 'Natural' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
+          // Only show the correction row when wrong — when correct, "Natural: X"
+          // looks like a correction even if it means something different, so we use
+          // the separate 'alternative' field for suggesting other valid forms.
+          const ansRow = !fb.correct
+            ? `<div class="cd-fb-ans"><span class="cd-fb-tag">Answer</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
             : '';
           const altRow = fb.alternative
             ? `<div class="cd-fb-alt"><span class="cd-fb-tag">Alt</span><span class="cd-fb-anstext">${targetSpan(fb.alternative, lang)}${altRom}</span>${fb.alt_note ? `<span class="cd-fb-altnote">${esc(fb.alt_note)}</span>` : ''}</div>`
