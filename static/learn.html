@@ -230,10 +230,13 @@
     .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: break-word; }
     .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
     .cd-task b { font-weight: 700; }
-    .cd-input-row { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
-    .cd-input { flex: 1; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
+    /* Input row: the <input> must use flex-basis:0 (not auto/min-content) so iOS Safari
+       actually allows it to shrink — min-width:0 alone is ignored by some mobile browsers
+       for <input> elements, leaving the button pushed off the right edge. */
+    .cd-input-row { display: flex; gap: 8px; align-items: stretch; min-width: 0; overflow: hidden; }
+    .cd-input { flex: 1 1 0%; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
     .cd-input:focus { outline: none; border-color: var(--primary); }
-    .cd-submit { background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 12px; padding: 0 18px; font-size: 1rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .cd-submit { background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 12px; padding: 0 18px; font-size: 1rem; font-weight: 600; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
     .cd-submit:disabled { opacity: 0.55; cursor: default; }
     .cd-fb { border-radius: 12px; padding: 12px 14px; overflow: hidden; overflow-wrap: break-word; word-break: break-word; }
     .cd-fb.cd-correct { background: var(--good-soft); }
@@ -1122,7 +1125,12 @@
           // The task is purely "translate this English phrase" — no target-language
           // lead-in (it confusingly sat next to a different English sentence).
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
-          inputRow.style.display = ''; inputEl.value = ''; inputEl.focus();
+          inputRow.style.display = ''; inputEl.value = '';
+          // Focus, then scroll the row into view after the iOS keyboard settles (~300 ms).
+          // Without the delay, iOS scrolls the entire page unpredictably, pushing
+          // the phrase prompt off the top of the screen.
+          inputEl.focus();
+          setTimeout(() => inputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
         }
         function showFeedback(fb, yourAnswer) {
           if (!fb) { feedEl.innerHTML = ''; return; }
