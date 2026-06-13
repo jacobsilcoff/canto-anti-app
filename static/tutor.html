@@ -99,7 +99,12 @@
 
     /* Drill sub-session — a self-contained, collapsible panel set apart from the
        chat. Ended drills collapse to just their header. */
-    .drill-panel { align-self: stretch; border: 1px solid var(--grammar-border, var(--border)); border-radius: 14px; overflow: hidden; background: var(--surface); }
+    /* flex-shrink:0 is load-bearing: overflow:hidden gives a flex item an automatic
+       min-height of 0, so without this the panel would COMPRESS to fit the thread
+       and clip its content (overflow:hidden) — the bottom of a long drill becomes
+       unreachable and the thread can't scroll to it. Pinning the height keeps the
+       whole drill in flow so the thread scrolls normally. */
+    .drill-panel { align-self: stretch; flex-shrink: 0; border: 1px solid var(--grammar-border, var(--border)); border-radius: 14px; overflow: hidden; background: var(--surface); }
     .drill-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; background: var(--grammar-soft, var(--primary-soft)); color: var(--grammar-strong, var(--primary)); font-weight: 700; font-size: 0.82rem; user-select: none; }
     .drill-head-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .drill-head-count { font-weight: 500; opacity: 0.8; }
