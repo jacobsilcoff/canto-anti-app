@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+    .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
 
     /* States */
     .learn-center { text-align: center; padding: 48px 16px; }
@@ -141,7 +141,7 @@
     .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
     .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
     .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; }
-    .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); }
+    .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); overflow-wrap: break-word; min-width: 0; }
     .ex-prompt.english { font-family: inherit; }
     .ex-roman { text-align: center; color: var(--text-muted); font-size: 1rem; margin-bottom: 18px; font-style: italic; }
     .ex-translation { text-align: center; color: var(--text-muted); font-size: 0.9rem; font-style: italic; margin: 2px 0 16px; }
@@ -150,7 +150,7 @@
     .audio-center { text-align: center; margin: 16px 0 26px; }
 
     .opt-list { display: flex; flex-direction: column; gap: 10px; }
-    .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); width: 100%; box-sizing: border-box; touch-action: manipulation; }
     .opt.english { font-family: inherit; }
     .opt.selected { border-color: var(--primary); background: var(--primary-soft); }
     .opt.correct { border-color: var(--good); background: var(--good-soft); }
@@ -185,7 +185,7 @@
     .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
     .wb-slot { display: inline-flex; }
     .wb-slot.empty { border-radius: 10px; background: var(--border); opacity: 0.4; }
-    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
+    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; touch-action: manipulation; }
     .tile-gloss { display: block; font-size: 0.62rem; color: var(--text-muted); margin-top: 3px; font-family: var(--reading-font, sans-serif); letter-spacing: 0.02em; }
     .tile.placeholder { visibility: hidden; }
     .tile.selected { border-color: var(--primary); background: var(--primary-soft); }
@@ -1105,10 +1105,15 @@
           const youRow = (yours && !same)
             ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext ${scriptClassFor(lang)}">${esc(yours)}</span></div>`
             : '';
+          // Only show the answer row when wrong, or when correct but the natural
+          // form is genuinely different (not just a whitespace variation).
+          const ansRow = (!fb.correct || !same)
+            ? `<div class="cd-fb-ans"><span class="cd-fb-tag">${fb.correct ? 'Natural' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
+            : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
               <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
               ${youRow}
-              <div class="cd-fb-ans"><span class="cd-fb-tag">${fb.correct ? 'Natural' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>
+              ${ansRow}
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
           try { if (navigator.vibrate) navigator.vibrate(fb.correct ? 15 : [0, 30, 30, 30]); } catch {}

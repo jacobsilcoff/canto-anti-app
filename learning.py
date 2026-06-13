@@ -324,9 +324,9 @@ async def plan_next_lesson(
 _DRILL_KINDS = """\
   {"kind":"recognition","concept":"<key>","target":"<native word/phrase>","gloss":"<English meaning>","distractors":["<other English meaning>", ...]}
   {"kind":"production","concept":"<key>","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
-  {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other native form>", ...]}
-  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<full English translation of the sentence, shown to learner before they answer — must uniquely identify the answer>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
-  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...],"glossary":[{"token":"<exact token from tokens>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
+  {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other NATIVE-SCRIPT word — NEVER English; for tonal languages prefer words differing by one tone or one phoneme so the listener must discriminate carefully>", ...]}
+  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
+  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
   {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
 
 _BLOCK_TYPES = """\
@@ -488,16 +488,24 @@ def _build_lesson_prompt(
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
+        f"• LISTENING: distractors must be native-script words — NEVER English. For tonal "
+        f"languages (Cantonese, Mandarin), pick distractors that differ by one tone or one "
+        f"phoneme so the drill is a genuine listening test (e.g. target nei5 → distractors "
+        f"lei5, nei1, keoi5).\n"
         f"• CLOZE: the sentence must force exactly one filler — the learner sees the "
         f"full English translation of the sentence alongside the blank, so the answer "
         f"must be the only word that makes the English gloss true. Pronouns are the "
         f"hardest: '___係香港人' with gloss 'He is from Hong Kong' correctly forces 佢. "
         f"Don't blank a slot where multiple taught words fit; use recognition/production "
-        f"instead. The `gloss` field must be a full English sentence (not a fragment), "
-        f"matching the native sentence word-for-word so the learner can map each part.\n"
-        f"• REORDER: `tokens` must tile the `sentence` exactly (no spaces). For helper "
-        f"tokens the learner doesn't know, add `glossary` entries {{token, gloss}} "
-        f"(1–2 words or POS: PRT/AUX/CONJ/CL/PREP). Don't gloss words already taught.\n"
+        f"instead. The `gloss` field must be the English translation of the COMPLETE "
+        f"sentence with the answer already filled in — translate '間房有冇冷氣' → 'Does "
+        f"the room have air conditioning?', NOT the partial sentence without the answer.\n"
+        f"• REORDER: `tokens` must tile the `sentence` exactly (no spaces). Add 1–2 "
+        f"`decoys` — plausible native words NOT in the answer that the learner might be "
+        f"tempted to use; this turns the drill from pure arrangement into real recognition. "
+        f"For helper tokens (including decoys) the learner doesn't know, add `glossary` "
+        f"entries {{token, gloss}} (1–2 words or POS: PRT/AUX/CONJ/CL/PREP). Don't gloss "
+        f"words already taught.\n"
         f"Drill kinds:\n{_DRILL_KINDS}\n\n"
         f"{_example_block()}"
         f"── VOCAB GLOSSARY ──\n"
@@ -552,6 +560,11 @@ def _order_tokens_from_sentence(sentence: str, tokens: list[str]) -> list[str] |
         return None
 
     return walk(0, list(tokens))
+
+
+def _is_cjk(s: str) -> bool:
+    return any('一' <= c <= '鿿' or '㐀' <= c <= '䶿' or
+               '぀' <= c <= 'ヿ' for c in (s or ""))
 
 
 def _norm(s: str) -> str:
@@ -619,6 +632,10 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "listening":
         if not target:
             return None
+        # For CJK targets, drop any distractor that isn't in the native script —
+        # the LLM sometimes generates English words (e.g. "I", "he") instead.
+        if _is_cjk(target):
+            distract = [d for d in distract if _is_cjk((d or "").strip())]
         # Homophones are undecidable by ear: drop distractors whose romanization
         # matches the answer's (e.g. 嗰 vs 個, both go3 — free offline oracle).
         target_rom = _norm(rom(target))
@@ -662,18 +679,26 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         ordered = _order_tokens_from_sentence(sentence, tokens)
         if ordered is None:
             return None
+        # Decoy tiles: plausible words NOT in the answer that the learner might
+        # be tempted to use. Deduplicated against the answer tokens.
+        answer_set = set(ordered)
+        decoys = []
+        for dec in (d.get("decoys") or []):
+            dec = (dec or "").strip()
+            if dec and dec not in answer_set:
+                decoys.append(dec)
         # Glosses for helper words the learner hasn't been taught (token → short
-        # English / POS abbrev). Keep only entries whose token is actually a tile.
-        tokset = set(ordered)
+        # English / POS abbrev). Keep entries for both answer tokens and decoys.
+        all_tiles = answer_set | set(decoys)
         glossary = {}
         for g in (d.get("glossary") or []):
             tok = (g.get("token") or "").strip()
             gl = (g.get("gloss") or "").strip()
-            if tok in tokset and gl:
+            if tok in all_tiles and gl:
                 glossary[tok] = gl
         return {"type": "word_bank", "concept_key": key, "grammar": is_grammar,
                 "instruction": "Put the words in the correct order",
-                "answer_tokens": ordered, "distractor_tokens": [],
+                "answer_tokens": ordered, "distractor_tokens": decoys,
                 "glossary": glossary,
                 "audio": sentence, "answer_roman": rom(sentence)}
 
