@@ -97,9 +97,9 @@
 
     /* ── Skill-tree path (AI lessons) ── */
     .lpath { position: relative; max-width: 360px; margin: 6px auto 0; padding: 6px 0 8px; }
-    /* the trail line behind the nodes */
-    .lpath::before { content: ''; position: absolute; top: 30px; bottom: 30px; left: 50%;
-      width: 4px; transform: translateX(-2px); background: var(--border); border-radius: 2px; z-index: 0; }
+    /* angled trail drawn as an SVG overlay through the node centres (drawPathConnectors) */
+    .lpath-svg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .lpath-line { fill: none; stroke: var(--border); stroke-width: 5; stroke-linecap: round; }
     .lbanner { position: relative; z-index: 1; text-align: center; margin: 22px auto 16px; }
     .lbanner:first-child { margin-top: 4px; }
     .lb-unit { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em;
@@ -285,6 +285,7 @@
       border: 1px solid var(--warn-border, #f4c98a); }
     .results-badge.perfect { background: var(--good-soft, #e7f7ec); color: var(--good-strong, #1d7a3a);
       border-color: var(--good, #2bb24c); }
+    .results-badge.levelup { animation: bounceIn .6s ease both; }
 
     /* ── Daily-goal XP ring (course header) ── */
     .daily-ring { display: inline-flex; align-items: center; gap: 8px; }
@@ -486,6 +487,9 @@
     _currentState = state;
     ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
+    // The path connectors need real layout geometry, so (re)draw once the course
+    // view is actually visible (it may have rendered while hidden).
+    if (state === 'course') requestAnimationFrame(drawPathConnectors);
   }
 
   function esc(s) {
@@ -776,6 +780,34 @@
     </div>`;
   }
 
+  // Draw the angled trail as an SVG polyline through the node centres. Re-run on
+  // render / show / resize since node positions depend on layout (offsets + caption
+  // heights vary), so a fixed CSS spine can't follow the wave.
+  function drawPathConnectors() {
+    const path = document.querySelector('#units .lpath');
+    if (!path) return;
+    const old = path.querySelector('.lpath-svg');
+    if (old) old.remove();
+    const nodes = [...path.querySelectorAll('.lnode')];
+    if (nodes.length < 2) return;
+    const pr = path.getBoundingClientRect();
+    if (!pr.width) return;   // not laid out yet (course hidden) — redrawn on show
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'lpath-svg');
+    svg.setAttribute('viewBox', `0 0 ${pr.width} ${pr.height}`);
+    const pts = nodes.map(n => {
+      const r = n.getBoundingClientRect();
+      return [r.left + r.width / 2 - pr.left, r.top + r.height / 2 - pr.top];
+    });
+    const line = document.createElementNS(NS, 'path');
+    line.setAttribute('class', 'lpath-line');
+    line.setAttribute('d', 'M' + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L'));
+    svg.appendChild(line);
+    path.insertBefore(svg, path.firstChild);
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(drawPathConnectors));
+
   function renderCourse(course) {
     currentCourse = course;
     renderDailyRing();   // show the daily-XP ring if streak data is already loaded
@@ -852,6 +884,7 @@
       });
       path.innerHTML = html;
       wrap.appendChild(path);
+      requestAnimationFrame(drawPathConnectors);
     }
 
     // ── Inline generation area ─────────────────────────────────────────────────
@@ -1869,7 +1902,8 @@
     emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
     document.getElementById('results-msg').textContent =
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
-    renderResultsXp(xpEarned, perfect, player.maxCombo, serverInfo && serverInfo.crown_level);
+    renderResultsXp(xpEarned, perfect, player.maxCombo,
+                    serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
     show('results');
     renderResultsVocab();   // async fill of the "New words → deck" panel
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
@@ -1881,7 +1915,7 @@
   }
 
   const PERFECT_BONUS = 25;
-  function renderResultsXp(xp, perfect, maxCombo, crownLevel) {
+  function renderResultsXp(xp, perfect, maxCombo, crownLevel, crownUp) {
     const box = document.getElementById('results-xp');
     const num = document.getElementById('results-xp-num');
     box.style.display = xp > 0 ? '' : 'none';
@@ -1896,8 +1930,11 @@
     const badges = document.getElementById('results-badges');
     badges.innerHTML = '';
     if (crownLevel >= 1) {
-      const label = crownLevel >= 3 ? 'Crown maxed' : `Crown ${crownLevel}`;
-      badges.innerHTML += `<span class="results-badge">${'👑'.repeat(crownLevel)} ${label}</span>`;
+      // Level-up: this run raised the crown. Otherwise it was already maxed.
+      const label = crownUp
+        ? (crownLevel >= 3 ? 'Crown maxed!' : `Crown level up → ${crownLevel}`)
+        : `Crown ${crownLevel}`;
+      badges.innerHTML += `<span class="results-badge crown${crownUp ? ' levelup' : ''}">${'👑'.repeat(crownLevel)} ${label}</span>`;
     }
     if (perfect) badges.innerHTML += `<span class="results-badge perfect">★ Perfect lesson +${PERFECT_BONUS}</span>`;
     if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">🔥 Best combo ×${maxCombo}</span>`;

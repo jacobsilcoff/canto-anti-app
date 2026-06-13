@@ -1923,36 +1923,36 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
 CROWN_MAX = 3   # skill-tree crown cap; each completion bumps the crown by 1
 
 
-async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool, int]:
+async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool, int, bool]:
     """Record (or improve) lesson completion + score. Ownership-checked.
-    Returns (found, first_completion, crown_level). first_completion is True only
-    the FIRST time the lesson is finished, so XP is awarded once (replays don't
-    re-award). Every completion bumps the crown level by 1 up to CROWN_MAX."""
+    Returns (found, first_completion, crown_level, leveled_up). first_completion is
+    True only the FIRST time the lesson is finished, so XP is awarded once (replays
+    don't re-award). Every completion bumps the crown level by 1 up to CROWN_MAX;
+    leveled_up is True when this completion actually raised the crown (i.e. it
+    wasn't already maxed)."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            """SELECT l.completed_at FROM course_lessons l
+            """SELECT l.completed_at, l.crown_level FROM course_lessons l
                JOIN courses c ON c.id = l.course_id
                WHERE l.id=? AND c.user_id=?""",
             (lesson_id, user_id),
         ) as cur:
             row = await cur.fetchone()
         if row is None:
-            return (False, False, 0)
+            return (False, False, 0, False)
         first = row[0] is None
+        old_crown = row[1] or 0
+        crown = min(old_crown + 1, CROWN_MAX)
         await db.execute(
             """UPDATE course_lessons
                SET score        = MAX(COALESCE(score, 0), ?),
                    completed_at = COALESCE(completed_at, datetime('now')),
-                   crown_level  = MIN(crown_level + 1, ?)
+                   crown_level  = ?
                WHERE id=?""",
-            (int(score), CROWN_MAX, lesson_id),
+            (int(score), crown, lesson_id),
         )
-        async with db.execute(
-            "SELECT crown_level FROM course_lessons WHERE id=?", (lesson_id,)
-        ) as cur:
-            crown = (await cur.fetchone())[0]
         await db.commit()
-        return (True, first, crown)
+        return (True, first, crown, crown > old_crown)
 
 
 async def record_concept_results(user_id: int, lang: str, results: list[dict]) -> None:

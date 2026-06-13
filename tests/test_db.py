@@ -388,18 +388,18 @@ async def test_complete_lesson(fresh_db):
     uid = fresh_db
     cid = await db.create_course(uid, "fr", "A1")
     lid = await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s")
-    found, first, crown = await db.complete_lesson(uid, lid, 90)
-    assert found and first and crown == 1        # first completion → crown 1
+    found, first, crown, leveled = await db.complete_lesson(uid, lid, 90)
+    assert found and first and crown == 1 and leveled   # first completion → crown 1
     lesson = await db.get_lesson(uid, lid)
     assert lesson["completed"] is True
     assert lesson["score"] == 90
     # Re-completing is found but no longer "first" (so XP isn't re-awarded); crown bumps.
-    found2, first2, crown2 = await db.complete_lesson(uid, lid, 95)
-    assert found2 and not first2 and crown2 == 2
-    # Crown caps at 3 on repeated replays.
+    found2, first2, crown2, leveled2 = await db.complete_lesson(uid, lid, 95)
+    assert found2 and not first2 and crown2 == 2 and leveled2
+    # Crown caps at 3 on repeated replays; once maxed, leveled_up is False.
     await db.complete_lesson(uid, lid, 95)
-    _, _, crown4 = await db.complete_lesson(uid, lid, 95)
-    assert crown4 == 3
+    _, _, crown4, leveled4 = await db.complete_lesson(uid, lid, 95)
+    assert crown4 == 3 and not leveled4
 
 
 @pytest.mark.asyncio
@@ -432,8 +432,8 @@ async def test_lesson_ownership(fresh_db):
     cid = await db.create_course(admin, "fr", "A1")
     lid = await db.create_lesson(cid, 1, "L1", "obj", [], _CONTENT, "s")
     assert await db.get_lesson(other, lid) is None
-    found, first, crown = await db.complete_lesson(other, lid, 50)
-    assert not found and not first and crown == 0
+    found, first, crown, leveled = await db.complete_lesson(other, lid, 50)
+    assert not found and not first and crown == 0 and not leveled
 
 
 @pytest.mark.asyncio

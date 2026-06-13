@@ -1910,6 +1910,12 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     lesson_id; raises HTTPException(502) on generation failure."""
     course_id = course["id"]
     lang = course["target_lang"]
+    # The planner is a cheap routing decision (pick the next skill), so it ALWAYS
+    # runs on the fast reader model — only the quality-critical AUTHOR uses the
+    # (possibly premium) lesson_model. This keeps each lesson to ONE slow call, not
+    # two: a Pro/Claude planner adds ~15s/lesson and doubles overload exposure, which
+    # made batch generation ("generate 5") time out / 503 after the first lesson.
+    plan_model = access.model_reader
     ctx = await db.get_next_lesson_context(course_id)
 
     # The chapter currently in progress. Tolerate a stale OLD-format plan (with
@@ -1946,11 +1952,11 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             learner_profile=learner_profile, mastery=mastery,
             known_words=known_words, weak_words=weak_words,
             recent_cards=recent_cards, cefr_spread=cefr_spread,
-            api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
+            api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
         )
     except Exception as e:
         logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Lesson planning", lesson_model))
+        raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
     plan_prompt = spec.pop("_raw_prompt", "")
     plan_response = spec.pop("_raw_response", "")
 
@@ -2120,7 +2126,7 @@ _MAX_LESSON_XP = 300   # clamp client-reported XP so the ledger can't be inflate
 
 @app.post("/api/lessons/{lesson_id}/complete")
 async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
-    found, first, crown = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
+    found, first, crown, leveled_up = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
     if not found:
         raise HTTPException(404, "Lesson not found")
     lesson = await db.get_lesson(user["id"], lesson_id) if (req.results or first) else None
@@ -2138,7 +2144,7 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
         "success": True,
         "xp_awarded": awarded,
         "crown_level": crown,
-        "crown_up": first or crown > 0,   # show a crown badge on the results screen
+        "crown_leveled_up": leveled_up,   # this completion raised the crown (vs. already maxed)
         "points_today": await db.get_points_today(user["id"], lang),
         "points_total": await db.get_points_total(user["id"], lang),
         "daily_goal": _DAILY_XP_GOAL,
