@@ -95,6 +95,22 @@
     .drill-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: 0 12px; height: 30px; font-size: 0.78rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
     .drill-btn:hover { color: var(--primary); border-color: var(--primary); }
     .drill-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* Drill sub-session — a self-contained, collapsible panel set apart from the
+       chat. Ended drills collapse to just their header. */
+    .drill-panel { align-self: stretch; border: 1px solid var(--grammar-border, var(--border)); border-radius: 14px; overflow: hidden; background: var(--surface); }
+    .drill-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; background: var(--grammar-soft, var(--primary-soft)); color: var(--grammar-strong, var(--primary)); font-weight: 700; font-size: 0.82rem; user-select: none; }
+    .drill-head-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .drill-head-count { font-weight: 500; opacity: 0.8; }
+    .drill-chev { transition: transform 0.15s; font-size: 0.7rem; }
+    .drill-panel.collapsed .drill-chev { transform: rotate(-90deg); }
+    .drill-panel.collapsed .drill-body { display: none; }
+    .drill-end { background: var(--surface); color: var(--grammar-strong, var(--primary)); border: 1px solid currentColor; border-radius: 999px; padding: 3px 11px; font-size: 0.74rem; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+    .drill-end:hover { background: var(--grammar-strong, var(--primary)); color: var(--on-primary, #fff); }
+    .drill-end:disabled { opacity: 0.5; cursor: default; }
+    .drill-body { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+    .drill-body .bubble { max-width: 92%; }
+
     .mini-speak { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; color: var(--text-muted); flex-shrink: 0; line-height: 1; }
     .mini-speak:hover { color: var(--primary); }
 
@@ -220,6 +236,7 @@
   let currentConv = null;       // conversation id or null (created on first send)
   let pointsTotal = 0;
   let sending = false;
+  let activeDrill = null;       // { id, skill, panel, body } while a drill is in progress
   let rubyDefault = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
@@ -332,7 +349,7 @@
       if (latest && latest.id === conversations[0].id) {
         currentConv = latest.id;
         updateCurrentTitle();
-        renderMessages(latest.messages || []);
+        renderMessages(latest.messages || [], latest.active_drill_id);
       } else {
         openConversation(conversations[0].id);
       }
@@ -438,17 +455,31 @@
     try {
       const conv = await fetch('/api/tutor/conversations/' + id).then(r => r.json());
       if (gen !== _openGen) return;          // user moved on — drop this render
-      renderMessages(conv.messages || []);
+      renderMessages(conv.messages || [], conv.active_drill_id);
     } catch {}
   }
 
-  function renderMessages(messages) {
+  function renderMessages(messages, activeDrillId = null) {
     const thread = document.getElementById('thread');
     thread.innerHTML = '';
+    clearDrillUI();
     const rubyEls = [];
     let lastUser = null;
+    let curDrill = null;   // { id, body }
     messages.forEach(m => {
-      const b = appendMessage(m, false);
+      // Group consecutive messages sharing a drill_id into one collapsible panel.
+      if (m.drill_id) {
+        if (!curDrill || curDrill.id !== m.drill_id) {
+          const active = (m.drill_id === activeDrillId);
+          const { panel, body } = createDrillPanel(m.drill_skill, m.drill_id, active);
+          curDrill = { id: m.drill_id, body };
+          if (active) setDrillActive(m.drill_skill, m.drill_id, panel, body);
+        }
+      } else {
+        curDrill = null;
+      }
+      const target = curDrill ? curDrill.body : null;
+      const b = appendMessage(m, false, target);
       if (m.role === 'user') lastUser = b;
       if (m.role === 'tutor') {
         rubyEls.push(b);
@@ -464,6 +495,7 @@
   function renderWelcome() {
     const thread = document.getElementById('thread');
     thread.innerHTML = '';
+    clearDrillUI();
     const b = document.createElement('div');
     b.className = 'bubble system';
     b.innerHTML = `👋 I'm your ${esc(langName)} tutor. Talk to me in ${esc(langName)} as much as
@@ -520,20 +552,20 @@
     return wrap;
   }
 
-  function appendMessage(m, animate = true) {
-    const thread = document.getElementById('thread');
+  function appendMessage(m, animate = true, target = null) {
+    const parent = target || document.getElementById('thread');
     const b = document.createElement('div');
     if (m.role === 'user') {
       b.className = 'bubble user';
       b.textContent = m.text || '';
-      thread.appendChild(b);
+      parent.appendChild(b);
       scrollThread();
       return b;
     }
     if (m.role === 'system') {
       b.className = 'bubble system';
       b.textContent = m.text || '';
-      thread.appendChild(b);
+      parent.appendChild(b);
       scrollThread();
       return b;
     }
@@ -587,7 +619,7 @@
       b.appendChild(collapsible('💡 New words', items.length, list, animate));
     }
 
-    thread.appendChild(b);
+    parent.appendChild(b);
     scrollThread();
     return b;
   }
@@ -704,11 +736,13 @@
 
     // First message of a fresh chat: clear the welcome bubble, create the conv.
     if (!currentConv) document.getElementById('thread').innerHTML = '';
-    const userBubble = appendMessage({ role: 'user', text });
+    // If a drill is in progress, the message is an answer that lives in the panel.
+    const drillBody = activeDrill ? activeDrill.body : null;
+    const userBubble = appendMessage({ role: 'user', text }, true, drillBody);
     const typing = document.createElement('div');
     typing.className = 'bubble tutor';
     typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
-    document.getElementById('thread').appendChild(typing);
+    (drillBody || document.getElementById('thread')).appendChild(typing);
     scrollThread();
 
     try {
@@ -735,7 +769,7 @@
       typing.remove();
       // Only render into the thread if the user hasn't switched chats meanwhile.
       if (currentConv === convAtSend) {
-        const b = appendMessage(data.message);
+        const b = appendMessage(data.message, true, drillBody);
         const cw = renderCorrections(userBubble, data.message.corrections, true);
         renderRubyAll(cw ? [b, cw] : [b]).then(scrollThread);
         markInDeck(b);
@@ -762,11 +796,61 @@
     }
   }
 
-  // Drill: the tutor offered a generalizable pattern. We ask the server to begin
-  // a drill on it — NO visible "drill me" message; the tutor's drill question is
-  // the next bubble, and the learner just answers it normally.
+  // ── Drill sub-sessions ─────────────────────────────────────────────────────
+  // A drill is a self-contained, collapsible panel. The learner answers in the
+  // normal composer (the server routes answers to drill mode while it's active),
+  // and ends it with the panel's "End drill" button — after which it collapses.
+  function createDrillPanel(skill, drillId, active) {
+    const thread = document.getElementById('thread');
+    const panel = document.createElement('div');
+    panel.className = 'drill-panel' + (active ? '' : ' collapsed');
+    panel.dataset.drillId = drillId;
+    const head = document.createElement('div');
+    head.className = 'drill-head';
+    head.innerHTML = `<span class="drill-head-title">🎯 Drill: ${esc(skill || 'practice')}</span>`;
+    const endBtn = document.createElement('button');
+    endBtn.className = 'drill-end'; endBtn.type = 'button'; endBtn.textContent = 'End drill';
+    endBtn.style.display = active ? '' : 'none';
+    endBtn.onclick = (e) => { e.stopPropagation(); endDrill(); };
+    const chev = document.createElement('span');
+    chev.className = 'drill-chev'; chev.textContent = '▾';
+    head.appendChild(endBtn); head.appendChild(chev);
+    head.onclick = () => panel.classList.toggle('collapsed');
+    const body = document.createElement('div');
+    body.className = 'drill-body';
+    panel.appendChild(head); panel.appendChild(body);
+    thread.appendChild(panel);
+    return { panel, body, endBtn };
+  }
+
+  function setDrillActive(skill, drillId, panel, body) {
+    activeDrill = { id: drillId, skill, panel, body };
+    input.placeholder = 'Type your translation…';
+  }
+
+  function clearDrillUI() {
+    activeDrill = null;
+    input.placeholder = 'Say something…';
+  }
+
+  async function endDrill() {
+    if (!activeDrill || !currentConv) return;
+    const conv = currentConv, panel = activeDrill.panel;
+    const endBtn = panel && panel.querySelector('.drill-end');
+    if (endBtn) endBtn.disabled = true;
+    try { await fetch(`/api/tutor/conversations/${conv}/drill/end`, { method: 'POST' }); } catch {}
+    if (panel) {
+      panel.classList.add('collapsed');
+      if (endBtn) endBtn.style.display = 'none';
+    }
+    clearDrillUI();
+    input.focus();
+  }
+
+  // The tutor offered a generalizable pattern — begin a drill panel. The opening
+  // question is the first bubble inside the panel; the learner just answers it.
   async function startDrill(skill, btn) {
-    if (!skill || !currentConv || sending) return;
+    if (!skill || !currentConv || sending || activeDrill) return;
     sending = true;
     sendBtn.disabled = true;
     if (btn) { btn.disabled = true; btn.textContent = '🎯 …'; }
@@ -792,8 +876,11 @@
       typing.remove();
       if (btn) btn.remove();          // consumed — one drill per offer
       if (currentConv === convAtSend) {
-        const b = appendMessage(data.message);
+        const { panel, body } = createDrillPanel(data.skill || skill, data.drill_id, true);
+        setDrillActive(data.skill || skill, data.drill_id, panel, body);
+        const b = appendMessage(data.message, true, body);
         renderRubyAll([b]).then(scrollThread);
+        input.focus();
       }
     } catch (e) {
       typing.remove();

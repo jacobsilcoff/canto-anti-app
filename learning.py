@@ -1,17 +1,23 @@
-"""Adaptive lesson generation — unit-plan-first, unified micro-lesson authoring.
+"""Adaptive lesson generation — just-in-time planner + unified lesson authoring.
 
-Two levels (IDEAS item 43):
+Two LLM calls per lesson, BOTH adaptive (no frozen unit plan):
 
-  1. generate_unit_plan()  — once per unit. One LLM call drafts a coherent
-     chapter: an ordered list of 6–10 concepts (vocab + grammar, interleaved).
-     Stored on the course as the "active plan"; each micro-lesson consumes 1–2
-     concepts from it in order. This is where COHERENCE lives — the unit is the
-     chapter, the lesson is a micro-step.
+  1. plan_next_lesson()    — once per lesson. One cheap LLM call decides the
+     single best NEXT lesson from live learner state (concept registry, the
+     current chapter, weak skills, known/weak/recently-added deck words + a CEFR
+     spread, learner profile). It returns a `lesson_spec`: a focused skill, how
+     BROAD to teach it (a whole grammar family in one go vs. a narrow exceptions
+     lesson), the items to cover, and whether to continue or open a new chapter.
+     COHERENCE lives in the chapter it carries forward; ADAPTIVITY lives in
+     re-deciding every lesson (so tutor chat / new cards steer what comes next).
 
-  2. author_lesson()       — once per micro-lesson. ONE LLM call authors the
-     WHOLE small lesson together: free-form teach blocks AND the drills, for the
-     1–2 concepts handed to it. Grammar and vocab are NOT segregated — the model
-     sees one palette (block types + drill kinds) and picks what the point needs.
+  2. author_lesson()       — once per lesson. ONE LLM call authors the WHOLE
+     lesson together: free-form teach blocks AND the drills, for the skill +
+     items handed to it. Grammar and vocab are NOT segregated — the model sees
+     one palette (block types + drill kinds) and picks what the point needs.
+
+The model for both calls is provider-pluggable via `llm.call` (Gemini or Claude),
+selected by the caller; the deterministic assembler below is identical regardless.
 
 Design principle — **liberal in what you SHOW, strict in what you GRADE**:
   - Teach blocks are authored freely (prose/table/examples/contrast/note) and
@@ -26,15 +32,15 @@ Memory passed to generation (compact, three tiers):
   Tier 2 — unit summaries   : one line per completed unit
   Tier 3 — recent lessons   : summaries of the last 2–3 lessons (continuity)
 """
-import asyncio
 import json
 import os
 import random
 
 import grammar
+import llm
 import tokenizer
 from grammar_lessons import _clean_block, _conj_cloze, _free_cloze
-from translation import LANG_INFO, DEFAULT_MODEL, _call, _parse_json
+from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
 # prompt. Editing this file is the intended way to steer lesson STYLE implicitly
@@ -115,29 +121,71 @@ def _lang_preamble(info: dict) -> str:
             f"Language-specific notes:\n{info['rules']}\n\n")
 
 
-# ── Unit plan ────────────────────────────────────────────────────────────────
+# ── Next-lesson planner (just-in-time, adaptive) ─────────────────────────────
 
-def _build_unit_plan_prompt(
-    target_lang: str, level_target: str, unit_num: int,
-    concept_registry: list[dict], unit_summaries: list[dict],
+_PLAN_KNOWN_SAMPLE = 60   # known words shown to the planner (strongest first)
+
+
+def _chapter_block(chapter: dict | None) -> str:
+    """The chapter currently in progress, so the planner can continue it (or
+    decide it's done and open a new one)."""
+    if not chapter or not (chapter.get("title") or "").strip():
+        return ("CURRENT CHAPTER: none in progress — you MUST open a new chapter "
+                "(set chapter_action to \"new\" and provide `chapter`).\n")
+    return (
+        f"CURRENT CHAPTER (in progress): \"{chapter.get('title','')}\"\n"
+        f"  objective: {chapter.get('objective','')}\n"
+        f"  so far: {chapter.get('summary','')}\n"
+        f"Continue this chapter (chapter_action \"continue\") until its objective is "
+        f"met, THEN open a new one (\"new\"). Cutting a chapter short is fine if the "
+        f"learner clearly needs something else next.\n"
+    )
+
+
+def _build_plan_prompt(
+    target_lang: str, level_target: str,
+    concept_registry: list[dict], recent_summaries: list[dict],
+    current_chapter: dict | None = None,
     learner_profile: str = "", mastery: list[dict] | None = None,
-    known_words: list[dict] | None = None,
+    known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
+    recent_cards: list[dict] | None = None, cefr_spread: str = "",
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
 
     profile_section = ""
-    if learner_profile.strip():
+    if (learner_profile or "").strip():
         profile_section = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n"
+
+    level_section = ""
+    if (cefr_spread or "").strip():
+        level_section = (
+            f"── VOCAB LEVEL (CEFR spread of known words) ──\n{cefr_spread.strip()}\n\n"
+        )
 
     deck_section = ""
     if known_words:
         deck_section = (
-            f"── FLASHCARD VOCAB THE LEARNER ALREADY KNOWS (from their SRS deck) ──\n"
-            f"{_word_list_block(known_words)}\n"
-            f"Do NOT propose these as new vocab concepts — the learner knows them. "
-            f"You MAY (and should) rely on them when sequencing grammar: a grammar "
-            f"point is easier to teach through familiar words.\n\n"
+            f"── FLASHCARD VOCAB THE LEARNER ALREADY KNOWS (strongest first) ──\n"
+            f"{_word_list_block(known_words[:_PLAN_KNOWN_SAMPLE])}\n"
+            f"Do NOT propose these as NEW vocab — the learner knows them. Lean on them "
+            f"to teach grammar (a pattern is easier through familiar words).\n\n"
+        )
+
+    recent_section = ""
+    if recent_cards:
+        recent_section = (
+            f"── JUST ADDED TO THEIR DECK (tutor chat / flashcards, newest first) ──\n"
+            f"{_word_list_block(recent_cards)}\n"
+            f"The learner is actively picking these up elsewhere in the app. If a few "
+            f"cohere into a theme or a grammar point, BUILD the next lesson around them "
+            f"— this is how the course adapts to what they're learning right now.\n\n"
+        )
+
+    weak_section = ""
+    if weak_words:
+        weak_section = (
+            f"── STRUGGLING FLASHCARD WORDS ──\n{_word_list_block(weak_words)}\n\n"
         )
 
     mastery_section = ""
@@ -147,89 +195,124 @@ def _build_unit_plan_prompt(
         if weak:
             weak_str = ", ".join(m["concept_key"] for m in weak[:10])
             mastery_section = (
-                f"── CONCEPTS NEEDING REINFORCEMENT (seen ≥3×, <70% accuracy) ──\n"
+                f"── SKILLS NEEDING REINFORCEMENT (seen ≥3×, <70% accuracy) ──\n"
                 f"{weak_str}\n"
-                f"If the theme fits naturally, weave in extra practice or revisit these.\n\n"
+                f"A `focus:\"review\"` lesson on one of these is a good choice when due.\n\n"
             )
 
     return (
-        f"You are an expert {name} curriculum designer building a Duolingo-style "
-        f"course for an English speaker (proficiency goal {level_target}).\n\n"
+        f"You are an expert {name} teacher planning the SINGLE next lesson for an "
+        f"English speaker (proficiency goal {level_target}). One lesson, chosen now "
+        f"from the learner's live state — not a fixed syllabus.\n\n"
         f"{_lang_preamble(info)}"
         f"{profile_section}"
+        f"{level_section}"
         f"{mastery_section}"
         f"{deck_section}"
+        f"{recent_section}"
+        f"{weak_section}"
         f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
-        f"{_units_block(unit_summaries)}\n\n"
+        f"{_recent_block(recent_summaries)}"
+        f"{_chapter_block(current_chapter)}\n"
         f"── YOUR TASK ──\n"
-        f"Design Unit {unit_num}: ONE coherent chapter — a communicative theme "
-        f"(greetings, ordering food, family) or a focused grammar area (present tense, "
-        f"articles & gender) — never a grab-bag.\n"
-        f"List 6–10 concepts in TEACHING ORDER (foundational first; each builds on the "
-        f"previous). Mix vocab and grammar as needed. Micro-lessons will teach 1–2 "
-        f"concepts each in sequence, so order matters.\n"
-        f"• vocab: label = everyday {name} word/phrase in NATIVE SCRIPT, citation form. "
-        f"gloss = English meaning.\n"
-        f"• grammar: label = concise pattern name (English ok). gloss = one-line English rule.\n"
-        f"• key = stable snake_case identifier (e.g. greeting_hello, present_tense_er). "
-        f"Do NOT reuse a key already taught.\n\n"
+        f"Pick the best next lesson. A lesson is a SATISFYING CHUNK, not one word:\n"
+        f"• GRAMMAR: when a pattern has a clean regular core, teach the WHOLE core in "
+        f"one lesson (e.g. all regular present-tense -er verbs at once), then schedule "
+        f"the irregular / spelling-change cases as their OWN later lesson with "
+        f"focus=\"exceptions\". List the specific forms/verbs to cover in target_items.\n"
+        f"• VOCAB: group a themed SET of 4–8 related words into one lesson (not one at a "
+        f"time). Put each word in target_items.\n"
+        f"• scope=\"broad\" for a full family/set, \"narrow\" for a focused exceptions or "
+        f"review lesson.\n"
+        f"• Never re-teach a concept key already taught; an exceptions/review lesson must "
+        f"use a NEW key (e.g. present_er_spelling).\n"
+        f"• key = stable snake_case. vocab labels/target_items in NATIVE {name} SCRIPT, "
+        f"citation form; glosses in English.\n\n"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
-        '  "title": "<short English chapter title>",\n'
-        '  "objective": "<what the learner can do after this unit, one sentence>",\n'
-        '  "summary": "<one-sentence description for future-unit context>",\n'
-        '  "concepts": [\n'
-        f'    {{"kind":"vocab","key":"<snake_case>","label":"<{name} native script>","gloss":"<English>"}},\n'
-        '    {"kind":"grammar","key":"<snake_case>","label":"<pattern name>","gloss":"<one-line rule>"}\n'
-        '  ]\n'
-        '}'
+        '  "chapter_action": "continue" | "new",\n'
+        '  "chapter": {"title":"<short English chapter title>","objective":"<one sentence>","summary":"<one sentence>"},\n'
+        '  "skill": {"kind":"grammar"|"vocab","key":"<snake_case>","label":"<pattern name OR native theme word>","gloss":"<one-line English>"},\n'
+        '  "scope": "broad" | "narrow",\n'
+        '  "focus": "new" | "exceptions" | "review",\n'
+        f'  "target_items": [{{"label":"<{name} native script>","gloss":"<English>"}}, ...],\n'
+        '  "rationale": "<one sentence: why THIS lesson next>"\n'
+        '}\n'
+        "`chapter` is required only when chapter_action is \"new\" (else omit or null).\n"
+        "For a GRAMMAR skill, target_items are the forms/verbs to cover; for VOCAB they "
+        "are the words to teach."
     )
 
 
-async def generate_unit_plan(
+def _norm_items(items) -> list[dict]:
+    out = []
+    for it in (items or []):
+        label = (it.get("label") or "").strip()
+        if not label:
+            continue
+        out.append({"label": label, "gloss": (it.get("gloss") or "").strip()})
+    return out
+
+
+async def plan_next_lesson(
     target_lang: str,
     level_target: str = "A1",
-    unit_num: int = 1,
-    concept_registry: list[dict] | None = None,
-    unit_summaries: list[dict] | None = None,
     *,
-    api_key: str,
-    model: str = DEFAULT_MODEL,
+    concept_registry: list[dict] | None = None,
+    recent_summaries: list[dict] | None = None,
+    current_chapter: dict | None = None,
     learner_profile: str = "",
     mastery: list[dict] | None = None,
     known_words: list[dict] | None = None,
+    weak_words: list[dict] | None = None,
+    recent_cards: list[dict] | None = None,
+    cefr_spread: str = "",
+    api_key: str,
+    anthropic_key: str | None = None,
+    model: str = DEFAULT_MODEL,
 ) -> dict:
-    """One LLM call: draft a unit's ordered concept outline. Returns
-    {title, objective, summary, concepts:[...], _raw_prompt, _raw_response}."""
+    """One LLM call: decide the single next lesson from live learner state.
+    Returns a normalized lesson_spec:
+      {chapter_action, chapter, skill, scope, focus, target_items, rationale,
+       _raw_prompt, _raw_response}."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-    prompt = _build_unit_plan_prompt(
-        target_lang, level_target, unit_num,
-        concept_registry or [], unit_summaries or [],
+    prompt = _build_plan_prompt(
+        target_lang, level_target,
+        concept_registry or [], recent_summaries or [], current_chapter,
         learner_profile=learner_profile, mastery=mastery,
-        known_words=known_words,
+        known_words=known_words, weak_words=weak_words,
+        recent_cards=recent_cards, cefr_spread=cefr_spread,
     )
-    raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+    raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
 
-    concepts = []
-    for c in (parsed.get("concepts") or []):
-        key = (c.get("key") or "").strip()
-        if not key:
-            continue
-        concepts.append({
-            "kind":  (c.get("kind") or "vocab").strip(),
-            "key":   key,
-            "label": (c.get("label") or "").strip(),
-            "gloss": (c.get("gloss") or "").strip(),
-        })
+    skill_in = parsed.get("skill") or {}
+    skill = {
+        "kind":  (skill_in.get("kind") or "vocab").strip(),
+        "key":   (skill_in.get("key") or "").strip(),
+        "label": (skill_in.get("label") or "").strip(),
+        "gloss": (skill_in.get("gloss") or "").strip(),
+    }
+    action = (parsed.get("chapter_action") or "").strip().lower()
+    if action not in ("continue", "new"):
+        action = "new" if not current_chapter else "continue"
+    ch_in = parsed.get("chapter") or {}
+    chapter = {
+        "title":     (ch_in.get("title") or "").strip(),
+        "objective": (ch_in.get("objective") or "").strip(),
+        "summary":   (ch_in.get("summary") or "").strip(),
+    }
     return {
-        "title":     (parsed.get("title") or "").strip(),
-        "objective": (parsed.get("objective") or "").strip(),
-        "summary":   (parsed.get("summary") or "").strip(),
-        "concepts":  concepts,
-        "_raw_prompt":   prompt,
-        "_raw_response": raw or "",
+        "chapter_action": action,
+        "chapter":        chapter,
+        "skill":          skill,
+        "scope":          (parsed.get("scope") or "broad").strip().lower(),
+        "focus":          (parsed.get("focus") or "new").strip().lower(),
+        "target_items":   _norm_items(parsed.get("target_items")),
+        "rationale":      (parsed.get("rationale") or "").strip(),
+        "_raw_prompt":    prompt,
+        "_raw_response":  raw or "",
     }
 
 
@@ -271,6 +354,14 @@ def _concepts_block(concepts: list[dict]) -> str:
     for c in concepts:
         kind = c.get("kind") or "vocab"
         lines.append(f'• [{kind}] {c.get("key","")} — {c.get("label","")} = {c.get("gloss","")}')
+        items = c.get("items") or []
+        if items:
+            covered = ", ".join(
+                f'{i.get("label","")}={i.get("gloss","")}' if i.get("gloss") else i.get("label", "")
+                for i in items if i.get("label")
+            )
+            if covered:
+                lines.append(f'    cover the WHOLE set in this lesson: {covered}')
     return "\n".join(lines)
 
 
@@ -304,10 +395,39 @@ def _review_block(review: list[dict]) -> str:
     )
 
 
+def _brief_block(brief: dict | None) -> str:
+    """A one-line steer from the planner: the lesson's title/objective + how broad
+    to go (a whole family vs. a focused exceptions/review lesson)."""
+    if not brief:
+        return ""
+    focus = (brief.get("focus") or "new").strip()
+    scope = (brief.get("scope") or "broad").strip()
+    title = (brief.get("title") or "").strip()
+    objective = (brief.get("objective") or "").strip()
+    lines = ["── LESSON BRIEF (from the planner) ──"]
+    if title:
+        lines.append(f"Working title: {title}")
+    if objective:
+        lines.append(f"Objective: {objective}")
+    lines.append(f"Scope: {scope}  ·  Focus: {focus}")
+    if focus == "exceptions":
+        lines.append("This is an EXCEPTIONS lesson: the regular core is already taught — "
+                     "drill ONLY the irregular / spelling-change cases and contrast them "
+                     "with the regular pattern.")
+    elif focus == "review":
+        lines.append("This is a REVIEW lesson: consolidate, mix contexts, lighter on new "
+                     "teaching, heavier on varied drills.")
+    elif scope == "broad":
+        lines.append("This is a BROAD lesson: teach the WHOLE set/family together; drills "
+                     "should span all the items, not just one.")
+    return "\n".join(lines) + "\n\n"
+
+
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
     taught: list[dict] | None = None, review: list[dict] | None = None,
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
+    brief: dict | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
@@ -336,11 +456,12 @@ def _build_lesson_prompt(
         f"You are an expert {name} teacher. Author ONE focused micro-lesson "
         f"(teach blocks + drills together) for an English speaker.\n\n"
         f"{_lang_preamble(info)}"
+        f"{_brief_block(brief)}"
         f"{_recent_block(recent_summaries)}"
         f"{taught_block}"
         f"{deck_block}"
         f"{weak_block}"
-        f"── TEACH EXACTLY THESE {len(concepts)} CONCEPT(S) ──\n{_concepts_block(concepts)}\n\n"
+        f"── TEACH EXACTLY THIS LESSON ({len(concepts)} concept(s); cover every listed item) ──\n{_concepts_block(concepts)}\n\n"
         f"── TEACH BLOCKS ──\n"
         f"Write a TEXTBOOK PAGE for these concepts. The learner should finish the teach "
         f"section with a thorough understanding — not just surface familiarity.\n"
@@ -647,14 +768,16 @@ async def author_lesson(
     recent_summaries: list[dict] | None = None,
     *,
     api_key: str,
+    anthropic_key: str | None = None,
     model: str = DEFAULT_MODEL,
     taught: list[dict] | None = None,
     review: list[dict] | None = None,
     known_words: list[dict] | None = None,
     weak_words: list[dict] | None = None,
+    brief: dict | None = None,
 ) -> dict:
-    """One LLM call: author teach blocks + drills for these 1–2 concepts together,
-    then validate/assemble. Returns lesson metadata + content + raw strings.
+    """One LLM call: author teach blocks + drills for the given skill/concepts
+    together, then validate/assemble. Returns lesson metadata + content + raw strings.
 
     `taught` — concepts the learner already knows (so the model doesn't re-teach
                them and the reorder glossary marks only genuinely-new helper words).
@@ -663,12 +786,14 @@ async def author_lesson(
                re-registered — the caller persists only `concepts`.
     `known_words` / `weak_words` — the learner's SRS deck (strong words to build
                with, struggling words to weave in for extra practice).
+    `brief` — the planner's steer (title/objective/scope/focus) so a broad lesson
+               teaches a whole family and an exceptions/review lesson behaves right.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review,
-                                  known_words=known_words, weak_words=weak_words)
-    raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+                                  known_words=known_words, weak_words=weak_words, brief=brief)
+    raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
 
     content = assemble_lesson(target_lang, concepts + list(review or []), parsed)

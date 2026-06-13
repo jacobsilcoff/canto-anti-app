@@ -311,12 +311,13 @@ async def init():
         # the structured JSON payload (reply + corrections + new_items + points).
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tutor_conversations (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id    INTEGER NOT NULL,
-                lang       TEXT    NOT NULL,
-                title      TEXT    NOT NULL DEFAULT '',
-                created_at TEXT    DEFAULT (datetime('now')),
-                updated_at TEXT    DEFAULT (datetime('now'))
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL,
+                lang            TEXT    NOT NULL,
+                title           TEXT    NOT NULL DEFAULT '',
+                active_drill_id INTEGER,
+                created_at      TEXT    DEFAULT (datetime('now')),
+                updated_at      TEXT    DEFAULT (datetime('now'))
             )
         """)
         await db.execute("""
@@ -325,6 +326,8 @@ async def init():
                 conversation_id INTEGER NOT NULL,
                 role            TEXT    NOT NULL,
                 content         TEXT    NOT NULL,
+                drill_id        INTEGER,
+                drill_skill     TEXT,
                 created_at      TEXT    DEFAULT (datetime('now'))
             )
         """)
@@ -1916,17 +1919,21 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
         return lesson
 
 
-async def complete_lesson(user_id: int, lesson_id: int, score: int) -> bool:
-    """Record (or improve) lesson completion + score. Ownership-checked."""
+async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool]:
+    """Record (or improve) lesson completion + score. Ownership-checked.
+    Returns (found, first_completion) — first_completion is True only the FIRST
+    time the lesson is finished, so XP is awarded once (replays don't re-award)."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            """SELECT l.id FROM course_lessons l
+            """SELECT l.completed_at FROM course_lessons l
                JOIN courses c ON c.id = l.course_id
                WHERE l.id=? AND c.user_id=?""",
             (lesson_id, user_id),
         ) as cur:
-            if not await cur.fetchone():
-                return False
+            row = await cur.fetchone()
+        if row is None:
+            return (False, False)
+        first = row[0] is None
         await db.execute(
             """UPDATE course_lessons
                SET score        = MAX(COALESCE(score, 0), ?),
@@ -1935,7 +1942,7 @@ async def complete_lesson(user_id: int, lesson_id: int, score: int) -> bool:
             (int(score), lesson_id),
         )
         await db.commit()
-        return True
+        return (True, first)
 
 
 async def record_concept_results(user_id: int, lang: str, results: list[dict]) -> None:
@@ -2187,6 +2194,25 @@ async def get_weak_cards(user_id: int, target_lang: str, limit: int = 12) -> lis
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_recent_cards(user_id: int, target_lang: str, limit: int = 15) -> list[dict]:
+    """The most recently ADDED deck words for a language, newest first — regardless
+    of SRS graduation. This is the cross-app adaptivity signal for the lesson
+    planner: words the learner just picked up via the tutor chat or flashcards
+    (which `get_known_words` won't surface until they've graduated) so the next
+    lesson can build on them. Returns lean rows: [{target_text, gloss}]."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT target_text, source_text AS gloss
+               FROM cards
+               WHERE user_id = ? AND target_lang = ? AND suspended = 0
+               ORDER BY id DESC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_cefr_distribution(user_id: int) -> dict:
     """Return counts of cards at each CEFR level plus an unlabelled count."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -2342,11 +2368,12 @@ async def list_tutor_conversations(user_id: int, lang: str, limit: int = 30) -> 
 
 
 async def get_tutor_conversation(user_id: int, conv_id: int) -> dict | None:
-    """Ownership-checked conversation row, or None."""
+    """Ownership-checked conversation row, or None. `active_drill_id` is non-NULL
+    while a drill sub-session is in progress (else NULL)."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, lang, title FROM tutor_conversations WHERE id=? AND user_id=?",
+            "SELECT id, lang, title, active_drill_id FROM tutor_conversations WHERE id=? AND user_id=?",
             (conv_id, user_id),
         ) as cur:
             row = await cur.fetchone()
@@ -2368,11 +2395,13 @@ async def delete_tutor_conversation(user_id: int, conv_id: int) -> None:
 
 
 async def get_tutor_messages(user_id: int, conv_id: int, limit: int = 200) -> list[dict]:
-    """Messages in chronological order (ownership-checked via the join)."""
+    """Messages in chronological order (ownership-checked via the join).
+    `drill_id` is non-NULL for messages that belong to a drill sub-session
+    (grouped + collapsible client-side); `drill_skill` labels that group."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT m.id, m.role, m.content, m.created_at
+            """SELECT m.id, m.role, m.content, m.drill_id, m.drill_skill, m.created_at
                FROM tutor_messages m
                JOIN tutor_conversations c ON c.id = m.conversation_id
                WHERE m.conversation_id=? AND c.user_id=?
@@ -2382,9 +2411,11 @@ async def get_tutor_messages(user_id: int, conv_id: int, limit: int = 200) -> li
             return [dict(r) for r in await cur.fetchall()]
 
 
-async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str) -> int | None:
+async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str,
+                            drill_id: int | None = None, drill_skill: str | None = None) -> int | None:
     """Append a message (ownership-checked). The first user message becomes the
-    conversation title. Returns the message id, or None if not the owner."""
+    conversation title. Pass `drill_id`/`drill_skill` to tag the message as part
+    of a drill sub-session. Returns the message id, or None if not the owner."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT title FROM tutor_conversations WHERE id=? AND user_id=?",
@@ -2394,11 +2425,13 @@ async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str)
         if not row:
             return None
         cur = await db.execute(
-            "INSERT INTO tutor_messages (conversation_id, role, content) VALUES (?, ?, ?)",
-            (conv_id, role, content),
+            "INSERT INTO tutor_messages (conversation_id, role, content, drill_id, drill_skill) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (conv_id, role, content, drill_id, drill_skill),
         )
         msg_id = cur.lastrowid
-        if role == "user" and not (row[0] or "").strip():
+        # Don't let a drill's opening tutor message become the conversation title.
+        if role == "user" and not (row[0] or "").strip() and drill_id is None:
             await db.execute(
                 "UPDATE tutor_conversations SET title=? WHERE id=?",
                 (content[:60], conv_id),
@@ -2409,6 +2442,29 @@ async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str)
         )
         await db.commit()
         return msg_id
+
+
+async def set_tutor_message_drill(user_id: int, msg_id: int, drill_id: int, drill_skill: str) -> None:
+    """Tag an already-inserted message as a drill turn (used for the opener, whose
+    own id becomes the drill group id)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE tutor_messages SET drill_id=?, drill_skill=?
+               WHERE id=? AND conversation_id IN
+                 (SELECT id FROM tutor_conversations WHERE user_id=?)""",
+            (drill_id, drill_skill, msg_id, user_id),
+        )
+        await db.commit()
+
+
+async def set_active_drill(user_id: int, conv_id: int, drill_id: int | None) -> None:
+    """Set (start) or clear (end) the conversation's active drill sub-session."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE tutor_conversations SET active_drill_id=? WHERE id=? AND user_id=?",
+            (drill_id, conv_id, user_id),
+        )
+        await db.commit()
 
 
 # ── Points ledger (light gamification) ──────────────────────────────────────────
@@ -2429,6 +2485,18 @@ async def get_points_total(user_id: int, lang: str) -> int:
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger WHERE user_id=? AND lang=?",
             (user_id, lang),
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+async def get_points_today(user_id: int, lang: str) -> int:
+    """XP earned today (all languages) — drives the daily-goal ring. Uses local
+    time so the goal resets at the learner's midnight, matching the streak."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
+            "WHERE user_id=? AND date(created_at, 'localtime') = date('now', 'localtime')",
+            (user_id,),
         ) as cur:
             return (await cur.fetchone())[0]
 

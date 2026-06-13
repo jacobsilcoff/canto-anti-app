@@ -337,6 +337,13 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Lesson model (A/B)</div>
+        <div class="settings-desc">Which model runs the planner + author. Overrides the toggle above. Claude options need ANTHROPIC_API_KEY on the server.</div>
+      </div>
+      <select id="settings-lesson-model" class="settings-select" onchange="saveLessonModel()"></select>
+    </div>
   </div>
 
   <div class="settings-section" id="admin-create-section" style="display:none">
@@ -745,7 +752,13 @@
     document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
     if (settings.lesson_premium_model) {
       document.getElementById('lesson-premium-desc').textContent =
-        `Use ${settings.lesson_premium_model} for unit planning + lesson authoring (slower, costs more)`;
+        `Use ${settings.lesson_premium_model} for the planner + lesson authoring (slower, costs more)`;
+    }
+    const lmSel = document.getElementById('settings-lesson-model');
+    if (lmSel && Array.isArray(settings.lesson_model_options)) {
+      lmSel.innerHTML = '<option value="">Default (follow toggle above)</option>' +
+        settings.lesson_model_options.map(m => `<option value="${m}">${m}</option>`).join('');
+      lmSel.value = settings.lesson_model || '';
     }
     document.getElementById('settings-learner-profile').value = settings.learner_profile || '';
 
@@ -917,6 +930,23 @@
       showToast('Lesson model preference saved.');
     } catch {
       document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveLessonModel() {
+    const val = document.getElementById('settings-lesson-model').value;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_model: val }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_model = val;
+      showToast(val ? `Lessons will use ${val}.` : 'Lesson model reset to default.');
+    } catch {
+      document.getElementById('settings-lesson-model').value = settings.lesson_model || '';
       showToast('Failed to save setting.');
     }
   }

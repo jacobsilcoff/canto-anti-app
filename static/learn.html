@@ -96,7 +96,7 @@
     .lesson.clickable:hover { border-color: var(--primary); }
 
     /* ── Lesson player ── */
-    .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
     .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
     .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
     .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
@@ -217,9 +217,47 @@
     .cd-err { color: var(--danger-strong); font-size: 0.9rem; }
     .cd-err button { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
 
+    /* ── Combo meter (in-lesson) ── */
+    .combo-chip { display: none; align-items: center; gap: 4px; flex-shrink: 0;
+      font-weight: 800; font-size: 0.9rem; color: var(--warn-strong, #b8530b);
+      background: var(--warn-soft, #fff1e0); border: 1px solid var(--warn-border, #f4c98a);
+      border-radius: 999px; padding: 3px 10px; line-height: 1; white-space: nowrap; }
+    .combo-chip.on { display: inline-flex; }
+    .combo-chip .combo-flame { font-size: 0.95rem; }
+    @keyframes comboPulse { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+    .combo-chip.bump { animation: comboPulse .32s ease; }
+    /* floating "+N XP" that drifts up from the feedback line on a correct answer */
+    .xp-float { position: absolute; right: 14px; font-weight: 800; font-size: 0.95rem;
+      color: var(--good-strong, var(--good)); pointer-events: none; z-index: 50; }
+    @keyframes xpFloat { 0% { opacity: 0; transform: translateY(8px); } 20% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-26px); } }
+    .xp-float.go { animation: xpFloat 1s ease forwards; }
+
     /* results */
     .results-emoji { font-size: 3rem; }
     .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
+    .results-xp { display: inline-flex; align-items: baseline; gap: 6px; margin: 2px 0 4px;
+      font-weight: 800; font-size: 1.5rem; color: var(--warn-strong, #b8530b); }
+    .results-xp .xp-unit { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
+    .results-badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 8px 0 2px; }
+    .results-badge { font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 4px 12px;
+      background: var(--warn-soft, #fff1e0); color: var(--warn-strong, #b8530b);
+      border: 1px solid var(--warn-border, #f4c98a); }
+    .results-badge.perfect { background: var(--good-soft, #e7f7ec); color: var(--good-strong, #1d7a3a);
+      border-color: var(--good, #2bb24c); }
+
+    /* ── Daily-goal XP ring (course header) ── */
+    .daily-ring { display: inline-flex; align-items: center; gap: 8px; }
+    .daily-ring .dr-ringwrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .daily-ring svg { width: 46px; height: 46px; flex-shrink: 0; transform: rotate(-90deg); }
+    .daily-ring .dr-track { fill: none; stroke: var(--border); stroke-width: 5; }
+    .daily-ring .dr-arc { fill: none; stroke: var(--warn-accent, #f0962a); stroke-width: 5;
+      stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+    .daily-ring.met .dr-arc { stroke: var(--good, #2bb24c); }
+    .daily-ring .dr-num { position: absolute; font-size: 0.78rem; font-weight: 800; color: var(--text); }
+    .daily-ring .dr-label { font-size: 0.74rem; color: var(--text-muted); line-height: 1.25; max-width: 78px; }
+    .daily-ring .dr-label b { color: var(--text); font-weight: 700; }
+    @media (max-width: 520px) { .daily-ring .dr-label { display: none; } }
     /* "New words → deck" panel on the results screen */
     .rv-panel { max-width: 420px; margin: 20px auto 4px; text-align: left; }
     .rv-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
@@ -322,6 +360,7 @@
         <div class="course-sub" id="course-sub"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
         <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
@@ -367,6 +406,7 @@
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
       <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
+      <div class="combo-chip" id="combo-chip"><span class="combo-flame">🔥</span><span id="combo-n"></span></div>
     </div>
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
@@ -379,6 +419,8 @@
   <div id="state-results" class="learn-center" style="display:none">
     <div class="results-emoji" id="results-emoji">🎉</div>
     <div class="results-score" id="results-score"></div>
+    <div class="results-xp" id="results-xp" style="display:none"><span id="results-xp-num">0</span><span class="xp-unit">XP</span></div>
+    <div class="results-badges" id="results-badges"></div>
     <p id="results-msg">Lesson complete!</p>
     <div id="results-vocab"></div>
     <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
@@ -439,19 +481,45 @@
     loadStreak();
   }
 
+  let _streakInfo = null;
   async function loadStreak() {
     try {
-      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const info = await fetch('/api/streak').then(r => r.json());
+      _streakInfo = info;
       const parts = [];
-      if (streak > 0) parts.push(`🔥 ${streak}`);
-      if (points > 0) parts.push(`⭐ ${points}`);
+      if (info.streak > 0) parts.push(`🔥 ${info.streak}`);
+      if (info.points > 0) parts.push(`⭐ ${info.points}`);
       if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
           el.textContent = parts.join(' · ');
           el.style.display = '';
         });
       }
+      renderDailyRing();
     } catch {}
+  }
+
+  // Daily-goal XP ring on the course header (today's XP vs the daily goal).
+  function renderDailyRing() {
+    const el = document.getElementById('daily-ring');
+    if (!el || !_streakInfo) return;
+    const today = _streakInfo.points_today || 0;
+    const goal = _streakInfo.daily_goal || 50;
+    const frac = Math.max(0, Math.min(1, today / goal));
+    const R = 18, C = 2 * Math.PI * R;
+    const met = today >= goal;
+    el.classList.toggle('met', met);
+    el.innerHTML = `
+      <div class="dr-ringwrap">
+        <svg viewBox="0 0 46 46" aria-hidden="true">
+          <circle class="dr-track" cx="23" cy="23" r="${R}"></circle>
+          <circle class="dr-arc" cx="23" cy="23" r="${R}"
+            stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - frac)).toFixed(1)}"></circle>
+        </svg>
+        <span class="dr-num">${met ? '✓' : today}</span>
+      </div>
+      <span class="dr-label">${met ? '<b>Goal met!</b>' : `<b>${today}</b> / ${goal} XP today`}</span>`;
+    el.style.display = '';
   }
 
   document.getElementById('level-row').addEventListener('click', e => {
@@ -638,6 +706,7 @@
 
   function renderCourse(course) {
     currentCourse = course;
+    renderDailyRing();   // show the daily-XP ring if streak data is already loaded
     document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
     document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
     document.getElementById('state-course').dataset.courseId = course.id;
@@ -1190,6 +1259,33 @@
     const pct = player ? Math.min(100, Math.round(player.answered / player.total * 100)) : 0;
     document.getElementById('player-bar-fill').style.width = pct + '%';
   }
+
+  // ── Gamification: combo meter + XP ──
+  const XP_BASE = 10;
+  // base + escalating combo bonus (capped): combo 1→+2, 2→+4 … 5+→+10.
+  function comboXp(combo) { return XP_BASE + Math.min(combo, 5) * 2; }
+
+  function updateComboChip() {
+    const chip = document.getElementById('combo-chip');
+    if (!chip) return;
+    if (!player || player.combo < 2) { chip.classList.remove('on'); return; }
+    document.getElementById('combo-n').textContent = '×' + player.combo;
+    chip.classList.add('on');
+  }
+
+  function bumpCombo(gained) {
+    updateComboChip();
+    const chip = document.getElementById('combo-chip');
+    if (chip && player.combo >= 2) { chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); }
+    const top = document.querySelector('#state-player .player-top');
+    if (top) {
+      const f = document.createElement('div');
+      f.className = 'xp-float'; f.textContent = '+' + gained;
+      top.appendChild(f);
+      void f.offsetWidth; f.classList.add('go');
+      setTimeout(() => f.remove(), 1050);
+    }
+  }
   function updateAction() {
     if (!player || player.graded) return;
     document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
@@ -1218,6 +1314,7 @@
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
         segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0,   // gamification: in-lesson combo + earned XP
         controller: null, graded: false,
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
         vocabGlossary: content.vocab_glossary || {},
@@ -1611,6 +1708,7 @@
     document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
+    updateComboChip();
     const action = document.getElementById('player-action');
     // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
     // hide the standard Check/Continue button and let it advance via onDone.
@@ -1644,11 +1742,20 @@
       player.controller.lock(correct);
       player.graded = true;
       if (correct) {
-        if (!ex._review) player.firstPassCorrect++;
+        if (!ex._review) {
+          player.firstPassCorrect++;
+          player.combo++;
+          player.maxCombo = Math.max(player.maxCombo, player.combo);
+          const gained = comboXp(player.combo);
+          player.xp += gained;
+          bumpCombo(gained);
+        }
       } else if (ex._review) {
         player.queue.push({ ...ex });          // retry this mistake again later
       } else {
         player.mistakes.push(ex);              // review it at the end of the lesson
+        player.combo = 0;                      // a first-pass miss breaks the combo
+        updateComboChip();
       }
       // Track first-pass outcomes per concept for the mastery ledger.
       if (!ex._review && ex.concept_key) {
@@ -1694,26 +1801,51 @@
   async function finishLesson() {
     const total = player.total;
     const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
+    const perfect = total > 0 && player.firstPassCorrect === total;
+    const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
+    document.getElementById('combo-chip').classList.remove('on');
     try {
       const results = Object.entries(player.conceptResults).map(([k, v]) => ({
         concept_key: k, correct: v.correct, total: v.total,
       }));
       await fetch('/api/lessons/' + player.lessonId + '/complete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, results }),
+        body: JSON.stringify({ score, results, xp: xpEarned }),
       });
     } catch {}
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
-    emoji.textContent = score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪');
+    emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
     document.getElementById('results-msg').textContent =
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
+    renderResultsXp(xpEarned, perfect, player.maxCombo);
     show('results');
     renderResultsVocab();   // async fill of the "New words → deck" panel
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
     sfx.complete();
     if (score >= 60) confetti();
+    if (perfect) setTimeout(confetti, 350);   // double burst for a flawless run
     try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+    loadStreak();   // refresh the ⭐ header total + daily-goal ring with the new XP
+  }
+
+  const PERFECT_BONUS = 25;
+  function renderResultsXp(xp, perfect, maxCombo) {
+    const box = document.getElementById('results-xp');
+    const num = document.getElementById('results-xp-num');
+    box.style.display = xp > 0 ? '' : 'none';
+    if (xp > 0) {
+      const dur = 700, start = performance.now();
+      (function tick(t) {
+        const p = Math.min(1, (t - start) / dur);
+        num.textContent = Math.round(xp * p);
+        if (p < 1) requestAnimationFrame(tick); else num.textContent = xp;
+      })(start);
+    }
+    const badges = document.getElementById('results-badges');
+    badges.innerHTML = '';
+    if (perfect) badges.innerHTML += `<span class="results-badge perfect">★ Perfect lesson +${PERFECT_BONUS}</span>`;
+    if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">🔥 Best combo ×${maxCombo}</span>`;
   }
 
   // ── Results screen: add this lesson's new vocab to the SRS deck ────────────

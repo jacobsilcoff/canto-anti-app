@@ -388,10 +388,14 @@ async def test_complete_lesson(fresh_db):
     uid = fresh_db
     cid = await db.create_course(uid, "fr", "A1")
     lid = await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s")
-    assert await db.complete_lesson(uid, lid, 90)
+    found, first = await db.complete_lesson(uid, lid, 90)
+    assert found and first                       # first completion
     lesson = await db.get_lesson(uid, lid)
     assert lesson["completed"] is True
     assert lesson["score"] == 90
+    # Re-completing is found but no longer "first" (so XP isn't re-awarded).
+    found2, first2 = await db.complete_lesson(uid, lid, 95)
+    assert found2 and not first2
 
 
 @pytest.mark.asyncio
@@ -424,7 +428,8 @@ async def test_lesson_ownership(fresh_db):
     cid = await db.create_course(admin, "fr", "A1")
     lid = await db.create_lesson(cid, 1, "L1", "obj", [], _CONTENT, "s")
     assert await db.get_lesson(other, lid) is None
-    assert not await db.complete_lesson(other, lid, 50)
+    found, first = await db.complete_lesson(other, lid, 50)
+    assert not found and not first
 
 
 @pytest.mark.asyncio

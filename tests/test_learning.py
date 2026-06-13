@@ -4,7 +4,10 @@ These cover the DETERMINISTIC assembly + validation — no LLM calls. The contra
 that matters most: WE own the answer key (option[answer] is always the intended
 correct answer), and romanization is recomputed by the offline oracle.
 """
+import json
 import os
+import types
+
 import pytest
 import pytest_asyncio
 
@@ -382,20 +385,161 @@ def test_filter_new_concepts_drops_registry_dupes():
     assert [c["key"] for c in out] == ["thanks", "aspect"]
 
 
-# ── Active unit plan persistence ─────────────────────────────────────────────
+# ── Active chapter persistence ───────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_active_plan_roundtrip(fresh_db):
     uid = fresh_db
     cid = await db.create_course(uid, "fr", "A1")
     assert await db.get_active_plan(cid) is None
-    plan = {"title": "Greetings", "concepts": [{"key": "hi"}], "cursor": 0}
-    await db.set_active_plan(cid, plan)
+    # active_plan now holds the in-progress CHAPTER ({title, objective, summary}).
+    chapter = {"title": "Greetings", "objective": "Greet people", "summary": "bonjour, salut"}
+    await db.set_active_plan(cid, chapter)
     got = await db.get_active_plan(cid)
     assert got["title"] == "Greetings"
-    assert got["cursor"] == 0
+    assert got["summary"] == "bonjour, salut"
     await db.set_active_plan(cid, None)
     assert await db.get_active_plan(cid) is None
+
+
+# ── Next-lesson planner (just-in-time) ───────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_plan_next_lesson_normalizes_spec(monkeypatch):
+    # The planner reply is normalized: a valid chapter_action survives, target_items
+    # are cleaned, and missing scope/focus default sensibly.
+    async def fake_call(prompt, **kw):
+        return json.dumps({
+            "chapter_action": "new",
+            "chapter": {"title": "Regular -er verbs", "objective": "Conjugate -er verbs", "summary": "the core"},
+            "skill": {"kind": "grammar", "key": "present_er", "label": "-er present", "gloss": "present tense"},
+            "target_items": [
+                {"label": "parler", "gloss": "to speak"},
+                {"label": "  ", "gloss": "blank dropped"},
+                {"label": "manger", "gloss": "to eat"},
+            ],
+            "rationale": "core verbs first",
+        })
+    monkeypatch.setattr(learning.llm, "call", fake_call)
+    spec = await learning.plan_next_lesson("fr", "A1", api_key="x")
+    assert spec["chapter_action"] == "new"
+    assert spec["chapter"]["title"] == "Regular -er verbs"
+    assert spec["skill"]["kind"] == "grammar"
+    assert spec["scope"] == "broad"          # default
+    assert spec["focus"] == "new"            # default
+    assert [i["label"] for i in spec["target_items"]] == ["parler", "manger"]  # blank dropped
+
+
+@pytest.mark.asyncio
+async def test_plan_next_lesson_defaults_action_without_chapter(monkeypatch):
+    # An invalid/missing chapter_action defaults to "new" when no chapter is open.
+    async def fake_call(prompt, **kw):
+        return json.dumps({"skill": {"kind": "vocab", "key": "food", "label": "nourriture", "gloss": "food"}})
+    monkeypatch.setattr(learning.llm, "call", fake_call)
+    spec = await learning.plan_next_lesson("fr", "A1", api_key="x", current_chapter=None)
+    assert spec["chapter_action"] == "new"
+
+
+def test_concepts_from_spec_grammar_keeps_items():
+    import main
+    spec = {
+        "skill": {"kind": "grammar", "key": "present_er", "label": "-er present", "gloss": "rule"},
+        "target_items": [{"label": "parler", "gloss": "to speak"}, {"label": "manger", "gloss": "to eat"}],
+    }
+    concepts = main._concepts_from_spec(spec)
+    assert len(concepts) == 1
+    assert concepts[0]["kind"] == "grammar"
+    assert concepts[0]["key"] == "present_er"
+    # The forms ride along as `items` (coverage), not separate registry rows.
+    assert [i["label"] for i in concepts[0]["items"]] == ["parler", "manger"]
+
+
+def test_concepts_from_spec_vocab_registers_each_item():
+    import main
+    spec = {
+        "skill": {"kind": "vocab", "key": "food_theme", "label": "food", "gloss": "food words"},
+        "target_items": [{"label": "pomme", "gloss": "apple"}, {"label": "pain", "gloss": "bread"}],
+    }
+    concepts = main._concepts_from_spec(spec)
+    assert [c["label"] for c in concepts] == ["pomme", "pain"]
+    assert all(c["kind"] == "vocab" for c in concepts)
+    assert all(c["key"] for c in concepts)   # keys synthesized from gloss/label
+
+
+def test_brief_block_exceptions_focus():
+    block = learning._brief_block({"focus": "exceptions", "scope": "narrow", "title": "Spelling changes"})
+    assert "EXCEPTIONS lesson" in block
+    # No brief → empty.
+    assert learning._brief_block(None) == ""
+
+
+# ── End-to-end orchestration: plan → chapter open/close → register ───────────
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_opens_then_closes_chapter(fresh_db, monkeypatch):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    access = types.SimpleNamespace(api_key="x", anthropic_key=None,
+                                   model_reader="gemini-2.5-flash-lite")
+
+    # Avoid the live CEFR-backfill LLM call.
+    async def no_cefr(*a, **k):
+        return ""
+    monkeypatch.setattr(main, "_known_cefr_stats", no_cefr)
+
+    # Planner: lesson 1 opens chapter "Greetings"; lesson 2 opens a new chapter,
+    # which must close the first into a unit.
+    specs = iter([
+        {"chapter_action": "new",
+         "chapter": {"title": "Greetings", "objective": "Greet", "summary": "hi/bye"},
+         "skill": {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
+         "scope": "broad", "focus": "new",
+         "target_items": [{"label": "salut", "gloss": "hi"}, {"label": "bonjour", "gloss": "hello"}],
+         "rationale": "", "_raw_prompt": "P", "_raw_response": "R"},
+        {"chapter_action": "new",
+         "chapter": {"title": "Numbers", "objective": "Count", "summary": "1-10"},
+         "skill": {"kind": "vocab", "key": "num", "label": "un", "gloss": "one"},
+         "scope": "broad", "focus": "new",
+         "target_items": [{"label": "un", "gloss": "one"}],
+         "rationale": "", "_raw_prompt": "P", "_raw_response": "R"},
+    ])
+
+    async def fake_plan(*a, **k):
+        return dict(next(specs))
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+
+    async def fake_author(target_lang, concepts, *a, **k):
+        # Minimal but valid: one assembled drill so the no-exercise guard passes.
+        authored = {"teach": [], "drills": [
+            {"kind": "recognition", "concept": concepts[0]["key"],
+             "target": concepts[0]["label"], "gloss": concepts[0]["gloss"],
+             "distractors": ["x", "y"]},
+        ]}
+        content = learning.assemble_lesson(target_lang, concepts, authored)
+        return {"title": "T", "objective": "O", "summary": "S", "content": content,
+                "_raw_prompt": "AP", "_raw_response": "AR"}
+    monkeypatch.setattr(main.learning, "author_lesson", fake_author)
+
+    # Lesson 1 → opens the chapter, registers the vocab items.
+    lid1 = await main._author_next_lesson(course, access, "gemini-2.5-flash-lite", uid)
+    chapter = await db.get_active_plan(cid)
+    assert chapter["title"] == "Greetings"
+    reg = (await db.get_next_lesson_context(cid))["concept_registry"]
+    assert {"salut", "bonjour"} <= {c["label"] for c in reg}
+    # No unit closed yet.
+    course_row = await db.get_course(uid, cid)
+    assert [u for u in course_row["units"] if not u.get("in_progress")] == []
+
+    # Lesson 2 → opens a NEW chapter, closing "Greetings" into a unit.
+    lid2 = await main._author_next_lesson(course, access, "gemini-2.5-flash-lite", uid)
+    assert lid2 != lid1
+    chapter2 = await db.get_active_plan(cid)
+    assert chapter2["title"] == "Numbers"
+    course_row = await db.get_course(uid, cid)
+    closed = [u for u in course_row["units"] if not u.get("in_progress")]
+    assert len(closed) == 1 and closed[0]["title"] == "Greetings"
 
 
 # ── SRS deck → lesson generation ─────────────────────────────────────────────
@@ -452,8 +596,8 @@ def test_prompts_include_deck_sections():
     p2 = learning._build_lesson_prompt("yue", _CONCEPTS, [], None, None)
     assert "FLASHCARD" not in p2
 
-    up = learning._build_unit_plan_prompt("yue", "A1", 1, [], [], known_words=known)
-    assert "ALREADY KNOWS" in up and "你好 = hello" in up
+    pp = learning._build_plan_prompt("yue", "A1", [], [], known_words=known)
+    assert "ALREADY KNOWS" in pp and "你好 = hello" in pp
 
 
 def test_filter_new_concepts_drops_known_deck_words():

@@ -64,9 +64,43 @@ def build_tutor_prompt(
     known_words: list[dict] | None = None,
     concept_registry: list[dict] | None = None,
     weak_concepts: list[dict] | None = None,
+    drill_skill: str = "",
+    practiced: list[str] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info["name"]
+
+    # Drill bullets: in a manual drill sub-session (`drill_skill` set) the learner
+    # ends the drill themselves, so the tutor must KEEP posing phrases and never
+    # wrap up on its own. Otherwise the normal "offer a Drill button" behavior.
+    if drill_skill:
+        drill_section = (
+            f"• YOU ARE MID-DRILL on the construction \"{drill_skill}\". Your previous "
+            f"message posed an English phrase; the learner's new message is their attempt. "
+            f"JUDGE it via `corrections` (confirm the natural {name} version + name the "
+            f"construction in `construction`), give a SHORT encouragement, then pose the "
+            f"NEXT concrete English phrase exercising the SAME construction, built from "
+            f"words the learner already KNOWS (vary the vocabulary each turn). Do NOT wrap "
+            f"up, recap, or leave the drill on your own — the learner ends it themselves. "
+            f"Keep `drill` empty. The English phrase-to-translate is the ONE exception to "
+            f"the no-English-in-reply rule.\n"
+        )
+    else:
+        drill_section = (
+            f"• Set `drill` to a SHORT construction/skill label ONLY when THIS turn surfaced "
+            f"a GENERALIZABLE construction worth practicing — either you just taught one, or "
+            f"a correction above exposed one the learner could drill (use the SAME label as "
+            f"that correction's `construction`). Leave it \"\" for ordinary chat or a one-off "
+            f"vocab word. This unlocks a 'Drill' button.\n"
+        )
+
+    practiced_block = ""
+    if practiced:
+        practiced_block = (
+            f"── ALREADY PRACTICED (in drills this chat) ──\n{', '.join(practiced)}\n"
+            f"The learner has drilled these constructions; weave them in naturally and "
+            f"don't re-offer a drill for them.\n\n"
+        )
 
     profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
     deck = ""
@@ -116,21 +150,7 @@ def build_tutor_prompt(
         f"in the correction's `construction` field. Make `explanation` about the RULE "
         f"(how the form works in general), not just this one instance, so the fix "
         f"generalizes. Leave `construction` \"\" for pure vocab/spelling slips.\n"
-        f"• Set `drill` to a SHORT construction/skill label ONLY when THIS turn surfaced "
-        f"a GENERALIZABLE construction worth practicing — either you just taught one, or "
-        f"a correction above exposed one the learner could drill (use the SAME label as "
-        f"that correction's `construction`). Leave it \"\" for ordinary chat, a one-off "
-        f"vocab word, or when you are already mid-drill. This unlocks a 'Drill' button.\n"
-        f"• DRILL MODE: when your OWN previous message posed an English phrase for the "
-        f"learner to translate, their new message is their attempt — judge it via "
-        f"`corrections`, confirm the natural version, then pose the NEXT short English "
-        f"phrase exercising the SAME construction. Build each phrase from words the "
-        f"learner already KNOWS (vary the vocabulary using their deck/known list above; "
-        f"if the construction needs a word they don't have, pick a known substitute or "
-        f"teach ONE simple word via `new_items`). Keep going until they've correctly "
-        f"produced 3–4 examples of the construction, THEN give a one-line recap and "
-        f"return to normal conversation. The English phrase-to-translate is the ONE "
-        f"exception to the no-English-in-reply rule.\n"
+        f"{drill_section}"
         f"• `reply_en` = a faithful, natural English translation of your WHOLE reply "
         f"(the learner reveals it only when stuck). `gloss` = a word-by-word English "
         f"gloss of EVERY distinct {name} word in your reply (content AND function "
@@ -139,7 +159,7 @@ def build_tutor_prompt(
         f"lists — 1 for a word, 2–3 for a full structure or an impressive sentence. "
         f"Never for English, and never for a word you just handed them.\n"
         f"• Keep replies SHORT (1–3 sentences) so the conversation stays brisk.\n\n"
-        f"{profile}{deck}{concepts}{weak}"
+        f"{profile}{deck}{concepts}{weak}{practiced_block}"
         f"{_history_block(history or [])}"
         f"Learner's new message: {user_msg.strip()}\n\n"
         f"Return ONLY valid JSON, no other text:\n"
@@ -305,15 +325,18 @@ async def respond(
     known_words: list[dict] | None = None,
     concept_registry: list[dict] | None = None,
     weak_concepts: list[dict] | None = None,
+    drill_skill: str = "",
+    practiced: list[str] | None = None,
 ) -> dict:
-    """One LLM call → normalized structured reply."""
+    """One LLM call → normalized structured reply. Pass `drill_skill` to run a
+    drill-continuation turn (judge + pose the next phrase, no auto-end)."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = build_tutor_prompt(
         target_lang, user_msg, history,
         level=level, learner_profile=learner_profile,
         known_words=known_words, concept_registry=concept_registry,
-        weak_concepts=weak_concepts,
+        weak_concepts=weak_concepts, drill_skill=drill_skill, practiced=practiced,
     )
     known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
     return await _run(prompt, target_lang, api_key=api_key, model=model,
