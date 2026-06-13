@@ -52,14 +52,14 @@
     .unit-progress { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
     .unit-chevron { color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
     .unit-body { padding-bottom: 4px; }
-    /* Inline lesson-generation skeleton rows */
-    .gen-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; animation: genPulse 1.6s ease-in-out infinite; }
-    .gen-node { width: 40px; height: 40px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
-    .gen-lines { flex: 1; }
-    .gen-line { height: 11px; background: var(--border); border-radius: 6px; margin-bottom: 6px; }
-    .gen-line.short { width: 55%; margin-bottom: 0; }
+    /* Inline lesson-generation skeleton — path-style circular nodes matching .lrow/.lnode */
+    .gen-path-row { display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+    .gen-path-row.w1 { transform: translateX(36px); }
+    .gen-path-row.w3 { transform: translateX(-36px); }
+    .gen-path-node { width: 66px; height: 66px; border-radius: 50%; background: var(--border); animation: genPulse 1.6s ease-in-out infinite; }
+    .gen-path-cap { margin-top: 9px; width: 90px; height: 11px; background: var(--border); border-radius: 6px; animation: genPulse 1.6s ease-in-out infinite; }
     .gen-label { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 4px 0 10px; }
-    @keyframes genPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+    @keyframes genPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.65; } }
 
     /* Foundations collapsible section */
     .foundations-section { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
@@ -99,7 +99,9 @@
     .lpath { position: relative; max-width: 360px; margin: 6px auto 0; padding: 6px 0 8px; }
     /* angled trail drawn as an SVG overlay through the node centres (drawPathConnectors) */
     .lpath-svg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-    .lpath-line { fill: none; stroke: var(--border); stroke-width: 5; stroke-linecap: round; }
+    .lpath-line { fill: none; stroke: var(--border); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 6 9; }
+    /* Inline SVG icons replacing emoji for streak, XP, combo, crowns */
+    .icon-svg { display: inline-block; vertical-align: -0.1em; fill: currentColor; }
     .lbanner { position: relative; z-index: 1; text-align: center; margin: 22px auto 16px; }
     .lbanner:first-child { margin-top: 4px; }
     .lb-unit { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em;
@@ -267,7 +269,7 @@
       background: var(--warn-soft, #fff1e0); border: 1px solid var(--warn-border, #f4c98a);
       border-radius: 999px; padding: 3px 10px; line-height: 1; white-space: nowrap; }
     .combo-chip.on { display: inline-flex; }
-    .combo-chip .combo-flame { font-size: 0.95rem; }
+    .combo-chip .combo-flame { display: inline-flex; align-items: center; }
     @keyframes comboPulse { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
     .combo-chip.bump { animation: comboPulse .32s ease; }
     /* floating "+N XP" that drifts up from the feedback line on a correct answer */
@@ -451,7 +453,7 @@
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
       <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
-      <div class="combo-chip" id="combo-chip"><span class="combo-flame">🔥</span><span id="combo-n"></span></div>
+      <div class="combo-chip" id="combo-chip"><span class="combo-flame"><svg class="icon-svg" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg></span><span id="combo-n"></span></div>
     </div>
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
@@ -464,7 +466,7 @@
   <div id="state-results" class="learn-center" style="display:none">
     <div class="results-emoji" id="results-emoji">🎉</div>
     <div class="results-score" id="results-score"></div>
-    <div class="results-xp" id="results-xp" style="display:none"><span id="results-xp-num">0</span><span class="xp-unit">XP</span></div>
+    <div class="results-xp" id="results-xp" style="display:none"><span id="results-xp-num">0</span><span class="xp-unit"><svg class="icon-svg" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" style="color:var(--warn-strong,#b8530b)"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> XP</span></div>
     <div class="results-badges" id="results-badges"></div>
     <p id="results-msg">Lesson complete!</p>
     <div id="results-vocab"></div>
@@ -500,6 +502,12 @@
     const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML;
   }
 
+  const _ic = {
+    flame: `<svg class="icon-svg" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`,
+    star:  `<svg class="icon-svg" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`,
+    crown: `<svg class="icon-svg" viewBox="0 0 20 15" width="14" height="10" aria-hidden="true"><path d="M1 14h18v1.5H1V14zm17.5-2.5L16 4.5 10 8.5 4 1.5 1.5 11.5z"/></svg>`,
+  };
+
   async function init() {
     show('loading');
     try {
@@ -513,6 +521,7 @@
       // A past bug force-enabled unlock-all for everyone after generating; clear
       // the stale flag for non-admins so sequential locking works again.
       if (!isAdmin && unlockAll) { unlockAll = false; localStorage.removeItem('learn_unlock_all'); }
+      _lessonBuffer = Math.max(0, parseInt(settings.lesson_buffer || 3, 10) || 3);
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -535,11 +544,11 @@
       const info = await fetch('/api/streak').then(r => r.json());
       _streakInfo = info;
       const parts = [];
-      if (info.streak > 0) parts.push(`🔥 ${info.streak}`);
-      if (info.points > 0) parts.push(`⭐ ${info.points}`);
+      if (info.streak > 0) parts.push(`${_ic.flame} ${info.streak}`);
+      if (info.points > 0) parts.push(`${_ic.star} ${info.points}`);
       if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
-          el.textContent = parts.join(' · ');
+          el.innerHTML = parts.join('<span style="opacity:0.4;margin:0 4px">·</span>');
           el.style.display = '';
         });
       }
@@ -593,8 +602,7 @@
       currentCourse = course;
       renderCourse(course);
       show('course');
-      // Fire generation in background — spinner shows inline, user sees the map immediately.
-      generateNextLesson(course.id);
+      // Auto-buffer kicks in from renderCourse; no explicit call needed.
     } catch (e) {
       show('empty');
       document.getElementById('create-btn').disabled = false;
@@ -663,7 +671,7 @@
 
   // ── Generate next lesson ─────────────────────────────────────────────────────
 
-  const BATCH_AHEAD = 5;   // lessons offered per "Generate" so you can browse ahead
+  let _lessonBuffer = 3;   // auto-keep this many unvisited lessons ahead (loaded from settings)
 
   // A failed fetch (no response) throws a TypeError; Safari words it "Load failed",
   // Chrome "Failed to fetch". On the slow premium model one lesson can take ~45s,
@@ -683,7 +691,7 @@
   // Author lessons ONE request at a time (each request = one model call) and
   // refresh the map after each, so a slow model can't make a single request long
   // enough to time out, and partial progress is always kept + shown.
-  async function generateNextLesson(courseId, count = BATCH_AHEAD) {
+  async function generateNextLesson(courseId, count = 1) {
     if (_generating) return;
     _generating = true;
     _genCount = count;
@@ -769,7 +777,7 @@
     const clickable = unlockAll || st === 'available' || st === 'done';
     const glyph = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : '★');
     const level = st === 'done' ? Math.max(1, l.crown_level || 1) : 0;
-    const crowns = level ? `<div class="lcrowns">${'<span>👑</span>'.repeat(Math.min(level, 3))}</div>` : '';
+    const crowns = level ? `<div class="lcrowns">${Array(Math.min(level, 3)).fill(`<span style="color:var(--warn-accent,#f0962a)">${_ic.crown}</span>`).join('')}</div>` : '';
     const start = st === 'available' ? '<div class="lstart">START</div>' : '';
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
@@ -795,7 +803,7 @@
     const nodes = [...path.querySelectorAll('.lnode')];
     if (nodes.length < 2) return;
     const pr = path.getBoundingClientRect();
-    if (!pr.width) return;   // not laid out yet (course hidden) — redrawn on show
+    if (!pr.width) return;
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'lpath-svg');
@@ -804,9 +812,22 @@
       const r = n.getBoundingClientRect();
       return [r.left + r.width / 2 - pr.left, r.top + r.height / 2 - pr.top];
     });
+    // Catmull-Rom → cubic bezier: smooth curve through all node centres.
+    const n = pts.length;
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i], p2 = pts[i + 1];
+      const p3 = pts[Math.min(n - 1, i + 2)];
+      const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+      const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
     const line = document.createElementNS(NS, 'path');
     line.setAttribute('class', 'lpath-line');
-    line.setAttribute('d', 'M' + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L'));
+    line.setAttribute('d', d);
     svg.appendChild(line);
     path.insertBefore(svg, path.firstChild);
   }
@@ -891,39 +912,38 @@
       requestAnimationFrame(drawPathConnectors);
     }
 
-    // ── Inline generation area ─────────────────────────────────────────────────
+    // ── Inline generation area (path-style skeleton matching lrow/lnode) ────────
     const genArea = document.getElementById('course-gen-area');
     if (_generating) {
-      const skeletonRow = () => `<div class="gen-row">
-        <div class="gen-node"></div>
-        <div class="gen-lines">
-          <div class="gen-line"></div>
-          <div class="gen-line short"></div>
-        </div>
+      const nAiLessons = aiUnits.reduce((s, u) => s + (u.lessons || []).length, 0);
+      const skelRow = (i) => `<div class="gen-path-row w${(nAiLessons + 1 + i) & 3}" style="animation-delay:${i * 220}ms">
+        <div class="gen-path-node" style="animation-delay:${i * 220}ms"></div>
+        <div class="gen-path-cap" style="animation-delay:${i * 220 + 120}ms"></div>
       </div>`;
-      genArea.innerHTML =
-        skeletonRow().repeat(Math.min(_genCount, 3)) +
-        `<p class="gen-label"><span class="spinner"></span> Generating ${_genCount} lesson${_genCount !== 1 ? 's' : ''}…</p>`;
+      genArea.innerHTML = skelRow(0) +
+        `<p class="gen-label"><span class="spinner"></span> Generating lesson…</p>`;
     } else if (_genError) {
       genArea.innerHTML = `<p class="gen-label" style="color:var(--danger)">${esc(_genError)}
         <button class="course-regen" style="margin-left:8px"
-          onclick="_genError=null;generateNextLesson(${course.id})">Retry</button></p>`;
+          onclick="_genError=null;generateNextLesson(${course.id},1)">Retry</button></p>`;
     } else {
       genArea.innerHTML = '';
     }
 
-    // CTA: hide buttons while generating; show them when idle.
+    // CTA: single "+ Add lesson" button (auto-buffer handles routine generation).
     const cta = document.getElementById('course-cta');
-    if (_generating) {
-      cta.innerHTML = '';
-    } else {
-      const ctaLabel = nLessons === 0 ? `Generate first ${BATCH_AHEAD} lessons` : `Generate ${BATCH_AHEAD} more lessons`;
-      cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
-        <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
-        <button class="course-regen" style="margin-top:8px" onclick="generateNextLesson(${course.id}, 1)">+1 lesson</button>
-      </div>`;
-    }
+    cta.innerHTML = `<div style="text-align:center;padding:16px 0 4px">
+      <button class="course-regen"${_generating ? ' disabled' : ''}
+        onclick="generateNextLesson(${course.id},1)">+ Add lesson</button>
+    </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
+
+    // Auto-buffer: silently generate to keep _lessonBuffer unvisited lessons ahead.
+    const nUnvisited = nLessons - nDone;
+    if (!_generating && nUnvisited < _lessonBuffer && course.id
+        && !['teach', 'player', 'results'].includes(_currentState)) {
+      setTimeout(() => generateNextLesson(course.id, 1), 400);
+    }
   }
 
   // ── Lesson player ───────────────────────────────────────────────────────────
@@ -1948,10 +1968,10 @@
       const label = crownUp
         ? (crownLevel >= 3 ? 'Crown maxed!' : `Crown level up → ${crownLevel}`)
         : `Crown ${crownLevel}`;
-      badges.innerHTML += `<span class="results-badge crown${crownUp ? ' levelup' : ''}">${'👑'.repeat(crownLevel)} ${label}</span>`;
+      badges.innerHTML += `<span class="results-badge crown${crownUp ? ' levelup' : ''}">${Array(crownLevel).fill(_ic.crown).join('')} ${label}</span>`;
     }
     if (perfect) badges.innerHTML += `<span class="results-badge perfect">★ Perfect lesson +${PERFECT_BONUS}</span>`;
-    if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">🔥 Best combo ×${maxCombo}</span>`;
+    if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">${_ic.flame} Best combo ×${maxCombo}</span>`;
   }
 
   // ── Results screen: add this lesson's new vocab to the SRS deck ────────────

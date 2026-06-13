@@ -1055,6 +1055,7 @@ async def get_settings(user: dict = Depends(current_user)):
     has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
     tour_seen = bool(await db.get_setting(user["id"], "tour_seen"))
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
+    lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
@@ -1079,6 +1080,7 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_model": _valid_lesson_model(await db.get_setting(user["id"], "lesson_model")) or "",
         "lesson_model_options": LESSON_MODEL_ALLOWLIST,
         "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
+        "lesson_buffer": lesson_buffer,
     }
 
 
@@ -1094,6 +1096,7 @@ class SettingsUpdate(BaseModel):
     lesson_premium: bool | None = None
     lesson_model: str | None = None
     learner_profile: str | None = None
+    lesson_buffer: int | None = None
 
 
 @app.put("/api/settings")
@@ -1140,6 +1143,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_model", val)
     if req.learner_profile is not None:
         await db.set_setting(user["id"], "learner_profile", req.learner_profile[:2000].strip())
+    if req.lesson_buffer is not None:
+        await db.set_setting(user["id"], "lesson_buffer", max(0, min(10, req.lesson_buffer)))
     return {"success": True}
 
 

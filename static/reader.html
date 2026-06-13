@@ -885,11 +885,13 @@
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
       const parts = [];
-      if (streak > 0) parts.push(`🔥 ${streak}`);
-      if (points > 0) parts.push(`⭐ ${points}`);
+      const _flame = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
+      const _star  = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
+      if (streak > 0) parts.push(`${_flame} ${streak}`);
+      if (points > 0) parts.push(`${_star} ${points}`);
       if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
-          el.textContent = parts.join(' · ');
+          el.innerHTML = parts.join('<span style="opacity:0.4;margin:0 4px">·</span>');
           el.style.display = '';
         });
       }
