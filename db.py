@@ -267,7 +267,8 @@ async def init():
                 summary        TEXT    NOT NULL DEFAULT '',
                 llm_debug_json TEXT,
                 score          INTEGER,
-                completed_at   TEXT
+                completed_at   TEXT,
+                crown_level    INTEGER NOT NULL DEFAULT 0
             )
         """)
         await db.execute("""
@@ -1679,7 +1680,7 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
 
         # Pending lessons (unit_id IS NULL) = current in-progress AI unit (never foundations)
         async with db.execute(
-            """SELECT id, lesson_num, title, objective, score, completed_at,
+            """SELECT id, lesson_num, title, objective, score, completed_at, crown_level,
                       (SELECT COUNT(*) FROM course_concepts
                        WHERE introduced_lesson_id = course_lessons.id) AS concept_count
                FROM course_lessons WHERE course_id=? AND unit_id IS NULL ORDER BY lesson_num""",
@@ -1919,10 +1920,14 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
         return lesson
 
 
-async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool]:
+CROWN_MAX = 3   # skill-tree crown cap; each completion bumps the crown by 1
+
+
+async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool, int]:
     """Record (or improve) lesson completion + score. Ownership-checked.
-    Returns (found, first_completion) — first_completion is True only the FIRST
-    time the lesson is finished, so XP is awarded once (replays don't re-award)."""
+    Returns (found, first_completion, crown_level). first_completion is True only
+    the FIRST time the lesson is finished, so XP is awarded once (replays don't
+    re-award). Every completion bumps the crown level by 1 up to CROWN_MAX."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             """SELECT l.completed_at FROM course_lessons l
@@ -1932,17 +1937,22 @@ async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[boo
         ) as cur:
             row = await cur.fetchone()
         if row is None:
-            return (False, False)
+            return (False, False, 0)
         first = row[0] is None
         await db.execute(
             """UPDATE course_lessons
                SET score        = MAX(COALESCE(score, 0), ?),
-                   completed_at = COALESCE(completed_at, datetime('now'))
+                   completed_at = COALESCE(completed_at, datetime('now')),
+                   crown_level  = MIN(crown_level + 1, ?)
                WHERE id=?""",
-            (int(score), lesson_id),
+            (int(score), CROWN_MAX, lesson_id),
         )
+        async with db.execute(
+            "SELECT crown_level FROM course_lessons WHERE id=?", (lesson_id,)
+        ) as cur:
+            crown = (await cur.fetchone())[0]
         await db.commit()
-        return (True, first)
+        return (True, first, crown)
 
 
 async def record_concept_results(user_id: int, lang: str, results: list[dict]) -> None:

@@ -2120,7 +2120,7 @@ _MAX_LESSON_XP = 300   # clamp client-reported XP so the ledger can't be inflate
 
 @app.post("/api/lessons/{lesson_id}/complete")
 async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
-    found, first = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
+    found, first, crown = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
     if not found:
         raise HTTPException(404, "Lesson not found")
     lesson = await db.get_lesson(user["id"], lesson_id) if (req.results or first) else None
@@ -2137,6 +2137,8 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
     return {
         "success": True,
         "xp_awarded": awarded,
+        "crown_level": crown,
+        "crown_up": first or crown > 0,   # show a crown badge on the results screen
         "points_today": await db.get_points_today(user["id"], lang),
         "points_total": await db.get_points_total(user["id"], lang),
         "daily_goal": _DAILY_XP_GOAL,

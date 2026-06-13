@@ -95,6 +95,46 @@
     .lesson.clickable { cursor: pointer; }
     .lesson.clickable:hover { border-color: var(--primary); }
 
+    /* ── Skill-tree path (AI lessons) ── */
+    .lpath { position: relative; max-width: 360px; margin: 6px auto 0; padding: 6px 0 8px; }
+    /* the trail line behind the nodes */
+    .lpath::before { content: ''; position: absolute; top: 30px; bottom: 30px; left: 50%;
+      width: 4px; transform: translateX(-2px); background: var(--border); border-radius: 2px; z-index: 0; }
+    .lbanner { position: relative; z-index: 1; text-align: center; margin: 22px auto 16px; }
+    .lbanner:first-child { margin-top: 4px; }
+    .lb-unit { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 5px; }
+    .lb-pill { display: inline-block; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 16px; font-size: 0.92rem; font-weight: 700; color: var(--text); }
+    .lb-sub { display: block; font-size: 0.78rem; color: var(--text-muted); margin: 6px auto 0; max-width: 300px; }
+    .lrow { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+    .lrow.w1 { transform: translateX(36px); }
+    .lrow.w3 { transform: translateX(-36px); }
+    .lnode { position: relative; width: 66px; height: 66px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; color: var(--on-primary, #fff);
+      border: none; box-shadow: 0 4px 0 rgba(0,0,0,0.14); transition: transform .1s, box-shadow .1s; }
+    .lnode.available { background: var(--primary); cursor: pointer; }
+    .lnode.done { background: var(--good); cursor: pointer; }
+    .lnode.locked { background: var(--neutral-soft, var(--border)); color: var(--text-muted); box-shadow: 0 4px 0 rgba(0,0,0,0.06); }
+    .lnode.clickable:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.14); }
+    /* pulsing ring on the next available lesson */
+    .lnode.available::after { content: ''; position: absolute; inset: -5px; border-radius: 50%;
+      border: 3px solid var(--primary); animation: pulseRing 1.7s ease-out infinite; pointer-events: none; }
+    @keyframes pulseRing { 0% { opacity: 0.55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.32); } }
+    /* "START" flag above the current lesson */
+    .lstart { position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: var(--on-primary, #fff); font-size: 0.64rem; font-weight: 800;
+      letter-spacing: 0.07em; padding: 3px 9px; border-radius: 7px; white-space: nowrap; z-index: 2; }
+    .lstart::after { content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%) rotate(45deg);
+      width: 7px; height: 7px; background: var(--primary); }
+    /* crown pips on a completed lesson (level 1–3) */
+    .lcrowns { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; }
+    .lcrowns span { font-size: 0.6rem; line-height: 1; }
+    .lcap { margin-top: 9px; font-size: 0.82rem; font-weight: 600; text-align: center; max-width: 160px; color: var(--text); }
+    .lrow.is-locked .lcap { color: var(--text-muted); }
+    .lcap-meta { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); margin-top: 1px; }
+    .ldbg { background: none; border: none; cursor: pointer; font-size: 0.78rem; opacity: 0.4; padding: 2px; margin-top: 2px; }
+
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
     .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
@@ -704,6 +744,38 @@
     </div>`;
   }
 
+  // ── Skill-tree path rendering (AI lessons) ──
+  function _unitBanner(u, unitNo) {
+    if (u.in_progress) {
+      return `<div class="lbanner"><span class="lb-unit">In progress</span><span class="lb-pill">Up next</span></div>`;
+    }
+    return `<div class="lbanner">
+      <span class="lb-unit">Unit ${unitNo}</span>
+      <span class="lb-pill">${esc(u.title || 'Lessons')}</span>
+      ${u.summary ? `<span class="lb-sub">${esc(u.summary)}</span>` : ''}
+    </div>`;
+  }
+
+  function _pathRow(l, wave) {
+    const st = l.status || 'locked';
+    const clickable = unlockAll || st === 'available' || st === 'done';
+    const glyph = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : '★');
+    const level = st === 'done' ? Math.max(1, l.crown_level || 1) : 0;
+    const crowns = level ? `<div class="lcrowns">${'<span>👑</span>'.repeat(Math.min(level, 3))}</div>` : '';
+    const start = st === 'available' ? '<div class="lstart">START</div>' : '';
+    const meta = l.concept_count ? `${l.concept_count} new` : '';
+    const dbg = isAdmin
+      ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
+    return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
+      ${start}
+      <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+        ${glyph}${crowns}
+      </div>
+      <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
+      ${dbg}
+    </div>`;
+  }
+
   function renderCourse(course) {
     currentCourse = course;
     renderDailyRing();   // show the daily-XP ring if streak data is already loaded
@@ -766,44 +838,21 @@
       wrap.appendChild(section);
     }
 
-    // ── AI (vocab) units — collapsible ────────────────────────────────────────
-    let unitNo = 0;
-    aiUnits.forEach(u => {
-      const lessons = u.lessons || [];
-      const hasAvailable = lessons.some(l => l.status === 'available');
-      const nDoneU = lessons.filter(l => l.status === 'done').length;
-      // Collapse logic: force-open when there are actionable lessons; otherwise
-      // respect localStorage override, defaulting to collapsed.
-      const stored = localStorage.getItem('learn_unit_' + u.id);
-      const collapsed = hasAvailable ? false : (stored !== '1');
-
-      const sec = document.createElement('div');
-      sec.className = 'unit';
-
-      let titleHtml = '';
-      if (u.in_progress) {
-        titleHtml = `<div class="unit-title" style="color:var(--text-muted)">In progress</div>`;
-      } else {
-        unitNo += 1;
-        titleHtml = `<div class="unit-title">Unit ${unitNo}</div>
-          <div class="unit-name">${esc(u.title)}</div>
-          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}`;
-      }
-      const progressLabel = lessons.length ? `${nDoneU}/${lessons.length}` : '';
-
-      sec.innerHTML = `
-        <button class="unit-toggle" onclick="toggleUnit(${u.id})">
-          <div class="unit-head" style="flex:1;min-width:0">${titleHtml}</div>
-          ${progressLabel ? `<span class="unit-progress">${progressLabel}</span>` : ''}
-          <span class="unit-chevron" id="unit-chevron-${u.id}"
-            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
-        </button>
-        <div class="unit-body" id="unit-body-${u.id}" style="${collapsed ? 'display:none' : ''}"></div>`;
-
-      const body = sec.querySelector('.unit-body');
-      lessons.forEach((l, li) => { body.innerHTML += _lessonHtml(l, li); });
-      wrap.appendChild(sec);
-    });
+    // ── AI (vocab) lessons — vertical skill-tree path ─────────────────────────
+    if (aiUnits.some(u => (u.lessons || []).length)) {
+      const path = document.createElement('div');
+      path.className = 'lpath';
+      let unitNo = 0, wave = 0, html = '';
+      aiUnits.forEach(u => {
+        const lessons = u.lessons || [];
+        if (!lessons.length) return;
+        if (!u.in_progress) unitNo += 1;
+        html += _unitBanner(u, unitNo);
+        lessons.forEach(l => { html += _pathRow(l, wave); wave++; });
+      });
+      path.innerHTML = html;
+      wrap.appendChild(path);
+    }
 
     // ── Inline generation area ─────────────────────────────────────────────────
     const genArea = document.getElementById('course-gen-area');
@@ -1804,21 +1853,23 @@
     const perfect = total > 0 && player.firstPassCorrect === total;
     const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
     document.getElementById('combo-chip').classList.remove('on');
+    let serverInfo = null;
     try {
       const results = Object.entries(player.conceptResults).map(([k, v]) => ({
         concept_key: k, correct: v.correct, total: v.total,
       }));
-      await fetch('/api/lessons/' + player.lessonId + '/complete', {
+      const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score, results, xp: xpEarned }),
       });
+      serverInfo = await res.json();
     } catch {}
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
     emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
     document.getElementById('results-msg').textContent =
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
-    renderResultsXp(xpEarned, perfect, player.maxCombo);
+    renderResultsXp(xpEarned, perfect, player.maxCombo, serverInfo && serverInfo.crown_level);
     show('results');
     renderResultsVocab();   // async fill of the "New words → deck" panel
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
@@ -1830,7 +1881,7 @@
   }
 
   const PERFECT_BONUS = 25;
-  function renderResultsXp(xp, perfect, maxCombo) {
+  function renderResultsXp(xp, perfect, maxCombo, crownLevel) {
     const box = document.getElementById('results-xp');
     const num = document.getElementById('results-xp-num');
     box.style.display = xp > 0 ? '' : 'none';
@@ -1844,6 +1895,10 @@
     }
     const badges = document.getElementById('results-badges');
     badges.innerHTML = '';
+    if (crownLevel >= 1) {
+      const label = crownLevel >= 3 ? 'Crown maxed' : `Crown ${crownLevel}`;
+      badges.innerHTML += `<span class="results-badge">${'👑'.repeat(crownLevel)} ${label}</span>`;
+    }
     if (perfect) badges.innerHTML += `<span class="results-badge perfect">★ Perfect lesson +${PERFECT_BONUS}</span>`;
     if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">🔥 Best combo ×${maxCombo}</span>`;
   }
