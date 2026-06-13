@@ -171,11 +171,12 @@
     /* ── Comprehension quiz ── */
     .reader-quiz-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; padding: 7px 14px; font-size: 0.85rem; font-weight: 600; }
     .reader-quiz-btn:hover { border-color: var(--primary); color: var(--primary); }
-    .quiz-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 400; }
-    .quiz-sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(460px, 100%); background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 20px env(safe-area-inset-bottom,16px); z-index: 401; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-pop); }
-    .quiz-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-    .quiz-sheet-title { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-    .quiz-close-btn { background: none; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 2px 6px; }
+    #quiz-modal { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px 16px; background: rgba(0,0,0,.45); }
+    .quiz-card { width: min(480px,100%); max-height: min(520px,78dvh); background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; overflow: hidden; }
+    .quiz-card-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .quiz-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .quiz-close-btn { background: none; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 2px 6px; line-height: 1; }
+    .quiz-card-body { padding: 16px; overflow-y: auto; flex: 1; }
     .quiz-loading { text-align: center; padding: 24px 0; color: var(--text-muted); font-size: 0.9rem; }
     .quiz-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -4px; margin-right: 8px; }
     .quiz-question { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 16px; line-height: 1.5; }
@@ -302,23 +303,26 @@
   </div>
 </main>
 
-<!-- Comprehension quiz modal -->
-<div id="quiz-backdrop" class="quiz-backdrop" style="display:none" onclick="closeQuiz()"></div>
-<div id="quiz-sheet" class="quiz-sheet" style="display:none">
-  <div class="quiz-sheet-head">
-    <span class="quiz-sheet-title">Comprehension check</span>
-    <button class="quiz-close-btn" onclick="closeQuiz()">✕</button>
-  </div>
-  <div id="quiz-loading" class="quiz-loading" style="display:none">
-    <span class="quiz-spinner"></span>Generating question…
-  </div>
-  <div id="quiz-body" style="display:none">
-    <div class="quiz-question" id="quiz-question"></div>
-    <div class="quiz-opts" id="quiz-opts"></div>
-    <div class="quiz-feedback" id="quiz-feedback" style="display:none"></div>
-    <div class="quiz-actions" id="quiz-actions" style="display:none">
-      <button class="page-btn" onclick="closeQuiz()">Close</button>
-      <button class="page-btn" onclick="loadQuiz()">Another question</button>
+<!-- Comprehension quiz modal — centered dialog, tap backdrop to dismiss -->
+<div id="quiz-modal" style="display:none" onclick="closeQuiz()">
+  <div class="quiz-card" onclick="event.stopPropagation()">
+    <div class="quiz-card-head">
+      <span class="quiz-title">Comprehension check</span>
+      <button class="quiz-close-btn" onclick="closeQuiz()">✕</button>
+    </div>
+    <div class="quiz-card-body">
+      <div id="quiz-loading" class="quiz-loading" style="display:none">
+        <span class="quiz-spinner"></span>Generating question…
+      </div>
+      <div id="quiz-body" style="display:none">
+        <div class="quiz-question" id="quiz-question"></div>
+        <div class="quiz-opts" id="quiz-opts"></div>
+        <div class="quiz-feedback" id="quiz-feedback" style="display:none"></div>
+        <div class="quiz-actions" id="quiz-actions" style="display:none">
+          <button class="page-btn" onclick="closeQuiz()">Close</button>
+          <button class="page-btn" onclick="loadQuiz()">Another question</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -585,14 +589,12 @@
 
   // ── Comprehension quiz ────────────────────────────────────────────────────
   function openQuiz() {
-    document.getElementById('quiz-backdrop').style.display = '';
-    document.getElementById('quiz-sheet').style.display = '';
+    document.getElementById('quiz-modal').style.display = 'flex';
     loadQuiz();
   }
 
   function closeQuiz() {
-    document.getElementById('quiz-backdrop').style.display = 'none';
-    document.getElementById('quiz-sheet').style.display = 'none';
+    document.getElementById('quiz-modal').style.display = 'none';
   }
 
   async function loadQuiz() {
