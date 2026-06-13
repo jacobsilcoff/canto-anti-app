@@ -167,6 +167,28 @@
     /* ── Audio mode ── */
     .audio-mode-btn { display: flex; align-items: center; justify-content: center; }
     .audio-mode-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    /* ── Comprehension quiz ── */
+    .reader-quiz-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; padding: 7px 14px; font-size: 0.85rem; font-weight: 600; }
+    .reader-quiz-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .quiz-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 400; }
+    .quiz-sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(460px, 100%); background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 20px env(safe-area-inset-bottom,16px); z-index: 401; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-pop); }
+    .quiz-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .quiz-sheet-title { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .quiz-close-btn { background: none; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 2px 6px; }
+    .quiz-loading { text-align: center; padding: 24px 0; color: var(--text-muted); font-size: 0.9rem; }
+    .quiz-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -4px; margin-right: 8px; }
+    .quiz-question { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 16px; line-height: 1.5; }
+    .quiz-opts { display: flex; flex-direction: column; gap: 8px; }
+    .quiz-opt { background: var(--surface-alt,var(--surface)); border: 1.5px solid var(--border); border-radius: 10px; padding: 11px 14px; text-align: left; font-size: 0.92rem; font-weight: 500; color: var(--text); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .quiz-opt:hover:not(:disabled) { border-color: var(--primary); }
+    .quiz-opt:disabled { cursor: default; }
+    .quiz-opt.correct { border-color: var(--good-strong,#1d8c4a); background: var(--good-soft,#e8f9ef); color: var(--good-strong,#1d8c4a); font-weight: 700; }
+    .quiz-opt.wrong { border-color: var(--danger,#d32f2f); background: var(--danger-soft,#fde8e8); color: var(--danger,#d32f2f); text-decoration: line-through; }
+    .quiz-feedback { margin-top: 14px; padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; }
+    .quiz-feedback.correct { background: var(--good-soft,#e8f9ef); color: var(--good-strong,#1d8c4a); }
+    .quiz-feedback.wrong { background: var(--danger-soft,#fde8e8); color: var(--danger,#d32f2f); }
+    .quiz-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -244,6 +266,7 @@
         <div class="reader-header-actions">
           <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
           <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
+          <button class="reader-quiz-btn" id="reader-quiz-btn" onclick="openQuiz()" title="Comprehension quiz" style="display:none">Quiz me</button>
         </div>
       </div>
     </div>
@@ -279,6 +302,27 @@
   </div>
 </main>
 
+<!-- Comprehension quiz modal -->
+<div id="quiz-backdrop" class="quiz-backdrop" style="display:none" onclick="closeQuiz()"></div>
+<div id="quiz-sheet" class="quiz-sheet" style="display:none">
+  <div class="quiz-sheet-head">
+    <span class="quiz-sheet-title">Comprehension check</span>
+    <button class="quiz-close-btn" onclick="closeQuiz()">✕</button>
+  </div>
+  <div id="quiz-loading" class="quiz-loading" style="display:none">
+    <span class="quiz-spinner"></span>Generating question…
+  </div>
+  <div id="quiz-body" style="display:none">
+    <div class="quiz-question" id="quiz-question"></div>
+    <div class="quiz-opts" id="quiz-opts"></div>
+    <div class="quiz-feedback" id="quiz-feedback" style="display:none"></div>
+    <div class="quiz-actions" id="quiz-actions" style="display:none">
+      <button class="page-btn" onclick="closeQuiz()">Close</button>
+      <button class="page-btn" onclick="loadQuiz()">Another question</button>
+    </div>
+  </div>
+</div>
+
 <!-- Word tooltip (floating, positioned by JS) -->
 <div class="word-tooltip" id="word-tooltip" style="display:none" role="dialog">
   <button class="tooltip-close" onclick="closeTooltip()">✕</button>
@@ -297,6 +341,7 @@
   let selectedLang = 'yue';
   let currentTextId = null;
   let currentTargetLang = 'yue';
+  let currentTitle = '';
   let sentences = [];         // [{tokens, text}]
   let currentPage = 0;
   let currentSentenceIdx = null;
@@ -477,6 +522,7 @@
   function showReaderView(data) {
     currentTextId = data.id;
     currentTargetLang = data.target_lang;
+    currentTitle = data.title || '';
     currentSentenceIdx = null;
     currentPage = 0;
     // Build sentence cache from preloaded data
@@ -500,6 +546,7 @@
     // Show vocab review button (label created lazily on first card add).
     document.getElementById('reader-vocab-btn').style.display = '';
     document.getElementById('reader-add-all-btn').style.display = data.all_vocab_added ? 'none' : '';
+    document.getElementById('reader-quiz-btn').style.display = '';
     const romBtn = document.getElementById('rom-toggle-btn');
     romBtn.style.display = isLatin ? 'none' : '';
     romBtn.classList.remove('active');
@@ -534,6 +581,85 @@
       btn.disabled = false;
       btn.textContent = '+ Add all vocab';
     }
+  }
+
+  // ── Comprehension quiz ────────────────────────────────────────────────────
+  function openQuiz() {
+    document.getElementById('quiz-backdrop').style.display = '';
+    document.getElementById('quiz-sheet').style.display = '';
+    loadQuiz();
+  }
+
+  function closeQuiz() {
+    document.getElementById('quiz-backdrop').style.display = 'none';
+    document.getElementById('quiz-sheet').style.display = 'none';
+  }
+
+  async function loadQuiz() {
+    document.getElementById('quiz-loading').style.display = '';
+    document.getElementById('quiz-body').style.display = 'none';
+    document.getElementById('quiz-feedback').style.display = 'none';
+    document.getElementById('quiz-actions').style.display = 'none';
+    const text = sentences.map(s => s.text).join(' ');
+    try {
+      const res = await fetch('/api/reader/comprehension', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang: currentTargetLang, title: currentTitle }),
+      });
+      if (!res.ok) throw new Error(res.status === 402 ? 'quota' : 'error');
+      const data = await res.json();
+      showQuizQuestion(data);
+    } catch (e) {
+      document.getElementById('quiz-loading').style.display = 'none';
+      document.getElementById('quiz-body').style.display = '';
+      document.getElementById('quiz-question').textContent =
+        e.message === 'quota' ? 'AI quota reached — add your own Gemini key in Settings.' : 'Could not generate a question. Try again.';
+      document.getElementById('quiz-opts').innerHTML = '';
+      document.getElementById('quiz-actions').style.display = '';
+    }
+  }
+
+  function showQuizQuestion(data) {
+    document.getElementById('quiz-loading').style.display = 'none';
+    document.getElementById('quiz-body').style.display = '';
+    document.getElementById('quiz-question').textContent = data.question;
+    document.getElementById('quiz-feedback').style.display = 'none';
+    document.getElementById('quiz-actions').style.display = 'none';
+    const optsEl = document.getElementById('quiz-opts');
+    optsEl.innerHTML = '';
+    data.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt';
+      btn.textContent = opt;
+      btn.onclick = () => answerQuiz(i, data.correct, data.options, optsEl);
+      optsEl.appendChild(btn);
+    });
+  }
+
+  async function answerQuiz(chosen, correct, options, optsEl) {
+    const btns = optsEl.querySelectorAll('.quiz-opt');
+    btns.forEach(b => { b.disabled = true; });
+    btns[correct].classList.add('correct');
+    const isCorrect = chosen === correct;
+    if (!isCorrect) btns[chosen].classList.add('wrong');
+    const fb = document.getElementById('quiz-feedback');
+    if (isCorrect) {
+      const star = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
+      fb.className = 'quiz-feedback correct';
+      fb.innerHTML = `Correct! +10 ${star} XP`;
+      try {
+        await fetch('/api/reader/comprehension/xp', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lang: currentTargetLang }),
+        });
+        loadStreak();
+      } catch {}
+    } else {
+      fb.className = 'quiz-feedback wrong';
+      fb.textContent = `Not quite — the answer was: ${options[correct]}`;
+    }
+    fb.style.display = '';
+    document.getElementById('quiz-actions').style.display = '';
   }
 
   async function reviewVocab() {
@@ -885,8 +1011,8 @@
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
       const parts = [];
-      const _flame = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
-      const _star  = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
+      const _flame = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
+      const _star  = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
       if (streak > 0) parts.push(`${_flame} ${streak}`);
       if (points > 0) parts.push(`${_star} ${points}`);
       if (parts.length) {

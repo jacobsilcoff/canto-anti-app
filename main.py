@@ -1448,7 +1448,12 @@ async def review_card(card_id: int, req: ReviewRequest, user: dict = Depends(cur
         raise HTTPException(404, "Face not found")
     new_state = srs.update(face_state, req.quality)
     await db.update_face_review(user["id"], card_id, req.face, new_state)
-    return {"success": True, **new_state}
+    await db.record_study_activity(user["id"])
+    xp = 0
+    if req.quality in ("good", "easy"):
+        xp = 7 if req.quality == "easy" else 5
+        await db.add_points(user["id"], card.get("target_lang", "yue"), xp, "review")
+    return {"success": True, "xp": xp, **new_state}
 
 
 class UpdateCardRequest(BaseModel):
@@ -3133,3 +3138,70 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
         "cefr_level": result.get("cefr_level"),
         "status": "new",
     }
+
+
+# ── Reading comprehension quiz ────────────────────────────────────────────────
+
+class ComprehensionRequest(BaseModel):
+    text: str
+    lang: str
+    title: str = ""
+
+
+class ComprehensionXpRequest(BaseModel):
+    lang: str
+
+
+_COMPREHENSION_XP = 10
+
+
+@app.post("/api/reader/comprehension")
+@limiter.limit("20/minute;100/day")
+async def reader_comprehension(request: Request, req: ComprehensionRequest, user: dict = Depends(current_user)):
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(400, "text required")
+    access = await _resolve_gemini(user)
+    lang_name = translation.LANG_INFO[req.lang]["name"]
+    snippet = text[:2000]
+    prompt = (
+        f"You are a reading comprehension quiz generator for {lang_name} learners.\n\n"
+        f"Based on this {lang_name} text (title: \"{(req.title or 'untitled')[:80]}\"):\n"
+        f"{snippet}\n\n"
+        "Generate ONE multiple-choice comprehension question in English about a specific "
+        "detail or fact from the text. The question must be answerable from the text alone.\n\n"
+        "Return ONLY valid JSON (no markdown fences):\n"
+        '{"question":"...","options":["A","B","C","D"],"correct":0}\n\n'
+        "Rules:\n"
+        "- question: a clear, specific question in English\n"
+        "- options: exactly 4 English options, one correct and three plausible but wrong\n"
+        "- correct: 0-based index of the correct answer (vary the position, not always 0)\n"
+        "- Do NOT make the question about the title alone; use details from the body\n"
+    )
+    try:
+        raw = await translation._call(prompt, model=access.model_reader, api_key=access.api_key)
+    except Exception as e:
+        raise HTTPException(502, f"AI error: {e}")
+    data = translation._parse_json(raw)
+    if not isinstance(data, dict) or not isinstance(data.get("options"), list) or len(data["options"]) < 4:
+        raise HTTPException(502, "Could not generate a valid question")
+    correct = int(data.get("correct", 0))
+    if not 0 <= correct < 4:
+        correct = 0
+    await db.record_study_activity(user["id"])
+    return {
+        "question": str(data.get("question", "")).strip(),
+        "options": [str(o).strip() for o in data["options"][:4]],
+        "correct": correct,
+        "xp": _COMPREHENSION_XP,
+    }
+
+
+@app.post("/api/reader/comprehension/xp")
+async def reader_comprehension_xp(req: ComprehensionXpRequest, user: dict = Depends(current_user)):
+    lang = req.lang if req.lang in translation.LANG_INFO else "yue"
+    await db.add_points(user["id"], lang, _COMPREHENSION_XP, "comprehension")
+    await db.record_study_activity(user["id"])
+    return {"xp": _COMPREHENSION_XP}

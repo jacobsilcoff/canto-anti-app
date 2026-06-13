@@ -368,7 +368,7 @@
   function setPoints(n, bump) {
     pointsTotal = n;
     const el = document.getElementById('tutor-points');
-    el.innerHTML = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> ${n}`;
+    el.innerHTML = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> ${n}`;
     el.style.display = n > 0 ? '' : 'none';
     if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
@@ -507,7 +507,7 @@
     b.innerHTML = `👋 I'm your ${esc(langName)} tutor. Talk to me in ${esc(langName)} as much as
       you can — I'll keep the conversation going, fix slips gently, and teach you new
       words you can save to your flashcards. Don't worry about mistakes: if you don't
-      know a word, talk around it! Earn <svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> by using what you've learned.`;
+      know a word, talk around it! Earn <svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> by using what you've learned.`;
     thread.appendChild(b);
   }
 
@@ -702,7 +702,7 @@
     const total = awards.reduce((n, p) => n + (p.points || 0), 0);
     const what = awards.map(p => p.concept).filter(Boolean).join(', ');
     const toast = document.getElementById('pt-toast');
-    toast.innerHTML = `+${total} <svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>${what ? ' — ' + what : ''}`;
+    toast.innerHTML = `+${total} <svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>${what ? ' — ' + what : ''}`;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2600);
   }
@@ -996,8 +996,8 @@
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
       const parts = [];
-      const _flame = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
-      const _star  = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
+      const _flame = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
+      const _star  = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
       if (streak > 0) parts.push(`${_flame} ${streak}`);
       if (points > 0) parts.push(`${_star} ${points}`);
       if (parts.length) {

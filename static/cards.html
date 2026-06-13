@@ -113,6 +113,8 @@
       .ask-overlay { align-items: center; padding: 16px; }
     }
     @keyframes ask-rise { from { transform: translateY(24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+    .xp-pop { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 0.85rem; font-weight: 700; color: var(--text); box-shadow: var(--shadow-pop); pointer-events: none; opacity: 0; transition: opacity 0.3s, bottom 0.6s; z-index: 200; }
+    .xp-pop.show { opacity: 1; bottom: 110px; }
     .ask-head {
       display: flex; align-items: center; gap: 8px;
       padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -498,6 +500,7 @@
         <button class="rating-btn good" onclick="rate('good')">Good <span class="key-hint">[ 3 ]</span></button>
         <button class="rating-btn easy" onclick="rate('easy')">Easy <span class="key-hint">[ 4 ]</span></button>
       </div>
+      <div class="xp-pop" id="xp-pop"></div>
       <div class="card-meta-actions" id="card-meta-actions">
         <div class="meta-priority-row">
           <span class="meta-priority-label">Priority</span>
@@ -823,8 +826,8 @@
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
       const parts = [];
-      const _flame = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
-      const _star  = `<svg style="display:inline-block;vertical-align:-0.1em;fill:currentColor" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
+      const _flame = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
+      const _star  = `<svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
       if (streak > 0) parts.push(`${_flame} ${streak}`);
       if (points > 0) parts.push(`${_star} ${points}`);
       if (parts.length) {
@@ -1199,7 +1202,10 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quality, face: item.face }),
         });
-        if (res.ok) state = await res.json();
+        if (res.ok) {
+          state = await res.json();
+          if (state.xp > 0) showXpPop(state.xp);
+        }
       } catch {
         isOnline = false;
         await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
@@ -1229,6 +1235,16 @@
       total = queue.length;
     }
     showCard();
+  }
+
+  let _xpPopTimer;
+  function showXpPop(xp) {
+    const el = document.getElementById('xp-pop');
+    if (!el) return;
+    el.innerHTML = `+${xp} <svg style="display:inline-block;vertical-align:-0.15em" viewBox="0 0 20 20" width="12" height="12" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> XP`;
+    el.classList.add('show');
+    clearTimeout(_xpPopTimer);
+    _xpPopTimer = setTimeout(() => el.classList.remove('show'), 1400);
   }
 
   function finishSession() {
