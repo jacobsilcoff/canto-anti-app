@@ -500,7 +500,6 @@
         <button class="rating-btn good" onclick="rate('good')">Good <span class="key-hint">[ 3 ]</span></button>
         <button class="rating-btn easy" onclick="rate('easy')">Easy <span class="key-hint">[ 4 ]</span></button>
       </div>
-      <div class="xp-pop" id="xp-pop"></div>
       <div class="card-meta-actions" id="card-meta-actions">
         <div class="meta-priority-row">
           <span class="meta-priority-label">Priority</span>
@@ -2225,5 +2224,6 @@
     loadSession(_params.get('study') === '1' ? 'all' : 'due');
   })();
 </script>
+<div class="xp-pop" id="xp-pop"></div>
 </body>
 </html>
