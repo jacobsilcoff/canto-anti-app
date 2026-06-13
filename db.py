@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import time
 
@@ -231,6 +232,130 @@ async def init():
             )
         """)
 
+        # ── Learning path (AI course) — IDEAS item 43 ──
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS courses (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                target_lang TEXT    NOT NULL,
+                level       TEXT    NOT NULL DEFAULT 'A1',
+                status      TEXT    NOT NULL DEFAULT 'active',
+                active_plan TEXT,            -- JSON outline of the in-progress unit (concepts + cursor); NULL between units
+                created_at  TEXT             DEFAULT (datetime('now'))
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_units (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER NOT NULL,
+                idx       INTEGER NOT NULL DEFAULT 0,
+                title     TEXT    NOT NULL DEFAULT '',
+                summary   TEXT    NOT NULL DEFAULT '',
+                theme     TEXT    NOT NULL DEFAULT ''
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_lessons (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id      INTEGER NOT NULL,
+                unit_id        INTEGER,
+                lesson_num     INTEGER NOT NULL DEFAULT 1,
+                title          TEXT    NOT NULL DEFAULT '',
+                objective      TEXT    NOT NULL DEFAULT '',
+                content        TEXT,
+                concepts_json  TEXT    NOT NULL DEFAULT '[]',
+                summary        TEXT    NOT NULL DEFAULT '',
+                llm_debug_json TEXT,
+                score          INTEGER,
+                completed_at   TEXT,
+                crown_level    INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS course_concepts (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id            INTEGER NOT NULL,
+                kind                 TEXT    NOT NULL,
+                key                  TEXT    NOT NULL,
+                label                TEXT    NOT NULL DEFAULT '',
+                gloss                TEXT    NOT NULL DEFAULT '',
+                introduced_lesson_id INTEGER,
+                UNIQUE(course_id, key)
+            )
+        """)
+        # Verified canonical grammar content — SHARED across users, keyed by
+        # (lang, concept_key). Expensive to generate (generator + critic pass),
+        # cheap to replay; see grammar_lessons.py.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS concept_content (
+                lang        TEXT NOT NULL,
+                concept_key TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                created_at  TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (lang, concept_key)
+            )
+        """)
+        # Per-user, per-language concept mastery ledger. Incremented when a lesson
+        # is completed; fed back to the unit planner to steer around weak spots.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS concept_mastery (
+                user_id     INTEGER NOT NULL,
+                lang        TEXT    NOT NULL,
+                concept_key TEXT    NOT NULL,
+                correct     INTEGER NOT NULL DEFAULT 0,
+                total       INTEGER NOT NULL DEFAULT 0,
+                last_seen   TEXT,
+                PRIMARY KEY (user_id, lang, concept_key)
+            )
+        """)
+        # Tutor chat — per-user conversations with the AI tutor. Tutor turns store
+        # the structured JSON payload (reply + corrections + new_items + points).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tutor_conversations (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL,
+                lang            TEXT    NOT NULL,
+                title           TEXT    NOT NULL DEFAULT '',
+                active_drill_id INTEGER,
+                created_at      TEXT    DEFAULT (datetime('now')),
+                updated_at      TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tutor_messages (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                role            TEXT    NOT NULL,
+                content         TEXT    NOT NULL,
+                drill_id        INTEGER,
+                drill_skill     TEXT,
+                created_at      TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        # Light gamification: append-only points ledger (tutor awards points when
+        # the learner correctly uses known vocab/grammar in conversation).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS points_ledger (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                lang       TEXT    NOT NULL,
+                points     INTEGER NOT NULL,
+                reason     TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        # Word embedding cache — shared across users (a word embeds the same for
+        # everyone), keyed by (lang, model, word). vector = packed float32 BLOB.
+        # Powers the tutor's construction drills (snap example fillers to known vocab).
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS embedding_cache (
+                lang   TEXT NOT NULL,
+                model  TEXT NOT NULL,
+                word   TEXT NOT NULL,
+                vector BLOB NOT NULL,
+                PRIMARY KEY (lang, model, word)
+            )
+        """)
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -240,7 +365,15 @@ async def init():
         await db.commit()
 
         # Apply any versioned schema migrations layered on top of the baseline above.
+        # Must run BEFORE the indexes below so that schema-redesign migrations (e.g.
+        # 012_lesson_redesign.sql) can drop/recreate tables before we index their columns.
         await _run_migrations(db)
+
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_units_course    ON course_units(course_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_lessons_course  ON course_lessons(course_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_concepts_course ON course_concepts(course_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_tutor_msgs_conv ON tutor_messages(conversation_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_points_user     ON points_ledger(user_id, lang)")
 
 
 async def _run_migrations(db) -> None:
@@ -269,7 +402,17 @@ async def _run_migrations(db) -> None:
             continue
         with open(os.path.join(MIGRATIONS_DIR, fname), encoding="utf-8") as f:
             script = f.read()
-        await db.executescript(script)
+        try:
+            await db.executescript(script)
+        except Exception as e:
+            msg = str(e).lower()
+            # Idempotency: ignore errors that mean the migration is a no-op on this DB.
+            # "duplicate column name" — baseline schema already has the column.
+            # "no such column/table"  — old migration references a column/table that was
+            #                           removed by a later migration (e.g. schema redesign).
+            ignorable = ("duplicate column name", "no such column", "no such table")
+            if not any(p in msg for p in ignorable):
+                raise
         await db.execute("INSERT INTO schema_migrations (version) VALUES (?)", (fname,))
         await db.commit()
 
@@ -1186,6 +1329,19 @@ async def get_all_embeddings(user_id: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
+    """Cards with no stored embedding yet — for lazy backfill in suggest-cards."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, source_text, target_text
+               FROM cards WHERE user_id=? AND embedding IS NULL
+               ORDER BY id LIMIT ?""",
+            (user_id, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
     """Set (or clear) the canonical card pointer. Returns False if card not found."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1386,6 +1542,482 @@ async def delete_reader_text(user_id: int, text_id: int):
         await db.commit()
 
 
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+async def create_course(user_id: int, target_lang: str, level: str) -> int:
+    """Create an empty course. Lessons are generated one at a time on demand."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT INTO courses (user_id, target_lang, level) VALUES (?, ?, ?)",
+            (user_id, target_lang, level),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
+    """Persist pre-built Foundations (reading) units + lessons at the FRONT of a
+    course. Each unit becomes a CLOSED course_units row (theme='foundations') with
+    its lessons assigned and content already set. These don't register vocab
+    concepts and are skippable in get_course.
+
+    When the course already has AI units (backfill), existing units are shifted up
+    to keep foundations at idx 0..N-1. Lesson numbers continue from MAX(lesson_num)
+    so they don't collide with existing lessons.
+
+    `units` — output of foundations.build_units(): [{title, objective, lessons:[
+              {title, objective, content}]}].
+    """
+    if not units:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        # If AI units already exist, shift them to make room for foundations at front.
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            existing = (await cur.fetchone())[0]
+        if existing:
+            await db.execute(
+                "UPDATE course_units SET idx = idx + ? WHERE course_id=?",
+                (len(units), course_id),
+            )
+        unit_idx = 0
+
+        # lesson_num continues from existing max so there are no collisions.
+        async with db.execute(
+            "SELECT COALESCE(MAX(lesson_num), 0) FROM course_lessons WHERE course_id=?",
+            (course_id,),
+        ) as cur:
+            lesson_num = (await cur.fetchone())[0] + 1
+
+        for u in units:
+            cur = await db.execute(
+                "INSERT INTO course_units (course_id, idx, title, summary, theme) VALUES (?, ?, ?, ?, 'foundations')",
+                (course_id, unit_idx, (u.get("title") or "").strip(), (u.get("objective") or "").strip()),
+            )
+            unit_id = cur.lastrowid
+            unit_idx += 1
+            for lsn in (u.get("lessons") or []):
+                await db.execute(
+                    """INSERT INTO course_lessons
+                       (course_id, unit_id, lesson_num, title, objective, content, concepts_json, summary)
+                       VALUES (?, ?, ?, ?, ?, ?, '[]', '')""",
+                    (
+                        course_id, unit_id, lesson_num,
+                        (lsn.get("title") or "").strip(), (lsn.get("objective") or "").strip(),
+                        json.dumps(lsn.get("content")) if lsn.get("content") is not None else None,
+                    ),
+                )
+                lesson_num += 1
+        await db.commit()
+
+
+async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict]:
+    """List the user's courses (optionally filtered by language), newest first."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        sql = "SELECT id, target_lang, level, status, created_at FROM courses WHERE user_id=?"
+        params: tuple = (user_id,)
+        if target_lang is not None:
+            sql += " AND target_lang=?"
+            params += (target_lang,)
+        sql += " ORDER BY created_at DESC"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_course(user_id: int, course_id: int) -> dict | None:
+    """Return the full nested course (completed units + in-progress lessons)
+    with per-lesson status (done / available / locked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, target_lang, level, status, created_at FROM courses WHERE id=? AND user_id=?",
+            (course_id, user_id),
+        ) as cur:
+            course = await cur.fetchone()
+        if not course:
+            return None
+        course = dict(course)
+
+        # Completed units (those with assigned lessons)
+        async with db.execute(
+            "SELECT id, idx, title, summary, theme FROM course_units WHERE course_id=? ORDER BY idx",
+            (course_id,),
+        ) as cur:
+            units = [dict(r) for r in await cur.fetchall()]
+
+        # Locking: Foundations (reading) lessons are SKIPPABLE — always available
+        # if not done, so the learner can do them in any order or jump straight to
+        # vocab. The AI vocab lessons keep strict sequential locking among THEMSELVES
+        # (first incomplete one available), independent of foundations progress.
+        ai_available_set = False
+
+        def _status(lesson: dict, is_foundation: bool) -> str:
+            nonlocal ai_available_set
+            if lesson["completed_at"] is not None:
+                return "done"
+            if is_foundation:
+                return "available"          # skippable — never gated
+            if not ai_available_set:
+                ai_available_set = True
+                return "available"
+            return "locked"
+
+        for unit in units:
+            is_foundation = unit.get("theme") == "foundations"
+            async with db.execute(
+                """SELECT id, lesson_num, title, objective, score, completed_at,
+                          (SELECT COUNT(*) FROM course_concepts
+                           WHERE introduced_lesson_id = course_lessons.id) AS concept_count
+                   FROM course_lessons WHERE unit_id=? ORDER BY lesson_num""",
+                (unit["id"],),
+            ) as cur:
+                lessons = [dict(r) for r in await cur.fetchall()]
+            for l in lessons:
+                l["status"] = _status(l, is_foundation)
+            unit["lessons"] = lessons
+
+        # Pending lessons (unit_id IS NULL) = current in-progress AI unit (never foundations)
+        async with db.execute(
+            """SELECT id, lesson_num, title, objective, score, completed_at, crown_level,
+                      (SELECT COUNT(*) FROM course_concepts
+                       WHERE introduced_lesson_id = course_lessons.id) AS concept_count
+               FROM course_lessons WHERE course_id=? AND unit_id IS NULL ORDER BY lesson_num""",
+            (course_id,),
+        ) as cur:
+            pending = [dict(r) for r in await cur.fetchall()]
+
+        for l in pending:
+            l["status"] = _status(l, False)
+
+        if pending:
+            units.append({
+                "id": None, "idx": len(units),
+                "title": None, "summary": None, "theme": "",
+                "lessons": pending, "in_progress": True,
+            })
+
+        course["units"] = units
+        course["lesson_count"] = sum(len(u["lessons"]) for u in units)
+        course["done_count"] = sum(
+            sum(1 for l in u["lessons"] if l.get("status") == "done")
+            for u in units
+        )
+        return course
+
+
+async def get_active_course(user_id: int, target_lang: str) -> dict | None:
+    """The user's most recent active course for a language, or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id FROM courses WHERE user_id=? AND target_lang=? AND status='active'
+               ORDER BY created_at DESC LIMIT 1""",
+            (user_id, target_lang),
+        ) as cur:
+            row = await cur.fetchone()
+    return await get_course(user_id, row["id"]) if row else None
+
+
+async def delete_course(user_id: int, course_id: int) -> None:
+    """Delete a course and all its units/lessons/concepts (ownership-checked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return
+        await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
+        await db.commit()
+
+
+async def delete_ai_lessons(course_id: int) -> None:
+    """Delete all non-foundation units (and their lessons/concepts) from a course.
+    Foundation units (theme='foundations') are preserved. Resets active_plan."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM course_units WHERE course_id=? AND theme != 'foundations'",
+            (course_id,)
+        ) as cur:
+            unit_ids = [r[0] for r in await cur.fetchall()]
+        if unit_ids:
+            ph = ",".join("?" * len(unit_ids))
+            await db.execute(f"DELETE FROM course_lessons WHERE unit_id IN ({ph})", unit_ids)
+            await db.execute(f"DELETE FROM course_units WHERE id IN ({ph})", unit_ids)
+        # Also clear pending lessons (unit_id IS NULL = in-progress unit not yet closed)
+        await db.execute(
+            "DELETE FROM course_lessons WHERE course_id=? AND unit_id IS NULL", (course_id,)
+        )
+        await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
+        await db.commit()
+
+
+async def get_active_plan(course_id: int) -> dict | None:
+    """The in-progress unit's outline (concepts + cursor), or None between units."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT active_plan FROM courses WHERE id=?", (course_id,)
+        ) as cur:
+            row = await cur.fetchone()
+    if not row or not row[0]:
+        return None
+    try:
+        return json.loads(row[0])
+    except (ValueError, TypeError):
+        return None
+
+
+async def set_active_plan(course_id: int, plan: dict | None) -> None:
+    """Store (or clear, when plan is None) the in-progress unit outline."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE courses SET active_plan=? WHERE id=?",
+            (json.dumps(plan) if plan is not None else None, course_id),
+        )
+        await db.commit()
+
+
+async def get_next_lesson_context(course_id: int) -> dict:
+    """Return everything needed to generate the next lesson:
+    lesson_num, concept_registry, unit_summaries, recent_summaries, prior_concepts."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_lessons WHERE course_id=?", (course_id,)
+        ) as cur:
+            lesson_num = (await cur.fetchone())[0] + 1
+
+        async with db.execute(
+            "SELECT kind, key, label, gloss FROM course_concepts WHERE course_id=? ORDER BY id",
+            (course_id,),
+        ) as cur:
+            concept_registry = [dict(r) for r in await cur.fetchall()]
+
+        async with db.execute(
+            "SELECT title, summary FROM course_units WHERE course_id=? ORDER BY idx",
+            (course_id,),
+        ) as cur:
+            unit_summaries = [dict(r) for r in await cur.fetchall()]
+
+        # Last 3 lessons with summaries, in chronological order
+        async with db.execute(
+            """SELECT lesson_num, title, summary FROM course_lessons
+               WHERE course_id=? AND summary != ''
+               ORDER BY lesson_num DESC LIMIT 3""",
+            (course_id,),
+        ) as cur:
+            recent_summaries = list(reversed([dict(r) for r in await cur.fetchall()]))
+
+        return {
+            "lesson_num":       lesson_num,
+            "concept_registry": concept_registry,
+            "unit_summaries":   unit_summaries,
+            "recent_summaries": recent_summaries,
+            "prior_concepts":   concept_registry,  # same data, used for distractor pool
+        }
+
+
+async def create_lesson(
+    course_id: int,
+    lesson_num: int,
+    title: str,
+    objective: str,
+    concepts: list[dict],
+    content: dict | None,
+    summary: str,
+    llm_debug: dict | None = None,
+) -> int:
+    """Persist a generated lesson (unit_id NULL until a unit is closed).
+    Inserts concepts into the registry. Returns lesson_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO course_lessons
+               (course_id, lesson_num, title, objective, content, concepts_json, summary, llm_debug_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                course_id, lesson_num,
+                (title or "").strip(), (objective or "").strip(),
+                json.dumps(content) if content is not None else None,
+                json.dumps(concepts),
+                (summary or "").strip(),
+                json.dumps(llm_debug) if llm_debug else None,
+            ),
+        )
+        lesson_id = cur.lastrowid
+
+        for c in concepts:
+            key = (c.get("key") or "").strip()
+            if not key:
+                continue
+            await db.execute(
+                """INSERT OR IGNORE INTO course_concepts
+                   (course_id, kind, key, label, gloss, introduced_lesson_id)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    course_id, (c.get("kind") or "vocab").strip(), key,
+                    (c.get("label") or "").strip(), (c.get("gloss") or "").strip(),
+                    lesson_id,
+                ),
+            )
+
+        await db.commit()
+        return lesson_id
+
+
+async def close_unit(course_id: int, title: str, summary: str) -> int:
+    """Create a unit row and assign all unitless lessons in this course to it."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            next_idx = (await cur.fetchone())[0] + 1
+        cur = await db.execute(
+            "INSERT INTO course_units (course_id, idx, title, summary) VALUES (?, ?, ?, ?)",
+            (course_id, next_idx, (title or "").strip(), (summary or "").strip()),
+        )
+        unit_id = cur.lastrowid
+        await db.execute(
+            "UPDATE course_lessons SET unit_id=? WHERE course_id=? AND unit_id IS NULL",
+            (unit_id, course_id),
+        )
+        await db.commit()
+        return unit_id
+
+
+async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
+    """Return a lesson (ownership-checked). Content is stored at creation time."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT l.id, l.lesson_num, l.title, l.objective,
+                      l.content, l.concepts_json, l.llm_debug_json,
+                      l.score, l.completed_at,
+                      c.target_lang, c.level, c.id AS course_id,
+                      COALESCE(u.theme, '') AS theme
+               FROM course_lessons l
+               JOIN courses c ON c.id = l.course_id
+               LEFT JOIN course_units u ON u.id = l.unit_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        lesson = dict(row)
+        lesson["content"]   = json.loads(lesson["content"])        if lesson["content"]        else None
+        lesson["llm_debug"] = json.loads(lesson["llm_debug_json"]) if lesson["llm_debug_json"] else None
+        lesson.pop("llm_debug_json", None)
+        lesson["concepts"]  = json.loads(lesson["concepts_json"] or "[]")
+        lesson.pop("concepts_json", None)
+        lesson["completed"] = lesson["completed_at"] is not None
+        return lesson
+
+
+CROWN_MAX = 3   # skill-tree crown cap; each completion bumps the crown by 1
+
+
+async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[bool, bool, int, bool]:
+    """Record (or improve) lesson completion + score. Ownership-checked.
+    Returns (found, first_completion, crown_level, leveled_up). first_completion is
+    True only the FIRST time the lesson is finished, so XP is awarded once (replays
+    don't re-award). Every completion bumps the crown level by 1 up to CROWN_MAX;
+    leveled_up is True when this completion actually raised the crown (i.e. it
+    wasn't already maxed)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT l.completed_at, l.crown_level FROM course_lessons l
+               JOIN courses c ON c.id = l.course_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return (False, False, 0, False)
+        first = row[0] is None
+        old_crown = row[1] or 0
+        crown = min(old_crown + 1, CROWN_MAX)
+        await db.execute(
+            """UPDATE course_lessons
+               SET score        = MAX(COALESCE(score, 0), ?),
+                   completed_at = COALESCE(completed_at, datetime('now')),
+                   crown_level  = ?
+               WHERE id=?""",
+            (int(score), crown, lesson_id),
+        )
+        await db.commit()
+        return (True, first, crown, crown > old_crown)
+
+
+async def record_concept_results(user_id: int, lang: str, results: list[dict]) -> None:
+    """Upsert per-concept mastery by incrementing correct + total counters."""
+    if not results:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        for r in results:
+            key = (r.get("concept_key") or "").strip()
+            correct = max(0, int(r.get("correct") or 0))
+            total = max(0, int(r.get("total") or 0))
+            if not key or total == 0:
+                continue
+            await db.execute(
+                """INSERT INTO concept_mastery
+                       (user_id, lang, concept_key, correct, total, last_seen)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'))
+                   ON CONFLICT(user_id, lang, concept_key) DO UPDATE SET
+                       correct   = correct  + excluded.correct,
+                       total     = total    + excluded.total,
+                       last_seen = excluded.last_seen""",
+                (user_id, lang, key, correct, total),
+            )
+        await db.commit()
+
+
+async def get_mastery_summary(user_id: int, lang: str) -> list[dict]:
+    """Return per-concept mastery rows for a user+language, most-practised first."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT concept_key, correct, total, last_seen
+               FROM concept_mastery WHERE user_id=? AND lang=?
+               ORDER BY total DESC""",
+            (user_id, lang),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_concept_content(lang: str, concept_key: str) -> dict | None:
+    """Verified canonical grammar artifact for (lang, concept_key), or None.
+    Shared across users — not ownership-scoped."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT content FROM concept_content WHERE lang=? AND concept_key=?",
+            (lang, concept_key),
+        ) as cur:
+            row = await cur.fetchone()
+    return json.loads(row[0]) if row else None
+
+
+async def set_concept_content(lang: str, concept_key: str, content: dict) -> None:
+    """Cache a verified grammar artifact (shared across users; upsert)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO concept_content (lang, concept_key, content, created_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(lang, concept_key) DO UPDATE SET
+                 content=excluded.content, created_at=excluded.created_at""",
+            (lang, concept_key, json.dumps(content)),
+        )
+        await db.commit()
+
+
 async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
     """Return cached sentence data for a reader text owned by user_id."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1509,6 +2141,88 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
     return result
 
 
+async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> list[dict]:
+    """The user's well-known deck words, strongest first — fed into lesson/tutor
+    prompts so generation builds on what the learner already knows.
+
+    'Known' = the primary `target` face has graduated (no learning step, seen at
+    least once) AND has real traction (repetitions ≥ 2 or interval ≥ 3 days).
+    Returns lean rows: [{target_text, gloss}] (gloss = the card's English side).
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT c.target_text, c.source_text AS gloss
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL
+                 AND (cf.repetitions >= 2 OR cf.interval_days >= 3)
+               ORDER BY cf.interval_days DESC, cf.repetitions DESC, c.id ASC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def count_known_words(user_id: int, target_lang: str) -> int:
+    """How many words meet the same 'known' bar as get_known_words (no limit).
+    Used to pick the drill-vocab strategy: small decks pass the whole list to the
+    model; large decks fall back to embedding-snapping a relevant subset."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*)
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL
+                 AND (cf.repetitions >= 2 OR cf.interval_days >= 3)""",
+            (user_id, target_lang),
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+async def get_weak_cards(user_id: int, target_lang: str, limit: int = 12) -> list[dict]:
+    """Deck words the user keeps struggling with (low ease or relapsed into
+    learning after having been seen), weakest first — surfaced to the lesson
+    author / tutor so they get extra in-context practice.
+    Returns lean rows: [{target_text, gloss}]."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT c.target_text, c.source_text AS gloss
+               FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+               WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                 AND cf.first_seen_date IS NOT NULL
+                 AND (cf.ease_factor <= 2.0
+                      OR (cf.learning_step IS NOT NULL AND cf.repetitions > 0))
+               ORDER BY cf.ease_factor ASC, c.id ASC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_recent_cards(user_id: int, target_lang: str, limit: int = 15) -> list[dict]:
+    """The most recently ADDED deck words for a language, newest first — regardless
+    of SRS graduation. This is the cross-app adaptivity signal for the lesson
+    planner: words the learner just picked up via the tutor chat or flashcards
+    (which `get_known_words` won't surface until they've graduated) so the next
+    lesson can build on them. Returns lean rows: [{target_text, gloss}]."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT target_text, source_text AS gloss
+               FROM cards
+               WHERE user_id = ? AND target_lang = ? AND suspended = 0
+               ORDER BY id DESC
+               LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_cefr_distribution(user_id: int) -> dict:
     """Return counts of cards at each CEFR level plus an unlabelled count."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1526,6 +2240,67 @@ async def get_cefr_distribution(user_id: int) -> dict:
         key = r["cefr_level"] if r["cefr_level"] in levels else "unknown"
         levels[key] += r["cnt"]
     return levels
+
+
+_KNOWN_WHERE = (
+    "cf.learning_step IS NULL AND cf.first_seen_date IS NOT NULL "
+    "AND (cf.repetitions >= 2 OR cf.interval_days >= 3)"
+)
+
+
+async def get_known_cefr_distribution(user_id: int, target_lang: str) -> dict:
+    """CEFR-level counts among the learner's KNOWN words for one language (same bar
+    as get_known_words). Feeds the large-deck drill prompt a rough vocab profile."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""SELECT c.cefr_level AS lvl, COUNT(*) AS cnt
+                FROM cards c
+                JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+                WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                  AND {_KNOWN_WHERE}
+                GROUP BY c.cefr_level""",
+            (user_id, target_lang),
+        ) as cur:
+            rows = await cur.fetchall()
+    levels = {"A1": 0, "A2": 0, "B1": 0, "B2": 0, "C1": 0, "C2": 0, "unknown": 0}
+    for r in rows:
+        key = r["lvl"] if r["lvl"] in levels else "unknown"
+        levels[key] += r["cnt"]
+    return levels
+
+
+async def get_known_words_missing_cefr(user_id: int, target_lang: str, limit: int = 60) -> list[str]:
+    """Known words with no valid CEFR tag (added via lesson/tutor/starter paths that
+    skip translation's CEFR step) — for bounded lazy backfill."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            f"""SELECT c.target_text
+                FROM cards c
+                JOIN card_faces cf ON cf.card_id = c.id AND cf.face = 'target'
+                WHERE c.user_id = ? AND c.target_lang = ? AND c.suspended = 0
+                  AND {_KNOWN_WHERE}
+                  AND (c.cefr_level IS NULL OR c.cefr_level NOT IN ('A1','A2','B1','B2','C1','C2'))
+                LIMIT ?""",
+            (user_id, target_lang, limit),
+        ) as cur:
+            return [r[0] for r in await cur.fetchall()]
+
+
+async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]) -> None:
+    """Backfill cefr_level on the user's cards by target_text (only where still unset)."""
+    valid = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    rows = [(lvl, user_id, target_lang, w) for w, lvl in mapping.items() if lvl in valid]
+    if not rows:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "UPDATE cards SET cefr_level = ? "
+            "WHERE user_id = ? AND target_lang = ? AND target_text = ? "
+            "AND (cefr_level IS NULL OR cefr_level NOT IN ('A1','A2','B1','B2','C1','C2'))",
+            rows,
+        )
+        await db.commit()
 
 
 async def get_streak(user_id: int) -> int:
@@ -1562,3 +2337,212 @@ async def get_streak(user_id: int) -> int:
         elif d < expected:
             break
     return streak
+
+
+async def record_study_activity(user_id: int) -> None:
+    """Mark today as an active learning day for the streak. Called for ANY
+    meaningful activity — SRS reviews, completing a lesson, or a tutor turn —
+    so the 🔥 streak reflects all study, not only flashcard reviews."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
+        await db.commit()
+
+
+# ── Tutor chat ─────────────────────────────────────────────────────────────────
+
+async def create_tutor_conversation(user_id: int, lang: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT INTO tutor_conversations (user_id, lang) VALUES (?, ?)",
+            (user_id, lang),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def list_tutor_conversations(user_id: int, lang: str, limit: int = 30) -> list[dict]:
+    """Most recent first. Lean rows for the conversation drawer."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, created_at, updated_at
+               FROM tutor_conversations
+               WHERE user_id=? AND lang=?
+               ORDER BY updated_at DESC, id DESC LIMIT ?""",
+            (user_id, lang, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_tutor_conversation(user_id: int, conv_id: int) -> dict | None:
+    """Ownership-checked conversation row, or None. `active_drill_id` is non-NULL
+    while a drill sub-session is in progress (else NULL)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, lang, title, active_drill_id FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def delete_tutor_conversation(user_id: int, conv_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM tutor_messages WHERE conversation_id IN "
+            "(SELECT id FROM tutor_conversations WHERE id=? AND user_id=?)",
+            (conv_id, user_id),
+        )
+        await db.execute(
+            "DELETE FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        )
+        await db.commit()
+
+
+async def get_tutor_messages(user_id: int, conv_id: int, limit: int = 200) -> list[dict]:
+    """Messages in chronological order (ownership-checked via the join).
+    `drill_id` is non-NULL for messages that belong to a drill sub-session
+    (grouped + collapsible client-side); `drill_skill` labels that group."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT m.id, m.role, m.content, m.drill_id, m.drill_skill, m.created_at
+               FROM tutor_messages m
+               JOIN tutor_conversations c ON c.id = m.conversation_id
+               WHERE m.conversation_id=? AND c.user_id=?
+               ORDER BY m.id ASC LIMIT ?""",
+            (conv_id, user_id, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str,
+                            drill_id: int | None = None, drill_skill: str | None = None) -> int | None:
+    """Append a message (ownership-checked). The first user message becomes the
+    conversation title. Pass `drill_id`/`drill_skill` to tag the message as part
+    of a drill sub-session. Returns the message id, or None if not the owner."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT title FROM tutor_conversations WHERE id=? AND user_id=?",
+            (conv_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        cur = await db.execute(
+            "INSERT INTO tutor_messages (conversation_id, role, content, drill_id, drill_skill) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (conv_id, role, content, drill_id, drill_skill),
+        )
+        msg_id = cur.lastrowid
+        # Don't let a drill's opening tutor message become the conversation title.
+        if role == "user" and not (row[0] or "").strip() and drill_id is None:
+            await db.execute(
+                "UPDATE tutor_conversations SET title=? WHERE id=?",
+                (content[:60], conv_id),
+            )
+        await db.execute(
+            "UPDATE tutor_conversations SET updated_at=datetime('now') WHERE id=?",
+            (conv_id,),
+        )
+        await db.commit()
+        return msg_id
+
+
+async def set_tutor_message_drill(user_id: int, msg_id: int, drill_id: int, drill_skill: str) -> None:
+    """Tag an already-inserted message as a drill turn (used for the opener, whose
+    own id becomes the drill group id)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE tutor_messages SET drill_id=?, drill_skill=?
+               WHERE id=? AND conversation_id IN
+                 (SELECT id FROM tutor_conversations WHERE user_id=?)""",
+            (drill_id, drill_skill, msg_id, user_id),
+        )
+        await db.commit()
+
+
+async def set_active_drill(user_id: int, conv_id: int, drill_id: int | None) -> None:
+    """Set (start) or clear (end) the conversation's active drill sub-session."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE tutor_conversations SET active_drill_id=? WHERE id=? AND user_id=?",
+            (drill_id, conv_id, user_id),
+        )
+        await db.commit()
+
+
+# ── Points ledger (light gamification) ──────────────────────────────────────────
+
+async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> None:
+    if points <= 0:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO points_ledger (user_id, lang, points, reason) VALUES (?, ?, ?, ?)",
+            (user_id, lang, int(points), (reason or "").strip()[:200]),
+        )
+        await db.commit()
+
+
+async def get_points_total(user_id: int, lang: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(points), 0) FROM points_ledger WHERE user_id=? AND lang=?",
+            (user_id, lang),
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+async def get_points_today(user_id: int, lang: str) -> int:
+    """XP earned today (all languages) — drives the daily-goal ring. Uses local
+    time so the goal resets at the learner's midnight, matching the streak."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
+            "WHERE user_id=? AND date(created_at, 'localtime') = date('now', 'localtime')",
+            (user_id,),
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+# ── Embedding cache ───────────────────────────────────────────────────────────
+# Shared word→vector cache (a word embeds the same for every user). Vectors are
+# stored as packed float32 BLOBs; pack/unpack live in embeddings.py.
+
+async def get_cached_embeddings(lang: str, model: str, words: list[str]) -> dict[str, bytes]:
+    """Return {word: vector_blob} for the cached subset of `words`."""
+    words = [w for w in {w for w in words} if w]
+    if not words:
+        return {}
+    out: dict[str, bytes] = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Chunk the IN-list to stay well under SQLite's variable limit.
+        for i in range(0, len(words), 400):
+            chunk = words[i:i + 400]
+            placeholders = ",".join("?" * len(chunk))
+            async with db.execute(
+                f"SELECT word, vector FROM embedding_cache "
+                f"WHERE lang=? AND model=? AND word IN ({placeholders})",
+                (lang, model, *chunk),
+            ) as cur:
+                async for row in cur:
+                    out[row[0]] = row[1]
+    return out
+
+
+async def put_cached_embeddings(lang: str, model: str, vectors: dict[str, bytes]) -> None:
+    """Insert {word: vector_blob}; ignore words already cached."""
+    if not vectors:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "INSERT OR IGNORE INTO embedding_cache (lang, model, word, vector) VALUES (?,?,?,?)",
+            [(lang, model, w, v) for w, v in vectors.items()],
+        )
+        await db.commit()

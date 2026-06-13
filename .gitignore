@@ -5,7 +5,9 @@ __pycache__/
 *.pyc
 .DS_Store
 extracted_vocab.json
+spike_output/
 *.key
 *.pub
 *.pem
 .mcp.json
+verbecc.log

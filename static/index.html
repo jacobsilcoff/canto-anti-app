@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Add Vocab</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="manifest" href="/manifest.json">
@@ -45,12 +48,12 @@
     /* ── tour overlay ── */
     .tour-overlay {
       position: fixed; inset: 0; z-index: 9000;
-      background: rgba(0,0,0,0.55);
+      background: var(--overlay);
       display: flex; align-items: center; justify-content: center; padding: 24px;
     }
     .tour-card {
       background: var(--surface); border-radius: 16px;
-      box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+      box-shadow: var(--shadow-pop);
       padding: 32px 28px; max-width: 420px; width: 100%;
       display: flex; flex-direction: column; gap: 16px;
       position: relative;
@@ -107,7 +110,7 @@
       font-weight: 600;
     }
     .ai-notes-block {
-      background: #f6f9ff;
+      background: var(--surface-alt);
       border-left: 3px solid var(--primary);
       padding: 8px 12px;
       border-radius: 6px;
@@ -690,11 +693,13 @@
 
   async function loadStreak() {
     try {
-      const { streak } = await fetch('/api/streak').then(r => r.json());
-      if (streak > 0) {
-        const text = `🔥 ${streak}`;
+      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const parts = [];
+      if (streak > 0) parts.push(`🔥 ${streak}`);
+      if (points > 0) parts.push(`⭐ ${points}`);
+      if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
-          el.textContent = text;
+          el.textContent = parts.join(' · ');
           el.style.display = '';
         });
       }

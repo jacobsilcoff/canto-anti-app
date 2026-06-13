@@ -35,7 +35,15 @@
       "Bash(venv/bin/pytest tests/test_auth_flows.py -v)",
       "Bash(python3 -c \"import slowapi; import inspect; print\\(inspect.getfile\\(slowapi\\)\\)\")",
       "Bash(venv/bin/python -c \"import slowapi; import inspect; f=inspect.getfile\\(slowapi\\); print\\(f\\)\")",
-      "Bash(venv/bin/python -c \"from slowapi import Limiter; l=Limiter\\(key_func=lambda r: ''\\); print\\([a for a in dir\\(l\\) if not a.startswith\\('__'\\)]\\)\")"
+      "Bash(venv/bin/python -c \"from slowapi import Limiter; l=Limiter\\(key_func=lambda r: ''\\); print\\([a for a in dir\\(l\\) if not a.startswith\\('__'\\)]\\)\")",
+      "Bash(venv/bin/pip list *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2, ensure_ascii=False\\)[:4000]\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(venv/bin/python -c \"import asyncio,db; print\\(asyncio.run\\(db.list_users\\(\\)\\)\\)\")",
+      "Bash(venv/bin/python -c ' *)",
+      "Bash(venv/bin/python -c \"import learning, main, grammar_lessons, tutor; print\\('imports OK'\\)\")",
+      "Bash(venv/bin/python -c \"import main, tutor, embeddings, db; print\\('imports OK'\\)\")",
+      "Read(//tmp/**)"
     ]
   }
 }

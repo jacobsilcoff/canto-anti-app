@@ -1,0 +1,162 @@
+{
+  "_comment": "Few-shot golden example for learning.author_lesson. Edit to steer lesson STYLE/quality — the model matches SHAPE, not content. Deliberately Spanish so it never leaks answers into other target languages. 'input' = concepts handed to a lesson; 'output' = what the model should return.",
+  "input": {
+    "concepts": [
+      {"kind": "grammar", "key": "possessive_adj", "label": "mi / tu / su", "gloss": "possessive adjectives: my / your / his-her"},
+      {"kind": "vocab", "key": "familia", "label": "familia", "gloss": "family"}
+    ],
+    "review": [
+      {"kind": "vocab", "key": "casa", "label": "casa", "gloss": "house"},
+      {"kind": "grammar", "key": "ser_present", "label": "ser (present)", "gloss": "present tense of 'to be' (identity)"}
+    ]
+  },
+  "output": {
+    "title": "Saying 'my', 'your', 'his/her': Possessives",
+    "objective": "Use mi, tu, and su before nouns to express who something belongs to.",
+    "intro": "Spanish has short possessive adjectives that go before the noun — like English 'my' and 'your', but they change form when the noun is plural.",
+    "summary": "mi/tu/su (singular), mis/tus/sus (plural); familia",
+    "teach": [
+      {
+        "type": "prose",
+        "text": "Possessive adjectives in Spanish come **before** the noun. They agree in **number** with the thing owned — not with the owner. So 'my book' = **mi libro**, but 'my books' = **mis libros**. Gender doesn't change them."
+      },
+      {
+        "type": "table",
+        "title": "Possessive adjectives",
+        "columns": ["Owner", "Before singular noun", "Before plural noun"],
+        "rows": [
+          ["yo (I)", "mi", "mis"],
+          ["tú (you, informal)", "tu", "tus"],
+          ["él / ella / usted (he / she / you-formal)", "su", "sus"],
+          ["nosotros (we)", "nuestro / nuestra", "nuestros / nuestras"],
+          ["ellos / ustedes (they / you-pl.)", "su", "sus"]
+        ]
+      },
+      {
+        "type": "examples",
+        "items": [
+          {"text": "Mi familia vive en Madrid.", "gloss": "My family lives in Madrid."},
+          {"text": "¿Dónde está tu libro?", "gloss": "Where is your book?"},
+          {"text": "Su madre trabaja mucho.", "gloss": "His / her mother works a lot."},
+          {"text": "No encuentro mis llaves.", "gloss": "I can't find my keys.", "lit": "Not I-find my keys."},
+          {"text": "¿Es tuyo este cuaderno?", "gloss": "Is this notebook yours?", "lit": "Is yours this notebook?"},
+          {"text": "Nuestra casa es pequeña.", "gloss": "Our house is small."}
+        ]
+      },
+      {
+        "type": "note",
+        "text": "**su is ambiguous** — it can mean his, her, its, your (formal), or their. Context tells you which: *Su familia* might mean 'his family', 'her family', or 'your family'."
+      },
+      {
+        "type": "contrast",
+        "a": {"text": "mi libro", "gloss": "my book (adjective before the noun — normal usage)"},
+        "b": {"text": "el libro mío", "gloss": "the book of mine (emphatic — stresses ownership)"},
+        "label": "mi = unstressed (before noun); mío = emphatic stressed form (after noun)"
+      },
+      {
+        "type": "note",
+        "text": "**Watch the accent:** *tu* (no accent) = 'your'. *tú* (with accent) = 'you' (subject pronoun). Never write an accent on the possessive adjective."
+      }
+    ],
+    "drills": [
+      {
+        "kind": "recognition",
+        "concept": "familia",
+        "target": "familia",
+        "gloss": "family",
+        "distractors": ["friend", "house", "sister"]
+      },
+      {
+        "kind": "recognition",
+        "concept": "possessive_adj",
+        "target": "mi libro",
+        "gloss": "my book",
+        "distractors": ["your book", "his book", "our book"]
+      },
+      {
+        "kind": "listening",
+        "concept": "possessive_adj",
+        "target": "su familia",
+        "gloss": "his / her family",
+        "distractors": ["mi familia", "tu familia", "nuestra familia"]
+      },
+      {
+        "kind": "production",
+        "concept": "possessive_adj",
+        "gloss": "your book (informal)",
+        "target": "tu libro",
+        "distractors": ["mi libro", "su libro", "nuestro libro"]
+      },
+      {
+        "kind": "production",
+        "concept": "casa",
+        "gloss": "our house",
+        "target": "nuestra casa",
+        "distractors": ["mi familia", "su libro", "tu madre"]
+      },
+      {
+        "kind": "cloze",
+        "concept": "possessive_adj",
+        "sentence": "___ familia es muy grande.",
+        "answer": "Mi",
+        "gloss": "My family is very big.",
+        "distractors": ["Tu", "Su", "Nuestra"]
+      },
+      {
+        "kind": "cloze",
+        "concept": "ser_present",
+        "sentence": "Mi hermano ___ médico.",
+        "answer": "es",
+        "gloss": "My brother is a doctor.",
+        "distractors": ["son", "eres", "soy"]
+      },
+      {
+        "kind": "cloze",
+        "concept": "possessive_adj",
+        "sentence": "No encuentro ___ llaves.",
+        "answer": "mis",
+        "gloss": "I can't find my keys.",
+        "distractors": ["tus", "sus", "nuestras"]
+      },
+      {
+        "kind": "reorder",
+        "concept": "possessive_adj",
+        "sentence": "Mi hermano trabaja en Madrid",
+        "tokens": ["Mi", "hermano", "trabaja", "en", "Madrid"],
+        "glossary": [
+          {"token": "hermano", "gloss": "brother"},
+          {"token": "trabaja", "gloss": "works"},
+          {"token": "en", "gloss": "in"}
+        ]
+      },
+      {
+        "kind": "reorder",
+        "concept": "familia",
+        "sentence": "Su familia vive aquí",
+        "tokens": ["Su", "familia", "vive", "aquí"],
+        "glossary": [
+          {"token": "vive", "gloss": "lives"},
+          {"token": "aquí", "gloss": "here"}
+        ]
+      },
+      {
+        "kind": "match",
+        "concept": "possessive_adj",
+        "pairs": [
+          {"target": "mi", "english": "my"},
+          {"target": "tu", "english": "your (informal)"},
+          {"target": "su", "english": "his / her"},
+          {"target": "nuestro", "english": "our"}
+        ]
+      }
+    ],
+    "vocab_glossary": {
+      "Mi": "my", "Tu": "your", "Su": "his / her", "Nuestra": "our",
+      "familia": "family", "libro": "book", "llaves": "keys", "cuaderno": "notebook",
+      "casa": "house", "madre": "mother", "hermano": "brother", "médico": "doctor",
+      "trabaja": "works", "vive": "lives", "está": "is (location)", "encuentro": "I find",
+      "grande": "big", "pequeña": "small", "mucho": "a lot", "aquí": "here",
+      "no": "not", "en": "in", "es": "is", "son": "are", "tuyo": "yours"
+    }
+  }
+}

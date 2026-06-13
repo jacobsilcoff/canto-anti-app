@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Settings</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="manifest" href="/manifest.json">
@@ -61,7 +64,7 @@
     .user-name { font-size: 0.9rem; font-weight: 500; }
     .user-name .admin-tag {
       display: inline-block;
-      background: #e8f0fe;
+      background: var(--primary-soft);
       color: var(--primary);
       font-size: 0.65rem;
       font-weight: 700;
@@ -82,8 +85,8 @@
       cursor: pointer;
       white-space: nowrap;
     }
-    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: #f3f7fe; }
-    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: #fdecea; }
+    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
     .create-form {
       display: flex;
       flex-wrap: wrap;
@@ -110,6 +113,12 @@
     .create-form input[type="text"]:focus,
     .create-form input[type="password"]:focus { border-color: var(--primary); }
     .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; }
+
+    /* Appearance: Auto / Light / Dark segmented control */
+    .theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+    .theme-seg button { background: var(--surface); border: none; padding: 7px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .theme-seg button + button { border-left: 1px solid var(--border); }
+    .theme-seg button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -148,6 +157,21 @@
     </div>
   </div>
 
+  <div class="settings-section">
+    <div class="settings-section-title">Appearance</div>
+    <div class="settings-row">
+      <div style="flex:1;min-width:0">
+        <div class="settings-label">Theme</div>
+        <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+      </div>
+      <div class="theme-seg" id="theme-seg">
+        <button type="button" data-pref="auto">Auto</button>
+        <button type="button" data-pref="light">Light</button>
+        <button type="button" data-pref="dark">Dark</button>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-section" id="plan-section" style="display:none">
     <div class="settings-section-title">Plan &amp; usage</div>
     <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
@@ -159,7 +183,7 @@
         <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
       </div>
       <div class="settings-desc" id="plan-note"></div>
-      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:#e67e22"></div>
+      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--hard)"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
         <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
@@ -170,7 +194,7 @@
   </div>
 
   <!-- Cancel subscription confirmation modal -->
-  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;align-items:center;justify-content:center">
     <div style="background:var(--surface);border-radius:var(--radius);padding:28px 24px;max-width:380px;width:90%;box-shadow:var(--shadow)">
       <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
       <div style="color:var(--text-muted);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
@@ -279,6 +303,49 @@
     <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
   </div>
 
+  <div class="settings-section" id="learner-section">
+    <div class="settings-section-title">AI Tutor Profile</div>
+    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div class="settings-label">Your background &amp; goals</div>
+      <div class="settings-desc">Tell the AI what you already know, what you want to focus on, or any context that helps personalise your lessons.</div>
+      <textarea id="settings-learner-profile" rows="3" placeholder="e.g. I speak some Mandarin but want to learn Cantonese from scratch. I already know basic greetings." style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:0.9rem;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);outline:none"></textarea>
+    </div>
+    <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center">
+      <button class="settings-btn primary" onclick="saveLearnerProfile()">Save</button>
+      <span id="learner-profile-msg" style="font-size:0.82rem"></span>
+    </div>
+  </div>
+
+  <div class="settings-section" id="mastery-section" style="display:none">
+    <div class="settings-section-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Concept Mastery</span>
+      <select id="mastery-lang-select" class="settings-select" style="font-size:0.8rem;padding:3px 28px 3px 8px" onchange="loadMastery()"></select>
+    </div>
+    <div class="settings-desc" style="padding:2px 18px 8px">First-pass accuracy per concept across all completed lessons.</div>
+    <div id="mastery-list" style="padding:0 18px 14px"></div>
+  </div>
+
+  <div class="settings-section" id="admin-lesson-section" style="display:none">
+    <div class="settings-section-title">Learning Path (admin)</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Author lessons with the premium model</div>
+        <div class="settings-desc" id="lesson-premium-desc">Use the stronger model for unit planning + lesson authoring (slower, costs more)</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="settings-lesson-premium" onchange="saveLessonPremium()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Lesson model (A/B)</div>
+        <div class="settings-desc">Which model runs the planner + author. Overrides the toggle above. Claude options need ANTHROPIC_API_KEY on the server.</div>
+      </div>
+      <select id="settings-lesson-model" class="settings-select" onchange="saveLessonModel()"></select>
+    </div>
+  </div>
+
   <div class="settings-section" id="admin-create-section" style="display:none">
     <div class="settings-section-title">Create user</div>
     <form class="create-form" onsubmit="createUser(event)">
@@ -302,6 +369,7 @@
     await Promise.all([loadLanguages(), loadSettings(), loadProfile(), loadBilling()]);
     checkAdmin();
     loadStreak();
+    loadMastery();
     if (new URLSearchParams(location.search).get('upgraded')) {
       showToast('Welcome to Pro! Your subscription is active.');
       history.replaceState(null, '', '/settings');
@@ -337,7 +405,7 @@
       `${used} / ${limit} AI translations this month`;
     const bar = document.getElementById('plan-usage-bar');
     bar.style.width = pct + '%';
-    bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? '#f59e0b' : 'var(--primary)');
+    bar.style.background = pct >= 100 ? 'var(--again)' : (pct >= 80 ? 'var(--warn-accent)' : 'var(--primary)');
 
     const note = document.getElementById('plan-note');
     const cancelNote = document.getElementById('plan-cancel-note');
@@ -500,7 +568,7 @@
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
-        msg.style.color = '#16a34a';
+        msg.style.color = 'var(--good)';
         msg.textContent = body.email_changed
           ? 'Saved! Check your email to verify the new address.'
           : 'Profile saved.';
@@ -530,7 +598,7 @@
     try {
       const me = await fetch('/api/me').then(r => r.json());
       if (me.is_admin) {
-        ['admin-create-section', 'admin-users-section'].forEach(id => {
+        ['admin-lesson-section', 'admin-create-section', 'admin-users-section'].forEach(id => {
           document.getElementById(id).style.display = '';
         });
         await loadUsers();
@@ -659,6 +727,15 @@
     } catch {
       languages = [{ code: 'yue', name: 'Cantonese', flag: '🇭🇰' }];
     }
+    const msel = document.getElementById('mastery-lang-select');
+    msel.innerHTML = '';
+    languages.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
+      msel.appendChild(opt);
+    });
+    msel.value = (settings && settings.default_target_lang) || 'yue';
   }
 
   let settings = {};
@@ -672,6 +749,18 @@
     document.getElementById('settings-audio-romanization').checked = settings.audio_show_romanization !== false;
     document.getElementById('settings-auto-add-vocab').checked = !!settings.auto_add_reader_vocab;
     document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
+    document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
+    if (settings.lesson_premium_model) {
+      document.getElementById('lesson-premium-desc').textContent =
+        `Use ${settings.lesson_premium_model} for the planner + lesson authoring (slower, costs more)`;
+    }
+    const lmSel = document.getElementById('settings-lesson-model');
+    if (lmSel && Array.isArray(settings.lesson_model_options)) {
+      lmSel.innerHTML = '<option value="">Default (follow toggle above)</option>' +
+        settings.lesson_model_options.map(m => `<option value="${m}">${m}</option>`).join('');
+      lmSel.value = settings.lesson_model || '';
+    }
+    document.getElementById('settings-learner-profile').value = settings.learner_profile || '';
 
     const sel = document.getElementById('settings-default-lang');
     sel.innerHTML = '';
@@ -828,6 +917,90 @@
     }
   }
 
+  async function saveLessonPremium() {
+    const checked = document.getElementById('settings-lesson-premium').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_premium: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_premium = checked;
+      showToast('Lesson model preference saved.');
+    } catch {
+      document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveLessonModel() {
+    const val = document.getElementById('settings-lesson-model').value;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_model: val }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_model = val;
+      showToast(val ? `Lessons will use ${val}.` : 'Lesson model reset to default.');
+    } catch {
+      document.getElementById('settings-lesson-model').value = settings.lesson_model || '';
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveLearnerProfile() {
+    const val = (document.getElementById('settings-learner-profile').value || '').slice(0, 2000);
+    const msg = document.getElementById('learner-profile-msg');
+    msg.style.color = ''; msg.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ learner_profile: val }),
+      });
+      if (!res.ok) throw new Error();
+      msg.style.color = 'var(--good)'; msg.textContent = 'Saved.';
+      setTimeout(() => { msg.textContent = ''; }, 2000);
+    } catch {
+      msg.style.color = 'var(--again)'; msg.textContent = 'Failed to save.';
+    }
+  }
+
+  async function loadMastery() {
+    const sel = document.getElementById('mastery-lang-select');
+    const lang = sel.value || (settings && settings.default_target_lang) || 'yue';
+    const list = document.getElementById('mastery-list');
+    list.innerHTML = '<span class="settings-desc">Loading…</span>';
+    try {
+      const { concepts } = await fetch('/api/mastery?lang=' + encodeURIComponent(lang)).then(r => r.json());
+      if (!concepts.length) {
+        list.innerHTML = '<span class="settings-desc">No data yet — complete some lessons to see mastery stats.</span>';
+        return;
+      }
+      list.innerHTML = '';
+      concepts.forEach(c => {
+        const pct = c.total ? Math.round(c.correct / c.total * 100) : 0;
+        const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn-accent)' : 'var(--again)';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)';
+        row.innerHTML = `
+          <div style="flex:1;min-width:0">
+            <span style="font-size:0.88rem;color:var(--text)">${escHtml(c.concept_key.replace(/_/g,' '))}</span>
+          </div>
+          <div style="width:80px;height:6px;background:var(--border);border-radius:999px;overflow:hidden;flex-shrink:0">
+            <div style="height:100%;width:${pct}%;background:${color};transition:width .3s"></div>
+          </div>
+          <div style="font-size:0.82rem;color:${color};width:44px;text-align:right;flex-shrink:0">${pct}% <span style="color:var(--text-muted)">${c.total}×</span></div>`;
+        list.appendChild(row);
+      });
+      document.getElementById('mastery-section').style.display = '';
+    } catch {
+      list.innerHTML = '<span class="settings-desc" style="color:var(--again)">Failed to load mastery data.</span>';
+    }
+  }
+
   async function saveReaderDifficulty() {
     const val = document.getElementById('settings-reader-difficulty').value;
     try {
@@ -862,13 +1035,34 @@
     }
   }
 
+  // ── Appearance (theme) — localStorage-only, applied by /static/theme.js ────
+  (function () {
+    const seg = document.getElementById('theme-seg');
+    if (!seg) return;
+    function sync() {
+      const pref = localStorage.getItem('theme') || 'auto';
+      seg.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('active', b.dataset.pref === pref));
+    }
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button[data-pref]');
+      if (!b) return;
+      // theme.js (deferred) has loaded by the time a click can happen.
+      if (window.setThemePref) setThemePref(b.dataset.pref);
+      sync();
+    });
+    sync();
+  })();
+
   async function loadStreak() {
     try {
-      const { streak } = await fetch('/api/streak').then(r => r.json());
-      if (streak > 0) {
-        const text = `🔥 ${streak}`;
+      const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      const parts = [];
+      if (streak > 0) parts.push(`🔥 ${streak}`);
+      if (points > 0) parts.push(`⭐ ${points}`);
+      if (parts.length) {
         document.querySelectorAll('.streak-display').forEach(el => {
-          el.textContent = text; el.style.display = '';
+          el.textContent = parts.join(' · '); el.style.display = '';
         });
       }
     } catch {}

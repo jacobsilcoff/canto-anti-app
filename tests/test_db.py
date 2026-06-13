@@ -271,3 +271,249 @@ async def test_multilang_card_no_romanization(fresh_db):
     card = await db.get_card(user_id, card_id)
     assert card["target_lang"] == "fr"
     assert card["romanization"] == ""
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+_CONCEPTS_L1 = [
+    {"kind": "vocab", "key": "greeting_hello", "label": "Bonjour", "gloss": "hello"},
+    {"kind": "vocab", "key": "greeting_goodbye", "label": "Au revoir", "gloss": "goodbye"},
+]
+_CONCEPTS_L2 = [
+    {"kind": "grammar", "key": "verb_to_be_je", "label": "suis", "gloss": "am"},
+]
+_CONTENT = {"segments": [{"teach": {"items": []}, "exercises": []}]}
+
+
+@pytest.mark.asyncio
+async def test_create_and_get_course(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1")
+    course = await db.get_course(user_id, cid)
+    assert course["id"] == cid
+    assert course["target_lang"] == "fr"
+    assert course["level"] == "A1"
+    assert course["units"] == []
+
+
+@pytest.mark.asyncio
+async def test_course_with_lessons_and_unit(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    l1 = await db.create_lesson(cid, 1, "Hello & Goodbye", "Greet", _CONCEPTS_L1, _CONTENT, "Taught hello/goodbye")
+    l2 = await db.create_lesson(cid, 2, "My Name", "Introduce", _CONCEPTS_L2, _CONTENT, "Taught suis")
+    await db.close_unit(cid, "Greetings", "Basic greeting phrases")
+    course = await db.get_course(uid, cid)
+    assert len(course["units"]) == 1
+    assert course["units"][0]["title"] == "Greetings"
+    assert len(course["units"][0]["lessons"]) == 2
+    assert course["units"][0]["lessons"][0]["concept_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_lesson_status_progression(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    l1 = await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s1")
+    l2 = await db.create_lesson(cid, 2, "L2", "obj", _CONCEPTS_L2, _CONTENT, "s2")
+    course = await db.get_course(uid, cid)
+    pending = course["units"][0]["lessons"]
+    assert pending[0]["status"] == "available"
+    assert pending[1]["status"] == "locked"
+    # complete first, second becomes available
+    await db.complete_lesson(uid, l1, 80)
+    course2 = await db.get_course(uid, cid)
+    statuses = [l["status"] for l in course2["units"][0]["lessons"]]
+    assert statuses[0] == "done"
+    assert statuses[1] == "available"
+
+
+@pytest.mark.asyncio
+async def test_in_progress_unit_virtual(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s")
+    course = await db.get_course(uid, cid)
+    assert len(course["units"]) == 1
+    assert course["units"][0].get("in_progress") is True
+    assert course["units"][0]["title"] is None
+
+
+@pytest.mark.asyncio
+async def test_active_course_and_delete(fresh_db):
+    user_id = fresh_db
+    cid = await db.create_course(user_id, "fr", "A1")
+    active = await db.get_active_course(user_id, "fr")
+    assert active is not None and active["id"] == cid
+    assert await db.get_active_course(user_id, "es") is None
+    await db.delete_course(user_id, cid)
+    assert await db.get_courses(user_id) == []
+    assert await db.get_active_course(user_id, "fr") is None
+
+
+@pytest.mark.asyncio
+async def test_courses_are_siloed_by_user(fresh_db):
+    admin_id = fresh_db
+    other_id = await db.create_user("other", auth.hash_password("pw"))
+    cid = await db.create_course(admin_id, "fr", "A1")
+    assert await db.get_course(other_id, cid) is None
+    assert await db.get_courses(other_id) == []
+
+
+@pytest.mark.asyncio
+async def test_get_lesson_has_concepts(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    lid = await db.create_lesson(cid, 1, "Hello & Goodbye", "Greet", _CONCEPTS_L1, _CONTENT, "s")
+    lesson = await db.get_lesson(uid, lid)
+    assert lesson["title"] == "Hello & Goodbye"
+    assert lesson["target_lang"] == "fr"
+    assert {c["key"] for c in lesson["concepts"]} == {"greeting_hello", "greeting_goodbye"}
+    assert lesson["content"] == _CONTENT
+    assert lesson["completed"] is False
+
+
+@pytest.mark.asyncio
+async def test_lesson_llm_debug(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    debug = {"prompt": "test prompt", "response": "test response"}
+    lid = await db.create_lesson(cid, 1, "L1", "obj", [], _CONTENT, "s", debug)
+    lesson = await db.get_lesson(uid, lid)
+    assert lesson["llm_debug"] == debug
+
+
+@pytest.mark.asyncio
+async def test_complete_lesson(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    lid = await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s")
+    found, first, crown, leveled = await db.complete_lesson(uid, lid, 90)
+    assert found and first and crown == 1 and leveled   # first completion → crown 1
+    lesson = await db.get_lesson(uid, lid)
+    assert lesson["completed"] is True
+    assert lesson["score"] == 90
+    # Re-completing is found but no longer "first" (so XP isn't re-awarded); crown bumps.
+    found2, first2, crown2, leveled2 = await db.complete_lesson(uid, lid, 95)
+    assert found2 and not first2 and crown2 == 2 and leveled2
+    # Crown caps at 3 on repeated replays; once maxed, leveled_up is False.
+    await db.complete_lesson(uid, lid, 95)
+    _, _, crown4, leveled4 = await db.complete_lesson(uid, lid, 95)
+    assert crown4 == 3 and not leveled4
+
+
+@pytest.mark.asyncio
+async def test_get_next_lesson_context(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    ctx0 = await db.get_next_lesson_context(cid)
+    assert ctx0["lesson_num"] == 1
+    assert ctx0["concept_registry"] == []
+    assert ctx0["unit_summaries"] == []
+    assert ctx0["recent_summaries"] == []
+
+    await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "summary one")
+    await db.close_unit(cid, "Greetings", "Basic phrases")
+
+    ctx1 = await db.get_next_lesson_context(cid)
+    assert ctx1["lesson_num"] == 2
+    assert len(ctx1["concept_registry"]) == 2
+    assert ctx1["concept_registry"][0]["key"] == "greeting_hello"
+    assert len(ctx1["unit_summaries"]) == 1
+    assert ctx1["unit_summaries"][0]["title"] == "Greetings"
+    assert len(ctx1["recent_summaries"]) == 1
+    assert ctx1["recent_summaries"][0]["summary"] == "summary one"
+
+
+@pytest.mark.asyncio
+async def test_lesson_ownership(fresh_db):
+    admin = fresh_db
+    other = await db.create_user("o2", auth.hash_password("pw"))
+    cid = await db.create_course(admin, "fr", "A1")
+    lid = await db.create_lesson(cid, 1, "L1", "obj", [], _CONTENT, "s")
+    assert await db.get_lesson(other, lid) is None
+    found, first, crown, leveled = await db.complete_lesson(other, lid, 50)
+    assert not found and not first and crown == 0 and not leveled
+
+
+@pytest.mark.asyncio
+async def test_close_unit_assigns_all_pending_lessons(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    l1 = await db.create_lesson(cid, 1, "L1", "obj", _CONCEPTS_L1, _CONTENT, "s1")
+    l2 = await db.create_lesson(cid, 2, "L2", "obj", _CONCEPTS_L2, _CONTENT, "s2")
+    unit_id = await db.close_unit(cid, "Unit One", "First unit")
+    course = await db.get_course(uid, cid)
+    assert len(course["units"]) == 1
+    assert course["units"][0]["id"] == unit_id
+    assert len(course["units"][0]["lessons"]) == 2
+    # no more in_progress virtual unit
+    assert not any(u.get("in_progress") for u in course["units"])
+
+
+# ── Foundations seeding ────────────────────────────────────────────────────────
+
+_F_UNITS = [
+    {"title": "Script Basics", "objective": "obj1", "lessons": [
+        {"title": "Intro",     "objective": "", "content": {"segments": []}},
+        {"title": "Consonants","objective": "", "content": {"segments": []}},
+    ]},
+    {"title": "Vowels", "objective": "obj2", "lessons": [
+        {"title": "Vowels", "objective": "", "content": {"segments": []}},
+    ]},
+]
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_on_empty_course(fresh_db):
+    """Foundations seeded into a brand-new course start at idx 0."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "ko", "A1")
+    await db.seed_foundation_units(cid, _F_UNITS)
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    assert len(f_units) == 2
+    # idx values start at 0 and are contiguous
+    idxs = sorted(u["idx"] for u in f_units)
+    assert idxs == [0, 1]
+    # lessons are present
+    total = sum(len(u["lessons"]) for u in f_units)
+    assert total == 3
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_prepends_to_existing_ai_units(fresh_db):
+    """Backfill: foundations are inserted at the front; existing AI units shift up."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    # Create one AI lesson and close it into a unit (idx 0)
+    await db.create_lesson(cid, 1, "AI Lesson", "obj", _CONCEPTS_L1, _CONTENT, "s")
+    await db.close_unit(cid, "AI Unit", "first AI unit")
+    course_before = await db.get_course(uid, cid)
+    assert course_before["units"][0]["title"] == "AI Unit"
+    assert course_before["units"][0]["idx"] == 0
+
+    # Now backfill 2 foundations units
+    await db.seed_foundation_units(cid, _F_UNITS)
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    ai_units = [u for u in course["units"] if u["theme"] != "foundations"]
+    # Foundations are at front (lowest idx values)
+    assert len(f_units) == 2
+    assert len(ai_units) == 1
+    assert max(u["idx"] for u in f_units) < min(u["idx"] for u in ai_units)
+
+
+@pytest.mark.asyncio
+async def test_seed_foundations_idempotent_guard(fresh_db):
+    """Calling seed twice would double the units — callers must check first.
+    This test just verifies the second call isn't silently ignored; callers
+    are responsible for the 'already seeded?' guard."""
+    uid = fresh_db
+    cid = await db.create_course(uid, "ko", "A1")
+    await db.seed_foundation_units(cid, _F_UNITS)
+    await db.seed_foundation_units(cid, _F_UNITS)   # called again
+    course = await db.get_course(uid, cid)
+    f_units = [u for u in course["units"] if u["theme"] == "foundations"]
+    # Two calls → four foundation units (2×2). Guard belongs in the caller.
+    assert len(f_units) == 4

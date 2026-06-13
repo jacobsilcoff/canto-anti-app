@@ -42,7 +42,15 @@ LANG_INFO = {
         "rules": (
             "- Use Traditional Chinese characters with authentic Cantonese vocabulary "
             "(食 not 吃, 唔 not 不, 係 not 是, 喺 not 在, 佢 not 他/她, etc.)\n"
-            "- Provide jyutping romanisation (e.g. nei5 hou2 aa3)"
+            "- Provide jyutping romanisation (e.g. nei5 hou2 aa3)\n"
+            "- CRITICAL — yes/no questions: ALWAYS use the A-唔-A (verb-not-verb) pattern. "
+            "NEVER use 嗎 as a question particle — 嗎 is Mandarin, not Cantonese. "
+            "Examples: 係唔係 (not 係嗎), 食唔食 (not 食嗎), 有冇 (contracted from 有唔有). "
+            "The pattern is: positive verb + 唔 + same verb (e.g. 你係唔係香港人? = Are you from HK?). "
+            "For stative verbs (係, 係, 好, etc.) always show the full A-唔-A form in examples.\n"
+            "- Aspect markers: 咗 (completion 了-equivalent), 緊 (progressive), 過 (experiential), 喇 (changed state)\n"
+            "- Sentence-final particles convey attitude — 囉 (obviousness), 喎 (hearsay/surprise), 㗎 (assertion/emphasis), 呀 (softener), 囉喎, etc.\n"
+            "- Do NOT use Mandarin grammar structures, particles, or vocabulary"
         ),
     },
     "cmn": {
@@ -253,8 +261,25 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
 
 
 def _parse_json(text: str) -> dict:
-    if text.startswith("```"):
-        text = text.split("\n", 1)[-1].rsplit("```", 1)[0]
+    """Parse the first JSON object from the model response.
+
+    Handles bare JSON, JSON inside ```...``` code fences, and responses
+    with a preamble or suffix (e.g. 'Here is the lesson:\n{...}\nDone.').
+    """
+    if not text:
+        raise ValueError("Empty response from model")
+    # Strip markdown code fences
+    if "```" in text:
+        inner = text.split("```", 1)[1]
+        # skip optional language tag line (```json)
+        if "\n" in inner:
+            inner = inner.split("\n", 1)[1]
+        text = inner.rsplit("```", 1)[0]
+    # Skip any preamble before the first { and trim trailing text after the last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end >= start:
+        text = text[start:end + 1]
     return json.loads(text)
 
 
@@ -482,19 +507,28 @@ async def generate_reader_text(
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
     name = info["name"]
-    rules = info["rules"]
+    # Strip romanization-providing instructions — they conflict with the reader's
+    # strict no-romanization requirement and cause the LLM to embed jyutping/pinyin
+    # directly in the generated text body.
+    _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
+    rules = "\n".join(
+        line for line in info["rules"].splitlines()
+        if not any(kw in line.lower() for kw in _roman_kw)
+    )
     difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
     num_paragraphs = max(1, min(10, int(num_paragraphs)))
 
     full_prompt = (
         f"Write a {name} text based on the following description.\n"
+        "IMPORTANT: Write ONLY native-script characters. Do NOT include any romanisation, "
+        "transliteration, pinyin, jyutping, romaja, IAST, or Latin characters (except for "
+        "proper nouns/brand names that are natively written in Latin script).\n"
         "Rules:\n"
         f"{rules}\n"
         f"{difficulty_rule}\n"
         f"- The text should be exactly {num_paragraphs} paragraph(s) long.\n"
         "- Write naturally, as if for a native speaker audience.\n"
-        "- Write ONLY the target-language text. Do NOT include romanisation, transliteration, "
-        "pinyin, jyutping, or any English translation in the text body.\n"
+        "- Do NOT include any romanisation or English translation anywhere in the content field.\n"
         "- Also provide a short English title (3–6 words) summarising the text.\n"
         "Return ONLY valid JSON, no other text:\n"
         '{ "title": "...", "content": "..." }\n\n'
@@ -542,16 +576,17 @@ async def translate_sentence(
         return {"english": "", "romanization": None}
 
 
-_EMBED_MODEL = "text-embedding-004"
-
-
 async def get_embedding(text: str, *, api_key: str) -> list[float] | None:
-    """Return a float embedding vector for text, or None on error."""
+    """Return a float embedding vector for text, or None on error.
+
+    Delegates to embeddings.embed (gemini-embedding-001, 768-dim) so there's a
+    single embedding code path. Imported locally because embeddings.py imports
+    from this module (avoids a circular import at load time).
+    """
     try:
-        result = await asyncio.to_thread(
-            lambda: _get_client(api_key).models.embed_content(model=_EMBED_MODEL, contents=[text])
-        )
-        return list(result.embeddings[0].values)
+        import embeddings
+        vecs = await embeddings.embed([text], api_key)
+        return vecs[0] if vecs else None
     except Exception:
         return None
 

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -31,6 +32,12 @@ import srs
 import starter_deck
 import tokenizer
 import translation
+import learning
+import grammar_lessons
+import foundations
+import tutor
+import embeddings
+import cefr
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -73,6 +80,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+logger = logging.getLogger("app")
 
 
 def _rate_limit_key(request: Request) -> str:
@@ -197,6 +205,8 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
+        "tutor":     f'<svg {_i}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -221,6 +231,8 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/",         "Add Vocab",  "translate"),
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
+        link("/learn",    "Learn",      "learn"),
+        link("/tutor",    "Tutor",      "tutor"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -298,7 +310,7 @@ _LANG_WIDGET = """
     var dd = document.createElement('div');
     dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;'
       + 'background:var(--surface);border:1px solid var(--border);border-radius:10px;'
-      + 'box-shadow:0 6px 24px rgba(0,0,0,.12);z-index:2000;padding:4px;min-width:170px;';
+      + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;min-width:170px;';
 
     langs.forEach(function (l) {
       var opt = document.createElement('div');
@@ -398,7 +410,11 @@ _PLAN_WIDGET = """
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown))
+    # Replace only the FIRST {{NAV}} (the one in <header>). The nav markup is
+    # multi-line HTML; substituting it into a later occurrence (e.g. a literal
+    # "{{NAV}}" inside a // comment in a <script>) would break out of the comment
+    # and inject raw <nav> HTML into the JS, killing the whole script.
+    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
@@ -624,6 +640,16 @@ async def reader_page():
     return _html("reader.html", active="/reader")
 
 
+@app.get("/learn", response_class=HTMLResponse)
+async def learn_page():
+    return _html("learn.html", active="/learn")
+
+
+@app.get("/tutor", response_class=HTMLResponse)
+async def tutor_page():
+    return _html("tutor.html", active="/tutor")
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _html("settings.html", active="/settings")
@@ -793,6 +819,9 @@ class TranslateRequest(BaseModel):
 #     quota (free 30/mo, pro 600/mo) — the metered path.
 # On the shared key the model is fixed (no spending choices on someone else's dime).
 _SHARED_API_KEY = os.getenv("GEMINI_API_KEY")
+# Server-side Anthropic key (admin-billed) for the pluggable lesson model. Only
+# used when an admin selects a `claude-*` lesson_model; unset = Gemini-only.
+_SHARED_ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Monthly shared-key AI-call allowance per plan. Own-key/admin/granted users are
 # unlimited. These caps bound cost exposure: even pro's 600 calls is ~$0.08/mo
@@ -805,10 +834,21 @@ class _GeminiAccess:
         self.api_key = api_key
         self.model_translate = model_translate
         self.model_reader = model_reader
+        # Server-side Claude key, threaded through to the pluggable lesson model.
+        self.anthropic_key = _SHARED_ANTHROPIC_KEY
 
 
 def _valid_model(value: str | None) -> str:
     return value if value in translation.MODEL_ALLOWLIST else translation.DEFAULT_MODEL
+
+
+# Models allowed for the admin lesson-pipeline A/B knob (Gemini + Claude). Claude
+# ids route through llm.call to the Anthropic SDK on the shared server key.
+LESSON_MODEL_ALLOWLIST = translation.MODEL_ALLOWLIST + ["claude-sonnet-4-6", "claude-opus-4-8"]
+
+
+def _valid_lesson_model(value: str | None) -> str | None:
+    return value if value in LESSON_MODEL_ALLOWLIST else None
 
 
 def _plan_limit(user: dict) -> int:
@@ -915,6 +955,25 @@ async def _generate_and_store_embedding(card_id: int, text: str, api_key: str):
         await db.update_card_embedding(card_id, json.dumps(embedding))
 
 
+async def _backfill_card_embeddings(user_id: int, api_key: str, *, limit: int) -> None:
+    """Embed a bounded batch of cards that lack an embedding, storing each.
+    Best-effort — used by suggest-cards so a pre-existing deck converges over a
+    few calls (cards.embedding was NULL for all cards before embeddings worked)."""
+    missing = await db.get_cards_missing_embedding(user_id, limit)
+    if not missing:
+        return
+    texts = [f"{(c['source_text'] or '').strip()} {(c['target_text'] or '').strip()}".strip()
+             for c in missing]
+    try:
+        vecs = await embeddings.embed(texts, api_key)
+    except Exception as e:
+        logger.warning("card embedding backfill failed user=%s: %s", user_id, e)
+        return
+    for card, vec in zip(missing, vecs):
+        if vec:
+            await db.update_card_embedding(card["id"], json.dumps(vec))
+
+
 @app.post("/api/cards")
 async def create_card(
     req: CreateCardRequest,
@@ -929,6 +988,12 @@ async def create_card(
     audio_data = await audio.generate(target_text, req.target_lang)
     notes = (req.notes or "").strip() or None
 
+    # Fill missing romanization from the offline oracle (lesson "Add to deck"
+    # and tutor chips send none) — never ask the LLM for it.
+    romanization = req.romanization.strip()
+    if not romanization and translation.LANG_INFO[req.target_lang].get("romanization"):
+        romanization = tokenizer.romanize_text(target_text, req.target_lang)
+
     # Collect extra label ids — story label if reader_text_id provided.
     extra_label_ids: list[int] = list(req.label_ids or [])
     if req.reader_text_id:
@@ -940,7 +1005,7 @@ async def create_card(
         user_id=user["id"],
         source_text=req.source_text.strip(),
         target_text=target_text,
-        romanization=req.romanization.strip(),
+        romanization=romanization,
         target_lang=req.target_lang,
         audio_data=audio_data,
         notes=notes,
@@ -962,6 +1027,21 @@ async def create_card(
         pass
 
     return {"card_id": card_id, "notes": notes, "labels": []}
+
+
+class CardStatusRequest(BaseModel):
+    words: list[str]
+    lang: str
+
+
+@app.post("/api/cards/status")
+async def card_statuses(req: CardStatusRequest, user: dict = Depends(current_user)):
+    """Deck status for a list of words: {word: 'known'|'weak'}; absent = not in
+    deck. Used by lesson results + tutor 'Add to deck' chips to avoid duplicates."""
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    words = [w.strip() for w in req.words[:100] if (w or "").strip()]
+    return {"statuses": await db.get_word_statuses(user["id"], words, req.lang)}
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -991,6 +1071,14 @@ async def get_settings(user: dict = Depends(current_user)):
         "model_reader": _valid_model(await db.get_setting(user["id"], "model_reader")),
         "available_models": translation.MODEL_ALLOWLIST,
         "default_model": translation.DEFAULT_MODEL,
+        # Admin-only: author Learning-Path lessons on the premium model.
+        "lesson_premium": await db.get_setting(user["id"], "lesson_premium") == "1",
+        "lesson_premium_model": grammar_lessons.GENERATION_MODEL,
+        # Admin-only A/B knob: which model authors lessons (Gemini or Claude).
+        # Empty string = follow lesson_premium / the default reader model.
+        "lesson_model": _valid_lesson_model(await db.get_setting(user["id"], "lesson_model")) or "",
+        "lesson_model_options": LESSON_MODEL_ALLOWLIST,
+        "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
     }
 
 
@@ -1003,6 +1091,9 @@ class SettingsUpdate(BaseModel):
     gemini_api_key: str | None = None
     model_translate: str | None = None
     model_reader: str | None = None
+    lesson_premium: bool | None = None
+    lesson_model: str | None = None
+    learner_profile: str | None = None
 
 
 @app.put("/api/settings")
@@ -1036,6 +1127,19 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.model_reader not in translation.MODEL_ALLOWLIST:
             raise HTTPException(400, "Unsupported model")
         await db.set_setting(user["id"], "model_reader", req.model_reader)
+    if req.lesson_premium is not None:
+        if not user.get("is_admin"):
+            raise HTTPException(403, "Admins only")
+        await db.set_setting(user["id"], "lesson_premium", "1" if req.lesson_premium else "0")
+    if req.lesson_model is not None:
+        if not user.get("is_admin"):
+            raise HTTPException(403, "Admins only")
+        val = req.lesson_model.strip()
+        if val and val not in LESSON_MODEL_ALLOWLIST:
+            raise HTTPException(400, "Unsupported lesson model")
+        await db.set_setting(user["id"], "lesson_model", val)
+    if req.learner_profile is not None:
+        await db.set_setting(user["id"], "learner_profile", req.learner_profile[:2000].strip())
     return {"success": True}
 
 
@@ -1296,9 +1400,16 @@ async def cefr_distribution(user: dict = Depends(current_user)):
     return await db.get_cefr_distribution(user["id"])
 
 
+_DAILY_XP_GOAL = 50   # XP target for the daily-goal ring on the Learn page
+
+
 @app.get("/api/streak")
 async def get_streak(user: dict = Depends(current_user)):
-    return {"streak": await db.get_streak(user["id"])}
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"streak": await db.get_streak(user["id"]),
+            "points": await db.get_points_total(user["id"], lang),
+            "points_today": await db.get_points_today(user["id"], lang),
+            "daily_goal": _DAILY_XP_GOAL}
 
 
 @app.get("/api/audio/{card_id}")
@@ -1536,6 +1647,11 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
     if not query_embedding:
         return {"cards": []}
 
+    # Lazy backfill: existing cards predate working embeddings (the column is
+    # NULL until a card is (re)embedded). Embed a bounded batch of missing cards
+    # per call so the deck converges over a few requests. Best-effort.
+    await _backfill_card_embeddings(user["id"], access.api_key, limit=300)
+
     all_embeddings = await db.get_all_embeddings(user["id"])
     if not all_embeddings:
         return {"cards": []}
@@ -1592,6 +1708,936 @@ async def list_languages():
             for code, info in translation.LANG_INFO.items()
         ]
     }
+
+
+# ── Learning path (AI course) ─────────────────────────────────────────────────
+
+class CreateCourseRequest(BaseModel):
+    target_lang: str | None = None
+    level: str = "A1"
+
+
+@app.post("/api/courses")
+@limiter.limit("10/minute;20/day")
+async def create_course(request: Request, req: CreateCourseRequest, user: dict = Depends(current_user)):
+    """Create an empty course. Lessons are generated one at a time via /next."""
+    lang = req.target_lang or await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    course_id = await db.create_course(user["id"], lang, req.level or "A1")
+    # Non-Latin scripts get a pre-built, skippable Foundations (reading) track
+    # prepended — the learner masters the writing system before/alongside vocab.
+    foundation_units = foundations.build_units(lang)
+    if foundation_units:
+        await db.seed_foundation_units(course_id, foundation_units)
+    return await db.get_course(user["id"], course_id)
+
+
+@app.get("/api/courses")
+async def list_courses(user: dict = Depends(current_user)):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"courses": await db.get_courses(user["id"], target_lang=lang)}
+
+
+@app.get("/api/courses/active")
+async def active_course(user: dict = Depends(current_user)):
+    """The current language's active course (full nested structure), or null.
+    Auto-seeds the Foundations track for any existing course that predates it."""
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    course = await db.get_active_course(user["id"], lang)
+    if course and foundations.has_foundations(lang):
+        if not any(u.get("theme") == "foundations" for u in (course.get("units") or [])):
+            await db.seed_foundation_units(course["id"], foundations.build_units(lang))
+            course = await db.get_active_course(user["id"], lang)
+    return {"course": course}
+
+
+@app.get("/api/courses/{course_id}")
+async def get_course(course_id: int, user: dict = Depends(current_user)):
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    return course
+
+
+@app.delete("/api/courses/{course_id}")
+async def delete_course(course_id: int, user: dict = Depends(current_user)):
+    await db.delete_course(user["id"], course_id)
+    return {"success": True}
+
+
+@app.delete("/api/courses/{course_id}/ai_lessons")
+async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
+    """Delete only AI-generated lessons, preserving the foundations reading track."""
+    import aiosqlite as _aiosqlite
+    async with _aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user["id"])
+        ) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(status_code=404, detail="Course not found")
+    await db.delete_ai_lessons(course_id)
+    return {"success": True}
+
+
+def _filter_new_concepts(concepts: list[dict], registry: list[dict],
+                         known_texts: set[str] | None = None) -> list[dict]:
+    """Drop concepts already registered for this course (by key, or by native
+    label for vocab) and dedupe within the list itself. The unit planner is told
+    not to repeat concepts, but nothing else enforces it — without this filter a
+    duplicate is silently swallowed by INSERT OR IGNORE and re-taught.
+
+    `known_texts` — native words from the user's SRS deck; vocab concepts whose
+    label matches one are dropped too (the learner already knows them)."""
+    seen_keys = {(c.get("key") or "").strip() for c in registry}
+    seen_labels = {(c.get("label") or "").strip()
+                   for c in registry if (c.get("kind") or "vocab") == "vocab"}
+    seen_labels |= (known_texts or set())
+    seen_labels.discard("")
+    out = []
+    for c in concepts:
+        key = (c.get("key") or "").strip()
+        label = (c.get("label") or "").strip()
+        is_vocab = (c.get("kind") or "vocab") == "vocab"
+        if not key or key in seen_keys:
+            continue
+        if is_vocab and label and label in seen_labels:
+            continue
+        seen_keys.add(key)
+        if is_vocab and label:
+            seen_labels.add(label)
+        out.append(c)
+    return out
+
+
+def _slug(text: str) -> str:
+    """A stable-ish snake_case key from a label when the planner omits one."""
+    base = re.sub(r"[^a-z0-9]+", "_", (text or "").strip().lower()).strip("_")
+    return base or "item"
+
+
+def _concepts_from_spec(spec: dict) -> list[dict]:
+    """Turn a planner lesson_spec into the concept list the author teaches AND the
+    registry records. A GRAMMAR skill is one concept carrying its `items` (the
+    forms/verbs to cover within the lesson — coverage, not separate registry rows).
+    A VOCAB lesson registers each `target_item` as its own vocab concept (the words
+    being taught); the skill label is just the theme."""
+    skill = spec.get("skill") or {}
+    kind = (skill.get("kind") or "vocab").strip()
+    items = spec.get("target_items") or []
+    if kind == "grammar":
+        key = (skill.get("key") or "").strip() or _slug(skill.get("label") or "grammar")
+        return [{
+            "kind": "grammar", "key": key,
+            "label": (skill.get("label") or "").strip(),
+            "gloss": (skill.get("gloss") or "").strip(),
+            "items": items,
+        }]
+    # Vocab: each item is a concept. Fall back to the skill itself if no items.
+    out = []
+    seen = set()
+    for it in items:
+        label = (it.get("label") or "").strip()
+        if not label:
+            continue
+        key = (it.get("key") or "").strip() or _slug(it.get("gloss") or label)
+        while key in seen:
+            key += "_x"
+        seen.add(key)
+        out.append({"kind": "vocab", "key": key, "label": label,
+                    "gloss": (it.get("gloss") or "").strip()})
+    if not out and (skill.get("label") or "").strip():
+        out.append({"kind": "vocab",
+                    "key": (skill.get("key") or "").strip() or _slug(skill.get("label")),
+                    "label": skill.get("label").strip(),
+                    "gloss": (skill.get("gloss") or "").strip()})
+    return out
+
+
+def _pick_review_concepts(registry: list[dict], batch: list[dict],
+                          mastery: list[dict], lesson_num: int, n: int = 2) -> list[dict]:
+    """Spiral review: pick up to `n` previously-taught concepts to interleave as
+    review drills in this lesson. Weak concepts first (≥3 attempts, <70% accuracy),
+    then the rest rotated by lesson number so successive lessons revisit different
+    old material instead of always the same one."""
+    batch_keys = {(c.get("key") or "").strip() for c in batch}
+    pool = [c for c in registry if (c.get("key") or "").strip() not in batch_keys]
+    if not pool:
+        return []
+    acc = {m["concept_key"]: m for m in mastery}
+    weak = [c for c in pool
+            if (m := acc.get((c.get("key") or "").strip()))
+            and m["total"] >= 3 and m["correct"] / m["total"] < 0.7]
+    picked = weak[:n]
+    rest = [c for c in pool if c not in picked]
+    if len(picked) < n and rest:
+        start = lesson_num % len(rest)
+        picked += (rest[start:] + rest[:start])[: n - len(picked)]
+    return picked
+
+
+def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
+    """Turn a generation exception into a specific, actionable message for the
+    client. `stage` is 'Lesson planning' or 'Lesson generation'."""
+    name = type(e).__name__
+    status = getattr(e, "status_code", None) or getattr(e, "code", None)
+    msg = str(e).lower()
+    premium = "pro" in (model or "")
+    # Model overloaded / 5xx from the Gemini backend (ServerError after retries).
+    if name == "ServerError" or status in (500, 502, 503, 504) or "overload" in msg or "unavailable" in msg:
+        extra = " The premium model is slower and busier — switching it off in Settings is more reliable." if premium else ""
+        return (f"{stage} failed: the AI model ({model}) is overloaded right now. "
+                f"Wait a moment and tap Generate again.{extra}")
+    # Quota / rate limit straight from the provider.
+    if status == 429 or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
+        return (f"{stage} failed: the AI provider rate-limited the request. "
+                f"Wait a minute and try again.")
+    # JSON parsing / empty body — the model returned something unusable.
+    if name in ("ValueError", "JSONDecodeError") or "json" in msg or "expecting value" in msg:
+        return (f"{stage} failed: the AI returned a malformed response. "
+                f"This is usually transient — tap Generate to try again.")
+    return f"{stage} failed — please try again."
+
+
+async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
+    """Plan + author + persist ONE lesson, just-in-time from live learner state.
+
+    Two LLM calls: a cheap PLANNER picks the next skill + how broad to teach it
+    (continuing or opening a chapter), then the AUTHOR writes teach blocks + drills.
+    Re-reads context each call, so calling it in a loop adapts to prior lessons.
+    `courses.active_plan` holds the in-progress chapter ({title,objective,summary});
+    a finished chapter is closed into a unit via close_unit. Returns the new
+    lesson_id; raises HTTPException(502) on generation failure."""
+    course_id = course["id"]
+    lang = course["target_lang"]
+    # The planner is a cheap routing decision (pick the next skill), so it ALWAYS
+    # runs on the fast reader model — only the quality-critical AUTHOR uses the
+    # (possibly premium) lesson_model. This keeps each lesson to ONE slow call, not
+    # two: a Pro/Claude planner adds ~15s/lesson and doubles overload exposure, which
+    # made batch generation ("generate 5") time out / 503 after the first lesson.
+    plan_model = access.model_reader
+    ctx = await db.get_next_lesson_context(course_id)
+
+    # The chapter currently in progress. Tolerate a stale OLD-format plan (with
+    # concepts/cursor and no chapter title) by ignoring it — first plan overwrites.
+    chapter = await db.get_active_plan(course_id)
+    if chapter and not (chapter.get("title") or "").strip():
+        chapter = None
+
+    mastery: list[dict] = []
+    known_words: list[dict] = []
+    weak_words: list[dict] = []
+    recent_cards: list[dict] = []
+    learner_profile = ""
+    cefr_spread = ""
+    if user_id:
+        mastery = await db.get_mastery_summary(user_id, lang)
+        known_words = await db.get_known_words(user_id, lang)
+        weak_words = await db.get_weak_cards(user_id, lang)
+        recent_cards = await db.get_recent_cards(user_id, lang)
+        learner_profile = await db.get_setting(user_id, "learner_profile") or ""
+        try:
+            cefr_spread = await _known_cefr_stats(user_id, lang, access.api_key)
+        except Exception:
+            cefr_spread = ""
+    known_texts = {(w.get("target_text") or "").strip() for w in known_words}
+
+    # 1. PLAN the next lesson from live state.
+    try:
+        spec = await learning.plan_next_lesson(
+            lang, course["level"],
+            concept_registry=ctx["concept_registry"],
+            recent_summaries=ctx["recent_summaries"],
+            current_chapter=chapter,
+            learner_profile=learner_profile, mastery=mastery,
+            known_words=known_words, weak_words=weak_words,
+            recent_cards=recent_cards, cefr_spread=cefr_spread,
+            api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
+        )
+    except Exception as e:
+        logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
+    plan_prompt = spec.pop("_raw_prompt", "")
+    plan_response = spec.pop("_raw_response", "")
+
+    # 2. CHAPTER bookkeeping. Opening a new chapter closes the previous one into a
+    #    unit (retrospective grouping for the roadmap UI).
+    if spec.get("chapter_action") == "new" or chapter is None:
+        if chapter:
+            await db.close_unit(course_id, chapter.get("title") or "Unit", chapter.get("summary") or "")
+        new_ch = spec.get("chapter") or {}
+        chapter = {
+            "title":     (new_ch.get("title") or spec.get("skill", {}).get("label") or "Lesson").strip(),
+            "objective": (new_ch.get("objective") or "").strip(),
+            "summary":   (new_ch.get("summary") or "").strip(),
+        }
+        await db.set_active_plan(course_id, chapter)
+
+    # 3. Build the concept list (skill + items) and dedupe against the registry +
+    #    known deck words. If dedup empties it (planner re-proposed only known
+    #    material), fall back to the raw concepts — INSERT OR IGNORE keeps the
+    #    registry clean and re-teaching is harmless.
+    concepts = _concepts_from_spec(spec)
+    if not concepts:
+        raise HTTPException(502, "Lesson planning returned no skill — please try again.")
+    deduped = _filter_new_concepts(concepts, ctx["concept_registry"], known_texts)
+    concepts = deduped or concepts
+
+    brief = {
+        "title":     chapter.get("title", ""),
+        "objective": spec.get("skill", {}).get("gloss", ""),
+        "scope":     spec.get("scope", "broad"),
+        "focus":     spec.get("focus", "new"),
+    }
+    review = _pick_review_concepts(ctx["concept_registry"], concepts, mastery, ctx["lesson_num"])
+
+    # 4. AUTHOR the lesson for this skill + items.
+    try:
+        authored = await learning.author_lesson(
+            lang, concepts, ctx["recent_summaries"],
+            api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
+            taught=ctx["concept_registry"], review=review,
+            known_words=known_words, weak_words=weak_words, brief=brief,
+        )
+    except Exception as e:
+        logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
+                     lang, [c.get("key") for c in concepts], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Lesson generation", lesson_model))
+
+    content = authored["content"]
+    total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
+    if not total_ex:
+        logger.error("Lesson has no exercises lang=%s concepts=%s raw=%r",
+                     lang, [c.get("key") for c in concepts],
+                     authored.get("_raw_response", "")[:500])
+        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
+
+    # Merge both LLM calls into the {prompt, response} the debug panel reads.
+    sep = "\n\n══════ LESSON AUTHOR ══════\n\n"
+    debug = {
+        "prompt":   (plan_prompt + sep + authored["_raw_prompt"]) if plan_prompt else authored["_raw_prompt"],
+        "response": (plan_response + sep + authored["_raw_response"]) if plan_response else authored["_raw_response"],
+    }
+
+    return await db.create_lesson(
+        course_id, ctx["lesson_num"],
+        authored["title"], authored["objective"],
+        concepts,             # skill + vocab items get registered
+        content,
+        authored["summary"],
+        debug,
+    )
+
+
+@app.post("/api/courses/{course_id}/next")
+@limiter.limit("10/minute;40/day")
+async def next_lesson(request: Request, course_id: int, count: int = 1,
+                      user: dict = Depends(current_user)):
+    """Author the next `count` micro-lessons (1–6) and return them. Generating
+    several at once lets the learner browse ahead and see how content evolves.
+
+    count==1 returns the full lesson (the player auto-opens it); count>1 returns
+    a lightweight summary list (the UI just refreshes the roadmap)."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+
+    # Resolve access + check quota without metering yet — we meter per lesson below.
+    access = await _resolve_gemini(user, meter=False)
+    # Admin-only knob: run the whole pipeline (planner + author) on a chosen model
+    # — Gemini Flash/Pro OR Claude Sonnet/Opus — to A/B lesson quality. Falls back
+    # to the legacy lesson_premium→Pro toggle, then the normal reader model.
+    # Everyone else uses the normal reader model.
+    lesson_model = access.model_reader
+    if user.get("is_admin"):
+        chosen = _valid_lesson_model(await db.get_setting(user["id"], "lesson_model"))
+        if chosen:
+            lesson_model = chosen
+        elif await db.get_setting(user["id"], "lesson_premium") == "1":
+            lesson_model = grammar_lessons.GENERATION_MODEL
+
+    # Metered = shared key, not admin, no own API key. Bill one usage unit per
+    # lesson authored (not per batch) so generating 5 at once costs 5, not 1.
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    metered = not own_enc and not user.get("is_admin")
+
+    count = max(1, min(int(count), 6))
+    lesson_ids: list[int] = []
+    for _ in range(count):
+        if metered:
+            # Re-check quota before each lesson (earlier passes may have consumed it).
+            if await db.get_usage(user["id"]) >= _plan_limit(user):
+                if not lesson_ids:
+                    raise HTTPException(402, (
+                        f"You've used your {_plan_limit(user)} free AI lessons this month. "
+                        "Add your own Gemini key in Settings for unlimited use."
+                    ))
+                break
+        try:
+            lesson_ids.append(await _author_next_lesson(course, access, lesson_model, user["id"]))
+            if metered:
+                await db.increment_usage(user["id"])
+        except HTTPException:
+            if not lesson_ids:      # nothing succeeded → surface the error
+                raise
+            break                   # partial batch → return what we have
+
+    if count == 1:
+        lesson = await db.get_lesson(user["id"], lesson_ids[0])
+        return _lesson_response(lesson, lesson["content"])
+    return {"generated": len(lesson_ids), "lesson_ids": lesson_ids}
+
+
+def _lesson_response(lesson: dict, content: dict) -> dict:
+    return {
+        "id":         lesson["id"],
+        "title":      lesson["title"],
+        "objective":  lesson["objective"],
+        "target_lang": lesson["target_lang"],
+        "completed":  lesson.get("completed", False),
+        "score":      lesson.get("score"),
+        "theme":      lesson.get("theme", ""),       # 'foundations' = reading track
+        "concepts":   lesson.get("concepts", []),   # results screen "Add to deck"
+        "content":    content,
+        "llm_debug":  lesson.get("llm_debug"),
+    }
+
+
+@app.get("/api/lessons/{lesson_id}")
+@limiter.limit("60/minute")
+async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(current_user)):
+    """Return a lesson (content was generated and stored when the lesson was created)."""
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    if not lesson.get("content"):
+        raise HTTPException(404, "Lesson content not available")
+    return _lesson_response(lesson, lesson["content"])
+
+
+class CompleteLessonRequest(BaseModel):
+    score: int = 0
+    results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes
+    xp: int = 0                # XP earned this lesson (base + combo + perfect), client-computed
+
+
+_MAX_LESSON_XP = 300   # clamp client-reported XP so the ledger can't be inflated
+
+
+@app.post("/api/lessons/{lesson_id}/complete")
+async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
+    found, first, crown, leveled_up = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
+    if not found:
+        raise HTTPException(404, "Lesson not found")
+    lesson = await db.get_lesson(user["id"], lesson_id) if (req.results or first) else None
+    lang = (lesson or {}).get("target_lang") or await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if req.results and lesson:
+        await db.record_concept_results(user["id"], lang, req.results)
+    await db.record_study_activity(user["id"])   # lessons count toward the 🔥 streak
+    # Award XP only on the FIRST completion (replays don't re-award).
+    awarded = 0
+    if first:
+        awarded = max(0, min(int(req.xp), _MAX_LESSON_XP))
+        if awarded:
+            await db.add_points(user["id"], lang, awarded, "lesson")
+    return {
+        "success": True,
+        "xp_awarded": awarded,
+        "crown_level": crown,
+        "crown_leveled_up": leveled_up,   # this completion raised the crown (vs. already maxed)
+        "points_today": await db.get_points_today(user["id"], lang),
+        "points_total": await db.get_points_total(user["id"], lang),
+        "daily_goal": _DAILY_XP_GOAL,
+    }
+
+
+@app.get("/api/mastery")
+async def get_mastery(lang: str | None = None, user: dict = Depends(current_user)):
+    """Per-concept mastery stats for the requesting user.
+    If `lang` is omitted, uses the user's default_target_lang."""
+    if not lang or lang not in translation.LANG_INFO:
+        lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    rows = await db.get_mastery_summary(user["id"], lang)
+    return {"lang": lang, "concepts": rows}
+
+
+# ── Tutor chat ─────────────────────────────────────────────────────────────────
+
+class TutorMessageRequest(BaseModel):
+    text: str
+
+
+class CardAskCard(BaseModel):
+    target_text: str = ""
+    source_text: str = ""
+    romanization: str = ""
+    notes: str = ""
+    status: str = ""
+
+
+class CardAskRequest(BaseModel):
+    question: str
+    card: CardAskCard | None = None
+    history: list[dict] = []
+    lang: str | None = None
+
+
+async def _tutor_lang(user: dict) -> str:
+    return await db.get_setting(user["id"], "default_target_lang") or "yue"
+
+
+async def _known_cefr_stats(user_id: int, lang: str, api_key: str) -> str:
+    """A compact CEFR profile of the learner's known words, e.g. "A1:40, A2:22, B1:9".
+    Lazily backfills CEFR onto known cards that lack it (lesson/tutor/starter adds),
+    bounded per call and best-effort. Used in the large-deck drill prompt so the
+    model can pitch vocab without us dumping the whole deck."""
+    missing = await db.get_known_words_missing_cefr(user_id, lang, limit=60)
+    if missing:
+        try:
+            tagged = await cefr.tag(lang, missing, api_key)
+        except Exception as e:
+            logger.warning("CEFR backfill failed lang=%s: %s", lang, e)
+            tagged = {}
+        if tagged:
+            await db.set_cards_cefr(user_id, lang, tagged)
+    dist = await db.get_known_cefr_distribution(user_id, lang)
+    parts = [f"{lv}:{dist[lv]}" for lv in ("A1", "A2", "B1", "B2", "C1", "C2") if dist.get(lv)]
+    if dist.get("unknown"):
+        parts.append(f"untagged:{dist['unknown']}")
+    return ", ".join(parts)
+
+
+async def _known_word_vectors(lang: str, known_words: list[dict], api_key: str,
+                              cap: int = 120) -> dict[str, list[float]]:
+    """Embedding vectors for the learner's known deck words, via the shared DB cache
+    (embed only the misses, then store). Returns {word: vector}; degrades to {} on
+    any embedding error so the tutor drill still works without snapping."""
+    words = [(w.get("target_text") or "").strip() for w in (known_words or [])]
+    words = [w for w in words if w][:cap]
+    if not words:
+        return {}
+    cached = await db.get_cached_embeddings(lang, embeddings.EMBED_MODEL, words)
+    missing = [w for w in words if w not in cached]
+    if missing:
+        try:
+            vecs = await embeddings.embed(missing, api_key)
+        except Exception as e:
+            logger.warning("known-word embedding failed lang=%s: %s", lang, e)
+            vecs = []
+        if vecs:
+            packed = {w: embeddings.pack(v) for w, v in zip(missing, vecs)}
+            await db.put_cached_embeddings(lang, embeddings.EMBED_MODEL, packed)
+            cached.update(packed)
+    return {w: embeddings.unpack(b) for w, b in cached.items()}
+
+
+async def _tutor_messages_payload(user_id: int, conv_id: int) -> list[dict]:
+    """Stored messages → client shape (tutor turns are their JSON payload).
+    `drill_id`/`drill_skill` (non-NULL for drill turns) let the client group a
+    drill into one collapsible panel."""
+    messages = []
+    for m in await db.get_tutor_messages(user_id, conv_id):
+        drill = {"drill_id": m["drill_id"], "drill_skill": m["drill_skill"]} if m["drill_id"] else {}
+        if m["role"] == "tutor":
+            try:
+                payload = json.loads(m["content"])
+            except (ValueError, TypeError):
+                payload = {"reply": m["content"]}
+            messages.append({"id": m["id"], "role": "tutor", **payload, **drill})
+        else:
+            messages.append({"id": m["id"], "role": "user", "text": m["content"], **drill})
+    return messages
+
+
+@app.get("/api/tutor/conversations")
+async def tutor_conversations(user: dict = Depends(current_user)):
+    lang = await _tutor_lang(user)
+    convs = await db.list_tutor_conversations(user["id"], lang)
+    out = {"lang": lang, "conversations": convs,
+           "points": await db.get_points_total(user["id"], lang)}
+    # Include the most recent conversation's messages so the page renders in one
+    # round trip (the client would otherwise immediately fetch it anyway).
+    if convs:
+        latest_conv = await db.get_tutor_conversation(user["id"], convs[0]["id"])
+        out["latest"] = {"id": convs[0]["id"],
+                         "active_drill_id": latest_conv["active_drill_id"] if latest_conv else None,
+                         "messages": await _tutor_messages_payload(user["id"], convs[0]["id"])}
+    return out
+
+
+@app.post("/api/tutor/conversations")
+@limiter.limit("10/minute")
+async def tutor_new_conversation(request: Request, user: dict = Depends(current_user)):
+    lang = await _tutor_lang(user)
+    conv_id = await db.create_tutor_conversation(user["id"], lang)
+    return {"id": conv_id, "lang": lang}
+
+
+@app.get("/api/tutor/conversations/{conv_id}")
+async def tutor_get_conversation(conv_id: int, user: dict = Depends(current_user)):
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    return {"id": conv["id"], "lang": conv["lang"], "title": conv["title"],
+            "active_drill_id": conv["active_drill_id"],
+            "messages": await _tutor_messages_payload(user["id"], conv_id)}
+
+
+@app.delete("/api/tutor/conversations/{conv_id}")
+async def tutor_delete_conversation(conv_id: int, user: dict = Depends(current_user)):
+    await db.delete_tutor_conversation(user["id"], conv_id)
+    return {"success": True}
+
+
+@app.post("/api/tutor/conversations/{conv_id}/messages")
+@limiter.limit("20/minute;400/day")
+async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRequest,
+                             user: dict = Depends(current_user)):
+    """One learner message → one tutor reply (1 metered LLM call, like translate)."""
+    text = (req.text or "").strip()[:1000]
+    if not text:
+        raise HTTPException(400, "text required")
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    lang = conv["lang"]
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    # Context: what the learner knows (deck + course registry + weak spots).
+    known_words = await db.get_known_words(user["id"], lang)
+    weak_words = await db.get_weak_cards(user["id"], lang, limit=8)
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    registry: list[dict] = []
+    level = "A1"
+    if course:
+        level = course.get("level") or "A1"
+        ctx = await db.get_next_lesson_context(course["id"])
+        registry = ctx["concept_registry"]
+
+    active_drill_id = conv["active_drill_id"]
+
+    # Build history. Drill turns are kept SEPARATE from normal chat context:
+    #  - In a drill, the prompt sees ONLY that drill's turns (keeps it focused +
+    #    cheap), and we tag the new messages with the drill id so they group.
+    #  - In normal chat, drill turns are EXCLUDED entirely (they'd bloat context);
+    #    we just pass a compact list of constructions already practiced.
+    rows = await db.get_tutor_messages(user["id"], conv_id)
+    history: list[dict] = []
+    practiced: list[str] = []
+    drill_skill = ""
+    for m in rows:
+        txt = m["content"]
+        if m["role"] == "tutor":
+            try:
+                txt = json.loads(m["content"]).get("reply", "")
+            except (ValueError, TypeError):
+                pass
+        in_active_drill = active_drill_id and m["drill_id"] == active_drill_id
+        if active_drill_id:
+            if in_active_drill:
+                history.append({"role": m["role"], "text": txt})
+                if m["drill_skill"]:
+                    drill_skill = m["drill_skill"]
+        else:
+            if m["drill_id"]:
+                if m["drill_skill"] and m["drill_skill"] not in practiced:
+                    practiced.append(m["drill_skill"])
+            else:
+                history.append({"role": m["role"], "text": txt})
+
+    try:
+        out = await tutor.respond(
+            lang, text, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile,
+            known_words=known_words, concept_registry=registry,
+            weak_concepts=weak_words,
+            drill_skill=drill_skill, practiced=practiced[-6:] or None,
+        )
+    except Exception as e:
+        logger.error("Tutor reply failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't reply — please try again.")
+
+    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
+    if active_drill_id:
+        payload["drill"] = ""                       # never offer a nested drill mid-drill
+    await db.add_tutor_message(user["id"], conv_id, "user", text,
+                               drill_id=active_drill_id, drill_skill=drill_skill or None)
+    await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False),
+                               drill_id=active_drill_id, drill_skill=drill_skill or None)
+    await db.record_study_activity(user["id"])   # tutor turns count toward the 🔥 streak
+    for p in payload["points"]:
+        await db.add_points(user["id"], lang, p["points"],
+                            f'{p.get("concept", "")}: {p.get("reason", "")}'.strip(": "))
+
+    msg = {"role": "tutor", **payload}
+    if active_drill_id:
+        msg["drill_id"] = active_drill_id
+        msg["drill_skill"] = drill_skill
+    return {"message": msg, "points_total": await db.get_points_total(user["id"], lang)}
+
+
+@app.post("/api/tutor/ask")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
+    Nothing is stored — short follow-up history (if any) lives client-side and is
+    passed back in. Powers the 'Ask the tutor' pop-over on the study page."""
+    question = (req.question or "").strip()[:1000]
+    if not question:
+        raise HTTPException(400, "question required")
+    lang = req.lang if (req.lang in translation.LANG_INFO) else await _tutor_lang(user)
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    known_words = await db.get_known_words(user["id"], lang)
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    level = (course.get("level") or "A1") if course else "A1"
+
+    card = req.card.model_dump() if req.card else None
+    if card:
+        card = {k: (v or "").strip()[:600] for k, v in card.items()}
+
+    # Bounded, plain-text history for the prompt (last few turns of this pop-over).
+    history = []
+    for m in (req.history or [])[-8:]:
+        role = "tutor" if (m.get("role") == "tutor") else "user"
+        txt = (m.get("text") or "").strip()[:1000]
+        if txt:
+            history.append({"role": role, "text": txt})
+
+    try:
+        out = await tutor.ask_about_card(
+            lang, question, card, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile, known_words=known_words,
+        )
+    except Exception as e:
+        logger.error("Tutor card-ask failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't answer — please try again.")
+
+    await db.record_study_activity(user["id"])   # asking about a card counts as study
+    return {"message": {"role": "tutor",
+                        "reply": out["reply"], "new_items": out["new_items"]},
+            "lang": lang}
+
+
+class TutorDrillRequest(BaseModel):
+    skill: str
+
+
+@app.post("/api/tutor/conversations/{conv_id}/drill")
+@limiter.limit("20/minute;400/day")
+async def tutor_drill(request: Request, conv_id: int, req: TutorDrillRequest,
+                      user: dict = Depends(current_user)):
+    """Start a practice drill on one skill the tutor just taught. Stores ONLY a
+    tutor message — the learner never sees a 'drill me' prompt in the chat. The
+    tutor's own drill question keeps the model in drill mode on follow-up turns."""
+    skill = (req.skill or "").strip()[:80]
+    if not skill:
+        raise HTTPException(400, "skill required")
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    lang = conv["lang"]
+
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
+    course = await db.get_active_course(user["id"], lang)
+    level = course.get("level") or "A1" if course else "A1"
+
+    # Vocab strategy by deck size. Small decks: hand the model the whole known list
+    # (cheap, no embeddings). Large decks: embedding-snap a relevant subset to the
+    # construction so a 2000-word deck never floods the prompt (we pass only a small
+    # sample + the total count + the snapped palette).
+    known_count = await db.count_known_words(user["id"], lang)
+    cefr_stats = ""
+    known_strings: list[str] | None = None
+    vectors_provider = None
+    if known_count <= tutor.SMALL_DECK_MAX:
+        known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
+    else:
+        deck = await db.get_known_words(user["id"], lang, limit=tutor.LARGE_DECK_VECTOR_CAP)
+        known_words = deck[:tutor.LARGE_DECK_SAMPLE]    # strongest-first sample for the prompt
+        known_strings = [(w.get("target_text") or "").strip() for w in deck]
+        cefr_stats = await _known_cefr_stats(user["id"], lang, access.api_key)
+        # Embed the deck lazily — only invoked if the cheap opener's answer leaned on
+        # words the learner doesn't know (verify-then-snap), so most drills skip it.
+        async def vectors_provider():
+            return await _known_word_vectors(lang, deck, access.api_key,
+                                             cap=tutor.LARGE_DECK_VECTOR_CAP)
+
+    # Opener context = NORMAL chat only (skip any prior drills' turns).
+    history = []
+    for m in await db.get_tutor_messages(user["id"], conv_id):
+        if m["drill_id"]:
+            continue
+        if m["role"] == "tutor":
+            try:
+                history.append({"role": "tutor", "text": json.loads(m["content"]).get("reply", "")})
+            except (ValueError, TypeError):
+                history.append({"role": "tutor", "text": m["content"]})
+        else:
+            history.append({"role": "user", "text": m["content"]})
+
+    try:
+        out = await tutor.start_drill(
+            lang, skill, history,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            level=level, learner_profile=learner_profile, known_words=known_words,
+            deck_count=known_count, cefr_stats=cefr_stats,
+            known_word_strings=known_strings, known_vectors_provider=vectors_provider,
+        )
+    except Exception as e:
+        logger.error("Tutor drill failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The tutor couldn't start the drill — please try again.")
+
+    # A blank opener (transient empty/blocked model response, even after the retry
+    # in start_drill) must NOT be persisted — it would render as an empty drill
+    # panel that stays broken on reload. Surface a clean retry instead.
+    if not (out.get("reply") or "").strip():
+        logger.warning("Tutor drill opener returned a blank reply lang=%s skill=%r", lang, skill)
+        raise HTTPException(502, "The tutor couldn't start the drill — please try again.")
+
+    payload = {k: out[k] for k in ("reply", "reply_en", "gloss", "corrections", "new_items", "points", "drill")}
+    payload["drill"] = ""
+    # The opener's own message id becomes the drill-group id; mark the conversation
+    # as in an active drill so subsequent answers route through drill mode.
+    msg_id = await db.add_tutor_message(user["id"], conv_id, "tutor",
+                                        json.dumps(payload, ensure_ascii=False))
+    await db.set_tutor_message_drill(user["id"], msg_id, msg_id, skill)
+    await db.set_active_drill(user["id"], conv_id, msg_id)
+    await db.record_study_activity(user["id"])
+    return {"message": {"role": "tutor", **payload, "drill_id": msg_id, "drill_skill": skill},
+            "drill_id": msg_id, "skill": skill}
+
+
+@app.post("/api/tutor/conversations/{conv_id}/drill/end")
+async def tutor_end_drill(conv_id: int, user: dict = Depends(current_user)):
+    """End the active drill sub-session (learner-initiated). No LLM call — just
+    clears the conversation's active-drill flag so further messages are normal
+    chat again. The drill's turns stay stored (collapsed client-side) but are
+    excluded from future chat context."""
+    conv = await db.get_tutor_conversation(user["id"], conv_id)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    await db.set_active_drill(user["id"], conv_id, None)
+    return {"success": True}
+
+
+class LessonDrillRequest(BaseModel):
+    construction: str
+    history: list[dict] = []
+    answer: str | None = None
+    turn: int = 1
+    lang: str | None = None
+
+
+@app.post("/api/lesson/drill")
+@limiter.limit("60/minute;800/day")
+async def lesson_drill(request: Request, req: LessonDrillRequest,
+                       user: dict = Depends(current_user)):
+    """One turn of an inline lesson construction-drill (LLM-graded). Stateless —
+    the lesson player passes the construction + the turns so far + the latest
+    answer; we pose the first phrase, or judge and advance. 1 metered call/turn."""
+    construction = (req.construction or "").strip()[:80]
+    if not construction:
+        raise HTTPException(400, "construction required")
+    lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
+    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+
+    known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
+    course = await db.get_active_course(user["id"], lang)
+    level = course.get("level") or "A1" if course else "A1"
+    answer = (req.answer or "").strip()[:500] or None
+
+    try:
+        out = await tutor.run_lesson_drill(
+            lang, construction, req.history[-2 * tutor.LESSON_DRILL_TURNS:], answer,
+            # Fast/cheap model: posing a short phrase + judging a translation is a
+            # simple task, and the drill is formative (doesn't skew the score), so we
+            # favour responsiveness — the whole point is a snappy in-lesson drill.
+            api_key=access.api_key, model=translation.DEFAULT_MODEL,
+            level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
+        )
+    except Exception as e:
+        logger.error("Lesson drill failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, "The drill couldn't continue — please try again.")
+
+    if answer is not None:
+        await db.record_study_activity(user["id"])   # answering a drill counts as study
+    return out
+
+
+@app.get("/api/ruby")
+@limiter.limit("300/minute")
+async def ruby(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """Tokenise `text` and return per-token romanization for ruby rendering.
+    Returns [{text, roman, is_word}] — same data shape the reader uses internally.
+    Empty `roman` means no annotation needed (Latin script or punctuation)."""
+    text = (text or "").strip()[:500]
+    if not text or lang not in translation.LANG_INFO:
+        return []
+    tokens = tokenizer.tokenize(text, lang)
+    words = [t["text"] for t in tokens if t["is_word"]]
+    rmap = tokenizer.romanize_words(words, lang) if words else {}
+    return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "", "is_word": t["is_word"]}
+            for t in tokens]
+
+
+class RubyBatchRequest(BaseModel):
+    texts: list[str]
+    lang: str = "yue"
+
+
+@app.post("/api/ruby/batch")
+@limiter.limit("60/minute")
+async def ruby_batch(request: Request, req: RubyBatchRequest, user: dict = Depends(current_user)):
+    """Tokenise many texts in one round trip (tutor chat renders a whole
+    conversation at once — per-bubble GET /api/ruby was N requests).
+    Returns {results: {<original text>: [{text, roman, is_word}, ...]}}."""
+    if req.lang not in translation.LANG_INFO:
+        return {"results": {}}
+
+    def _tokens(text: str) -> list[dict]:
+        tokens = tokenizer.tokenize(text, req.lang)
+        words = [t["text"] for t in tokens if t["is_word"]]
+        rmap = tokenizer.romanize_words(words, req.lang) if words else {}
+        return [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
+                 "is_word": t["is_word"]} for t in tokens]
+
+    def _all() -> dict:
+        results = {}
+        for raw in req.texts[:80]:
+            text = (raw or "").strip()[:500]
+            if not text or raw in results:
+                continue
+            results[raw] = _tokens(text)
+        return results
+
+    # Tokenization is sync CPU work (jieba/pycantonese) — keep the event loop free.
+    return {"results": await asyncio.to_thread(_all)}
+
+
+@app.get("/api/tts")
+@limiter.limit("120/minute")
+async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depends(current_user)):
+    """On-demand TTS for the lesson player (and other UI). Returns MP3."""
+    text = (text or "").strip()
+    if not text:
+        raise HTTPException(400, "text required")
+    if lang not in translation.LANG_INFO:
+        lang = "yue"
+    try:
+        data = await audio.generate(text[:200], lang)
+    except Exception:
+        raise HTTPException(502, "TTS failed")
+    return Response(content=data, media_type="audio/mpeg",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ── Admin: user management ────────────────────────────────────────────────────

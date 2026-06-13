@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Learn</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+
+    /* States */
+    .learn-center { text-align: center; padding: 48px 16px; }
+    .learn-center h2 { font-size: 1.3rem; margin-bottom: 8px; }
+    .learn-center p { color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .cta-btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 11px 22px; font-size: 0.98rem; font-weight: 600; cursor: pointer; }
+    .cta-btn:disabled { opacity: 0.6; cursor: default; }
+    .cta-btn.secondary { background: none; color: var(--primary); border: 1px solid var(--primary); }
+    .level-row { display: inline-flex; gap: 8px; margin-bottom: 18px; }
+    .level-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-size: 0.9rem; }
+    .level-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+
+    /* Course header */
+    .course-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .course-title { font-size: 1.4rem; font-weight: 700; }
+    .course-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    .course-regen { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; font-size: 0.82rem; }
+    .course-regen:hover { border-color: var(--again); color: var(--again); }
+
+    /* Units + lessons (vertical path) */
+    .unit { margin-bottom: 20px; }
+    .unit-head { margin-bottom: 0; }
+    .unit-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+    .unit-name { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
+    .unit-obj { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    /* Collapsible unit toggle */
+    .unit-toggle { width: 100%; display: flex; align-items: center; background: none; border: none; padding: 6px 0 10px; cursor: pointer; text-align: left; gap: 8px; }
+    .unit-toggle:hover .unit-title { opacity: 0.75; }
+    .unit-progress { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .unit-chevron { color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
+    .unit-body { padding-bottom: 4px; }
+    /* Inline lesson-generation skeleton rows */
+    .gen-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; animation: genPulse 1.6s ease-in-out infinite; }
+    .gen-node { width: 40px; height: 40px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+    .gen-lines { flex: 1; }
+    .gen-line { height: 11px; background: var(--border); border-radius: 6px; margin-bottom: 6px; }
+    .gen-line.short { width: 55%; margin-bottom: 0; }
+    .gen-label { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 4px 0 10px; }
+    @keyframes genPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+
+    /* Foundations collapsible section */
+    .foundations-section { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+    .foundations-toggle { width: 100%; display: flex; align-items: center; gap: 8px; background: var(--surface); border: none; padding: 13px 16px; cursor: pointer; text-align: left; }
+    .foundations-toggle:hover { background: var(--surface-alt); }
+    .foundations-icon { font-size: 1rem; flex-shrink: 0; }
+    .foundations-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+    .foundations-badge { background: var(--primary-soft); color: var(--primary); border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
+    .foundations-progress { color: var(--text-muted); font-size: 0.78rem; margin-left: 4px; }
+    .foundations-chevron { margin-left: auto; color: var(--text-muted); font-size: 1rem; line-height: 1; transition: transform 0.2s; flex-shrink: 0; }
+    .foundations-body { padding: 4px 12px 4px; }
+    .foundations-body .unit { margin-bottom: 16px; }
+    .foundations-body .unit:last-child { margin-bottom: 8px; }
+
+    .lesson { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .lesson.locked { opacity: 0.55; }
+    .lesson.available { border-color: var(--primary); box-shadow: var(--shadow); }
+    .lesson-node { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
+    .lesson.done .lesson-node { background: var(--good); }
+    .lesson.available .lesson-node { background: var(--primary); }
+    .lesson.locked .lesson-node { background: var(--border); color: var(--text-muted); }
+    .lesson-body { flex: 1; min-width: 0; }
+    .lesson-name { font-weight: 600; }
+    .lesson-obj { color: var(--text-muted); font-size: 0.84rem; margin-top: 2px; }
+    .lesson-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; }
+    .lesson-status { font-size: 0.74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
+    .lesson-status.done { background: var(--good-soft); color: var(--good-strong); }
+    .lesson-status.available { background: var(--primary-soft-2); color: var(--primary-strong); }
+    .lesson-status.locked { background: var(--neutral-soft); color: var(--neutral-strong); }
+
+    .learn-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; }
+    .err { color: var(--again); font-size: 0.88rem; margin-top: 10px; }
+    .lesson.clickable { cursor: pointer; }
+    .lesson.clickable:hover { border-color: var(--primary); }
+
+    /* ── Skill-tree path (AI lessons) ── */
+    .lpath { position: relative; max-width: 360px; margin: 6px auto 0; padding: 6px 0 8px; }
+    /* angled trail drawn as an SVG overlay through the node centres (drawPathConnectors) */
+    .lpath-svg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .lpath-line { fill: none; stroke: var(--border); stroke-width: 5; stroke-linecap: round; }
+    .lbanner { position: relative; z-index: 1; text-align: center; margin: 22px auto 16px; }
+    .lbanner:first-child { margin-top: 4px; }
+    .lb-unit { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 5px; }
+    .lb-pill { display: inline-block; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 16px; font-size: 0.92rem; font-weight: 700; color: var(--text); }
+    .lb-sub { display: block; font-size: 0.78rem; color: var(--text-muted); margin: 6px auto 0; max-width: 300px; }
+    .lrow { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+    .lrow.w1 { transform: translateX(36px); }
+    .lrow.w3 { transform: translateX(-36px); }
+    .lnode { position: relative; width: 66px; height: 66px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; color: var(--on-primary, #fff);
+      border: none; box-shadow: 0 4px 0 rgba(0,0,0,0.14); transition: transform .1s, box-shadow .1s; }
+    .lnode.available { background: var(--primary); cursor: pointer; }
+    .lnode.done { background: var(--good); cursor: pointer; }
+    .lnode.locked { background: var(--neutral-soft, var(--border)); color: var(--text-muted); box-shadow: 0 4px 0 rgba(0,0,0,0.06); }
+    .lnode.clickable:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.14); }
+    /* pulsing ring on the next available lesson */
+    .lnode.available::after { content: ''; position: absolute; inset: -5px; border-radius: 50%;
+      border: 3px solid var(--primary); animation: pulseRing 1.7s ease-out infinite; pointer-events: none; }
+    @keyframes pulseRing { 0% { opacity: 0.55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.32); } }
+    /* "START" flag above the current lesson */
+    .lstart { position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: var(--on-primary, #fff); font-size: 0.64rem; font-weight: 800;
+      letter-spacing: 0.07em; padding: 3px 9px; border-radius: 7px; white-space: nowrap; z-index: 2; }
+    .lstart::after { content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%) rotate(45deg);
+      width: 7px; height: 7px; background: var(--primary); }
+    /* crown pips on a completed lesson (level 1–3) */
+    .lcrowns { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; }
+    .lcrowns span { font-size: 0.6rem; line-height: 1; }
+    .lcap { margin-top: 9px; font-size: 0.82rem; font-weight: 600; text-align: center; max-width: 160px; color: var(--text); }
+    .lrow.is-locked .lcap { color: var(--text-muted); }
+    .lcap-meta { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); margin-top: 1px; }
+    .ldbg { background: none; border: none; cursor: pointer; font-size: 0.78rem; opacity: 0.4; padding: 2px; margin-top: 2px; }
+
+    /* ── Lesson player ── */
+    .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
+    .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+    .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
+    .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; }
+    .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); }
+    .ex-prompt.english { font-family: inherit; }
+    .ex-roman { text-align: center; color: var(--text-muted); font-size: 1rem; margin-bottom: 18px; font-style: italic; }
+    .ex-translation { text-align: center; color: var(--text-muted); font-size: 0.9rem; font-style: italic; margin: 2px 0 16px; }
+    .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
+    .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
+    .audio-center { text-align: center; margin: 16px 0 26px; }
+
+    .opt-list { display: flex; flex-direction: column; gap: 10px; }
+    .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); }
+    .opt.english { font-family: inherit; }
+    .opt.selected { border-color: var(--primary); background: var(--primary-soft); }
+    .opt.correct { border-color: var(--good); background: var(--good-soft); }
+    .opt.wrong { border-color: var(--again); background: var(--danger-soft); }
+    .opt:disabled { cursor: default; }
+    .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
+    ruby { ruby-align: center; line-height: 1; }
+    rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }
+    /* Reserve vertical room for romanization ruby ALWAYS, so it loading in (or a
+       reading exercise hiding it) never re-spaces / jumps the teach text. */
+    .tb-prose, .tb-note, .teach-target, .tb-target, .teach-table td { line-height: 2.0; }
+    /* Per-word gloss in teach text: stays INLINE; the English is hidden behind a
+       dotted underline and revealed on hover (desktop) or tap/focus (mobile). */
+    .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none; }
+    /* Ungloss­ed teach words: tap to fetch a translation (hybrid live lookup).
+       Underline only on hover/focus so dense teach text stays clean. */
+    .gl-live { cursor: pointer; border-bottom: 1px dotted transparent; }
+    .gl-live:hover, .gl-live:focus { border-bottom-color: var(--text-muted); }
+    /* Tooltip is a JS-positioned floating div (#gl-tip) — no ::after so it can
+       be clamped to viewport bounds regardless of where the word sits on screen. */
+    #gl-tip {
+      display: none; position: fixed; z-index: 1000; pointer-events: none;
+      background: var(--tooltip-bg); color: #fff; font-size: 0.72rem; line-height: 1.4;
+      font-style: normal; font-weight: 400; font-family: var(--reading-font, sans-serif);
+      padding: 4px 9px; border-radius: 6px; box-shadow: var(--shadow);
+      max-width: 220px; word-break: break-word;
+      transition: opacity 0.1s;
+    }
+
+    /* word bank */
+    .wb-answer { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; margin-bottom: 18px; align-content: flex-start; }
+    .wb-bank { display: flex; flex-wrap: wrap; gap: 8px; }
+    .wb-slot { display: inline-flex; }
+    .wb-slot.empty { border-radius: 10px; background: var(--border); opacity: 0.4; }
+    .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
+    .tile-gloss { display: block; font-size: 0.62rem; color: var(--text-muted); margin-top: 3px; font-family: var(--reading-font, sans-serif); letter-spacing: 0.02em; }
+    .tile.placeholder { visibility: hidden; }
+    .tile.selected { border-color: var(--primary); background: var(--primary-soft); }
+    .tile:disabled { cursor: default; }
+
+    /* block build (Hangul syllable assembly) */
+    .bb-preview { font-size: 3rem; text-align: center; font-family: var(--script-font, inherit); min-height: 3.4rem; line-height: 3.4rem; color: var(--text); }
+    .bb-jamo { text-align: center; color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.3em; min-height: 1.2rem; margin-bottom: 14px; font-family: var(--script-font, inherit); }
+    .bb-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 10px 0 6px; }
+    .bb-row { flex-direction: row; flex-wrap: wrap; }
+
+    /* match */
+    .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .match-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; cursor: pointer; font-size: 1.02rem; min-width: 0; overflow-wrap: break-word; }
+    .match-item.target { font-family: var(--script-font, inherit); }
+    .match-item.selected { border-color: var(--primary); background: var(--primary-soft); }
+    .match-item.matched { border-color: var(--good); background: var(--good-soft); color: var(--text-muted); cursor: default; opacity: 0.6; }
+    .match-item.flash-wrong { border-color: var(--again); background: var(--danger-soft); }
+
+    /* player layout: natural height; constrained so nothing inside can widen the page */
+    #state-player { display: flex; flex-direction: column; width: 100%; min-width: 0; overflow-x: hidden; }
+    .review-badge { align-self: flex-start; background: var(--warn-soft); color: var(--warn-strong); border: 1px solid var(--warn-border); border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .grammar-badge { align-self: flex-start; background: var(--grammar-soft); color: var(--grammar-strong); border: 1px solid var(--grammar-border); border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
+    .teach-tag { display: inline-block; background: var(--grammar-soft); color: var(--grammar-strong); border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
+
+    /* feedback + action */
+    /* always block + reserved min-height so showing feedback never shifts the button.
+       width:100% + overflow:hidden stop feedback text from widening the column. */
+    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
+    .feedback.correct { background: var(--good-soft); color: var(--good-strong); }
+    .feedback.wrong { background: var(--danger-soft); color: var(--danger-strong); }
+    /* exercise root: never let content overflow and widen the page */
+    #exercise-root { width: 100%; overflow: hidden; }
+    .feedback small { display: block; font-weight: 400; margin-top: 4px; }
+    .player-action { width: 100%; }
+
+    /* Inline construction drill (LLM-graded, multi-turn) */
+    .cd-wrap { display: flex; flex-direction: column; gap: 12px; }
+    .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); }
+    .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+    .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+    .cd-task b { font-weight: 700; }
+    .cd-input-row { display: flex; gap: 8px; align-items: stretch; }
+    .cd-input { flex: 1; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
+    .cd-input:focus { outline: none; border-color: var(--primary); }
+    .cd-submit { background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 12px; padding: 0 18px; font-size: 1rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .cd-submit:disabled { opacity: 0.55; cursor: default; }
+    .cd-fb { border-radius: 12px; padding: 12px 14px; }
+    .cd-fb.cd-correct { background: var(--good-soft); }
+    .cd-fb.cd-wrong { background: var(--warn-soft, #fffbeb); }
+    .cd-fb-head { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+    .cd-fb.cd-correct .cd-fb-head { color: var(--good-strong); }
+    .cd-fb.cd-wrong .cd-fb-head { color: var(--warn-strong, #b45309); }
+    .cd-fb-tag { display: inline-block; min-width: 64px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); vertical-align: middle; }
+    .cd-fb-you { font-size: 1.05rem; line-height: 1.5; margin-top: 2px; opacity: 0.85; }
+    .cd-fb-yourtext { text-decoration: line-through; text-decoration-color: var(--warn-strong, #b45309); text-decoration-thickness: 1px; }
+    .cd-fb-ans { font-size: 1.15rem; line-height: 2; margin-top: 2px; }
+    .cd-fb-ans ruby { line-height: 1; }
+    .cd-fb-anstext { font-family: var(--script-font, inherit); font-weight: 600; }
+    .cd-rom { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-left: 6px; }
+    .cd-fb-note { color: var(--text-muted); font-size: 0.85rem; margin-top: 6px; line-height: 1.45; }
+    .cd-done { font-weight: 700; color: var(--good-strong); text-align: center; padding: 6px 0; }
+    .cd-loading { color: var(--text-muted); font-size: 0.95rem; text-align: center; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .cd-dots { display: inline-flex; gap: 4px; }
+    .cd-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: cd-blink 1.2s infinite; }
+    .cd-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .cd-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes cd-blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
+    .cd-err { color: var(--danger-strong); font-size: 0.9rem; }
+    .cd-err button { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+    /* ── Combo meter (in-lesson) ── */
+    .combo-chip { display: none; align-items: center; gap: 4px; flex-shrink: 0;
+      font-weight: 800; font-size: 0.9rem; color: var(--warn-strong, #b8530b);
+      background: var(--warn-soft, #fff1e0); border: 1px solid var(--warn-border, #f4c98a);
+      border-radius: 999px; padding: 3px 10px; line-height: 1; white-space: nowrap; }
+    .combo-chip.on { display: inline-flex; }
+    .combo-chip .combo-flame { font-size: 0.95rem; }
+    @keyframes comboPulse { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+    .combo-chip.bump { animation: comboPulse .32s ease; }
+    /* floating "+N XP" that drifts up from the feedback line on a correct answer */
+    .xp-float { position: absolute; right: 14px; font-weight: 800; font-size: 0.95rem;
+      color: var(--good-strong, var(--good)); pointer-events: none; z-index: 50; }
+    @keyframes xpFloat { 0% { opacity: 0; transform: translateY(8px); } 20% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-26px); } }
+    .xp-float.go { animation: xpFloat 1s ease forwards; }
+
+    /* results */
+    .results-emoji { font-size: 3rem; }
+    .results-score { font-size: 2.4rem; font-weight: 800; margin: 6px 0; }
+    .results-xp { display: inline-flex; align-items: baseline; gap: 6px; margin: 2px 0 4px;
+      font-weight: 800; font-size: 1.5rem; color: var(--warn-strong, #b8530b); }
+    .results-xp .xp-unit { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); }
+    .results-badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 8px 0 2px; }
+    .results-badge { font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 4px 12px;
+      background: var(--warn-soft, #fff1e0); color: var(--warn-strong, #b8530b);
+      border: 1px solid var(--warn-border, #f4c98a); }
+    .results-badge.perfect { background: var(--good-soft, #e7f7ec); color: var(--good-strong, #1d7a3a);
+      border-color: var(--good, #2bb24c); }
+    .results-badge.levelup { animation: bounceIn .6s ease both; }
+
+    /* ── Daily-goal XP ring (course header) ── */
+    .daily-ring { display: inline-flex; align-items: center; gap: 8px; }
+    .daily-ring .dr-ringwrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .daily-ring svg { width: 46px; height: 46px; flex-shrink: 0; transform: rotate(-90deg); }
+    .daily-ring .dr-track { fill: none; stroke: var(--border); stroke-width: 5; }
+    .daily-ring .dr-arc { fill: none; stroke: var(--warn-accent, #f0962a); stroke-width: 5;
+      stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+    .daily-ring.met .dr-arc { stroke: var(--good, #2bb24c); }
+    .daily-ring .dr-num { position: absolute; font-size: 0.78rem; font-weight: 800; color: var(--text); }
+    .daily-ring .dr-label { font-size: 0.74rem; color: var(--text-muted); line-height: 1.25; max-width: 78px; }
+    .daily-ring .dr-label b { color: var(--text); font-weight: 700; }
+    @media (max-width: 520px) { .daily-ring .dr-label { display: none; } }
+    /* "New words → deck" panel on the results screen */
+    .rv-panel { max-width: 420px; margin: 20px auto 4px; text-align: left; }
+    .rv-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+    .rv-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+    .rv-word { font-size: 1.15rem; font-family: var(--script-font, inherit); }
+    .rv-gloss { color: var(--text-muted); font-size: 0.85rem; flex: 1; min-width: 0; }
+    .rv-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .rv-add:disabled { opacity: 0.6; cursor: default; }
+    .rv-in-deck { color: var(--good); font-size: 0.78rem; font-weight: 600; flex-shrink: 0; }
+    .rv-all { display: block; margin: 4px auto 0; background: none; border: none; color: var(--primary); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }
+
+    /* ── Reinforcing animations ── */
+    @keyframes pop { 0% { opacity: 0; } 100% { opacity: 1; } }
+    .feedback.correct, .feedback.wrong { animation: pop .18s ease both; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+    .shake { animation: shake .4s ease; }
+    @keyframes bounceIn { 0% { transform: scale(0); } 55% { transform: scale(1.25); } 75% { transform: scale(.92); } 100% { transform: scale(1); } }
+    .bounce-in { animation: bounceIn .6s ease both; }
+    @keyframes optpop { 50% { transform: scale(1.04); } }
+    .opt.correct, .tile.correct { animation: optpop .3s ease; }
+    .lesson.done .lesson-node { transition: transform .2s; }
+    @keyframes nodepop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .audio-play:active, .tile:active, .opt:active { transform: scale(.96); }
+    .confetti-piece { position: fixed; top: -14px; width: 9px; height: 14px; z-index: 9999; pointer-events: none; border-radius: 2px; }
+
+    /* teach screen */
+    .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; white-space: pre-line; }
+    .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .teach-text { flex: 1; min-width: 0; }
+    .teach-target { font-size: 1.25rem; font-family: var(--script-font, inherit); }
+    .teach-target .opt-roman { font-size: 0.8rem; }
+    .teach-gloss { color: var(--text); margin-top: 2px; }
+    .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
+    .teach-item.teach-grammar { display: block; }
+    /* LLM-authored teach blocks */
+    .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 2.0; margin-top: 10px; white-space: pre-wrap; }
+    .tb-note { margin-top: 12px; background: var(--warn-soft); border: 1px solid var(--warn-border); border-left: 3px solid var(--warn-accent); border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; color: var(--warn-strong); }
+    .tb-examples { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .tb-ex { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+    .tb-line { display: flex; align-items: center; gap: 10px; }
+    .tb-target { font-size: 1.1rem; font-family: var(--script-font, inherit); }
+    .tb-target .opt-roman { font-size: 0.78rem; }
+    .tb-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .tb-lit { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-top: 2px; }
+    .mp-card { margin-top: 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .mp-line { padding: 5px 0; }
+    .mp-line + .mp-line { border-top: 1px dashed var(--border); }
+    .mp-gloss { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+    .mp-contrast { margin-top: 8px; font-size: 0.8rem; font-weight: 600; color: var(--grammar-strong); }
+    .audio-play.sm { padding: 6px 9px; font-size: 0.85rem; border-radius: 8px; flex-shrink: 0; }
+    .teach-table-wrap { margin-top: 12px; overflow-x: auto; }
+    .teach-table-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .teach-table { border-collapse: collapse; font-size: 0.95rem; font-family: var(--script-font, inherit); }
+    .teach-table th, .teach-table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+    .teach-table th { background: var(--neutral-soft); font-weight: 600; }
+    .teach-table td { cursor: pointer; position: relative; padding-right: 22px; }
+    .teach-table td::after { content: '🔊'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; opacity: 0.2; pointer-events: none; transition: opacity 0.15s; }
+    .teach-table td:hover { background: var(--primary-soft); }
+    .teach-table td:hover::after { opacity: 0.6; }
+    .teach-table td.no-audio { cursor: default; padding-right: 12px; }
+    .teach-table td.no-audio::after { display: none; }
+    .teach-table td.no-audio:hover { background: none; }
+
+    /* completed lesson + continue CTA */
+    .lesson.done .lesson-status.done { background: var(--good-soft); color: var(--good-strong); }
+    .lesson-replay { font-size: 0.74rem; color: var(--primary); margin-top: 4px; }
+    #course-cta .learn-center { padding: 28px 16px 8px; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="learn-page">
+  <div id="state-loading" class="learn-center"><span class="spinner"></span></div>
+
+  <!-- No course yet -->
+  <div id="state-empty" class="learn-center" style="display:none">
+    <h2>Learn <span id="empty-lang">your language</span></h2>
+    <p>One lesson at a time, adapting as you go.<br>Each lesson is generated fresh based on what you've already learned.</p>
+    <div class="level-row" id="level-row">
+      <div class="level-chip active" data-level="A1">A1 · Beginner</div>
+      <div class="level-chip" data-level="A2">A2 · Elementary</div>
+    </div>
+    <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Start course</button></div>
+    <div class="err" id="create-err" style="display:none"></div>
+  </div>
+
+  <!-- Generating next lesson -->
+  <div id="state-generating" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p id="generating-msg">Generating your lesson…<br>This takes 10–20 seconds.</p>
+  </div>
+
+  <!-- Course map -->
+  <div id="state-course" style="display:none">
+    <div class="course-head">
+      <div>
+        <div class="course-title" id="course-title"></div>
+        <div class="course-sub" id="course-sub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
+        <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
+        <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
+      </div>
+    </div>
+    <div id="units"></div>
+    <div id="course-gen-area"></div>
+    <div id="course-cta"></div>
+    <div class="learn-note" id="course-note">Tap an available lesson to start.</div>
+  </div>
+
+  <!-- Lesson loading -->
+  <div id="state-lesson-loading" class="learn-center" style="display:none">
+    <h2><span class="spinner"></span></h2>
+    <p>Loading lesson…</p>
+  </div>
+
+  <!-- Debug modal -->
+  <div id="debug-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;overflow:auto;padding:24px 12px">
+    <div style="background:var(--surface);border-radius:14px;max-width:760px;margin:0 auto;padding:24px;position:relative">
+      <button onclick="closeDebug()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
+      <h3 style="margin:0 0 16px;font-size:1.05rem">LLM Debug — Lesson <span id="debug-lesson-num"></span></h3>
+      <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Prompt sent to the model:</p>
+      <pre id="debug-prompt" style="background:var(--neutral-soft);border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0 0 18px"></pre>
+      <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 10px">Raw model response:</p>
+      <pre id="debug-response" style="background:var(--neutral-soft);border-radius:8px;padding:12px;font-size:.75rem;white-space:pre-wrap;overflow-wrap:break-word;max-height:320px;overflow:auto;margin:0"></pre>
+    </div>
+  </div>
+
+  <!-- Teach screen (before exercises) -->
+  <div id="state-teach" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
+      <div style="flex:1;font-weight:600" id="teach-title"></div>
+    </div>
+    <p class="teach-intro" id="teach-intro"></p>
+    <div id="teach-items"></div>
+    <button class="cta-btn player-action" id="teach-action" onclick="startExercises()">Start exercises →</button>
+  </div>
+
+  <!-- Lesson player -->
+  <div id="state-player" style="display:none">
+    <div class="player-top">
+      <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
+      <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
+      <div class="combo-chip" id="combo-chip"><span class="combo-flame">🔥</span><span id="combo-n"></span></div>
+    </div>
+    <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
+    <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
+    <div id="exercise-root"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
+  </div>
+
+  <!-- Results -->
+  <div id="state-results" class="learn-center" style="display:none">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-score" id="results-score"></div>
+    <div class="results-xp" id="results-xp" style="display:none"><span id="results-xp-num">0</span><span class="xp-unit">XP</span></div>
+    <div class="results-badges" id="results-badges"></div>
+    <p id="results-msg">Lesson complete!</p>
+    <div id="results-vocab"></div>
+    <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
+    <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
+  </div>
+</main>
+<!-- Shared floating tooltip for .gl[data-gloss] spans — positioned by JS -->
+<div id="gl-tip" aria-hidden="true"></div>
+
+<script>
+  let selectedLevel = 'A1';
+  let langName = 'your language';
+  let LANGS = [];
+  let currentCourse = null;
+  let isAdmin = false;
+  let unlockAll = localStorage.getItem('learn_unlock_all') === '1';
+  let _currentState = 'loading';
+  let _generating = false;    // true while a /next API call is in-flight
+  let _genCount = 0;          // lessons still to author this batch (for the label)
+  let _genError = null;       // last error message from generation
+
+  function show(state) {
+    _currentState = state;
+    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
+      document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
+    // The path connectors need real layout geometry, so (re)draw once the course
+    // view is actually visible (it may have rendered while hidden).
+    if (state === 'course') requestAnimationFrame(drawPathConnectors);
+  }
+
+  function esc(s) {
+    const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML;
+  }
+
+  async function init() {
+    show('loading');
+    try {
+      const [settings, langs] = await Promise.all([
+        fetch('/api/settings').then(r => r.json()).catch(() => ({})),
+        fetch('/api/languages').then(r => r.json()).catch(() => ({ languages: [] })),
+      ]);
+      LANGS = langs.languages || [];
+      isAdmin = !!settings.is_admin;
+      document.getElementById('unlock-toggle').style.display = isAdmin ? '' : 'none';
+      // A past bug force-enabled unlock-all for everyone after generating; clear
+      // the stale flag for non-admins so sequential locking works again.
+      if (!isAdmin && unlockAll) { unlockAll = false; localStorage.removeItem('learn_unlock_all'); }
+      const code = settings.default_target_lang || 'yue';
+      const l = LANGS.find(x => x.code === code);
+      langName = l ? l.name : code;
+    } catch {}
+    document.getElementById('empty-lang').textContent = langName;
+
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); }
+      else { show('empty'); }
+    } catch {
+      show('empty');
+    }
+    loadStreak();
+  }
+
+  let _streakInfo = null;
+  async function loadStreak() {
+    try {
+      const info = await fetch('/api/streak').then(r => r.json());
+      _streakInfo = info;
+      const parts = [];
+      if (info.streak > 0) parts.push(`🔥 ${info.streak}`);
+      if (info.points > 0) parts.push(`⭐ ${info.points}`);
+      if (parts.length) {
+        document.querySelectorAll('.streak-display').forEach(el => {
+          el.textContent = parts.join(' · ');
+          el.style.display = '';
+        });
+      }
+      renderDailyRing();
+    } catch {}
+  }
+
+  // Daily-goal XP ring on the course header (today's XP vs the daily goal).
+  function renderDailyRing() {
+    const el = document.getElementById('daily-ring');
+    if (!el || !_streakInfo) return;
+    const today = _streakInfo.points_today || 0;
+    const goal = _streakInfo.daily_goal || 50;
+    const frac = Math.max(0, Math.min(1, today / goal));
+    const R = 18, C = 2 * Math.PI * R;
+    const met = today >= goal;
+    el.classList.toggle('met', met);
+    el.innerHTML = `
+      <div class="dr-ringwrap">
+        <svg viewBox="0 0 46 46" aria-hidden="true">
+          <circle class="dr-track" cx="23" cy="23" r="${R}"></circle>
+          <circle class="dr-arc" cx="23" cy="23" r="${R}"
+            stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - frac)).toFixed(1)}"></circle>
+        </svg>
+        <span class="dr-num">${met ? '✓' : today}</span>
+      </div>
+      <span class="dr-label">${met ? '<b>Goal met!</b>' : `<b>${today}</b> / ${goal} XP today`}</span>`;
+    el.style.display = '';
+  }
+
+  document.getElementById('level-row').addEventListener('click', e => {
+    const chip = e.target.closest('.level-chip');
+    if (!chip) return;
+    selectedLevel = chip.dataset.level;
+    document.querySelectorAll('.level-chip').forEach(c => c.classList.toggle('active', c === chip));
+  });
+
+  async function createCourse() {
+    document.getElementById('create-err').style.display = 'none';
+    document.getElementById('create-btn').disabled = true;
+    try {
+      const res = await fetch('/api/courses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: selectedLevel }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail || 'Failed — please try again.';
+        throw new Error(msg);
+      }
+      const course = await res.json();
+      currentCourse = course;
+      renderCourse(course);
+      show('course');
+      // Fire generation in background — spinner shows inline, user sees the map immediately.
+      generateNextLesson(course.id);
+    } catch (e) {
+      show('empty');
+      document.getElementById('create-btn').disabled = false;
+      const el = document.getElementById('create-err');
+      el.textContent = e.message || 'Failed — please try again.';
+      el.style.display = '';
+    }
+  }
+
+  async function resetAiLessons() {
+    if (!confirm('Restart the course? All AI-generated lessons are cleared and the path starts fresh. Your reading track and flashcards are kept.')) return;
+    const id = document.getElementById('state-course').dataset.courseId;
+    if (!id) return;
+    await fetch('/api/courses/' + id + '/ai_lessons', { method: 'DELETE' }).catch(() => {});
+    await refreshAndShowCourse();
+  }
+
+  function toggleUnlockAll() {
+    unlockAll = !unlockAll;
+    localStorage.setItem('learn_unlock_all', unlockAll ? '1' : '0');
+    if (currentCourse) renderCourse(currentCourse);
+  }
+
+  // Per-unit collapse toggle. Key: 'learn_unit_<id>'; '1'=open '0'=closed. No entry=auto.
+  function toggleUnit(id) {
+    const body    = document.getElementById('unit-body-' + id);
+    const chevron = document.getElementById('unit-chevron-' + id);
+    const nowOpen = body && body.style.display !== 'none';
+    localStorage.setItem('learn_unit_' + id, nowOpen ? '0' : '1');
+    if (body)    body.style.display = nowOpen ? 'none' : '';
+    if (chevron) chevron.style.transform = nowOpen ? '' : 'rotate(90deg)';
+  }
+
+  // Foundations section collapse — default collapsed (hidden); '0' = expanded.
+  function toggleFoundations() {
+    const isNowCollapsed = localStorage.getItem('learn_foundations_collapsed') === '0';
+    localStorage.setItem('learn_foundations_collapsed', isNowCollapsed ? '1' : '0');
+    const body    = document.getElementById('foundations-body');
+    const chevron = document.getElementById('foundations-chevron');
+    if (body)    body.style.display = isNowCollapsed ? 'none' : '';
+    if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
+  }
+
+  // ── Debug panel ─────────────────────────────────────────────────────────────
+
+  function openDebug(lessonId, lessonNum) {
+    fetch('/api/lessons/' + lessonId)
+      .then(r => r.json())
+      .then(lesson => {
+        const debug = lesson.llm_debug || {};
+        document.getElementById('debug-lesson-num').textContent = lessonNum || lessonId;
+        document.getElementById('debug-prompt').textContent = debug.prompt || '(no prompt stored)';
+        document.getElementById('debug-response').textContent = debug.response || '(no response stored)';
+        document.getElementById('debug-modal').style.display = '';
+      })
+      .catch(() => alert('Could not load debug info.'));
+  }
+
+  function closeDebug() {
+    document.getElementById('debug-modal').style.display = 'none';
+  }
+
+  document.getElementById('debug-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('debug-modal')) closeDebug();
+  });
+
+  // ── Generate next lesson ─────────────────────────────────────────────────────
+
+  const BATCH_AHEAD = 5;   // lessons offered per "Generate" so you can browse ahead
+
+  // A failed fetch (no response) throws a TypeError; Safari words it "Load failed",
+  // Chrome "Failed to fetch". On the slow premium model one lesson can take ~45s,
+  // so we never want a single request to author the whole batch — that would run
+  // 2+ minutes and trip a network/proxy timeout. Turn those into a clear message.
+  function _humanizeGenError(e, madeSoFar) {
+    const m = (e && e.message) || '';
+    const networkish = (e instanceof TypeError) || /load failed|failed to fetch|networkerror|timed? ?out/i.test(m);
+    if (networkish) {
+      return madeSoFar > 0
+        ? 'The connection dropped before the batch finished — but the lessons made so far were saved. Tap Generate to continue.'
+        : 'The lesson took too long and the connection dropped (this can happen on the premium model). It may have still been saved — tap Generate to retry.';
+    }
+    return m || 'Could not generate lesson — please try again.';
+  }
+
+  // Author lessons ONE request at a time (each request = one model call) and
+  // refresh the map after each, so a slow model can't make a single request long
+  // enough to time out, and partial progress is always kept + shown.
+  async function generateNextLesson(courseId, count = BATCH_AHEAD) {
+    if (_generating) return;
+    _generating = true;
+    _genCount = count;
+    _genError = null;
+    // Stay on course page — show inline spinner, never navigate away.
+    if (_currentState === 'generating') show('course');
+    if (currentCourse) renderCourse(currentCourse);
+
+    let made = 0;
+    try {
+      for (let i = 0; i < count; i++) {
+        _genCount = count - i;                 // remaining, for the skeleton label
+        if (currentCourse) renderCourse(currentCourse);
+        const res = await fetch(`/api/courses/${courseId}/next?count=1`, { method: 'POST' });
+        if (!res.ok) {
+          // Quota (402) / rate-limit (429) / generation (502): surface the server's
+          // detail. If earlier lessons in this batch succeeded, stop quietly with a note.
+          const msg = (await res.json().catch(() => ({}))).detail || 'Generation failed — please try again.';
+          if (made > 0) { _genError = `Stopped after ${made} lesson${made === 1 ? '' : 's'}: ${msg}`; break; }
+          throw new Error(msg);
+        }
+        made++;
+        // Refresh the roadmap progressively so each new lesson appears as it lands.
+        const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+        if (course) {
+          currentCourse = course;
+          renderCourse(course);
+          if (!['teach', 'player', 'results'].includes(_currentState)) show('course');
+        }
+      }
+    } catch (e) {
+      _genError = _humanizeGenError(e, made);
+      if (currentCourse) renderCourse(currentCourse);
+    } finally {
+      _generating = false;
+      if (currentCourse) renderCourse(currentCourse);
+    }
+  }
+
+  // ── Course map ───────────────────────────────────────────────────────────────
+
+  // Shared: build the HTML for one lesson row (used for both foundations & AI).
+  function _lessonHtml(l, li) {
+    const st = l.status || 'locked';
+    const displayNum = li + 1;                          // 1-based position within this unit
+    const dbgNum = l.lesson_num || displayNum;          // course-wide sequence (debug only)
+    const node = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : displayNum);
+    const meta = l.concept_count
+      ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
+    const clickable = unlockAll || st === 'available' || st === 'done';
+    const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
+    return `<div class="lesson ${st}${clickable ? ' clickable' : ''}" style="position:relative"
+        ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+      <div class="lesson-node">${node}</div>
+      <div class="lesson-body">
+        <div class="lesson-name">${esc(l.title)}</div>
+        ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
+        ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
+        ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div class="lesson-status ${st}">${badge}</div>
+        ${isAdmin ? `<button onclick="event.stopPropagation();openDebug(${l.id},${dbgNum})"
+          title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // ── Skill-tree path rendering (AI lessons) ──
+  function _unitBanner(u, unitNo) {
+    if (u.in_progress) {
+      return `<div class="lbanner"><span class="lb-unit">In progress</span><span class="lb-pill">Up next</span></div>`;
+    }
+    return `<div class="lbanner">
+      <span class="lb-unit">Unit ${unitNo}</span>
+      <span class="lb-pill">${esc(u.title || 'Lessons')}</span>
+      ${u.summary ? `<span class="lb-sub">${esc(u.summary)}</span>` : ''}
+    </div>`;
+  }
+
+  function _pathRow(l, wave) {
+    const st = l.status || 'locked';
+    const clickable = unlockAll || st === 'available' || st === 'done';
+    const glyph = st === 'done' ? '✓' : (st === 'locked' ? '🔒' : '★');
+    const level = st === 'done' ? Math.max(1, l.crown_level || 1) : 0;
+    const crowns = level ? `<div class="lcrowns">${'<span>👑</span>'.repeat(Math.min(level, 3))}</div>` : '';
+    const start = st === 'available' ? '<div class="lstart">START</div>' : '';
+    const meta = l.concept_count ? `${l.concept_count} new` : '';
+    const dbg = isAdmin
+      ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
+    return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
+      ${start}
+      <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+        ${glyph}${crowns}
+      </div>
+      <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
+      ${dbg}
+    </div>`;
+  }
+
+  // Draw the angled trail as an SVG polyline through the node centres. Re-run on
+  // render / show / resize since node positions depend on layout (offsets + caption
+  // heights vary), so a fixed CSS spine can't follow the wave.
+  function drawPathConnectors() {
+    const path = document.querySelector('#units .lpath');
+    if (!path) return;
+    const old = path.querySelector('.lpath-svg');
+    if (old) old.remove();
+    const nodes = [...path.querySelectorAll('.lnode')];
+    if (nodes.length < 2) return;
+    const pr = path.getBoundingClientRect();
+    if (!pr.width) return;   // not laid out yet (course hidden) — redrawn on show
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'lpath-svg');
+    svg.setAttribute('viewBox', `0 0 ${pr.width} ${pr.height}`);
+    const pts = nodes.map(n => {
+      const r = n.getBoundingClientRect();
+      return [r.left + r.width / 2 - pr.left, r.top + r.height / 2 - pr.top];
+    });
+    const line = document.createElementNS(NS, 'path');
+    line.setAttribute('class', 'lpath-line');
+    line.setAttribute('d', 'M' + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L'));
+    svg.appendChild(line);
+    path.insertBefore(svg, path.firstChild);
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(drawPathConnectors));
+
+  function renderCourse(course) {
+    currentCourse = course;
+    renderDailyRing();   // show the daily-XP ring if streak data is already loaded
+    document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
+    document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
+    document.getElementById('state-course').dataset.courseId = course.id;
+    document.getElementById('course-title').textContent =
+      (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
+
+    const allUnits  = course.units || [];
+    const foundUnits = allUnits.filter(u => u.theme === 'foundations');
+    const aiUnits    = allUnits.filter(u => u.theme !== 'foundations');
+
+    const nLessons = course.lesson_count || 0;
+    const nDone    = course.done_count   || 0;
+    // Count only AI units for the "N units" display (foundations is a fixed track).
+    const nAiUnits = aiUnits.filter(u => !u.in_progress).length;
+    document.getElementById('course-sub').textContent =
+      nLessons === 0
+        ? 'No lessons yet'
+        : `${nAiUnits} unit${nAiUnits !== 1 ? 's' : ''} · ${nLessons} lesson${nLessons !== 1 ? 's' : ''} · ${nDone}/${nLessons} done`;
+
+    const wrap = document.getElementById('units');
+    wrap.innerHTML = '';
+
+    // ── Foundations collapsible section ────────────────────────────────────────
+    if (foundUnits.length > 0) {
+      // Collapse state: default collapsed (hidden). '0' = expanded, anything else = collapsed.
+      const collapsed = localStorage.getItem('learn_foundations_collapsed') !== '0';
+      const fTotal = foundUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+      const fDone  = foundUnits.reduce((n, u) =>
+        n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+
+      const section = document.createElement('div');
+      section.className = 'foundations-section';
+      section.innerHTML = `
+        <button class="foundations-toggle" onclick="toggleFoundations()">
+          <span class="foundations-icon">📖</span>
+          <span class="foundations-label">Reading Track</span>
+          <span class="foundations-badge">optional</span>
+          <span class="foundations-progress">${fDone}/${fTotal}</span>
+          <span class="foundations-chevron" id="foundations-chevron"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="foundations-body" id="foundations-body"
+          style="${collapsed ? 'display:none' : ''}"></div>`;
+
+      const body = section.querySelector('#foundations-body');
+      foundUnits.forEach(u => {
+        const unitDiv = document.createElement('div');
+        unitDiv.className = 'unit';
+        let html = `<div class="unit-head">
+          <div class="unit-title" style="color:var(--text-muted)">${esc(u.title)}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+        (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
+        unitDiv.innerHTML = html;
+        body.appendChild(unitDiv);
+      });
+      wrap.appendChild(section);
+    }
+
+    // ── AI (vocab) lessons — vertical skill-tree path ─────────────────────────
+    if (aiUnits.some(u => (u.lessons || []).length)) {
+      const path = document.createElement('div');
+      path.className = 'lpath';
+      let unitNo = 0, wave = 0, html = '';
+      aiUnits.forEach(u => {
+        const lessons = u.lessons || [];
+        if (!lessons.length) return;
+        if (!u.in_progress) unitNo += 1;
+        html += _unitBanner(u, unitNo);
+        lessons.forEach(l => { html += _pathRow(l, wave); wave++; });
+      });
+      path.innerHTML = html;
+      wrap.appendChild(path);
+      requestAnimationFrame(drawPathConnectors);
+    }
+
+    // ── Inline generation area ─────────────────────────────────────────────────
+    const genArea = document.getElementById('course-gen-area');
+    if (_generating) {
+      const skeletonRow = () => `<div class="gen-row">
+        <div class="gen-node"></div>
+        <div class="gen-lines">
+          <div class="gen-line"></div>
+          <div class="gen-line short"></div>
+        </div>
+      </div>`;
+      genArea.innerHTML =
+        skeletonRow().repeat(Math.min(_genCount, 3)) +
+        `<p class="gen-label"><span class="spinner"></span> Generating ${_genCount} lesson${_genCount !== 1 ? 's' : ''}…</p>`;
+    } else if (_genError) {
+      genArea.innerHTML = `<p class="gen-label" style="color:var(--danger)">${esc(_genError)}
+        <button class="course-regen" style="margin-left:8px"
+          onclick="_genError=null;generateNextLesson(${course.id})">Retry</button></p>`;
+    } else {
+      genArea.innerHTML = '';
+    }
+
+    // CTA: hide buttons while generating; show them when idle.
+    const cta = document.getElementById('course-cta');
+    if (_generating) {
+      cta.innerHTML = '';
+    } else {
+      const ctaLabel = nLessons === 0 ? `Generate first ${BATCH_AHEAD} lessons` : `Generate ${BATCH_AHEAD} more lessons`;
+      cta.innerHTML = `<div style="text-align:center;padding:20px 0 8px">
+        <button class="cta-btn" onclick="generateNextLesson(${course.id})">${ctaLabel} →</button>
+        <button class="course-regen" style="margin-top:8px" onclick="generateNextLesson(${course.id}, 1)">+1 lesson</button>
+      </div>`;
+    }
+    document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
+  }
+
+  // ── Lesson player ───────────────────────────────────────────────────────────
+  let player = null;
+  let _audio = null;
+
+  function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
+  function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
+
+  // TTS pre-load cache: key → Audio element (preload='auto').
+  const _ttsCache = {};
+  function _ttsKey(text, lang) { return lang + '\0' + text; }
+  function _prewarmTTS(text, lang) {
+    if (!text) return;
+    const key = _ttsKey(text, lang);
+    if (_ttsCache[key]) return;
+    const a = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    a.preload = 'auto';
+    // load() forces the browser to start the HTTP request now — without it,
+    // browsers may defer fetching until play() is called, defeating the cache.
+    try { a.load(); } catch {}
+    _ttsCache[key] = a;
+  }
+  function playTTS(text, lang) {
+    if (!text) return;
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    const key = _ttsKey(text, lang);
+    if (_ttsCache[key]) {
+      _audio = _ttsCache[key];
+      try { _audio.currentTime = 0; } catch {}
+    } else {
+      _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    }
+    _audio.play().catch(() => {});
+  }
+
+  // ── Sound effects (synthesized, no asset files) ─────────────────────────────
+  let muted = localStorage.getItem('learn_muted') === '1';
+  let _sfxCtx = null;
+  function _sfx() {
+    try {
+      if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_sfxCtx.state === 'suspended') _sfxCtx.resume();
+      return _sfxCtx;
+    } catch { return null; }
+  }
+  function _beep(freq, start, dur, type = 'sine', vol = 0.16) {
+    if (muted) return;
+    const ac = _sfx(); if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    correct() { _beep(587, 0, 0.13, 'sine', 0.16); _beep(880, 0.08, 0.2, 'sine', 0.16); },
+    wrong() { _beep(196, 0, 0.18, 'sine', 0.15); _beep(150, 0.07, 0.24, 'sine', 0.13); },
+    complete() { [523, 659, 784, 1047].forEach((f, i) => _beep(f, i * 0.1, 0.32, 'triangle', 0.16)); },
+    tap() { _beep(520, 0, 0.04, 'sine', 0.05); },
+  };
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem('learn_muted', muted ? '1' : '0');
+    const b = document.getElementById('mute-toggle');
+    if (b) b.textContent = muted ? '🔇' : '🔊';
+    if (!muted) sfx.tap();
+  }
+  function confetti() {
+    if (muted) { /* still show confetti even if muted */ }
+    const colors = ['#f94144', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#f3722c', '#ff6ec7', '#1a73e8'];
+    for (let i = 0; i < 40; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.background = colors[i % colors.length];
+      document.body.appendChild(p);
+      const dur = 1500 + Math.random() * 1300;
+      p.animate([
+        { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+        { transform: `translateY(${88 + Math.random() * 12}vh) rotate(${360 + Math.random() * 540}deg)`, opacity: 0.9 },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.6,.4,1)' });
+      setTimeout(() => p.remove(), dur);
+    }
+  }
+
+  // ── Hangul jamo composition (for block_build) ───────────────────────────────
+  // Compose a sequence of typed jamo into one syllable block, like a Korean IME:
+  // consonant + vowel(+vowel compound) + optional final(+final compound).
+  const HJ = {
+    CHO: ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'],
+    JUNG: ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'],
+    JONG: ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'],
+    CV: { 'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ','ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ','ㅡㅣ':'ㅢ' },
+    CF: { 'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ' },
+  };
+  function composeJamo(seq) {
+    if (!seq.length) return '';
+    const isV = j => HJ.JUNG.includes(j), isC = j => HJ.CHO.includes(j);
+    let i = 0;
+    if (!isC(seq[0])) return seq.join('');
+    const cho = seq[i++];
+    if (i >= seq.length || !isV(seq[i])) return seq.join('');
+    let jung = seq[i++];
+    if (i < seq.length && isV(seq[i]) && HJ.CV[jung + seq[i]]) { jung = HJ.CV[jung + seq[i]]; i++; }
+    let jong = '';
+    if (i < seq.length && HJ.JONG.includes(seq[i]) && seq[i]) {
+      jong = seq[i++];
+      if (i < seq.length && HJ.CF[jong + seq[i]]) { jong = HJ.CF[jong + seq[i]]; i++; }
+    }
+    if (i < seq.length) return seq.join('');   // leftover → not a single clean block
+    const ci = HJ.CHO.indexOf(cho), ji = HJ.JUNG.indexOf(jung), ki = jong ? HJ.JONG.indexOf(jong) : 0;
+    if (ci < 0 || ji < 0) return seq.join('');
+    return String.fromCharCode(0xAC00 + (ci * 21 + ji) * 28 + ki);
+  }
+  function isHangulSyllable(s) { return s.length === 1 && s >= '가' && s <= '힣'; }
+
+  // Each exercise type: render(ex, root, lang) -> controller
+  //   controller: { isReady():bool, grade():bool, answerText():string, lock(correct):void }
+  // To add a type: add an entry here + its schema in learning.py's _EXERCISE_CONTRACT.
+  const EXERCISE_TYPES = {
+    // Inline LLM-graded construction drill: a few turns of "translate this English
+    // phrase", judged by the tutor backend. Self-managed (its own submit button +
+    // turn loop); calls onDone() when finished so the player advances. Bypasses the
+    // one-shot grade contract — the player special-cases ex.type in renderExercise.
+    construction_drill: {
+      render(ex, root, lang, onDone) {
+        const construction = (ex.construction || ex.skill || '').trim();
+        const maxTurns = 4;
+        const history = [];      // [{role:'tutor'|'user', text}]
+        let turn = 0, busy = false;
+        root.innerHTML = `<div class="cd-wrap">
+            <div class="ex-instruction">🎯 Practice: <b>${esc(construction)}</b></div>
+            <div class="cd-progress" id="cd-progress"></div>
+            <div class="cd-feed" id="cd-feed"></div>
+            <div class="cd-prompt" id="cd-prompt"><div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Starting drill…</div></div>
+            <div class="cd-input-row" id="cd-input-row" style="display:none">
+              <input type="text" id="cd-input" class="cd-input ${scriptClassFor(lang)}" placeholder="Type your answer…" autocomplete="off" autocapitalize="off" spellcheck="false">
+              <button class="cd-submit" id="cd-submit" type="button">Check</button>
+            </div>
+            <button class="cta-btn cd-continue" id="cd-continue" type="button" style="display:none">Continue →</button>
+          </div>`;
+        const feedEl = root.querySelector('#cd-feed');
+        const promptEl = root.querySelector('#cd-prompt');
+        const inputRow = root.querySelector('#cd-input-row');
+        const inputEl = root.querySelector('#cd-input');
+        const submitEl = root.querySelector('#cd-submit');
+        const contEl = root.querySelector('#cd-continue');
+        const progEl = root.querySelector('#cd-progress');
+        const setProgress = () => { progEl.textContent = `${Math.min(turn, maxTurns)} / ${maxTurns}`; };
+        setProgress();
+
+        async function call(answer) {
+          busy = true; submitEl.disabled = true;
+          try {
+            const res = await fetch('/api/lesson/drill', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ construction, history, answer, turn: turn + 1, lang }),
+            });
+            if (!res.ok) throw new Error();
+            return await res.json();
+          } catch { return null; } finally { busy = false; submitEl.disabled = false; }
+        }
+        function showPrompt(data) {
+          if (!data || data.done || !data.phrase) return finish();
+          history.push({ role: 'tutor', text: data.phrase });
+          // The task is purely "translate this English phrase" — no target-language
+          // lead-in (it confusingly sat next to a different English sentence).
+          promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
+          inputRow.style.display = ''; inputEl.value = ''; inputEl.focus();
+        }
+        function showFeedback(fb, yourAnswer) {
+          if (!fb) { feedEl.innerHTML = ''; return; }
+          const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
+          // Show what the learner wrote, then the natural answer — but only echo
+          // "You wrote" when it actually differs from the model's natural version.
+          const yours = (yourAnswer || '').trim();
+          const same = yours && yours.replace(/\s+/g, '') === (fb.corrected || '').replace(/\s+/g, '');
+          const youRow = (yours && !same)
+            ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext ${scriptClassFor(lang)}">${esc(yours)}</span></div>`
+            : '';
+          feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
+              <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
+              ${youRow}
+              <div class="cd-fb-ans"><span class="cd-fb-tag">${fb.correct ? 'Natural' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>
+              ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
+          if (needsRuby(lang)) applyRuby(feedEl, null, false);
+          try { if (navigator.vibrate) navigator.vibrate(fb.correct ? 15 : [0, 30, 30, 30]); } catch {}
+        }
+        async function start() {
+          const data = await call(null);
+          if (!data) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          showPrompt(data);
+        }
+        async function submit() {
+          if (busy) return;
+          const ans = inputEl.value.trim();
+          if (!ans) return;
+          history.push({ role: 'user', text: ans });
+          inputRow.style.display = 'none';
+          promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
+          const data = await call(ans);
+          turn++; setProgress();
+          showFeedback(data && data.feedback, ans);
+          if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
+          showPrompt(data);
+        }
+        function finish() {
+          inputRow.style.display = 'none'; promptEl.innerHTML = '';
+          feedEl.insertAdjacentHTML('beforeend', `<div class="cd-done">Drill complete! 🎉</div>`);
+          contEl.style.display = ''; contEl.onclick = () => onDone();
+          try { sfx.complete(); } catch {}
+        }
+        submitEl.onclick = submit;
+        inputEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+        start();
+        return { custom: true, isReady: () => false, grade: () => true, lock: () => {} };
+      },
+    },
+    choice: {
+      render(ex, root, lang) {
+        let sel = null;
+        const targetPrompt = ex.prompt_lang === 'target';
+        const optsTarget = ex.prompt_lang === 'english';
+        let html = `<div class="ex-instruction">${esc(ex.instruction || 'Choose the correct answer')}</div>`;
+        if (ex.prompt) {
+          const pHtml = targetPrompt ? targetSpan(ex.prompt, lang) : esc(ex.prompt);
+          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${pHtml}</div>`;
+          if (targetPrompt && ex.prompt_roman && !needsRuby(lang) && !ex.hide_roman) html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+          // Cloze: show the English sentence translation before the options so the
+          // learner knows which word is needed without ambiguity (textbook style).
+          if (ex.is_cloze && ex.tip) html += `<div class="ex-translation">${esc(ex.tip)}</div>`;
+        }
+        if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
+        html += `<div class="opt-list" id="opts"></div>`;
+        root.innerHTML = html;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button');
+          b.className = 'opt' + (optsTarget ? '' : ' english');
+          b.type = 'button';
+          b.innerHTML = optsTarget ? targetSpan(o, lang) : esc(o);
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    listening: {
+      render(ex, root, lang) {
+        let sel = null;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'What did you hear?')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
+          <div class="opt-list" id="opts"></div>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const list = document.getElementById('opts');
+        (ex.options || []).forEach((o, i) => {
+          const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
+          b.innerHTML = targetSpan(o, lang);
+          b.onclick = () => { if (player.graded) return; sel = i; [...list.children].forEach((c, ci) => c.classList.toggle('selected', ci === i)); updateAction(); };
+          list.appendChild(b);
+        });
+        return {
+          isReady: () => sel !== null,
+          grade: () => sel === ex.answer,
+          answerText: () => esc(ex.options[ex.answer]) + (ex.audio_roman ? ` (${esc(ex.audio_roman)})` : ''),
+          lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    word_bank: {
+      render(ex, root, lang) {
+        const answer = ex.answer_tokens || [];
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the sentence')}</div>
+          ${ex.audio ? `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>` : ''}
+          <div class="wb-answer" id="wb-answer"></div>
+          <div class="wb-bank" id="wb-bank"></div>`;
+        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        const ansEl = document.getElementById('wb-answer');
+        const bankEl = document.getElementById('wb-bank');
+        // Each tile lives in a fixed home "slot" in the bank. Moving a tile into
+        // the answer row leaves the slot in place (frozen at its rendered size) so
+        // the bank never reflows — like Duolingo's empty word boxes.
+        const glossary = ex.glossary || {};
+        shuffle([...answer, ...(ex.distractor_tokens || [])]).forEach(tok => {
+          const slot = document.createElement('span'); slot.className = 'wb-slot';
+          const t = document.createElement('button'); t.className = 'tile'; t.type = 'button';
+          t.dataset.tok = tok;                       // grade against the raw token, not ruby-mangled textContent
+          // Untaught helper word → show its English/POS gloss under the tile.
+          const gl = glossary[tok];
+          t.innerHTML = targetSpan(tok, lang) + (gl ? `<small class="tile-gloss">${esc(gl)}</small>` : '');
+          t.onclick = () => {
+            if (player.graded) return;
+            if (t.parentElement === slot) {          // bank → answer: freeze the slot's footprint
+              slot.style.width = slot.offsetWidth + 'px';
+              slot.style.height = slot.offsetHeight + 'px';
+              slot.classList.add('empty');
+              ansEl.appendChild(t);
+            } else {                                  // answer → bank: restore the slot
+              slot.classList.remove('empty');
+              slot.style.width = ''; slot.style.height = '';
+              slot.appendChild(t);
+            }
+            updateAction();
+          };
+          slot.appendChild(t);
+          bankEl.appendChild(slot);
+        });
+        const placed = () => [...ansEl.querySelectorAll('.tile')].map(c => c.dataset.tok);
+        return {
+          isReady: () => ansEl.querySelectorAll('.tile').length > 0,
+          grade: () => { const p = placed(); return p.length === answer.length && p.every((t, i) => t === answer[i]); },
+          answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
+          lock: () => root.querySelectorAll('.tile').forEach(c => c.disabled = true),
+        };
+      },
+    },
+    match: {
+      render(ex, root, lang) {
+        const pairs = ex.pairs || [];
+        const left = shuffle(pairs.map((p, i) => ({ txt: p.target, roman: p.target_roman, id: i, side: 't' })));
+        const right = shuffle(pairs.map((p, i) => ({ txt: p.english, id: i, side: 'e' })));
+        let selEl = null, selItem = null, matched = 0;
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Match the pairs')}</div><div class="match-grid" id="mg"></div>`;
+        const grid = document.getElementById('mg');
+        const rows = Math.max(left.length, right.length);
+        for (let i = 0; i < rows; i++) {
+          [left[i], right[i]].forEach(item => {
+            if (!item) return;
+            const el = document.createElement('button');
+            el.className = 'match-item' + (item.side === 't' ? ' target' : '');
+            el.type = 'button';
+            el.innerHTML = item.side === 't' ? targetSpan(item.txt, lang) : esc(item.txt);
+            el.onclick = () => {
+              if (player.graded || el.classList.contains('matched')) return;
+              if (!selEl) { selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selEl === el) { el.classList.remove('selected'); selEl = null; return; }
+              if (selItem.side === item.side) { selEl.classList.remove('selected'); selEl = el; selItem = item; el.classList.add('selected'); return; }
+              if (selItem.id === item.id) {
+                selEl.classList.remove('selected'); selEl.classList.add('matched'); el.classList.add('matched');
+                selEl = null; matched++; updateAction();
+              } else {
+                const a = selEl, b = el; a.classList.add('flash-wrong'); b.classList.add('flash-wrong');
+                setTimeout(() => { a.classList.remove('flash-wrong', 'selected'); b.classList.remove('flash-wrong'); }, 450);
+                selEl = null;
+              }
+            };
+            grid.appendChild(el);
+          });
+        }
+        return { isReady: () => matched === pairs.length, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
+    block_build: {
+      render(ex, root, lang) {
+        // Tap letters that auto-compose into the syllable. Two composition modes:
+        //   'concat' (abugida — Devanagari/Telugu): code points just concatenate.
+        //   default (Hangul): jamo compose into a precomposed block via composeJamo.
+        const isConcat = ex.compose === 'concat';
+        const compose = isConcat ? (seq => seq.join('')) : composeJamo;
+        const isComplete = isConcat
+          ? (s => !!s)                       // any non-empty string is a valid attempt
+          : isHangulSyllable;                // Hangul must be a real syllable block
+        const consonants = ex.consonants || [...new Set([...(ex.initials || []).map(x => x.j),
+          ...(ex.finals || []).map(x => x.j).filter(j => j && j !== '∅')])];
+        const vowels = ex.vowels || (ex.medials || []).map(x => x.j);
+        let typed = [];
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Spell the syllable')}</div>
+          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button>
+            ${ex.roman && !ex.hide_roman ? `<div class="ex-roman">${esc(ex.roman)}</div>` : ''}</div>
+          <div class="bb-preview" id="bb-preview">·</div>
+          <div class="bb-jamo" id="bb-typed"></div>
+          <div class="bb-label">Consonants</div><div class="opt-list bb-row" id="bb-cons"></div>
+          <div class="bb-label">Vowels</div><div class="opt-list bb-row" id="bb-vows"></div>
+          <button class="course-regen" type="button" id="bb-back" style="margin-top:14px">⌫ Backspace</button>`;
+        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        setTimeout(() => playTTS(ex.audio, lang), 300);
+        const preview = document.getElementById('bb-preview');
+        const typedEl = document.getElementById('bb-typed');
+        const refresh = () => {
+          const c = compose(typed);
+          preview.textContent = c || '·';
+          typedEl.textContent = typed.join(' ');
+          updateAction();
+        };
+        const mkKey = (containerId, jamo) => {
+          const el = document.getElementById(containerId);
+          jamo.forEach(j => {
+            const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.textContent = j;
+            b.onclick = () => { if (player.graded) return; if (typed.length < 5) { typed.push(j); sfx.tap(); refresh(); } };
+            el.appendChild(b);
+          });
+        };
+        mkKey('bb-cons', consonants);
+        mkKey('bb-vows', vowels);
+        document.getElementById('bb-back').onclick = () => { if (player.graded) return; typed.pop(); refresh(); };
+        return {
+          isReady: () => isComplete(compose(typed)),
+          grade: () => compose(typed) === ex.target,
+          answerText: () => esc(ex.target) + (ex.roman ? ` (${esc(ex.roman)})` : ''),
+          lock: () => { root.querySelectorAll('.tile, #bb-back').forEach(c => c.disabled = true); },
+        };
+      },
+    },
+  };
+
+  function updateBar() {
+    const pct = player ? Math.min(100, Math.round(player.answered / player.total * 100)) : 0;
+    document.getElementById('player-bar-fill').style.width = pct + '%';
+  }
+
+  // ── Gamification: combo meter + XP ──
+  const XP_BASE = 10;
+  // base + escalating combo bonus (capped): combo 1→+2, 2→+4 … 5+→+10.
+  function comboXp(combo) { return XP_BASE + Math.min(combo, 5) * 2; }
+
+  function updateComboChip() {
+    const chip = document.getElementById('combo-chip');
+    if (!chip) return;
+    if (!player || player.combo < 2) { chip.classList.remove('on'); return; }
+    document.getElementById('combo-n').textContent = '×' + player.combo;
+    chip.classList.add('on');
+  }
+
+  function bumpCombo(gained) {
+    updateComboChip();
+    const chip = document.getElementById('combo-chip');
+    if (chip && player.combo >= 2) { chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); }
+    const top = document.querySelector('#state-player .player-top');
+    if (top) {
+      const f = document.createElement('div');
+      f.className = 'xp-float'; f.textContent = '+' + gained;
+      top.appendChild(f);
+      void f.offsetWidth; f.classList.add('go');
+      setTimeout(() => f.remove(), 1050);
+    }
+  }
+  function updateAction() {
+    if (!player || player.graded) return;
+    document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
+  }
+
+  async function openLesson(lessonId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      // Normalise to segments (back-compat with old single-block lessons).
+      let segments = content.segments;
+      if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
+      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      // Allow info-only lessons (teach with no exercises); only fail if truly empty.
+      const hasContent = segments.some(sg => (sg.exercises || []).length ||
+        (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
+      if (!hasContent) throw new Error('empty lesson');
+      // Fire-and-forget: kick off TTS + ruby fetches for the whole lesson so
+      // everything is cached by the time the learner reaches each exercise.
+      _prefetchLesson(content, lesson.target_lang);
+
+      player = {
+        lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
+        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0,   // gamification: in-lesson combo + earned XP
+        controller: null, graded: false,
+        conceptResults: {},   // concept_key → {correct, total} for mastery ledger
+        vocabGlossary: content.vocab_glossary || {},
+        concepts: lesson.concepts || [],   // for the results "Add to deck" panel
+        theme: lesson.theme || '',         // 'foundations' → no live word lookup
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch {
+      alert('Could not load this lesson — please try again.');
+      show('course');
+    }
+  }
+
+  function startSegment(i) {
+    player.segIdx = i;
+    const seg = player.segments[i];
+    const teach = seg.teach;
+    if (teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length)) {
+      const n = player.segments.length;
+      document.getElementById('teach-title').textContent =
+        n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
+      const hasEx = (seg.exercises || []).length > 0;
+      document.getElementById('teach-action').textContent =
+        !hasEx ? 'Got it →' : (i === 0 ? 'Start exercises →' : 'Continue →');
+      renderTeach(teach);
+      show('teach');
+    } else {
+      startExercises();
+    }
+  }
+
+  // Advance past a finished segment: next segment, then end-of-lesson review, then finish.
+  function afterSegment() {
+    if (player.segIdx < player.segments.length - 1) {
+      startSegment(player.segIdx + 1);
+    } else if (player.mistakes.length) {
+      player.reviewStarted = true;
+      player.queue = player.mistakes.map(e => ({ ...e, _review: true }));
+      player.mistakes = [];
+      player.idx = 0;
+      show('player');
+      renderExercise();
+    } else {
+      finishLesson();
+    }
+  }
+
+  // Token cache: (lang, text) → Promise<token[]>.  Each token: {text, roman, is_word}.
+  // Separated from HTML rendering so the glossary (session-specific) doesn't pollute the cache.
+  const _tokenCache = {};
+
+  // True when text is mostly Latin alphabet — ruby would be meaningless/wrong.
+  function _isLatin(text) {
+    const stripped = (text || '').replace(/\s/g, '');
+    if (!stripped) return true;
+    const latin = (stripped.match(/[A-Za-zÀ-öø-ÿ]/g) || []).length;
+    return latin / stripped.length > 0.5;
+  }
+
+  // Fetch per-token data from /api/ruby, cached for the page lifetime.
+  function _fetchTokens(text, lang) {
+    const key = lang + '\0' + text;
+    if (!_tokenCache[key]) {
+      _tokenCache[key] = fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`)
+        .then(r => r.json())
+        .catch(() => null);
+    }
+    return _tokenCache[key];
+  }
+
+  // Pre-warm TTS audio + ruby token caches for an entire lesson, fired
+  // immediately after the lesson JSON loads (before the first screen renders).
+  // This way audio/ruby are in the browser cache by the time the learner
+  // reaches each exercise — no per-exercise loading delay.
+  function _prefetchLesson(content, lang) {
+    const segments = content.segments || [];
+    for (const seg of segments) {
+      // Teach items: pre-load audio + ruby for each target
+      for (const it of ((seg.teach || {}).items || [])) {
+        _prewarmTTS(it.audio || it.target, lang);
+        if (it.target && needsRuby(lang) && !_isLatin(it.target)) _fetchTokens(it.target, lang);
+      }
+      // Teach blocks (table cells, example native text)
+      for (const blk of ((seg.teach || {}).blocks || [])) {
+        for (const row of (blk.rows || []))
+          for (const cell of row)
+            if (cell && needsRuby(lang) && !_isLatin(cell)) _fetchTokens(cell, lang);
+        for (const ex of (blk.examples || []))
+          if (ex.native) { _prewarmTTS(ex.native, lang); if (needsRuby(lang) && !_isLatin(ex.native)) _fetchTokens(ex.native, lang); }
+      }
+      // Exercises — since all exercise text now gets hover/tap tooltips (hideRoman=true
+      // with vocabGlossary), pre-warm ruby for every native-language string that will
+      // receive a .needs-ruby span: prompt, all option strings, match targets, tiles.
+      for (const ex of (seg.exercises || [])) {
+        if (ex.audio) _prewarmTTS(ex.audio, lang);
+        if (ex.prompt && needsRuby(lang) && !_isLatin(ex.prompt)) _fetchTokens(ex.prompt, lang);
+        // All option strings (listening choices are native; choice options may be native
+        // when prompt_lang is 'english' and optsTarget is true)
+        for (const opt of (ex.options || []))
+          if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
+        // Match exercise target column
+        for (const pair of (ex.pairs || []))
+          if (pair.target && needsRuby(lang) && !_isLatin(pair.target)) _fetchTokens(pair.target, lang);
+        // Word-bank / reorder tiles
+        for (const tok of [...(ex.answer_tokens || []), ...(ex.distractor_tokens || [])])
+          if (tok && needsRuby(lang) && !_isLatin(tok)) _fetchTokens(tok, lang);
+      }
+    }
+  }
+
+  // Build <ruby> HTML from a token array.
+  //   - normally: romanization shows inline as ruby; an optional `glossary` adds a
+  //     hover/tap `.gl` tooltip (used for TEACH text, never exercise prompts).
+  //   - hideRoman: romanization is NOT shown inline — it's tucked into the `.gl`
+  //     tooltip instead (combined with the gloss, "rom · meaning"). Used in the
+  //     reading (foundations) exercises so the romanization isn't a spoiler.
+  function _tokensToHtml(tokens, glossary, hideRoman, liveLookup) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const hasRoman = tokens.some(t => t.roman);
+    return tokens.map(t => {
+      const inner = (!hideRoman && hasRoman && t.is_word && t.roman)
+        ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>`
+        : esc(t.text);
+      const parts = [];
+      if (hideRoman && t.is_word && t.roman) parts.push(t.roman);
+      const g = t.is_word ? (glossary || {})[t.text] : null;
+      if (g) parts.push(g);
+      const tip = parts.join(' · ');
+      if (tip)
+        return `<span class="gl" tabindex="0" data-gloss="${esc(tip)}">${inner}</span>`;
+      // Teach word with no stored gloss → make it tap-to-translate (hybrid:
+      // free stored glosses above, live AI fallback here). Any real word in any
+      // script (Latin words just have no ruby). Never for exercises.
+      if (liveLookup && t.is_word)
+        return `<span class="gl gl-live" tabindex="0" data-lw="${esc(t.text)}">${inner}</span>`;
+      return inner;
+    }).join('');
+  }
+
+  // Return <ruby>-annotated HTML for `text`. `glossary` enables hover/tap glosses;
+  // `hideRoman` moves romanization from inline ruby into that tooltip; `liveLookup`
+  // marks ungloss­ed teach words for tap-to-translate.
+  async function rubyHtml(text, lang, glossary, hideRoman, liveLookup) {
+    if (!text) return '';
+    // Latin scripts need no ruby — but with liveLookup on we still tokenise so
+    // each word can be tapped for a translation (just without romanization).
+    if (_isLatin(text) && !liveLookup) return esc(text);
+    const tokens = await _fetchTokens(text, lang);
+    if (!tokens || !tokens.length) return esc(text);
+    return _tokensToHtml(tokens, glossary, hideRoman, liveLookup);
+  }
+
+  // Apply ruby to every .needs-ruby element inside `container`. Pass `glossary`
+  // (the lesson's vocab_glossary) ONLY for teach content so words get a hover/tap
+  // gloss; omit it for exercise prompts so answers aren't revealed. Pass
+  // `hideRoman` for reading exercises so romanization is hidden behind the tooltip.
+  // Pass `liveLookup` for teach text so ungloss­ed words become tap-to-translate.
+  async function applyRuby(container, glossary, hideRoman, liveLookup) {
+    const els = container.querySelectorAll('.needs-ruby');
+    await Promise.all([...els].map(async el => {
+      el.innerHTML = await rubyHtml(el.dataset.text, el.dataset.lang, glossary, hideRoman, liveLookup);
+      el.classList.remove('needs-ruby');
+    }));
+  }
+
+  // Text nodes inside markdown-rendered teach prose/notes mix English with
+  // inline target-language examples (e.g. 詩·史·試·時·市·事). Walk the text nodes
+  // and ruby-annotate only those containing target script, so each example gets
+  // jyutping + a meaning tooltip (stored gloss, else live tap-to-translate) —
+  // without disturbing surrounding English or the markdown (bold/italic) nodes.
+  const _HAS_TARGET = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}]/u;
+  // A maximal run of target-script characters (optionally joined by middle dots,
+  // 詩·史·試…). We ruby-ize only these runs and leave surrounding English alone —
+  // tokenising a whole mixed "the syllable si: 詩·史" node merges the Latin and
+  // the first character into one un-romanizable token.
+  const _TARGET_RUN = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}·・‧•]+/gu;
+  async function applyProseRuby(container, glossary, liveLookup) {
+    const lang = player && player.lang;
+    if (!lang || !needsRuby(lang)) return;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        if (!n.nodeValue || !_HAS_TARGET.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+        if (n.parentElement && n.parentElement.closest('ruby, .gl')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    await Promise.all(nodes.map(async n => {
+      const text = n.nodeValue;
+      // Split into alternating English / target-run segments, keeping order.
+      const segs = [];
+      let cursor = 0, m;
+      _TARGET_RUN.lastIndex = 0;
+      while ((m = _TARGET_RUN.exec(text)) !== null) {
+        if (m.index > cursor) segs.push({ run: false, v: text.slice(cursor, m.index) });
+        segs.push({ run: true, v: m[0] });
+        cursor = m.index + m[0].length;
+      }
+      if (cursor < text.length) segs.push({ run: false, v: text.slice(cursor) });
+      const html = await Promise.all(segs.map(s =>
+        s.run ? rubyHtml(s.v, lang, glossary, false, liveLookup) : Promise.resolve(esc(s.v))));
+      const span = document.createElement('span');
+      span.innerHTML = html.join('');
+      n.replaceWith(span);
+    }));
+  }
+
+  // Render basic markdown (bold/italic) safely: escape HTML first, then mark up.
+  function renderMarkdown(text) {
+    return esc(text || '')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  }
+
+  // Return just the target-language portion of a (possibly mixed) string for TTS.
+  // Strips parenthetical romanization (which contains tone numbers), markdown markers,
+  // and for CJK/Hangul scripts, trailing ASCII text the generator sometimes appends.
+  // Languages where we have offline romanizers → ruby annotations make sense.
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
+  function needsRuby(lang) { return RUBY_LANGS.has(lang); }
+
+  function cleanForTTS(text, lang) {
+    let t = (text || '')
+      .replace(/\([^)]*\)/g, '')   // strip all parentheticals (romanization/notes)
+      .replace(/\*+/g, '')          // strip markdown markers
+      .trim();
+    if (RUBY_LANGS.has(lang)) {
+      // Trim trailing Latin/ASCII after the last non-Latin script character.
+      // Covers CJK, Hangul, Devanagari (hi), Telugu (te), and CJK punctuation.
+      const m = t.match(/^([\s\S]*[\u0900-\u0DFF\u0C00-\u0C7F\u3000-\u9FFF\uAC00-\uD7AF\u3400-\u4DBF。！？、，；：“”‘’「」【】〔〕《》·…—～]+)/);
+      if (m) t = m[1].trim();
+    }
+    return t;
+  }
+
+  // Wrap target-language text in a .needs-ruby span (resolved by applyRuby).
+  // Falls back to esc(text) for Latin-script languages.
+  function targetSpan(text, lang) {
+    const clean = cleanForTTS(text, lang);
+    if (!clean) return '';
+    if (!needsRuby(lang)) return esc(clean);
+    return `<span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(lang)}">${esc(clean)}</span>`;
+  }
+
+
+  // Speakable target line: ruby-annotated text + 🔊 button.
+  // The .needs-ruby span is resolved asynchronously by applyRuby().
+  function speakLine(text, lang) {
+    const line = document.createElement('div');
+    line.className = 'tb-line';
+    const l = lang || (player && player.lang);
+    line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
+      <div class="tb-target"><span class="needs-ruby" data-text="${esc(cleanForTTS(text, l))}" data-lang="${esc(l)}">${esc(text || '')}</span></div>`;
+    line.querySelector('button').onclick = () => playTTS(cleanForTTS(text, l), l);
+    return line;
+  }
+
+  // Render one LLM-authored teach block (prose / table / examples / contrast / note).
+  function renderBlock(b) {
+    if (b.type === 'prose') {
+      const d = document.createElement('div'); d.className = 'tb-prose';
+      d.innerHTML = renderMarkdown(b.text || '');
+      // liveLookup ON even for foundations: prose is explanatory teach text (not a
+      // graded exercise), so tapping an example word for its meaning is welcome.
+      applyProseRuby(d, player && player.vocabGlossary, true);
+      return d;
+    }
+    if (b.type === 'note') {
+      const d = document.createElement('div'); d.className = 'tb-note';
+      d.innerHTML = renderMarkdown(b.text || '');
+      applyProseRuby(d, player && player.vocabGlossary, true);
+      return d;
+    }
+    if (b.type === 'table') {
+      const wrap = document.createElement('div'); wrap.className = 'teach-table-wrap';
+      const l = player && player.lang;
+      // Store clean TTS text as data-tts BEFORE applyRuby runs — afterwards
+      // td.textContent includes the <rt> romanization content and would be read aloud.
+      const cell = c => {
+        const clean = cleanForTTS(c, l);
+        return `<td data-tts="${esc(clean)}"><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
+      };
+      let h = b.title ? `<div class="teach-table-title">${esc(b.title)}</div>` : '';
+      h += '<table class="teach-table">';
+      if ((b.columns || []).length) h += '<thead><tr>' + b.columns.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead>';
+      h += '<tbody>' + (b.rows || []).map(r => '<tr>' + r.map(c => cell(c)).join('') + '</tr>').join('') + '</tbody></table>';
+      wrap.innerHTML = h;
+      applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());   // teach → hover/tap glosses
+      // For logographic languages, detect English label cells (no ruby annotation)
+      // and mark them no-audio. For Latin-script languages no ruby exists anywhere,
+      // so all cells stay clickable.
+      const logographic = wrap.querySelector('ruby') !== null;
+      wrap.querySelectorAll('td').forEach(td => {
+        if (logographic && !td.querySelector('ruby')) { td.classList.add('no-audio'); return; }
+        const t = td.dataset.tts;
+        if (t) td.onclick = () => playTTS(t, l);
+      });
+      return wrap;
+    }
+    if (b.type === 'examples') {
+      const box = document.createElement('div'); box.className = 'tb-examples';
+      (b.items || []).forEach(it => {
+        const card = document.createElement('div'); card.className = 'tb-ex';
+        card.appendChild(speakLine(it.text));
+        if (it.lit) { const l = document.createElement('div'); l.className = 'tb-lit'; l.textContent = '(lit. ' + it.lit + ')'; card.appendChild(l); }
+        if (it.gloss) { const g = document.createElement('div'); g.className = 'tb-gloss'; g.textContent = it.gloss; card.appendChild(g); }
+        box.appendChild(card);
+      });
+      return box;
+    }
+    if (b.type === 'contrast') {
+      const card = document.createElement('div'); card.className = 'mp-card';
+      [b.a, b.b].forEach(s => {
+        const wrap = document.createElement('div'); wrap.className = 'mp-line';
+        wrap.appendChild(speakLine(s.text));
+        if (s.gloss) { const g = document.createElement('div'); g.className = 'mp-gloss'; g.textContent = s.gloss; wrap.appendChild(g); }
+        card.appendChild(wrap);
+      });
+      if (b.label) { const c = document.createElement('div'); c.className = 'mp-contrast';
+        c.innerHTML = '↕ ' + renderMarkdown(b.label); card.appendChild(c); }
+      return card;
+    }
+    return null;
+  }
+
+  function renderTeach(teach) {
+    document.getElementById('teach-intro').textContent = teach.intro || '';
+    const wrap = document.getElementById('teach-items');
+    wrap.innerHTML = '';
+    const lang = player && player.lang;
+    // Free-form teach blocks (prose/table/examples/contrast/note) — the unified
+    // authored lesson's main teaching content.
+    (teach.blocks || []).forEach(b => { const el = renderBlock(b); if (el) wrap.appendChild(el); });
+    // Legacy vocab "items" word-list (back-compat with older lessons).
+    (teach.items || []).forEach(it => {
+      const blocks = it.blocks || [];
+      const isGrammar = it.grammar && blocks.length;
+      const row = document.createElement('div');
+      row.className = 'teach-item' + (isGrammar ? ' teach-grammar' : '');
+      // .needs-ruby spans are resolved by applyRuby() below.
+      const targetHtml = it.target
+        ? `<span class="needs-ruby" data-text="${esc(it.target)}" data-lang="${esc(lang)}">${esc(it.target)}</span>`
+        : '';
+      row.innerHTML = `<div class="teach-text">
+          <div class="teach-target">${targetHtml}${it.grammar ? '<span class="teach-tag">grammar</span>' : ''}</div>
+          <div class="teach-gloss">${esc(it.gloss || '')}</div>
+          ${it.note ? `<div class="teach-note">${esc(it.note)}</div>` : ''}
+        </div>`;
+      if (isGrammar) {
+        const body = row.querySelector('.teach-text');
+        blocks.forEach(b => { const el = renderBlock(b); if (el) body.appendChild(el); });
+      } else {
+        const speak = it.audio || it.target;
+        if (speak) {
+          const btn = document.createElement('button');
+          btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
+          btn.onclick = () => playTTS(speak, lang);
+          row.appendChild(btn);
+        }
+      }
+      wrap.appendChild(row);
+    });
+    // Resolve ruby annotations asynchronously (non-blocking). Teach text gets
+    // hover/tap glosses from the lesson's vocab_glossary, with a live AI fallback
+    // for words it didn't gloss (hybrid; off for the foundations reading track).
+    applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
+  }
+
+  // Live word lookup is enabled for AI-lesson teach text (not foundations, where
+  // romanization is the lesson and a "translation" would be meaningless).
+  function _liveLookupOn() { return !!player && player.theme !== 'foundations'; }
+
+  function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
+    const seg = player.segments[player.segIdx];
+    player.queue = (seg.exercises || []).map(e => ({ ...e }));
+    player.idx = 0;
+    if (!player.queue.length) { afterSegment(); return; }
+    show('player');
+    renderExercise();
+  }
+
+  function renderExercise() {
+    const ex = player.queue[player.idx];
+    const root = document.getElementById('exercise-root');
+    const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
+    document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
+    document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
+    player.graded = false;
+    updateComboChip();
+    const action = document.getElementById('player-action');
+    // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
+    // hide the standard Check/Continue button and let it advance via onDone.
+    if (ex.type === 'construction_drill') {
+      action.style.display = 'none';
+      player.controller = EXERCISE_TYPES.construction_drill.render(ex, root, player.lang, () => {
+        if (!ex._review) player.firstPassCorrect++;   // formative — keep the score neutral
+        advanceExercise();
+      });
+      updateBar();
+      return;
+    }
+    action.style.display = '';
+    player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
+    // Always hide inline ruby in exercises — romanization goes into the hover/tap
+    // .gl tooltip on each word. NEVER pass the vocab glossary here: a recognition
+    // prompt would reveal its own English answer on hover (glossing is teach-only).
+    if (needsRuby(player.lang)) applyRuby(root, null, true);
+
+    const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
+    updateBar(); updateAction();
+  }
+
+  function onAction() {
+    if (!player) return;
+    const a = document.getElementById('player-action');
+    if (!player.graded) {
+      if (!player.controller.isReady()) return;
+      const ex = player.queue[player.idx];
+      const correct = player.controller.grade();
+      player.controller.lock(correct);
+      player.graded = true;
+      if (correct) {
+        if (!ex._review) {
+          player.firstPassCorrect++;
+          player.combo++;
+          player.maxCombo = Math.max(player.maxCombo, player.combo);
+          const gained = comboXp(player.combo);
+          player.xp += gained;
+          bumpCombo(gained);
+        }
+      } else if (ex._review) {
+        player.queue.push({ ...ex });          // retry this mistake again later
+      } else {
+        player.mistakes.push(ex);              // review it at the end of the lesson
+        player.combo = 0;                      // a first-pass miss breaks the combo
+        updateComboChip();
+      }
+      // Track first-pass outcomes per concept for the mastery ledger.
+      if (!ex._review && ex.concept_key) {
+        const m = player.conceptResults[ex.concept_key] || (player.conceptResults[ex.concept_key] = { correct: 0, total: 0 });
+        m.total++;
+        if (correct) m.correct++;
+      }
+      const fb = document.getElementById('feedback');
+      const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
+      if (correct) {
+        fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip;
+        sfx.correct();
+      } else {
+        const at = player.controller.answerText ? player.controller.answerText() : '';
+        fb.className = 'feedback wrong';
+        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
+        sfx.wrong();
+        const root = document.getElementById('exercise-root');
+        root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
+      }
+      try { if (navigator.vibrate) navigator.vibrate(correct ? 15 : [0, 30, 30, 30]); } catch {}
+      const lastSeg = player.segIdx >= player.segments.length - 1;
+      const isLastEx = player.idx >= player.queue.length - 1;
+      const willReview = (!player.reviewStarted && player.mistakes.length > 0) || (player.reviewStarted && !correct);
+      a.textContent = (lastSeg && isLastEx && !willReview) ? 'Finish' : 'Continue';
+      a.disabled = false;
+    } else {
+      advanceExercise();
+    }
+  }
+
+  function advanceExercise() {
+    player.answered++;
+    player.idx++;
+    if (player.idx >= player.queue.length) {
+      if (player.reviewStarted) finishLesson();   // review queue exhausted
+      else afterSegment();                         // next segment / start review / finish
+    } else {
+      renderExercise();
+    }
+  }
+
+  async function finishLesson() {
+    const total = player.total;
+    const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
+    const perfect = total > 0 && player.firstPassCorrect === total;
+    const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
+    document.getElementById('combo-chip').classList.remove('on');
+    let serverInfo = null;
+    try {
+      const results = Object.entries(player.conceptResults).map(([k, v]) => ({
+        concept_key: k, correct: v.correct, total: v.total,
+      }));
+      const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score, results, xp: xpEarned }),
+      });
+      serverInfo = await res.json();
+    } catch {}
+    document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
+    const emoji = document.getElementById('results-emoji');
+    emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
+    document.getElementById('results-msg').textContent =
+      total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
+    renderResultsXp(xpEarned, perfect, player.maxCombo,
+                    serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
+    show('results');
+    renderResultsVocab();   // async fill of the "New words → deck" panel
+    emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
+    sfx.complete();
+    if (score >= 60) confetti();
+    if (perfect) setTimeout(confetti, 350);   // double burst for a flawless run
+    try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+    loadStreak();   // refresh the ⭐ header total + daily-goal ring with the new XP
+  }
+
+  const PERFECT_BONUS = 25;
+  function renderResultsXp(xp, perfect, maxCombo, crownLevel, crownUp) {
+    const box = document.getElementById('results-xp');
+    const num = document.getElementById('results-xp-num');
+    box.style.display = xp > 0 ? '' : 'none';
+    if (xp > 0) {
+      const dur = 700, start = performance.now();
+      (function tick(t) {
+        const p = Math.min(1, (t - start) / dur);
+        num.textContent = Math.round(xp * p);
+        if (p < 1) requestAnimationFrame(tick); else num.textContent = xp;
+      })(start);
+    }
+    const badges = document.getElementById('results-badges');
+    badges.innerHTML = '';
+    if (crownLevel >= 1) {
+      // Level-up: this run raised the crown. Otherwise it was already maxed.
+      const label = crownUp
+        ? (crownLevel >= 3 ? 'Crown maxed!' : `Crown level up → ${crownLevel}`)
+        : `Crown ${crownLevel}`;
+      badges.innerHTML += `<span class="results-badge crown${crownUp ? ' levelup' : ''}">${'👑'.repeat(crownLevel)} ${label}</span>`;
+    }
+    if (perfect) badges.innerHTML += `<span class="results-badge perfect">★ Perfect lesson +${PERFECT_BONUS}</span>`;
+    if (maxCombo >= 3) badges.innerHTML += `<span class="results-badge">🔥 Best combo ×${maxCombo}</span>`;
+  }
+
+  // ── Results screen: add this lesson's new vocab to the SRS deck ────────────
+  async function renderResultsVocab() {
+    const wrap = document.getElementById('results-vocab');
+    wrap.innerHTML = '';
+    if (!player) return;
+    const vocab = (player.concepts || []).filter(c =>
+      (c.kind || 'vocab') === 'vocab' && (c.label || '').trim() && (c.gloss || '').trim());
+    if (!vocab.length) return;
+
+    let statuses = {};
+    try {
+      const res = await fetch('/api/cards/status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: vocab.map(v => v.label), lang: player.lang }),
+      });
+      statuses = (await res.json()).statuses || {};
+    } catch {}
+
+    const panel = document.createElement('div');
+    panel.className = 'rv-panel ' + scriptClassFor(player.lang);
+    panel.innerHTML = `<div class="rv-title">New words from this lesson</div>`;
+    const addable = [];
+    vocab.forEach(v => {
+      const row = document.createElement('div');
+      row.className = 'rv-row';
+      const inDeck = !!statuses[v.label];
+      row.innerHTML = `<div class="rv-word">${targetSpan(v.label, player.lang)}</div>
+        <div class="rv-gloss">${esc(v.gloss)}</div>`;
+      if (inDeck) {
+        row.insertAdjacentHTML('beforeend', '<span class="rv-in-deck">✓ In your deck</span>');
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'rv-add'; btn.type = 'button'; btn.textContent = '＋ Add';
+        btn.onclick = () => addWordToDeck(v, btn);
+        row.appendChild(btn);
+        addable.push([v, btn]);
+      }
+      panel.appendChild(row);
+    });
+    if (addable.length > 1) {
+      const all = document.createElement('button');
+      all.className = 'rv-all'; all.type = 'button';
+      all.textContent = `Add all ${addable.length} to flashcards`;
+      all.onclick = () => { all.disabled = true; addable.forEach(([v, b]) => addWordToDeck(v, b)); };
+      panel.appendChild(all);
+    }
+    wrap.appendChild(panel);
+    applyRuby(panel);   // inline ruby — no spoiler concern on the results screen
+  }
+
+  async function addWordToDeck(v, btn) {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: v.gloss, target_text: v.label,
+          target_lang: player.lang, priority: 3,
+          notes: 'From lesson: ' + (player.title || ''),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      btn.outerHTML = '<span class="rv-in-deck">✓ Added</span>';
+    } catch {
+      btn.disabled = false; btn.textContent = '＋ Add';
+    }
+  }
+
+  function quitLesson() {
+    if (confirm('Quit this lesson? This attempt won\'t be saved.')) { player = null; refreshAndShowCourse(); }
+  }
+  function retryLesson() { if (player) openLesson(player.lessonId); }
+  function backToMap() { player = null; refreshAndShowCourse(); }
+
+  async function refreshAndShowCourse() {
+    show('loading');
+    try {
+      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      if (course) { renderCourse(course); show('course'); } else { show('empty'); }
+    } catch { show('empty'); }
+  }
+
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login';
+  }
+
+  // ── Mobile nav (the shared NAV hamburger calls these) ──────────────────────
+  function toggleMobileMenu() {
+    document.getElementById('nav-dropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('nav-dropdown');
+    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
+  });
+
+  // ── Viewport-clamped tooltip for .gl[data-gloss] spans ─────────────────────
+  // The CSS ::after approach can't clamp to viewport bounds, so we use one shared
+  // fixed-position div repositioned on every show().
+  (function () {
+    const tip = document.getElementById('gl-tip');
+    let _visible = false;
+
+    function showTip(el) {
+      const gloss = el.dataset.gloss;
+      if (!gloss) { hideTip(); return; }
+      tip.textContent = gloss;
+      tip.style.maxWidth = Math.min(220, window.innerWidth - 16) + 'px';
+      tip.style.display = 'block';
+      _visible = true;
+
+      const r  = el.getBoundingClientRect();
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Centre horizontally on the word, clamped to 8 px from each edge.
+      const left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, vw - tw - 8));
+      // Prefer below; flip above when there isn't room.
+      const top  = (r.bottom + th + 8 > vh && r.top - th - 5 > 0)
+        ? r.top - th - 5
+        : r.bottom + 5;
+
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    }
+
+    function hideTip() { if (_visible) { tip.style.display = 'none'; _visible = false; } }
+
+    // Mouse
+    document.addEventListener('mouseover', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      gl ? showTip(gl) : hideTip();
+    });
+
+    // Keyboard / tap focus
+    document.addEventListener('focusin', e => {
+      const gl = e.target.closest && e.target.closest('.gl[data-gloss]');
+      if (gl) showTip(gl);
+    });
+    document.addEventListener('focusout', hideTip);
+
+    // Dismiss on scroll or touch-outside
+    document.addEventListener('scroll', hideTip, { passive: true });
+    document.addEventListener('touchstart', e => {
+      if (!(e.target.closest && e.target.closest('.gl[data-gloss], .gl-live'))) hideTip();
+    }, { passive: true });
+
+    // Hybrid live lookup: teach words the lesson didn't gloss are .gl-live.
+    // Tapping one fetches a translation on demand (reusing the reader endpoint),
+    // caches it for the session, and reveals it in the tooltip.
+    const _liveCache = {};
+    async function liveLookup(el) {
+      if (el.dataset.gloss) { showTip(el); return; }   // already resolved
+      const word = el.dataset.lw;
+      if (!word || !player) return;
+      const key = player.lang + '\0' + word;
+      if (_liveCache[key]) { el.dataset.gloss = _liveCache[key]; showTip(el); return; }
+      el.dataset.gloss = '…'; showTip(el);
+      try {
+        const res = await fetch('/api/reader/translate-word', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word, target_lang: player.lang }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const eng = (data.source_text || '').trim() || '(no translation)';
+        _liveCache[key] = eng;
+        el.dataset.gloss = eng;
+      } catch {
+        delete el.dataset.gloss;          // allow a retry on next tap
+        return;
+      }
+      showTip(el);
+    }
+    document.addEventListener('click', e => {
+      const gl = e.target.closest && e.target.closest('.gl-live');
+      if (gl) liveLookup(gl);
+    });
+  })();
+
+  init();
+</script>
+</body>
+</html>
