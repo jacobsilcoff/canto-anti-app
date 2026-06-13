@@ -136,6 +136,8 @@
     .lrow.is-locked .lcap { color: var(--text-muted); }
     .lcap-meta { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); margin-top: 1px; }
     .ldbg { background: none; border: none; cursor: pointer; font-size: 0.78rem; opacity: 0.4; padding: 2px; margin-top: 2px; }
+    .ldrills-btn { background: none; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 0.68rem; font-weight: 600; color: var(--primary); padding: 2px 10px; margin-top: 4px; opacity: 0.75; }
+    .ldrills-btn:hover { opacity: 1; background: var(--primary-soft); }
 
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
@@ -790,12 +792,15 @@
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
+    const drillsBtn = st === 'done'
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},true)" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
       <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
         ${glyph}${crowns}
       </div>
       <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
+      ${drillsBtn}
       ${dbg}
     </div>`;
   }
@@ -1287,9 +1292,14 @@
           bankEl.appendChild(slot);
         });
         const placed = () => [...ansEl.querySelectorAll('.tile')].map(c => c.dataset.tok);
+        // Strip pure-punctuation tokens (periods, commas, 。！？ etc.) from both
+        // sides before grading — learners shouldn't lose marks for missing a trailing
+        // period tile; the word order is what's being tested.
+        const isPunct = t => /^[\s.,!?。！？、，;；:：…""''「」【】()\[\]]+$/.test(t);
+        const gradeToks = arr => arr.filter(t => !isPunct(t));
         return {
-          isReady: () => ansEl.querySelectorAll('.tile').length > 0,
-          grade: () => { const p = placed(); return p.length === answer.length && p.every((t, i) => t === answer[i]); },
+          isReady: () => gradeToks(placed()).length > 0,
+          grade: () => { const p = gradeToks(placed()); const a = gradeToks(answer); return p.length === a.length && p.every((t, i) => t === a[i]); },
           answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
           lock: () => root.querySelectorAll('.tile').forEach(c => c.disabled = true),
         };
@@ -1420,7 +1430,7 @@
     document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
   }
 
-  async function openLesson(lessonId) {
+  async function openLesson(lessonId, drillsOnly = false) {
     show('lesson-loading');
     try {
       const res = await fetch('/api/lessons/' + lessonId);
@@ -1449,6 +1459,7 @@
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
         theme: lesson.theme || '',         // 'foundations' → no live word lookup
+        drillsOnly,                        // skip teach screen, jump straight to exercises
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -1465,7 +1476,8 @@
     player.segIdx = i;
     const seg = player.segments[i];
     const teach = seg.teach;
-    if (teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length)) {
+    const hasTeach = teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length);
+    if (hasTeach && !player.drillsOnly) {
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
