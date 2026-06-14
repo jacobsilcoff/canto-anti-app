@@ -1392,89 +1392,89 @@
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   }
 
-  async function _getPushSubscription() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      return await reg.pushManager.getSubscription();
-    } catch { return null; }
-  }
-
-  async function _syncBellState() {
+  // Synchronous: reflects Notification.permission only (no SW await = no hang)
+  function _syncBellState() {
     const btn = document.getElementById('notif-bell-btn');
     if (!btn) return;
-    // Never disable — always show feedback on click
-    if (!('Notification' in window) || !('PushManager' in window)) {
-      btn.title = 'Push notifications not supported in this browser';
-      btn.textContent = '🔕';
-      return;
+    const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+    if (!supported) {
+      btn.textContent = '🔕'; btn.title = 'Push notifications not supported in this browser'; return;
     }
-    if (Notification.permission === 'denied') {
-      btn.title = 'Notifications blocked — tap to see instructions';
-      btn.classList.remove('enabled');
-      btn.textContent = '🔕';
-      return;
-    }
-    const sub = await _getPushSubscription();
-    if (sub) {
-      btn.classList.add('enabled');
-      btn.title = 'Notifications on — tap to disable';
-      btn.textContent = '🔔';
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications on — tap to disable';
+    } else if (perm === 'denied') {
+      btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications blocked — tap for help';
     } else {
-      btn.classList.remove('enabled');
-      btn.title = 'Enable push notifications';
-      btn.textContent = '🔔';
+      btn.classList.remove('enabled'); btn.textContent = '🔔'; btn.title = 'Enable push notifications';
     }
+  }
+
+  // With timeout so it never hangs waiting for a stuck service worker
+  async function _getSwRegistration(ms = 4000) {
+    return Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), ms)),
+    ]);
   }
 
   async function toggleNotifications() {
     const btn = document.getElementById('notif-bell-btn');
 
-    // Not supported
-    if (!('Notification' in window) || !('PushManager' in window)) {
+    if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       showToast(isIOS
-        ? 'Add this app to your Home Screen first, then enable notifications.'
+        ? 'Open Settings → Safari → 廣東卡 and allow notifications, or add the app to your Home Screen.'
         : 'Push notifications are not supported in this browser.');
       return;
     }
 
-    // Permission blocked
     if (Notification.permission === 'denied') {
-      showToast('Notifications are blocked. Enable them in your browser/device Settings.');
+      showToast('Notifications are blocked. Go to Settings → Notifications → Safari (or your browser) to re-enable.');
       return;
     }
 
-    const sub = await _getPushSubscription();
-    if (sub) {
-      // Unsubscribe
+    // If already granted, check for existing subscription and unsubscribe
+    if (Notification.permission === 'granted') {
       if (btn) { btn.disabled = true; btn.textContent = '…'; }
       try {
-        const json = sub.toJSON();
-        await sub.unsubscribe();
-        await fetch('/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
-        }).catch(() => {});
-        showToast('Notifications turned off.');
-      } catch { showToast('Could not disable notifications. Try again.'); }
+        const reg = await _getSwRegistration();
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const json = sub.toJSON();
+          await sub.unsubscribe();
+          await fetch('/api/push/subscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
+          }).catch(() => {});
+          showToast('Notifications turned off.');
+          if (btn) btn.disabled = false;
+          _syncBellState();
+          return;
+        }
+        // Permission granted but no subscription — fall through to (re)subscribe
+      } catch (e) {
+        showToast('Error: ' + (e.message || 'could not check subscription'));
+        if (btn) btn.disabled = false;
+        return;
+      }
       if (btn) btn.disabled = false;
-      _syncBellState();
-      return;
     }
 
-    // Request permission
+    // iOS REQUIREMENT: requestPermission() must be the FIRST await from the click handler.
+    // Any prior await (like getSubscription above) breaks the user-gesture requirement on iOS.
+    // That case is handled above; here permission is still 'default'.
     let perm;
     try { perm = await Notification.requestPermission(); }
-    catch { showToast('Could not request notification permission.'); return; }
+    catch (e) { showToast('Permission request failed: ' + (e.message || 'unknown')); return; }
     if (perm !== 'granted') { showToast('Notification permission not granted.'); _syncBellState(); return; }
 
     // Subscribe
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
       const { public_key } = await fetch('/api/push/vapid-public-key').then(r => r.json());
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await _getSwRegistration();
       const newSub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: _urlBase64ToUint8Array(public_key),
@@ -1487,8 +1487,7 @@
       });
       showToast('🔔 Notifications enabled!');
     } catch (e) {
-      console.warn('Push subscribe failed', e);
-      showToast('Could not enable notifications: ' + (e.message || 'unknown error'));
+      showToast('Could not subscribe: ' + (e.message || 'unknown error'));
     }
     if (btn) btn.disabled = false;
     _syncBellState();
