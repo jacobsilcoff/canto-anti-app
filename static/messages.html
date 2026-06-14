@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <meta name="theme-color" content="#f8f9fa">
   <script src="/static/theme.js" defer></script>
@@ -88,13 +88,10 @@
     .mine .msg-orig-btn { color: rgba(255,255,255,0.6); }
     .mine .msg-orig { color: rgba(255,255,255,0.55); align-self: flex-end; }
 
-    /* Word-tap tooltip */
-    .gl { cursor: pointer; border-radius: 3px; transition: background 0.12s; position: relative; }
+    /* Word-tap highlight */
+    .gl { cursor: pointer; border-radius: 3px; transition: background 0.12s; }
     .gl:hover, .gl:focus { background: rgba(var(--primary-rgb, 90,90,200), 0.12); outline: none; }
     .mine .gl:hover, .mine .gl:focus { background: rgba(255,255,255,0.25); }
-    #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
-      background: var(--tooltip-bg, #222); color: #fff; border-radius: 8px;
-      padding: 5px 10px; font-size: 0.82rem; max-width: 200px; line-height: 1.35; }
 
     /* Composer */
     .msg-composer { flex-shrink: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -167,6 +164,50 @@
     .messenger-disconnect-btn { background: none; border: 1px solid var(--border);
       border-radius: 8px; padding: 5px 11px; font-size: 0.8rem; cursor: pointer; color: var(--danger); }
 
+    /* ── Bubble tools (audio, Aa, etc.) ── */
+    .bubble-tools { display: flex; gap: 5px; margin-top: 4px; padding: 0 4px; }
+    .mine .bubble-tools { justify-content: flex-end; }
+    .tool-btn { background: none; border: none; cursor: pointer; font-size: 0.78rem; font-weight: 600;
+      padding: 2px 7px; border-radius: 999px; color: var(--text-muted);
+      border: 1px solid var(--border); line-height: 1.6; transition: background 0.1s; }
+    .tool-btn:hover { background: var(--surface-alt); }
+    .mine .tool-btn { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); }
+    .mine .tool-btn:hover { background: rgba(255,255,255,0.15); }
+
+    /* Aa translation */
+    .msg-en { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
+      padding: 3px 6px; max-width: 75%; }
+    .mine .msg-en { align-self: flex-end; color: rgba(255,255,255,0.65); }
+
+    /* Corrections */
+    .msg-corrections { max-width: 80%; margin-top: 2px; }
+    .mine .msg-corrections { align-self: flex-end; }
+    .corr-toggle { background: none; border: 1px solid var(--warn-border, #f59e0b44);
+      color: var(--warn-accent, #b45309); border-radius: 999px; font-size: 0.74rem; font-weight: 600;
+      padding: 2px 9px; cursor: pointer; }
+    .corr-body { background: var(--warn-soft); border: 1px solid var(--warn-border, #f59e0b44);
+      border-radius: 10px; padding: 8px 10px; margin-top: 4px; display: none; }
+    .corr-body.open { display: block; }
+    .corr-item { margin-bottom: 6px; font-size: 0.82rem; }
+    .corr-item:last-child { margin-bottom: 0; }
+    .corr-orig { text-decoration: line-through; color: var(--text-muted); }
+    .corr-fixed { color: var(--good-strong); font-weight: 600; }
+    .corr-label { background: var(--grammar-soft, #ede9fe); color: var(--grammar-strong, #5b21b6);
+      border-radius: 6px; padding: 1px 6px; font-size: 0.72rem; margin-left: 4px; }
+    .corr-exp { color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }
+
+    /* Nuance note */
+    .msg-nuance { margin-top: 6px; font-size: 0.78rem; color: var(--text-muted);
+      font-style: italic; border-top: 1px solid var(--border); padding-top: 4px; }
+
+    /* Word-tap add-to-deck */
+    #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
+      background: var(--tooltip-bg, #222); color: #fff; border-radius: 8px;
+      padding: 5px 10px; font-size: 0.82rem; max-width: 220px; line-height: 1.35; }
+    #gl-tip button { pointer-events: auto; background: rgba(255,255,255,0.18);
+      border: none; border-radius: 5px; color: #fff; font-size: 0.74rem; font-weight: 600;
+      padding: 1px 7px; margin-left: 6px; cursor: pointer; }
+
     /* ── Responsive (mobile: sidebar overlaid) ── */
     #msg-chat { display: none; flex: 1; flex-direction: column; min-height: 0; }
 
@@ -178,9 +219,10 @@
       .msg-back-btn { display: block !important; }
     }
   </style>
+  <style>html { height: 100%; overflow: hidden; }</style>
 </head>
 <body>
-{{NAV}}
+<header>{{NAV}}</header>
 <div id="gl-tip"></div>
 <div class="msg-layout" id="msg-layout">
   <!-- Sidebar -->
@@ -442,50 +484,93 @@
   function renderBubble(m) {
     const mine = m.is_mine;
     const cls = mine ? 'mine' : 'theirs';
-    const nameHtml = !mine
-      ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
-    const displayHtml = glossedText(m.display_text);
-    const origBtnId = `orig-btn-${m.id}`;
-    const origId = `orig-${m.id}`;
-    const hasDiff = m.original_text !== m.display_text;
+    const analysis = m.analysis || {};
+    const corrections = analysis.corrections || [];
+    const nuanceNote = analysis.nuance_note || '';
+    const replyEn = analysis.reply_en || (m.original_lang === 'en' ? m.original_text : '');
+    const hasDiff = m.original_text && m.display_text && m.original_text !== m.display_text;
+    const hasEn = replyEn && replyEn !== m.display_text;
+
+    const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
+    const displayHtml = glossedText(m.display_text || '');
+
+    const tools = `<div class="bubble-tools">
+      <button class="tool-btn" onclick="speakMsg('${esc(m.display_text || '')}')">🔊</button>
+      ${hasEn ? `<button class="tool-btn" onclick="toggleEn(${m.id})">Aa</button>` : ''}
+      ${hasDiff ? `<button class="tool-btn" onclick="toggleOrig(${m.id})">see original</button>` : ''}
+    </div>`;
+
+    const corrHtml = mine && corrections.length ? `
+      <div class="msg-corrections">
+        <button class="corr-toggle" onclick="toggleCorr(${m.id})">✏️ ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
+        <div class="corr-body" id="corr-${m.id}">
+          ${corrections.map(c => `<div class="corr-item">
+            <span class="corr-orig">${esc(c.original)}</span> →
+            <span class="corr-fixed">${esc(c.corrected)}</span>
+            ${c.construction ? `<span class="corr-label">${esc(c.construction)}</span>` : ''}
+            <div class="corr-exp">${esc(c.explanation)}</div>
+          </div>`).join('')}
+        </div>
+      </div>` : '';
+
+    const enHtml = hasEn ? `<div class="msg-en" id="en-${m.id}" style="display:none">${esc(replyEn)}</div>` : '';
+
+    const origHtml = hasDiff ? `
+      <div class="msg-orig" id="orig-${m.id}" style="display:none">${esc(m.original_text)}
+        ${nuanceNote ? `<div class="msg-nuance">💡 ${esc(nuanceNote)}</div>` : ''}
+      </div>` : '';
+
     return `<div class="msg-bubble-wrap ${cls}">
       ${nameHtml}
-      <div class="msg-bubble" data-id="${m.id}">${displayHtml}</div>
-      ${hasDiff ? `<button class="msg-orig-btn" id="${origBtnId}"
-        onclick="toggleOrig(${m.id})">see original</button>
-        <div class="msg-orig" id="${origId}" style="display:none">${esc(m.original_text)}</div>` : ''}
+      <div class="msg-bubble">${displayHtml}</div>
+      ${tools}
+      ${corrHtml}
+      ${enHtml}
+      ${origHtml}
       <div class="msg-bubble-time">${relTime(m.created_at)}</div>
     </div>`;
   }
 
   function toggleOrig(msgId) {
-    const btn = document.getElementById(`orig-btn-${msgId}`);
-    const div = document.getElementById(`orig-${msgId}`);
-    if (!div) return;
-    const shown = div.style.display !== 'none';
-    div.style.display = shown ? 'none' : '';
-    btn.textContent = shown ? 'see original' : 'hide original';
+    const el = document.getElementById(`orig-${msgId}`);
+    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+  function toggleEn(msgId) {
+    const el = document.getElementById(`en-${msgId}`);
+    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+  function toggleCorr(msgId) {
+    const el = document.getElementById(`corr-${msgId}`);
+    if (el) el.classList.toggle('open');
   }
 
-  // ── Word-tap glossing ─────────────────────────────────────────────────────
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  let _audio = null;
+  function speakMsg(text) {
+    if (!text) return;
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    _audio = new Audio('/api/tts?text=' + encodeURIComponent(text.slice(0, 200)) + '&lang=' + encodeURIComponent(_targetLang));
+    _audio.play().catch(() => {});
+  }
+
+  // ── Word-tap glossing + add-to-deck ───────────────────────────────────────
   function glossedText(text) {
-    // Wrap each word in a .gl span for tap-to-translate
     if (!text) return '';
-    const words = text.split(/(\s+)/);
-    return words.map(w => {
+    return text.split(/(\s+)/).map(w => {
       if (/^\s+$/.test(w) || !w) return w;
-      const escaped = esc(w);
-      return `<span class="gl" tabindex="0" data-word="${escaped}" onclick="lookupWord(this)">${escaped}</span>`;
+      return `<span class="gl" tabindex="0" data-word="${esc(w)}" onclick="lookupWord(this)">${esc(w)}</span>`;
     }).join('');
   }
 
   const _glCache = {};
   const _glTip = document.getElementById('gl-tip');
+  let _glWord = null;
   async function lookupWord(el) {
     const word = el.dataset.word;
     if (!word || word.trim().length < 1) return;
-    if (_glCache[word]) { showTip(el, _glCache[word]); return; }
-    showTip(el, '…');
+    _glWord = word;
+    if (_glCache[word]) { showTip(el, _glCache[word], word); return; }
+    showTip(el, '…', word);
     try {
       const res = await fetch('/api/reader/translate-word', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -495,21 +580,43 @@
       const data = await res.json();
       const gloss = data.source || data.english || data.source_text || word;
       _glCache[word] = gloss;
-      showTip(el, gloss);
+      if (_glWord === word) showTip(el, gloss, word);
     } catch { hideTip(); }
   }
 
-  function showTip(el, text) {
-    _glTip.textContent = text;
+  function showTip(el, gloss, word) {
+    _glTip.innerHTML = `<span>${esc(gloss)}</span><button onclick="addToDeck('${esc(word)}','${esc(gloss)}')">＋Add</button>`;
     _glTip.style.display = 'block';
     const r = el.getBoundingClientRect();
     let x = r.left, y = r.bottom + 6;
-    if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+    if (x + 230 > window.innerWidth) x = window.innerWidth - 235;
     if (y + 60 > window.innerHeight) y = r.top - 40;
     _glTip.style.left = x + 'px'; _glTip.style.top = y + 'px';
   }
-  function hideTip() { _glTip.style.display = 'none'; }
-  document.addEventListener('click', e => { if (!e.target.classList.contains('gl')) hideTip(); });
+  function hideTip() { _glTip.style.display = 'none'; _glWord = null; }
+  document.addEventListener('click', e => {
+    if (!e.target.classList.contains('gl') && !e.target.closest('#gl-tip')) hideTip();
+  });
+
+  async function addToDeck(word, english) {
+    hideTip();
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_text: english, target_text: word, target_lang: _targetLang }),
+      });
+      if (res.ok) showToast('Added to deck ✓');
+      else if (res.status === 409) showToast('Already in deck');
+    } catch { showToast('Could not add'); }
+  }
+
+  function showToast(msg) {
+    let t = document.getElementById('msg-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'msg-toast'; t.style.cssText =
+      'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--tooltip-bg,#222);color:#fff;border-radius:999px;padding:7px 16px;font-size:0.85rem;font-weight:600;z-index:9999;transition:opacity 0.3s'; document.body.appendChild(t); }
+    t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+  }
 
   // ── Send message ──────────────────────────────────────────────────────────
   function setMode(mode) {

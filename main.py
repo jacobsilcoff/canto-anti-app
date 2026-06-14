@@ -3326,6 +3326,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
         is_mine = m["sender_user_id"] == user["id"]
         trans = json.loads(m["translations"]) if m.get("translations") else {}
         display = trans.get(lang) or m["original_text"]
+        analysis = json.loads(m["analysis"]) if m.get("analysis") else {}
         result.append({
             "id": m["id"],
             "is_mine": is_mine,
@@ -3335,6 +3336,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
             "sender_name": m["sender_username"] or m.get("sender_name") or "Unknown",
             "sender_user_id": m["sender_user_id"],
             "created_at": m["created_at"],
+            "analysis": analysis,
         })
     return {"messages": result}
 
@@ -3354,35 +3356,39 @@ async def send_message(conv_id: int, body: SendMessageBody,
     original_lang = "en" if body.mode == "native" else sender_lang
 
     translations: dict[str, str] = {}
+    analysis: dict = {}
 
-    # What the sender sees: their target lang
     if body.mode == "native":
-        # Typed in English → translate to sender's target lang for their view
-        sender_display = await translation.translate_simple(
-            body.text, "en", sender_lang, api_key=api_key
-        )
+        # Typed English → translate to sender's target lang; get nuance note
+        tr = await translation.translate_message(body.text, "en", sender_lang, api_key=api_key)
+        sender_display = tr["translated"]
         translations[sender_lang] = sender_display
+        analysis["reply_en"] = body.text
+        if tr.get("nuance_note"):
+            analysis["nuance_note"] = tr["nuance_note"]
     else:
-        # Already in target lang
+        # Already in target lang — grammar check + English meaning
         sender_display = body.text
         translations[sender_lang] = body.text
+        msg_analysis = await translation.analyze_message(body.text, sender_lang, api_key=api_key)
+        analysis["corrections"] = msg_analysis.get("corrections", [])
+        analysis["reply_en"] = msg_analysis.get("reply_en", "")
 
     # What the other party sees (if in-app convo)
     if conv["type"] == "inapp":
         other_user_id = conv["other_user_id"]
         recipient_lang = await db.get_setting(other_user_id, "default_target_lang") or "yue"
         if recipient_lang != sender_lang:
-            recipient_display = await translation.translate_simple(
-                body.text, original_lang, recipient_lang, api_key=api_key
-            )
-            translations[recipient_lang] = recipient_display
+            tr2 = await translation.translate_message(body.text, original_lang, recipient_lang,
+                                                      api_key=api_key)
+            translations[recipient_lang] = tr2["translated"]
         else:
             translations[recipient_lang] = sender_display
 
     msg_id = await db.add_message(
-        conv_id, user["id"], body.text, original_lang, translations
+        conv_id, user["id"], body.text, original_lang, translations, analysis=analysis
     )
-    return {"ok": True, "display_text": sender_display, "msg_id": msg_id}
+    return {"ok": True, "display_text": sender_display, "msg_id": msg_id, "analysis": analysis}
 
 
 @app.post("/api/conversations/{conv_id}/read")
@@ -3478,13 +3484,14 @@ async def messenger_webhook(request: Request):
             conv_id = await db.get_or_create_platform_conversation(
                 user_id, "messenger", sender_psid
             )
-            # Translate incoming message to user's target lang
-            translated = text
+            # Translate incoming message to user's target lang + nuance note
+            tr = {"translated": text, "nuance_note": "", "reply_en": text}
             if api_key:
-                translated = await translation.translate_simple(
-                    text, "en", target_lang, api_key=api_key
-                )
-            translations = {target_lang: translated}
+                tr = await translation.translate_message(text, "en", target_lang, api_key=api_key)
+            translations = {target_lang: tr["translated"]}
+            analysis: dict = {"reply_en": text}
+            if tr.get("nuance_note"):
+                analysis["nuance_note"] = tr["nuance_note"]
             await db.add_message(
                 conv_id,
                 sender_user_id=None,
@@ -3493,6 +3500,7 @@ async def messenger_webhook(request: Request):
                 translations=translations,
                 sender_platform_id=sender_psid,
                 sender_name=sender_name,
+                analysis=analysis,
             )
 
     return {"ok": True}

@@ -608,6 +608,80 @@ async def translate(
     return _parse_response(raw, text, source_is_target)
 
 
+async def translate_message(text: str, source_lang: str, target_lang: str, *, api_key: str) -> dict:
+    """Translate a chat message and generate a brief nuance note.
+    Returns {translated: str, nuance_note: str, reply_en: str}
+    reply_en = English meaning (= text if source is English, else translate to en)."""
+    if not text.strip():
+        return {"translated": text, "nuance_note": "", "reply_en": text}
+    src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
+    tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
+    rules = LANG_INFO.get(target_lang, {}).get("rules", "")
+    rules_block = f"\nFollow these language rules strictly:\n{rules}" if rules else ""
+    reply_en = text if source_lang == "en" else None
+
+    if source_lang == target_lang:
+        return {"translated": text, "nuance_note": "", "reply_en": reply_en or text}
+
+    prompt = (
+        f"Translate this {src_name} chat message to natural, conversational {tgt_name} "
+        f"— the kind you'd text a friend.{rules_block}\n"
+        "Also write a brief English nuance note (1 sentence max) explaining tone, register, "
+        "idiom, or cultural meaning lost or changed in translation — empty string if nothing significant.\n"
+        "Return ONLY valid JSON, nothing else:\n"
+        '{"translated": "...", "nuance_note": "..."}\n\n'
+        f"Message: {text}"
+    )
+    loop = asyncio.get_event_loop()
+    raw = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
+    try:
+        data = _parse_json(raw)
+        translated = data.get("translated", text).strip()
+        nuance_note = data.get("nuance_note", "").strip()
+    except Exception:
+        translated = raw.strip()
+        nuance_note = ""
+    if reply_en is None:
+        reply_en = text  # source is already target lang; en not needed here
+    return {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en}
+
+
+async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
+    """Grammar-check a message written in `lang` + translate it to English.
+    Returns {corrections: [...], reply_en: str}
+    corrections items: {original, corrected, explanation, construction}"""
+    if not text.strip():
+        return {"corrections": [], "reply_en": text}
+    lang_name = LANG_INFO.get(lang, {}).get("name", lang)
+    rules = LANG_INFO.get(lang, {}).get("rules", "")
+    rules_block = f"\nLanguage rules:\n{rules}" if rules else ""
+    prompt = (
+        f"You are a {lang_name} tutor reviewing a short chat message.{rules_block}\n\n"
+        f"Message: {text}\n\n"
+        "1. Check for grammar, vocabulary, or naturalness issues.\n"
+        "2. Translate the message to English.\n"
+        "Return ONLY valid JSON:\n"
+        '{"corrections": [{"original": "...", "corrected": "...", "explanation": "...", "construction": "..."}], '
+        '"reply_en": "..."}\n'
+        "corrections is empty [] if the message is natural and correct. "
+        "explanation ≤ 15 words. construction = the grammar pattern name (e.g. 'A-唔-A question')."
+    )
+    loop = asyncio.get_event_loop()
+    raw = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
+    try:
+        data = _parse_json(raw)
+        corrections = [
+            {k: str(c.get(k, "")) for k in ("original", "corrected", "explanation", "construction")}
+            for c in (data.get("corrections") or [])
+            if isinstance(c, dict)
+        ][:3]
+        reply_en = str(data.get("reply_en", "")).strip()
+    except Exception:
+        corrections = []
+        reply_en = ""
+    return {"corrections": corrections, "reply_en": reply_en}
+
+
 async def translate_simple(text: str, source_lang: str, target_lang: str, *, api_key: str) -> str:
     """One-shot translation for messages. Returns the translated text string.
     source_lang / target_lang are lang codes ('en', 'yue', 'fr', …) or 'en' for English."""

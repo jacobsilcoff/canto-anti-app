@@ -2748,7 +2748,7 @@ async def get_messages(conversation_id: int, viewer_user_id: int,
             params.append(before_id)
         async with db.execute(
             f"""SELECT m.id, m.sender_user_id, m.sender_platform_id, m.sender_name,
-                       m.original_text, m.original_lang, m.translations,
+                       m.original_text, m.original_lang, m.translations, m.analysis,
                        m.created_at, m.read_at, u.username AS sender_username
                 FROM messages m LEFT JOIN users u ON u.id = m.sender_user_id
                 {where} ORDER BY m.created_at DESC LIMIT ?""",
@@ -2768,16 +2768,18 @@ async def add_message(
     sender_platform_id: str | None = None,
     sender_name: str | None = None,
     sent_text: str | None = None,
+    analysis: dict | None = None,
 ) -> int:
     trans_json = json.dumps(translations, ensure_ascii=False) if translations else None
+    analysis_json = json.dumps(analysis, ensure_ascii=False) if analysis else None
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             """INSERT INTO messages
                (conversation_id, sender_user_id, sender_platform_id, sender_name,
-                original_text, original_lang, translations, sent_text)
-               VALUES (?,?,?,?,?,?,?,?)""",
+                original_text, original_lang, translations, sent_text, analysis)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (conversation_id, sender_user_id, sender_platform_id, sender_name,
-             original_text, original_lang, trans_json, sent_text),
+             original_text, original_lang, trans_json, sent_text, analysis_json),
         )
         msg_id = cur.lastrowid
         await db.execute(
