@@ -17,7 +17,7 @@
   <style>
     /* ── Page layout ── */
     body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden;
-      display: flex; flex-direction: column; }
+      display: flex; flex-direction: column; overscroll-behavior: none; }
     .msg-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
     /* ── Sidebar (conversations list) ── */
@@ -70,7 +70,8 @@
 
     /* Thread */
     .msg-thread { flex: 1; overflow-y: auto; padding: 16px; display: flex;
-      flex-direction: column; gap: 10px; }
+      flex-direction: column; gap: 10px; overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch; }
     .msg-bubble-wrap { display: flex; flex-direction: column; gap: 2px; }
     .msg-bubble-wrap.mine { align-items: flex-end; }
     .msg-bubble-wrap.theirs { align-items: flex-start; }
@@ -1218,6 +1219,18 @@
       }, 120);
     });
     fit();
+
+    // Stop iOS rubber-band: preventDefault touchmove everywhere except real
+    // scrollers (.msg-thread, .msg-convs, modal body) and the composer when
+    // it overflows (long draft). overscroll-behavior alone doesn't stop
+    // document bounce on iOS Safari when body is position:fixed.
+    document.addEventListener('touchmove', e => {
+      const t = e.target;
+      if (t.closest && t.closest('.msg-thread, .msg-convs, .modal-body')) return;
+      const inp = t.closest && t.closest('#msg-input');
+      if (inp && inp.scrollHeight > inp.clientHeight + 1) return;
+      e.preventDefault();
+    }, { passive: false });
   })();
 
   // ── Nav helpers ───────────────────────────────────────────────────────────
