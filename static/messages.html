@@ -89,9 +89,10 @@
     .mine .msg-orig { color: rgba(255,255,255,0.55); align-self: flex-end; }
 
     /* Word-tap highlight */
-    .gl { cursor: pointer; border-radius: 3px; transition: background 0.12s; }
-    .gl:hover, .gl:focus { background: rgba(var(--primary-rgb, 90,90,200), 0.12); outline: none; }
-    .mine .gl:hover, .mine .gl:focus { background: rgba(255,255,255,0.25); }
+    .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none;
+      border-radius: 2px; transition: background 0.1s; }
+    .gl:hover, .gl.tapped { background: rgba(var(--primary-rgb, 90,90,200), 0.12); }
+    .mine .gl:hover, .mine .gl.tapped { background: rgba(255,255,255,0.25); }
 
     /* Composer */
     .msg-composer { flex-shrink: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -164,15 +165,21 @@
     .messenger-disconnect-btn { background: none; border: 1px solid var(--border);
       border-radius: 8px; padding: 5px 11px; font-size: 0.8rem; cursor: pointer; color: var(--danger); }
 
-    /* ── Bubble tools (audio, Aa, etc.) ── */
-    .bubble-tools { display: flex; gap: 5px; margin-top: 4px; padding: 0 4px; }
+    /* ── Bubble tools (audio, Aa, etc.) — matches tutor circular style ── */
+    .bubble-tools { display: flex; gap: 5px; margin-top: 6px; padding: 0 4px; align-items: center; }
     .mine .bubble-tools { justify-content: flex-end; }
-    .tool-btn { background: none; border: none; cursor: pointer; font-size: 0.78rem; font-weight: 600;
-      padding: 2px 7px; border-radius: 999px; color: var(--text-muted);
-      border: 1px solid var(--border); line-height: 1.6; transition: background 0.1s; }
-    .tool-btn:hover { background: var(--surface-alt); }
-    .mine .tool-btn { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); }
-    .mine .tool-btn:hover { background: rgba(255,255,255,0.15); }
+    .tool-btn { border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+      color: var(--text-muted); width: 28px; height: 28px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.82rem; padding: 0; line-height: 1; position: relative; flex-shrink: 0; }
+    .tool-btn:hover { color: var(--primary); border-color: var(--primary); }
+    .tool-btn.on { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+    .mine .tool-btn { border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.85); }
+    .mine .tool-btn:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.2); }
+    .rom-toggle-off::after { content: ''; position: absolute; left: 50%; top: 50%;
+      width: 60%; height: 1.5px; background: currentColor;
+      transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
     /* Aa translation */
     .msg-en { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
@@ -201,9 +208,9 @@
       font-style: italic; border-top: 1px solid var(--border); padding-top: 4px; }
 
     /* ── Word tooltip (reader-style) ── */
-    .word-tooltip { position: fixed; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; box-shadow: var(--shadow-pop); padding: 14px 16px; z-index: 1000;
-      min-width: 200px; max-width: 270px; pointer-events: auto; }
+    .word-tooltip { display: none; position: fixed; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop);
+      padding: 14px 16px; z-index: 1001; min-width: 200px; max-width: 270px; pointer-events: auto; }
     .tooltip-word { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1.2; }
     .tooltip-rom  { font-size: 0.88rem; color: var(--text-muted); margin: 3px 0 5px; }
     .tooltip-eng  { font-size: 0.92rem; color: var(--text); margin-bottom: 8px; }
@@ -247,7 +254,6 @@
     .msg-bubble ruby { line-height: 1; }
     ruby { ruby-align: center; }
     .rb { display: inline; }
-    .rom-toggle-off { text-decoration: line-through; opacity: 0.6; }
   </style>
   <style>html { height: 100%; overflow: hidden; }</style>
 </head>
@@ -255,7 +261,7 @@
 <header>{{NAV}}</header>
 
 <!-- Word tooltip (reader-style, floating) -->
-<div class="word-tooltip" id="word-tooltip" style="display:none" role="dialog">
+<div class="word-tooltip" id="word-tooltip" role="dialog">
   <button class="tooltip-close" onclick="closeTooltip()">✕</button>
   <div id="tooltip-content"></div>
 </div>
@@ -412,7 +418,7 @@
       const inner = (showRuby && hasRoman && t.is_word && t.roman)
         ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>` : esc(t.text);
       return t.is_word
-        ? `<span class="gl" tabindex="0" data-word="${esc(t.text)}" onclick="onWordTap(this,'${esc(t.text)}')">${inner}</span>`
+        ? `<span class="gl" tabindex="0" data-word="${esc(t.text)}">${inner}</span>`
         : esc(t.text);
     }).join('');
   }
@@ -673,7 +679,7 @@
     if (!text) return '';
     return text.split(/(\s+)/).map(w => {
       if (/^\s+$/.test(w) || !w) return w;
-      return `<span class="gl" tabindex="0" data-word="${esc(w)}" onclick="onWordTap(this,'${esc(w)}')">${esc(w)}</span>`;
+      return `<span class="gl" tabindex="0" data-word="${esc(w)}">${esc(w)}</span>`;
     }).join('');
   }
 
@@ -687,10 +693,10 @@
     _activeWordEl = el;
     el.classList.add('tapped');
 
-    positionTooltip(el);
+    // Set loading content first so positionTooltip measures correct (min) height
     document.getElementById('tooltip-content').innerHTML =
-      `<div class="tooltip-loading"><span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-1px;margin-right:5px"></span> Looking up…</div>`;
-    document.getElementById('word-tooltip').style.display = '';
+      `<div class="tooltip-loading" style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0"></span>Looking up…</div>`;
+    positionTooltip(el);  // sets display:block and positions; leaves display as block
 
     const bwrap = el.closest('.msg-bubble-wrap');
     const context = bwrap ? (bwrap.dataset.msgtext || '') : '';
@@ -712,18 +718,20 @@
 
   function positionTooltip(el) {
     const tooltip = document.getElementById('word-tooltip');
-    tooltip.style.display = 'block';
+    tooltip.style.display = 'block';  // show (overrides CSS display:none)
     const rect = el.getBoundingClientRect();
     const tw = tooltip.offsetWidth || 240;
-    const th = tooltip.offsetHeight || 160;
-    const margin = 8;
+    const th = tooltip.offsetHeight || 120;
+    const margin = 10;
     let left = rect.left;
     let top  = rect.bottom + margin;
     if (left + tw > window.innerWidth - margin) left = window.innerWidth - tw - margin;
     if (left < margin) left = margin;
     if (top + th > window.innerHeight - margin) top = rect.top - th - margin;
+    if (top < margin) top = margin;
     tooltip.style.left = left + 'px';
     tooltip.style.top  = top  + 'px';
+    // display stays 'block' — closeTooltip() resets it to 'none'
   }
 
   function renderTooltip(data) {
@@ -736,14 +744,19 @@
       <span class="tooltip-status-badge ${data.status || 'new'}">${statusLabel}</span>
       ${data.notes ? `<div class="tooltip-notes">${esc(data.notes)}</div>` : ''}
       <div class="tooltip-actions">
-        <button class="play-btn" onclick="speakMsg('${esc(data.target_text || '')}')" title="Play">
+        <button class="play-btn" id="tooltip-play-btn" title="Play">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </button>
         <button class="tooltip-add-btn ${isInDeck ? 'added' : ''}" id="tooltip-add-btn"
-          ${isInDeck ? 'disabled' : ''} onclick="addWordToDeck()">
+          ${isInDeck ? 'disabled' : ''}>
           ${isInDeck ? 'In deck ✓' : 'Add to deck'}
         </button>
       </div>`;
+    // Wire up buttons via JS (safe — no inline onclick escaping issues)
+    const playBtn = document.getElementById('tooltip-play-btn');
+    if (playBtn) playBtn.onclick = () => speakMsg(tooltipWordData?.target_text || '');
+    const addBtn = document.getElementById('tooltip-add-btn');
+    if (addBtn && !isInDeck) addBtn.onclick = addWordToDeck;
   }
 
   async function addWordToDeck() {
@@ -771,17 +784,24 @@
   }
 
   function closeTooltip() {
-    document.getElementById('word-tooltip').style.display = 'none';
+    const tooltip = document.getElementById('word-tooltip');
+    tooltip.style.display = 'none';
     if (_activeWordEl) { _activeWordEl.classList.remove('tapped'); _activeWordEl = null; }
     tooltipWordData = null;
   }
+
+  // Event delegation for word taps (avoids inline onclick in innerHTML)
+  document.getElementById('msg-thread').addEventListener('click', e => {
+    const gl = e.target.closest && e.target.closest('.gl[data-word]');
+    if (gl) { e.stopPropagation(); onWordTap(gl, gl.dataset.word); }
+  });
 
   // Close tooltip when clicking outside
   document.addEventListener('click', e => {
     const tooltip = document.getElementById('word-tooltip');
     if (tooltip.style.display !== 'none' &&
         !tooltip.contains(e.target) &&
-        !e.target.classList.contains('gl')) {
+        !e.target.closest('.gl[data-word]')) {
       closeTooltip();
     }
   });
