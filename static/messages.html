@@ -1394,41 +1394,84 @@
 
   async function _getPushSubscription() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-    const reg = await navigator.serviceWorker.ready;
-    return reg.pushManager.getSubscription();
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      return await reg.pushManager.getSubscription();
+    } catch { return null; }
   }
 
   async function _syncBellState() {
     const btn = document.getElementById('notif-bell-btn');
     if (!btn) return;
+    // Never disable — always show feedback on click
     if (!('Notification' in window) || !('PushManager' in window)) {
-      btn.disabled = true; btn.title = 'Notifications not supported in this browser'; return;
+      btn.title = 'Push notifications not supported in this browser';
+      btn.textContent = '🔕';
+      return;
     }
     if (Notification.permission === 'denied') {
-      btn.disabled = true; btn.title = 'Notifications blocked — enable in browser settings'; return;
+      btn.title = 'Notifications blocked — tap to see instructions';
+      btn.classList.remove('enabled');
+      btn.textContent = '🔕';
+      return;
     }
     const sub = await _getPushSubscription();
-    if (sub) { btn.classList.add('enabled'); btn.title = 'Notifications on — tap to disable'; }
-    else { btn.classList.remove('enabled'); btn.title = 'Enable notifications'; }
+    if (sub) {
+      btn.classList.add('enabled');
+      btn.title = 'Notifications on — tap to disable';
+      btn.textContent = '🔔';
+    } else {
+      btn.classList.remove('enabled');
+      btn.title = 'Enable push notifications';
+      btn.textContent = '🔔';
+    }
   }
 
   async function toggleNotifications() {
+    const btn = document.getElementById('notif-bell-btn');
+
+    // Not supported
+    if (!('Notification' in window) || !('PushManager' in window)) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      showToast(isIOS
+        ? 'Add this app to your Home Screen first, then enable notifications.'
+        : 'Push notifications are not supported in this browser.');
+      return;
+    }
+
+    // Permission blocked
+    if (Notification.permission === 'denied') {
+      showToast('Notifications are blocked. Enable them in your browser/device Settings.');
+      return;
+    }
+
     const sub = await _getPushSubscription();
     if (sub) {
       // Unsubscribe
-      const json = sub.toJSON();
-      await sub.unsubscribe();
-      await fetch('/api/push/subscribe', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
-      }).catch(() => {});
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      try {
+        const json = sub.toJSON();
+        await sub.unsubscribe();
+        await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
+        }).catch(() => {});
+        showToast('Notifications turned off.');
+      } catch { showToast('Could not disable notifications. Try again.'); }
+      if (btn) btn.disabled = false;
       _syncBellState();
       return;
     }
+
+    // Request permission
+    let perm;
+    try { perm = await Notification.requestPermission(); }
+    catch { showToast('Could not request notification permission.'); return; }
+    if (perm !== 'granted') { showToast('Notification permission not granted.'); _syncBellState(); return; }
+
     // Subscribe
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { _syncBellState(); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
       const { public_key } = await fetch('/api/push/vapid-public-key').then(r => r.json());
       const reg = await navigator.serviceWorker.ready;
@@ -1442,7 +1485,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
       });
-    } catch (e) { console.warn('Push subscribe failed', e); }
+      showToast('🔔 Notifications enabled!');
+    } catch (e) {
+      console.warn('Push subscribe failed', e);
+      showToast('Could not enable notifications: ' + (e.message || 'unknown error'));
+    }
+    if (btn) btn.disabled = false;
     _syncBellState();
   }
 

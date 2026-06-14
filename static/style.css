@@ -192,6 +192,7 @@ button svg.icon, a svg.icon { pointer-events: none; }
   display: none;
 }
 .badge.visible { display: inline-block; }
+.badge.notif-badge { background: var(--danger, #ef4444); }
 
 /* ── Translate Page ─────────────────────────────────────────────────────── */
 .translate-page {
