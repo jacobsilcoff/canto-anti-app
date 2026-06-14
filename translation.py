@@ -606,3 +606,20 @@ async def translate(
     prompt = _build_prompt(text, target_lang, source_is_target, context)
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     return _parse_response(raw, text, source_is_target)
+
+
+async def translate_simple(text: str, source_lang: str, target_lang: str, *, api_key: str) -> str:
+    """One-shot translation for messages. Returns the translated text string.
+    source_lang / target_lang are lang codes ('en', 'yue', 'fr', …) or 'en' for English."""
+    if source_lang == target_lang or not text.strip():
+        return text
+    src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
+    tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
+    prompt = (
+        f"Translate the following {src_name} text to {tgt_name}. "
+        "Return ONLY the translated text, no explanations.\n\n"
+        f"{text}"
+    )
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
+    return result.strip()

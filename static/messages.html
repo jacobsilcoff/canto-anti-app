@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Messages</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Page layout ── */
+    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden; }
+    .msg-layout { display: flex; height: 100%; overflow: hidden; }
+
+    /* ── Sidebar (conversations list) ── */
+    .msg-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; background: var(--bg); }
+    .msg-sidebar-head { display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 14px 10px; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .msg-sidebar-title { font-weight: 700; font-size: 1.05rem; }
+    .msg-friends-btn { background: var(--primary-soft); color: var(--primary); border: none;
+      border-radius: 8px; padding: 5px 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .msg-convs { flex: 1; overflow-y: auto; }
+    .msg-conv-row { padding: 11px 14px; cursor: pointer; display: flex; align-items: center;
+      gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    .msg-conv-row:hover { background: var(--surface-alt); }
+    .msg-conv-row.active { background: var(--primary-soft); }
+    .msg-conv-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--border);
+      display: flex; align-items: center; justify-content: center; font-weight: 700;
+      font-size: 1rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase; }
+    .msg-conv-avatar.messenger { background: #0084ff22; color: #0084ff; }
+    .msg-conv-info { min-width: 0; flex: 1; }
+    .msg-conv-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; }
+    .msg-conv-preview { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .msg-conv-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .msg-conv-time { font-size: 0.72rem; color: var(--text-muted); }
+    .msg-unread-badge { background: var(--primary); color: #fff; border-radius: 999px;
+      min-width: 18px; height: 18px; font-size: 0.7rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .msg-conv-empty { padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+
+    /* ── Main chat area ── */
+    .msg-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+    .msg-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; color: var(--text-muted); gap: 12px; }
+    .msg-placeholder-icon { font-size: 2.5rem; opacity: 0.4; }
+    .msg-placeholder p { font-size: 0.92rem; }
+
+    /* Chat header */
+    .msg-chat-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg); }
+    .msg-back-btn { background: none; border: none; font-size: 1.3rem; color: var(--text-muted);
+      cursor: pointer; padding: 0 4px; display: none; }
+    .msg-chat-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--border);
+      display: flex; align-items: center; justify-content: center; font-weight: 700;
+      font-size: 0.9rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase; }
+    .msg-chat-info { flex: 1; min-width: 0; }
+    .msg-chat-name { font-weight: 700; font-size: 0.98rem; }
+    .msg-chat-sub { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* Thread */
+    .msg-thread { flex: 1; overflow-y: auto; padding: 16px; display: flex;
+      flex-direction: column; gap: 10px; }
+    .msg-bubble-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .msg-bubble-wrap.mine { align-items: flex-end; }
+    .msg-bubble-wrap.theirs { align-items: flex-start; }
+    .msg-bubble-sender { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px; padding: 0 6px; }
+    .msg-bubble { max-width: 75%; border-radius: 18px; padding: 10px 14px;
+      font-size: 0.98rem; line-height: 1.5; word-break: break-word; overflow-wrap: break-word;
+      position: relative; cursor: default; }
+    .mine .msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 5px; }
+    .theirs .msg-bubble { background: var(--surface-alt); border-bottom-left-radius: 5px; }
+    .msg-bubble-time { font-size: 0.68rem; color: var(--text-muted); padding: 0 6px; }
+    .msg-orig-btn { font-size: 0.7rem; color: var(--text-muted); background: none; border: none;
+      cursor: pointer; padding: 0 6px; text-decoration: underline; text-underline-offset: 2px; }
+    .msg-orig { font-size: 0.78rem; color: var(--text-muted); font-style: italic;
+      padding: 2px 6px; max-width: 75%; word-break: break-word; }
+    .mine .msg-orig-btn { color: rgba(255,255,255,0.6); }
+    .mine .msg-orig { color: rgba(255,255,255,0.55); align-self: flex-end; }
+
+    /* Word-tap tooltip */
+    .gl { cursor: pointer; border-radius: 3px; transition: background 0.12s; position: relative; }
+    .gl:hover, .gl:focus { background: rgba(var(--primary-rgb, 90,90,200), 0.12); outline: none; }
+    .mine .gl:hover, .mine .gl:focus { background: rgba(255,255,255,0.25); }
+    #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
+      background: var(--tooltip-bg, #222); color: #fff; border-radius: 8px;
+      padding: 5px 10px; font-size: 0.82rem; max-width: 200px; line-height: 1.35; }
+
+    /* Composer */
+    .msg-composer { flex-shrink: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;
+      background: var(--bg); }
+    body.kb-open .msg-composer { padding-bottom: 10px; }
+    .msg-compose-mode { display: flex; gap: 6px; align-items: center; }
+    .msg-mode-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+    .msg-mode-seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .msg-mode-seg button { border: none; background: none; padding: 4px 11px;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--text-muted); }
+    .msg-mode-seg button.active { background: var(--primary); color: #fff; }
+    .msg-compose-row { display: flex; gap: 8px; align-items: flex-end; }
+    .msg-input { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 14px;
+      padding: 10px 14px; font-size: 0.98rem; background: var(--surface); color: var(--text);
+      line-height: 1.4; min-height: 44px; max-height: 120px; overflow-y: auto;
+      font-family: var(--script-font, inherit); }
+    .msg-input:focus { outline: none; border-color: var(--primary); }
+    .msg-send-btn { background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; }
+    .msg-send-btn:disabled { opacity: 0.5; cursor: default; }
+    .msg-send-icon { font-size: 1rem; }
+
+    /* ── Friends modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500;
+      display: flex; align-items: flex-end; justify-content: center; }
+    .modal-sheet { background: var(--bg); border-radius: 20px 20px 0 0; width: 100%;
+      max-width: 480px; max-height: 85vh; display: flex; flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom); }
+    .modal-head { display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .modal-title { font-weight: 700; font-size: 1.05rem; }
+    .modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+      color: var(--text-muted); padding: 0 4px; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 14px 18px; }
+    .modal-section { margin-bottom: 20px; }
+    .modal-section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px; }
+    .friend-search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .friend-search-input { flex: 1; border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 9px 13px; font-size: 0.95rem; background: var(--surface); color: var(--text); }
+    .friend-search-input:focus { outline: none; border-color: var(--primary); }
+    .friend-search-btn { background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      padding: 9px 16px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .friend-result { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+    .friend-result-name { flex: 1; font-weight: 600; }
+    .friend-action-btn { background: var(--primary-soft); color: var(--primary); border: none;
+      border-radius: 8px; padding: 5px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .friend-action-btn.danger { background: var(--danger-soft); color: var(--danger-strong); }
+    .friend-action-btn.accept { background: var(--good-soft); color: var(--good-strong); }
+    .friend-row { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+      border-bottom: 1px solid var(--border); }
+    .friend-row:last-child { border-bottom: none; }
+    .friend-row-name { flex: 1; font-weight: 500; }
+    .friend-row-actions { display: flex; gap: 6px; }
+    .modal-empty { color: var(--text-muted); font-size: 0.88rem; padding: 6px 0; }
+
+    /* ── Messenger connect section ── */
+    .messenger-section { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+    .messenger-section h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 8px; }
+    .messenger-input { width: 100%; border: 1.5px solid var(--border); border-radius: 9px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--surface); color: var(--text);
+      margin-bottom: 8px; box-sizing: border-box; }
+    .messenger-input:focus { outline: none; border-color: var(--primary); }
+    .messenger-connect-btn { background: #0084ff; color: #fff; border: none; border-radius: 9px;
+      padding: 8px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .messenger-connected { display: flex; align-items: center; gap: 10px; }
+    .messenger-connected-name { font-weight: 600; flex: 1; }
+    .messenger-disconnect-btn { background: none; border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 11px; font-size: 0.8rem; cursor: pointer; color: var(--danger); }
+
+    /* ── Responsive (mobile: sidebar overlaid) ── */
+    @media (max-width: 600px) {
+      .msg-sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 200;
+        width: 100%; transform: translateX(0); transition: transform 0.2s; }
+      .msg-sidebar.hidden { transform: translateX(-100%); }
+      .msg-main { width: 100%; }
+      .msg-back-btn { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+{{NAV}}
+<div id="gl-tip"></div>
+<div class="msg-layout" id="msg-layout">
+  <!-- Sidebar -->
+  <div class="msg-sidebar" id="msg-sidebar">
+    <div class="msg-sidebar-head">
+      <span class="msg-sidebar-title">Messages</span>
+      <button class="msg-friends-btn" onclick="openFriendsModal()">Friends ＋</button>
+    </div>
+    <div class="msg-convs" id="msg-convs">
+      <div class="msg-conv-empty">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="msg-main" id="msg-main">
+    <div class="msg-placeholder" id="msg-placeholder">
+      <div class="msg-placeholder-icon">💬</div>
+      <p>Select a conversation to start chatting</p>
+    </div>
+
+    <div id="msg-chat" style="display:none; flex:1; display:none; flex-direction:column; min-height:0;">
+      <div class="msg-chat-head">
+        <button class="msg-back-btn" id="msg-back-btn" onclick="showSidebar()">←</button>
+        <div class="msg-chat-avatar" id="chat-avatar">?</div>
+        <div class="msg-chat-info">
+          <div class="msg-chat-name" id="chat-name">—</div>
+          <div class="msg-chat-sub" id="chat-sub"></div>
+        </div>
+      </div>
+      <div class="msg-thread" id="msg-thread"></div>
+      <div class="msg-composer" id="msg-composer">
+        <div class="msg-compose-mode">
+          <span class="msg-mode-label">Compose in</span>
+          <div class="msg-mode-seg" id="mode-seg">
+            <button data-mode="native" onclick="setMode('native')" class="active">English</button>
+            <button data-mode="target" onclick="setMode('target')" id="mode-target-btn">My lang</button>
+          </div>
+        </div>
+        <div class="msg-compose-row">
+          <textarea class="msg-input" id="msg-input" placeholder="Type a message…" rows="1"
+            autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+          <button class="msg-send-btn" id="msg-send-btn" onclick="sendMessage()">
+            <span class="msg-send-icon">➤</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Friends modal -->
+<div id="friends-modal" style="display:none" onclick="closeFriendsModalIfBg(event)">
+  <div class="modal-overlay">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <span class="modal-title">Friends</span>
+        <button class="modal-close" onclick="closeFriendsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Search -->
+        <div class="modal-section">
+          <div class="modal-section-title">Find by username</div>
+          <div class="friend-search-row">
+            <input class="friend-search-input" id="friend-search-input" type="text"
+              placeholder="Username…" autocomplete="off" autocorrect="off" autocapitalize="off">
+            <button class="friend-search-btn" onclick="searchFriend()">Search</button>
+          </div>
+          <div id="friend-search-result"></div>
+        </div>
+
+        <!-- Pending requests -->
+        <div class="modal-section" id="pending-section" style="display:none">
+          <div class="modal-section-title">Friend requests</div>
+          <div id="pending-list"></div>
+        </div>
+
+        <!-- Friends list -->
+        <div class="modal-section">
+          <div class="modal-section-title">Friends</div>
+          <div id="friends-list"><div class="modal-empty">Loading…</div></div>
+        </div>
+
+        <!-- Messenger connect -->
+        <div class="modal-section">
+          <div class="modal-section-title">Connect Facebook Messenger</div>
+          <div class="messenger-section">
+            <div id="messenger-connected-view" style="display:none">
+              <div class="messenger-connected">
+                <span>📘</span>
+                <span class="messenger-connected-name" id="messenger-page-name"></span>
+                <button class="messenger-disconnect-btn" onclick="disconnectMessenger()">Disconnect</button>
+              </div>
+              <p style="font-size:0.78rem;color:var(--text-muted);margin:8px 0 0">
+                Messages from your Messenger contacts will appear here, translated into your target language.
+              </p>
+            </div>
+            <div id="messenger-connect-view">
+              <h4>Connect a Facebook Page</h4>
+              <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 10px">
+                Paste your Facebook Page ID and a Page Access Token from the
+                <a href="https://developers.facebook.com/tools/explorer/" target="_blank" style="color:var(--primary)">Graph API Explorer</a>.
+                Incoming Messenger messages will appear here translated into your target language.
+              </p>
+              <input class="messenger-input" id="messenger-page-id" placeholder="Page ID" autocomplete="off">
+              <input class="messenger-input" id="messenger-token" placeholder="Page Access Token" autocomplete="off">
+              <input class="messenger-input" id="messenger-page-name-input" placeholder="Page name (optional)">
+              <button class="messenger-connect-btn" onclick="connectMessenger()">Connect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────────────────────
+  let _convs = [];
+  let _activeConvId = null;
+  let _activeConvType = null;  // 'inapp' | 'messenger'
+  let _composeMode = 'native'; // 'native' | 'target'
+  let _targetLang = 'yue';
+  let _pollTimer = null;
+  let _lastMsgId = 0;
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  async function init() {
+    // Get user's target lang for compose-mode label
+    try {
+      const s = await fetch('/api/settings').then(r => r.json());
+      _targetLang = s.default_target_lang || 'yue';
+      document.getElementById('mode-target-btn').textContent = langName(_targetLang);
+    } catch {}
+    await loadConvs();
+    loadFriends();
+    loadMessengerStatus();
+    startPolling();
+  }
+
+  function langName(code) {
+    const names = { yue:'Cantonese', cmn:'Mandarin', fr:'French', es:'Spanish',
+      de:'German', it:'Italian', pt:'Portuguese', ko:'Korean', hi:'Hindi',
+      te:'Telugu', ja:'Japanese', id:'Indonesian', ms:'Malay', tl:'Filipino' };
+    return names[code] || code.toUpperCase();
+  }
+
+  // ── Conversations list ────────────────────────────────────────────────────
+  async function loadConvs() {
+    try {
+      const { conversations } = await fetch('/api/conversations').then(r => r.json());
+      _convs = conversations || [];
+      renderConvList();
+    } catch {}
+  }
+
+  function renderConvList() {
+    const el = document.getElementById('msg-convs');
+    if (!_convs.length) {
+      el.innerHTML = '<div class="msg-conv-empty">No conversations yet.<br>Add friends to start chatting.</div>';
+      return;
+    }
+    el.innerHTML = _convs.map(c => {
+      const name = c.name || c.last_sender_name || '(unknown)';
+      const initials = name.slice(0, 2).toUpperCase();
+      const isActive = c.id === _activeConvId;
+      const messenger = c.type === 'messenger';
+      const preview = c.last_text ? c.last_text.slice(0, 40) + (c.last_text.length > 40 ? '…' : '') : 'No messages yet';
+      const badge = c.unread > 0 ? `<div class="msg-unread-badge">${c.unread}</div>` : '';
+      const time = c.last_message_at ? relTime(c.last_message_at) : '';
+      return `<div class="msg-conv-row${isActive ? ' active' : ''}" onclick="openConv(${c.id})">
+        <div class="msg-conv-avatar${messenger ? ' messenger' : ''}">${messenger ? '📘' : initials}</div>
+        <div class="msg-conv-info">
+          <div class="msg-conv-name">${esc(name)}</div>
+          <div class="msg-conv-preview">${esc(preview)}</div>
+        </div>
+        <div class="msg-conv-meta">
+          <div class="msg-conv-time">${time}</div>
+          ${badge}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function relTime(iso) {
+    const d = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
+    const diff = (Date.now() - d) / 1000;
+    if (diff < 60) return 'now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+    return Math.floor(diff / 86400) + 'd';
+  }
+
+  // ── Open a conversation ───────────────────────────────────────────────────
+  async function openConv(convId) {
+    _activeConvId = convId;
+    _lastMsgId = 0;
+    const conv = _convs.find(c => c.id === convId);
+    _activeConvType = conv ? conv.type : 'inapp';
+
+    // Update active state in sidebar
+    renderConvList();
+    hideSidebar();
+    showChat();
+
+    // Set header
+    const name = conv ? (conv.name || conv.last_sender_name || '(unknown)') : '…';
+    document.getElementById('chat-name').textContent = name;
+    document.getElementById('chat-avatar').textContent = name.slice(0, 2).toUpperCase();
+    document.getElementById('chat-sub').textContent =
+      conv?.type === 'messenger' ? '📘 Messenger' : 'In-app chat';
+
+    // Hide composer for one-sided Messenger view (for now, allow reply)
+    document.getElementById('msg-composer').style.display = '';
+
+    document.getElementById('msg-thread').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:0.9rem">Loading…</div>';
+    await loadMessages();
+    await fetch(`/api/conversations/${convId}/read`, { method: 'POST' });
+    // Refresh unread count
+    if (conv) conv.unread = 0;
+    renderConvList();
+  }
+
+  async function openConvWithFriend(friendUserId) {
+    try {
+      const { id } = await fetch(`/api/conversations/start/${friendUserId}`).then(r => r.json());
+      if (id) {
+        await loadConvs();
+        await openConv(id);
+      }
+    } catch {}
+  }
+
+  // ── Load messages ─────────────────────────────────────────────────────────
+  async function loadMessages(append = false) {
+    if (!_activeConvId) return;
+    try {
+      const url = `/api/conversations/${_activeConvId}/messages` +
+        (_lastMsgId ? `?before_id=${_lastMsgId}` : '');
+      const { messages } = await fetch(url).then(r => r.json());
+      if (!messages) return;
+      const thread = document.getElementById('msg-thread');
+      if (!append) thread.innerHTML = '';
+      if (!messages.length && !append) {
+        thread.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:0.9rem">No messages yet. Say hello! 👋</div>';
+        return;
+      }
+      const wasAtBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 50;
+      const html = messages.map(renderBubble).join('');
+      if (append) {
+        thread.insertAdjacentHTML('beforeend', html);
+      } else {
+        thread.innerHTML = html;
+      }
+      if (wasAtBottom || !append) thread.scrollTop = thread.scrollHeight;
+      if (messages.length) _lastMsgId = Math.max(...messages.map(m => m.id));
+    } catch {}
+  }
+
+  function renderBubble(m) {
+    const mine = m.is_mine;
+    const cls = mine ? 'mine' : 'theirs';
+    const nameHtml = !mine
+      ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
+    const displayHtml = glossedText(m.display_text);
+    const origBtnId = `orig-btn-${m.id}`;
+    const origId = `orig-${m.id}`;
+    const hasDiff = m.original_text !== m.display_text;
+    return `<div class="msg-bubble-wrap ${cls}">
+      ${nameHtml}
+      <div class="msg-bubble" data-id="${m.id}">${displayHtml}</div>
+      ${hasDiff ? `<button class="msg-orig-btn" id="${origBtnId}"
+        onclick="toggleOrig(${m.id})">see original</button>
+        <div class="msg-orig" id="${origId}" style="display:none">${esc(m.original_text)}</div>` : ''}
+      <div class="msg-bubble-time">${relTime(m.created_at)}</div>
+    </div>`;
+  }
+
+  function toggleOrig(msgId) {
+    const btn = document.getElementById(`orig-btn-${msgId}`);
+    const div = document.getElementById(`orig-${msgId}`);
+    if (!div) return;
+    const shown = div.style.display !== 'none';
+    div.style.display = shown ? 'none' : '';
+    btn.textContent = shown ? 'see original' : 'hide original';
+  }
+
+  // ── Word-tap glossing ─────────────────────────────────────────────────────
+  function glossedText(text) {
+    // Wrap each word in a .gl span for tap-to-translate
+    if (!text) return '';
+    const words = text.split(/(\s+)/);
+    return words.map(w => {
+      if (/^\s+$/.test(w) || !w) return w;
+      const escaped = esc(w);
+      return `<span class="gl" tabindex="0" data-word="${escaped}" onclick="lookupWord(this)">${escaped}</span>`;
+    }).join('');
+  }
+
+  const _glCache = {};
+  const _glTip = document.getElementById('gl-tip');
+  async function lookupWord(el) {
+    const word = el.dataset.word;
+    if (!word || word.trim().length < 1) return;
+    if (_glCache[word]) { showTip(el, _glCache[word]); return; }
+    showTip(el, '…');
+    try {
+      const res = await fetch('/api/reader/translate-word', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, target_lang: _targetLang }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const gloss = data.source || data.english || data.source_text || word;
+      _glCache[word] = gloss;
+      showTip(el, gloss);
+    } catch { hideTip(); }
+  }
+
+  function showTip(el, text) {
+    _glTip.textContent = text;
+    _glTip.style.display = 'block';
+    const r = el.getBoundingClientRect();
+    let x = r.left, y = r.bottom + 6;
+    if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+    if (y + 60 > window.innerHeight) y = r.top - 40;
+    _glTip.style.left = x + 'px'; _glTip.style.top = y + 'px';
+  }
+  function hideTip() { _glTip.style.display = 'none'; }
+  document.addEventListener('click', e => { if (!e.target.classList.contains('gl')) hideTip(); });
+
+  // ── Send message ──────────────────────────────────────────────────────────
+  function setMode(mode) {
+    _composeMode = mode;
+    document.querySelectorAll('.msg-mode-seg button').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    const ph = mode === 'native' ? 'Type in English…' : `Type in ${langName(_targetLang)}…`;
+    document.getElementById('msg-input').placeholder = ph;
+  }
+
+  async function sendMessage() {
+    if (!_activeConvId) return;
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const btn = document.getElementById('msg-send-btn');
+    btn.disabled = true;
+    input.value = '';
+    resizeInput();
+
+    const endpoint = _activeConvType === 'messenger'
+      ? `/api/conversations/${_activeConvId}/messenger-reply`
+      : `/api/conversations/${_activeConvId}/messages`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode: _composeMode }),
+      });
+      if (!res.ok) throw new Error();
+      const { display_text } = await res.json();
+      // Append optimistically
+      const thread = document.getElementById('msg-thread');
+      const bubble = {
+        id: Date.now(), is_mine: true, display_text,
+        original_text: text, sender_name: 'Me', created_at: new Date().toISOString(),
+      };
+      thread.insertAdjacentHTML('beforeend', renderBubble(bubble));
+      thread.scrollTop = thread.scrollHeight;
+      // Update conv list preview
+      await loadConvs();
+    } catch {
+      input.value = text;  // restore on error
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  // ── Polling ───────────────────────────────────────────────────────────────
+  function startPolling() {
+    _pollTimer = setInterval(async () => {
+      await loadConvs();
+      if (_activeConvId) await checkNewMessages();
+    }, 5000);
+  }
+
+  async function checkNewMessages() {
+    try {
+      const { messages } = await fetch(
+        `/api/conversations/${_activeConvId}/messages`
+      ).then(r => r.json());
+      if (!messages || !messages.length) return;
+      const latest = messages[messages.length - 1];
+      if (latest.id > _lastMsgId) {
+        _lastMsgId = latest.id;
+        const thread = document.getElementById('msg-thread');
+        const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 60;
+        // Re-render only new messages
+        const newMsgs = messages.filter(m => m.id > (_lastMsgId - 1));
+        newMsgs.forEach(m => thread.insertAdjacentHTML('beforeend', renderBubble(m)));
+        if (atBottom) thread.scrollTop = thread.scrollHeight;
+        // Mark read
+        await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
+      }
+    } catch {}
+  }
+
+  // ── Friends modal ─────────────────────────────────────────────────────────
+  function openFriendsModal() {
+    document.getElementById('friends-modal').style.display = '';
+    loadFriends();
+    loadMessengerStatus();
+  }
+  function closeFriendsModal() { document.getElementById('friends-modal').style.display = 'none'; }
+  function closeFriendsModalIfBg(e) { if (e.target === document.getElementById('friends-modal').firstElementChild) closeFriendsModal(); }
+
+  async function loadFriends() {
+    try {
+      const { friends, sent, received } = await fetch('/api/friends').then(r => r.json());
+      // Pending received
+      const pendingEl = document.getElementById('pending-section');
+      const pendingList = document.getElementById('pending-list');
+      if (received && received.length) {
+        pendingEl.style.display = '';
+        pendingList.innerHTML = received.map(f => `
+          <div class="friend-row">
+            <span class="friend-row-name">${esc(f.username)} wants to be friends</span>
+            <div class="friend-row-actions">
+              <button class="friend-action-btn accept" onclick="acceptReq(${f.id})">Accept</button>
+              <button class="friend-action-btn danger" onclick="rejectReq(${f.id})">Reject</button>
+            </div>
+          </div>`).join('');
+      } else {
+        pendingEl.style.display = 'none';
+      }
+      // Friends list
+      const friendsEl = document.getElementById('friends-list');
+      if (!friends || !friends.length) {
+        friendsEl.innerHTML = '<div class="modal-empty">No friends yet — search by username above.</div>';
+      } else {
+        friendsEl.innerHTML = friends.map(f => `
+          <div class="friend-row">
+            <span class="friend-row-name">${esc(f.username)}</span>
+            <div class="friend-row-actions">
+              <button class="friend-action-btn" onclick="openConvWithFriend(${f.user_id}); closeFriendsModal()">Message</button>
+              <button class="friend-action-btn danger" onclick="removeFriend(${f.user_id})">Remove</button>
+            </div>
+          </div>`).join('');
+      }
+    } catch {}
+  }
+
+  async function searchFriend() {
+    const q = document.getElementById('friend-search-input').value.trim();
+    if (!q) return;
+    const el = document.getElementById('friend-search-result');
+    el.innerHTML = 'Searching…';
+    try {
+      const { users } = await fetch(`/api/friends/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+      if (!users || !users.length) {
+        el.innerHTML = '<div class="modal-empty">No user found with that username.</div>';
+        return;
+      }
+      el.innerHTML = users.map(u => `
+        <div class="friend-result">
+          <span class="friend-result-name">${esc(u.username)}</span>
+          <button class="friend-action-btn" onclick="sendReq('${esc(u.username)}', this)">Add friend</button>
+        </div>`).join('');
+    } catch { el.innerHTML = '<div class="modal-empty">Error searching.</div>'; }
+  }
+
+  async function sendReq(username, btn) {
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      if (res.ok) { btn.textContent = 'Sent ✓'; }
+      else { btn.textContent = 'Error'; btn.disabled = false; }
+    } catch { btn.textContent = 'Error'; btn.disabled = false; }
+  }
+
+  async function acceptReq(friendshipId) {
+    await fetch(`/api/friends/${friendshipId}/accept`, { method: 'POST' });
+    loadFriends();
+  }
+  async function rejectReq(friendshipId) {
+    await fetch(`/api/friends/${friendshipId}/reject`, { method: 'POST' });
+    loadFriends();
+  }
+  async function removeFriend(userId) {
+    if (!confirm('Remove this friend?')) return;
+    await fetch(`/api/friends/${userId}`, { method: 'DELETE' });
+    loadFriends();
+  }
+
+  // ── Messenger connect ─────────────────────────────────────────────────────
+  async function loadMessengerStatus() {
+    try {
+      const data = await fetch('/api/messenger/status').then(r => r.json());
+      document.getElementById('messenger-connected-view').style.display = data.connected ? '' : 'none';
+      document.getElementById('messenger-connect-view').style.display = data.connected ? 'none' : '';
+      if (data.connected) {
+        document.getElementById('messenger-page-name').textContent = data.page_name || data.page_id;
+      }
+    } catch {}
+  }
+
+  async function connectMessenger() {
+    const page_id = document.getElementById('messenger-page-id').value.trim();
+    const page_access_token = document.getElementById('messenger-token').value.trim();
+    const page_name = document.getElementById('messenger-page-name-input').value.trim();
+    if (!page_id || !page_access_token) { alert('Page ID and token are required.'); return; }
+    const res = await fetch('/api/messenger/connect', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page_id, page_access_token, page_name }),
+    });
+    if (res.ok) { loadMessengerStatus(); }
+    else { alert('Could not connect — check your Page ID and token.'); }
+  }
+
+  async function disconnectMessenger() {
+    if (!confirm('Disconnect Messenger?')) return;
+    await fetch('/api/messenger/disconnect', { method: 'DELETE' });
+    loadMessengerStatus();
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  function showChat() {
+    document.getElementById('msg-placeholder').style.display = 'none';
+    const chat = document.getElementById('msg-chat');
+    chat.style.display = 'flex';
+  }
+
+  function showSidebar() {
+    document.getElementById('msg-sidebar').classList.remove('hidden');
+    document.getElementById('msg-placeholder').style.display = '';
+    document.getElementById('msg-chat').style.display = 'none';
+    _activeConvId = null;
+  }
+  function hideSidebar() {
+    document.getElementById('msg-sidebar').classList.add('hidden');
+  }
+
+  function resizeInput() {
+    const ta = document.getElementById('msg-input');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  }
+
+  function esc(s) {
+    const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+  }
+
+  // ── Input auto-grow + keyboard ────────────────────────────────────────────
+  document.getElementById('msg-input').addEventListener('input', resizeInput);
+  document.getElementById('msg-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById('friend-search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchFriend();
+  });
+
+  // visualViewport for iOS keyboard
+  (function () {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const fit = () => {
+      if (vv.scale && Math.abs(vv.scale - 1) > 0.05) return;
+      document.body.style.height = Math.round(vv.height) + 'px';
+      document.body.style.top = Math.round(vv.offsetTop) + 'px';
+      document.body.classList.toggle('kb-open', (window.innerHeight - vv.height) > 100);
+    };
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    document.getElementById('msg-input').addEventListener('focus', () => {
+      setTimeout(() => {
+        const thread = document.getElementById('msg-thread');
+        thread.scrollTop = thread.scrollHeight;
+        fit();
+      }, 120);
+    });
+    fit();
+  })();
+
+  // doLogout (shared across pages)
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login';
+  }
+
+  // Start
+  init();
+</script>
+</body>
+</html>

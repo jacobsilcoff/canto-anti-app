@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -38,6 +38,7 @@ import foundations
 import tutor
 import embeddings
 import cefr
+import messenger as _messenger
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
 _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
@@ -207,6 +208,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
         "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
         "tutor":     f'<svg {_i}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        "messages":  f'<svg {_i}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -233,6 +235,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/reader",   "Reader",     "reader"),
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
+        link("/messages", "Messages",   "messages"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -650,6 +653,11 @@ async def tutor_page():
     return _html("tutor.html", active="/tutor")
 
 
+@app.get("/messages", response_class=HTMLResponse)
+async def messages_page():
+    return _html("messages.html", active="/messages")
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _html("settings.html", active="/settings")
@@ -822,6 +830,11 @@ _SHARED_API_KEY = os.getenv("GEMINI_API_KEY")
 # Server-side Anthropic key (admin-billed) for the pluggable lesson model. Only
 # used when an admin selects a `claude-*` lesson_model; unset = Gemini-only.
 _SHARED_ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# Facebook Messenger integration (optional — features degrade gracefully when unset).
+_FB_APP_ID = os.getenv("FACEBOOK_APP_ID")
+_FB_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
+_FB_WEBHOOK_VERIFY_TOKEN = os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", "canto_verify")
 
 # Monthly shared-key AI-call allowance per plan. Own-key/admin/granted users are
 # unlimited. These caps bound cost exposure: even pro's 600 calls is ~$0.08/mo
@@ -3205,3 +3218,318 @@ async def reader_comprehension_xp(req: ComprehensionXpRequest, user: dict = Depe
     await db.add_points(user["id"], lang, _COMPREHENSION_XP, "comprehension")
     await db.record_study_activity(user["id"])
     return {"xp": _COMPREHENSION_XP}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Friends + Messaging
+# ══════════════════════════════════════════════════════════════════════════════
+
+class FriendRequestBody(BaseModel):
+    username: str
+
+class SendMessageBody(BaseModel):
+    text: str
+    mode: str = "native"   # "native" = user typed in English; "target" = typed in their target lang
+
+class ConnectMessengerBody(BaseModel):
+    page_id: str
+    page_access_token: str
+    page_name: str = ""
+
+
+@app.get("/api/friends")
+async def get_friends(user: dict = Depends(current_user)):
+    return await db.get_friends(user["id"])
+
+
+@app.get("/api/friends/search")
+async def search_users(q: str, user: dict = Depends(current_user)):
+    if len(q) < 2:
+        return {"users": []}
+    found = await db.get_user_by_username(q.strip())
+    if not found or found["id"] == user["id"]:
+        return {"users": []}
+    return {"users": [{"id": found["id"], "username": found["username"]}]}
+
+
+@app.post("/api/friends/request")
+async def send_friend_request(body: FriendRequestBody, user: dict = Depends(current_user)):
+    target = await db.get_user_by_username(body.username.strip())
+    if not target:
+        raise HTTPException(404, "User not found")
+    result = await db.send_friend_request(user["id"], target["id"])
+    if not result["ok"]:
+        raise HTTPException(409, result.get("error", "conflict"))
+    return {"ok": True}
+
+
+@app.post("/api/friends/{friendship_id}/accept")
+async def accept_friend_request(friendship_id: int, user: dict = Depends(current_user)):
+    ok = await db.respond_friend_request(friendship_id, user["id"], accept=True)
+    if not ok:
+        raise HTTPException(404, "Request not found")
+    return {"ok": True}
+
+
+@app.post("/api/friends/{friendship_id}/reject")
+async def reject_friend_request(friendship_id: int, user: dict = Depends(current_user)):
+    ok = await db.respond_friend_request(friendship_id, user["id"], accept=False)
+    if not ok:
+        raise HTTPException(404, "Request not found")
+    return {"ok": True}
+
+
+@app.delete("/api/friends/{other_user_id}")
+async def remove_friend(other_user_id: int, user: dict = Depends(current_user)):
+    await db.remove_friend(user["id"], other_user_id)
+    return {"ok": True}
+
+
+# ── Conversations ──────────────────────────────────────────────────────────────
+
+@app.get("/api/conversations")
+async def list_conversations(user: dict = Depends(current_user)):
+    convs = await db.list_conversations(user["id"])
+    return {"conversations": convs}
+
+
+@app.post("/api/conversations")
+async def open_conversation(user: dict = Depends(current_user), friend_user_id: int = 0):
+    if not friend_user_id:
+        raise HTTPException(400, "friend_user_id required")
+    result = await db.get_or_create_conversation(user["id"], friend_user_id)
+    return result
+
+
+@app.get("/api/conversations/{conv_id}/messages")
+async def get_messages(conv_id: int, before_id: int = 0,
+                       user: dict = Depends(current_user)):
+    msgs = await db.get_messages(conv_id, user["id"], limit=50,
+                                 before_id=before_id or None)
+    if not msgs:
+        # Also verifies participation
+        convs = await db.list_conversations(user["id"])
+        if not any(c["id"] == conv_id for c in convs):
+            raise HTTPException(403, "Not a participant")
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    result = []
+    for m in msgs:
+        is_mine = m["sender_user_id"] == user["id"]
+        trans = json.loads(m["translations"]) if m.get("translations") else {}
+        display = trans.get(lang) or m["original_text"]
+        result.append({
+            "id": m["id"],
+            "is_mine": is_mine,
+            "display_text": display,
+            "original_text": m["original_text"],
+            "original_lang": m["original_lang"],
+            "sender_name": m["sender_username"] or m.get("sender_name") or "Unknown",
+            "sender_user_id": m["sender_user_id"],
+            "created_at": m["created_at"],
+        })
+    return {"messages": result}
+
+
+@app.post("/api/conversations/{conv_id}/messages")
+async def send_message(conv_id: int, body: SendMessageBody,
+                       user: dict = Depends(current_user)):
+    # Verify participation and get other party's info
+    convs = await db.list_conversations(user["id"])
+    conv = next((c for c in convs if c["id"] == conv_id), None)
+    if not conv:
+        raise HTTPException(403, "Not a participant")
+
+    access = await _resolve_gemini(user, meter=True)
+    api_key = access.api_key
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    original_lang = "en" if body.mode == "native" else sender_lang
+
+    translations: dict[str, str] = {}
+
+    # What the sender sees: their target lang
+    if body.mode == "native":
+        # Typed in English → translate to sender's target lang for their view
+        sender_display = await translation.translate_simple(
+            body.text, "en", sender_lang, api_key=api_key
+        )
+        translations[sender_lang] = sender_display
+    else:
+        # Already in target lang
+        sender_display = body.text
+        translations[sender_lang] = body.text
+
+    # What the other party sees (if in-app convo)
+    if conv["type"] == "inapp":
+        other_user_id = conv["other_user_id"]
+        recipient_lang = await db.get_setting(other_user_id, "default_target_lang") or "yue"
+        if recipient_lang != sender_lang:
+            recipient_display = await translation.translate_simple(
+                body.text, original_lang, recipient_lang, api_key=api_key
+            )
+            translations[recipient_lang] = recipient_display
+        else:
+            translations[recipient_lang] = sender_display
+
+    await db.add_message(
+        conv_id, user["id"], body.text, original_lang, translations
+    )
+    return {"ok": True, "display_text": sender_display}
+
+
+@app.post("/api/conversations/{conv_id}/read")
+async def mark_read(conv_id: int, user: dict = Depends(current_user)):
+    await db.mark_conversation_read(conv_id, user["id"])
+    return {"ok": True}
+
+
+@app.get("/api/conversations/{conv_id}/start")
+async def start_or_get_conv_with_friend(conv_id: int, user: dict = Depends(current_user)):
+    """Alias: open a conversation by friend user_id (passed as conv_id param name for URL simplicity)."""
+    result = await db.get_or_create_conversation(user["id"], conv_id)
+    return result
+
+
+# ── Facebook Messenger integration ────────────────────────────────────────────
+
+@app.get("/api/messenger/status")
+async def messenger_status(user: dict = Depends(current_user)):
+    account = await db.get_messenger_account(user["id"])
+    if account:
+        return {"connected": True, "page_name": account["page_name"], "page_id": account["page_id"]}
+    return {"connected": False, "fb_app_id": _FB_APP_ID}
+
+
+@app.post("/api/messenger/connect")
+async def connect_messenger(body: ConnectMessengerBody, user: dict = Depends(current_user)):
+    """Manually connect with a page access token (from Graph API Explorer or OAuth callback)."""
+    if not body.page_id or not body.page_access_token:
+        raise HTTPException(400, "page_id and page_access_token required")
+    await db.upsert_messenger_account(user["id"], body.page_id,
+                                      body.page_access_token, body.page_name or None)
+    return {"ok": True}
+
+
+@app.delete("/api/messenger/disconnect")
+async def disconnect_messenger(user: dict = Depends(current_user)):
+    await db.delete_messenger_account(user["id"])
+    return {"ok": True}
+
+
+@app.get("/api/messenger/webhook")
+async def messenger_webhook_verify(
+    request: Request,
+    hub_mode: str = "",
+    hub_verify_token: str = "",
+    hub_challenge: str = "",
+):
+    """Meta webhook verification handshake."""
+    mode = request.query_params.get("hub.mode", hub_mode)
+    token = request.query_params.get("hub.verify_token", hub_verify_token)
+    challenge = request.query_params.get("hub.challenge", hub_challenge)
+    if mode == "subscribe" and token == _FB_WEBHOOK_VERIFY_TOKEN:
+        return PlainTextResponse(challenge)
+    raise HTTPException(403, "Verification failed")
+
+
+@app.post("/api/messenger/webhook")
+async def messenger_webhook(request: Request):
+    """Receive Messenger events from Meta."""
+    body = await request.body()
+    sig = request.headers.get("X-Hub-Signature-256", "")
+    if _FB_APP_SECRET and not _messenger.verify_signature(body, sig, _FB_APP_SECRET):
+        raise HTTPException(403, "Bad signature")
+
+    data = await request.json()
+    if data.get("object") != "page":
+        return {"ok": True}
+
+    for entry in data.get("entry", []):
+        page_id = str(entry.get("id", ""))
+        page_user = await db.get_user_by_messenger_page(page_id)
+        if not page_user:
+            continue
+        user_id = page_user["id"]
+        page_token = page_user["page_access_token"]
+        target_lang = await db.get_setting(user_id, "default_target_lang") or "yue"
+        api_key = _SHARED_API_KEY  # webhook uses server key
+
+        for event in entry.get("messaging", []):
+            sender_psid = event.get("sender", {}).get("id", "")
+            if sender_psid == page_id:
+                continue  # echo of our own send
+            msg = event.get("message", {})
+            text = msg.get("text", "").strip()
+            if not text:
+                continue
+
+            # Get sender's name
+            profile = await _messenger.get_user_profile(page_token, sender_psid)
+            sender_name = profile.get("name", sender_psid[:8])
+
+            conv_id = await db.get_or_create_platform_conversation(
+                user_id, "messenger", sender_psid
+            )
+            # Translate incoming message to user's target lang
+            translated = text
+            if api_key:
+                translated = await translation.translate_simple(
+                    text, "en", target_lang, api_key=api_key
+                )
+            translations = {target_lang: translated}
+            await db.add_message(
+                conv_id,
+                sender_user_id=None,
+                original_text=text,
+                original_lang="en",
+                translations=translations,
+                sender_platform_id=sender_psid,
+                sender_name=sender_name,
+            )
+
+    return {"ok": True}
+
+
+@app.post("/api/conversations/{conv_id}/messenger-reply")
+async def messenger_reply(conv_id: int, body: SendMessageBody,
+                          user: dict = Depends(current_user)):
+    """Send a reply to a Messenger conversation from the app."""
+    convs = await db.list_conversations(user["id"])
+    conv = next((c for c in convs if c["id"] == conv_id), None)
+    if not conv or conv.get("type") != "messenger":
+        raise HTTPException(400, "Not a Messenger conversation")
+
+    account = await db.get_messenger_account(user["id"])
+    if not account:
+        raise HTTPException(400, "Messenger not connected")
+
+    access = await _resolve_gemini(user, meter=True)
+    api_key = access.api_key
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    original_lang = "en" if body.mode == "native" else sender_lang
+
+    # What user sees (their target lang)
+    translations: dict[str, str] = {}
+    if body.mode == "native":
+        sender_display = await translation.translate_simple(
+            body.text, "en", sender_lang, api_key=api_key
+        )
+        translations[sender_lang] = sender_display
+    else:
+        sender_display = body.text
+        translations[sender_lang] = body.text
+
+    # What gets sent to Messenger (translate back to English)
+    if original_lang != "en":
+        sent_text = await translation.translate_simple(
+            body.text, original_lang, "en", api_key=api_key
+        )
+    else:
+        sent_text = body.text
+
+    psid = conv.get("platform_thread_id") or conv.get("name")
+    await _messenger.send_message(account["page_access_token"], psid, sent_text)
+    await db.add_message(
+        conv_id, user["id"], body.text, original_lang, translations,
+        sent_text=sent_text,
+    )
+    return {"ok": True, "display_text": sender_display}

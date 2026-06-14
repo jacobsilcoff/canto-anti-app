@@ -2546,3 +2546,322 @@ async def put_cached_embeddings(lang: str, model: str, vectors: dict[str, bytes]
             [(lang, model, w, v) for w, v in vectors.items()],
         )
         await db.commit()
+
+
+# ── Friends ────────────────────────────────────────────────────────────────────
+
+async def get_user_by_username(username: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, username, is_admin FROM users WHERE username=?", (username,)
+        ) as cur:
+            row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def send_friend_request(requester_id: int, addressee_id: int) -> dict:
+    """Send a friend request. Returns {ok, error}."""
+    if requester_id == addressee_id:
+        return {"ok": False, "error": "cannot_self"}
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Check if relationship already exists in either direction
+        async with db.execute(
+            """SELECT id, status, requester_id FROM friendships
+               WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)""",
+            (requester_id, addressee_id, addressee_id, requester_id),
+        ) as cur:
+            existing = await cur.fetchone()
+        if existing:
+            if existing[1] == "accepted":
+                return {"ok": False, "error": "already_friends"}
+            return {"ok": False, "error": "request_pending"}
+        await db.execute(
+            "INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?,?,'pending')",
+            (requester_id, addressee_id),
+        )
+        await db.commit()
+    return {"ok": True}
+
+
+async def respond_friend_request(friendship_id: int, addressee_id: int, accept: bool) -> bool:
+    """Accept or reject a pending request addressed to addressee_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
+            (friendship_id, addressee_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return False
+        if accept:
+            await db.execute(
+                "UPDATE friendships SET status='accepted' WHERE id=?", (friendship_id,)
+            )
+        else:
+            await db.execute("DELETE FROM friendships WHERE id=?", (friendship_id,))
+        await db.commit()
+    return True
+
+
+async def remove_friend(user_id: int, other_user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """DELETE FROM friendships
+               WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)""",
+            (user_id, other_user_id, other_user_id, user_id),
+        )
+        await db.commit()
+
+
+async def get_friends(user_id: int) -> dict:
+    """Return friends, pending sent requests, and pending received requests."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at,
+                      r.username AS requester_name, a.username AS addressee_name
+               FROM friendships f
+               JOIN users r ON r.id = f.requester_id
+               JOIN users a ON a.id = f.addressee_id
+               WHERE f.requester_id=? OR f.addressee_id=?""",
+            (user_id, user_id),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+
+    friends, sent, received = [], [], []
+    for r in rows:
+        other_id = r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
+        other_name = r["addressee_name"] if r["requester_id"] == user_id else r["requester_name"]
+        entry = {"id": r["id"], "user_id": other_id, "username": other_name, "created_at": r["created_at"]}
+        if r["status"] == "accepted":
+            friends.append(entry)
+        elif r["requester_id"] == user_id:
+            sent.append(entry)
+        else:
+            received.append(entry)
+    return {"friends": friends, "sent": sent, "received": received}
+
+
+# ── Conversations + Messages ───────────────────────────────────────────────────
+
+async def get_or_create_conversation(user1_id: int, user2_id: int) -> dict:
+    """Get or create an in-app 1:1 conversation. IDs are normalised (min < max)."""
+    a, b = min(user1_id, user2_id), max(user1_id, user2_id)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM conversations WHERE user1_id=? AND user2_id=? AND platform IS NULL",
+            (a, b),
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            return {"id": row["id"], "created": False}
+        cur2 = await db.execute(
+            "INSERT INTO conversations (user1_id, user2_id) VALUES (?,?)", (a, b)
+        )
+        await db.commit()
+        return {"id": cur2.lastrowid, "created": True}
+
+
+async def get_or_create_platform_conversation(
+    owner_user_id: int, platform: str, platform_thread_id: str
+) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id FROM conversations
+               WHERE owner_user_id=? AND platform=? AND platform_thread_id=?""",
+            (owner_user_id, platform, platform_thread_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            return row["id"]
+        cur2 = await db.execute(
+            """INSERT INTO conversations (owner_user_id, platform, platform_thread_id)
+               VALUES (?,?,?)""",
+            (owner_user_id, platform, platform_thread_id),
+        )
+        await db.commit()
+        return cur2.lastrowid
+
+
+async def list_conversations(user_id: int) -> list[dict]:
+    """All conversations for a user, sorted by last activity."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT c.id, c.user1_id, c.user2_id, c.platform, c.platform_thread_id,
+                      c.owner_user_id, c.last_message_at,
+                      u1.username AS user1_name, u2.username AS user2_name,
+                      (SELECT COUNT(*) FROM messages m
+                       WHERE m.conversation_id=c.id AND m.read_at IS NULL
+                         AND (m.sender_user_id IS NULL OR m.sender_user_id != ?)) AS unread,
+                      (SELECT m2.original_text FROM messages m2
+                       WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_text,
+                      (SELECT m2.sender_user_id FROM messages m2
+                       WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_sender_id,
+                      (SELECT m2.sender_name FROM messages m2
+                       WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_sender_name
+               FROM conversations c
+               LEFT JOIN users u1 ON u1.id = c.user1_id
+               LEFT JOIN users u2 ON u2.id = c.user2_id
+               WHERE c.user1_id=? OR c.user2_id=? OR c.owner_user_id=?
+               ORDER BY COALESCE(c.last_message_at, c.created_at) DESC""",
+            (user_id, user_id, user_id, user_id),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+    result = []
+    for r in rows:
+        if r["platform"]:
+            conv = {
+                "id": r["id"], "type": r["platform"],
+                "name": r["platform_thread_id"],  # replaced by sender_name from messages
+                "last_sender_name": r["last_sender_name"],
+                "unread": r["unread"], "last_text": r["last_text"],
+                "last_message_at": r["last_message_at"],
+            }
+        else:
+            other_id = r["user2_id"] if r["user1_id"] == user_id else r["user1_id"]
+            other_name = r["user2_name"] if r["user1_id"] == user_id else r["user1_name"]
+            conv = {
+                "id": r["id"], "type": "inapp",
+                "other_user_id": other_id, "name": other_name,
+                "unread": r["unread"], "last_text": r["last_text"],
+                "last_sender_id": r["last_sender_id"],
+                "last_message_at": r["last_message_at"],
+            }
+        result.append(conv)
+    return result
+
+
+async def get_messages(conversation_id: int, viewer_user_id: int,
+                       limit: int = 50, before_id: int | None = None) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # Verify viewer is a participant
+        async with db.execute(
+            """SELECT id FROM conversations
+               WHERE id=? AND (user1_id=? OR user2_id=? OR owner_user_id=?)""",
+            (conversation_id, viewer_user_id, viewer_user_id, viewer_user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return []
+        where = "WHERE m.conversation_id=?"
+        params = [conversation_id]
+        if before_id:
+            where += " AND m.id < ?"
+            params.append(before_id)
+        async with db.execute(
+            f"""SELECT m.id, m.sender_user_id, m.sender_platform_id, m.sender_name,
+                       m.original_text, m.original_lang, m.translations,
+                       m.created_at, m.read_at, u.username AS sender_username
+                FROM messages m LEFT JOIN users u ON u.id = m.sender_user_id
+                {where} ORDER BY m.created_at DESC LIMIT ?""",
+            [*params, limit],
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+    return list(reversed(rows))
+
+
+async def add_message(
+    conversation_id: int,
+    sender_user_id: int | None,
+    original_text: str,
+    original_lang: str,
+    translations: dict,
+    *,
+    sender_platform_id: str | None = None,
+    sender_name: str | None = None,
+    sent_text: str | None = None,
+) -> int:
+    trans_json = json.dumps(translations, ensure_ascii=False) if translations else None
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO messages
+               (conversation_id, sender_user_id, sender_platform_id, sender_name,
+                original_text, original_lang, translations, sent_text)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (conversation_id, sender_user_id, sender_platform_id, sender_name,
+             original_text, original_lang, trans_json, sent_text),
+        )
+        msg_id = cur.lastrowid
+        await db.execute(
+            "UPDATE conversations SET last_message_at=datetime('now') WHERE id=?",
+            (conversation_id,),
+        )
+        await db.commit()
+    return msg_id
+
+
+async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE messages SET read_at=datetime('now')
+               WHERE conversation_id=? AND read_at IS NULL
+                 AND (sender_user_id IS NULL OR sender_user_id != ?)""",
+            (conversation_id, reader_user_id),
+        )
+        await db.commit()
+
+
+async def get_total_unread(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*) FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE (c.user1_id=? OR c.user2_id=? OR c.owner_user_id=?)
+                 AND m.read_at IS NULL
+                 AND (m.sender_user_id IS NULL OR m.sender_user_id != ?)""",
+            (user_id, user_id, user_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+    return row[0] if row else 0
+
+
+# ── Messenger account ──────────────────────────────────────────────────────────
+
+async def get_messenger_account(user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT page_id, page_name, page_access_token FROM messenger_accounts WHERE user_id=?",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def upsert_messenger_account(user_id: int, page_id: str,
+                                   page_access_token: str, page_name: str | None) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO messenger_accounts (user_id, page_id, page_access_token, page_name)
+               VALUES (?,?,?,?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 page_id=excluded.page_id,
+                 page_access_token=excluded.page_access_token,
+                 page_name=excluded.page_name,
+                 connected_at=datetime('now')""",
+            (user_id, page_id, page_access_token, page_name),
+        )
+        await db.commit()
+
+
+async def delete_messenger_account(user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM messenger_accounts WHERE user_id=?", (user_id,))
+        await db.commit()
+
+
+async def get_user_by_messenger_page(page_id: str) -> dict | None:
+    """Find the app user who connected this Messenger page."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.id, u.username, ma.page_access_token
+               FROM messenger_accounts ma JOIN users u ON u.id = ma.user_id
+               WHERE ma.page_id=?""",
+            (page_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
