@@ -615,9 +615,12 @@ async def translate_simple(text: str, source_lang: str, target_lang: str, *, api
         return text
     src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
     tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
+    rules = LANG_INFO.get(target_lang, {}).get("rules", "")
+    rules_block = f"\nFollow these language rules strictly:\n{rules}\n" if rules else ""
     prompt = (
-        f"Translate the following {src_name} text to {tgt_name}. "
-        "Return ONLY the translated text, no explanations.\n\n"
+        f"Translate the following {src_name} message into natural, conversational {tgt_name} "
+        f"— the kind you'd actually send to a friend in a text message.{rules_block}"
+        "Return ONLY the translated text, no explanations, no romanisation.\n\n"
         f"{text}"
     )
     loop = asyncio.get_event_loop()

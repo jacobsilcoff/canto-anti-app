@@ -16,8 +16,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
     /* ── Page layout ── */
-    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden; }
-    .msg-layout { display: flex; height: 100%; overflow: hidden; }
+    body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden;
+      display: flex; flex-direction: column; }
+    .msg-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
     /* ── Sidebar (conversations list) ── */
     .msg-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
@@ -167,6 +168,8 @@
       border-radius: 8px; padding: 5px 11px; font-size: 0.8rem; cursor: pointer; color: var(--danger); }
 
     /* ── Responsive (mobile: sidebar overlaid) ── */
+    #msg-chat { display: none; flex: 1; flex-direction: column; min-height: 0; }
+
     @media (max-width: 600px) {
       .msg-sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 200;
         width: 100%; transform: translateX(0); transition: transform 0.2s; }
@@ -198,7 +201,7 @@
       <p>Select a conversation to start chatting</p>
     </div>
 
-    <div id="msg-chat" style="display:none; flex:1; display:none; flex-direction:column; min-height:0;">
+    <div id="msg-chat">
       <div class="msg-chat-head">
         <button class="msg-back-btn" id="msg-back-btn" onclick="showSidebar()">←</button>
         <div class="msg-chat-avatar" id="chat-avatar">?</div>
@@ -513,8 +516,9 @@
     _composeMode = mode;
     document.querySelectorAll('.msg-mode-seg button').forEach(b =>
       b.classList.toggle('active', b.dataset.mode === mode));
-    const ph = mode === 'native' ? 'Type in English…' : `Type in ${langName(_targetLang)}…`;
-    document.getElementById('msg-input').placeholder = ph;
+    const input = document.getElementById('msg-input');
+    input.placeholder = mode === 'native' ? 'Type in English…' : `Type in ${langName(_targetLang)}…`;
+    input.focus();
   }
 
   async function sendMessage() {
@@ -537,16 +541,20 @@
         body: JSON.stringify({ text, mode: _composeMode }),
       });
       if (!res.ok) throw new Error();
-      const { display_text } = await res.json();
-      // Append optimistically
+      const data = await res.json();
+      const { display_text, msg_id } = data;
+      // Update poll cursor before optimistic append so the poller won't re-add it
+      if (msg_id) _lastMsgId = msg_id;
       const thread = document.getElementById('msg-thread');
+      // Clear empty-state placeholder if present
+      const empty = thread.querySelector('div[style]');
+      if (empty && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
       const bubble = {
-        id: Date.now(), is_mine: true, display_text,
+        id: msg_id || Date.now(), is_mine: true, display_text,
         original_text: text, sender_name: 'Me', created_at: new Date().toISOString(),
       };
       thread.insertAdjacentHTML('beforeend', renderBubble(bubble));
       thread.scrollTop = thread.scrollHeight;
-      // Update conv list preview
       await loadConvs();
     } catch {
       input.value = text;  // restore on error
@@ -572,14 +580,15 @@
       if (!messages || !messages.length) return;
       const latest = messages[messages.length - 1];
       if (latest.id > _lastMsgId) {
+        const prevId = _lastMsgId;
         _lastMsgId = latest.id;
         const thread = document.getElementById('msg-thread');
         const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 60;
-        // Re-render only new messages
-        const newMsgs = messages.filter(m => m.id > (_lastMsgId - 1));
+        const newMsgs = messages.filter(m => m.id > prevId);
+        // Clear empty-state placeholder if thread has no bubbles yet
+        if (newMsgs.length && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
         newMsgs.forEach(m => thread.insertAdjacentHTML('beforeend', renderBubble(m)));
         if (atBottom) thread.scrollTop = thread.scrollHeight;
-        // Mark read
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
       }
     } catch {}

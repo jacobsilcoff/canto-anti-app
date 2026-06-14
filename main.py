@@ -3289,7 +3289,16 @@ async def remove_friend(other_user_id: int, user: dict = Depends(current_user)):
 
 @app.get("/api/conversations")
 async def list_conversations(user: dict = Depends(current_user)):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     convs = await db.list_conversations(user["id"])
+    for c in convs:
+        raw_trans = c.pop("last_translations", None)
+        if raw_trans:
+            try:
+                trans = json.loads(raw_trans)
+                c["last_text"] = trans.get(lang) or c.get("last_text")
+            except Exception:
+                pass
     return {"conversations": convs}
 
 
@@ -3370,10 +3379,10 @@ async def send_message(conv_id: int, body: SendMessageBody,
         else:
             translations[recipient_lang] = sender_display
 
-    await db.add_message(
+    msg_id = await db.add_message(
         conv_id, user["id"], body.text, original_lang, translations
     )
-    return {"ok": True, "display_text": sender_display}
+    return {"ok": True, "display_text": sender_display, "msg_id": msg_id}
 
 
 @app.post("/api/conversations/{conv_id}/read")
@@ -3528,8 +3537,8 @@ async def messenger_reply(conv_id: int, body: SendMessageBody,
 
     psid = conv.get("platform_thread_id") or conv.get("name")
     await _messenger.send_message(account["page_access_token"], psid, sent_text)
-    await db.add_message(
+    msg_id = await db.add_message(
         conv_id, user["id"], body.text, original_lang, translations,
         sent_text=sent_text,
     )
-    return {"ok": True, "display_text": sender_display}
+    return {"ok": True, "display_text": sender_display, "msg_id": msg_id}

@@ -2689,6 +2689,8 @@ async def list_conversations(user_id: int) -> list[dict]:
                          AND (m.sender_user_id IS NULL OR m.sender_user_id != ?)) AS unread,
                       (SELECT m2.original_text FROM messages m2
                        WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_text,
+                      (SELECT m2.translations FROM messages m2
+                       WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_translations,
                       (SELECT m2.sender_user_id FROM messages m2
                        WHERE m2.conversation_id=c.id ORDER BY m2.created_at DESC LIMIT 1) AS last_sender_id,
                       (SELECT m2.sender_name FROM messages m2
@@ -2706,9 +2708,10 @@ async def list_conversations(user_id: int) -> list[dict]:
         if r["platform"]:
             conv = {
                 "id": r["id"], "type": r["platform"],
-                "name": r["platform_thread_id"],  # replaced by sender_name from messages
+                "name": r["platform_thread_id"],
                 "last_sender_name": r["last_sender_name"],
                 "unread": r["unread"], "last_text": r["last_text"],
+                "last_translations": r["last_translations"],
                 "last_message_at": r["last_message_at"],
             }
         else:
@@ -2718,6 +2721,7 @@ async def list_conversations(user_id: int) -> list[dict]:
                 "id": r["id"], "type": "inapp",
                 "other_user_id": other_id, "name": other_name,
                 "unread": r["unread"], "last_text": r["last_text"],
+                "last_translations": r["last_translations"],
                 "last_sender_id": r["last_sender_id"],
                 "last_message_at": r["last_message_at"],
             }
