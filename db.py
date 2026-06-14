@@ -2802,6 +2802,7 @@ async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool:
             return True
 
 
+async def add_message(
     conversation_id: int,
     sender_user_id: int | None,
     original_text: str,
