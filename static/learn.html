@@ -989,6 +989,9 @@
   // ── Lesson player ───────────────────────────────────────────────────────────
   let player = null;
   let _audio = null;
+  // Cleanup function set by construction_drill.render(); called on finish/quit so
+  // visualViewport + touchmove listeners never outlive the drill that added them.
+  let _cdDrillCleanup = null;
 
   function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
@@ -1159,10 +1162,11 @@
           playerEl.style.height = Math.round(vv.height) + 'px';
           playerEl.style.top = Math.round(vv.offsetTop) + 'px';
         };
-        // Prevent iOS document rubber-band bounce from revealing empty space below the drill.
-        const preventBounce = e => {
-          if (e.target === scrollEl || scrollEl.contains(e.target)) return;
-          e.preventDefault();
+        _cdDrillCleanup = () => {
+          playerEl.classList.remove('cd-drilling');
+          if (vv) { vv.removeEventListener('resize', fitKb); vv.removeEventListener('scroll', fitKb); }
+          playerEl.style.height = ''; playerEl.style.top = '';
+          _cdDrillCleanup = null;
         };
         playerEl.classList.add('cd-drilling');
         if (vv) {
@@ -1171,7 +1175,6 @@
           inputEl.addEventListener('focus', () => setTimeout(() => { fitKb(); scrollEl.scrollTop = scrollEl.scrollHeight; }, 120));
           fitKb();
         }
-        document.addEventListener('touchmove', preventBounce, { passive: false });
 
         async function call(answer) {
           busy = true; sendEl.disabled = true;
@@ -1270,10 +1273,7 @@
           currentPhrase = null; lastFeedback = null; lastAnswer = null;
           // Restore the player to normal document flow — keyboard is dismissed and we
           // no longer need the fixed overlay or visualViewport listeners.
-          playerEl.classList.remove('cd-drilling');
-          if (vv) { vv.removeEventListener('resize', fitKb); vv.removeEventListener('scroll', fitKb); }
-          document.removeEventListener('touchmove', preventBounce);
-          playerEl.style.height = ''; playerEl.style.top = '';
+          if (_cdDrillCleanup) _cdDrillCleanup();
           inputWrap.style.display = 'none'; promptEl.innerHTML = '';
           feedEl.innerHTML = `<div class="cd-done">Drill complete! 🎉</div>`;
           contEl.style.display = ''; contEl.onclick = () => onDone();
@@ -2165,10 +2165,7 @@
 
   function quitLesson() {
     if (confirm('Quit this lesson? This attempt won\'t be saved.')) {
-      // Clean up any active construction drill fixed overlay
-      const sp = document.getElementById('state-player');
-      sp.classList.remove('cd-drilling');
-      sp.style.height = ''; sp.style.top = '';
+      if (_cdDrillCleanup) _cdDrillCleanup();
       player = null; refreshAndShowCourse();
     }
   }
