@@ -200,13 +200,36 @@
     .msg-nuance { margin-top: 6px; font-size: 0.78rem; color: var(--text-muted);
       font-style: italic; border-top: 1px solid var(--border); padding-top: 4px; }
 
-    /* Word-tap add-to-deck */
-    #gl-tip { display: none; position: fixed; z-index: 1000; pointer-events: none;
-      background: var(--tooltip-bg, #222); color: #fff; border-radius: 8px;
-      padding: 5px 10px; font-size: 0.82rem; max-width: 220px; line-height: 1.35; }
-    #gl-tip button { pointer-events: auto; background: rgba(255,255,255,0.18);
-      border: none; border-radius: 5px; color: #fff; font-size: 0.74rem; font-weight: 600;
-      padding: 1px 7px; margin-left: 6px; cursor: pointer; }
+    /* ── Word tooltip (reader-style) ── */
+    .word-tooltip { position: fixed; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: var(--shadow-pop); padding: 14px 16px; z-index: 1000;
+      min-width: 200px; max-width: 270px; pointer-events: auto; }
+    .tooltip-word { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .tooltip-rom  { font-size: 0.88rem; color: var(--text-muted); margin: 3px 0 5px; }
+    .tooltip-eng  { font-size: 0.92rem; color: var(--text); margin-bottom: 8px; }
+    .tooltip-notes { font-size: 0.78rem; color: var(--text-muted); border-left: 2px solid var(--border);
+      padding-left: 8px; margin-bottom: 8px; }
+    .tooltip-status-badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px;
+      border-radius: 10px; margin-bottom: 8px; font-weight: 600; }
+    .tooltip-status-badge.known { background: var(--good-soft); color: var(--good-strong); }
+    .tooltip-status-badge.weak  { background: var(--warn-soft); color: var(--warn-strong); }
+    .tooltip-status-badge.new   { background: var(--neutral-soft); color: var(--text-muted); }
+    .tooltip-loading { font-size: 0.88rem; color: var(--text-muted); padding: 4px 0; }
+    .tooltip-error   { font-size: 0.82rem; color: var(--danger); }
+    .tooltip-actions { display: flex; gap: 8px; align-items: center; }
+    .tooltip-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .tooltip-add-btn:disabled { opacity: 0.5; cursor: default; }
+    .tooltip-add-btn.added { background: var(--good); }
+    .tooltip-close { position: absolute; top: 8px; right: 10px; background: none; border: none;
+      cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 2px 6px; }
+    .tooltip-close:hover { color: var(--text); }
+    .play-btn { background: none; border: 1px solid var(--border); border-radius: 7px;
+      cursor: pointer; color: var(--text-muted); padding: 4px 8px;
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; flex-shrink: 0; }
+    .play-btn:hover { border-color: var(--primary); color: var(--primary); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gl.tapped { background: rgba(var(--primary-rgb, 90,90,200), 0.15); }
 
     /* ── Responsive (mobile: sidebar overlaid) ── */
     #msg-chat { display: none; flex: 1; flex-direction: column; min-height: 0; }
@@ -230,7 +253,13 @@
 </head>
 <body>
 <header>{{NAV}}</header>
-<div id="gl-tip"></div>
+
+<!-- Word tooltip (reader-style, floating) -->
+<div class="word-tooltip" id="word-tooltip" style="display:none" role="dialog">
+  <button class="tooltip-close" onclick="closeTooltip()">✕</button>
+  <div id="tooltip-content"></div>
+</div>
+
 <div class="msg-layout" id="msg-layout">
   <!-- Sidebar -->
   <div class="msg-sidebar" id="msg-sidebar">
@@ -383,7 +412,7 @@
       const inner = (showRuby && hasRoman && t.is_word && t.roman)
         ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>` : esc(t.text);
       return t.is_word
-        ? `<span class="gl" tabindex="0" data-word="${esc(t.text)}" onclick="lookupWord(this)">${inner}</span>`
+        ? `<span class="gl" tabindex="0" data-word="${esc(t.text)}" onclick="onWordTap(this,'${esc(t.text)}')">${inner}</span>`
         : esc(t.text);
     }).join('');
   }
@@ -595,7 +624,7 @@
         ${nuanceNote ? `<div class="msg-nuance">💡 ${esc(nuanceNote)}</div>` : ''}
       </div>` : '';
 
-    return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
+    return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
       ${nameHtml}
       <div class="msg-bubble">${textHtml}</div>
       ${tools}
@@ -639,62 +668,123 @@
     _audio.play().catch(() => {});
   }
 
-  // ── Word-tap glossing + add-to-deck ───────────────────────────────────────
+  // ── Word-tap glossing ─────────────────────────────────────────────────────
   function glossedText(text) {
     if (!text) return '';
     return text.split(/(\s+)/).map(w => {
       if (/^\s+$/.test(w) || !w) return w;
-      return `<span class="gl" tabindex="0" data-word="${esc(w)}" onclick="lookupWord(this)">${esc(w)}</span>`;
+      return `<span class="gl" tabindex="0" data-word="${esc(w)}" onclick="onWordTap(this,'${esc(w)}')">${esc(w)}</span>`;
     }).join('');
   }
 
-  const _glCache = {};
-  const _glTip = document.getElementById('gl-tip');
-  let _glWord = null;
-  async function lookupWord(el) {
-    const word = el.dataset.word;
+  // ── Rich word tooltip (reader-style) ─────────────────────────────────────
+  let tooltipWordData = null;
+  let _activeWordEl = null;
+
+  async function onWordTap(el, word) {
     if (!word || word.trim().length < 1) return;
-    _glWord = word;
-    if (_glCache[word]) { showTip(el, _glCache[word], word); return; }
-    showTip(el, '…', word);
+    if (_activeWordEl) _activeWordEl.classList.remove('tapped');
+    _activeWordEl = el;
+    el.classList.add('tapped');
+
+    positionTooltip(el);
+    document.getElementById('tooltip-content').innerHTML =
+      `<div class="tooltip-loading"><span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-1px;margin-right:5px"></span> Looking up…</div>`;
+    document.getElementById('word-tooltip').style.display = '';
+
+    const bwrap = el.closest('.msg-bubble-wrap');
+    const context = bwrap ? (bwrap.dataset.msgtext || '') : '';
+
     try {
       const res = await fetch('/api/reader/translate-word', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word, target_lang: _targetLang }),
+        body: JSON.stringify({ word, context, target_lang: _targetLang }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const gloss = data.source || data.english || data.source_text || word;
-      _glCache[word] = gloss;
-      if (_glWord === word) showTip(el, gloss, word);
-    } catch { hideTip(); }
+      tooltipWordData = data;
+      renderTooltip(data);
+    } catch {
+      document.getElementById('tooltip-content').innerHTML =
+        `<div class="tooltip-error">Lookup failed — try again.</div>`;
+    }
   }
 
-  function showTip(el, gloss, word) {
-    _glTip.innerHTML = `<span>${esc(gloss)}</span><button onclick="addToDeck('${esc(word)}','${esc(gloss)}')">＋Add</button>`;
-    _glTip.style.display = 'block';
-    const r = el.getBoundingClientRect();
-    let x = r.left, y = r.bottom + 6;
-    if (x + 230 > window.innerWidth) x = window.innerWidth - 235;
-    if (y + 60 > window.innerHeight) y = r.top - 40;
-    _glTip.style.left = x + 'px'; _glTip.style.top = y + 'px';
+  function positionTooltip(el) {
+    const tooltip = document.getElementById('word-tooltip');
+    tooltip.style.display = 'block';
+    const rect = el.getBoundingClientRect();
+    const tw = tooltip.offsetWidth || 240;
+    const th = tooltip.offsetHeight || 160;
+    const margin = 8;
+    let left = rect.left;
+    let top  = rect.bottom + margin;
+    if (left + tw > window.innerWidth - margin) left = window.innerWidth - tw - margin;
+    if (left < margin) left = margin;
+    if (top + th > window.innerHeight - margin) top = rect.top - th - margin;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
   }
-  function hideTip() { _glTip.style.display = 'none'; _glWord = null; }
-  document.addEventListener('click', e => {
-    if (!e.target.classList.contains('gl') && !e.target.closest('#gl-tip')) hideTip();
-  });
 
-  async function addToDeck(word, english) {
-    hideTip();
+  function renderTooltip(data) {
+    const isInDeck = data.source === 'deck';
+    const statusLabel = { known: 'Known', weak: 'Weak', new: 'New to deck' }[data.status] || 'New';
+    document.getElementById('tooltip-content').innerHTML = `
+      <div class="tooltip-word">${esc(data.target_text)}</div>
+      ${data.romanization ? `<div class="tooltip-rom">${esc(data.romanization)}</div>` : ''}
+      <div class="tooltip-eng">${esc(data.source_text)}</div>
+      <span class="tooltip-status-badge ${data.status || 'new'}">${statusLabel}</span>
+      ${data.notes ? `<div class="tooltip-notes">${esc(data.notes)}</div>` : ''}
+      <div class="tooltip-actions">
+        <button class="play-btn" onclick="speakMsg('${esc(data.target_text || '')}')" title="Play">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button class="tooltip-add-btn ${isInDeck ? 'added' : ''}" id="tooltip-add-btn"
+          ${isInDeck ? 'disabled' : ''} onclick="addWordToDeck()">
+          ${isInDeck ? 'In deck ✓' : 'Add to deck'}
+        </button>
+      </div>`;
+  }
+
+  async function addWordToDeck() {
+    if (!tooltipWordData || tooltipWordData.source === 'deck') return;
+    const btn = document.getElementById('tooltip-add-btn');
+    btn.disabled = true; btn.textContent = 'Adding…';
     try {
       const res = await fetch('/api/cards', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_text: english, target_text: word, target_lang: _targetLang }),
+        body: JSON.stringify({
+          source_text:  tooltipWordData.source_text,
+          target_text:  tooltipWordData.target_text,
+          romanization: tooltipWordData.romanization || '',
+          target_lang:  _targetLang,
+          notes:        tooltipWordData.notes || '',
+          priority:     tooltipWordData.priority || 3,
+        }),
       });
-      if (res.ok) showToast('Added to deck ✓');
-      else if (res.status === 409) showToast('Already in deck');
-    } catch { showToast('Could not add'); }
+      if (!res.ok && res.status !== 409) throw new Error();
+      tooltipWordData = { ...tooltipWordData, source: 'deck', status: 'weak' };
+      btn.textContent = 'In deck ✓'; btn.classList.add('added');
+      if (_activeWordEl) { _activeWordEl.classList.add('deck'); }
+      showToast(res.status === 409 ? 'Already in deck' : 'Added to deck ✓');
+    } catch { btn.disabled = false; btn.textContent = 'Add to deck'; showToast('Could not add'); }
   }
+
+  function closeTooltip() {
+    document.getElementById('word-tooltip').style.display = 'none';
+    if (_activeWordEl) { _activeWordEl.classList.remove('tapped'); _activeWordEl = null; }
+    tooltipWordData = null;
+  }
+
+  // Close tooltip when clicking outside
+  document.addEventListener('click', e => {
+    const tooltip = document.getElementById('word-tooltip');
+    if (tooltip.style.display !== 'none' &&
+        !tooltip.contains(e.target) &&
+        !e.target.classList.contains('gl')) {
+      closeTooltip();
+    }
+  });
 
   function showToast(msg) {
     let t = document.getElementById('msg-toast');
@@ -972,6 +1062,13 @@
     });
     fit();
   })();
+
+  // ── Nav helpers ───────────────────────────────────────────────────────────
+  function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('nav-dropdown');
+    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
+  });
 
   // doLogout (shared across pages)
   async function doLogout() {
