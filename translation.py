@@ -664,6 +664,8 @@ async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
         '{"corrections": [{"original": "...", "corrected": "...", "explanation": "...", "construction": "..."}], '
         '"reply_en": "..."}\n'
         "corrections is empty [] if the message is natural and correct. "
+        "IMPORTANT: original = only the problematic word or phrase (NOT the full message). "
+        "corrected = the fixed form of that fragment only. "
         "explanation ≤ 15 words. construction = the grammar pattern name (e.g. 'A-唔-A question')."
     )
     loop = asyncio.get_event_loop()

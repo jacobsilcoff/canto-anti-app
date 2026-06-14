@@ -212,28 +212,32 @@
       transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
 
-    /* Corrections — tutor-style amber cards */
-    .msg-corrections { max-width: 80%; margin-top: 2px; }
-    .mine .msg-corrections { align-self: flex-end; }
-    .corr-toggle { background: none; border: 1px solid var(--warn-border, #f59e0b44);
-      color: var(--warn-accent, #b45309); border-radius: 999px; font-size: 0.74rem; font-weight: 600;
-      padding: 2px 9px; cursor: pointer; }
-    .corr-body { margin-top: 4px; display: none; }
-    .corr-body.open { display: block; }
-    .corr-card { background: var(--warn-soft); border: 1px solid var(--warn-border, #f59e0b44);
-      border-radius: 10px; padding: 8px 10px; margin-bottom: 4px; font-size: 0.82rem; }
-    .corr-card:last-child { margin-bottom: 0; }
-    .corr-quote { text-decoration: line-through; color: var(--text-muted); margin-bottom: 3px; }
-    .corr-fixed-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-    .corr-fixed-text { color: var(--good-strong); font-weight: 600; }
+    /* Corrections — same structure as tutor: amber pill toggle + card annotation */
+    .corr-wrap { align-self: flex-end; max-width: 86%; width: 100%; margin-top: 2px; }
+    .corr-xtra { display: flex; flex-direction: column; align-items: flex-end; }
+    .corr-xtra-head { width: auto; display: flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px; border: none; cursor: pointer;
+      background: var(--warn-soft, #fffbeb); border: 1px solid var(--warn-border, #fde68a);
+      color: var(--warn-strong, #b45309); font-size: 0.76rem; font-weight: 600; }
+    .corr-xtra-body { width: 100%; }
+    .corr-xtra:not(.open) .corr-xtra-body { display: none; }
+    .corr-card { margin-top: 6px; background: var(--warn-soft, #fffbeb);
+      border: 1px solid var(--warn-border, #fde68a);
+      border-left: 3px solid var(--warn-strong, #f59e0b);
+      border-radius: 10px; padding: 8px 11px; font-size: 0.88rem; }
+    .corr-quote { color: var(--text-muted); text-decoration: line-through;
+      font-family: var(--script-font, inherit); }
+    .corr-fixed { font-weight: 600; font-family: var(--script-font, inherit); font-size: 1rem;
+      margin-top: 2px; display: flex; align-items: center; gap: 8px; line-height: 2; }
+    .corr-fixed ruby { line-height: 1; }
     .corr-speak { background: none; border: 1px solid var(--border); border-radius: 6px;
       cursor: pointer; color: var(--text-muted); padding: 2px 6px; font-size: 0.78rem;
       flex-shrink: 0; line-height: 1; }
     .corr-speak:hover { border-color: var(--primary); color: var(--primary); }
-    .corr-form { display: inline-block; background: var(--grammar-soft, #ede9fe);
-      color: var(--grammar-strong, #5b21b6); border-radius: 6px; padding: 1px 7px;
-      font-size: 0.72rem; font-weight: 600; margin-bottom: 3px; }
-    .corr-why { color: var(--text-muted); font-size: 0.78rem; }
+    .corr-form { margin-top: 4px; display: inline-block; font-size: 0.74rem; font-weight: 600;
+      color: var(--grammar-strong, var(--primary)); background: var(--grammar-soft, var(--primary-soft));
+      border-radius: 999px; padding: 2px 9px; }
+    .corr-why { color: var(--text-muted); margin-top: 4px; font-size: 0.82rem; }
 
 
     /* ── Emoji reactions ── */
@@ -720,18 +724,22 @@
     </div>`;
 
     const corrHtml = mine && !isSending && corrections.length ? `
-      <div class="msg-corrections">
-        <button class="corr-toggle" data-id="${m.id}">📐 ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
-        <div class="corr-body open" id="corr-${m.id}">
-          ${corrections.map(c => `<div class="corr-card">
-            ${c.original ? `<div class="corr-quote">${esc(c.original)}</div>` : ''}
-            <div class="corr-fixed-row">
-              <button class="corr-speak" data-speak="${esc(c.corrected)}" title="Listen">🔊</button>
-              <span class="corr-fixed-text">${needsRuby(_targetLang) ? rbSpan(c.corrected) : esc(c.corrected)}</span>
-            </div>
-            ${c.construction ? `<div class="corr-form">📐 ${esc(c.construction)}</div>` : ''}
-            ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}
-          </div>`).join('')}
+      <div class="corr-wrap">
+        <div class="corr-xtra open" id="cxtra-${m.id}">
+          <button class="corr-xtra-head" data-id="${m.id}">
+            ✏️ Correction${corrections.length > 1 ? 's' : ''} · ${corrections.length} <span>▾</span>
+          </button>
+          <div class="corr-xtra-body">
+            ${corrections.map(c => `<div class="corr-card">
+              ${c.original ? `<div class="corr-quote">${esc(c.original)}</div>` : ''}
+              <div class="corr-fixed">
+                <button class="corr-speak" data-speak="${esc(c.corrected)}" title="Listen">🔊</button>
+                ${needsRuby(_targetLang) ? rbSpan(c.corrected) : esc(c.corrected)}
+              </div>
+              ${c.construction ? `<div class="corr-form">📐 ${esc(c.construction)}</div>` : ''}
+              ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}
+            </div>`).join('')}
+          </div>
         </div>
       </div>` : '';
 
@@ -763,10 +771,6 @@
   function toggleAa(msgId) {
     const el = document.getElementById(`aa-${msgId}`);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
-  }
-  function toggleCorr(msgId) {
-    const el = document.getElementById(`corr-${msgId}`);
-    if (el) el.classList.toggle('open');
   }
 
   function _initBwrap(el) {
@@ -926,8 +930,8 @@
     const aa = e.target.closest('.aa-btn[data-id]');
     if (aa) { toggleAa(aa.dataset.id); return; }
     // Corrections toggle
-    const corr = e.target.closest('.corr-toggle[data-id]');
-    if (corr) { toggleCorr(corr.dataset.id); return; }
+    const corr = e.target.closest('.corr-xtra-head[data-id]');
+    if (corr) { document.getElementById(`cxtra-${corr.dataset.id}`)?.classList.toggle('open'); return; }
     // Reaction pill (toggle existing)
     const rxPill = e.target.closest('.reaction-pill[data-msg-id]');
     if (rxPill) { e.stopPropagation(); toggleReaction(rxPill.dataset.msgId, rxPill.dataset.emoji); return; }
