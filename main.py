@@ -3092,7 +3092,7 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
     # Check if word is already in the user's deck.
     statuses = await db.get_word_statuses(user["id"], [req.word], req.target_lang)
     if req.word in statuses:
-        # Word exists — find the card and return its data.
+        # Word exists — find the card. First try exact match, then normalized/substring.
         import aiosqlite as _aiosqlite
         async with _aiosqlite.connect(db.DB_PATH) as conn:
             conn.row_factory = _aiosqlite.Row
@@ -3103,6 +3103,20 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                 (user["id"], req.target_lang, req.word),
             ) as cur:
                 row = await cur.fetchone()
+            if row is None:
+                # Exact miss — get_word_statuses matched via normalization or CJK substring.
+                # Find the card whose normalized target_text matches or contains this token.
+                norm_word = db._normalize_word(req.word)
+                async with conn.execute(
+                    "SELECT id, source_text, target_text, romanization, notes "
+                    "FROM cards WHERE user_id=? AND target_lang=?",
+                    (user["id"], req.target_lang),
+                ) as cur2:
+                    for r in await cur2.fetchall():
+                        card_norm = db._normalize_word(r["target_text"])
+                        if card_norm == norm_word or (norm_word and norm_word in card_norm):
+                            row = r
+                            break
         if row:
             resp: dict = {
                 "source": "deck",

@@ -81,12 +81,15 @@
     .mine .msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 5px; }
     .theirs .msg-bubble { background: var(--surface-alt); border-bottom-left-radius: 5px; }
     .msg-bubble-time { font-size: 0.68rem; color: var(--text-muted); padding: 0 6px; }
-    .msg-orig-btn { font-size: 0.7rem; color: var(--text-muted); background: none; border: none;
-      cursor: pointer; padding: 0 6px; text-decoration: underline; text-underline-offset: 2px; }
-    .msg-orig { font-size: 0.78rem; color: var(--text-muted); font-style: italic;
-      padding: 2px 6px; max-width: 75%; word-break: break-word; }
-    .mine .msg-orig-btn { color: rgba(255,255,255,0.6); }
-    .mine .msg-orig { color: rgba(255,255,255,0.55); align-self: flex-end; }
+
+    /* Aa panel: English + original + nuance note */
+    .msg-aa { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
+      padding: 4px 6px 2px; max-width: 80%; word-break: break-word; line-height: 1.5; }
+    .mine .msg-aa { align-self: flex-end; color: rgba(255,255,255,0.65); }
+    .msg-aa-orig { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border);
+      font-size: 0.78rem; }
+    .mine .msg-aa-orig { border-top-color: rgba(255,255,255,0.2); }
+    .msg-aa-nuance { margin-top: 3px; font-size: 0.74rem; opacity: 0.8; }
 
     /* Word-tap highlight */
     .gl { cursor: help; border-bottom: 1px dotted var(--text-muted); outline: none;
@@ -181,10 +184,6 @@
       width: 60%; height: 1.5px; background: currentColor;
       transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
-    /* Aa translation */
-    .msg-en { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
-      padding: 3px 6px; max-width: 75%; }
-    .mine .msg-en { align-self: flex-end; color: rgba(255,255,255,0.65); }
 
     /* Corrections */
     .msg-corrections { max-width: 80%; margin-top: 2px; }
@@ -203,9 +202,6 @@
       border-radius: 6px; padding: 1px 6px; font-size: 0.72rem; margin-left: 4px; }
     .corr-exp { color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }
 
-    /* Nuance note */
-    .msg-nuance { margin-top: 6px; font-size: 0.78rem; color: var(--text-muted);
-      font-style: italic; border-top: 1px solid var(--border); padding-top: 4px; }
 
     /* ── Word tooltip (reader-style) ── */
     .word-tooltip { display: none; position: fixed; background: var(--surface);
@@ -597,6 +593,7 @@
     const replyEn = analysis.reply_en || (m.original_lang === 'en' ? m.original_text : '');
     const hasDiff = m.original_text && m.display_text && m.original_text !== m.display_text;
     const hasEn = replyEn && replyEn !== m.display_text;
+    const hasAa = hasEn || hasDiff;  // single Aa button covers both
 
     const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
     const textHtml = needsRuby(_targetLang)
@@ -604,15 +601,14 @@
       : glossedText(m.display_text || '');
 
     const tools = `<div class="bubble-tools">
-      <button class="tool-btn" onclick="speakMsg('${esc(m.display_text || '')}')">🔊</button>
+      <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
       ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
-      ${hasEn ? `<button class="tool-btn" onclick="toggleEn(${m.id})">Aa</button>` : ''}
-      ${hasDiff ? `<button class="tool-btn" onclick="toggleOrig(${m.id})">see original</button>` : ''}
+      ${hasAa ? `<button class="tool-btn aa-btn" data-id="${m.id}" title="Translation">Aa</button>` : ''}
     </div>`;
 
     const corrHtml = mine && corrections.length ? `
       <div class="msg-corrections">
-        <button class="corr-toggle" onclick="toggleCorr(${m.id})">✏️ ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
+        <button class="corr-toggle" data-id="${m.id}">✏️ ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
         <div class="corr-body" id="corr-${m.id}">
           ${corrections.map(c => `<div class="corr-item">
             <span class="corr-orig">${esc(c.original)}</span> →
@@ -623,30 +619,25 @@
         </div>
       </div>` : '';
 
-    const enHtml = hasEn ? `<div class="msg-en" id="en-${m.id}" style="display:none">${esc(replyEn)}</div>` : '';
-
-    const origHtml = hasDiff ? `
-      <div class="msg-orig" id="orig-${m.id}" style="display:none">${esc(m.original_text)}
-        ${nuanceNote ? `<div class="msg-nuance">💡 ${esc(nuanceNote)}</div>` : ''}
-      </div>` : '';
+    // Combined Aa panel: English translation + original (if translated) + nuance note
+    const aaInner = [
+      hasEn ? `<div>${esc(replyEn)}</div>` : '',
+      hasDiff ? `<div class="msg-aa-orig">Original: ${esc(m.original_text)}${nuanceNote ? `<div class="msg-aa-nuance">💡 ${esc(nuanceNote)}</div>` : ''}</div>` : '',
+    ].join('');
+    const aaHtml = hasAa ? `<div class="msg-aa" id="aa-${m.id}" style="display:none">${aaInner}</div>` : '';
 
     return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
       ${nameHtml}
       <div class="msg-bubble">${textHtml}</div>
       ${tools}
       ${corrHtml}
-      ${enHtml}
-      ${origHtml}
+      ${aaHtml}
       <div class="msg-bubble-time">${relTime(m.created_at)}</div>
     </div>`;
   }
 
-  function toggleOrig(msgId) {
-    const el = document.getElementById(`orig-${msgId}`);
-    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
-  }
-  function toggleEn(msgId) {
-    const el = document.getElementById(`en-${msgId}`);
+  function toggleAa(msgId) {
+    const el = document.getElementById(`aa-${msgId}`);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
   }
   function toggleCorr(msgId) {
@@ -790,10 +781,20 @@
     tooltipWordData = null;
   }
 
-  // Event delegation for word taps (avoids inline onclick in innerHTML)
+  // Single delegated click handler for the thread — all dynamic buttons
   document.getElementById('msg-thread').addEventListener('click', e => {
-    const gl = e.target.closest && e.target.closest('.gl[data-word]');
-    if (gl) { e.stopPropagation(); onWordTap(gl, gl.dataset.word); }
+    // Word tap
+    const gl = e.target.closest('.gl[data-word]');
+    if (gl) { e.stopPropagation(); onWordTap(gl, gl.dataset.word); return; }
+    // 🔊 speak
+    const speak = e.target.closest('.tool-btn[data-speak]');
+    if (speak) { speakMsg(speak.dataset.speak); return; }
+    // Aa translation panel
+    const aa = e.target.closest('.aa-btn[data-id]');
+    if (aa) { toggleAa(aa.dataset.id); return; }
+    // Corrections toggle
+    const corr = e.target.closest('.corr-toggle[data-id]');
+    if (corr) { toggleCorr(corr.dataset.id); return; }
   });
 
   // Close tooltip when clicking outside
