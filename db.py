@@ -2550,15 +2550,6 @@ async def put_cached_embeddings(lang: str, model: str, vectors: dict[str, bytes]
 
 # ── Friends ────────────────────────────────────────────────────────────────────
 
-async def get_user_by_username(username: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT id, username, is_admin FROM users WHERE username=?", (username,)
-        ) as cur:
-            row = await cur.fetchone()
-        return dict(row) if row else None
-
 
 async def send_friend_request(requester_id: int, addressee_id: int) -> dict:
     """Send a friend request. Returns {ok, error}."""

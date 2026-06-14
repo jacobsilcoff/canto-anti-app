@@ -3382,10 +3382,10 @@ async def mark_read(conv_id: int, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
-@app.get("/api/conversations/{conv_id}/start")
-async def start_or_get_conv_with_friend(conv_id: int, user: dict = Depends(current_user)):
-    """Alias: open a conversation by friend user_id (passed as conv_id param name for URL simplicity)."""
-    result = await db.get_or_create_conversation(user["id"], conv_id)
+@app.get("/api/conversations/start/{friend_user_id}")
+async def start_or_get_conv_with_friend(friend_user_id: int, user: dict = Depends(current_user)):
+    """Get or create an in-app conversation with a friend."""
+    result = await db.get_or_create_conversation(user["id"], friend_user_id)
     return result
 
 
