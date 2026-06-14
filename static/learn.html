@@ -227,19 +227,28 @@
     .player-action { width: 100%; }
 
     /* Inline construction drill (LLM-graded, multi-turn) */
-    .cd-wrap { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-    .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); }
+    /* Stable flex column — topbar + scrollable history + pinned input at bottom */
+    .cd-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 52dvh; gap: 0; }
+    .cd-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-shrink: 0; }
+    .cd-construction { font-size: 1rem; font-weight: 700; overflow-wrap: break-word; flex: 1; min-width: 0; }
+    .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); flex-shrink: 0; }
+    /* Scrollable conversation area (history + current prompt + current feedback) */
+    .cd-scroll { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding-bottom: 4px; }
+    /* Compact history items — one per past exchange */
+    .cd-hist { display: flex; flex-direction: column; gap: 8px; }
+    .cd-hist-item { border-radius: 10px; padding: 8px 11px; font-size: 0.85rem; border-left: 3px solid; overflow-wrap: break-word; word-break: break-word; }
+    .cd-hist-item.ok  { border-color: var(--good);  background: var(--good-soft); }
+    .cd-hist-item.miss{ border-color: var(--again); background: var(--danger-soft); }
+    .cd-hist-phrase { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
+    .cd-hist-you { opacity: 0.8; font-family: var(--script-font, inherit); line-height: 2; }
+    .cd-hist-you ruby { line-height: 1; }
+    .cd-hist-you.struck { text-decoration: line-through; text-decoration-color: var(--again); }
+    .cd-hist-ans { font-family: var(--script-font, inherit); font-weight: 600; color: var(--good-strong); line-height: 2; }
+    .cd-hist-ans ruby { line-height: 1; }
+    /* Current-turn prompt + feedback */
     .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: break-word; }
     .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
     .cd-task b { font-weight: 700; }
-    /* Input row: the <input> must use flex-basis:0 (not auto/min-content) so iOS Safari
-       actually allows it to shrink — min-width:0 alone is ignored by some mobile browsers
-       for <input> elements, leaving the button pushed off the right edge. */
-    .cd-input-row { display: flex; gap: 8px; align-items: stretch; min-width: 0; overflow: hidden; }
-    .cd-input { flex: 1 1 0%; min-width: 0; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
-    .cd-input:focus { outline: none; border-color: var(--primary); }
-    .cd-submit { background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 12px; padding: 0 18px; font-size: 1rem; font-weight: 600; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
-    .cd-submit:disabled { opacity: 0.55; cursor: default; }
     .cd-fb { border-radius: 12px; padding: 12px 14px; overflow: hidden; overflow-wrap: break-word; word-break: break-word; }
     .cd-fb.cd-correct { background: var(--good-soft); }
     .cd-fb.cd-wrong { background: var(--warn-soft, #fffbeb); }
@@ -269,6 +278,12 @@
     @keyframes cd-blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
     .cd-err { color: var(--danger-strong); font-size: 0.9rem; }
     .cd-err button { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
+    /* Pinned input — text field with inline send arrow */
+    .cd-input-wrap { position: relative; flex-shrink: 0; margin-top: 12px; }
+    .cd-input { display: block; width: 100%; padding: 12px 46px 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 1.1rem; font-family: var(--script-font, inherit); background: var(--surface); color: var(--text); }
+    .cd-input:focus { outline: none; border-color: var(--primary); }
+    .cd-send { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); background: var(--primary); color: var(--on-primary, #fff); border: none; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .cd-send:disabled { opacity: 0.45; cursor: default; }
 
     /* ── Combo meter (in-lesson) ── */
     .combo-chip { display: none; align-items: center; gap: 4px; flex-shrink: 0;
@@ -1092,29 +1107,37 @@
         const maxTurns = 4;
         const history = [];      // [{role:'tutor'|'user', text}]
         let turn = 0, busy = false;
+        let currentPhrase = null, lastFeedback = null, lastAnswer = null;
         root.innerHTML = `<div class="cd-wrap">
-            <div class="ex-instruction">🎯 Practice: <b>${esc(construction)}</b></div>
-            <div class="cd-progress" id="cd-progress"></div>
-            <div class="cd-feed" id="cd-feed"></div>
-            <div class="cd-prompt" id="cd-prompt"><div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Starting drill…</div></div>
-            <div class="cd-input-row" id="cd-input-row" style="display:none">
+            <div class="cd-topbar">
+              <div class="cd-construction">🎯 Practice: <b>${esc(construction)}</b></div>
+              <div class="cd-progress" id="cd-progress"></div>
+            </div>
+            <div class="cd-scroll" id="cd-scroll">
+              <div class="cd-hist" id="cd-hist"></div>
+              <div class="cd-prompt" id="cd-prompt"><div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Starting drill…</div></div>
+              <div class="cd-feed" id="cd-feed"></div>
+            </div>
+            <div class="cd-input-wrap" id="cd-input-wrap" style="display:none">
               <input type="text" id="cd-input" class="cd-input ${scriptClassFor(lang)}" placeholder="Type your answer…" autocomplete="off" autocapitalize="off" spellcheck="false">
-              <button class="cd-submit" id="cd-submit" type="button">Check</button>
+              <button class="cd-send" id="cd-send" type="button" title="Submit">➤</button>
             </div>
             <button class="cta-btn cd-continue" id="cd-continue" type="button" style="display:none">Continue →</button>
           </div>`;
-        const feedEl = root.querySelector('#cd-feed');
-        const promptEl = root.querySelector('#cd-prompt');
-        const inputRow = root.querySelector('#cd-input-row');
-        const inputEl = root.querySelector('#cd-input');
-        const submitEl = root.querySelector('#cd-submit');
-        const contEl = root.querySelector('#cd-continue');
-        const progEl = root.querySelector('#cd-progress');
+        const feedEl    = root.querySelector('#cd-feed');
+        const promptEl  = root.querySelector('#cd-prompt');
+        const inputWrap = root.querySelector('#cd-input-wrap');
+        const inputEl   = root.querySelector('#cd-input');
+        const sendEl    = root.querySelector('#cd-send');
+        const contEl    = root.querySelector('#cd-continue');
+        const progEl    = root.querySelector('#cd-progress');
+        const histEl    = root.querySelector('#cd-hist');
+        const scrollEl  = root.querySelector('#cd-scroll');
         const setProgress = () => { progEl.textContent = `${Math.min(turn, maxTurns)} / ${maxTurns}`; };
         setProgress();
 
         async function call(answer) {
-          busy = true; submitEl.disabled = true;
+          busy = true; sendEl.disabled = true;
           try {
             const res = await fetch('/api/lesson/drill', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1122,34 +1145,52 @@
             });
             if (!res.ok) throw new Error();
             return await res.json();
-          } catch { return null; } finally { busy = false; submitEl.disabled = false; }
+          } catch { return null; } finally { busy = false; sendEl.disabled = false; }
         }
+
+        function appendHistory(phrase, fb, yourAnswer) {
+          if (!phrase) return;
+          const ok = fb && fb.correct;
+          const item = document.createElement('div');
+          item.className = `cd-hist-item ${ok ? 'ok' : 'miss'}`;
+          const yours = (yourAnswer || '').trim();
+          let inner = `<div class="cd-hist-phrase">${esc(phrase)}</div>`;
+          if (yours) inner += `<div class="cd-hist-you${ok ? '' : ' struck'}">${targetSpan(yours, lang)}</div>`;
+          if (!ok && fb && fb.corrected) {
+            const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
+            inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
+          }
+          item.innerHTML = inner;
+          histEl.appendChild(item);
+          if (needsRuby(lang)) applyRuby(item, null, false);
+          scrollEl.scrollTop = scrollEl.scrollHeight;
+        }
+
         function showPrompt(data) {
           if (!data || data.done || !data.phrase) return finish();
+          // Archive the previous exchange into the scrollable history
+          appendHistory(currentPhrase, lastFeedback, lastAnswer);
+          lastFeedback = null; lastAnswer = null;
+          currentPhrase = data.phrase;
           history.push({ role: 'tutor', text: data.phrase });
-          // The task is purely "translate this English phrase" — no target-language
-          // lead-in (it confusingly sat next to a different English sentence).
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
-          inputRow.style.display = ''; inputEl.value = '';
-          // Focus, then scroll the row into view after the iOS keyboard settles (~300 ms).
-          // Without the delay, iOS scrolls the entire page unpredictably, pushing
-          // the phrase prompt off the top of the screen.
+          feedEl.innerHTML = '';
+          inputWrap.style.display = ''; inputEl.value = '';
+          scrollEl.scrollTop = scrollEl.scrollHeight;
+          // Focus, then re-scroll after iOS keyboard settles (~300 ms).
           inputEl.focus();
-          setTimeout(() => inputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
+          setTimeout(() => scrollEl.scrollTop = scrollEl.scrollHeight, 350);
         }
+
         function showFeedback(fb, yourAnswer) {
+          lastFeedback = fb; lastAnswer = yourAnswer;
           if (!fb) { feedEl.innerHTML = ''; return; }
           const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
           const altRom = (fb.alternative_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.alternative_roman)}</span>` : '';
           const yours = (yourAnswer || '').trim();
-          // Always echo what the learner wrote — use targetSpan so ruby gets applied.
-          // Strike-through only on wrong answers.
           const youRow = yours
             ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext${fb.correct ? '' : ' cd-struck'}">${targetSpan(yours, lang)}</span></div>`
             : '';
-          // Only show the correction row when wrong — when correct, "Natural: X"
-          // looks like a correction even if it means something different, so we use
-          // the separate 'alternative' field for suggesting other valid forms.
           const ansRow = !fb.correct
             ? `<div class="cd-fb-ans"><span class="cd-fb-tag">Answer</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
             : '';
@@ -1158,38 +1199,46 @@
             : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
               <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
-              ${youRow}
-              ${ansRow}
-              ${altRow}
+              ${youRow}${ansRow}${altRow}
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
+          scrollEl.scrollTop = scrollEl.scrollHeight;
           try { if (navigator.vibrate) navigator.vibrate(fb.correct ? 15 : [0, 30, 30, 30]); } catch {}
         }
+
         async function start() {
           const data = await call(null);
           if (!data) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
           showPrompt(data);
         }
+
         async function submit() {
           if (busy) return;
           const ans = inputEl.value.trim();
           if (!ans) return;
           history.push({ role: 'user', text: ans });
-          inputRow.style.display = 'none';
+          inputWrap.style.display = 'none';
           promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
+          feedEl.innerHTML = '';
           const data = await call(ans);
           turn++; setProgress();
           showFeedback(data && data.feedback, ans);
           if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
           showPrompt(data);
         }
+
         function finish() {
-          inputRow.style.display = 'none'; promptEl.innerHTML = '';
-          feedEl.insertAdjacentHTML('beforeend', `<div class="cd-done">Drill complete! 🎉</div>`);
+          // Archive the last exchange before showing the done state
+          appendHistory(currentPhrase, lastFeedback, lastAnswer);
+          currentPhrase = null; lastFeedback = null; lastAnswer = null;
+          inputWrap.style.display = 'none'; promptEl.innerHTML = '';
+          feedEl.innerHTML = `<div class="cd-done">Drill complete! 🎉</div>`;
           contEl.style.display = ''; contEl.onclick = () => onDone();
+          scrollEl.scrollTop = scrollEl.scrollHeight;
           try { sfx.complete(); } catch {}
         }
-        submitEl.onclick = submit;
+
+        sendEl.onclick = submit;
         inputEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
         start();
         return { custom: true, isReady: () => false, grade: () => true, lock: () => {} };
