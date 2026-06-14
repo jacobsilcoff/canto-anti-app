@@ -2758,7 +2758,50 @@ async def get_messages(conversation_id: int, viewer_user_id: int,
     return list(reversed(rows))
 
 
-async def add_message(
+async def get_reactions_for_messages(message_ids: list[int], viewer_user_id: int) -> dict:
+    """Return {message_id: {emoji: {count, mine}}} for the given message IDs."""
+    if not message_ids:
+        return {}
+    placeholders = ",".join("?" * len(message_ids))
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            f"SELECT message_id, emoji, user_id FROM message_reactions WHERE message_id IN ({placeholders})",
+            message_ids,
+        ) as cur:
+            rows = await cur.fetchall()
+    result: dict = {}
+    for msg_id, emoji, uid in rows:
+        r = result.setdefault(msg_id, {}).setdefault(emoji, {"count": 0, "mine": False})
+        r["count"] += 1
+        if uid == viewer_user_id:
+            r["mine"] = True
+    return result
+
+
+async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool:
+    """Add reaction if not present, remove if already present. Returns True if now added."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
+            (message_id, user_id, emoji),
+        ) as cur:
+            existing = await cur.fetchone()
+        if existing:
+            await db.execute(
+                "DELETE FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
+                (message_id, user_id, emoji),
+            )
+            await db.commit()
+            return False
+        else:
+            await db.execute(
+                "INSERT OR IGNORE INTO message_reactions (message_id, user_id, emoji) VALUES (?,?,?)",
+                (message_id, user_id, emoji),
+            )
+            await db.commit()
+            return True
+
+
     conversation_id: int,
     sender_user_id: int | None,
     original_text: str,

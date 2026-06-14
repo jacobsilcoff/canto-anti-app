@@ -80,8 +80,10 @@
       font-size: 0.98rem; line-height: 1.5; word-break: break-word; overflow-wrap: break-word;
       position: relative; cursor: default; }
     .mine .msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 5px; }
-    .theirs .msg-bubble { background: var(--surface-alt); border-bottom-left-radius: 5px; }
+    .theirs .msg-bubble { background: var(--surface-alt); border-bottom-left-radius: 5px;
+      border: 1px solid var(--border); }
     .msg-bubble-time { font-size: 0.68rem; color: var(--text-muted); padding: 0 6px; }
+    .sending-indicator { font-style: italic; opacity: 0.6; }
 
     /* Aa panel: English + original + nuance note */
     .msg-aa { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
@@ -234,6 +236,25 @@
     .corr-why { color: var(--text-muted); font-size: 0.78rem; }
 
 
+    /* ── Emoji reactions ── */
+    .msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 6px 2px; }
+    .reaction-pill { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px;
+      padding: 2px 8px; font-size: 0.82rem; border: 1.5px solid var(--border);
+      background: var(--surface); cursor: pointer; line-height: 1.4; transition: background 0.1s; }
+    .reaction-pill:hover { border-color: var(--primary); background: var(--primary-soft); }
+    .reaction-pill.mine { border-color: var(--primary); background: var(--primary-soft);
+      color: var(--primary); font-weight: 600; }
+    .reaction-pill .rx-count { font-size: 0.75rem; color: var(--text-muted); }
+    .reaction-pill.mine .rx-count { color: var(--primary); }
+    /* Reaction picker */
+    .reaction-picker { display: none; position: fixed; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 30px; box-shadow: var(--shadow-pop);
+      padding: 6px 10px; z-index: 1002; }
+    .reaction-picker.open { display: flex; gap: 4px; }
+    .rx-option { font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 4px;
+      border-radius: 50%; border: none; background: none; transition: transform 0.1s; }
+    .rx-option:hover { transform: scale(1.3); }
+
     /* ── Word tooltip (reader-style) ── */
     .word-tooltip { display: none; position: fixed; background: var(--surface);
       border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop);
@@ -294,6 +315,16 @@
 <div class="word-tooltip" id="word-tooltip" role="dialog">
   <button class="tooltip-close" onclick="closeTooltip()">✕</button>
   <div id="tooltip-content"></div>
+</div>
+
+<!-- Emoji reaction picker -->
+<div class="reaction-picker" id="reaction-picker">
+  <button class="rx-option" data-emoji="❤️">❤️</button>
+  <button class="rx-option" data-emoji="😂">😂</button>
+  <button class="rx-option" data-emoji="😮">😮</button>
+  <button class="rx-option" data-emoji="😢">😢</button>
+  <button class="rx-option" data-emoji="👍">👍</button>
+  <button class="rx-option" data-emoji="🔥">🔥</button>
 </div>
 
 <div class="msg-layout" id="msg-layout">
@@ -667,29 +698,32 @@
   function renderBubble(m) {
     const mine = m.is_mine;
     const cls = mine ? 'mine' : 'theirs';
+    const isSending = !!m._sending;
     const analysis = m.analysis || {};
     const corrections = analysis.corrections || [];
     const nuanceNote = analysis.nuance_note || '';
     const replyEn = analysis.reply_en || (m.original_lang === 'en' ? m.original_text : '');
     const hasDiff = m.original_text && m.display_text && m.original_text !== m.display_text;
     const hasEn = replyEn && replyEn !== m.display_text;
-    const hasAa = hasEn || hasDiff;  // single Aa button covers both
+    const hasAa = hasEn || hasDiff;
+    const reactions = m.reactions || {};
 
     const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
     const textHtml = needsRuby(_targetLang)
       ? rbSpan(m.display_text || '')
       : glossedText(m.display_text || '');
 
-    const tools = `<div class="bubble-tools">
+    const tools = isSending ? '' : `<div class="bubble-tools">
       <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
       ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
       ${hasAa ? `<button class="tool-btn aa-btn" data-id="${m.id}" title="Translation">Aa</button>` : ''}
+      <button class="tool-btn rx-open-btn" data-msg-id="${m.id}" title="React">😊</button>
     </div>`;
 
-    const corrHtml = mine && corrections.length ? `
+    const corrHtml = mine && !isSending && corrections.length ? `
       <div class="msg-corrections">
         <button class="corr-toggle" data-id="${m.id}">📐 ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
-        <div class="corr-body" id="corr-${m.id}">
+        <div class="corr-body open" id="corr-${m.id}">
           ${corrections.map(c => `<div class="corr-card">
             ${c.original ? `<div class="corr-quote">${esc(c.original)}</div>` : ''}
             <div class="corr-fixed-row">
@@ -702,12 +736,19 @@
         </div>
       </div>` : '';
 
-    // Combined Aa panel: English translation + original (if translated) + nuance note
     const aaInner = [
       hasEn ? `<div>${esc(replyEn)}</div>` : '',
       hasDiff ? `<div class="msg-aa-orig">Original: ${esc(m.original_text)}${nuanceNote ? `<div class="msg-aa-nuance">💡 ${esc(nuanceNote)}</div>` : ''}</div>` : '',
     ].join('');
     const aaHtml = hasAa ? `<div class="msg-aa" id="aa-${m.id}" style="display:none">${aaInner}</div>` : '';
+
+    const rxEntries = Object.entries(reactions).sort((a, b) => b[1].count - a[1].count);
+    const rxHtml = rxEntries.length ? `<div class="msg-reactions" id="rx-${m.id}">
+      ${rxEntries.map(([emoji, {count, mine: rxMine}]) =>
+        `<button class="reaction-pill${rxMine ? ' mine' : ''}" data-emoji="${emoji}" data-msg-id="${m.id}">
+          ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
+        </button>`).join('')}
+    </div>` : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
 
     return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
       ${nameHtml}
@@ -715,7 +756,8 @@
       ${tools}
       ${corrHtml}
       ${aaHtml}
-      <div class="msg-bubble-time">${relTime(m.created_at)}</div>
+      ${isSending ? '' : rxHtml}
+      <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Processing…</span>' : relTime(m.created_at)}</div>
     </div>`;
   }
 
@@ -887,15 +929,76 @@
     // Corrections toggle
     const corr = e.target.closest('.corr-toggle[data-id]');
     if (corr) { toggleCorr(corr.dataset.id); return; }
+    // Reaction pill (toggle existing)
+    const rxPill = e.target.closest('.reaction-pill[data-msg-id]');
+    if (rxPill) { e.stopPropagation(); toggleReaction(rxPill.dataset.msgId, rxPill.dataset.emoji); return; }
+    // Open reaction picker
+    const rxOpen = e.target.closest('.rx-open-btn[data-msg-id]');
+    if (rxOpen) { e.stopPropagation(); openReactionPicker(rxOpen, rxOpen.dataset.msgId); return; }
   });
 
-  // Close tooltip when clicking outside
+  // ── Reaction picker ───────────────────────────────────────────────────────
+  let _rxMsgId = null;
+
+  function openReactionPicker(anchorEl, msgId) {
+    closeReactionPicker();
+    _rxMsgId = msgId;
+    const picker = document.getElementById('reaction-picker');
+    picker.classList.add('open');
+    // Position above the anchor button
+    const rect = anchorEl.getBoundingClientRect();
+    const pw = picker.offsetWidth || 280;
+    let left = rect.left - pw / 2 + rect.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+    const top = rect.top - (picker.offsetHeight || 60) - 8;
+    picker.style.left = left + 'px';
+    picker.style.top = Math.max(8, top) + 'px';
+  }
+
+  function closeReactionPicker() {
+    document.getElementById('reaction-picker').classList.remove('open');
+    _rxMsgId = null;
+  }
+
+  document.getElementById('reaction-picker').addEventListener('click', e => {
+    const btn = e.target.closest('.rx-option[data-emoji]');
+    if (btn && _rxMsgId) { toggleReaction(_rxMsgId, btn.dataset.emoji); closeReactionPicker(); }
+  });
+
+  async function toggleReaction(msgId, emoji) {
+    try {
+      const res = await fetch(`/api/messages/${msgId}/reactions/${encodeURIComponent(emoji)}`,
+        { method: 'POST' });
+      if (!res.ok) return;
+      const { reactions } = await res.json();
+      updateReactionPills(msgId, reactions);
+    } catch {}
+  }
+
+  function updateReactionPills(msgId, reactions) {
+    const el = document.getElementById(`rx-${msgId}`);
+    if (!el) return;
+    const rxEntries = Object.entries(reactions).sort((a, b) => b[1].count - a[1].count);
+    el.innerHTML = rxEntries.map(([emoji, {count, mine}]) =>
+      `<button class="reaction-pill${mine ? ' mine' : ''}" data-emoji="${emoji}" data-msg-id="${msgId}">
+        ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
+      </button>`
+    ).join('');
+  }
+
+  // Close tooltip and reaction picker when clicking outside
   document.addEventListener('click', e => {
     const tooltip = document.getElementById('word-tooltip');
     if (tooltip.style.display !== 'none' &&
         !tooltip.contains(e.target) &&
         !e.target.closest('.gl[data-word]')) {
       closeTooltip();
+    }
+    const picker = document.getElementById('reaction-picker');
+    if (picker.classList.contains('open') &&
+        !picker.contains(e.target) &&
+        !e.target.closest('.rx-open-btn')) {
+      closeReactionPicker();
     }
   });
 
@@ -927,6 +1030,22 @@
     input.value = '';
     resizeInput();
 
+    const thread = document.getElementById('msg-thread');
+    // Clear empty-state placeholder if present
+    if (!thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
+
+    // Render optimistic bubble immediately with typed text
+    const tempId = `temp-${Date.now()}`;
+    const tempBubble = {
+      id: tempId, is_mine: true, _sending: true,
+      display_text: text, original_text: text,
+      sender_name: 'Me', created_at: new Date().toISOString(),
+    };
+    thread.insertAdjacentHTML('beforeend', renderBubble(tempBubble));
+    const tempBwrap = document.getElementById(`bwrap-${tempId}`);
+    if (tempBwrap) { _initBwrap(tempBwrap); paintRuby(tempBwrap); }
+    thread.scrollTop = thread.scrollHeight;
+
     const endpoint = _activeConvType === 'messenger'
       ? `/api/conversations/${_activeConvId}/messenger-reply`
       : `/api/conversations/${_activeConvId}/messages`;
@@ -939,25 +1058,32 @@
       if (!res.ok) throw new Error();
       const data = await res.json();
       const { display_text, msg_id } = data;
-      // Update poll cursor before optimistic append so the poller won't re-add it
       if (msg_id) _lastMsgId = msg_id;
-      const thread = document.getElementById('msg-thread');
-      // Clear empty-state placeholder if present
-      const empty = thread.querySelector('div[style]');
-      if (empty && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
-      const bubble = {
-        id: msg_id || Date.now(), is_mine: true, display_text,
-        original_text: text, sender_name: 'Me', created_at: new Date().toISOString(),
+
+      // Preload ruby for translated text + any corrections
+      if (needsRuby(_targetLang)) {
+        const texts = new Set([display_text].filter(Boolean));
+        (data.analysis?.corrections || []).forEach(c => { if (c.corrected) texts.add(c.corrected); });
+        const toFetch = [...texts].filter(t => !(_ck(t) in _tokenCache));
+        if (toFetch.length) await fetchTokensBatch(toFetch);
+      }
+
+      // Replace optimistic bubble with real one (includes analysis + reactions)
+      const realBubble = {
+        id: msg_id || Date.now(), is_mine: true,
+        display_text, original_text: text,
+        sender_name: 'Me', created_at: new Date().toISOString(),
+        analysis: data.analysis || {}, reactions: {},
       };
-      if (needsRuby(_targetLang) && display_text && !(_ck(display_text) in _tokenCache))
-        await fetchTokensBatch([display_text]);
-      thread.insertAdjacentHTML('beforeend', renderBubble(bubble));
-      const bwrap = document.getElementById(`bwrap-${bubble.id}`);
-      if (bwrap) { _initBwrap(bwrap); paintRuby(bwrap); }
+      if (tempBwrap) tempBwrap.remove();
+      thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
+      const realBwrap = document.getElementById(`bwrap-${realBubble.id}`);
+      if (realBwrap) { _initBwrap(realBwrap); paintRuby(realBwrap); }
       thread.scrollTop = thread.scrollHeight;
       await loadConvs();
     } catch {
-      input.value = text;  // restore on error
+      if (tempBwrap) tempBwrap.remove();
+      input.value = text;
     } finally {
       btn.disabled = false;
       input.focus();

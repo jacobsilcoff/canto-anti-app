@@ -3367,6 +3367,8 @@ async def get_messages(conv_id: int, before_id: int = 0,
         if not any(c["id"] == conv_id for c in convs):
             raise HTTPException(403, "Not a participant")
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    msg_ids = [m["id"] for m in msgs]
+    reactions_map = await db.get_reactions_for_messages(msg_ids, user["id"])
     result = []
     for m in msgs:
         is_mine = m["sender_user_id"] == user["id"]
@@ -3383,6 +3385,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
             "sender_user_id": m["sender_user_id"],
             "created_at": m["created_at"],
             "analysis": analysis,
+            "reactions": reactions_map.get(m["id"], {}),
         })
     return {"messages": result}
 
@@ -3448,6 +3451,18 @@ async def start_or_get_conv_with_friend(friend_user_id: int, user: dict = Depend
     """Get or create an in-app conversation with a friend."""
     result = await db.get_or_create_conversation(user["id"], friend_user_id)
     return result
+
+
+_ALLOWED_REACTIONS = {"❤️", "😂", "😮", "😢", "👍", "🔥"}
+
+
+@app.post("/api/messages/{msg_id}/reactions/{emoji}")
+async def toggle_reaction(msg_id: int, emoji: str, user: dict = Depends(current_user)):
+    if emoji not in _ALLOWED_REACTIONS:
+        raise HTTPException(400, "Emoji not allowed")
+    added = await db.toggle_reaction(msg_id, user["id"], emoji)
+    reactions = await db.get_reactions_for_messages([msg_id], user["id"])
+    return {"added": added, "reactions": reactions.get(msg_id, {})}
 
 
 # ── Facebook Messenger integration ────────────────────────────────────────────
