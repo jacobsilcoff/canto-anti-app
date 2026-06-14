@@ -28,6 +28,11 @@
     .msg-sidebar-title { font-weight: 700; font-size: 1.05rem; }
     .msg-friends-btn { background: var(--primary-soft); color: var(--primary); border: none;
       border-radius: 8px; padding: 5px 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .msg-notif-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
+      border-radius: 8px; padding: 5px 7px; font-size: 1.1rem; display: flex; align-items: center;
+      transition: color 0.15s; }
+    .msg-notif-btn.enabled { color: var(--primary); }
+    .msg-notif-btn:disabled { opacity: 0.4; cursor: default; }
     .msg-convs { flex: 1; overflow-y: auto; }
     .msg-conv-row { padding: 11px 14px; cursor: pointer; display: flex; align-items: center;
       gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
@@ -330,6 +335,7 @@
   <div class="msg-sidebar" id="msg-sidebar">
     <div class="msg-sidebar-head">
       <span class="msg-sidebar-title">Messages</span>
+      <button class="msg-notif-btn" id="notif-bell-btn" title="Enable notifications" onclick="toggleNotifications()">🔔</button>
       <button class="msg-friends-btn" onclick="openFriendsModal()">Friends ＋</button>
     </div>
     <div class="msg-convs" id="msg-convs">
@@ -663,6 +669,7 @@
     // Refresh unread count
     if (conv) conv.unread = 0;
     renderConvList();
+    if (window._refreshNotifCounts) window._refreshNotifCounts();
   }
 
   async function openConvWithFriend(friendUserId) {
@@ -1135,6 +1142,7 @@
         _backfillTokens(newMsgs);
         _preloadWordStatuses([..._wordsFromMessages(newMsgs)]);
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
+        if (window._refreshNotifCounts) window._refreshNotifCounts();
       }
     } catch {}
   }
@@ -1158,7 +1166,10 @@
     loadFriends();
     loadMessengerStatus();
   }
-  function closeFriendsModal() { document.getElementById('friends-modal').style.display = 'none'; }
+  function closeFriendsModal() {
+    document.getElementById('friends-modal').style.display = 'none';
+    if (window._refreshNotifCounts) window._refreshNotifCounts();
+  }
   function closeFriendsModalIfBg(e) { if (e.target === document.getElementById('friends-modal').firstElementChild) closeFriendsModal(); }
 
   async function loadFriends() {
@@ -1372,6 +1383,69 @@
     }, { passive: false });
   })();
 
+  // ── Push notifications ────────────────────────────────────────────────────
+
+  function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  async function _getPushSubscription() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+    const reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  }
+
+  async function _syncBellState() {
+    const btn = document.getElementById('notif-bell-btn');
+    if (!btn) return;
+    if (!('Notification' in window) || !('PushManager' in window)) {
+      btn.disabled = true; btn.title = 'Notifications not supported in this browser'; return;
+    }
+    if (Notification.permission === 'denied') {
+      btn.disabled = true; btn.title = 'Notifications blocked — enable in browser settings'; return;
+    }
+    const sub = await _getPushSubscription();
+    if (sub) { btn.classList.add('enabled'); btn.title = 'Notifications on — tap to disable'; }
+    else { btn.classList.remove('enabled'); btn.title = 'Enable notifications'; }
+  }
+
+  async function toggleNotifications() {
+    const sub = await _getPushSubscription();
+    if (sub) {
+      // Unsubscribe
+      const json = sub.toJSON();
+      await sub.unsubscribe();
+      await fetch('/api/push/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
+      }).catch(() => {});
+      _syncBellState();
+      return;
+    }
+    // Subscribe
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { _syncBellState(); return; }
+    try {
+      const { public_key } = await fetch('/api/push/vapid-public-key').then(r => r.json());
+      const reg = await navigator.serviceWorker.ready;
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(public_key),
+      });
+      const j = newSub.toJSON();
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
+      });
+    } catch (e) { console.warn('Push subscribe failed', e); }
+    _syncBellState();
+  }
+
   // ── Nav helpers ───────────────────────────────────────────────────────────
   function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
   document.addEventListener('click', e => {
@@ -1387,6 +1461,7 @@
 
   // Start
   init();
+  _syncBellState();
 </script>
 </body>
 </html>

@@ -23,6 +23,37 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Push notifications
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'New notification', {
+      body: data.body || '',
+      icon: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-192.png',
+      data: { url: data.url || '/messages' },
+      tag: data.tag || 'default',
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/messages';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url.includes(self.location.origin) && 'focus' in c) {
+          c.navigate(url);
+          return c.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+
 // Fetch strategy:
 //   - Navigation (HTML pages): network-first, fall back to cache
 //   - Static assets (/static/): cache-first
