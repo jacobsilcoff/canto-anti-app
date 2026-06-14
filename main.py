@@ -3299,7 +3299,39 @@ async def remove_friend(other_user_id: int, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
-# ── Conversations ──────────────────────────────────────────────────────────────
+@app.get("/api/friends/leaderboard")
+async def friends_leaderboard(user: dict = Depends(current_user)):
+    data = await db.get_friends(user["id"])
+    friends = data["friends"]
+    user_ids = [user["id"]] + [f["user_id"] for f in friends]
+    usernames = {user["id"]: user["username"]}
+    for f in friends:
+        usernames[f["user_id"]] = f["username"]
+
+    import aiosqlite as _aiosqlite
+    placeholders = ",".join("?" * len(user_ids))
+    async with _aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            f"SELECT user_id, COALESCE(SUM(points), 0) FROM points_ledger "
+            f"WHERE user_id IN ({placeholders}) GROUP BY user_id",
+            user_ids,
+        ) as cur:
+            xp_map = {row[0]: row[1] async for row in cur}
+
+    entries = []
+    for uid in user_ids:
+        streak = await db.get_streak(uid)
+        entries.append({
+            "user_id": uid,
+            "username": usernames[uid],
+            "xp": xp_map.get(uid, 0),
+            "streak": streak,
+            "is_me": uid == user["id"],
+        })
+    entries.sort(key=lambda x: -x["xp"])
+    return {"leaderboard": entries}
+
+
 
 @app.get("/api/conversations")
 async def list_conversations(user: dict = Depends(current_user)):

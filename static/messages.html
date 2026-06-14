@@ -154,6 +154,30 @@
     .friend-row-actions { display: flex; gap: 6px; }
     .modal-empty { color: var(--text-muted); font-size: 0.88rem; padding: 6px 0; }
 
+    /* ── Friends modal tabs ── */
+    .modal-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .modal-tab { flex: 1; padding: 10px; font-size: 0.88rem; font-weight: 600; border: none;
+      background: none; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent;
+      margin-bottom: -1px; }
+    .modal-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Leaderboard ── */
+    .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+      border-bottom: 1px solid var(--border); }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank { font-size: 0.88rem; font-weight: 700; color: var(--text-muted);
+      width: 22px; text-align: center; flex-shrink: 0; }
+    .lb-rank.gold { color: #d4af37; }
+    .lb-rank.silver { color: #a8a9ad; }
+    .lb-rank.bronze { color: #cd7f32; }
+    .lb-name { flex: 1; font-weight: 600; font-size: 0.92rem; }
+    .lb-name.lb-me { color: var(--primary); }
+    .lb-me-tag { font-size: 0.68rem; background: var(--primary-soft); color: var(--primary);
+      border-radius: 6px; padding: 1px 5px; margin-left: 5px; font-weight: 700; }
+    .lb-stats { display: flex; gap: 10px; font-size: 0.82rem; color: var(--text-muted); }
+    .lb-xp { font-weight: 700; color: var(--text); }
+    .lb-loading { color: var(--text-muted); font-size: 0.88rem; padding: 12px 0; text-align: center; }
+
     /* ── Messenger connect section ── */
     .messenger-section { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
     .messenger-section h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 8px; }
@@ -185,22 +209,28 @@
       transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.7; pointer-events: none; }
 
 
-    /* Corrections */
+    /* Corrections — tutor-style amber cards */
     .msg-corrections { max-width: 80%; margin-top: 2px; }
     .mine .msg-corrections { align-self: flex-end; }
     .corr-toggle { background: none; border: 1px solid var(--warn-border, #f59e0b44);
       color: var(--warn-accent, #b45309); border-radius: 999px; font-size: 0.74rem; font-weight: 600;
       padding: 2px 9px; cursor: pointer; }
-    .corr-body { background: var(--warn-soft); border: 1px solid var(--warn-border, #f59e0b44);
-      border-radius: 10px; padding: 8px 10px; margin-top: 4px; display: none; }
+    .corr-body { margin-top: 4px; display: none; }
     .corr-body.open { display: block; }
-    .corr-item { margin-bottom: 6px; font-size: 0.82rem; }
-    .corr-item:last-child { margin-bottom: 0; }
-    .corr-orig { text-decoration: line-through; color: var(--text-muted); }
-    .corr-fixed { color: var(--good-strong); font-weight: 600; }
-    .corr-label { background: var(--grammar-soft, #ede9fe); color: var(--grammar-strong, #5b21b6);
-      border-radius: 6px; padding: 1px 6px; font-size: 0.72rem; margin-left: 4px; }
-    .corr-exp { color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }
+    .corr-card { background: var(--warn-soft); border: 1px solid var(--warn-border, #f59e0b44);
+      border-radius: 10px; padding: 8px 10px; margin-bottom: 4px; font-size: 0.82rem; }
+    .corr-card:last-child { margin-bottom: 0; }
+    .corr-quote { text-decoration: line-through; color: var(--text-muted); margin-bottom: 3px; }
+    .corr-fixed-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .corr-fixed-text { color: var(--good-strong); font-weight: 600; }
+    .corr-speak { background: none; border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; color: var(--text-muted); padding: 2px 6px; font-size: 0.78rem;
+      flex-shrink: 0; line-height: 1; }
+    .corr-speak:hover { border-color: var(--primary); color: var(--primary); }
+    .corr-form { display: inline-block; background: var(--grammar-soft, #ede9fe);
+      color: var(--grammar-strong, #5b21b6); border-radius: 6px; padding: 1px 7px;
+      font-size: 0.72rem; font-weight: 600; margin-bottom: 3px; }
+    .corr-why { color: var(--text-muted); font-size: 0.78rem; }
 
 
     /* ── Word tooltip (reader-style) ── */
@@ -251,7 +281,10 @@
     ruby { ruby-align: center; }
     .rb { display: inline; }
   </style>
-  <style>html { height: 100%; overflow: hidden; }</style>
+  <style>html { height: 100%; overflow: hidden; }
+  /* Raise header above the mobile sidebar overlay (z-index: 200) */
+  header { z-index: 250; }
+  </style>
 </head>
 <body>
 <header>{{NAV}}</header>
@@ -319,7 +352,12 @@
         <span class="modal-title">Friends</span>
         <button class="modal-close" onclick="closeFriendsModal()">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-tabs">
+        <button class="modal-tab active" id="tab-friends" onclick="switchFriendsTab('friends')">Friends</button>
+        <button class="modal-tab" id="tab-leaderboard" onclick="switchFriendsTab('leaderboard')">🏆 Leaderboard</button>
+      </div>
+      <div class="modal-body" id="friends-tab-body">
+
         <!-- Search -->
         <div class="modal-section">
           <div class="modal-section-title">Find by username</div>
@@ -371,6 +409,10 @@
             </div>
           </div>
         </div>
+      </div>
+      <!-- Leaderboard tab panel (hidden by default) -->
+      <div class="modal-body" id="leaderboard-tab-body" style="display:none">
+        <div id="leaderboard-list"><div class="lb-loading">Loading…</div></div>
       </div>
     </div>
   </div>
@@ -645,13 +687,16 @@
 
     const corrHtml = mine && corrections.length ? `
       <div class="msg-corrections">
-        <button class="corr-toggle" data-id="${m.id}">✏️ ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
+        <button class="corr-toggle" data-id="${m.id}">📐 ${corrections.length} correction${corrections.length > 1 ? 's' : ''}</button>
         <div class="corr-body" id="corr-${m.id}">
-          ${corrections.map(c => `<div class="corr-item">
-            <span class="corr-orig">${esc(c.original)}</span> →
-            <span class="corr-fixed">${needsRuby(_targetLang) ? rbSpan(c.corrected) : esc(c.corrected)}</span>
-            ${c.construction ? `<span class="corr-label">${esc(c.construction)}</span>` : ''}
-            <div class="corr-exp">${esc(c.explanation)}</div>
+          ${corrections.map(c => `<div class="corr-card">
+            ${c.original ? `<div class="corr-quote">${esc(c.original)}</div>` : ''}
+            <div class="corr-fixed-row">
+              <button class="corr-speak" data-speak="${esc(c.corrected)}" title="Listen">🔊</button>
+              <span class="corr-fixed-text">${needsRuby(_targetLang) ? rbSpan(c.corrected) : esc(c.corrected)}</span>
+            </div>
+            ${c.construction ? `<div class="corr-form">📐 ${esc(c.construction)}</div>` : ''}
+            ${c.explanation ? `<div class="corr-why">${esc(c.explanation)}</div>` : ''}
           </div>`).join('')}
         </div>
       </div>` : '';
@@ -743,6 +788,8 @@
       const data = await res.json();
       tooltipWordData = data;
       renderTooltip(data);
+      // Reposition now that the tooltip has its full height
+      if (_activeWordEl) positionTooltip(_activeWordEl);
     } catch {
       document.getElementById('tooltip-content').innerHTML =
         `<div class="tooltip-error">Lookup failed — try again.</div>`;
@@ -754,13 +801,15 @@
     tooltip.style.display = 'block';  // show (overrides CSS display:none)
     const rect = el.getBoundingClientRect();
     const tw = tooltip.offsetWidth || 240;
-    const th = tooltip.offsetHeight || 120;
+    const th = tooltip.offsetHeight || 80;
     const margin = 10;
+    // Use visualViewport height on iOS (window.innerHeight doesn't shrink for keyboard)
+    const vph = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     let left = rect.left;
     let top  = rect.bottom + margin;
     if (left + tw > window.innerWidth - margin) left = window.innerWidth - tw - margin;
     if (left < margin) left = margin;
-    if (top + th > window.innerHeight - margin) top = rect.top - th - margin;
+    if (top + th > vph - margin) top = rect.top - th - margin;
     if (top < margin) top = margin;
     tooltip.style.left = left + 'px';
     tooltip.style.top  = top  + 'px';
@@ -828,8 +877,8 @@
     // Word tap
     const gl = e.target.closest('.gl[data-word]');
     if (gl) { e.stopPropagation(); onWordTap(gl, gl.dataset.word); return; }
-    // 🔊 speak
-    const speak = e.target.closest('.tool-btn[data-speak]');
+    // 🔊 speak (bubble toolbar or correction card)
+    const speak = e.target.closest('[data-speak]');
     if (speak) { speakMsg(speak.dataset.speak); return; }
     // Aa translation panel
     const aa = e.target.closest('.aa-btn[data-id]');
@@ -951,8 +1000,21 @@
   }
 
   // ── Friends modal ─────────────────────────────────────────────────────────
+  let _activeFriendsTab = 'friends';
+
+  function switchFriendsTab(tab) {
+    _activeFriendsTab = tab;
+    document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
+    document.getElementById('tab-leaderboard').classList.toggle('active', tab === 'leaderboard');
+    document.getElementById('friends-tab-body').style.display = tab === 'friends' ? '' : 'none';
+    document.getElementById('leaderboard-tab-body').style.display = tab === 'leaderboard' ? '' : 'none';
+    if (tab === 'leaderboard') loadLeaderboard();
+  }
+
   function openFriendsModal() {
     document.getElementById('friends-modal').style.display = '';
+    // Always switch back to friends tab on open
+    switchFriendsTab('friends');
     loadFriends();
     loadMessengerStatus();
   }
@@ -993,6 +1055,35 @@
           </div>`).join('');
       }
     } catch {}
+  }
+
+  async function loadLeaderboard() {
+    const el = document.getElementById('leaderboard-list');
+    el.innerHTML = '<div class="lb-loading">Loading…</div>';
+    try {
+      const { leaderboard } = await fetch('/api/friends/leaderboard').then(r => r.json());
+      if (!leaderboard || !leaderboard.length) {
+        el.innerHTML = '<div class="lb-loading">Add friends to see the leaderboard!</div>';
+        return;
+      }
+      const medals = ['🥇', '🥈', '🥉'];
+      el.innerHTML = leaderboard.map((entry, i) => {
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        const rankLabel = medals[i] || `${i + 1}`;
+        return `<div class="lb-row">
+          <div class="lb-rank ${rankClass}">${rankLabel}</div>
+          <div class="lb-name${entry.is_me ? ' lb-me' : ''}">
+            ${esc(entry.username)}${entry.is_me ? '<span class="lb-me-tag">you</span>' : ''}
+          </div>
+          <div class="lb-stats">
+            <span>🔥 ${entry.streak}</span>
+            <span class="lb-xp">⭐ ${entry.xp.toLocaleString()}</span>
+          </div>
+        </div>`;
+      }).join('');
+    } catch {
+      el.innerHTML = '<div class="lb-loading">Could not load leaderboard.</div>';
+    }
   }
 
   async function searchFriend() {
