@@ -385,6 +385,7 @@
   let _targetLang = 'yue';
   let _pollTimer = null;
   let _lastMsgId = 0;
+  const _wordStatusCache = {};  // word → 'known'|'weak' (populated by preload; absent = unknown)
 
   // ── Ruby helpers (same pipeline as tutor.html) ────────────────────────────
   const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
@@ -405,6 +406,41 @@
     } catch {
       texts.forEach(t => { if (!(_ck(t) in _tokenCache)) _tokenCache[_ck(t)] = []; });
     }
+  }
+
+  async function _preloadWordStatuses(words) {
+    if (!words.length) return;
+    const toFetch = words.filter(w => !(w in _wordStatusCache)).slice(0, 100);
+    if (!toFetch.length) return;
+    try {
+      const { statuses } = await fetch('/api/cards/status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: toFetch, lang: _targetLang }),
+      }).then(r => r.json());
+      Object.assign(_wordStatusCache, statuses || {});
+    } catch {}
+  }
+
+  // Collect all unique word tokens from a set of text strings and preload ruby + status
+  async function _preloadTexts(textSet) {
+    if (!needsRuby(_targetLang)) return;
+    const texts = [...textSet].filter(Boolean);
+    const toFetch = texts.filter(t => !(_ck(t) in _tokenCache));
+    if (toFetch.length) await fetchTokensBatch(toFetch);
+    const allWords = new Set();
+    texts.forEach(t => {
+      (_tokenCache[_ck(t)] || []).forEach(tok => { if (tok.is_word && tok.text) allWords.add(tok.text); });
+    });
+    await _preloadWordStatuses([...allWords]);
+  }
+
+  function _textsFromMessages(msgs) {
+    const s = new Set();
+    msgs.forEach(m => {
+      if (m.display_text) s.add(m.display_text);
+      (m.analysis?.corrections || []).forEach(c => { if (c.corrected) s.add(c.corrected); });
+    });
+    return s;
   }
 
   function _tokensToHtml(tokens, showRuby) {
@@ -566,18 +602,19 @@
         thread.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:0.9rem">No messages yet. Say hello! 👋</div>';
         return;
       }
+      // Preload ruby tokens + deck status before rendering so paintRuby runs synchronously
+      await _preloadTexts(_textsFromMessages(messages));
+
       const wasAtBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 50;
       const html = messages.map(renderBubble).join('');
       if (append) {
         thread.insertAdjacentHTML('beforeend', html);
         const newBwraps = messages.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean);
-        newBwraps.forEach(_initBwrap);
-        renderRubyAll(newBwraps);
+        newBwraps.forEach(b => { _initBwrap(b); paintRuby(b); });
       } else {
         thread.innerHTML = html;
         const bwraps = [...thread.querySelectorAll('.msg-bubble-wrap')];
-        bwraps.forEach(_initBwrap);
-        renderRubyAll(bwraps);
+        bwraps.forEach(b => { _initBwrap(b); paintRuby(b); });
       }
       if (wasAtBottom || !append) thread.scrollTop = thread.scrollHeight;
       if (messages.length) _lastMsgId = Math.max(...messages.map(m => m.id));
@@ -685,8 +722,13 @@
     el.classList.add('tapped');
 
     // Set loading content first so positionTooltip measures correct (min) height
+    // Show cached deck status badge immediately while waiting for full lookup
+    const _cs = _wordStatusCache[word];
+    const _csBadge = _cs
+      ? `<span class="tooltip-status-badge ${_cs}" style="margin-right:6px">${_cs === 'known' ? 'Known' : 'Weak'}</span>`
+      : '';
     document.getElementById('tooltip-content').innerHTML =
-      `<div class="tooltip-loading" style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0"></span>Looking up…</div>`;
+      `<div class="tooltip-loading" style="display:flex;align-items:center;gap:6px">${_csBadge}<span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0"></span>Looking up…</div>`;
     positionTooltip(el);  // sets display:block and positions; leaves display as block
 
     const bwrap = el.closest('.msg-bubble-wrap');
@@ -857,9 +899,11 @@
         id: msg_id || Date.now(), is_mine: true, display_text,
         original_text: text, sender_name: 'Me', created_at: new Date().toISOString(),
       };
+      if (needsRuby(_targetLang) && display_text && !(_ck(display_text) in _tokenCache))
+        await fetchTokensBatch([display_text]);
       thread.insertAdjacentHTML('beforeend', renderBubble(bubble));
       const bwrap = document.getElementById(`bwrap-${bubble.id}`);
-      if (bwrap) { _initBwrap(bwrap); renderRubyAll([bwrap]); }
+      if (bwrap) { _initBwrap(bwrap); paintRuby(bwrap); }
       thread.scrollTop = thread.scrollHeight;
       await loadConvs();
     } catch {
@@ -893,12 +937,13 @@
         const newMsgs = messages.filter(m => m.id > prevId);
         // Clear empty-state placeholder if thread has no bubbles yet
         if (newMsgs.length && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
+        // Preload ruby tokens + status before rendering new bubbles
+        await _preloadTexts(_textsFromMessages(newMsgs));
         newMsgs.forEach(m => thread.insertAdjacentHTML('beforeend', renderBubble(m)));
         newMsgs.forEach(m => {
           const bwrap = document.getElementById(`bwrap-${m.id}`);
-          if (bwrap) { _initBwrap(bwrap); }
+          if (bwrap) { _initBwrap(bwrap); paintRuby(bwrap); }
         });
-        renderRubyAll(newMsgs.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean));
         if (atBottom) thread.scrollTop = thread.scrollHeight;
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
       }
