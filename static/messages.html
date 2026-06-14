@@ -671,12 +671,11 @@
       const { messages } = await fetch(url).then(r => r.json());
       if (!messages) return;
       const thread = document.getElementById('msg-thread');
-      if (!append) thread.innerHTML = '';
       if (!messages.length && !append) {
         thread.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:0.9rem">No messages yet. Say hello! 👋</div>';
         return;
       }
-      // Preload ruby tokens + deck status before rendering so paintRuby runs synchronously
+      // Preload ruby tokens + deck status — keep "Loading…" visible during this
       await _preloadTexts(_textsFromMessages(messages));
 
       const wasAtBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 50;
@@ -717,7 +716,7 @@
       <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
       ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
       ${hasAa ? `<button class="tool-btn aa-btn" data-id="${m.id}" title="Translation">Aa</button>` : ''}
-      <button class="tool-btn rx-open-btn" data-msg-id="${m.id}" title="React">😊</button>
+      <button class="tool-btn rx-open-btn" data-msg-id="${m.id}" title="Add reaction"><svg width="14" height="14" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="11" r="7"/><path d="M6 13.5s1 1.5 3 1.5 3-1.5 3-1.5"/><circle cx="7" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="11" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><line x1="17" y1="4" x2="21" y2="4"/><line x1="19" y1="2" x2="19" y2="6"/></svg></button>
     </div>`;
 
     const corrHtml = mine && !isSending && corrections.length ? `
