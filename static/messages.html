@@ -458,6 +458,21 @@
 
   const _tokenCache = {};
   function _ck(t) { return _targetLang + '\0' + t; }
+
+  // Merge server-provided per-message tokens (from the messages/send response)
+  // into the local cache. The server now romanizes inline, so this is the normal
+  // path — no separate /api/ruby round trip, always consistent.
+  function _ingestTokens(msgs) {
+    msgs.forEach(m => {
+      if (m.tokens) Object.entries(m.tokens).forEach(([text, toks]) => {
+        if (Array.isArray(toks)) _tokenCache[_ck(text)] = toks;
+      });
+    });
+  }
+
+  // Fallback fetch for any text the server didn't tokenize (rare). Crucially,
+  // does NOT cache failures — a transient error must not permanently blank a
+  // message's romanization (which also broke the あ toggle: nothing to toggle).
   async function fetchTokensBatch(texts) {
     if (!texts.length) return;
     try {
@@ -465,13 +480,14 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texts, lang: _targetLang }),
       });
+      if (!res.ok) return;
       const results = (await res.json()).results || {};
-      texts.forEach(t => { _tokenCache[_ck(t)] = results[t] || []; });
-    } catch {
-      texts.forEach(t => { if (!(_ck(t) in _tokenCache)) _tokenCache[_ck(t)] = []; });
-    }
+      texts.forEach(t => { if (t in results) _tokenCache[_ck(t)] = results[t]; });
+    } catch { /* leave uncached so a later render/toggle can retry */ }
   }
 
+  // Best-effort, non-blocking: prime the deck-status cache so the word tooltip
+  // can show a Known/Weak badge instantly. Never blocks rendering.
   async function _preloadWordStatuses(words) {
     if (!words.length) return;
     const toFetch = words.filter(w => !(w in _wordStatusCache)).slice(0, 100);
@@ -485,26 +501,33 @@
     } catch {}
   }
 
-  // Collect all unique word tokens from a set of text strings and preload ruby + status
-  async function _preloadTexts(textSet) {
-    if (!needsRuby(_targetLang)) return;
-    const texts = [...textSet].filter(Boolean);
-    const toFetch = texts.filter(t => !(_ck(t) in _tokenCache));
-    if (toFetch.length) await fetchTokensBatch(toFetch);
-    const allWords = new Set();
-    texts.forEach(t => {
-      (_tokenCache[_ck(t)] || []).forEach(tok => { if (tok.is_word && tok.text) allWords.add(tok.text); });
-    });
-    await _preloadWordStatuses([...allWords]);
-  }
-
-  function _textsFromMessages(msgs) {
+  function _wordsFromMessages(msgs) {
     const s = new Set();
+    if (!needsRuby(_targetLang)) return s;
     msgs.forEach(m => {
-      if (m.display_text) s.add(m.display_text);
-      (m.analysis?.corrections || []).forEach(c => { if (c.corrected) s.add(c.corrected); });
+      const collect = txt => (_tokenCache[_ck(txt)] || []).forEach(
+        tok => { if (tok.is_word && tok.text) s.add(tok.text); });
+      if (m.display_text) collect(m.display_text);
+      (m.analysis?.corrections || []).forEach(c => { if (c.corrected) collect(c.corrected); });
     });
     return s;
+  }
+
+  // Defensive background fill: the server normally supplies all tokens inline,
+  // but if any text is missing (transient hiccup), fetch it and repaint so
+  // romanization + the あ toggle always end up working.
+  async function _backfillTokens(msgs) {
+    if (!needsRuby(_targetLang)) return;
+    const missing = new Set();
+    msgs.forEach(m => {
+      if (m.display_text && !(_ck(m.display_text) in _tokenCache)) missing.add(m.display_text);
+      (m.analysis?.corrections || []).forEach(c => {
+        if (c.corrected && !(_ck(c.corrected) in _tokenCache)) missing.add(c.corrected);
+      });
+    });
+    if (!missing.size) return;
+    await fetchTokensBatch([...missing]);
+    repaintAllRuby();
   }
 
   function _tokensToHtml(tokens, showRuby) {
@@ -520,7 +543,7 @@
   }
 
   function paintRuby(bwrap) {
-    const showRuby = bwrap._ruby !== false;
+    const showRuby = rubyDefault;
     bwrap.querySelectorAll('.rb').forEach(s => {
       const tokens = _tokenCache[_ck(s.dataset.text)];
       if (!tokens || !tokens.length) { s.textContent = s.dataset.text; return; }
@@ -530,14 +553,10 @@
     if (btn) btn.classList.toggle('rom-toggle-off', !showRuby);
   }
 
-  async function renderRubyAll(bwraps) {
-    if (!needsRuby(_targetLang) || !bwraps.length) return;
-    const needed = new Set();
-    bwraps.forEach(b => b.querySelectorAll('.rb').forEach(s => {
-      if (!(_ck(s.dataset.text) in _tokenCache)) needed.add(s.dataset.text);
-    }));
-    await fetchTokensBatch([...needed]);
-    bwraps.forEach(paintRuby);
+  // The あ toggle is a single global preference — flip it and repaint every
+  // bubble so romanization shows/hides consistently across the whole thread.
+  function repaintAllRuby() {
+    document.querySelectorAll('#msg-thread .msg-bubble-wrap').forEach(paintRuby);
   }
 
   function rbSpan(text) {
@@ -567,13 +586,6 @@
     loadFriends();
     loadMessengerStatus();
     startPolling();
-  }
-
-  function langName(code) {
-    const names = { yue:'Cantonese', cmn:'Mandarin', fr:'French', es:'Spanish',
-      de:'German', it:'Italian', pt:'Portuguese', ko:'Korean', hi:'Hindi',
-      te:'Telugu', ja:'Japanese', id:'Indonesian', ms:'Malay', tl:'Filipino' };
-    return names[code] || code.toUpperCase();
   }
 
   // ── Conversations list ────────────────────────────────────────────────────
@@ -628,6 +640,7 @@
     _lastMsgId = 0;
     const conv = _convs.find(c => c.id === convId);
     _activeConvType = conv ? conv.type : 'inapp';
+    _activeConvSeenAt = conv ? conv.last_message_at : null;
 
     // Update active state in sidebar
     renderConvList();
@@ -665,32 +678,37 @@
   // ── Load messages ─────────────────────────────────────────────────────────
   async function loadMessages(append = false) {
     if (!_activeConvId) return;
+    const convId = _activeConvId;
     try {
-      const url = `/api/conversations/${_activeConvId}/messages` +
+      const url = `/api/conversations/${convId}/messages` +
         (_lastMsgId ? `?before_id=${_lastMsgId}` : '');
       const { messages } = await fetch(url).then(r => r.json());
-      if (!messages) return;
+      if (!messages || _activeConvId !== convId) return;  // conv switched mid-fetch
       const thread = document.getElementById('msg-thread');
       if (!messages.length && !append) {
         thread.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:0.9rem">No messages yet. Say hello! 👋</div>';
         return;
       }
-      // Preload ruby tokens + deck status — keep "Loading…" visible during this
-      await _preloadTexts(_textsFromMessages(messages));
+      // Server already includes romanization tokens — just ingest + render. One
+      // round trip, romanization always present (no flash, no inconsistency).
+      _ingestTokens(messages);
 
       const wasAtBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 50;
       const html = messages.map(renderBubble).join('');
       if (append) {
         thread.insertAdjacentHTML('beforeend', html);
-        const newBwraps = messages.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean);
-        newBwraps.forEach(b => { _initBwrap(b); paintRuby(b); });
+        messages.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean)
+          .forEach(b => { _initBwrap(b); paintRuby(b); });
       } else {
         thread.innerHTML = html;
-        const bwraps = [...thread.querySelectorAll('.msg-bubble-wrap')];
-        bwraps.forEach(b => { _initBwrap(b); paintRuby(b); });
+        thread.querySelectorAll('.msg-bubble-wrap').forEach(b => { _initBwrap(b); paintRuby(b); });
       }
       if (wasAtBottom || !append) thread.scrollTop = thread.scrollHeight;
       if (messages.length) _lastMsgId = Math.max(...messages.map(m => m.id));
+      // Background: fill any missing tokens + prime deck-status badges. Neither
+      // blocks the render — the thread is already on screen.
+      _backfillTokens(messages);
+      _preloadWordStatuses([..._wordsFromMessages(messages)]);
     } catch {}
   }
 
@@ -770,13 +788,11 @@
   }
 
   function _initBwrap(el) {
-    el._ruby = rubyDefault;
     const btn = el.querySelector('.rb-toggle');
     if (btn) btn.onclick = () => {
-      el._ruby = !el._ruby;
-      rubyDefault = el._ruby;
-      localStorage.setItem('msg_ruby_inline', el._ruby ? '1' : '0');
-      paintRuby(el);
+      rubyDefault = !rubyDefault;
+      localStorage.setItem('msg_ruby_inline', rubyDefault ? '1' : '0');
+      repaintAllRuby();
     };
   }
 
@@ -1050,27 +1066,24 @@
       const { display_text, msg_id } = data;
       if (msg_id) _lastMsgId = msg_id;
 
-      // Preload ruby for translated text + any corrections
-      if (needsRuby(_targetLang)) {
-        const texts = new Set([display_text].filter(Boolean));
-        (data.analysis?.corrections || []).forEach(c => { if (c.corrected) texts.add(c.corrected); });
-        const toFetch = [...texts].filter(t => !(_ck(t) in _tokenCache));
-        if (toFetch.length) await fetchTokensBatch(toFetch);
-      }
-
-      // Replace optimistic bubble with real one (includes analysis + reactions)
+      // Replace optimistic bubble with real one (includes analysis + reactions).
+      // Server returns inline tokens — ingest them so ruby paints immediately.
       const realBubble = {
         id: msg_id || Date.now(), is_mine: true,
         display_text, original_text: text,
         sender_name: 'Me', created_at: new Date().toISOString(),
-        analysis: data.analysis || {}, reactions: {},
+        analysis: data.analysis || {}, reactions: {}, tokens: data.tokens || {},
       };
+      _ingestTokens([realBubble]);
       if (tempBwrap) tempBwrap.remove();
       thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
       const realBwrap = document.getElementById(`bwrap-${realBubble.id}`);
       if (realBwrap) { _initBwrap(realBwrap); paintRuby(realBwrap); }
       thread.scrollTop = thread.scrollHeight;
       await loadConvs();
+      // We've already rendered our own message — don't let the next poll re-fetch.
+      const c = _convs.find(c => c.id === _activeConvId);
+      if (c) _activeConvSeenAt = c.last_message_at;
     } catch {
       if (tempBwrap) tempBwrap.remove();
       input.value = text;
@@ -1081,10 +1094,19 @@
   }
 
   // ── Polling ───────────────────────────────────────────────────────────────
+  // The conversation list (cheap) is the change detector: only re-fetch the
+  // active thread (which tokenizes server-side) when its last_message_at moves.
+  let _activeConvSeenAt = null;
   function startPolling() {
     _pollTimer = setInterval(async () => {
       await loadConvs();
-      if (_activeConvId) await checkNewMessages();
+      if (!_activeConvId) return;
+      const conv = _convs.find(c => c.id === _activeConvId);
+      const at = conv && conv.last_message_at;
+      if (!at || at !== _activeConvSeenAt) {
+        _activeConvSeenAt = at;
+        await checkNewMessages();
+      }
     }, 5000);
   }
 
@@ -1103,14 +1125,15 @@
         const newMsgs = messages.filter(m => m.id > prevId);
         // Clear empty-state placeholder if thread has no bubbles yet
         if (newMsgs.length && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
-        // Preload ruby tokens + status before rendering new bubbles
-        await _preloadTexts(_textsFromMessages(newMsgs));
+        _ingestTokens(newMsgs);
         newMsgs.forEach(m => thread.insertAdjacentHTML('beforeend', renderBubble(m)));
         newMsgs.forEach(m => {
           const bwrap = document.getElementById(`bwrap-${m.id}`);
           if (bwrap) { _initBwrap(bwrap); paintRuby(bwrap); }
         });
         if (atBottom) thread.scrollTop = thread.scrollHeight;
+        _backfillTokens(newMsgs);
+        _preloadWordStatuses([..._wordsFromMessages(newMsgs)]);
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
       }
     } catch {}

@@ -2617,6 +2617,29 @@ class RubyBatchRequest(BaseModel):
     lang: str = "yue"
 
 
+# Languages whose messages get inline romanization ruby (non-Latin scripts).
+# Mirrors the client-side RUBY_LANGS set in messages.html / tutor.html.
+_RUBY_LANGS = {"yue", "cmn", "ko", "hi", "te"}
+
+
+def _tokenize_map(texts: list[str], lang: str) -> dict:
+    """Tokenise + romanise a set of texts → {original_text: [{text, roman, is_word}]}.
+    Sync CPU work (jieba/pycantonese); call via asyncio.to_thread."""
+    out: dict = {}
+    if lang not in translation.LANG_INFO:
+        return out
+    for raw in texts:
+        text = (raw or "").strip()[:500]
+        if not text or raw in out:
+            continue
+        tokens = tokenizer.tokenize(text, lang)
+        words = [t["text"] for t in tokens if t["is_word"]]
+        rmap = tokenizer.romanize_words(words, lang) if words else {}
+        out[raw] = [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
+                     "is_word": t["is_word"]} for t in tokens]
+    return out
+
+
 @app.post("/api/ruby/batch")
 @limiter.limit("60/minute")
 async def ruby_batch(request: Request, req: RubyBatchRequest, user: dict = Depends(current_user)):
@@ -3387,6 +3410,27 @@ async def get_messages(conv_id: int, before_id: int = 0,
             "analysis": analysis,
             "reactions": reactions_map.get(m["id"], {}),
         })
+
+    # Attach inline romanization tokens (single round trip — no separate /api/ruby
+    # fetch from the client, so romanization is always present and consistent).
+    if lang in _RUBY_LANGS:
+        texts: set[str] = set()
+        for r in result:
+            if r["display_text"]:
+                texts.add(r["display_text"])
+            for c in r["analysis"].get("corrections", []):
+                if c.get("corrected"):
+                    texts.add(c["corrected"])
+        tmap = await asyncio.to_thread(_tokenize_map, list(texts), lang)
+        for r in result:
+            rt: dict = {}
+            if r["display_text"] in tmap:
+                rt[r["display_text"]] = tmap[r["display_text"]]
+            for c in r["analysis"].get("corrections", []):
+                ct = c.get("corrected")
+                if ct in tmap:
+                    rt[ct] = tmap[ct]
+            r["tokens"] = rt
     return {"messages": result}
 
 
@@ -3437,7 +3481,14 @@ async def send_message(conv_id: int, body: SendMessageBody,
     msg_id = await db.add_message(
         conv_id, user["id"], body.text, original_lang, translations, analysis=analysis
     )
-    return {"ok": True, "display_text": sender_display, "msg_id": msg_id, "analysis": analysis}
+
+    tokens: dict = {}
+    if sender_lang in _RUBY_LANGS:
+        texts = [sender_display] + [c.get("corrected", "")
+                                    for c in analysis.get("corrections", [])]
+        tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
+    return {"ok": True, "display_text": sender_display, "msg_id": msg_id,
+            "analysis": analysis, "tokens": tokens}
 
 
 @app.post("/api/conversations/{conv_id}/read")
