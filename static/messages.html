@@ -105,12 +105,6 @@
       border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;
       background: var(--bg); }
     body.kb-open .msg-composer { padding-bottom: 10px; }
-    .msg-compose-mode { display: flex; gap: 6px; align-items: center; }
-    .msg-mode-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-    .msg-mode-seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .msg-mode-seg button { border: none; background: none; padding: 4px 11px;
-      font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--text-muted); }
-    .msg-mode-seg button.active { background: var(--primary); color: #fff; }
     .msg-compose-row { display: flex; gap: 8px; align-items: flex-end; }
     .msg-input { flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 14px;
       padding: 10px 14px; font-size: 0.98rem; background: var(--surface); color: var(--text);
@@ -361,13 +355,6 @@
       </div>
       <div class="msg-thread" id="msg-thread"></div>
       <div class="msg-composer" id="msg-composer">
-        <div class="msg-compose-mode">
-          <span class="msg-mode-label">Compose in</span>
-          <div class="msg-mode-seg" id="mode-seg">
-            <button data-mode="native" onclick="setMode('native')" class="active">English</button>
-            <button data-mode="target" onclick="setMode('target')" id="mode-target-btn">My lang</button>
-          </div>
-        </div>
         <div class="msg-compose-row">
           <textarea class="msg-input" id="msg-input" placeholder="Type a message…" rows="1"
             autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
@@ -459,7 +446,6 @@
   let _convs = [];
   let _activeConvId = null;
   let _activeConvType = null;  // 'inapp' | 'messenger'
-  let _composeMode = 'native'; // 'native' | 'target'
   let _targetLang = 'yue';
   let _pollTimer = null;
   let _lastMsgId = 0;
@@ -559,13 +545,23 @@
     return `<span class="rb" data-text="${esc(text)}">${esc(text)}</span>`;
   }
 
+  // Detect whether the user typed in their target language or English.
+  // Non-Latin scripts are unambiguous; accented Latin chars suggest target.
+  function detectInputMode(text) {
+    if (!text) return 'native';
+    if (/[一-鿿぀-ゟ゠-ヿ豈-﫿]/.test(text)) return 'target'; // CJK
+    if (/[가-힯ᄀ-ᇿ]/.test(text)) return 'target'; // Korean
+    if (/[ऀ-ॿ]/.test(text)) return 'target'; // Devanagari (Hindi)
+    if (/[ఀ-౿]/.test(text)) return 'target'; // Telugu
+    if (/[àáâãäåæçèéêëìíîïðñòóôõöùúûüýþÿœ]/i.test(text)) return 'target'; // accented Latin
+    return 'native';
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   async function init() {
-    // Get user's target lang for compose-mode label
     try {
       const s = await fetch('/api/settings').then(r => r.json());
       _targetLang = s.default_target_lang || 'yue';
-      document.getElementById('mode-target-btn').textContent = langName(_targetLang);
     } catch {}
     await loadConvs();
     loadFriends();
@@ -1014,15 +1010,6 @@
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
-  function setMode(mode) {
-    _composeMode = mode;
-    document.querySelectorAll('.msg-mode-seg button').forEach(b =>
-      b.classList.toggle('active', b.dataset.mode === mode));
-    const input = document.getElementById('msg-input');
-    input.placeholder = mode === 'native' ? 'Type in English…' : `Type in ${langName(_targetLang)}…`;
-    input.focus();
-  }
-
   async function sendMessage() {
     if (!_activeConvId) return;
     const input = document.getElementById('msg-input');
@@ -1056,7 +1043,7 @@
     try {
       const res = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, mode: _composeMode }),
+        body: JSON.stringify({ text, mode: detectInputMode(text) }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
