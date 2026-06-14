@@ -218,6 +218,13 @@
       .msg-main { width: 100%; }
       .msg-back-btn { display: block !important; }
     }
+
+    /* Ruby romanization */
+    .msg-bubble { line-height: 2; }  /* reserve space for ruby */
+    .msg-bubble ruby { line-height: 1; }
+    ruby { ruby-align: center; }
+    .rb { display: inline; }
+    .rom-toggle-off { text-decoration: line-through; opacity: 0.6; }
   </style>
   <style>html { height: 100%; overflow: hidden; }</style>
 </head>
@@ -348,6 +355,65 @@
   let _pollTimer = null;
   let _lastMsgId = 0;
 
+  // ── Ruby helpers (same pipeline as tutor.html) ────────────────────────────
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
+  function needsRuby(l) { return RUBY_LANGS.has(l); }
+  let rubyDefault = localStorage.getItem('msg_ruby_inline') !== '0';
+
+  const _tokenCache = {};
+  function _ck(t) { return _targetLang + '\0' + t; }
+  async function fetchTokensBatch(texts) {
+    if (!texts.length) return;
+    try {
+      const res = await fetch('/api/ruby/batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts, lang: _targetLang }),
+      });
+      const results = (await res.json()).results || {};
+      texts.forEach(t => { _tokenCache[_ck(t)] = results[t] || []; });
+    } catch {
+      texts.forEach(t => { if (!(_ck(t) in _tokenCache)) _tokenCache[_ck(t)] = []; });
+    }
+  }
+
+  function _tokensToHtml(tokens, showRuby) {
+    if (!Array.isArray(tokens) || !tokens.length) return '';
+    const hasRoman = tokens.some(t => t.roman);
+    return tokens.map(t => {
+      const inner = (showRuby && hasRoman && t.is_word && t.roman)
+        ? `<ruby>${esc(t.text)}<rt>${esc(t.roman)}</rt></ruby>` : esc(t.text);
+      return t.is_word
+        ? `<span class="gl" tabindex="0" data-word="${esc(t.text)}" onclick="lookupWord(this)">${inner}</span>`
+        : esc(t.text);
+    }).join('');
+  }
+
+  function paintRuby(bwrap) {
+    const showRuby = bwrap._ruby !== false;
+    bwrap.querySelectorAll('.rb').forEach(s => {
+      const tokens = _tokenCache[_ck(s.dataset.text)];
+      if (!tokens || !tokens.length) { s.textContent = s.dataset.text; return; }
+      s.innerHTML = _tokensToHtml(tokens, showRuby);
+    });
+    const btn = bwrap.querySelector('.rb-toggle');
+    if (btn) btn.classList.toggle('rom-toggle-off', !showRuby);
+  }
+
+  async function renderRubyAll(bwraps) {
+    if (!needsRuby(_targetLang) || !bwraps.length) return;
+    const needed = new Set();
+    bwraps.forEach(b => b.querySelectorAll('.rb').forEach(s => {
+      if (!(_ck(s.dataset.text) in _tokenCache)) needed.add(s.dataset.text);
+    }));
+    await fetchTokensBatch([...needed]);
+    bwraps.forEach(paintRuby);
+  }
+
+  function rbSpan(text) {
+    if (!text) return '';
+    return `<span class="rb" data-text="${esc(text)}">${esc(text)}</span>`;
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   async function init() {
     // Get user's target lang for compose-mode label
@@ -473,8 +539,14 @@
       const html = messages.map(renderBubble).join('');
       if (append) {
         thread.insertAdjacentHTML('beforeend', html);
+        const newBwraps = messages.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean);
+        newBwraps.forEach(_initBwrap);
+        renderRubyAll(newBwraps);
       } else {
         thread.innerHTML = html;
+        const bwraps = [...thread.querySelectorAll('.msg-bubble-wrap')];
+        bwraps.forEach(_initBwrap);
+        renderRubyAll(bwraps);
       }
       if (wasAtBottom || !append) thread.scrollTop = thread.scrollHeight;
       if (messages.length) _lastMsgId = Math.max(...messages.map(m => m.id));
@@ -492,10 +564,13 @@
     const hasEn = replyEn && replyEn !== m.display_text;
 
     const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
-    const displayHtml = glossedText(m.display_text || '');
+    const textHtml = needsRuby(_targetLang)
+      ? rbSpan(m.display_text || '')
+      : glossedText(m.display_text || '');
 
     const tools = `<div class="bubble-tools">
       <button class="tool-btn" onclick="speakMsg('${esc(m.display_text || '')}')">🔊</button>
+      ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
       ${hasEn ? `<button class="tool-btn" onclick="toggleEn(${m.id})">Aa</button>` : ''}
       ${hasDiff ? `<button class="tool-btn" onclick="toggleOrig(${m.id})">see original</button>` : ''}
     </div>`;
@@ -506,7 +581,7 @@
         <div class="corr-body" id="corr-${m.id}">
           ${corrections.map(c => `<div class="corr-item">
             <span class="corr-orig">${esc(c.original)}</span> →
-            <span class="corr-fixed">${esc(c.corrected)}</span>
+            <span class="corr-fixed">${needsRuby(_targetLang) ? rbSpan(c.corrected) : esc(c.corrected)}</span>
             ${c.construction ? `<span class="corr-label">${esc(c.construction)}</span>` : ''}
             <div class="corr-exp">${esc(c.explanation)}</div>
           </div>`).join('')}
@@ -520,9 +595,9 @@
         ${nuanceNote ? `<div class="msg-nuance">💡 ${esc(nuanceNote)}</div>` : ''}
       </div>` : '';
 
-    return `<div class="msg-bubble-wrap ${cls}">
+    return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
       ${nameHtml}
-      <div class="msg-bubble">${displayHtml}</div>
+      <div class="msg-bubble">${textHtml}</div>
       ${tools}
       ${corrHtml}
       ${enHtml}
@@ -542,6 +617,17 @@
   function toggleCorr(msgId) {
     const el = document.getElementById(`corr-${msgId}`);
     if (el) el.classList.toggle('open');
+  }
+
+  function _initBwrap(el) {
+    el._ruby = rubyDefault;
+    const btn = el.querySelector('.rb-toggle');
+    if (btn) btn.onclick = () => {
+      el._ruby = !el._ruby;
+      rubyDefault = el._ruby;
+      localStorage.setItem('msg_ruby_inline', el._ruby ? '1' : '0');
+      paintRuby(el);
+    };
   }
 
   // ── Audio ─────────────────────────────────────────────────────────────────
@@ -661,6 +747,8 @@
         original_text: text, sender_name: 'Me', created_at: new Date().toISOString(),
       };
       thread.insertAdjacentHTML('beforeend', renderBubble(bubble));
+      const bwrap = document.getElementById(`bwrap-${bubble.id}`);
+      if (bwrap) { _initBwrap(bwrap); renderRubyAll([bwrap]); }
       thread.scrollTop = thread.scrollHeight;
       await loadConvs();
     } catch {
@@ -695,6 +783,11 @@
         // Clear empty-state placeholder if thread has no bubbles yet
         if (newMsgs.length && !thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
         newMsgs.forEach(m => thread.insertAdjacentHTML('beforeend', renderBubble(m)));
+        newMsgs.forEach(m => {
+          const bwrap = document.getElementById(`bwrap-${m.id}`);
+          if (bwrap) { _initBwrap(bwrap); }
+        });
+        renderRubyAll(newMsgs.map(m => document.getElementById(`bwrap-${m.id}`)).filter(Boolean));
         if (atBottom) thread.scrollTop = thread.scrollHeight;
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
       }
