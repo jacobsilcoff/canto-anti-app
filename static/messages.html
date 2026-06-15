@@ -1092,6 +1092,7 @@
     const objUrl = URL.createObjectURL(file);
     const tempId = 'tmp-img-' + Date.now();
     const thread = document.getElementById('msg-thread');
+    if (!thread.querySelector('.msg-bubble-wrap')) thread.innerHTML = '';
     thread.insertAdjacentHTML('beforeend', `
       <div class="msg-bubble-wrap mine" id="${tempId}">
         <div class="msg-bubble msg-photo-bubble" style="opacity:0.55">
@@ -1108,7 +1109,18 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       document.getElementById(tempId)?.remove();
-      await fetchMessages(true);
+      const realBubble = {
+        id: data.msg_id, is_mine: true,
+        display_text: data.url, original_text: data.url,
+        sender_name: 'Me', created_at: new Date().toISOString(),
+        analysis: { type: 'image' }, reactions: {},
+      };
+      thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
+      thread.scrollTop = thread.scrollHeight;
+      if (data.msg_id) _lastMsgId = Math.max(_lastMsgId, data.msg_id);
+      await loadConvs();
+      const c = _convs.find(c => c.id === _activeConvId);
+      if (c) _activeConvSeenAt = c.last_message_at;
     } catch (e) {
       document.getElementById(tempId)?.remove();
       showToast(e.message || 'Failed to send photo');
