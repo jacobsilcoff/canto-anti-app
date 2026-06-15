@@ -1410,11 +1410,15 @@
     }
   }
 
-  // With timeout so it never hangs waiting for a stuck service worker
-  async function _getSwRegistration(ms = 4000) {
+  // Returns an active SW registration without hanging indefinitely.
+  // getRegistration() is synchronous-ish and works even during install;
+  // .ready is the fallback with a generous timeout for first-install.
+  async function _getSwRegistration() {
+    const existing = await navigator.serviceWorker.getRegistration('/');
+    if (existing && existing.active) return existing;
     return Promise.race([
       navigator.serviceWorker.ready,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), ms)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Service worker not ready — reload and try again')), 15000)),
     ]);
   }
 

@@ -1,16 +1,18 @@
 const CACHE = 'cantonese-{{VERSION}}';
 const SHELL = [
-  '/',
-  '/cards',
   '/static/style.css',
   '/static/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap',
 ];
 
-// Install: cache the app shell
+// Install: cache the app shell.
+// Use individual catch() so a single fetch failure doesn't abort install
+// and block skipWaiting() — which would leave the SW stuck in "installing"
+// and cause navigator.serviceWorker.ready to never resolve.
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(SHELL.map(url => c.add(url))))
+      .then(() => self.skipWaiting())
   );
 });
 
