@@ -2575,15 +2575,21 @@ async def send_friend_request(requester_id: int, addressee_id: int) -> dict:
     return {"ok": True}
 
 
-async def respond_friend_request(friendship_id: int, addressee_id: int, accept: bool) -> bool:
-    """Accept or reject a pending request addressed to addressee_id."""
+async def respond_friend_request(friendship_id: int, addressee_id: int, accept: bool) -> int | None:
+    """Accept or reject a pending request addressed to addressee_id.
+
+    Returns the requester's user_id on success (so the caller can notify them),
+    or None if no matching pending request was found.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
+            "SELECT requester_id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
             (friendship_id, addressee_id),
         ) as cur:
-            if not await cur.fetchone():
-                return False
+            row = await cur.fetchone()
+            if not row:
+                return None
+        requester_id = row[0]
         if accept:
             await db.execute(
                 "UPDATE friendships SET status='accepted' WHERE id=?", (friendship_id,)
@@ -2591,7 +2597,7 @@ async def respond_friend_request(friendship_id: int, addressee_id: int, accept: 
         else:
             await db.execute("DELETE FROM friendships WHERE id=?", (friendship_id,))
         await db.commit()
-    return True
+    return requester_id
 
 
 async def remove_friend(user_id: int, other_user_id: int) -> None:

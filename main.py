@@ -3394,16 +3394,23 @@ async def send_friend_request(body: FriendRequestBody, user: dict = Depends(curr
 
 @app.post("/api/friends/{friendship_id}/accept")
 async def accept_friend_request(friendship_id: int, user: dict = Depends(current_user)):
-    ok = await db.respond_friend_request(friendship_id, user["id"], accept=True)
-    if not ok:
+    requester_id = await db.respond_friend_request(friendship_id, user["id"], accept=True)
+    if not requester_id:
         raise HTTPException(404, "Request not found")
+    asyncio.create_task(_send_push_to_user(
+        requester_id,
+        title="🤝 Friend Request Accepted",
+        body=f"{user['username']} accepted your friend request",
+        url="/messages",
+        tag="friend-accepted",
+    ))
     return {"ok": True}
 
 
 @app.post("/api/friends/{friendship_id}/reject")
 async def reject_friend_request(friendship_id: int, user: dict = Depends(current_user)):
-    ok = await db.respond_friend_request(friendship_id, user["id"], accept=False)
-    if not ok:
+    requester_id = await db.respond_friend_request(friendship_id, user["id"], accept=False)
+    if not requester_id:
         raise HTTPException(404, "Request not found")
     return {"ok": True}
 
@@ -3535,19 +3542,6 @@ async def _send_push_to_user(user_id: int, title: str, body: str,
     for ep in dead:
         await db.remove_push_subscription(ep)
     return {"sent": sent, "total": len(subs), "error": None if sent else last_err}
-
-
-@app.post("/api/push/test")
-async def push_test(user: dict = Depends(current_user)):
-    """Send the current user a test notification — verifies the whole pipeline."""
-    result = await _send_push_to_user(
-        user["id"],
-        title="🔔 Test notification",
-        body="Push notifications are working! You'll get these for new messages and friend requests.",
-        url="/messages",
-        tag="test",
-    )
-    return result
 
 
 @app.get("/api/conversations")
