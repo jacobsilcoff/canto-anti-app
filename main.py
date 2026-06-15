@@ -465,9 +465,8 @@ _PLAN_WIDGET = """
 
 _NOTIF_WIDGET = """
 <script>
+// ── Notification badge polling ────────────────────────────────────────────────
 (function () {
-  // Register service worker on every authenticated page so push subscriptions
-  // work regardless of which page the user lands on.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
   }
@@ -488,9 +487,129 @@ _NOTIF_WIDGET = """
   }
   _loadNotifCounts();
   setInterval(_loadNotifCounts, 60000);
-  // Expose so pages (e.g. messages.html) can trigger a refresh after marking read
   window._refreshNotifCounts = _loadNotifCounts;
 })();
+
+// ── Push notification helpers (global — used by .notif-bell-btn on any page) ──
+const _SVG_BELL_ON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+const _SVG_BELL_OFF = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.56 2.9A7 7 0 0 1 19 9v4m-2 4H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+function _urlBase64ToUint8Array(s) {
+  const padding = '='.repeat((4 - s.length % 4) % 4);
+  const b64 = (s + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+function _syncBellState() {
+  const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+  const perm = supported ? Notification.permission : 'denied';
+  const subscribed = localStorage.getItem('push_subscribed') === '1';
+  const on = supported && perm === 'granted' && subscribed;
+  document.querySelectorAll('.notif-bell-btn').forEach(btn => {
+    btn.innerHTML = on ? _SVG_BELL_ON : _SVG_BELL_OFF;
+    btn.classList.toggle('enabled', on);
+    btn.title = !supported ? 'Push notifications not supported in this browser'
+      : perm === 'denied' ? 'Notifications blocked — change in browser settings'
+      : on ? 'Notifications on — tap to turn off'
+      : 'Enable push notifications';
+  });
+  document.querySelectorAll('.notif-status-desc').forEach(el => {
+    el.textContent = !supported ? 'Not supported in this browser'
+      : perm === 'denied' ? 'Blocked — change in browser or OS settings'
+      : on ? 'On — you will be notified about messages and friend requests'
+      : 'Off';
+  });
+}
+
+async function _verifyBellState() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    if (!reg) return;
+    const sub = await reg.pushManager.getSubscription();
+    localStorage.setItem('push_subscribed', (!!sub && Notification.permission === 'granted') ? '1' : '0');
+    _syncBellState();
+  } catch { /* leave cached state */ }
+}
+
+async function _getSwRegistration() {
+  const existing = await navigator.serviceWorker.getRegistration('/');
+  if (existing && existing.active) return existing;
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('Service worker not ready — reload and try again')), 15000)),
+  ]);
+}
+
+async function toggleNotifications() {
+  const _toast = typeof showToast === 'function' ? showToast : () => {};
+  const btns = [...document.querySelectorAll('.notif-bell-btn')];
+  if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
+    _toast(/iPad|iPhone|iPod/.test(navigator.userAgent)
+      ? 'Open Settings → Safari and allow notifications, or add the app to your Home Screen.'
+      : 'Push notifications are not supported in this browser.');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    _toast('Notifications are blocked. Go to your browser or OS settings to re-enable.');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    btns.forEach(b => { b.disabled = true; });
+    try {
+      const reg = await _getSwRegistration();
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const json = sub.toJSON();
+        await sub.unsubscribe();
+        await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
+        }).catch(() => {});
+        localStorage.setItem('push_subscribed', '0');
+        _toast('Notifications turned off.');
+        btns.forEach(b => { b.disabled = false; });
+        _syncBellState();
+        return;
+      }
+    } catch (e) {
+      _toast('Error: ' + (e.message || 'could not check subscription'));
+      btns.forEach(b => { b.disabled = false; });
+      return;
+    }
+    btns.forEach(b => { b.disabled = false; });
+  }
+  // iOS REQUIREMENT: requestPermission() must be the FIRST await from the click handler.
+  let perm;
+  try { perm = await Notification.requestPermission(); }
+  catch (e) { _toast('Permission request failed: ' + (e.message || 'unknown')); return; }
+  if (perm !== 'granted') { _toast('Notification permission not granted.'); _syncBellState(); return; }
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const { public_key } = await fetch('/api/push/vapid-public-key').then(r => r.json());
+    const reg = await _getSwRegistration();
+    const newSub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlBase64ToUint8Array(public_key) });
+    const j = newSub.toJSON();
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
+    });
+    localStorage.setItem('push_subscribed', '1');
+    _syncBellState();
+    _toast('Notifications enabled!');
+  } catch (e) {
+    localStorage.setItem('push_subscribed', '0');
+    _toast('Could not subscribe: ' + (e.message || 'unknown error'));
+  }
+  btns.forEach(b => { b.disabled = false; });
+  _syncBellState();
+}
+
+_syncBellState();
+_verifyBellState();
 </script>
 """
 

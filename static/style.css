@@ -193,6 +193,12 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .badge.visible { display: inline-block; }
 .badge.notif-badge { background: var(--danger, #ef4444); }
+.notif-bell-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
+  border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s, background 0.15s; }
+.notif-bell-btn:hover { background: var(--surface-alt); }
+.notif-bell-btn.enabled { color: var(--primary); }
+.notif-bell-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Translate Page ─────────────────────────────────────────────────────── */
 .translate-page {
