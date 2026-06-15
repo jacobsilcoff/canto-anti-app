@@ -13,6 +13,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
+try:
+    from PIL import Image, ImageOps as _ImageOps
+    _PIL_OK = True
+except ImportError:
+    _PIL_OK = False
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -127,7 +132,7 @@ async def auth_middleware(request: Request, call_next):
 # every response — including the 302/401 from auth and 429 from the limiter.
 _CSP = (
     "default-src 'self'; "
-    "img-src 'self' data:; "
+    "img-src 'self' data: blob:; "
     "media-src 'self' blob: data:; "
     # Inline <script>/<style> blocks are used throughout the app; 'unsafe-inline'
     # is required until they're moved to nonces (tracked under the XSS hardening).
@@ -235,7 +240,9 @@ _VAPID_PRIVATE_KEY, _VAPID_PUBLIC_KEY = _init_vapid()
 _VAPID_CLAIMS_EMAIL = os.getenv("APP_ADMIN_EMAIL") or "admin@example.com"
 
 # ── Media upload storage ───────────────────────────────────────────────────────
-MEDIA_DIR = Path("data/media")
+# Anchor to the same parent directory as DB_PATH so media lives in the same
+# persistent volume as the database regardless of working directory.
+MEDIA_DIR = Path(os.getenv("DB_PATH", "data/cards.db")).parent.resolve() / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024   # 20 MB raw input limit
 _MAX_IMAGE_DIM    = 1280               # longest edge after resize
@@ -3825,10 +3832,8 @@ async def send_image_message(conv_id: int, request: Request,
                              file: UploadFile = File(...),
                              user: dict = Depends(current_user)):
     """Accept an image upload, downscale it, save to disk, store as a message."""
-    try:
-        from PIL import Image, ImageOps
-        import io as _io
-    except ImportError:
+    import io as _io
+    if not _PIL_OK:
         raise HTTPException(500, "Image processing unavailable (Pillow not installed)")
 
     convs = await db.list_conversations(user["id"])
@@ -3836,16 +3841,14 @@ async def send_image_message(conv_id: int, request: Request,
     if not conv:
         raise HTTPException(404, "Conversation not found")
 
-    data = await file.read(_MAX_UPLOAD_BYTES + 1)
-    if len(data) > _MAX_UPLOAD_BYTES:
+    raw = await file.read()
+    if len(raw) > _MAX_UPLOAD_BYTES:
         raise HTTPException(413, "Image too large (max 20 MB)")
 
     try:
-        img = Image.open(_io.BytesIO(data))
-        img = ImageOps.exif_transpose(img)  # correct phone rotation
-        if img.mode in ("RGBA", "P", "LA"):
-            img = img.convert("RGB")
-        elif img.mode != "RGB":
+        img = Image.open(_io.BytesIO(raw))
+        img = _ImageOps.exif_transpose(img)
+        if img.mode != "RGB":
             img = img.convert("RGB")
         if max(img.size) > _MAX_IMAGE_DIM:
             img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
