@@ -183,29 +183,51 @@ IS_DEV = os.getenv("ENVIRONMENT", "").lower() == "dev"
 # ── VAPID keys for Web Push ───────────────────────────────────────────────────
 
 def _init_vapid() -> tuple[str, str]:
-    """Load or auto-generate VAPID keys. Returns (private_key_pem, public_key_b64url)."""
+    """Load or auto-generate VAPID keys. Returns (private_key_raw_b64url, public_key_b64url).
+
+    The private key is stored/returned as a RAW base64url string (the 32-byte EC
+    private scalar) — not PEM. py_vapid mis-parses PEM ("could not deserialize key
+    data / invalid length"); the raw base64url form is the universal VAPID format
+    and is loaded unambiguously by pywebpush. Existing PEM key files are migrated
+    in place so the SAME keypair is preserved (browser subscriptions stay valid).
+    """
     import base64
-    from cryptography.hazmat.primitives.asymmetric.ec import generate_private_key, SECP256R1
-    from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
+    from cryptography.hazmat.primitives.asymmetric.ec import (
+        generate_private_key, SECP256R1)
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PublicFormat, load_pem_private_key)
+
+    def _raw_priv(key) -> str:
+        val = key.private_numbers().private_value
+        return base64.urlsafe_b64encode(val.to_bytes(32, "big")).decode().rstrip("=")
+
+    def _pub(key) -> str:
+        b = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        return base64.urlsafe_b64encode(b).decode().rstrip("=")
 
     vapid_file = os.path.join(os.path.dirname(db.DB_PATH) or "data", "vapid_keys.json")
     if os.path.exists(vapid_file):
         try:
             with open(vapid_file) as f:
                 keys = json.load(f)
-            return keys["private_key_pem"], keys["public_key"]
+            if keys.get("private_key_raw") and keys.get("public_key"):
+                return keys["private_key_raw"], keys["public_key"]
+            # Migrate an old PEM-format file → raw, preserving the SAME keypair.
+            if keys.get("private_key_pem"):
+                key = load_pem_private_key(keys["private_key_pem"].encode(), password=None)
+                raw, pub = _raw_priv(key), _pub(key)
+                with open(vapid_file, "w") as f:
+                    json.dump({"private_key_raw": raw, "public_key": pub}, f)
+                return raw, pub
         except Exception:
-            pass
+            logging.exception("Failed to load VAPID keys; regenerating")
 
     key = generate_private_key(SECP256R1())
-    private_pem = key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption()).decode()
-    pub_bytes = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
-    public_key = base64.urlsafe_b64encode(pub_bytes).decode().rstrip("=")
-
+    raw, pub = _raw_priv(key), _pub(key)
     os.makedirs(os.path.dirname(vapid_file) or ".", exist_ok=True)
     with open(vapid_file, "w") as f:
-        json.dump({"private_key_pem": private_pem, "public_key": public_key}, f)
-    return private_pem, public_key
+        json.dump({"private_key_raw": raw, "public_key": pub}, f)
+    return raw, pub
 
 
 _VAPID_PRIVATE_KEY, _VAPID_PUBLIC_KEY = _init_vapid()
