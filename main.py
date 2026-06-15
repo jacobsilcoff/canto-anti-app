@@ -3679,7 +3679,7 @@ async def send_message(conv_id: int, body: SendMessageBody,
     # Push notification to the other party (in-app conversations only)
     if conv["type"] == "inapp":
         other_user_id = conv["other_user_id"]
-        preview = (analysis.get("reply_en") or body.text)[:80]
+        preview = translations.get(recipient_lang, sender_display)[:80]
         asyncio.create_task(_send_push_to_user(
             other_user_id,
             title=f"💬 {user['username']}",
