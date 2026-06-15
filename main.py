@@ -180,6 +180,59 @@ _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
 
 IS_DEV = os.getenv("ENVIRONMENT", "").lower() == "dev"
 
+# ── VAPID keys for Web Push ───────────────────────────────────────────────────
+
+def _init_vapid() -> tuple[str, str]:
+    """Load or auto-generate VAPID keys. Returns (private_key_raw_b64url, public_key_b64url).
+
+    The private key is stored/returned as a RAW base64url string (the 32-byte EC
+    private scalar) — not PEM. py_vapid mis-parses PEM ("could not deserialize key
+    data / invalid length"); the raw base64url form is the universal VAPID format
+    and is loaded unambiguously by pywebpush. Existing PEM key files are migrated
+    in place so the SAME keypair is preserved (browser subscriptions stay valid).
+    """
+    import base64
+    from cryptography.hazmat.primitives.asymmetric.ec import (
+        generate_private_key, SECP256R1)
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PublicFormat, load_pem_private_key)
+
+    def _raw_priv(key) -> str:
+        val = key.private_numbers().private_value
+        return base64.urlsafe_b64encode(val.to_bytes(32, "big")).decode().rstrip("=")
+
+    def _pub(key) -> str:
+        b = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+    vapid_file = os.path.join(os.path.dirname(db.DB_PATH) or "data", "vapid_keys.json")
+    if os.path.exists(vapid_file):
+        try:
+            with open(vapid_file) as f:
+                keys = json.load(f)
+            if keys.get("private_key_raw") and keys.get("public_key"):
+                return keys["private_key_raw"], keys["public_key"]
+            # Migrate an old PEM-format file → raw, preserving the SAME keypair.
+            if keys.get("private_key_pem"):
+                key = load_pem_private_key(keys["private_key_pem"].encode(), password=None)
+                raw, pub = _raw_priv(key), _pub(key)
+                with open(vapid_file, "w") as f:
+                    json.dump({"private_key_raw": raw, "public_key": pub}, f)
+                return raw, pub
+        except Exception:
+            logging.exception("Failed to load VAPID keys; regenerating")
+
+    key = generate_private_key(SECP256R1())
+    raw, pub = _raw_priv(key), _pub(key)
+    os.makedirs(os.path.dirname(vapid_file) or ".", exist_ok=True)
+    with open(vapid_file, "w") as f:
+        json.dump({"private_key_raw": raw, "public_key": pub}, f)
+    return raw, pub
+
+
+_VAPID_PRIVATE_KEY, _VAPID_PUBLIC_KEY = _init_vapid()
+_VAPID_CLAIMS_EMAIL = os.getenv("APP_ADMIN_EMAIL") or "admin@example.com"
+
 # Pre-generated, committed dev-variant icons (orange tint + "DEV" badge). Served
 # as static files in dev — no runtime image library needed. See
 # scripts/make_dev_icons.py for how they were produced.
@@ -224,10 +277,11 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "hamburger": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
     }
 
-    def link(href: str, label: str, icon: str, badge: bool = False) -> str:
+    def link(href: str, label: str, icon: str, badge: bool = False, notif: bool = False) -> str:
         hl = ' style="color:var(--primary)"' if href == active else ""
         bdg = ' <span class="badge due-badge"></span>' if badge else ""
-        return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}\n    </a>'
+        nbd = ' <span class="badge notif-badge"></span>' if notif else ""
+        return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
 
     nav_links = [
         link("/",         "Add Vocab",  "translate"),
@@ -235,7 +289,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/reader",   "Reader",     "reader"),
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
-        link("/messages", "Messages",   "messages"),
+        link("/messages", "Messages",   "messages", notif=True),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -409,6 +463,37 @@ _PLAN_WIDGET = """
 </script>
 """
 
+_NOTIF_WIDGET = """
+<script>
+(function () {
+  // Register service worker on every authenticated page so push subscriptions
+  // work regardless of which page the user lands on.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+  function _updateNotifBadges(total) {
+    document.querySelectorAll('.notif-badge').forEach(function (b) {
+      b.textContent = total > 99 ? '99+' : String(total);
+      b.classList.toggle('visible', total > 0);
+    });
+  }
+  function _loadNotifCounts() {
+    fetch('/api/notifications/counts')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        _updateNotifBadges((d.unread_messages || 0) + (d.friend_requests || 0));
+      })
+      .catch(function () {});
+  }
+  _loadNotifCounts();
+  setInterval(_loadNotifCounts, 60000);
+  // Expose so pages (e.g. messages.html) can trigger a refresh after marking read
+  window._refreshNotifCounts = _loadNotifCounts;
+})();
+</script>
+"""
+
 
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
@@ -437,7 +522,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -3297,21 +3382,35 @@ async def send_friend_request(body: FriendRequestBody, user: dict = Depends(curr
     result = await db.send_friend_request(user["id"], target["id"])
     if not result["ok"]:
         raise HTTPException(409, result.get("error", "conflict"))
+    asyncio.create_task(_send_push_to_user(
+        target["id"],
+        title="👋 Friend Request",
+        body=f"{user['username']} sent you a friend request",
+        url="/messages",
+        tag="friend-request",
+    ))
     return {"ok": True}
 
 
 @app.post("/api/friends/{friendship_id}/accept")
 async def accept_friend_request(friendship_id: int, user: dict = Depends(current_user)):
-    ok = await db.respond_friend_request(friendship_id, user["id"], accept=True)
-    if not ok:
+    requester_id = await db.respond_friend_request(friendship_id, user["id"], accept=True)
+    if not requester_id:
         raise HTTPException(404, "Request not found")
+    asyncio.create_task(_send_push_to_user(
+        requester_id,
+        title="🤝 Friend Request Accepted",
+        body=f"{user['username']} accepted your friend request",
+        url="/messages",
+        tag="friend-accepted",
+    ))
     return {"ok": True}
 
 
 @app.post("/api/friends/{friendship_id}/reject")
 async def reject_friend_request(friendship_id: int, user: dict = Depends(current_user)):
-    ok = await db.respond_friend_request(friendship_id, user["id"], accept=False)
-    if not ok:
+    requester_id = await db.respond_friend_request(friendship_id, user["id"], accept=False)
+    if not requester_id:
         raise HTTPException(404, "Request not found")
     return {"ok": True}
 
@@ -3354,6 +3453,95 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
     entries.sort(key=lambda x: -x["xp"])
     return {"leaderboard": entries}
 
+
+@app.get("/api/notifications/counts")
+async def notifications_counts(user: dict = Depends(current_user)):
+    unread, pending = await asyncio.gather(
+        db.get_total_unread(user["id"]),
+        db.get_pending_friend_request_count(user["id"]),
+    )
+    return {"unread_messages": unread, "friend_requests": pending, "total": unread + pending}
+
+
+@app.get("/api/push/vapid-public-key")
+async def vapid_public_key(_user: dict = Depends(current_user)):
+    return {"public_key": _VAPID_PUBLIC_KEY}
+
+
+class PushSubscribeBody(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+@app.post("/api/push/subscribe")
+async def push_subscribe(body: PushSubscribeBody, user: dict = Depends(current_user)):
+    await db.add_push_subscription(user["id"], body.endpoint, body.p256dh, body.auth)
+    return {"ok": True}
+
+
+@app.delete("/api/push/subscribe")
+async def push_unsubscribe(body: PushSubscribeBody, user: dict = Depends(current_user)):
+    await db.remove_push_subscription(body.endpoint)
+    return {"ok": True}
+
+
+def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> tuple[bool, bool, str | None]:
+    """Send one push. Returns (sent_ok, keep_subscription, error_message)."""
+    try:
+        from pywebpush import webpush
+    except Exception as ex:
+        msg = f"pywebpush not installed: {ex}"
+        logging.error(msg)
+        return False, True, msg
+    try:
+        # Apple's push service rejects the placeholder example.com sub; derive the
+        # claims audience from the endpoint origin (pywebpush does aud itself).
+        webpush(
+            subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
+            data=payload,
+            vapid_private_key=_VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": f"mailto:{_VAPID_CLAIMS_EMAIL}"},
+            ttl=86400,
+        )
+        return True, True, None
+    except Exception as ex:
+        resp = getattr(ex, "response", None)
+        code = getattr(resp, "status_code", None)
+        detail = ""
+        try:
+            detail = (resp.text or "")[:200] if resp is not None else ""
+        except Exception:
+            pass
+        msg = f"{type(ex).__name__}: {ex}" + (f" [{code}] {detail}" if code else "")
+        if code in (404, 410):
+            return False, False, msg  # subscription is dead — drop it
+        logging.warning("Push send failed: %s", msg, exc_info=True)
+        return False, True, msg  # keep, might be transient
+
+
+async def _send_push_to_user(user_id: int, title: str, body: str,
+                              url: str = "/messages", tag: str = "default") -> dict:
+    """Send to all of a user's subscriptions. Returns {sent, total, error}."""
+    subs = await db.get_push_subscriptions(user_id)
+    if not subs:
+        return {"sent": 0, "total": 0, "error": "no subscriptions"}
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+    sent = 0
+    dead: list[str] = []
+    last_err: str | None = None
+    for sub in subs:
+        ok, keep, err = await asyncio.to_thread(
+            _send_push_sync, sub["endpoint"], sub["p256dh"], sub["auth"], payload)
+        if ok:
+            sent += 1
+        if err:
+            last_err = err
+        if not keep:
+            dead.append(sub["endpoint"])
+    for ep in dead:
+        await db.remove_push_subscription(ep)
+    return {"sent": sent, "total": len(subs), "error": None if sent else last_err}
 
 
 @app.get("/api/conversations")
@@ -3487,6 +3675,19 @@ async def send_message(conv_id: int, body: SendMessageBody,
         texts = [sender_display] + [c.get("corrected", "")
                                     for c in analysis.get("corrections", [])]
         tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
+
+    # Push notification to the other party (in-app conversations only)
+    if conv["type"] == "inapp":
+        other_user_id = conv["other_user_id"]
+        preview = translations.get(recipient_lang, sender_display)[:80]
+        asyncio.create_task(_send_push_to_user(
+            other_user_id,
+            title=f"💬 {user['username']}",
+            body=preview,
+            url="/messages",
+            tag=f"msg-{conv_id}",
+        ))
+
     return {"ok": True, "display_text": sender_display, "msg_id": msg_id,
             "analysis": analysis, "tokens": tokens}
 

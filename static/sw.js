@@ -1,16 +1,18 @@
 const CACHE = 'cantonese-{{VERSION}}';
 const SHELL = [
-  '/',
-  '/cards',
   '/static/style.css',
   '/static/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap',
 ];
 
-// Install: cache the app shell
+// Install: cache the app shell.
+// Use individual catch() so a single fetch failure doesn't abort install
+// and block skipWaiting() — which would leave the SW stuck in "installing"
+// and cause navigator.serviceWorker.ready to never resolve.
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(SHELL.map(url => c.add(url))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -20,6 +22,37 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+// Push notifications
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'New notification', {
+      body: data.body || '',
+      icon: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-192.png',
+      data: { url: data.url || '/messages' },
+      tag: data.tag || 'default',
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/messages';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url.includes(self.location.origin) && 'focus' in c) {
+          c.navigate(url);
+          return c.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
   );
 });
 

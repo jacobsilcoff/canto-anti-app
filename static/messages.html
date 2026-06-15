@@ -28,6 +28,11 @@
     .msg-sidebar-title { font-weight: 700; font-size: 1.05rem; }
     .msg-friends-btn { background: var(--primary-soft); color: var(--primary); border: none;
       border-radius: 8px; padding: 5px 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .msg-notif-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
+      border-radius: 8px; padding: 5px 7px; font-size: 1.1rem; display: flex; align-items: center;
+      transition: color 0.15s; }
+    .msg-notif-btn.enabled { color: var(--primary); }
+    .msg-notif-btn:disabled { opacity: 0.4; cursor: default; }
     .msg-convs { flex: 1; overflow-y: auto; }
     .msg-conv-row { padding: 11px 14px; cursor: pointer; display: flex; align-items: center;
       gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
@@ -330,6 +335,7 @@
   <div class="msg-sidebar" id="msg-sidebar">
     <div class="msg-sidebar-head">
       <span class="msg-sidebar-title">Messages</span>
+      <button class="msg-notif-btn" id="notif-bell-btn" title="Enable notifications" onclick="toggleNotifications()">🔔</button>
       <button class="msg-friends-btn" onclick="openFriendsModal()">Friends ＋</button>
     </div>
     <div class="msg-convs" id="msg-convs">
@@ -566,14 +572,22 @@
 
   // Detect whether the user typed in their target language or English.
   // Non-Latin scripts are unambiguous; accented Latin chars suggest target.
+  // CJK langs where the user might genuinely type English to get a translation.
+  // For all other langs (fr, es, de...) plain Latin input is almost certainly
+  // the target language -- grammar-check it rather than treating it as English.
+  const _CJK_LANGS = new Set(['yue', 'cmn']);
+
   function detectInputMode(text) {
     if (!text) return 'native';
-    if (/[一-鿿぀-ゟ゠-ヿ豈-﫿]/.test(text)) return 'target'; // CJK
+    if (/[一-鿿぀-ヿ豈-﫿]/.test(text)) return 'target'; // CJK script
     if (/[가-힯ᄀ-ᇿ]/.test(text)) return 'target'; // Korean
     if (/[ऀ-ॿ]/.test(text)) return 'target'; // Devanagari (Hindi)
     if (/[ఀ-౿]/.test(text)) return 'target'; // Telugu
     if (/[àáâãäåæçèéêëìíîïðñòóôõöùúûüýþÿœ]/i.test(text)) return 'target'; // accented Latin
-    return 'native';
+    // Plain Latin with no accents: only treat as English if the target lang
+    // is CJK (user might want auto-translation). For Latin-script target langs
+    // (French, Spanish, etc.) keep as target so grammar-check applies.
+    return _CJK_LANGS.has(_targetLang) ? 'native' : 'target';
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -663,6 +677,7 @@
     // Refresh unread count
     if (conv) conv.unread = 0;
     renderConvList();
+    if (window._refreshNotifCounts) window._refreshNotifCounts();
   }
 
   async function openConvWithFriend(friendUserId) {
@@ -1017,12 +1032,13 @@
     }
   });
 
-  function showToast(msg) {
+  function showToast(msg, ms) {
     let t = document.getElementById('msg-toast');
     if (!t) { t = document.createElement('div'); t.id = 'msg-toast'; t.style.cssText =
       'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--tooltip-bg,#222);color:#fff;border-radius:999px;padding:7px 16px;font-size:0.85rem;font-weight:600;z-index:9999;transition:opacity 0.3s'; document.body.appendChild(t); }
     t.textContent = msg; t.style.opacity = '1';
-    clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+    t.style.maxWidth = '90vw'; t.style.textAlign = 'center';
+    clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.opacity = '0'; }, ms || 2000);
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -1135,6 +1151,7 @@
         _backfillTokens(newMsgs);
         _preloadWordStatuses([..._wordsFromMessages(newMsgs)]);
         await fetch(`/api/conversations/${_activeConvId}/read`, { method: 'POST' });
+        if (window._refreshNotifCounts) window._refreshNotifCounts();
       }
     } catch {}
   }
@@ -1158,7 +1175,10 @@
     loadFriends();
     loadMessengerStatus();
   }
-  function closeFriendsModal() { document.getElementById('friends-modal').style.display = 'none'; }
+  function closeFriendsModal() {
+    document.getElementById('friends-modal').style.display = 'none';
+    if (window._refreshNotifCounts) window._refreshNotifCounts();
+  }
   function closeFriendsModalIfBg(e) { if (e.target === document.getElementById('friends-modal').firstElementChild) closeFriendsModal(); }
 
   async function loadFriends() {
@@ -1372,6 +1392,143 @@
     }, { passive: false });
   })();
 
+  // ── Push notifications ────────────────────────────────────────────────────
+
+  function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  // Bell state. ON = 🔔, OFF/blocked/unsupported = 🔕 (distinct GLYPHS, because
+  // emoji ignore CSS color on iOS — a color-only difference is invisible).
+  // Uses localStorage for instant paint; _verifyBellState() reconciles with the
+  // real push subscription asynchronously.
+  function _syncBellState() {
+    const btn = document.getElementById('notif-bell-btn');
+    if (!btn) return;
+    const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+    if (!supported) {
+      btn.classList.remove('enabled'); btn.textContent = '🔕';
+      btn.title = 'Push notifications not supported in this browser'; return;
+    }
+    const perm = Notification.permission;
+    const subscribed = localStorage.getItem('push_subscribed') === '1';
+    if (perm === 'granted' && subscribed) {
+      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications ON — tap to turn off';
+    } else if (perm === 'denied') {
+      btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications blocked — tap for help';
+    } else {
+      btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications OFF — tap to turn on';
+    }
+  }
+
+  // Reconcile the cached flag with the real subscription (it can drift: expired
+  // subscription, cleared data, subscribed on another device, etc.).
+  async function _verifyBellState() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (!reg) return;  // SW not registered yet
+      const sub = await reg.pushManager.getSubscription();
+      const real = !!sub && Notification.permission === 'granted';
+      localStorage.setItem('push_subscribed', real ? '1' : '0');
+      _syncBellState();
+    } catch { /* leave cached state */ }
+  }
+
+  // Returns an active SW registration without hanging indefinitely.
+  // getRegistration() is synchronous-ish and works even during install;
+  // .ready is the fallback with a generous timeout for first-install.
+  async function _getSwRegistration() {
+    const existing = await navigator.serviceWorker.getRegistration('/');
+    if (existing && existing.active) return existing;
+    return Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Service worker not ready — reload and try again')), 15000)),
+    ]);
+  }
+
+  async function toggleNotifications() {
+    const btn = document.getElementById('notif-bell-btn');
+
+    if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      showToast(isIOS
+        ? 'Open Settings → Safari → 廣東卡 and allow notifications, or add the app to your Home Screen.'
+        : 'Push notifications are not supported in this browser.');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      showToast('Notifications are blocked. Go to Settings → Notifications → Safari (or your browser) to re-enable.');
+      return;
+    }
+
+    // If already granted, check for existing subscription and unsubscribe
+    if (Notification.permission === 'granted') {
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      try {
+        const reg = await _getSwRegistration();
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const json = sub.toJSON();
+          await sub.unsubscribe();
+          await fetch('/api/push/subscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
+          }).catch(() => {});
+          localStorage.setItem('push_subscribed', '0');
+          showToast('Notifications turned off.');
+          if (btn) btn.disabled = false;
+          _syncBellState();
+          return;
+        }
+        // Permission granted but no subscription — fall through to (re)subscribe
+      } catch (e) {
+        showToast('Error: ' + (e.message || 'could not check subscription'));
+        if (btn) btn.disabled = false;
+        return;
+      }
+      if (btn) btn.disabled = false;
+    }
+
+    // iOS REQUIREMENT: requestPermission() must be the FIRST await from the click handler.
+    // Any prior await (like getSubscription above) breaks the user-gesture requirement on iOS.
+    // That case is handled above; here permission is still 'default'.
+    let perm;
+    try { perm = await Notification.requestPermission(); }
+    catch (e) { showToast('Permission request failed: ' + (e.message || 'unknown')); return; }
+    if (perm !== 'granted') { showToast('Notification permission not granted.'); _syncBellState(); return; }
+
+    // Subscribe
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const { public_key } = await fetch('/api/push/vapid-public-key').then(r => r.json());
+      const reg = await _getSwRegistration();
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(public_key),
+      });
+      const j = newSub.toJSON();
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
+      });
+      localStorage.setItem('push_subscribed', '1');
+      _syncBellState();
+      showToast('🔔 Notifications enabled!');
+    } catch (e) {
+      localStorage.setItem('push_subscribed', '0');
+      showToast('Could not subscribe: ' + (e.message || 'unknown error'));
+    }
+    if (btn) btn.disabled = false;
+    _syncBellState();
+  }
+
   // ── Nav helpers ───────────────────────────────────────────────────────────
   function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
   document.addEventListener('click', e => {
@@ -1387,6 +1544,8 @@
 
   // Start
   init();
+  _syncBellState();      // instant paint from cached flag
+  _verifyBellState();    // reconcile with the real subscription
 </script>
 </body>
 </html>

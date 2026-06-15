@@ -2575,15 +2575,21 @@ async def send_friend_request(requester_id: int, addressee_id: int) -> dict:
     return {"ok": True}
 
 
-async def respond_friend_request(friendship_id: int, addressee_id: int, accept: bool) -> bool:
-    """Accept or reject a pending request addressed to addressee_id."""
+async def respond_friend_request(friendship_id: int, addressee_id: int, accept: bool) -> int | None:
+    """Accept or reject a pending request addressed to addressee_id.
+
+    Returns the requester's user_id on success (so the caller can notify them),
+    or None if no matching pending request was found.
+    """
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
+            "SELECT requester_id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
             (friendship_id, addressee_id),
         ) as cur:
-            if not await cur.fetchone():
-                return False
+            row = await cur.fetchone()
+            if not row:
+                return None
+        requester_id = row[0]
         if accept:
             await db.execute(
                 "UPDATE friendships SET status='accepted' WHERE id=?", (friendship_id,)
@@ -2591,7 +2597,7 @@ async def respond_friend_request(friendship_id: int, addressee_id: int, accept: 
         else:
             await db.execute("DELETE FROM friendships WHERE id=?", (friendship_id,))
         await db.commit()
-    return True
+    return requester_id
 
 
 async def remove_friend(user_id: int, other_user_id: int) -> None:
@@ -2857,6 +2863,47 @@ async def get_total_unread(user_id: int) -> int:
         ) as cur:
             row = await cur.fetchone()
     return row[0] if row else 0
+
+
+async def get_pending_friend_request_count(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM friendships WHERE addressee_id=? AND status='pending'",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return row[0] if row else 0
+
+
+# ── Push subscriptions ─────────────────────────────────────────────────────────
+
+async def add_push_subscription(user_id: int, endpoint: str, p256dh: str, auth_key: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(endpoint) DO UPDATE SET
+                 user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth""",
+            (user_id, endpoint, p256dh, auth_key),
+        )
+        await db.commit()
+
+
+async def get_push_subscriptions(user_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=?",
+            (user_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def remove_push_subscription(endpoint: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
+        await db.commit()
 
 
 # ── Messenger account ──────────────────────────────────────────────────────────

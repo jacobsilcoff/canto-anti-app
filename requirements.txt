@@ -17,3 +17,4 @@ jieba>=0.42.1
 pypinyin>=0.51
 korean-romanizer>=0.28.0
 indic-transliteration>=2.3.0
+pywebpush>=1.9.0,<2
