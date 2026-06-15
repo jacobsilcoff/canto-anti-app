@@ -1032,12 +1032,13 @@
     }
   });
 
-  function showToast(msg) {
+  function showToast(msg, ms) {
     let t = document.getElementById('msg-toast');
     if (!t) { t = document.createElement('div'); t.id = 'msg-toast'; t.style.cssText =
       'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--tooltip-bg,#222);color:#fff;border-radius:999px;padding:7px 16px;font-size:0.85rem;font-weight:600;z-index:9999;transition:opacity 0.3s'; document.body.appendChild(t); }
     t.textContent = msg; t.style.opacity = '1';
-    clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+    t.style.maxWidth = '90vw'; t.style.textAlign = 'center';
+    clearTimeout(t._timer); t._timer = setTimeout(() => { t.style.opacity = '0'; }, ms || 2000);
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -1526,7 +1527,7 @@
         if (tr && tr.sent) {
           showToast('🔔 Enabled! Sent a test notification — background the app to see it.');
         } else {
-          showToast('Subscribed, but the test push failed to send. Check server logs.');
+          showToast('Subscribed, but test push failed: ' + ((tr && tr.error) || 'unknown'), 9000);
         }
       } catch {
         showToast('🔔 Notifications enabled!');

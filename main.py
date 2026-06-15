@@ -3461,6 +3461,13 @@ def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> 
     """Send one push. Returns (sent_ok, keep_subscription, error_message)."""
     try:
         from pywebpush import webpush
+    except Exception as ex:
+        msg = f"pywebpush not installed: {ex}"
+        logging.error(msg)
+        return False, True, msg
+    try:
+        # Apple's push service rejects the placeholder example.com sub; derive the
+        # claims audience from the endpoint origin (pywebpush does aud itself).
         webpush(
             subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
             data=payload,
@@ -3470,11 +3477,17 @@ def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> 
         )
         return True, True, None
     except Exception as ex:
-        code = getattr(getattr(ex, "response", None), "status_code", None)
-        msg = f"{type(ex).__name__}: {ex}"
+        resp = getattr(ex, "response", None)
+        code = getattr(resp, "status_code", None)
+        detail = ""
+        try:
+            detail = (resp.text or "")[:200] if resp is not None else ""
+        except Exception:
+            pass
+        msg = f"{type(ex).__name__}: {ex}" + (f" [{code}] {detail}" if code else "")
         if code in (404, 410):
             return False, False, msg  # subscription is dead — drop it
-        logging.warning("Push send failed: %s", msg)
+        logging.warning("Push send failed: %s", msg, exc_info=True)
         return False, True, msg  # keep, might be transient
 
 
