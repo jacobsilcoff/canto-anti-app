@@ -444,6 +444,11 @@ _PLAN_WIDGET = """
 _NOTIF_WIDGET = """
 <script>
 (function () {
+  // Register service worker on every authenticated page so push subscriptions
+  // work regardless of which page the user lands on.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
   function _updateNotifBadges(total) {
     document.querySelectorAll('.notif-badge').forEach(function (b) {
       b.textContent = total > 99 ? '99+' : String(total);
