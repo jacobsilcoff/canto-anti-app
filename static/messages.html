@@ -1400,25 +1400,41 @@
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   }
 
-  // Synchronous bell state: permission + localStorage subscription flag.
-  // Notification.permission alone isn't enough — it stays 'granted' even
-  // after unsubscribing, so the bell would always look "on".
+  // Bell state. ON = 🔔, OFF/blocked/unsupported = 🔕 (distinct GLYPHS, because
+  // emoji ignore CSS color on iOS — a color-only difference is invisible).
+  // Uses localStorage for instant paint; _verifyBellState() reconciles with the
+  // real push subscription asynchronously.
   function _syncBellState() {
     const btn = document.getElementById('notif-bell-btn');
     if (!btn) return;
     const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
     if (!supported) {
-      btn.textContent = '🔕'; btn.title = 'Push notifications not supported in this browser'; return;
+      btn.classList.remove('enabled'); btn.textContent = '🔕';
+      btn.title = 'Push notifications not supported in this browser'; return;
     }
     const perm = Notification.permission;
     const subscribed = localStorage.getItem('push_subscribed') === '1';
-    if (perm === 'denied') {
+    if (perm === 'granted' && subscribed) {
+      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications ON — tap to turn off';
+    } else if (perm === 'denied') {
       btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications blocked — tap for help';
-    } else if (perm === 'granted' && subscribed) {
-      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications on — tap to disable';
     } else {
-      btn.classList.remove('enabled'); btn.textContent = '🔔'; btn.title = 'Enable push notifications';
+      btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications OFF — tap to turn on';
     }
+  }
+
+  // Reconcile the cached flag with the real subscription (it can drift: expired
+  // subscription, cleared data, subscribed on another device, etc.).
+  async function _verifyBellState() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (!reg) return;  // SW not registered yet
+      const sub = await reg.pushManager.getSubscription();
+      const real = !!sub && Notification.permission === 'granted';
+      localStorage.setItem('push_subscribed', real ? '1' : '0');
+      _syncBellState();
+    } catch { /* leave cached state */ }
   }
 
   // Returns an active SW registration without hanging indefinitely.
@@ -1502,7 +1518,19 @@
         body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
       });
       localStorage.setItem('push_subscribed', '1');
-      showToast('🔔 Notifications enabled!');
+      _syncBellState();
+      // Self-test: ask the server to push us a confirmation right now so the
+      // whole pipeline is verified end-to-end (and the user SEES it work).
+      try {
+        const tr = await fetch('/api/push/test', { method: 'POST' }).then(r => r.json());
+        if (tr && tr.sent) {
+          showToast('🔔 Enabled! Sent a test notification — background the app to see it.');
+        } else {
+          showToast('Subscribed, but the test push failed to send. Check server logs.');
+        }
+      } catch {
+        showToast('🔔 Notifications enabled!');
+      }
     } catch (e) {
       localStorage.setItem('push_subscribed', '0');
       showToast('Could not subscribe: ' + (e.message || 'unknown error'));
@@ -1526,7 +1554,8 @@
 
   // Start
   init();
-  _syncBellState();
+  _syncBellState();      // instant paint from cached flag
+  _verifyBellState();    // reconcile with the real subscription
 </script>
 </body>
 </html>

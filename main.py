@@ -3457,10 +3457,10 @@ async def push_unsubscribe(body: PushSubscribeBody, user: dict = Depends(current
     return {"ok": True}
 
 
-def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> bool:
-    """Send one push notification. Returns False if subscription is expired (410/404)."""
+def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> tuple[bool, bool, str | None]:
+    """Send one push. Returns (sent_ok, keep_subscription, error_message)."""
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import webpush
         webpush(
             subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
             data=payload,
@@ -3468,28 +3468,51 @@ def _send_push_sync(endpoint: str, p256dh: str, auth_key: str, payload: str) -> 
             vapid_claims={"sub": f"mailto:{_VAPID_CLAIMS_EMAIL}"},
             ttl=86400,
         )
-        return True
+        return True, True, None
     except Exception as ex:
         code = getattr(getattr(ex, "response", None), "status_code", None)
+        msg = f"{type(ex).__name__}: {ex}"
         if code in (404, 410):
-            return False
-        logging.warning("Push send failed: %s", ex)
-        return True  # keep subscription, might be transient
+            return False, False, msg  # subscription is dead — drop it
+        logging.warning("Push send failed: %s", msg)
+        return False, True, msg  # keep, might be transient
 
 
 async def _send_push_to_user(user_id: int, title: str, body: str,
-                              url: str = "/messages", tag: str = "default") -> None:
+                              url: str = "/messages", tag: str = "default") -> dict:
+    """Send to all of a user's subscriptions. Returns {sent, total, error}."""
     subs = await db.get_push_subscriptions(user_id)
     if not subs:
-        return
+        return {"sent": 0, "total": 0, "error": "no subscriptions"}
     payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag})
+    sent = 0
     dead: list[str] = []
+    last_err: str | None = None
     for sub in subs:
-        ok = await asyncio.to_thread(_send_push_sync, sub["endpoint"], sub["p256dh"], sub["auth"], payload)
-        if not ok:
+        ok, keep, err = await asyncio.to_thread(
+            _send_push_sync, sub["endpoint"], sub["p256dh"], sub["auth"], payload)
+        if ok:
+            sent += 1
+        if err:
+            last_err = err
+        if not keep:
             dead.append(sub["endpoint"])
     for ep in dead:
         await db.remove_push_subscription(ep)
+    return {"sent": sent, "total": len(subs), "error": None if sent else last_err}
+
+
+@app.post("/api/push/test")
+async def push_test(user: dict = Depends(current_user)):
+    """Send the current user a test notification — verifies the whole pipeline."""
+    result = await _send_push_to_user(
+        user["id"],
+        title="🔔 Test notification",
+        body="Push notifications are working! You'll get these for new messages and friend requests.",
+        url="/messages",
+        tag="test",
+    )
+    return result
 
 
 @app.get("/api/conversations")
