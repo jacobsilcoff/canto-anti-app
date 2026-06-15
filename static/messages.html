@@ -572,14 +572,22 @@
 
   // Detect whether the user typed in their target language or English.
   // Non-Latin scripts are unambiguous; accented Latin chars suggest target.
+  // CJK langs where the user might genuinely type English to get a translation.
+  // For all other langs (fr, es, de...) plain Latin input is almost certainly
+  // the target language -- grammar-check it rather than treating it as English.
+  const _CJK_LANGS = new Set(['yue', 'cmn']);
+
   function detectInputMode(text) {
     if (!text) return 'native';
-    if (/[一-鿿぀-ゟ゠-ヿ豈-﫿]/.test(text)) return 'target'; // CJK
+    if (/[一-鿿぀-ヿ豈-﫿]/.test(text)) return 'target'; // CJK script
     if (/[가-힯ᄀ-ᇿ]/.test(text)) return 'target'; // Korean
     if (/[ऀ-ॿ]/.test(text)) return 'target'; // Devanagari (Hindi)
     if (/[ఀ-౿]/.test(text)) return 'target'; // Telugu
     if (/[àáâãäåæçèéêëìíîïðñòóôõöùúûüýþÿœ]/i.test(text)) return 'target'; // accented Latin
-    return 'native';
+    // Plain Latin with no accents: only treat as English if the target lang
+    // is CJK (user might want auto-translation). For Latin-script target langs
+    // (French, Spanish, etc.) keep as target so grammar-check applies.
+    return _CJK_LANGS.has(_targetLang) ? 'native' : 'target';
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -1392,7 +1400,9 @@
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   }
 
-  // Synchronous: reflects Notification.permission only (no SW await = no hang)
+  // Synchronous bell state: permission + localStorage subscription flag.
+  // Notification.permission alone isn't enough — it stays 'granted' even
+  // after unsubscribing, so the bell would always look "on".
   function _syncBellState() {
     const btn = document.getElementById('notif-bell-btn');
     if (!btn) return;
@@ -1401,10 +1411,11 @@
       btn.textContent = '🔕'; btn.title = 'Push notifications not supported in this browser'; return;
     }
     const perm = Notification.permission;
-    if (perm === 'granted') {
-      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications on — tap to disable';
-    } else if (perm === 'denied') {
+    const subscribed = localStorage.getItem('push_subscribed') === '1';
+    if (perm === 'denied') {
       btn.classList.remove('enabled'); btn.textContent = '🔕'; btn.title = 'Notifications blocked — tap for help';
+    } else if (perm === 'granted' && subscribed) {
+      btn.classList.add('enabled'); btn.textContent = '🔔'; btn.title = 'Notifications on — tap to disable';
     } else {
       btn.classList.remove('enabled'); btn.textContent = '🔔'; btn.title = 'Enable push notifications';
     }
@@ -1452,6 +1463,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }),
           }).catch(() => {});
+          localStorage.setItem('push_subscribed', '0');
           showToast('Notifications turned off.');
           if (btn) btn.disabled = false;
           _syncBellState();
@@ -1489,8 +1501,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
       });
+      localStorage.setItem('push_subscribed', '1');
       showToast('🔔 Notifications enabled!');
     } catch (e) {
+      localStorage.setItem('push_subscribed', '0');
       showToast('Could not subscribe: ' + (e.message || 'unknown error'));
     }
     if (btn) btn.disabled = false;
