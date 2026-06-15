@@ -2906,6 +2906,17 @@ async def remove_push_subscription(endpoint: str) -> None:
         await db.commit()
 
 
+# ── Media uploads ──────────────────────────────────────────────────────────────
+
+async def add_media_record(media_id: str, user_id: int, conv_id: int | None, size_bytes: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO media (id, user_id, conv_id, size_bytes) VALUES (?, ?, ?, ?)",
+            (media_id, user_id, conv_id, size_bytes),
+        )
+        await db.commit()
+
+
 # ── Messenger account ──────────────────────────────────────────────────────────
 
 async def get_messenger_account(user_id: int) -> dict | None:

@@ -8,11 +8,12 @@ import os
 import re
 import secrets
 import time
+import uuid as _uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -232,6 +233,13 @@ def _init_vapid() -> tuple[str, str]:
 
 _VAPID_PRIVATE_KEY, _VAPID_PUBLIC_KEY = _init_vapid()
 _VAPID_CLAIMS_EMAIL = os.getenv("APP_ADMIN_EMAIL") or "admin@example.com"
+
+# ── Media upload storage ───────────────────────────────────────────────────────
+MEDIA_DIR = Path("data/media")
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024   # 20 MB raw input limit
+_MAX_IMAGE_DIM    = 1280               # longest edge after resize
+_JPEG_QUALITY     = 82
 
 # Pre-generated, committed dev-variant icons (orange tint + "DEV" badge). Served
 # as static files in dev — no runtime image library needed. See
@@ -3723,7 +3731,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
     if lang in _RUBY_LANGS:
         texts: set[str] = set()
         for r in result:
-            if r["display_text"]:
+            if r["display_text"] and r["analysis"].get("type") != "image":
                 texts.add(r["display_text"])
             for c in r["analysis"].get("corrections", []):
                 if c.get("corrected"):
@@ -3809,6 +3817,76 @@ async def send_message(conv_id: int, body: SendMessageBody,
 
     return {"ok": True, "display_text": sender_display, "msg_id": msg_id,
             "analysis": analysis, "tokens": tokens}
+
+
+@app.post("/api/conversations/{conv_id}/image")
+@limiter.limit("10/minute")
+async def send_image_message(conv_id: int, request: Request,
+                             file: UploadFile = File(...),
+                             user: dict = Depends(current_user)):
+    """Accept an image upload, downscale it, save to disk, store as a message."""
+    try:
+        from PIL import Image, ImageOps
+        import io as _io
+    except ImportError:
+        raise HTTPException(500, "Image processing unavailable (Pillow not installed)")
+
+    convs = await db.list_conversations(user["id"])
+    conv = next((c for c in convs if c["id"] == conv_id), None)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+
+    data = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Image too large (max 20 MB)")
+
+    try:
+        img = Image.open(_io.BytesIO(data))
+        img = ImageOps.exif_transpose(img)  # correct phone rotation
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+        if max(img.size) > _MAX_IMAGE_DIM:
+            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        out_bytes = buf.getvalue()
+    except Exception as exc:
+        raise HTTPException(400, f"Could not process image: {exc}")
+
+    media_id = _uuid.uuid4().hex
+    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
+    await db.add_media_record(media_id, user["id"], conv_id, len(out_bytes))
+
+    url = f"/api/media/{media_id}.jpg"
+    msg_id = await db.add_message(
+        conv_id, user["id"], url, "en", {},
+        analysis={"type": "image"},
+    )
+    await db.record_study_activity(user["id"])
+
+    if conv.get("type") == "inapp":
+        asyncio.create_task(_send_push_to_user(
+            conv["other_user_id"],
+            title=f"📷 {user['username']}",
+            body="sent a photo",
+            url="/messages",
+            tag=f"msg-{conv_id}",
+        ))
+
+    return {"ok": True, "url": url, "msg_id": msg_id}
+
+
+@app.get("/api/media/{media_id}")
+async def serve_media(media_id: str):
+    if not re.fullmatch(r"[0-9a-f]{32}\.jpg", media_id):
+        raise HTTPException(404)
+    path = MEDIA_DIR / media_id
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @app.post("/api/conversations/{conv_id}/read")
