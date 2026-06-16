@@ -625,6 +625,28 @@ async function toggleNotifications() {
 
 _syncBellState();
 _verifyBellState();
+
+// ── Offline / online indicator ────────────────────────────────────────────────
+(function () {
+  function _setOfflineBanner(offline) {
+    var el = document.getElementById('_sw-offline-bar');
+    if (offline) {
+      if (el) return;
+      el = document.createElement('div');
+      el.id = '_sw-offline-bar';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;'
+        + 'background:#ef4444;color:#fff;text-align:center;padding:6px 16px;'
+        + 'font-size:0.82rem;font-weight:600;letter-spacing:0.01em;';
+      el.textContent = "You’re offline — studying still works, changes will sync when reconnected";
+      document.body.insertBefore(el, document.body.firstChild);
+    } else {
+      if (el) el.remove();
+    }
+  }
+  if (!navigator.onLine) _setOfflineBanner(true);
+  window.addEventListener('offline', function () { _setOfflineBanner(true); });
+  window.addEventListener('online',  function () { _setOfflineBanner(false); });
+})();
 </script>
 """
 
@@ -3863,22 +3885,60 @@ async def send_image_message(conv_id: int, request: Request,
     await db.add_media_record(media_id, user["id"], conv_id, len(out_bytes))
 
     url = f"/api/media/{media_id}.jpg"
+
+    # Collect distinct target languages for phrase suggestions
+    langs_set: list[str] = []
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if sender_lang not in langs_set:
+        langs_set.append(sender_lang)
+    if conv.get("type") == "inapp":
+        recipient_lang = await db.get_setting(conv["other_user_id"], "default_target_lang") or "yue"
+        if recipient_lang not in langs_set:
+            langs_set.append(recipient_lang)
+
+    # Run vision analysis synchronously (1–3 s); fall back gracefully on failure
+    vision: dict = {"description": "Photo", "suggestions": {}}
+    try:
+        api_key = _SHARED_API_KEY
+        if api_key:
+            vision = await asyncio.get_event_loop().run_in_executor(
+                None, translation.analyze_image, out_bytes, langs_set, api_key
+            )
+    except Exception:
+        pass
+
+    description = vision.get("description") or "Photo"
+    descriptions = vision.get("descriptions") or {}
+    # Store per-language descriptions in the translations field so each user
+    # sees the preview in their own target language in the conversation list.
+    # Prefix with 📷 to match the original_text format.
+    translations_for_msg = {lang: f"📷 {d}" for lang, d in descriptions.items() if d}
+    analysis = {
+        "type": "image",
+        "url": url,
+        "description": description,
+        "descriptions": descriptions,
+        "suggestions": vision.get("suggestions") or {},
+    }
     msg_id = await db.add_message(
-        conv_id, user["id"], url, "en", {},
-        analysis={"type": "image"},
+        conv_id, user["id"], f"📷 {description}", "en", translations_for_msg,
+        analysis=analysis,
     )
     await db.record_study_activity(user["id"])
 
     if conv.get("type") == "inapp":
+        # Use recipient's target-language description in their push notification
+        notif_body = descriptions.get(recipient_lang) or description
         asyncio.create_task(_send_push_to_user(
             conv["other_user_id"],
             title=f"📷 {user['username']}",
-            body="sent a photo",
+            body=notif_body,
             url="/messages",
             tag=f"msg-{conv_id}",
         ))
 
-    return {"ok": True, "url": url, "msg_id": msg_id}
+    return {"ok": True, "url": url, "msg_id": msg_id, "description": description,
+            "descriptions": descriptions, "suggestions": analysis["suggestions"]}
 
 
 @app.get("/api/media/{media_id}")

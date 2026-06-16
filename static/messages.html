@@ -133,6 +133,45 @@
     .photo-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9000;
       display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .photo-lightbox img { max-width: 95vw; max-height: 95vh; border-radius: 8px; object-fit: contain; }
+    /* Image info overlay + panel */
+    .msg-photo-bubble { position: relative; }
+    .img-info-btn { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.45);
+      color: #fff; border: none; border-radius: 50%; width: 26px; height: 26px;
+      font-size: 0.75rem; cursor: pointer; padding: 0; display: flex;
+      align-items: center; justify-content: center; transition: background 0.15s;
+      backdrop-filter: blur(4px); flex-shrink: 0; }
+    .img-info-btn:hover, .img-info-btn.on { background: rgba(0,0,0,0.72); }
+    .img-info-panel { max-width: 280px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; margin-top: 6px; overflow: hidden;
+      box-shadow: var(--shadow); }
+    .img-info-header { display: flex; align-items: flex-start; gap: 8px;
+      padding: 9px 11px 8px; border-bottom: 1px solid var(--border); }
+    .img-info-desc { flex: 1; font-size: 0.82rem; color: var(--text-muted);
+      font-style: italic; line-height: 1.45; }
+    .img-info-close { background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 1rem; padding: 0 0 0 4px; line-height: 1; flex-shrink: 0;
+      align-self: flex-start; margin-top: 1px; }
+    .img-info-close:hover { color: var(--text); }
+    .img-phrase-row { display: flex; align-items: center; gap: 6px;
+      padding: 7px 11px; border-bottom: 1px solid var(--border); }
+    .img-phrase-row:last-child { border-bottom: none; }
+    .img-phrase-content { flex: 1; min-width: 0; cursor: pointer; border-radius: 7px;
+      padding: 3px 5px; margin: -3px -5px; transition: background 0.1s; }
+    .img-phrase-content:hover { background: var(--surface-alt); }
+    .img-phrase-target { font-family: var(--script-font, inherit); font-size: 0.92rem;
+      line-height: 2; color: var(--text); }
+    .img-phrase-target ruby { line-height: 1; }
+    .img-phrase-en { font-size: 0.75rem; color: var(--text-muted); margin-top: -1px; }
+    .img-phrases-hint { font-size: 0.71rem; color: var(--text-muted); padding: 5px 11px 2px;
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .img-phrase-add { background: none; color: var(--text-muted); border: 1px solid var(--border);
+      border-radius: 7px; padding: 4px 8px; font-size: 0.73rem; font-weight: 600;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: background 0.12s, color 0.12s, border-color 0.12s; }
+    .img-phrase-add:hover { background: var(--primary-soft); color: var(--primary);
+      border-color: var(--primary); }
+    .img-phrase-add.added { background: var(--good-soft); color: var(--good-strong);
+      border-color: var(--good-soft); cursor: default; }
 
     /* ── Friends modal ── */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500;
@@ -639,7 +678,14 @@
       const initials = name.slice(0, 2).toUpperCase();
       const isActive = c.id === _activeConvId;
       const messenger = c.type === 'messenger';
-      const preview = c.last_text ? c.last_text.slice(0, 40) + (c.last_text.length > 40 ? '…' : '') : 'No messages yet';
+      let _previewText = c.last_text || '';
+      if (c.last_translations) {
+        try {
+          const _lt = JSON.parse(c.last_translations);
+          _previewText = _lt[_targetLang] || _previewText;
+        } catch {}
+      }
+      const preview = _previewText ? _previewText.slice(0, 40) + (_previewText.length > 40 ? '…' : '') : 'No messages yet';
       const badge = c.unread > 0 ? `<div class="msg-unread-badge">${c.unread}</div>` : '';
       const time = c.last_message_at ? relTime(c.last_message_at) : '';
       return `<div class="msg-conv-row${isActive ? ' active' : ''}" onclick="openConv(${c.id})">
@@ -753,6 +799,9 @@
 
     // ── Image bubble ─────────────────────────────────────────────────────────
     if (analysis.type === 'image') {
+      const imgSrc = analysis.url || m.original_text;
+      const description = analysis.description || '';
+      const infoId = `imginfo-${m.id}`;
       const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
       const rxEntries = Object.entries(reactions).sort((a, b) => b[1].count - a[1].count);
       const rxHtml = rxEntries.length
@@ -761,14 +810,50 @@
               ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
             </button>`).join('')}</div>`
         : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
+      // Pick sender vs receiver perspective; handle legacy flat-array format
+      const normPhrase = p => typeof p === 'string' ? {text: p, en: ''} : {text: p.text || '', en: p.en || ''};
+      const _sugg = (analysis.suggestions || {})[_targetLang];
+      let myPhrases = [];
+      if (_sugg) {
+        const perspective = mine ? 'sender' : 'receiver';
+        const raw = Array.isArray(_sugg) ? _sugg : (_sugg[perspective] || _sugg.sender || []);
+        myPhrases = raw.map(normPhrase).filter(p => p.text);
+      }
+      const hasInfo = !!(description || myPhrases.length);
+      const phraseRows = myPhrases.map(p => `
+        <div class="img-phrase-row">
+          <div class="img-phrase-content" onclick="pastePhrase(${escAttr(JSON.stringify(p.text))})" title="Tap to paste into composer">
+            <div class="img-phrase-target">${needsRuby(_targetLang) ? rbSpan(p.text) : esc(p.text)}</div>
+            ${p.en ? `<div class="img-phrase-en">${esc(p.en)}</div>` : ''}
+          </div>
+          <button class="img-phrase-add" onclick="addPhraseCard(this,${escAttr(JSON.stringify(p.text))},${escAttr(JSON.stringify(p.en))})" title="Save to flashcard deck">Add card</button>
+        </div>`).join('');
+      // Description in viewer's target language if available, else English
+      const descLang = (analysis.descriptions || {})[_targetLang] || description;
+      const descHtml = descLang
+        ? (needsRuby(_targetLang) ? rbSpan(descLang) : esc(descLang))
+        : '';
+      const infoPanel = hasInfo ? `<div class="img-info-panel" id="${infoId}" style="display:none">
+        <div class="img-info-header">
+          <div class="img-info-desc">${descHtml}</div>
+          <button class="img-info-close" onclick="toggleImgInfo('${infoId}')" title="Close">✕</button>
+        </div>
+        ${myPhrases.length ? `<div class="img-phrases-hint">Tap a phrase to use it</div>` : ''}
+        ${phraseRows}
+      </div>` : '';
+      const infoBtn = hasInfo
+        ? `<button class="img-info-btn" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg></button>`
+        : '';
       return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
         ${nameHtml}
         <div class="msg-bubble msg-photo-bubble">
-          <img src="${esc(m.original_text)}" class="msg-photo" loading="lazy"
-               onclick="openPhoto('${esc(m.original_text)}')" alt="photo">
+          <img src="${esc(imgSrc)}" class="msg-photo" loading="lazy"
+               onclick="openPhoto('${esc(imgSrc)}')" alt="photo">
+          ${infoBtn}
         </div>
+        ${infoPanel}
         ${isSending ? '' : rxHtml}
-        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Uploading…</span>' : relTime(m.created_at)}</div>
+        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Analyzing…</span>' : relTime(m.created_at)}</div>
       </div>`;
     }
 
@@ -1098,7 +1183,7 @@
         <div class="msg-bubble msg-photo-bubble" style="opacity:0.55">
           <img src="${objUrl}" class="msg-photo" alt="uploading…">
         </div>
-        <div class="msg-bubble-time"><span class="sending-indicator">⟳ Uploading…</span></div>
+        <div class="msg-bubble-time"><span class="sending-indicator">⟳ Analyzing…</span></div>
       </div>`);
     thread.scrollTop = thread.scrollHeight;
 
@@ -1111,9 +1196,11 @@
       document.getElementById(tempId)?.remove();
       const realBubble = {
         id: data.msg_id, is_mine: true,
-        display_text: data.url, original_text: data.url,
+        display_text: data.url, original_text: `📷 ${data.description || 'Photo'}`,
         sender_name: 'Me', created_at: new Date().toISOString(),
-        analysis: { type: 'image' }, reactions: {},
+        analysis: { type: 'image', url: data.url, description: data.description || '',
+                    descriptions: data.descriptions || {}, suggestions: data.suggestions || {} },
+        reactions: {},
       };
       thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
       thread.scrollTop = thread.scrollHeight;
@@ -1135,6 +1222,60 @@
     lb.innerHTML = `<img src="${src}" alt="photo">`;
     lb.onclick = () => lb.remove();
     document.body.appendChild(lb);
+  }
+
+  async function toggleImgInfo(id) {
+    const panel = document.getElementById(id);
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? '' : 'none';
+    const btn = panel.previousElementSibling?.querySelector('.img-info-btn');
+    if (btn) btn.classList.toggle('on', isHidden);
+    // On open: fetch & paint ruby for the description + all phrase texts
+    if (isHidden && needsRuby(_targetLang)) {
+      const rbs = [...panel.querySelectorAll('.rb[data-text]')];
+      const missing = rbs.map(el => el.dataset.text).filter(t => t && !(_ck(t) in _tokenCache));
+      if (missing.length) await fetchTokensBatch(missing);
+      rbs.forEach(el => {
+        const tokens = _tokenCache[_ck(el.dataset.text)];
+        if (tokens) el.innerHTML = _tokensToHtml(tokens, rubyDefault);
+      });
+    }
+  }
+
+  async function addPhraseCard(btn, text, en) {
+    if (btn.classList.contains('added')) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: en || text, target_text: text,
+          romanization: '', target_lang: _targetLang, notes: '', priority: 3,
+        }),
+      });
+      if (res.ok || res.status === 409) {
+        btn.textContent = res.status === 409 ? 'In deck' : '✓ Saved';
+        btn.classList.add('added');
+        showToast(res.status === 409 ? 'Already in deck' : 'Added to flashcard deck ✓');
+      } else { throw new Error(); }
+    } catch {
+      btn.disabled = false; btn.textContent = 'Add card'; showToast('Could not add');
+    }
+  }
+
+  function pastePhrase(phrase) {
+    const input = document.getElementById('msg-input');
+    if (!input) return;
+    input.value = phrase;
+    input.focus();
+    input.dispatchEvent(new Event('input'));
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    // Brief highlight so the user sees where the text went
+    input.style.borderColor = 'var(--primary)';
+    input.style.boxShadow = '0 0 0 2px var(--primary-soft)';
+    setTimeout(() => { input.style.borderColor = ''; input.style.boxShadow = ''; }, 700);
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -1443,6 +1584,11 @@
 
   function esc(s) {
     const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+  }
+  // esc() doesn't encode " (safe in text nodes but not in double-quoted attributes).
+  // Use escAttr() whenever a value is interpolated into an HTML attribute.
+  function escAttr(s) {
+    return esc(s).replace(/"/g, '&quot;');
   }
 
   // ── Input auto-grow + keyboard ────────────────────────────────────────────

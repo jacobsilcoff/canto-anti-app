@@ -260,6 +260,120 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
             raise
 
 
+def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
+                     model: str = DEFAULT_MODEL) -> str:
+    from google.genai import types as _types
+    part_img = _types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+    delays = [1, 3]
+    for attempt, delay in enumerate([0] + delays):
+        if delay:
+            time.sleep(delay)
+        try:
+            return _get_client(api_key).models.generate_content(
+                model=model, contents=[part_img, prompt]
+            ).text.strip()
+        except ServerError as e:
+            if e.status_code == 503 and attempt < len(delays):
+                continue
+            raise
+
+
+def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
+    """Describe an image and suggest phrases for each target language.
+
+    Returns: {
+        "description": "A one-sentence English description",
+        "descriptions": {"yue": "一句廣東話描述", "fr": "Une phrase en français", ...},
+        "suggestions": {
+            "yue": [{"text": "phrase", "en": "English meaning"}, ...],
+            ...
+        }
+    }
+    On any failure returns a minimal fallback so the upload still succeeds.
+    """
+    lang_names = ", ".join(
+        f"{code} ({LANG_INFO[code]['name']})" for code in langs if code in LANG_INFO
+    )
+    desc_blocks = "\n".join(
+        f'  "{code}": "one sentence in {LANG_INFO[code]["name"]} describing the image"'
+        for code in langs if code in LANG_INFO
+    )
+    phrase_blocks = "\n".join(
+        f'  "{code}": {{\n'
+        f'    "sender": [{{"text": "phrase the photo-sender would say", "en": "English"}}],\n'
+        f'    "receiver": [{{"text": "phrase the photo-receiver would say in response", "en": "English"}}]\n'
+        f'  }}'
+        for code in langs if code in LANG_INFO
+    )
+    prompt = (
+        "You are a language-learning assistant. Look at this image and respond with JSON only.\n\n"
+        "Tasks:\n"
+        "1. Write a single short English sentence describing what you see (10–15 words).\n"
+        f"2. For each target language ({lang_names}), write ONE sentence describing the image "
+        "in that language (target script only, no romanization).\n"
+        f"3. For each target language, provide 3–5 conversational phrases for EACH perspective:\n"
+        "   - sender: what the person who sent the photo might say (e.g. sharing context, "
+        "expressing feeling about the scene, captioning it)\n"
+        "   - receiver: what the person viewing the photo might say in response (e.g. reacting, "
+        "asking a question, expressing emotion)\n"
+        "Each phrase must be in the target script only (no romanization). "
+        "Include a short English translation for each phrase. "
+        "Make the two perspectives contextually distinct when the image warrants it "
+        "(e.g. a graduation photo: sender says 'just graduated!', receiver says 'congrats!').\n\n"
+        "Respond with ONLY this JSON (no markdown, no explanation):\n"
+        "{\n"
+        '  "description": "...",\n'
+        '  "descriptions": {\n'
+        f"{desc_blocks}\n"
+        "  },\n"
+        '  "suggestions": {\n'
+        f"{phrase_blocks}\n"
+        "  }\n"
+        "}"
+    )
+    try:
+        raw = _call_with_image(prompt, image_bytes, api_key)
+        result = _parse_json(raw)
+        description = str(result.get("description", "")).strip() or "Photo"
+        descriptions: dict[str, str] = {}
+        raw_desc = result.get("descriptions") or {}
+        for code in langs:
+            d = str(raw_desc.get(code) or "").strip()
+            if d:
+                descriptions[code] = d
+        def _clean_phrases(raw_list) -> list[dict]:
+            out = []
+            for p in (raw_list or []):
+                if isinstance(p, dict):
+                    text = str(p.get("text") or "").strip()
+                    en = str(p.get("en") or "").strip()
+                elif isinstance(p, str):
+                    text, en = p.strip(), ""
+                else:
+                    continue
+                if text:
+                    out.append({"text": text, "en": en})
+            return out[:5]
+
+        suggestions: dict[str, dict] = {}
+        raw_sugg = result.get("suggestions") or {}
+        for code in langs:
+            entry = raw_sugg.get(code)
+            if isinstance(entry, dict):
+                suggestions[code] = {
+                    "sender": _clean_phrases(entry.get("sender")),
+                    "receiver": _clean_phrases(entry.get("receiver")),
+                }
+            elif isinstance(entry, list):
+                # Legacy flat list — assign to both perspectives
+                phrases = _clean_phrases(entry)
+                suggestions[code] = {"sender": phrases, "receiver": phrases}
+        return {"description": description, "descriptions": descriptions,
+                "suggestions": suggestions}
+    except Exception:
+        return {"description": "Photo", "descriptions": {}, "suggestions": {}}
+
+
 def _parse_json(text: str) -> dict:
     """Parse the first JSON object from the model response.
 
@@ -617,7 +731,11 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
     src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
     tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
     rules = LANG_INFO.get(target_lang, {}).get("rules", "")
-    rules_block = f"\nFollow these language rules strictly:\n{rules}" if rules else ""
+    rules_block = (
+        f"\nLanguage rules:\n{rules}\n"
+        "CRITICAL: the translated text must contain ONLY native script — "
+        "never embed romanization, jyutping, pinyin, or pronunciation in the output."
+    ) if rules else ""
     reply_en = text if source_lang == "en" else None
 
     if source_lang == target_lang:
@@ -654,7 +772,11 @@ async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
         return {"corrections": [], "reply_en": text}
     lang_name = LANG_INFO.get(lang, {}).get("name", lang)
     rules = LANG_INFO.get(lang, {}).get("rules", "")
-    rules_block = f"\nLanguage rules:\n{rules}" if rules else ""
+    rules_block = (
+        f"\nLanguage rules:\n{rules}\n"
+        "CRITICAL: all target-language text in your JSON must be native script only — "
+        "never embed romanization, jyutping, or pinyin in the output fields."
+    ) if rules else ""
     prompt = (
         f"You are a {lang_name} tutor reviewing a short chat message.{rules_block}\n\n"
         f"Message: {text}\n\n"
