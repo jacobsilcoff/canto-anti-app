@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Feedback</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .fb-page { max-width: 640px; margin: 0 auto; padding: 16px 16px 60px; }
+    .fb-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 20px; }
+    .fb-form h2 { font-size: 1rem; font-weight: 600; margin: 0 0 14px; }
+    .fb-row { margin-bottom: 12px; }
+    .fb-label { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .fb-input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; }
+    .fb-input:focus { outline: none; border-color: var(--primary); }
+    textarea.fb-input { resize: vertical; min-height: 80px; }
+    .fb-type-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .fb-type-btn { flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 0.9rem; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
+    .fb-type-btn:hover { border-color: var(--primary); }
+    .fb-type-btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+    .fb-screenshot-row { display: flex; align-items: center; gap: 10px; }
+    .fb-screenshot-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    .fb-screenshot-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .fb-screenshot-preview { max-width: 80px; max-height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); display: none; }
+    .fb-screenshot-name { font-size: 0.78rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fb-submit { width: 100%; padding: 11px; border: none; border-radius: 10px; background: var(--primary); color: var(--on-primary); font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    .fb-submit:hover { opacity: 0.9; }
+    .fb-submit:disabled { opacity: 0.5; cursor: default; }
+    .fb-section-title { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 24px 0 10px; }
+
+    /* My reports list */
+    .fb-list { display: flex; flex-direction: column; gap: 6px; }
+    .fb-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+    .fb-item-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .fb-item-body { flex: 1; min-width: 0; }
+    .fb-item-title { font-size: 0.9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-item-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .fb-status { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+    .fb-status.new { background: var(--primary-soft); color: var(--primary); }
+    .fb-status.triaged { background: var(--warn-soft); color: var(--warn-accent); }
+    .fb-status.in_progress { background: #e8f0fe; color: #1a56db; }
+    .fb-status.resolved { background: var(--good-soft); color: var(--good-strong); }
+    .fb-status.closed { background: var(--neutral-soft, #eee); color: var(--text-muted); }
+
+    /* Admin panel */
+    .fb-admin { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-top: 20px; }
+    .fb-admin h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
+    .fb-admin-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .fb-filter-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-muted); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .fb-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .fb-filter-btn.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+    .fb-detail-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500; display: flex; align-items: flex-end; justify-content: center; }
+    .fb-detail-sheet { background: var(--bg); border-radius: 20px 20px 0 0; width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
+    .fb-detail-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .fb-detail-title { font-weight: 700; font-size: 1.05rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fb-detail-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-muted); padding: 0 4px; }
+    .fb-detail-body { flex: 1; overflow-y: auto; padding: 14px 18px; }
+    .fb-detail-field { margin-bottom: 14px; }
+    .fb-detail-field-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .fb-detail-field-value { font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; }
+    .fb-prompt-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.82rem; font-family: ui-monospace, monospace; white-space: pre-wrap; line-height: 1.5; max-height: 200px; overflow-y: auto; }
+    .fb-screenshot-img { max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); margin-top: 4px; cursor: pointer; }
+    .fb-group-pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; background: var(--surface-alt); color: var(--text-muted); }
+    .fb-priority { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+    .fb-priority.low { background: var(--neutral-soft, #eee); color: var(--text-muted); }
+    .fb-priority.medium { background: var(--warn-soft); color: var(--warn-accent); }
+    .fb-priority.high { background: #fdecea; color: #d32f2f; }
+    .fb-priority.critical { background: #d32f2f; color: white; }
+    .fb-admin-status-select { padding: 5px 28px 5px 8px; font-size: 0.82rem; }
+    .fb-copy-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text-muted); font-size: 0.78rem; cursor: pointer; }
+    .fb-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .fb-empty { text-align: center; color: var(--text-muted); padding: 24px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="fb-page">
+  <!-- Submit form -->
+  <div class="fb-form">
+    <h2>Submit feedback</h2>
+    <div class="fb-type-row">
+      <button class="fb-type-btn active" id="type-bug" onclick="setType('bug')">Bug report</button>
+      <button class="fb-type-btn" id="type-feature" onclick="setType('feature')">Feature request</button>
+    </div>
+    <div class="fb-row">
+      <div class="fb-label">Title</div>
+      <input class="fb-input" id="fb-title" placeholder="Short summary of the issue or idea" maxlength="200">
+    </div>
+    <div class="fb-row">
+      <div class="fb-label">Description (optional)</div>
+      <textarea class="fb-input" id="fb-desc" placeholder="Steps to reproduce, expected vs actual behavior, or details of your feature idea" rows="4"></textarea>
+    </div>
+    <div class="fb-row">
+      <div class="fb-label">Screenshot (optional)</div>
+      <div class="fb-screenshot-row">
+        <input type="file" id="fb-screenshot-input" accept="image/*" style="display:none" onchange="onScreenshot(this)">
+        <button class="fb-screenshot-btn" onclick="document.getElementById('fb-screenshot-input').click()">Attach image</button>
+        <img class="fb-screenshot-preview" id="fb-screenshot-preview">
+        <span class="fb-screenshot-name" id="fb-screenshot-name"></span>
+      </div>
+    </div>
+    <button class="fb-submit" id="fb-submit" onclick="submitFeedback()">Submit</button>
+  </div>
+
+  <!-- My reports -->
+  <div class="fb-section-title">My reports</div>
+  <div class="fb-list" id="fb-my-list">
+    <div class="fb-empty">Loading…</div>
+  </div>
+
+  <!-- Admin section (hidden for non-admins) -->
+  <div class="fb-admin" id="fb-admin" style="display:none">
+    <h2>All reports (admin)</h2>
+    <div class="fb-admin-filters" id="fb-admin-filters">
+      <button class="fb-filter-btn active" data-status="" onclick="filterReports(this,'')">All</button>
+      <button class="fb-filter-btn" data-status="new" onclick="filterReports(this,'new')">New</button>
+      <button class="fb-filter-btn" data-status="triaged" onclick="filterReports(this,'triaged')">Triaged</button>
+      <button class="fb-filter-btn" data-status="in_progress" onclick="filterReports(this,'in_progress')">In progress</button>
+      <button class="fb-filter-btn" data-status="resolved" onclick="filterReports(this,'resolved')">Resolved</button>
+      <button class="fb-filter-btn" data-status="closed" onclick="filterReports(this,'closed')">Closed</button>
+    </div>
+    <div class="fb-list" id="fb-admin-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- Detail sheet (admin only) -->
+<div id="fb-detail-overlay" class="fb-detail-overlay" style="display:none" onclick="closeDetail()">
+  <div class="fb-detail-sheet" onclick="event.stopPropagation()">
+    <div class="fb-detail-head">
+      <span class="fb-detail-title" id="detail-title"></span>
+      <button class="fb-detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="fb-detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  let _fbType = 'bug';
+  let _isAdmin = false;
+  let _adminFilter = '';
+
+  function setType(t) {
+    _fbType = t;
+    document.getElementById('type-bug').classList.toggle('active', t === 'bug');
+    document.getElementById('type-feature').classList.toggle('active', t === 'feature');
+  }
+
+  function onScreenshot(input) {
+    const file = input.files?.[0];
+    const preview = document.getElementById('fb-screenshot-preview');
+    const name = document.getElementById('fb-screenshot-name');
+    if (file) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+      name.textContent = file.name;
+    } else {
+      preview.style.display = 'none';
+      name.textContent = '';
+    }
+  }
+
+  async function submitFeedback() {
+    const title = document.getElementById('fb-title').value.trim();
+    if (!title) { showToast('Please enter a title'); return; }
+    const btn = document.getElementById('fb-submit');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    const fd = new FormData();
+    fd.append('type', _fbType);
+    fd.append('title', title);
+    fd.append('description', document.getElementById('fb-desc').value.trim());
+    const file = document.getElementById('fb-screenshot-input').files?.[0];
+    if (file) fd.append('screenshot', file);
+    try {
+      const res = await fetch('/api/feedback', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Submit failed');
+      showToast(data.message || 'Submitted!');
+      document.getElementById('fb-title').value = '';
+      document.getElementById('fb-desc').value = '';
+      document.getElementById('fb-screenshot-input').value = '';
+      document.getElementById('fb-screenshot-preview').style.display = 'none';
+      document.getElementById('fb-screenshot-name').textContent = '';
+      loadMyReports();
+      if (_isAdmin) loadAdminReports();
+    } catch (e) { showToast(e.message || 'Failed'); }
+    btn.disabled = false;
+    btn.textContent = 'Submit';
+  }
+
+  async function loadMyReports() {
+    try {
+      const data = await fetch('/api/feedback/mine').then(r => r.json());
+      const list = document.getElementById('fb-my-list');
+      if (!data.reports?.length) {
+        list.innerHTML = '<div class="fb-empty">No reports yet</div>';
+        return;
+      }
+      list.innerHTML = data.reports.map(r => `
+        <div class="fb-item">
+          <div class="fb-item-icon">${r.type === 'bug' ? '🐛' : '💡'}</div>
+          <div class="fb-item-body">
+            <div class="fb-item-title">${esc(r.title)}</div>
+            <div class="fb-item-meta">${new Date(r.created_at + 'Z').toLocaleDateString()} · <span class="fb-status ${r.status}">${r.status.replace('_', ' ')}</span></div>
+          </div>
+        </div>`).join('');
+    } catch { document.getElementById('fb-my-list').innerHTML = '<div class="fb-empty">Could not load</div>'; }
+  }
+
+  async function loadAdminReports() {
+    try {
+      const url = '/api/admin/feedback' + (_adminFilter ? `?status=${_adminFilter}` : '');
+      const data = await fetch(url).then(r => r.json());
+      const list = document.getElementById('fb-admin-list');
+      if (!data.reports?.length) {
+        list.innerHTML = '<div class="fb-empty">No reports</div>';
+        return;
+      }
+      list.innerHTML = data.reports.map(r => `
+        <div class="fb-item" style="cursor:pointer" onclick="openDetail(${r.id})">
+          <div class="fb-item-icon">${r.type === 'bug' ? '🐛' : '💡'}</div>
+          <div class="fb-item-body">
+            <div class="fb-item-title">${esc(r.title)}</div>
+            <div class="fb-item-meta">
+              ${esc(r.username)} · ${new Date(r.created_at + 'Z').toLocaleDateString()}
+              · <span class="fb-status ${r.status}">${r.status.replace('_', ' ')}</span>
+              · <span class="fb-priority ${r.priority}">${r.priority}</span>
+              ${r.triage_group ? ` · <span class="fb-group-pill">${esc(r.triage_group)}</span>` : ''}
+            </div>
+          </div>
+        </div>`).join('');
+    } catch {}
+  }
+
+  function filterReports(btn, status) {
+    _adminFilter = status;
+    document.querySelectorAll('#fb-admin-filters .fb-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadAdminReports();
+  }
+
+  async function openDetail(id) {
+    try {
+      const r = await fetch(`/api/admin/feedback/${id}`).then(r => r.json());
+      document.getElementById('detail-title').textContent = r.title;
+      const screenshot = r.screenshot_media_id
+        ? `<div class="fb-detail-field"><div class="fb-detail-field-label">Screenshot</div><img class="fb-screenshot-img" src="/api/media/${esc(r.screenshot_media_id)}.jpg" onclick="window.open(this.src)"></div>` : '';
+      const prompt = r.suggested_prompt
+        ? `<div class="fb-detail-field"><div class="fb-detail-field-label">Suggested Claude prompt <button class="fb-copy-btn" onclick="copyPrompt(this)">Copy</button></div><div class="fb-prompt-box" id="detail-prompt">${esc(r.suggested_prompt)}</div></div>` : '';
+      document.getElementById('detail-body').innerHTML = `
+        <div class="fb-detail-field">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="fb-priority ${r.priority}">${r.priority}</span>
+            <span class="fb-status ${r.status}">${r.status.replace('_', ' ')}</span>
+            ${r.triage_group ? `<span class="fb-group-pill">${esc(r.triage_group)}</span>` : ''}
+            <span style="font-size:0.78rem;color:var(--text-muted)">${esc(r.username)} · ${r.type === 'bug' ? '🐛 Bug' : '💡 Feature'}</span>
+          </div>
+        </div>
+        <div class="fb-detail-field">
+          <div class="fb-detail-field-label">Description</div>
+          <div class="fb-detail-field-value">${esc(r.description || '(none)')}</div>
+        </div>
+        ${screenshot}
+        ${r.triage_summary ? `<div class="fb-detail-field"><div class="fb-detail-field-label">Triage summary</div><div class="fb-detail-field-value">${esc(r.triage_summary)}</div></div>` : ''}
+        ${prompt}
+        <div class="fb-detail-field">
+          <div class="fb-detail-field-label">Update status</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="settings-select fb-admin-status-select" id="detail-status">
+              <option value="new" ${r.status === 'new' ? 'selected' : ''}>New</option>
+              <option value="triaged" ${r.status === 'triaged' ? 'selected' : ''}>Triaged</option>
+              <option value="in_progress" ${r.status === 'in_progress' ? 'selected' : ''}>In progress</option>
+              <option value="resolved" ${r.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+              <option value="closed" ${r.status === 'closed' ? 'selected' : ''}>Closed</option>
+            </select>
+            <button class="fb-copy-btn" onclick="updateStatus(${r.id})">Update</button>
+          </div>
+        </div>
+        <div class="fb-detail-field">
+          <div class="fb-detail-field-label">Admin notes</div>
+          <textarea class="fb-input" id="detail-notes" rows="2" style="font-size:0.85rem">${esc(r.admin_notes || '')}</textarea>
+        </div>
+      `;
+      document.getElementById('fb-detail-overlay').style.display = 'flex';
+    } catch { showToast('Could not load report'); }
+  }
+
+  function closeDetail() {
+    document.getElementById('fb-detail-overlay').style.display = 'none';
+    loadAdminReports();
+  }
+
+  async function updateStatus(id) {
+    const status = document.getElementById('detail-status').value;
+    const notes = document.getElementById('detail-notes').value.trim();
+    try {
+      const res = await fetch(`/api/admin/feedback/${id}/status`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, admin_notes: notes }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('Updated');
+    } catch { showToast('Failed'); }
+  }
+
+  function copyPrompt(btn) {
+    const text = document.getElementById('detail-prompt')?.textContent;
+    if (text) { navigator.clipboard.writeText(text).then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }); }
+  }
+
+  let _toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // Init
+  (async function() {
+    loadMyReports();
+    try {
+      const me = await fetch('/api/me').then(r => r.json());
+      if (me.is_admin) {
+        _isAdmin = true;
+        document.getElementById('fb-admin').style.display = '';
+        loadAdminReports();
+      }
+    } catch {}
+  })();
+</script>
+</body>
+</html>

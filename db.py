@@ -356,6 +356,25 @@ async def init():
                 PRIMARY KEY (lang, model, word)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL DEFAULT 'bug',
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                screenshot_media_id TEXT,
+                status TEXT NOT NULL DEFAULT 'new',
+                priority TEXT NOT NULL DEFAULT 'medium',
+                triage_summary TEXT,
+                triage_group TEXT,
+                suggested_prompt TEXT,
+                admin_notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+
         # Backfill face rows for any cards that don't have them yet.
         for face in FACES:
             await db.execute(
@@ -1342,6 +1361,46 @@ async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_all_cards_basic(user_id: int, target_lang: str) -> list[dict]:
+    """Lightweight card list without audio BLOBs — for atomize feature.
+    Ordered shortest target_text first so phrase detection is consistent."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, source_text, target_text, romanization, target_lang,
+                      notes, priority, classifier, canonical_card_id
+               FROM cards
+               WHERE user_id=? AND target_lang=? AND suspended=0
+               ORDER BY length(target_text) ASC""",
+            (user_id, target_lang),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_cards_missing_classifier(user_id: int, target_lang: str) -> list[dict]:
+    """Cards with an empty classifier field for the given language."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, target_text, source_text
+               FROM cards
+               WHERE user_id=? AND target_lang=? AND suspended=0
+                 AND (classifier IS NULL OR classifier='')
+               ORDER BY id""",
+            (user_id, target_lang),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def update_card_classifier(card_id: int, classifier: str, user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE cards SET classifier=? WHERE id=? AND user_id=?",
+            (classifier or "", card_id, user_id),
+        )
+        await db.commit()
+
+
 async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
     """Set (or clear) the canonical card pointer. Returns False if card not found."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -1492,13 +1551,16 @@ async def get_or_create_story_label(user_id: int, text_id: int) -> dict:
 # ── Reader texts ──────────────────────────────────────────────────────────────
 
 async def create_reader_text(
-    user_id: int, title: str, prompt: str, content: str, target_lang: str
+    user_id: int, title: str, prompt: str, content: str, target_lang: str,
+    image_media_id: str | None = None,
 ) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
+        if not await _column_exists(db, "reader_texts", "image_media_id"):
+            await db.execute("ALTER TABLE reader_texts ADD COLUMN image_media_id TEXT")
         cursor = await db.execute(
-            """INSERT INTO reader_texts (user_id, title, prompt, content, target_lang)
-               VALUES (?, ?, ?, ?, ?)""",
-            (user_id, title, prompt, content, target_lang),
+            """INSERT INTO reader_texts (user_id, title, prompt, content, target_lang, image_media_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, title, prompt, content, target_lang, image_media_id),
         )
         await db.commit()
         return cursor.lastrowid
@@ -1525,13 +1587,21 @@ async def list_reader_texts(user_id: int, target_lang: str | None = None) -> lis
 async def get_reader_text(user_id: int, text_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+        has_img = await _column_exists(db, "reader_texts", "image_media_id")
+        cols = "id, title, prompt, content, target_lang, created_at"
+        if has_img:
+            cols += ", image_media_id"
         async with db.execute(
-            """SELECT id, title, prompt, content, target_lang, created_at
-               FROM reader_texts WHERE id=? AND user_id=?""",
+            f"SELECT {cols} FROM reader_texts WHERE id=? AND user_id=?",
             (text_id, user_id),
         ) as cur:
             row = await cur.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            d = dict(row)
+            if not has_img:
+                d["image_media_id"] = None
+            return d
 
 
 async def delete_reader_text(user_id: int, text_id: int):
@@ -2974,3 +3044,103 @@ async def get_user_by_messenger_page(page_id: str) -> dict | None:
         ) as cur:
             row = await cur.fetchone()
     return dict(row) if row else None
+
+
+# ── Feedback / bug reports ───────────────────────────────────────────────────
+
+async def create_feedback(
+    user_id: int, type: str, title: str, description: str,
+    screenshot_media_id: str | None = None,
+) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO feedback (user_id, type, title, description, screenshot_media_id)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, type, title, description, screenshot_media_id),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def update_feedback_triage(
+    feedback_id: int, triage_summary: str, triage_group: str,
+    suggested_prompt: str, priority: str,
+) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE feedback SET triage_summary=?, triage_group=?, suggested_prompt=?,
+                      priority=?, updated_at=datetime('now')
+               WHERE id=?""",
+            (triage_summary, triage_group, suggested_prompt, priority, feedback_id),
+        )
+        await db.commit()
+
+
+async def list_feedback(status: str | None = None) -> list[dict]:
+    """List all feedback (admin). Optionally filter by status."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if status:
+            async with db.execute(
+                """SELECT f.*, u.username FROM feedback f
+                   JOIN users u ON u.id = f.user_id
+                   ORDER BY f.created_at DESC""",
+            ) as cur:
+                rows = [dict(r) for r in await cur.fetchall()]
+            return [r for r in rows if r["status"] == status]
+        async with db.execute(
+            """SELECT f.*, u.username FROM feedback f
+               JOIN users u ON u.id = f.user_id
+               ORDER BY f.created_at DESC""",
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_feedback(feedback_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT f.*, u.username FROM feedback f
+               JOIN users u ON u.id = f.user_id
+               WHERE f.id=?""",
+            (feedback_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def update_feedback_status(feedback_id: int, status: str, admin_notes: str = "") -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE feedback SET status=?, admin_notes=?, updated_at=datetime('now')
+               WHERE id=?""",
+            (status, admin_notes, feedback_id),
+        )
+        await db.commit()
+
+
+async def list_feedback_groups() -> list[dict]:
+    """Return unique triage_group values with counts, for grouping similar reports."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT triage_group, COUNT(*) as count, GROUP_CONCAT(id) as ids
+               FROM feedback
+               WHERE triage_group IS NOT NULL AND triage_group != ''
+               GROUP BY triage_group
+               ORDER BY count DESC"""
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def list_user_feedback(user_id: int) -> list[dict]:
+    """List feedback submitted by a specific user."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, type, title, status, priority, created_at
+               FROM feedback WHERE user_id=?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]

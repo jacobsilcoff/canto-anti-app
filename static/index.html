@@ -45,42 +45,6 @@
     }
     .swap-btn:hover { background: var(--surface); color: var(--text); }
 
-    /* ── tour overlay ── */
-    .tour-overlay {
-      position: fixed; inset: 0; z-index: 9000;
-      background: var(--overlay);
-      display: flex; align-items: center; justify-content: center; padding: 24px;
-    }
-    .tour-card {
-      background: var(--surface); border-radius: 16px;
-      box-shadow: var(--shadow-pop);
-      padding: 32px 28px; max-width: 420px; width: 100%;
-      display: flex; flex-direction: column; gap: 16px;
-      position: relative;
-    }
-    .tour-step-num {
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--primary);
-    }
-    .tour-icon { font-size: 2.4rem; line-height: 1; }
-    .tour-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0; }
-    .tour-body { font-size: 0.95rem; color: var(--text-muted); line-height: 1.55; margin: 0; }
-    .tour-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
-    .tour-dots { display: flex; gap: 6px; }
-    .tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-    .tour-dot.active { background: var(--primary); }
-    .tour-next-btn {
-      background: var(--primary); color: #fff; border: none; border-radius: 8px;
-      padding: 10px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit;
-    }
-    .tour-next-btn:hover { opacity: 0.9; }
-    .tour-skip {
-      position: absolute; top: 14px; right: 16px;
-      background: none; border: none; cursor: pointer;
-      font-size: 1rem; color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
-    }
-    .tour-skip:hover { background: var(--bg); }
-
     .candidate-list {
       display: flex;
       flex-direction: column;
@@ -132,20 +96,6 @@
 <body>
 
 <header>{{NAV}}</header>
-
-<div id="tour-overlay" class="tour-overlay" style="display:none" aria-modal="true" role="dialog">
-  <div class="tour-card">
-    <button class="tour-skip" onclick="dismissTour()" title="Skip tour">✕</button>
-    <div class="tour-step-num" id="tour-step-num">Step 1 of 3</div>
-    <div class="tour-icon" id="tour-icon">✏️</div>
-    <h2 class="tour-title" id="tour-title"></h2>
-    <p class="tour-body" id="tour-body"></p>
-    <div class="tour-footer">
-      <div class="tour-dots" id="tour-dots"></div>
-      <button class="tour-next-btn" id="tour-next-btn" onclick="tourNext()">Next →</button>
-    </div>
-  </div>
-</div>
 
 <main class="translate-page">
   <div class="lang-direction">
@@ -289,63 +239,6 @@
     document.getElementById('input').placeholder = sourceIsTarget
       ? `Enter ${langName} text…`
       : 'Enter English text…';
-  }
-
-  // ── Tour ─────────────────────────────────────────────────────────────────
-  const TOUR_STEPS = [
-    {
-      icon: '✏️',
-      title: 'Type any word to add it',
-      body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.',
-    },
-    {
-      icon: '🃏',
-      title: 'Study your cards daily',
-      body: 'The Flashcards tab shows you cards due today. Each card has three faces: recognition, production, and pronunciation — spaced repetition handles the scheduling.',
-    },
-    {
-      icon: '📖',
-      title: 'Read real stories',
-      body: 'The Reader generates texts in your language. Tap any word to see its translation or add it to your deck. Words you already know are highlighted.',
-    },
-  ];
-  let tourStep = 0;
-
-  function showTour() {
-    tourStep = 0;
-    renderTourStep();
-    document.getElementById('tour-overlay').style.display = 'flex';
-  }
-
-  function renderTourStep() {
-    const s = TOUR_STEPS[tourStep];
-    document.getElementById('tour-step-num').textContent = `Step ${tourStep + 1} of ${TOUR_STEPS.length}`;
-    document.getElementById('tour-icon').textContent = s.icon;
-    document.getElementById('tour-title').textContent = s.title;
-    document.getElementById('tour-body').textContent = s.body;
-    const btn = document.getElementById('tour-next-btn');
-    btn.textContent = tourStep < TOUR_STEPS.length - 1 ? 'Next →' : 'Got it';
-    const dots = document.getElementById('tour-dots');
-    dots.innerHTML = '';
-    TOUR_STEPS.forEach((_, i) => {
-      const d = document.createElement('div');
-      d.className = 'tour-dot' + (i === tourStep ? ' active' : '');
-      dots.appendChild(d);
-    });
-  }
-
-  function tourNext() {
-    if (tourStep < TOUR_STEPS.length - 1) {
-      tourStep++;
-      renderTourStep();
-    } else {
-      dismissTour();
-    }
-  }
-
-  async function dismissTour() {
-    document.getElementById('tour-overlay').style.display = 'none';
-    try { await fetch('/api/tour-seen', { method: 'POST' }); } catch {}
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -720,7 +613,6 @@
       const s = await fetch('/api/settings').then(r => r.json());
       if (s.default_target_lang) targetLang = s.default_target_lang;
       updateDirectionButtons();
-      if (!s.tour_seen) showTour();
     } catch {}
   }
 
@@ -746,10 +638,6 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      const overlay = document.getElementById('tour-overlay');
-      if (overlay && overlay.style.display !== 'none') { dismissTour(); return; }
-    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       doTranslate();

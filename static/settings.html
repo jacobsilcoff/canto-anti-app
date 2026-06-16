@@ -347,6 +347,24 @@
     <div id="mastery-list" style="padding:0 18px 14px"></div>
   </div>
 
+  <div class="settings-section" id="deck-maintenance-section">
+    <div class="settings-section-title">Deck Maintenance</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Atomize phrase cards</div>
+        <div class="settings-desc">Auto-create individual word cards for any multi-word phrase cards. Runs in the background — new cards appear in your deck shortly.</div>
+      </div>
+      <button class="settings-btn" id="atomize-btn" onclick="runAtomize()">Run</button>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Backfill classifiers</div>
+        <div class="settings-desc">Add missing measure words (量詞) or articles to existing cards that don't have them.</div>
+      </div>
+      <button class="settings-btn" id="backfill-classifier-btn" onclick="runBackfillClassifiers()">Run</button>
+    </div>
+  </div>
+
   <div class="settings-section" id="admin-lesson-section" style="display:none">
     <div class="settings-section-title">Learning Path (admin)</div>
     <div class="settings-row">
@@ -1129,6 +1147,47 @@
   async function doLogout() {
     await fetch('/api/logout', { method: 'POST' });
     location.href = '/login';
+  }
+
+  async function runAtomize() {
+    const lang = settings.default_target_lang || 'yue';
+    const btn = document.getElementById('atomize-btn');
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    try {
+      const res = await fetch('/api/cards/atomize', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      const msg = data.total_phrase_cards === 0
+        ? 'No phrase cards found'
+        : data.queued > 0
+          ? `Queued ${data.queued} new word card${data.queued !== 1 ? 's' : ''} (${data.total_phrase_cards} phrase cards total)`
+          : 'All phrase card words already in deck';
+      showToast(msg + (data.remaining > 0 ? ` — ${data.remaining} more phrase cards, run again` : ''));
+    } catch (e) { showToast(e.message || 'Failed'); }
+    btn.disabled = false;
+    btn.textContent = 'Run';
+  }
+
+  async function runBackfillClassifiers() {
+    const lang = settings.default_target_lang || 'yue';
+    const btn = document.getElementById('backfill-classifier-btn');
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    try {
+      const res = await fetch('/api/cards/backfill-classifiers', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      showToast(data.message || 'Done');
+    } catch (e) { showToast(e.message || 'Failed'); }
+    btn.disabled = false;
+    btn.textContent = 'Run';
   }
 
   let _toastTimer;

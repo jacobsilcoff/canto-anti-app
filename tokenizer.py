@@ -155,6 +155,22 @@ def tokenize(text: str, lang: str) -> list[Token]:
     return _tokenize_latin(text)
 
 
+def phrase_words(target_text: str, lang: str) -> list[str]:
+    """Return the distinct word-tokens inside a phrase (in order).
+
+    A single-word card returns a list of length 1.
+    Used to detect phrase cards and enumerate their constituents for
+    automatic atomic-card creation.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for tok in tokenize(target_text, lang):
+        if tok["is_word"] and tok["text"] not in seen:
+            seen.add(tok["text"])
+            result.append(tok["text"])
+    return result
+
+
 def _tokenize_cjk(text: str, lang: str) -> list[Token]:
     if lang == "yue":
         try:

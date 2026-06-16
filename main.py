@@ -277,6 +277,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
         "tutor":     f'<svg {_i}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         "messages":  f'<svg {_i}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+        "feedback":  f'<svg {_i}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -305,6 +306,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
         link("/messages", "Messages",   "messages", notif=True),
+        link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -651,6 +653,24 @@ _verifyBellState();
 """
 
 
+_TOUR_WIDGET = """
+<div id="tour-overlay" class="tour-overlay" style="display:none" aria-modal="true" role="dialog">
+  <div class="tour-card">
+    <button class="tour-skip" onclick="_tourDismiss()" title="Skip tour">✕</button>
+    <div class="tour-step-num" id="tour-step-num"></div>
+    <div class="tour-icon" id="tour-icon"></div>
+    <h2 class="tour-title" id="tour-title"></h2>
+    <p class="tour-body" id="tour-body"></p>
+    <div class="tour-footer">
+      <div class="tour-dots" id="tour-dots"></div>
+      <button class="tour-next-btn" id="tour-next-btn" onclick="_tourNext()">Next →</button>
+    </div>
+  </div>
+</div>
+<script src="/static/tour.js"></script>
+"""
+
+
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
@@ -663,6 +683,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
+    content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
     # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
     # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
@@ -678,7 +699,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -902,6 +923,11 @@ async def messages_page():
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _html("settings.html", active="/settings")
+
+
+@app.get("/feedback", response_class=HTMLResponse)
+async def feedback_page():
+    return _html("feedback.html", active="/feedback")
 
 
 @app.get("/welcome", response_class=HTMLResponse)
@@ -1228,6 +1254,69 @@ async def _backfill_card_embeddings(user_id: int, api_key: str, *, limit: int) -
             await db.update_card_embedding(card["id"], json.dumps(vec))
 
 
+async def _atomize_phrase_bg(
+    user_id: int, phrase: str, lang: str,
+    label_ids: list[int], priority: int, api_key: str, model: str,
+) -> None:
+    """Background: translate each word in a phrase and create missing atomic cards.
+
+    Skips words already in the user's deck (exact or normalized match).
+    Best-effort — any individual failure is swallowed so the task always completes.
+    """
+    words = tokenizer.phrase_words(phrase, lang)
+    if len(words) <= 1:
+        return
+    statuses = await db.get_word_statuses(user_id, words, lang)
+    for word in words:
+        if word in statuses:
+            continue
+        try:
+            result = await translation.translate(
+                word, lang, source_is_target=True,
+                api_key=api_key, model=model,
+            )
+            candidate = result["candidates"][0] if result["candidates"] else {}
+            if not candidate.get("english"):
+                continue
+            audio_data = await audio.generate(word, lang)
+            rom = tokenizer.romanize_text(word, lang) or candidate.get("romanization", "")
+            await db.create_card(
+                user_id=user_id,
+                source_text=candidate["english"],
+                target_text=word,
+                romanization=rom,
+                target_lang=lang,
+                audio_data=audio_data,
+                notes=candidate.get("notes"),
+                label_ids=label_ids,
+                priority=result.get("priority", priority),
+                classifier=result.get("classifier", ""),
+                cefr_level=result.get("cefr_level"),
+            )
+        except Exception:
+            pass
+
+
+async def _backfill_classifiers_bg(user_id: int, lang: str, api_key: str) -> None:
+    """Background: fill missing classifiers/articles for all cards of a language.
+    Processes in batches of 60. Best-effort."""
+    import asyncio as _asyncio
+    cards = await db.get_cards_missing_classifier(user_id, lang)
+    for i in range(0, len(cards), 60):
+        batch = cards[i:i + 60]
+        words = [c["target_text"] for c in batch]
+        try:
+            classifiers = await _asyncio.to_thread(
+                translation.get_classifiers_batch, words, lang, api_key
+            )
+            for card in batch:
+                cl = classifiers.get(card["target_text"], "")
+                if cl:
+                    await db.update_card_classifier(card["id"], cl, user_id)
+        except Exception:
+            pass
+
+
 @app.post("/api/cards")
 async def create_card(
     req: CreateCardRequest,
@@ -1271,12 +1360,18 @@ async def create_card(
         cefr_level=req.cefr_level,
     )
 
-    # Generate embedding in the background (best-effort; skip if no usable key).
-    # Not metered — it's a derived side-effect of saving a card, not a user action.
+    # Background side-effects (best-effort; skip if no usable key).
     try:
         access = await _resolve_gemini(user, meter=False)
         embed_text = f"{req.source_text.strip()} {target_text}"
         background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
+        # Auto-atomize phrase cards: translate each constituent word into its own card.
+        if len(tokenizer.phrase_words(target_text, req.target_lang)) > 1:
+            background_tasks.add_task(
+                _atomize_phrase_bg,
+                user["id"], target_text, req.target_lang,
+                extra_label_ids, req.priority, access.api_key, access.model_translate,
+            )
     except HTTPException:
         pass
 
@@ -1298,6 +1393,65 @@ async def card_statuses(req: CardStatusRequest, user: dict = Depends(current_use
     return {"statuses": await db.get_word_statuses(user["id"], words, req.lang)}
 
 
+class DeckMaintenanceRequest(BaseModel):
+    lang: str
+
+
+@app.post("/api/cards/atomize")
+async def atomize_cards(
+    req: DeckMaintenanceRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Create atomic word cards for all phrase cards of a language.
+
+    Processes up to 10 phrase cards per call; call again while remaining > 0.
+    Returns {total_phrase_cards, queued, remaining}.
+    """
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    access = await _resolve_gemini(user)
+    cards = await db.get_all_cards_basic(user["id"], req.lang)
+    phrase_cards = [c for c in cards if len(tokenizer.phrase_words(c["target_text"], req.lang)) > 1]
+    batch = phrase_cards[:10]
+    queued = 0
+    for card in batch:
+        words = tokenizer.phrase_words(card["target_text"], req.lang)
+        statuses = await db.get_word_statuses(user["id"], words, req.lang)
+        new_words = [w for w in words if w not in statuses]
+        if new_words:
+            queued += len(new_words)
+            background_tasks.add_task(
+                _atomize_phrase_bg,
+                user["id"], card["target_text"], req.lang,
+                [], card["priority"], access.api_key, access.model_translate,
+            )
+    return {
+        "total_phrase_cards": len(phrase_cards),
+        "queued": queued,
+        "remaining": max(0, len(phrase_cards) - len(batch)),
+    }
+
+
+@app.post("/api/cards/backfill-classifiers")
+async def backfill_classifiers(
+    req: DeckMaintenanceRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Fill missing classifiers/articles for all cards of a language in the background."""
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    if req.lang not in translation._CLASSIFIER_HINT:
+        return {"message": "No classifier system for this language", "total": 0}
+    access = await _resolve_gemini(user)
+    cards = await db.get_cards_missing_classifier(user["id"], req.lang)
+    if not cards:
+        return {"message": "All cards already have classifiers", "total": 0}
+    background_tasks.add_task(_backfill_classifiers_bg, user["id"], req.lang, access.api_key)
+    return {"message": f"Backfilling classifiers for {len(cards)} cards in background", "total": len(cards)}
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/settings")
@@ -1307,7 +1461,7 @@ async def get_settings(user: dict = Depends(current_user)):
     auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
     audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
     has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
-    tour_seen = bool(await db.get_setting(user["id"], "tour_seen"))
+    tour_seen = await db.get_setting(user["id"], "tour_seen") or "0"
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
     return {
@@ -1451,8 +1605,10 @@ async def mark_onboarded(
 
 
 @app.post("/api/tour-seen")
-async def mark_tour_seen(user: dict = Depends(current_user)):
-    await db.set_setting(user["id"], "tour_seen", "1")
+async def mark_tour_seen(request: Request, user: dict = Depends(current_user)):
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    version = str(int(body.get("version", 1)))
+    await db.set_setting(user["id"], "tour_seen", version)
     return {"ok": True}
 
 
@@ -3027,10 +3183,128 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
     return {"success": True}
 
 
+# ── Feedback / bug reports ───────────────────────────────────────────────────
+
+class FeedbackRequest(BaseModel):
+    type: str = "bug"
+    title: str
+    description: str = ""
+
+
+@app.post("/api/feedback")
+@limiter.limit("10/minute;50/day")
+async def submit_feedback(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Submit a bug report or feature request, optionally with a screenshot."""
+    import io as _io
+    form = await request.form()
+    fb_type = str(form.get("type", "bug"))
+    if fb_type not in ("bug", "feature"):
+        fb_type = "bug"
+    title = str(form.get("title", "")).strip()
+    if not title:
+        raise HTTPException(400, "Title is required")
+    description = str(form.get("description", "")).strip()
+    screenshot_media_id = None
+    screenshot_file = form.get("screenshot")
+    if screenshot_file and hasattr(screenshot_file, "read"):
+        raw = await screenshot_file.read()
+        if raw and len(raw) <= _MAX_UPLOAD_BYTES and _PIL_OK:
+            try:
+                img = Image.open(_io.BytesIO(raw))
+                img = _ImageOps.exif_transpose(img)
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                if max(img.size) > _MAX_IMAGE_DIM:
+                    img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+                buf = _io.BytesIO()
+                img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+                out_bytes = buf.getvalue()
+                screenshot_media_id = _uuid.uuid4().hex
+                (MEDIA_DIR / f"{screenshot_media_id}.jpg").write_bytes(out_bytes)
+                await db.add_media_record(screenshot_media_id, user["id"], None, len(out_bytes))
+            except Exception:
+                pass
+    feedback_id = await db.create_feedback(
+        user["id"], fb_type, title, description, screenshot_media_id
+    )
+    background_tasks.add_task(_triage_feedback_bg, feedback_id, title, description)
+    return {"id": feedback_id, "message": "Thank you for your feedback!"}
+
+
+async def _triage_feedback_bg(feedback_id: int, title: str, description: str) -> None:
+    """Background: AI-triage a feedback report."""
+    api_key = _SHARED_API_KEY
+    if not api_key:
+        return
+    try:
+        groups = await db.list_feedback_groups()
+        existing_groups = [g["triage_group"] for g in groups]
+        result = await asyncio.to_thread(
+            translation.triage_feedback, title, description, existing_groups, api_key
+        )
+        await db.update_feedback_triage(
+            feedback_id,
+            result["triage_summary"],
+            result["triage_group"],
+            result["suggested_prompt"],
+            result["priority"],
+        )
+    except Exception:
+        pass
+
+
+@app.get("/api/feedback/mine")
+async def my_feedback(user: dict = Depends(current_user)):
+    return {"reports": await db.list_user_feedback(user["id"])}
+
+
+@app.get("/api/admin/feedback")
+async def admin_list_feedback(
+    status: str = "",
+    user: dict = Depends(current_admin),
+):
+    reports = await db.list_feedback(status=status or None)
+    return {"reports": reports}
+
+
+@app.get("/api/admin/feedback/{feedback_id}")
+async def admin_get_feedback(feedback_id: int, user: dict = Depends(current_admin)):
+    report = await db.get_feedback(feedback_id)
+    if not report:
+        raise HTTPException(404, "Report not found")
+    return report
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+    admin_notes: str = ""
+
+
+@app.put("/api/admin/feedback/{feedback_id}/status")
+async def admin_update_feedback_status(
+    feedback_id: int,
+    req: FeedbackStatusUpdate,
+    user: dict = Depends(current_admin),
+):
+    if req.status not in ("new", "triaged", "in_progress", "resolved", "closed"):
+        raise HTTPException(400, "Invalid status")
+    await db.update_feedback_status(feedback_id, req.status, req.admin_notes)
+    return {"success": True}
+
+
+@app.get("/api/admin/feedback/groups")
+async def admin_feedback_groups(user: dict = Depends(current_admin)):
+    return {"groups": await db.list_feedback_groups()}
+
+
 # ── Reader ────────────────────────────────────────────────────────────────────
 
 class ReaderGenerateRequest(BaseModel):
-    prompt: str
+    prompt: str = ""
     target_lang: str = "yue"
     difficulty: str = "B1"
     num_paragraphs: int = 4
@@ -3061,7 +3335,7 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
     )
     rom_map = tokenizer.romanize_words(words, text["target_lang"])
     all_vocab_added = bool(unique_words) and all(w in statuses for w in unique_words)
-    return {
+    resp = {
         **text,
         "tokens": _annotate_tokens(tokens, statuses),
         "sentences": sentences,
@@ -3069,6 +3343,10 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
         "romanization": rom_map,
         "all_vocab_added": all_vocab_added,
     }
+    img_id = text.get("image_media_id")
+    if img_id:
+        resp["image_url"] = f"/api/media/{img_id}.jpg"
+    return resp
 
 
 @app.post("/api/reader/generate")
@@ -3077,13 +3355,82 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
     access = await _resolve_gemini(user)
+    prompt = req.prompt.strip()
+    if not prompt:
+        existing = await db.list_reader_texts(user["id"], target_lang=req.target_lang)
+        existing_titles = [t["title"] for t in existing[:30]]
+        titles_hint = ""
+        if existing_titles:
+            titles_hint = (
+                f"The user already has these stories: {', '.join(existing_titles[:20])}. "
+                "Write something DIFFERENT — pick a fresh genre, topic, or setting."
+            )
+        prompt = (
+            "Write something interesting and creative for a language learner. "
+            "Pick a vivid scenario: a conversation, a short story, a diary entry, "
+            "a news article, or a cultural anecdote. " + titles_hint
+        )
     result = await translation.generate_reader_text(
-        req.prompt, req.target_lang, req.difficulty,
+        prompt, req.target_lang, req.difficulty,
         req.num_paragraphs,
         api_key=access.api_key, model=access.model_reader,
     )
     text_id = await db.create_reader_text(
-        user["id"], result["title"], req.prompt, result["content"], req.target_lang
+        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang
+    )
+    text = await db.get_reader_text(user["id"], text_id)
+    return await _build_text_response(user["id"], text)
+
+
+@app.post("/api/reader/generate-from-image")
+@limiter.limit("10/minute;50/day")
+async def reader_generate_from_image(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(current_user),
+):
+    """Generate a reader text inspired by an uploaded image."""
+    import io as _io
+    if not _PIL_OK:
+        raise HTTPException(500, "Image processing unavailable")
+    form = await request.form()
+    target_lang = str(form.get("target_lang", "yue"))
+    difficulty = str(form.get("difficulty", "B1"))
+    num_paragraphs = int(form.get("num_paragraphs", 4))
+    prompt = str(form.get("prompt", ""))
+    if target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    access = await _resolve_gemini(user)
+    raw = await file.read()
+    if len(raw) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Image too large (max 20 MB)")
+    try:
+        img = Image.open(_io.BytesIO(raw))
+        img = _ImageOps.exif_transpose(img)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        if max(img.size) > _MAX_IMAGE_DIM:
+            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        out_bytes = buf.getvalue()
+    except Exception as exc:
+        raise HTTPException(400, f"Could not process image: {exc}")
+    # Save image to media dir for display in the reader
+    media_id = _uuid.uuid4().hex
+    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
+    await db.add_media_record(media_id, user["id"], None, len(out_bytes))
+    existing = await db.list_reader_texts(user["id"], target_lang=target_lang)
+    existing_titles = [t["title"] for t in existing[:30]]
+    result = await translation.generate_reader_text_from_image(
+        out_bytes, target_lang, difficulty, num_paragraphs, prompt,
+        existing_titles=existing_titles,
+        api_key=access.api_key, model=access.model_reader,
+    )
+    stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
+    text_id = await db.create_reader_text(
+        user["id"], result["title"], stored_prompt, result["content"], target_lang,
+        image_media_id=media_id,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
@@ -3369,11 +3716,13 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                 row = await cur.fetchone()
             if row is None:
                 # Exact miss — get_word_statuses matched via normalization or CJK substring.
-                # Find the card whose normalized target_text matches or contains this token.
+                # Find the shortest card whose normalized target_text matches or contains this token.
+                # Shortest-first ensures we prefer the most atomic card over a longer phrase.
                 norm_word = db._normalize_word(req.word)
                 async with conn.execute(
                     "SELECT id, source_text, target_text, romanization, notes "
-                    "FROM cards WHERE user_id=? AND target_lang=?",
+                    "FROM cards WHERE user_id=? AND target_lang=? "
+                    "ORDER BY length(target_text) ASC",
                     (user["id"], req.target_lang),
                 ) as cur2:
                     for r in await cur2.fetchall():

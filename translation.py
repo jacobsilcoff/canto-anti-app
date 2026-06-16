@@ -374,6 +374,37 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         return {"description": "Photo", "descriptions": {}, "suggestions": {}}
 
 
+def get_classifiers_batch(words: list[str], lang: str, api_key: str) -> dict[str, str]:
+    """Return a mapping of word → classifier/article for target-language words.
+
+    Makes a single Gemini call. Returns empty string for non-nouns.
+    Only useful for languages in _CLASSIFIER_HINT; returns {} for others.
+    Caps at 60 words per call.
+    """
+    if not words or lang not in _CLASSIFIER_HINT:
+        return {}
+    hint = _CLASSIFIER_HINT[lang]
+    name = LANG_INFO.get(lang, {}).get("name", lang)
+    batch = words[:60]
+    word_list = "\n".join(f"- {w}" for w in batch)
+    prompt = (
+        f"For each of the following {name} words, provide the correct {hint}\n"
+        "Return ONLY valid JSON: an object mapping each word exactly (as given) to its "
+        "classifier/article string. Use empty string \"\" for verbs, adjectives, and "
+        "other non-nouns. No explanations.\n\n"
+        f"Words:\n{word_list}\n\n"
+        "Return ONLY this JSON object, nothing else."
+    )
+    try:
+        raw = _call(prompt, api_key)
+        data = _parse_json(raw)
+        if isinstance(data, dict):
+            return {str(k): str(v).strip() for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
 def _parse_json(text: str) -> dict:
     """Parse the first JSON object from the model response.
 
@@ -654,6 +685,128 @@ async def generate_reader_text(
     if not content:
         raise ValueError("Gemini returned empty content")
     return {"title": title, "content": content}
+
+
+async def generate_reader_text_from_image(
+    image_bytes: bytes,
+    target_lang: str,
+    difficulty: str = "B1",
+    num_paragraphs: int = 4,
+    prompt: str = "",
+    existing_titles: list[str] | None = None,
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """Generate a reader text inspired by an uploaded image.
+
+    Returns: { title: str, content: str, description: str }
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
+    rules = "\n".join(
+        line for line in info["rules"].splitlines()
+        if not any(kw in line.lower() for kw in _roman_kw)
+    )
+    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
+    num_paragraphs = max(1, min(10, int(num_paragraphs)))
+
+    user_direction = ""
+    if prompt:
+        user_direction = f"\nUser direction: {prompt}\nUse the image as the visual setting and the user's direction to guide the story.\n"
+    else:
+        user_direction = "\nLook at the image and write an interesting, creative story inspired by what you see.\n"
+
+    existing_block = ""
+    if existing_titles:
+        titles_str = ", ".join(f'"{t}"' for t in existing_titles[:30])
+        existing_block = (
+            f"\nThe user already has these stories: [{titles_str}]. "
+            "Write something DIFFERENT — pick a fresh angle, genre, or theme.\n"
+        )
+
+    full_prompt = (
+        f"Write a {name} text inspired by this image.{user_direction}{existing_block}"
+        "IMPORTANT: Write ONLY native-script characters. Do NOT include any romanisation, "
+        "transliteration, pinyin, jyutping, romaja, IAST, or Latin characters (except for "
+        "proper nouns/brand names that are natively written in Latin script).\n"
+        "Rules:\n"
+        f"{rules}\n"
+        f"{difficulty_rule}\n"
+        f"- The text should be exactly {num_paragraphs} paragraph(s) long.\n"
+        "- Write naturally, as if for a native speaker audience.\n"
+        "- Do NOT include any romanisation or English translation anywhere in the content field.\n"
+        "- Also provide a short English title (3–6 words) summarising the text.\n"
+        "- Also provide a one-sentence English description of what you see in the image.\n"
+        "Return ONLY valid JSON, no other text:\n"
+        '{ "title": "...", "content": "...", "description": "..." }\n'
+    )
+    raw = await asyncio.to_thread(
+        lambda: _parse_json(_call_with_image(full_prompt, image_bytes, api_key, model))
+    )
+    title = (raw.get("title") or "").strip() or "Image Story"
+    content = (raw.get("content") or "").strip()
+    description = (raw.get("description") or "").strip() or "Image-inspired story"
+    if not content:
+        raise ValueError("Gemini returned empty content")
+    return {"title": title, "content": content, "description": description}
+
+
+def triage_feedback(
+    title: str, description: str, existing_groups: list[str],
+    api_key: str,
+) -> dict:
+    """AI-triage a feedback report: assign priority, group, and a suggested prompt.
+
+    Returns: { priority, triage_group, triage_summary, suggested_prompt }
+    """
+    groups_block = ""
+    if existing_groups:
+        groups_str = ", ".join(f'"{g}"' for g in existing_groups[:50])
+        groups_block = (
+            f"\nExisting bug groups: [{groups_str}]\n"
+            "If this report matches one of these groups, use that EXACT group name. "
+            "Otherwise create a new short kebab-case group name.\n"
+        )
+
+    prompt = (
+        "You are a software triage bot for a language-learning flashcard app. "
+        "Analyze this user report and respond with JSON.\n\n"
+        f"Title: {title}\n"
+        f"Description: {description}\n"
+        f"{groups_block}\n"
+        "Respond with ONLY valid JSON:\n"
+        "{\n"
+        '  "priority": "low|medium|high|critical",\n'
+        '  "triage_group": "short-kebab-case-group-name",\n'
+        '  "triage_summary": "One sentence summary of the issue for developers",\n'
+        '  "suggested_prompt": "A detailed prompt for Claude Code to implement the fix or feature. '
+        "Include what files likely need changing and what the expected behavior should be.\"\n"
+        "}\n"
+    )
+    try:
+        raw = _call(prompt, api_key)
+        data = _parse_json(raw)
+        valid_priorities = {"low", "medium", "high", "critical"}
+        priority = data.get("priority", "medium")
+        if priority not in valid_priorities:
+            priority = "medium"
+        return {
+            "priority": priority,
+            "triage_group": (data.get("triage_group") or "uncategorized").strip()[:100],
+            "triage_summary": (data.get("triage_summary") or "").strip()[:500],
+            "suggested_prompt": (data.get("suggested_prompt") or "").strip()[:2000],
+        }
+    except Exception:
+        return {
+            "priority": "medium",
+            "triage_group": "uncategorized",
+            "triage_summary": title,
+            "suggested_prompt": "",
+        }
 
 
 async def translate_sentence(

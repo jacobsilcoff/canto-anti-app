@@ -32,6 +32,18 @@
     .gen-submit-btn:disabled { opacity: 0.5; cursor: default; }
     .gen-submit-btn:hover:not(:disabled) { background: var(--primary-hover); }
 
+    /* ── Image upload for story ── */
+    .gen-image-row { display: flex; align-items: center; gap: 10px; }
+    .gen-image-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+    .gen-image-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .gen-image-preview { max-width: 60px; max-height: 48px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); display: none; }
+    .gen-image-name { font-size: 0.78rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gen-image-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 2px 4px; }
+    .gen-image-clear:hover { color: var(--danger); }
+
+    /* Reader image banner */
+    .reader-image { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 12px; object-fit: cover; border: 1px solid var(--border); }
+
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
     .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
@@ -203,7 +215,14 @@
     <div class="gen-form">
       <h2>Generate a text to read</h2>
       <div class="gen-prompt-wrap">
-        <textarea id="gen-prompt" placeholder="Describe what you want to read, e.g. "a short conversation at a dim sum restaurant"" rows="3"></textarea>
+        <textarea id="gen-prompt" placeholder="Optional: describe what you want to read, or leave blank for a surprise" rows="3"></textarea>
+      </div>
+      <div class="gen-image-row">
+        <input type="file" id="gen-image-input" accept="image/*" style="display:none" onchange="onImageSelect(this)">
+        <button class="gen-image-btn" onclick="document.getElementById('gen-image-input').click()">📷 Add image</button>
+        <img class="gen-image-preview" id="gen-image-preview">
+        <span class="gen-image-name" id="gen-image-name"></span>
+        <button class="gen-image-clear" id="gen-image-clear" style="display:none" onclick="clearImage()" title="Remove image">✕</button>
       </div>
       <div class="gen-bottom-row">
         <div class="gen-options">
@@ -282,6 +301,8 @@
         </div>
       </div>
     </div>
+
+    <img class="reader-image" id="reader-image" style="display:none" alt="Story inspiration">
 
     <div class="reader-legend">
       <span><span class="legend-dot known"></span>Known</span>
@@ -462,10 +483,31 @@
     }
   }
 
+  // ── Image upload helpers ────────────────────────────────────────────────────
+  function onImageSelect(input) {
+    const file = input.files?.[0];
+    const preview = document.getElementById('gen-image-preview');
+    const name = document.getElementById('gen-image-name');
+    const clear = document.getElementById('gen-image-clear');
+    if (file) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+      name.textContent = file.name;
+      clear.style.display = '';
+    }
+  }
+
+  function clearImage() {
+    document.getElementById('gen-image-input').value = '';
+    document.getElementById('gen-image-preview').style.display = 'none';
+    document.getElementById('gen-image-name').textContent = '';
+    document.getElementById('gen-image-clear').style.display = 'none';
+  }
+
   // ── Generate ───────────────────────────────────────────────────────────────
   async function generate() {
     const prompt = document.getElementById('gen-prompt').value.trim();
-    if (!prompt) { showToast('Enter a prompt first'); return; }
+    const imageFile = document.getElementById('gen-image-input').files?.[0];
     const btn = document.getElementById('gen-btn');
     btn.disabled = true;
 
@@ -473,19 +515,31 @@
     setStep('generate', 'active');
 
     try {
-      const res = await fetch('/api/reader/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          target_lang: selectedLang,
-          difficulty: selectedDifficulty,
-          num_paragraphs: parseInt(document.getElementById('gen-paragraphs').value, 10) || 4,
-        }),
-      });
+      let res;
+      if (imageFile) {
+        const fd = new FormData();
+        fd.append('file', imageFile);
+        fd.append('target_lang', selectedLang);
+        fd.append('difficulty', selectedDifficulty);
+        fd.append('num_paragraphs', document.getElementById('gen-paragraphs').value || '4');
+        fd.append('prompt', prompt);
+        res = await fetch('/api/reader/generate-from-image', { method: 'POST', body: fd });
+      } else {
+        res = await fetch('/api/reader/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            target_lang: selectedLang,
+            difficulty: selectedDifficulty,
+            num_paragraphs: parseInt(document.getElementById('gen-paragraphs').value, 10) || 4,
+          }),
+        });
+      }
       if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
       const data = await res.json();
       setStep('generate', 'done');
+      clearImage();
       loadSavedTexts();
 
       setStep('preload', 'active');
@@ -533,6 +587,14 @@
     sentenceCache = {};
     (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
     document.getElementById('reader-title').textContent = data.title;
+    // Show image banner if story was generated from an image
+    const imgBanner = document.getElementById('reader-image');
+    if (data.image_url) {
+      imgBanner.src = data.image_url;
+      imgBanner.style.display = '';
+    } else {
+      imgBanner.style.display = 'none';
+    }
     const isLatin = scriptFamilyOf(data.target_lang) === 'latin';
     document.getElementById('reader-text').classList.toggle('latin', isLatin);
     // Apply the writing-system font to the text body and the word tooltip.

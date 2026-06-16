@@ -1350,19 +1350,55 @@ textarea.edit-input {
   .lp-search { font-size: 1rem; }
 }
 
-/* The lang pill name adds ~95px to the h1. Hide it below 980px so the h1
+/* The lang pill name adds ~95px to the h1. Hide it below 1100px so the h1
    stays compact at every width where the desktop nav is visible, keeping
-   the total header content (h1 ~135px + nav ~615px incl. the Tutor link)
-   well within bounds. Above 980px the full name fits with room to spare. */
-@media (max-width: 979px) {
+   the total header content (h1 ~135px + nav ~770px incl. all 8 items)
+   well within bounds. Above 1100px the full name fits with room to spare. */
+@media (max-width: 1099px) {
   .lang-pill-name { display: none; }
 }
 
-/* Nav collapses to hamburger at 840px (raised from 760px when the 6th nav
-   item, Tutor, was added — h1 ~135px + nav ~615px + 32px margin must fit).
+/* Nav collapses to hamburger at 960px (raised from 840px when Feedback was
+   added as the 8th nav item — h1 ~135px + nav ~770px + 32px margin must fit).
    Below this only the compact h1 (logo + flag emoji + plan pill) and the
    hamburger button remain visible in the header. */
-@media (max-width: 839px) {
+@media (max-width: 959px) {
   .nav-desktop { display: none; }
   .nav-mobile  { display: flex; }
 }
+
+/* ── Onboarding tour overlay ─────────────────────────────────────────── */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: var(--overlay);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.tour-card {
+  background: var(--surface); border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  padding: 32px 28px; max-width: 420px; width: 100%;
+  display: flex; flex-direction: column; gap: 16px;
+  position: relative;
+}
+.tour-step-num {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--primary);
+}
+.tour-icon { font-size: 2.4rem; line-height: 1; }
+.tour-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0; }
+.tour-body { font-size: 0.95rem; color: var(--text-muted); line-height: 1.55; margin: 0; }
+.tour-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.tour-dot.active { background: var(--primary); }
+.tour-next-btn {
+  background: var(--primary); color: #fff; border: none; border-radius: 8px;
+  padding: 10px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.tour-next-btn:hover { opacity: 0.9; }
+.tour-skip {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1rem; color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
+}
+.tour-skip:hover { background: var(--bg); }
