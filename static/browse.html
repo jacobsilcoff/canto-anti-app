@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    .browse-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+    .browse-page { max-width: 720px; width: 100%; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
 
     /* ── Tabs ── */
     .browse-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
@@ -51,12 +51,12 @@
       background: var(--primary-soft); color: var(--primary); white-space: nowrap; }
     .card-row-cefr { font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 10px;
       background: var(--neutral-soft); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
-    .card-list-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .card-list-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 0; }
 
     /* ── Deck card ── */
     .deck-list { display: flex; flex-direction: column; gap: 8px; }
     .deck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+      padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
     .deck-card:hover { border-color: var(--primary); }
     .deck-card-title { font-weight: 600; font-size: 0.98rem; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -67,7 +67,8 @@
 
     /* ── Create deck form ── */
     .create-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 18px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
+      padding: 18px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px;
+      min-width: 0; overflow: hidden; }
     .create-form h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
     .create-form input, .create-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
       border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px;
@@ -115,16 +116,16 @@
 
     /* ── Deck detail ── */
     .deck-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+      padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; }
     .deck-detail h2 { font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text); }
     .deck-detail-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
     .deck-detail-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
-    .deck-detail-items { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .deck-detail-items { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 0; }
     .deck-detail-item { padding: 10px 14px; border-bottom: 1px solid var(--border);
       display: flex; gap: 12px; align-items: baseline; }
     .deck-detail-item:last-child { border-bottom: none; }
-    .deck-detail-target { font-weight: 500; color: var(--text); flex: 1; }
-    .deck-detail-source { font-size: 0.88rem; color: var(--text-muted); flex: 1; }
+    .deck-detail-target { font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deck-detail-source { font-size: 0.88rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .deck-import-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
       padding: 10px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; align-self: flex-start; }
     .deck-import-btn:disabled { opacity: 0.5; cursor: default; }
