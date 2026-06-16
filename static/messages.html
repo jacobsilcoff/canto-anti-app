@@ -673,7 +673,14 @@
       const initials = name.slice(0, 2).toUpperCase();
       const isActive = c.id === _activeConvId;
       const messenger = c.type === 'messenger';
-      const preview = c.last_text ? c.last_text.slice(0, 40) + (c.last_text.length > 40 ? '…' : '') : 'No messages yet';
+      let _previewText = c.last_text || '';
+      if (c.last_translations) {
+        try {
+          const _lt = JSON.parse(c.last_translations);
+          _previewText = _lt[_targetLang] || _previewText;
+        } catch {}
+      }
+      const preview = _previewText ? _previewText.slice(0, 40) + (_previewText.length > 40 ? '…' : '') : 'No messages yet';
       const badge = c.unread > 0 ? `<div class="msg-unread-badge">${c.unread}</div>` : '';
       const time = c.last_message_at ? relTime(c.last_message_at) : '';
       return `<div class="msg-conv-row${isActive ? ' active' : ''}" onclick="openConv(${c.id})">
@@ -810,9 +817,14 @@
           </div>
           <button class="img-phrase-add" onclick="addPhraseCard(this,${JSON.stringify(p.text)},${JSON.stringify(p.en)})">＋</button>
         </div>`).join('');
+      // Description in viewer's target language if available, else English
+      const descLang = (analysis.descriptions || {})[_targetLang] || description;
+      const descHtml = descLang
+        ? (needsRuby(_targetLang) ? rbSpan(descLang) : esc(descLang))
+        : '';
       const infoPanel = hasInfo ? `<div class="img-info-panel" id="${infoId}" style="display:none">
         <div class="img-info-header">
-          <div class="img-info-desc">${esc(description || '')}</div>
+          <div class="img-info-desc">${descHtml}</div>
           <button class="img-info-close" onclick="toggleImgInfo('${infoId}')" title="Close">✕</button>
         </div>
         ${phraseRows}
@@ -1175,7 +1187,7 @@
         display_text: data.url, original_text: `📷 ${data.description || 'Photo'}`,
         sender_name: 'Me', created_at: new Date().toISOString(),
         analysis: { type: 'image', url: data.url, description: data.description || '',
-                    suggestions: data.suggestions || {} },
+                    descriptions: data.descriptions || {}, suggestions: data.suggestions || {} },
         reactions: {},
       };
       thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
@@ -1207,7 +1219,7 @@
     panel.style.display = isHidden ? '' : 'none';
     const btn = panel.previousElementSibling?.querySelector('.img-info-btn');
     if (btn) btn.classList.toggle('on', isHidden);
-    // On open: fetch & paint ruby for any uncached phrase texts
+    // On open: fetch & paint ruby for the description + all phrase texts
     if (isHidden && needsRuby(_targetLang)) {
       const rbs = [...panel.querySelectorAll('.rb[data-text]')];
       const missing = rbs.map(el => el.dataset.text).filter(t => t && !(_ck(t) in _tokenCache));

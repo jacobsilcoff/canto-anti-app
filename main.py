@@ -3908,29 +3908,37 @@ async def send_image_message(conv_id: int, request: Request,
         pass
 
     description = vision.get("description") or "Photo"
+    descriptions = vision.get("descriptions") or {}
+    # Store per-language descriptions in the translations field so each user
+    # sees the preview in their own target language in the conversation list.
+    # Prefix with 📷 to match the original_text format.
+    translations_for_msg = {lang: f"📷 {d}" for lang, d in descriptions.items() if d}
     analysis = {
         "type": "image",
         "url": url,
         "description": description,
+        "descriptions": descriptions,
         "suggestions": vision.get("suggestions") or {},
     }
     msg_id = await db.add_message(
-        conv_id, user["id"], f"📷 {description}", "en", {},
+        conv_id, user["id"], f"📷 {description}", "en", translations_for_msg,
         analysis=analysis,
     )
     await db.record_study_activity(user["id"])
 
     if conv.get("type") == "inapp":
+        # Use recipient's target-language description in their push notification
+        notif_body = descriptions.get(recipient_lang) or description
         asyncio.create_task(_send_push_to_user(
             conv["other_user_id"],
             title=f"📷 {user['username']}",
-            body=description,
+            body=notif_body,
             url="/messages",
             tag=f"msg-{conv_id}",
         ))
 
     return {"ok": True, "url": url, "msg_id": msg_id, "description": description,
-            "suggestions": analysis["suggestions"]}
+            "descriptions": descriptions, "suggestions": analysis["suggestions"]}
 
 
 @app.get("/api/media/{media_id}")

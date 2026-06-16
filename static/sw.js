@@ -12,9 +12,9 @@ const SHELL = [
 ];
 
 // API GET responses that are safe to serve stale (change rarely, useful offline).
+// NOTE: /api/me and /api/settings are deliberately excluded — they are session-
+// dependent and must never be served from a previous user's cached response.
 const SWR_API = new Set([
-  '/api/me',
-  '/api/settings',
   '/api/streak',
   '/api/languages',
 ]);

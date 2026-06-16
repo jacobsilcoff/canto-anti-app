@@ -283,6 +283,7 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
 
     Returns: {
         "description": "A one-sentence English description",
+        "descriptions": {"yue": "一句廣東話描述", "fr": "Une phrase en français", ...},
         "suggestions": {
             "yue": [{"text": "phrase", "en": "English meaning"}, ...],
             ...
@@ -293,7 +294,11 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
     lang_names = ", ".join(
         f"{code} ({LANG_INFO[code]['name']})" for code in langs if code in LANG_INFO
     )
-    lang_blocks = "\n".join(
+    desc_blocks = "\n".join(
+        f'  "{code}": "one sentence in {LANG_INFO[code]["name"]} describing the image"'
+        for code in langs if code in LANG_INFO
+    )
+    phrase_blocks = "\n".join(
         f'  "{code}": [{{"text": "phrase in {LANG_INFO[code]["name"]}", "en": "English meaning"}}, ...]'
         for code in langs if code in LANG_INFO
     )
@@ -301,7 +306,9 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "You are a language-learning assistant. Look at this image and respond with JSON only.\n\n"
         "Tasks:\n"
         "1. Write a single short English sentence describing what you see (10–15 words).\n"
-        f"2. For each target language ({lang_names}), provide 4–6 natural phrases "
+        f"2. For each target language ({lang_names}), write ONE sentence describing the image "
+        "in that language (target script only, no romanization).\n"
+        f"3. For each target language, provide 4–6 natural phrases "
         "a learner might want to say about this image. "
         "Each phrase must be in the target script only (no romanization). "
         "Also provide a short English translation for each phrase. "
@@ -309,8 +316,11 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "Respond with ONLY this JSON (no markdown, no explanation):\n"
         "{\n"
         '  "description": "...",\n'
+        '  "descriptions": {\n'
+        f"{desc_blocks}\n"
+        "  },\n"
         '  "suggestions": {\n'
-        f"{lang_blocks}\n"
+        f"{phrase_blocks}\n"
         "  }\n"
         "}"
     )
@@ -318,6 +328,12 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         raw = _call_with_image(prompt, image_bytes, api_key)
         result = _parse_json(raw)
         description = str(result.get("description", "")).strip() or "Photo"
+        descriptions: dict[str, str] = {}
+        raw_desc = result.get("descriptions") or {}
+        for code in langs:
+            d = str(raw_desc.get(code) or "").strip()
+            if d:
+                descriptions[code] = d
         suggestions: dict[str, list[dict]] = {}
         raw_sugg = result.get("suggestions") or {}
         for code in langs:
@@ -336,9 +352,10 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
                 if text:
                     cleaned.append({"text": text, "en": en})
             suggestions[code] = cleaned[:6]
-        return {"description": description, "suggestions": suggestions}
+        return {"description": description, "descriptions": descriptions,
+                "suggestions": suggestions}
     except Exception:
-        return {"description": "Photo", "suggestions": {}}
+        return {"description": "Photo", "descriptions": {}, "suggestions": {}}
 
 
 def _parse_json(text: str) -> dict:
