@@ -536,24 +536,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="browse-overlay" style="display:none" onclick="closeBrowse(event)">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <h2 style="font-size:1.1rem">All Cards (<span id="card-count">0</span>)</h2>
-      <button class="modal-close" onclick="closeBrowse()" aria-label="Close">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div style="padding:0 0 10px;display:flex;flex-direction:column;gap:8px">
-      <input type="search" id="browse-search" class="edit-input" placeholder="Search cards…" oninput="filterBrowse()" style="width:100%;box-sizing:border-box">
-      <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text-muted);cursor:pointer;user-select:none">
-        <input type="checkbox" id="browse-all-langs" onchange="filterBrowse()" style="cursor:pointer">
-        Show all languages
-      </label>
-    </div>
-    <div id="card-list"></div>
-  </div>
-</div>
 
 <div class="modal-overlay" id="labels-overlay" style="display:none" onclick="closeManageLabels(event)">
   <div class="modal" onclick="event.stopPropagation()">
@@ -1320,56 +1302,6 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // ── Browse ────────────────────────────────────────────────────────────────
-  async function showBrowse() {
-    document.getElementById('browse-overlay').style.display = 'flex';
-    document.getElementById('browse-search').value = '';
-    document.getElementById('browse-all-langs').checked = false;
-    const list = document.getElementById('card-list');
-    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">Loading…</p>';
-    try {
-      const { cards } = await fetch('/api/cards/all').then(r => r.json());
-      allCards = cards;
-      filterBrowse();
-    } catch {
-      list.innerHTML = '<p style="color:var(--again);padding:16px">Failed to load cards.</p>';
-    }
-  }
-
-  function renderBrowseList(cards) {
-    const list = document.getElementById('card-list');
-    document.getElementById('card-count').textContent = cards.length;
-    if (cards.length === 0) {
-      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">No cards found.</p>';
-      return;
-    }
-    list.innerHTML = '';
-    cards.forEach(card => renderCardListItem(card, list));
-    cards.forEach(card => {
-      if (card.canonical_card_id) {
-        const el = document.getElementById(`canonical-target-${card.id}`);
-        if (el) el.textContent = canonicalCardText(card.canonical_card_id) || `#${card.canonical_card_id}`;
-      }
-    });
-  }
-
-  function filterBrowse() {
-    const q = document.getElementById('browse-search').value.trim().toLowerCase();
-    const showAll = document.getElementById('browse-all-langs').checked;
-    let filtered = allCards;
-    if (!showAll && settings.default_target_lang) {
-      filtered = filtered.filter(c => c.target_lang === settings.default_target_lang);
-    }
-    if (q) {
-      filtered = filtered.filter(c =>
-        (c.source_text || '').toLowerCase().includes(q) ||
-        (c.target_text || '').toLowerCase().includes(q) ||
-        (c.romanization || '').toLowerCase().includes(q)
-      );
-    }
-    renderBrowseList(filtered);
-  }
-
   function renderCardListItem(card, container) {
     const item = document.createElement('div');
     item.className = 'card-list-item' + (card.suspended ? ' suspended' : '');
@@ -1691,17 +1623,10 @@
     finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
 
-  function closeBrowse(e) {
-    if (!e || e.target === document.getElementById('browse-overlay'))
-      document.getElementById('browse-overlay').style.display = 'none';
-  }
-
   async function deleteCard(id) {
     if (!confirm('Delete this card and all its progress?')) return;
     await fetch(`/api/cards/${id}`, { method: 'DELETE' });
     document.getElementById(`cli-${id}`)?.remove();
-    const count = document.getElementById('card-count');
-    count.textContent = parseInt(count.textContent) - 1;
     const qi = queue.findIndex(c => c.card_id === id);
     if (qi !== -1) {
       queue.splice(qi, 1);
@@ -2191,7 +2116,6 @@
       if (e.key === 'Escape') closeAskTutor();
       return;
     }
-    if (document.getElementById('browse-overlay').style.display !== 'none') return;
     if (document.getElementById('labels-overlay').style.display !== 'none') return;
     if (document.getElementById('state-review').style.display === 'none') return;
     if (document.getElementById('card-inline-edit').style.display !== 'none') return;

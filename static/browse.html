@@ -26,6 +26,33 @@
       background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
     .browse-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
+    /* ── My Cards ── */
+    .cards-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .cards-toolbar input { flex: 1; min-width: 120px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .cards-toolbar input:focus { outline: none; border-color: var(--primary); }
+    .cards-toolbar select { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+      font-size: 0.85rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .cards-toolbar select:focus { outline: none; border-color: var(--primary); }
+    .cards-toolbar label { display: flex; align-items: center; gap: 5px; font-size: 0.82rem;
+      color: var(--text-muted); white-space: nowrap; cursor: pointer; user-select: none; }
+    .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; }
+    .card-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); background: var(--surface); }
+    .card-row:first-child { border-radius: 10px 10px 0 0; }
+    .card-row:last-child { border-bottom: none; border-radius: 0 0 10px 10px; }
+    .card-row:only-child { border-radius: 10px; }
+    .card-row-body { flex: 1; min-width: 0; }
+    .card-row-target { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-row-roman { font-size: 0.82rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-row-source { font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-row-labels { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+    .card-row-label { font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 10px;
+      background: var(--primary-soft); color: var(--primary); white-space: nowrap; }
+    .card-row-cefr { font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 10px;
+      background: var(--neutral-soft); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .card-list-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
     /* ── Deck card ── */
     .deck-list { display: flex; flex-direction: column; gap: 8px; }
     .deck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -57,21 +84,28 @@
     .create-btn:hover:not(:disabled) { opacity: 0.9; }
 
     /* ── Card picker ── */
-    .card-picker { border: 1px solid var(--border); border-radius: 10px; max-height: 280px;
-      overflow-y: auto; background: var(--bg); }
-    .card-picker-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    .card-picker { border: 1px solid var(--border); border-radius: 0 0 10px 10px; max-height: 280px;
+      overflow-y: auto; overflow-x: hidden; background: var(--bg); }
+    .card-picker-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
       border-bottom: 1px solid var(--border); cursor: pointer; }
     .card-picker-item:last-child { border-bottom: none; }
     .card-picker-item:hover { background: var(--surface); }
-    .card-picker-item input[type="checkbox"] { flex-shrink: 0; }
-    .card-picker-text { flex: 1; min-width: 0; }
-    .card-picker-target { font-weight: 500; color: var(--text); }
-    .card-picker-source { font-size: 0.82rem; color: var(--text-muted); }
-    .card-picker-search { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
-      border-radius: 8px 8px 0 0; background: var(--bg); color: var(--text);
-      padding: 8px 12px; font-size: 0.88rem; font-family: inherit; border-bottom: none; }
-    .card-picker-search:focus { outline: none; border-color: var(--primary); }
+    .card-picker-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; margin: 0; }
+    .card-picker-text { flex: 1; min-width: 0; overflow: hidden; }
+    .card-picker-target { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-picker-source { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .picker-toolbar { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px 10px 0 0;
+      border-bottom: none; overflow: hidden; }
+    .picker-toolbar input[type="text"] { flex: 1; min-width: 0; border: none; background: var(--bg); color: var(--text);
+      padding: 8px 10px; font-size: 0.88rem; font-family: inherit; outline: none; }
+    .picker-toolbar select { border: none; border-left: 1px solid var(--border); background: var(--bg);
+      color: var(--text); padding: 8px 8px; font-size: 0.82rem; font-family: inherit; outline: none;
+      max-width: 120px; }
+    .picker-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
     .picker-count { font-size: 0.78rem; color: var(--text-muted); }
+    .picker-sel-btn { font-size: 0.78rem; color: var(--primary); cursor: pointer; background: none;
+      border: none; padding: 0; font-family: inherit; font-weight: 600; }
+    .picker-sel-btn:hover { text-decoration: underline; }
 
     /* ── Community search ── */
     .browse-search { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -110,12 +144,29 @@
 
 <main class="browse-page">
   <div class="browse-tabs" id="browse-tabs">
-    <button class="browse-tab active" onclick="switchTab('mine')">My Decks</button>
-    <button class="browse-tab" onclick="switchTab('community')">Community</button>
+    <button class="browse-tab active" data-tab="cards" onclick="switchTab('cards')">My Cards</button>
+    <button class="browse-tab" data-tab="decks" onclick="switchTab('decks')">My Decks</button>
+    <button class="browse-tab" data-tab="community" onclick="switchTab('community')">Community</button>
+  </div>
+
+  <!-- My cards -->
+  <div id="cards-view">
+    <div class="cards-toolbar">
+      <input id="cards-search" placeholder="Search cards…" oninput="filterCards()">
+      <select id="cards-label-filter" class="settings-select" onchange="filterCards()">
+        <option value="">All labels</option>
+      </select>
+      <label>
+        <input type="checkbox" id="cards-all-langs" onchange="filterCards()">
+        All languages
+      </label>
+    </div>
+    <div class="cards-count" id="cards-count"></div>
+    <div class="card-list-wrap" id="cards-list"></div>
   </div>
 
   <!-- My decks -->
-  <div id="my-decks-view">
+  <div id="my-decks-view" style="display:none">
     <div class="create-form" id="create-form">
       <h3>Create a shared deck</h3>
       <div class="create-form-group">
@@ -134,12 +185,21 @@
             <option value="public">Public</option>
           </select>
         </div>
-        <span class="picker-count" id="picker-count">0 cards selected</span>
       </div>
       <div class="create-form-group">
         <div class="create-form-label">Select cards</div>
-        <input class="card-picker-search" id="picker-search" placeholder="Search cards…" oninput="filterPicker()">
+        <div class="picker-toolbar">
+          <input type="text" id="picker-search" placeholder="Search cards…" oninput="filterPicker()">
+          <select id="picker-label-filter" onchange="filterPicker()">
+            <option value="">All labels</option>
+          </select>
+        </div>
         <div class="card-picker" id="card-picker"></div>
+        <div class="picker-actions">
+          <span class="picker-count" id="picker-count">0 cards selected</span>
+          <button class="picker-sel-btn" onclick="selectAllVisible()">Select all</button>
+          <button class="picker-sel-btn" onclick="deselectAll()">Deselect all</button>
+        </div>
       </div>
       <button class="create-btn" id="create-btn" onclick="createDeck()" disabled>Create deck</button>
     </div>
@@ -164,8 +224,10 @@
 
 <script>
   let _allCards = [];
+  let _allLabels = [];
   let _selectedCards = new Set();
-  let _currentTab = 'mine';
+  let _currentTab = 'cards';
+  let _defaultLang = '';
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -178,40 +240,117 @@
 
   // ── Init ──
   async function init() {
-    await loadMyCards();
-    loadMyDecks();
+    const [, settingsRes] = await Promise.all([loadMyCards(), fetch('/api/settings').then(r => r.json()).catch(() => ({}))]);
+    _defaultLang = settingsRes.default_target_lang || '';
+    loadLabels();
+    filterCards();
+  }
+
+  async function loadLabels() {
+    try {
+      const res = await fetch('/api/labels').then(r => r.json());
+      _allLabels = res.labels || [];
+      const opts = _allLabels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+      document.getElementById('cards-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
+      document.getElementById('picker-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
+    } catch {}
   }
 
   // ── Tabs ──
+  const _tabViews = { cards: 'cards-view', decks: 'my-decks-view', community: 'community-decks-view' };
+
   function switchTab(tab) {
     _currentTab = tab;
-    document.querySelectorAll('.browse-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.browse-tab')[tab === 'mine' ? 0 : 1].classList.add('active');
-    document.getElementById('my-decks-view').style.display = tab === 'mine' ? '' : 'none';
-    document.getElementById('community-decks-view').style.display = tab === 'community' ? '' : 'none';
+    document.querySelectorAll('.browse-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    Object.entries(_tabViews).forEach(([k, id]) => {
+      document.getElementById(id).style.display = k === tab ? '' : 'none';
+    });
     document.getElementById('deck-detail-view').style.display = 'none';
     document.getElementById('browse-tabs').style.display = '';
     if (tab === 'community') loadCommunityDecks();
-    if (tab === 'mine') loadMyDecks();
+    if (tab === 'decks') { loadMyDecks(); renderPicker(); }
+    if (tab === 'cards') filterCards();
   }
 
-  // ── Card picker ──
+  // ── My Cards (browse all) ──
   async function loadMyCards() {
     try {
       const res = await fetch('/api/cards/all').then(r => r.json());
       _allCards = res.cards || [];
-      renderPicker();
     } catch {}
   }
 
-  function renderPicker() {
+  function filterCards() {
+    const q = (document.getElementById('cards-search').value || '').toLowerCase();
+    const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
+    const showAll = document.getElementById('cards-all-langs').checked;
+    let filtered = _allCards;
+    if (!showAll && _defaultLang) {
+      filtered = filtered.filter(c => c.target_lang === _defaultLang);
+    }
+    if (q) {
+      filtered = filtered.filter(c =>
+        (c.target_text || '').toLowerCase().includes(q) ||
+        (c.source_text || '').toLowerCase().includes(q) ||
+        (c.romanization || '').toLowerCase().includes(q)
+      );
+    }
+    if (labelId) {
+      filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
+    }
+    renderCardsList(filtered);
+  }
+
+  function renderCardsList(cards) {
+    const el = document.getElementById('cards-count');
+    el.textContent = cards.length + ' card' + (cards.length !== 1 ? 's' : '');
+    const list = document.getElementById('cards-list');
+    if (!cards.length) {
+      list.innerHTML = '<div class="deck-empty">No cards found.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    cards.slice(0, 500).forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'card-row';
+      const labelsHtml = (c.labels || []).map(l =>
+        `<span class="card-row-label">${esc(l.name)}</span>`
+      ).join('');
+      row.innerHTML = `
+        <div class="card-row-body">
+          <div class="card-row-target">${esc(c.target_text)}</div>
+          ${c.romanization ? `<div class="card-row-roman">${esc(c.romanization)}</div>` : ''}
+          <div class="card-row-source">${esc(c.source_text)}</div>
+          ${labelsHtml ? `<div class="card-row-labels">${labelsHtml}</div>` : ''}
+        </div>
+        ${c.cefr_level ? `<span class="card-row-cefr">${esc(c.cefr_level)}</span>` : ''}`;
+      list.appendChild(row);
+    });
+  }
+
+  // ── Card picker (for deck creation) ──
+  function getFilteredPickerCards() {
     const q = (document.getElementById('picker-search').value || '').toLowerCase();
+    const labelId = parseInt(document.getElementById('picker-label-filter').value) || 0;
+    let filtered = _allCards;
+    if (q) {
+      filtered = filtered.filter(c =>
+        c.target_text.toLowerCase().includes(q) ||
+        c.source_text.toLowerCase().includes(q) ||
+        (c.romanization || '').toLowerCase().includes(q)
+      );
+    }
+    if (labelId) {
+      filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
+    }
+    return filtered;
+  }
+
+  function renderPicker() {
+    const filtered = getFilteredPickerCards();
     const picker = document.getElementById('card-picker');
-    const filtered = _allCards.filter(c =>
-      !q || c.target_text.toLowerCase().includes(q) ||
-      c.source_text.toLowerCase().includes(q) ||
-      (c.romanization || '').toLowerCase().includes(q)
-    );
     picker.innerHTML = '';
     filtered.slice(0, 200).forEach(c => {
       const item = document.createElement('label');
@@ -229,9 +368,21 @@
       };
       picker.appendChild(item);
     });
+    updatePickerCount();
   }
 
   function filterPicker() { renderPicker(); }
+
+  function selectAllVisible() {
+    const filtered = getFilteredPickerCards();
+    filtered.slice(0, 200).forEach(c => _selectedCards.add(c.id));
+    renderPicker();
+  }
+
+  function deselectAll() {
+    _selectedCards.clear();
+    renderPicker();
+  }
 
   function updatePickerCount() {
     const n = _selectedCards.size;
@@ -341,8 +492,7 @@
   // ── Deck detail ──
   async function openDeckDetail(deckId, isMine) {
     document.getElementById('browse-tabs').style.display = 'none';
-    document.getElementById('my-decks-view').style.display = 'none';
-    document.getElementById('community-decks-view').style.display = 'none';
+    Object.values(_tabViews).forEach(id => document.getElementById(id).style.display = 'none');
     document.getElementById('deck-detail-view').style.display = '';
     const container = document.getElementById('deck-detail');
     container.innerHTML = '<div class="deck-empty">Loading…</div>';
@@ -386,11 +536,9 @@
   function closeDeckDetail() {
     document.getElementById('deck-detail-view').style.display = 'none';
     document.getElementById('browse-tabs').style.display = '';
-    if (_currentTab === 'mine') {
-      document.getElementById('my-decks-view').style.display = '';
-    } else {
-      document.getElementById('community-decks-view').style.display = '';
-    }
+    Object.entries(_tabViews).forEach(([k, id]) => {
+      document.getElementById(id).style.display = k === _currentTab ? '' : 'none';
+    });
   }
 
   async function importDeck(deckId) {
@@ -422,7 +570,7 @@
   }
 
   // ── Nav ──
-  function toggleDropdown() {
+  function toggleMobileMenu() {
     document.getElementById('nav-dropdown').classList.toggle('open');
   }
 

@@ -266,7 +266,7 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> str:
+def _build_nav(active: str = "") -> str:
     """Return the full <header> inner HTML with the active page highlighted."""
     _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
@@ -320,14 +320,10 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         'style="border:none;cursor:pointer;background:none">\n'
         f'      {svgs["signout"]}\n      Sign out\n    </button>'
     )
-    desktop_extra = f"\n{extra_desktop}" if extra_desktop else ""
-    dropdown_extra = f"\n{extra_dropdown}" if extra_dropdown else ""
-
     return (
         "  <h1>{{APP_NAME_HTML}}</h1>\n"
         "  <nav class=\"nav-desktop\">\n"
-        + "\n".join(nav_links)
-        + desktop_extra + "\n"
+        + "\n".join(nav_links) + "\n"
         "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
         + signout_btn + "\n"
         "  </nav>\n"
@@ -338,8 +334,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "    </button>\n"
         "  </div>\n"
         "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
-        + "\n".join(nav_links)
-        + dropdown_extra + "\n"
+        + "\n".join(nav_links) + "\n"
         + signout_dropdown + "\n"
         "  </nav>\n"
     )
@@ -672,14 +667,10 @@ _TOUR_WIDGET = """
 """
 
 
-def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
+def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    # Replace only the FIRST {{NAV}} (the one in <header>). The nav markup is
-    # multi-line HTML; substituting it into a later occurrence (e.g. a literal
-    # "{{NAV}}" inside a // comment in a <script>) would break out of the comment
-    # and inject raw <nav> HTML into the JS, killing the whole script.
-    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown), 1)
+    content = content.replace("{{NAV}}", _build_nav(active), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
@@ -869,26 +860,6 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
-_BROWSE_ICON = (
-    'class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'
-)
-_BROWSE_BTN_DESKTOP = (
-    '    <button class="nav-link" onclick="showBrowse()" '
-    'style="border:none;cursor:pointer;background:none">\n'
-    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
-    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
-    '      Browse\n    </button>'
-)
-_BROWSE_BTN_DROPDOWN = (
-    '    <button class="nav-link" onclick="closeMobileMenu();showBrowse()" '
-    'style="border:none;cursor:pointer;background:none">\n'
-    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
-    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
-    '      Browse\n    </button>'
-)
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return _html("index.html", active="/")
@@ -896,9 +867,7 @@ async def index():
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/cards",
-                 extra_desktop=_BROWSE_BTN_DESKTOP,
-                 extra_dropdown=_BROWSE_BTN_DROPDOWN)
+    return _html("cards.html", active="/cards")
 
 
 @app.get("/reader", response_class=HTMLResponse)
