@@ -625,6 +625,28 @@ async function toggleNotifications() {
 
 _syncBellState();
 _verifyBellState();
+
+// ── Offline / online indicator ────────────────────────────────────────────────
+(function () {
+  function _setOfflineBanner(offline) {
+    var el = document.getElementById('_sw-offline-bar');
+    if (offline) {
+      if (el) return;
+      el = document.createElement('div');
+      el.id = '_sw-offline-bar';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;'
+        + 'background:#ef4444;color:#fff;text-align:center;padding:6px 16px;'
+        + 'font-size:0.82rem;font-weight:600;letter-spacing:0.01em;';
+      el.textContent = "You’re offline — studying still works, changes will sync when reconnected";
+      document.body.insertBefore(el, document.body.firstChild);
+    } else {
+      if (el) el.remove();
+    }
+  }
+  if (!navigator.onLine) _setOfflineBanner(true);
+  window.addEventListener('offline', function () { _setOfflineBanner(true); });
+  window.addEventListener('online',  function () { _setOfflineBanner(false); });
+})();
 </script>
 """
 
