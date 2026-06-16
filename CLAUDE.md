@@ -191,6 +191,7 @@ Ideas and backlog live in [`IDEAS.md`](IDEAS.md). These are **standing rules** �
 - **New ideas that come up** (even incidentally) → add to `IDEAS.md` with a complexity/cost estimate.
 - **Whenever a feature ships** → move it to the `## ✅ Shipped` section at the top of `IDEAS.md` with a one-line summary. Do this every time, as part of finishing the work.
 - **Keep this file (`CLAUDE.md`) current** → when a change alters the architecture, schema, language registry, or a documented convention here, update the relevant section in the same change so this file never drifts from the code.
+- **Keep the onboarding tour current** → when a user-facing feature is added or significantly changed, update the `TOUR_STEPS` array in `static/index.html` so new users discover it. Each step has `{icon, title, body}`. The tour auto-shows on first visit and is dismissible.
 
 ## Code Conventions
 
