@@ -283,7 +283,10 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
 
     Returns: {
         "description": "A one-sentence English description",
-        "suggestions": {"yue": ["phrase1", ...], "fr": [...], ...}
+        "suggestions": {
+            "yue": [{"text": "phrase", "en": "English meaning"}, ...],
+            ...
+        }
     }
     On any failure returns a minimal fallback so the upload still succeeds.
     """
@@ -291,7 +294,7 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         f"{code} ({LANG_INFO[code]['name']})" for code in langs if code in LANG_INFO
     )
     lang_blocks = "\n".join(
-        f'  "{code}": ["phrase1", "phrase2", "phrase3", "phrase4"]'
+        f'  "{code}": [{{"text": "phrase in {LANG_INFO[code]["name"]}", "en": "English meaning"}}, ...]'
         for code in langs if code in LANG_INFO
     )
     prompt = (
@@ -300,9 +303,9 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "1. Write a single short English sentence describing what you see (10–15 words).\n"
         f"2. For each target language ({lang_names}), provide 4–6 natural phrases "
         "a learner might want to say about this image. "
-        "Each phrase should be in the target script (no romanization). "
-        "Choose varied, conversational phrases spanning different vocabulary (objects, "
-        "actions, feelings, context).\n\n"
+        "Each phrase must be in the target script only (no romanization). "
+        "Also provide a short English translation for each phrase. "
+        "Choose varied, conversational phrases spanning objects, actions, feelings, and context.\n\n"
         "Respond with ONLY this JSON (no markdown, no explanation):\n"
         "{\n"
         '  "description": "...",\n'
@@ -315,12 +318,24 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         raw = _call_with_image(prompt, image_bytes, api_key)
         result = _parse_json(raw)
         description = str(result.get("description", "")).strip() or "Photo"
-        suggestions: dict[str, list[str]] = {}
+        suggestions: dict[str, list[dict]] = {}
         raw_sugg = result.get("suggestions") or {}
         for code in langs:
             phrases = raw_sugg.get(code)
-            if isinstance(phrases, list):
-                suggestions[code] = [str(p).strip() for p in phrases if str(p).strip()][:6]
+            if not isinstance(phrases, list):
+                continue
+            cleaned = []
+            for p in phrases:
+                if isinstance(p, dict):
+                    text = str(p.get("text") or "").strip()
+                    en = str(p.get("en") or "").strip()
+                elif isinstance(p, str):
+                    text, en = p.strip(), ""
+                else:
+                    continue
+                if text:
+                    cleaned.append({"text": text, "en": en})
+            suggestions[code] = cleaned[:6]
         return {"description": description, "suggestions": suggestions}
     except Exception:
         return {"description": "Photo", "suggestions": {}}

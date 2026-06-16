@@ -137,22 +137,36 @@
     .msg-photo-bubble { position: relative; }
     .img-info-btn { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.45);
       color: #fff; border: none; border-radius: 50%; width: 26px; height: 26px;
-      font-size: 0.82rem; font-weight: 700; cursor: pointer; line-height: 1; padding: 0;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s; backdrop-filter: blur(4px); }
-    .img-info-btn:hover { background: rgba(0,0,0,0.72); }
-    .img-info-panel { max-width: 268px; background: var(--surface-alt);
-      border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px;
-      margin-top: 5px; font-size: 0.84rem; }
-    .img-info-desc { color: var(--text-muted); font-style: italic; line-height: 1.4;
-      margin-bottom: 7px; }
-    .img-info-desc:only-child { margin-bottom: 0; }
-    .img-info-phrases { display: flex; flex-wrap: wrap; gap: 5px; }
-    .img-phrase-chip { background: var(--primary-soft); color: var(--primary);
-      border: 1px solid transparent; border-radius: 999px; padding: 4px 11px;
-      font-size: 0.8rem; cursor: pointer; font-family: var(--script-font, inherit);
-      transition: background 0.12s, color 0.12s; line-height: 1.5; }
-    .img-phrase-chip:hover { background: var(--primary); color: #fff; }
+      font-size: 0.75rem; cursor: pointer; padding: 0; display: flex;
+      align-items: center; justify-content: center; transition: background 0.15s;
+      backdrop-filter: blur(4px); flex-shrink: 0; }
+    .img-info-btn:hover, .img-info-btn.on { background: rgba(0,0,0,0.72); }
+    .img-info-panel { max-width: 280px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; margin-top: 6px; overflow: hidden;
+      box-shadow: var(--shadow); }
+    .img-info-header { display: flex; align-items: flex-start; gap: 8px;
+      padding: 9px 11px 8px; border-bottom: 1px solid var(--border); }
+    .img-info-desc { flex: 1; font-size: 0.82rem; color: var(--text-muted);
+      font-style: italic; line-height: 1.45; }
+    .img-info-close { background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 1rem; padding: 0 0 0 4px; line-height: 1; flex-shrink: 0;
+      align-self: flex-start; margin-top: 1px; }
+    .img-info-close:hover { color: var(--text); }
+    .img-phrase-row { display: flex; align-items: center; gap: 6px;
+      padding: 7px 11px; border-bottom: 1px solid var(--border); }
+    .img-phrase-row:last-child { border-bottom: none; }
+    .img-phrase-content { flex: 1; min-width: 0; cursor: pointer; border-radius: 7px;
+      padding: 3px 5px; margin: -3px -5px; transition: background 0.1s; }
+    .img-phrase-content:hover { background: var(--surface-alt); }
+    .img-phrase-target { font-family: var(--script-font, inherit); font-size: 0.92rem;
+      line-height: 2; color: var(--text); }
+    .img-phrase-target ruby { line-height: 1; }
+    .img-phrase-en { font-size: 0.75rem; color: var(--text-muted); margin-top: -1px; }
+    .img-phrase-add { background: var(--primary-soft); color: var(--primary); border: none;
+      border-radius: 7px; padding: 4px 9px; font-size: 0.76rem; font-weight: 600;
+      cursor: pointer; flex-shrink: 0; transition: background 0.12s, color 0.12s; }
+    .img-phrase-add:hover { background: var(--primary); color: #fff; }
+    .img-phrase-add.added { background: var(--good-soft); color: var(--good-strong); cursor: default; }
 
     /* ── Friends modal ── */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500;
@@ -775,8 +789,6 @@
     if (analysis.type === 'image') {
       const imgSrc = analysis.url || m.original_text;
       const description = analysis.description || '';
-      const myPhrases = (analysis.suggestions || {})[_targetLang] || [];
-      const hasInfo = !!(description || myPhrases.length);
       const infoId = `imginfo-${m.id}`;
       const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
       const rxEntries = Object.entries(reactions).sort((a, b) => b[1].count - a[1].count);
@@ -786,14 +798,27 @@
               ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
             </button>`).join('')}</div>`
         : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
+      // Normalise phrases: new format {text,en} or legacy plain string
+      const normPhrase = p => typeof p === 'string' ? {text: p, en: ''} : {text: p.text || '', en: p.en || ''};
+      const myPhrases = ((analysis.suggestions || {})[_targetLang] || []).map(normPhrase).filter(p => p.text);
+      const hasInfo = !!(description || myPhrases.length);
+      const phraseRows = myPhrases.map(p => `
+        <div class="img-phrase-row">
+          <div class="img-phrase-content" onclick="pastePhrase(${JSON.stringify(p.text)})" title="Tap to paste">
+            <div class="img-phrase-target">${needsRuby(_targetLang) ? rbSpan(p.text) : esc(p.text)}</div>
+            ${p.en ? `<div class="img-phrase-en">${esc(p.en)}</div>` : ''}
+          </div>
+          <button class="img-phrase-add" onclick="addPhraseCard(this,${JSON.stringify(p.text)},${JSON.stringify(p.en)})">＋</button>
+        </div>`).join('');
       const infoPanel = hasInfo ? `<div class="img-info-panel" id="${infoId}" style="display:none">
-        ${description ? `<div class="img-info-desc">${esc(description)}</div>` : ''}
-        ${myPhrases.length ? `<div class="img-info-phrases">${myPhrases.map(p =>
-          `<button class="img-phrase-chip" onclick="pastePhrase(${JSON.stringify(p)})">${esc(p)}</button>`
-        ).join('')}</div>` : ''}
+        <div class="img-info-header">
+          <div class="img-info-desc">${esc(description || '')}</div>
+          <button class="img-info-close" onclick="toggleImgInfo('${infoId}')" title="Close">✕</button>
+        </div>
+        ${phraseRows}
       </div>` : '';
       const infoBtn = hasInfo
-        ? `<button class="img-info-btn" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info">ℹ</button>`
+        ? `<button class="img-info-btn" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg></button>`
         : '';
       return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
         ${nameHtml}
@@ -1175,13 +1200,43 @@
     document.body.appendChild(lb);
   }
 
-  function toggleImgInfo(id) {
+  async function toggleImgInfo(id) {
     const panel = document.getElementById(id);
     if (!panel) return;
     const isHidden = panel.style.display === 'none';
     panel.style.display = isHidden ? '' : 'none';
     const btn = panel.previousElementSibling?.querySelector('.img-info-btn');
     if (btn) btn.classList.toggle('on', isHidden);
+    // On open: fetch & paint ruby for any uncached phrase texts
+    if (isHidden && needsRuby(_targetLang)) {
+      const rbs = [...panel.querySelectorAll('.rb[data-text]')];
+      const missing = rbs.map(el => el.dataset.text).filter(t => t && !(_ck(t) in _tokenCache));
+      if (missing.length) await fetchTokensBatch(missing);
+      rbs.forEach(el => {
+        const tokens = _tokenCache[_ck(el.dataset.text)];
+        if (tokens) el.innerHTML = _tokensToHtml(tokens, rubyDefault);
+      });
+    }
+  }
+
+  async function addPhraseCard(btn, text, en) {
+    if (btn.classList.contains('added')) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: en || text, target_text: text,
+          romanization: '', target_lang: _targetLang, notes: '', priority: 3,
+        }),
+      });
+      if (res.ok || res.status === 409) {
+        btn.textContent = '✓'; btn.classList.add('added');
+        showToast(res.status === 409 ? 'Already in deck' : 'Added to deck ✓');
+      } else { throw new Error(); }
+    } catch {
+      btn.disabled = false; btn.textContent = '＋'; showToast('Could not add');
+    }
   }
 
   function pastePhrase(phrase) {
