@@ -1342,6 +1342,46 @@ async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_all_cards_basic(user_id: int, target_lang: str) -> list[dict]:
+    """Lightweight card list without audio BLOBs — for atomize feature.
+    Ordered shortest target_text first so phrase detection is consistent."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, source_text, target_text, romanization, target_lang,
+                      notes, priority, classifier, canonical_card_id
+               FROM cards
+               WHERE user_id=? AND target_lang=? AND suspended=0
+               ORDER BY length(target_text) ASC""",
+            (user_id, target_lang),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_cards_missing_classifier(user_id: int, target_lang: str) -> list[dict]:
+    """Cards with an empty classifier field for the given language."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, target_text, source_text
+               FROM cards
+               WHERE user_id=? AND target_lang=? AND suspended=0
+                 AND (classifier IS NULL OR classifier='')
+               ORDER BY id""",
+            (user_id, target_lang),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def update_card_classifier(card_id: int, classifier: str, user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE cards SET classifier=? WHERE id=? AND user_id=?",
+            (classifier or "", card_id, user_id),
+        )
+        await db.commit()
+
+
 async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
     """Set (or clear) the canonical card pointer. Returns False if card not found."""
     async with aiosqlite.connect(DB_PATH) as db:

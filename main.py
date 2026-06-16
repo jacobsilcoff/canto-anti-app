@@ -1228,6 +1228,69 @@ async def _backfill_card_embeddings(user_id: int, api_key: str, *, limit: int) -
             await db.update_card_embedding(card["id"], json.dumps(vec))
 
 
+async def _atomize_phrase_bg(
+    user_id: int, phrase: str, lang: str,
+    label_ids: list[int], priority: int, api_key: str, model: str,
+) -> None:
+    """Background: translate each word in a phrase and create missing atomic cards.
+
+    Skips words already in the user's deck (exact or normalized match).
+    Best-effort — any individual failure is swallowed so the task always completes.
+    """
+    words = tokenizer.phrase_words(phrase, lang)
+    if len(words) <= 1:
+        return
+    statuses = await db.get_word_statuses(user_id, words, lang)
+    for word in words:
+        if word in statuses:
+            continue
+        try:
+            result = await translation.translate(
+                word, lang, source_is_target=True,
+                api_key=api_key, model=model,
+            )
+            candidate = result["candidates"][0] if result["candidates"] else {}
+            if not candidate.get("english"):
+                continue
+            audio_data = await audio.generate(word, lang)
+            rom = tokenizer.romanize_text(word, lang) or candidate.get("romanization", "")
+            await db.create_card(
+                user_id=user_id,
+                source_text=candidate["english"],
+                target_text=word,
+                romanization=rom,
+                target_lang=lang,
+                audio_data=audio_data,
+                notes=candidate.get("notes"),
+                label_ids=label_ids,
+                priority=result.get("priority", priority),
+                classifier=result.get("classifier", ""),
+                cefr_level=result.get("cefr_level"),
+            )
+        except Exception:
+            pass
+
+
+async def _backfill_classifiers_bg(user_id: int, lang: str, api_key: str) -> None:
+    """Background: fill missing classifiers/articles for all cards of a language.
+    Processes in batches of 60. Best-effort."""
+    import asyncio as _asyncio
+    cards = await db.get_cards_missing_classifier(user_id, lang)
+    for i in range(0, len(cards), 60):
+        batch = cards[i:i + 60]
+        words = [c["target_text"] for c in batch]
+        try:
+            classifiers = await _asyncio.to_thread(
+                translation.get_classifiers_batch, words, lang, api_key
+            )
+            for card in batch:
+                cl = classifiers.get(card["target_text"], "")
+                if cl:
+                    await db.update_card_classifier(card["id"], cl, user_id)
+        except Exception:
+            pass
+
+
 @app.post("/api/cards")
 async def create_card(
     req: CreateCardRequest,
@@ -1271,12 +1334,18 @@ async def create_card(
         cefr_level=req.cefr_level,
     )
 
-    # Generate embedding in the background (best-effort; skip if no usable key).
-    # Not metered — it's a derived side-effect of saving a card, not a user action.
+    # Background side-effects (best-effort; skip if no usable key).
     try:
         access = await _resolve_gemini(user, meter=False)
         embed_text = f"{req.source_text.strip()} {target_text}"
         background_tasks.add_task(_generate_and_store_embedding, card_id, embed_text, access.api_key)
+        # Auto-atomize phrase cards: translate each constituent word into its own card.
+        if len(tokenizer.phrase_words(target_text, req.target_lang)) > 1:
+            background_tasks.add_task(
+                _atomize_phrase_bg,
+                user["id"], target_text, req.target_lang,
+                extra_label_ids, req.priority, access.api_key, access.model_translate,
+            )
     except HTTPException:
         pass
 
@@ -1296,6 +1365,65 @@ async def card_statuses(req: CardStatusRequest, user: dict = Depends(current_use
         raise HTTPException(400, "Unsupported language")
     words = [w.strip() for w in req.words[:100] if (w or "").strip()]
     return {"statuses": await db.get_word_statuses(user["id"], words, req.lang)}
+
+
+class DeckMaintenanceRequest(BaseModel):
+    lang: str
+
+
+@app.post("/api/cards/atomize")
+async def atomize_cards(
+    req: DeckMaintenanceRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Create atomic word cards for all phrase cards of a language.
+
+    Processes up to 10 phrase cards per call; call again while remaining > 0.
+    Returns {total_phrase_cards, queued, remaining}.
+    """
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    access = await _resolve_gemini(user)
+    cards = await db.get_all_cards_basic(user["id"], req.lang)
+    phrase_cards = [c for c in cards if len(tokenizer.phrase_words(c["target_text"], req.lang)) > 1]
+    batch = phrase_cards[:10]
+    queued = 0
+    for card in batch:
+        words = tokenizer.phrase_words(card["target_text"], req.lang)
+        statuses = await db.get_word_statuses(user["id"], words, req.lang)
+        new_words = [w for w in words if w not in statuses]
+        if new_words:
+            queued += len(new_words)
+            background_tasks.add_task(
+                _atomize_phrase_bg,
+                user["id"], card["target_text"], req.lang,
+                [], card["priority"], access.api_key, access.model_translate,
+            )
+    return {
+        "total_phrase_cards": len(phrase_cards),
+        "queued": queued,
+        "remaining": max(0, len(phrase_cards) - len(batch)),
+    }
+
+
+@app.post("/api/cards/backfill-classifiers")
+async def backfill_classifiers(
+    req: DeckMaintenanceRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Fill missing classifiers/articles for all cards of a language in the background."""
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    if req.lang not in translation._CLASSIFIER_HINT:
+        return {"message": "No classifier system for this language", "total": 0}
+    access = await _resolve_gemini(user)
+    cards = await db.get_cards_missing_classifier(user["id"], req.lang)
+    if not cards:
+        return {"message": "All cards already have classifiers", "total": 0}
+    background_tasks.add_task(_backfill_classifiers_bg, user["id"], req.lang, access.api_key)
+    return {"message": f"Backfilling classifiers for {len(cards)} cards in background", "total": len(cards)}
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -3369,11 +3497,13 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                 row = await cur.fetchone()
             if row is None:
                 # Exact miss — get_word_statuses matched via normalization or CJK substring.
-                # Find the card whose normalized target_text matches or contains this token.
+                # Find the shortest card whose normalized target_text matches or contains this token.
+                # Shortest-first ensures we prefer the most atomic card over a longer phrase.
                 norm_word = db._normalize_word(req.word)
                 async with conn.execute(
                     "SELECT id, source_text, target_text, romanization, notes "
-                    "FROM cards WHERE user_id=? AND target_lang=?",
+                    "FROM cards WHERE user_id=? AND target_lang=? "
+                    "ORDER BY length(target_text) ASC",
                     (user["id"], req.target_lang),
                 ) as cur2:
                     for r in await cur2.fetchall():

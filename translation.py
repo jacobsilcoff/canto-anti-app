@@ -374,6 +374,37 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         return {"description": "Photo", "descriptions": {}, "suggestions": {}}
 
 
+def get_classifiers_batch(words: list[str], lang: str, api_key: str) -> dict[str, str]:
+    """Return a mapping of word → classifier/article for target-language words.
+
+    Makes a single Gemini call. Returns empty string for non-nouns.
+    Only useful for languages in _CLASSIFIER_HINT; returns {} for others.
+    Caps at 60 words per call.
+    """
+    if not words or lang not in _CLASSIFIER_HINT:
+        return {}
+    hint = _CLASSIFIER_HINT[lang]
+    name = LANG_INFO.get(lang, {}).get("name", lang)
+    batch = words[:60]
+    word_list = "\n".join(f"- {w}" for w in batch)
+    prompt = (
+        f"For each of the following {name} words, provide the correct {hint}\n"
+        "Return ONLY valid JSON: an object mapping each word exactly (as given) to its "
+        "classifier/article string. Use empty string \"\" for verbs, adjectives, and "
+        "other non-nouns. No explanations.\n\n"
+        f"Words:\n{word_list}\n\n"
+        "Return ONLY this JSON object, nothing else."
+    )
+    try:
+        raw = _call(prompt, api_key)
+        data = _parse_json(raw)
+        if isinstance(data, dict):
+            return {str(k): str(v).strip() for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
 def _parse_json(text: str) -> dict:
     """Parse the first JSON object from the model response.
 
