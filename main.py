@@ -337,6 +337,14 @@ def _build_nav(active: str = "") -> str:
         + "\n".join(nav_links) + "\n"
         + signout_dropdown + "\n"
         "  </nav>\n"
+        "  <script>"
+        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}"
+        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}"
+        "document.addEventListener('click',function(e){"
+        "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
+        "})"
+        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}"
+        "</script>\n"
     )
 
 

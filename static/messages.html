@@ -1642,19 +1642,6 @@
     }, { passive: false });
   })();
 
-  // ── Nav helpers ───────────────────────────────────────────────────────────
-  function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
-  document.addEventListener('click', e => {
-    const dd = document.getElementById('nav-dropdown');
-    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
-  });
-
-  // doLogout (shared across pages)
-  async function doLogout() {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    location.href = '/login';
-  }
-
   // Start
   init();
 </script>

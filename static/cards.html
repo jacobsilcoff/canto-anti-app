@@ -823,14 +823,6 @@
     } catch {}
   }
 
-  function toggleMobileMenu() {
-    document.getElementById('nav-dropdown').classList.toggle('open');
-  }
-
-  function closeMobileMenu() {
-    document.getElementById('nav-dropdown').classList.remove('open');
-  }
-
   async function loadSession(mode = 'due') {
     show('loading');
     if (isOnline) await syncPending();
@@ -1816,11 +1808,6 @@
   function closeManageLabels(e) {
     if (!e || e.target === document.getElementById('labels-overlay'))
       document.getElementById('labels-overlay').style.display = 'none';
-  }
-
-  async function doLogout() {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    window.location.replace('/login');
   }
 
   function showToast(msg) {

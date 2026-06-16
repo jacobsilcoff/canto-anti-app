@@ -1319,9 +1319,6 @@
     }
   });
 
-  // ── Nav ────────────────────────────────────────────────────────────────────
-  function toggleMobileMenu() { document.getElementById('nav-dropdown').classList.toggle('open'); }
-
   async function loadStreak() {
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
@@ -1345,11 +1342,6 @@
     const dd = document.getElementById('nav-dropdown');
     if (dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
   });
-  async function doLogout() {
-    await fetch('/api/logout', { method: 'POST' });
-    location.href = '/login';
-  }
-
   // ── TTS ────────────────────────────────────────────────────────────────────
   let _currentAudio = null;
 

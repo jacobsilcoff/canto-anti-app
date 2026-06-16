@@ -143,21 +143,9 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  async function doLogout() {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    window.location.replace('/login');
-  }
-
-  function toggleMobileMenu() {
-    document.getElementById('nav-dropdown').classList.toggle('open');
-  }
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('header')) {
-      const dd = document.getElementById('nav-dropdown');
-      if (dd) dd.classList.remove('open');
-    }
-  });
+  function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}
+  function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}
+  document.addEventListener('click',function(e){if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}});
 
   function showToast(msg) {
     const t = document.getElementById('toast');

@@ -582,23 +582,6 @@
     }
   }
 
-  // ── Nav ──
-  function toggleMobileMenu() {
-    document.getElementById('nav-dropdown').classList.toggle('open');
-  }
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('header')) {
-      const dd = document.getElementById('nav-dropdown');
-      if (dd) dd.classList.remove('open');
-    }
-  });
-
-  async function doLogout() {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    window.location.replace('/login');
-  }
-
   document.getElementById('deck-name').addEventListener('input', updatePickerCount);
 
   init();
