@@ -277,6 +277,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "learn":     f'<svg {_i}><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>',
         "tutor":     f'<svg {_i}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         "messages":  f'<svg {_i}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+        "feedback":  f'<svg {_i}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
         "settings":  (f'<svg {_i}><circle cx="12" cy="12" r="3"/>'
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0'
                       'l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09'
@@ -305,6 +306,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
         link("/messages", "Messages",   "messages", notif=True),
+        link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
     ]
     signout_btn = (
@@ -902,6 +904,11 @@ async def messages_page():
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _html("settings.html", active="/settings")
+
+
+@app.get("/feedback", response_class=HTMLResponse)
+async def feedback_page():
+    return _html("feedback.html", active="/feedback")
 
 
 @app.get("/welcome", response_class=HTMLResponse)
@@ -3155,10 +3162,128 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
     return {"success": True}
 
 
+# ── Feedback / bug reports ───────────────────────────────────────────────────
+
+class FeedbackRequest(BaseModel):
+    type: str = "bug"
+    title: str
+    description: str = ""
+
+
+@app.post("/api/feedback")
+@limiter.limit("10/minute;50/day")
+async def submit_feedback(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
+    """Submit a bug report or feature request, optionally with a screenshot."""
+    import io as _io
+    form = await request.form()
+    fb_type = str(form.get("type", "bug"))
+    if fb_type not in ("bug", "feature"):
+        fb_type = "bug"
+    title = str(form.get("title", "")).strip()
+    if not title:
+        raise HTTPException(400, "Title is required")
+    description = str(form.get("description", "")).strip()
+    screenshot_media_id = None
+    screenshot_file = form.get("screenshot")
+    if screenshot_file and hasattr(screenshot_file, "read"):
+        raw = await screenshot_file.read()
+        if raw and len(raw) <= _MAX_UPLOAD_BYTES and _PIL_OK:
+            try:
+                img = Image.open(_io.BytesIO(raw))
+                img = _ImageOps.exif_transpose(img)
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                if max(img.size) > _MAX_IMAGE_DIM:
+                    img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+                buf = _io.BytesIO()
+                img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+                out_bytes = buf.getvalue()
+                screenshot_media_id = _uuid.uuid4().hex
+                (MEDIA_DIR / f"{screenshot_media_id}.jpg").write_bytes(out_bytes)
+                await db.add_media_record(screenshot_media_id, user["id"], None, len(out_bytes))
+            except Exception:
+                pass
+    feedback_id = await db.create_feedback(
+        user["id"], fb_type, title, description, screenshot_media_id
+    )
+    background_tasks.add_task(_triage_feedback_bg, feedback_id, title, description)
+    return {"id": feedback_id, "message": "Thank you for your feedback!"}
+
+
+async def _triage_feedback_bg(feedback_id: int, title: str, description: str) -> None:
+    """Background: AI-triage a feedback report."""
+    api_key = _SHARED_API_KEY
+    if not api_key:
+        return
+    try:
+        groups = await db.list_feedback_groups()
+        existing_groups = [g["triage_group"] for g in groups]
+        result = await asyncio.to_thread(
+            translation.triage_feedback, title, description, existing_groups, api_key
+        )
+        await db.update_feedback_triage(
+            feedback_id,
+            result["triage_summary"],
+            result["triage_group"],
+            result["suggested_prompt"],
+            result["priority"],
+        )
+    except Exception:
+        pass
+
+
+@app.get("/api/feedback/mine")
+async def my_feedback(user: dict = Depends(current_user)):
+    return {"reports": await db.list_user_feedback(user["id"])}
+
+
+@app.get("/api/admin/feedback")
+async def admin_list_feedback(
+    status: str = "",
+    user: dict = Depends(current_admin),
+):
+    reports = await db.list_feedback(status=status or None)
+    return {"reports": reports}
+
+
+@app.get("/api/admin/feedback/{feedback_id}")
+async def admin_get_feedback(feedback_id: int, user: dict = Depends(current_admin)):
+    report = await db.get_feedback(feedback_id)
+    if not report:
+        raise HTTPException(404, "Report not found")
+    return report
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+    admin_notes: str = ""
+
+
+@app.put("/api/admin/feedback/{feedback_id}/status")
+async def admin_update_feedback_status(
+    feedback_id: int,
+    req: FeedbackStatusUpdate,
+    user: dict = Depends(current_admin),
+):
+    if req.status not in ("new", "triaged", "in_progress", "resolved", "closed"):
+        raise HTTPException(400, "Invalid status")
+    await db.update_feedback_status(feedback_id, req.status, req.admin_notes)
+    return {"success": True}
+
+
+@app.get("/api/admin/feedback/groups")
+async def admin_feedback_groups(user: dict = Depends(current_admin)):
+    return {"groups": await db.list_feedback_groups()}
+
+
 # ── Reader ────────────────────────────────────────────────────────────────────
 
 class ReaderGenerateRequest(BaseModel):
-    prompt: str
+    prompt: str = ""
     target_lang: str = "yue"
     difficulty: str = "B1"
     num_paragraphs: int = 4
@@ -3189,7 +3314,7 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
     )
     rom_map = tokenizer.romanize_words(words, text["target_lang"])
     all_vocab_added = bool(unique_words) and all(w in statuses for w in unique_words)
-    return {
+    resp = {
         **text,
         "tokens": _annotate_tokens(tokens, statuses),
         "sentences": sentences,
@@ -3197,6 +3322,10 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
         "romanization": rom_map,
         "all_vocab_added": all_vocab_added,
     }
+    img_id = text.get("image_media_id")
+    if img_id:
+        resp["image_url"] = f"/api/media/{img_id}.jpg"
+    return resp
 
 
 @app.post("/api/reader/generate")
@@ -3205,13 +3334,82 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
     access = await _resolve_gemini(user)
+    prompt = req.prompt.strip()
+    if not prompt:
+        existing = await db.list_reader_texts(user["id"], target_lang=req.target_lang)
+        existing_titles = [t["title"] for t in existing[:30]]
+        titles_hint = ""
+        if existing_titles:
+            titles_hint = (
+                f"The user already has these stories: {', '.join(existing_titles[:20])}. "
+                "Write something DIFFERENT — pick a fresh genre, topic, or setting."
+            )
+        prompt = (
+            "Write something interesting and creative for a language learner. "
+            "Pick a vivid scenario: a conversation, a short story, a diary entry, "
+            "a news article, or a cultural anecdote. " + titles_hint
+        )
     result = await translation.generate_reader_text(
-        req.prompt, req.target_lang, req.difficulty,
+        prompt, req.target_lang, req.difficulty,
         req.num_paragraphs,
         api_key=access.api_key, model=access.model_reader,
     )
     text_id = await db.create_reader_text(
-        user["id"], result["title"], req.prompt, result["content"], req.target_lang
+        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang
+    )
+    text = await db.get_reader_text(user["id"], text_id)
+    return await _build_text_response(user["id"], text)
+
+
+@app.post("/api/reader/generate-from-image")
+@limiter.limit("10/minute;50/day")
+async def reader_generate_from_image(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(current_user),
+):
+    """Generate a reader text inspired by an uploaded image."""
+    import io as _io
+    if not _PIL_OK:
+        raise HTTPException(500, "Image processing unavailable")
+    form = await request.form()
+    target_lang = str(form.get("target_lang", "yue"))
+    difficulty = str(form.get("difficulty", "B1"))
+    num_paragraphs = int(form.get("num_paragraphs", 4))
+    prompt = str(form.get("prompt", ""))
+    if target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    access = await _resolve_gemini(user)
+    raw = await file.read()
+    if len(raw) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Image too large (max 20 MB)")
+    try:
+        img = Image.open(_io.BytesIO(raw))
+        img = _ImageOps.exif_transpose(img)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        if max(img.size) > _MAX_IMAGE_DIM:
+            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        out_bytes = buf.getvalue()
+    except Exception as exc:
+        raise HTTPException(400, f"Could not process image: {exc}")
+    # Save image to media dir for display in the reader
+    media_id = _uuid.uuid4().hex
+    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
+    await db.add_media_record(media_id, user["id"], None, len(out_bytes))
+    existing = await db.list_reader_texts(user["id"], target_lang=target_lang)
+    existing_titles = [t["title"] for t in existing[:30]]
+    result = await translation.generate_reader_text_from_image(
+        out_bytes, target_lang, difficulty, num_paragraphs, prompt,
+        existing_titles=existing_titles,
+        api_key=access.api_key, model=access.model_reader,
+    )
+    stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
+    text_id = await db.create_reader_text(
+        user["id"], result["title"], stored_prompt, result["content"], target_lang,
+        image_media_id=media_id,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
