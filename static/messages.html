@@ -822,11 +822,11 @@
       const hasInfo = !!(description || myPhrases.length);
       const phraseRows = myPhrases.map(p => `
         <div class="img-phrase-row">
-          <div class="img-phrase-content" onclick="pastePhrase(${JSON.stringify(p.text)})" title="Tap to paste into composer">
+          <div class="img-phrase-content" onclick="pastePhrase(${escAttr(JSON.stringify(p.text))})" title="Tap to paste into composer">
             <div class="img-phrase-target">${needsRuby(_targetLang) ? rbSpan(p.text) : esc(p.text)}</div>
             ${p.en ? `<div class="img-phrase-en">${esc(p.en)}</div>` : ''}
           </div>
-          <button class="img-phrase-add" onclick="addPhraseCard(this,${JSON.stringify(p.text)},${JSON.stringify(p.en)})" title="Save to flashcard deck">Add card</button>
+          <button class="img-phrase-add" onclick="addPhraseCard(this,${escAttr(JSON.stringify(p.text))},${escAttr(JSON.stringify(p.en))})" title="Save to flashcard deck">Add card</button>
         </div>`).join('');
       // Description in viewer's target language if available, else English
       const descLang = (analysis.descriptions || {})[_targetLang] || description;
@@ -1584,6 +1584,11 @@
 
   function esc(s) {
     const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+  }
+  // esc() doesn't encode " (safe in text nodes but not in double-quoted attributes).
+  // Use escAttr() whenever a value is interpolated into an HTML attribute.
+  function escAttr(s) {
+    return esc(s).replace(/"/g, '&quot;');
   }
 
   // ── Input auto-grow + keyboard ────────────────────────────────────────────
