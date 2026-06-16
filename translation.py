@@ -260,6 +260,72 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
             raise
 
 
+def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
+                     model: str = DEFAULT_MODEL) -> str:
+    from google.genai import types as _types
+    part_img = _types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+    delays = [1, 3]
+    for attempt, delay in enumerate([0] + delays):
+        if delay:
+            time.sleep(delay)
+        try:
+            return _get_client(api_key).models.generate_content(
+                model=model, contents=[part_img, prompt]
+            ).text.strip()
+        except ServerError as e:
+            if e.status_code == 503 and attempt < len(delays):
+                continue
+            raise
+
+
+def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
+    """Describe an image and suggest phrases for each target language.
+
+    Returns: {
+        "description": "A one-sentence English description",
+        "suggestions": {"yue": ["phrase1", ...], "fr": [...], ...}
+    }
+    On any failure returns a minimal fallback so the upload still succeeds.
+    """
+    lang_names = ", ".join(
+        f"{code} ({LANG_INFO[code]['name']})" for code in langs if code in LANG_INFO
+    )
+    lang_blocks = "\n".join(
+        f'  "{code}": ["phrase1", "phrase2", "phrase3", "phrase4"]'
+        for code in langs if code in LANG_INFO
+    )
+    prompt = (
+        "You are a language-learning assistant. Look at this image and respond with JSON only.\n\n"
+        "Tasks:\n"
+        "1. Write a single short English sentence describing what you see (10–15 words).\n"
+        f"2. For each target language ({lang_names}), provide 4–6 natural phrases "
+        "a learner might want to say about this image. "
+        "Each phrase should be in the target script (no romanization). "
+        "Choose varied, conversational phrases spanning different vocabulary (objects, "
+        "actions, feelings, context).\n\n"
+        "Respond with ONLY this JSON (no markdown, no explanation):\n"
+        "{\n"
+        '  "description": "...",\n'
+        '  "suggestions": {\n'
+        f"{lang_blocks}\n"
+        "  }\n"
+        "}"
+    )
+    try:
+        raw = _call_with_image(prompt, image_bytes, api_key)
+        result = _parse_json(raw)
+        description = str(result.get("description", "")).strip() or "Photo"
+        suggestions: dict[str, list[str]] = {}
+        raw_sugg = result.get("suggestions") or {}
+        for code in langs:
+            phrases = raw_sugg.get(code)
+            if isinstance(phrases, list):
+                suggestions[code] = [str(p).strip() for p in phrases if str(p).strip()][:6]
+        return {"description": description, "suggestions": suggestions}
+    except Exception:
+        return {"description": "Photo", "suggestions": {}}
+
+
 def _parse_json(text: str) -> dict:
     """Parse the first JSON object from the model response.
 

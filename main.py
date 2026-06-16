@@ -3885,9 +3885,38 @@ async def send_image_message(conv_id: int, request: Request,
     await db.add_media_record(media_id, user["id"], conv_id, len(out_bytes))
 
     url = f"/api/media/{media_id}.jpg"
+
+    # Collect distinct target languages for phrase suggestions
+    langs_set: list[str] = []
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    if sender_lang not in langs_set:
+        langs_set.append(sender_lang)
+    if conv.get("type") == "inapp":
+        recipient_lang = await db.get_setting(conv["other_user_id"], "default_target_lang") or "yue"
+        if recipient_lang not in langs_set:
+            langs_set.append(recipient_lang)
+
+    # Run vision analysis synchronously (1–3 s); fall back gracefully on failure
+    vision: dict = {"description": "Photo", "suggestions": {}}
+    try:
+        api_key = _SHARED_API_KEY
+        if api_key:
+            vision = await asyncio.get_event_loop().run_in_executor(
+                None, translation.analyze_image, out_bytes, langs_set, api_key
+            )
+    except Exception:
+        pass
+
+    description = vision.get("description") or "Photo"
+    analysis = {
+        "type": "image",
+        "url": url,
+        "description": description,
+        "suggestions": vision.get("suggestions") or {},
+    }
     msg_id = await db.add_message(
-        conv_id, user["id"], url, "en", {},
-        analysis={"type": "image"},
+        conv_id, user["id"], f"📷 {description}", "en", {},
+        analysis=analysis,
     )
     await db.record_study_activity(user["id"])
 
@@ -3895,12 +3924,13 @@ async def send_image_message(conv_id: int, request: Request,
         asyncio.create_task(_send_push_to_user(
             conv["other_user_id"],
             title=f"📷 {user['username']}",
-            body="sent a photo",
+            body=description,
             url="/messages",
             tag=f"msg-{conv_id}",
         ))
 
-    return {"ok": True, "url": url, "msg_id": msg_id}
+    return {"ok": True, "url": url, "msg_id": msg_id, "description": description,
+            "suggestions": analysis["suggestions"]}
 
 
 @app.get("/api/media/{media_id}")

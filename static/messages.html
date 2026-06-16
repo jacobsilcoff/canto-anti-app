@@ -133,6 +133,26 @@
     .photo-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9000;
       display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .photo-lightbox img { max-width: 95vw; max-height: 95vh; border-radius: 8px; object-fit: contain; }
+    /* Image info overlay + panel */
+    .msg-photo-bubble { position: relative; }
+    .img-info-btn { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.45);
+      color: #fff; border: none; border-radius: 50%; width: 26px; height: 26px;
+      font-size: 0.82rem; font-weight: 700; cursor: pointer; line-height: 1; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; backdrop-filter: blur(4px); }
+    .img-info-btn:hover { background: rgba(0,0,0,0.72); }
+    .img-info-panel { max-width: 268px; background: var(--surface-alt);
+      border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px;
+      margin-top: 5px; font-size: 0.84rem; }
+    .img-info-desc { color: var(--text-muted); font-style: italic; line-height: 1.4;
+      margin-bottom: 7px; }
+    .img-info-desc:only-child { margin-bottom: 0; }
+    .img-info-phrases { display: flex; flex-wrap: wrap; gap: 5px; }
+    .img-phrase-chip { background: var(--primary-soft); color: var(--primary);
+      border: 1px solid transparent; border-radius: 999px; padding: 4px 11px;
+      font-size: 0.8rem; cursor: pointer; font-family: var(--script-font, inherit);
+      transition: background 0.12s, color 0.12s; line-height: 1.5; }
+    .img-phrase-chip:hover { background: var(--primary); color: #fff; }
 
     /* ── Friends modal ── */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500;
@@ -753,6 +773,11 @@
 
     // ── Image bubble ─────────────────────────────────────────────────────────
     if (analysis.type === 'image') {
+      const imgSrc = analysis.url || m.original_text;
+      const description = analysis.description || '';
+      const myPhrases = (analysis.suggestions || {})[_targetLang] || [];
+      const hasInfo = !!(description || myPhrases.length);
+      const infoId = `imginfo-${m.id}`;
       const nameHtml = !mine ? `<div class="msg-bubble-sender">${esc(m.sender_name)}</div>` : '';
       const rxEntries = Object.entries(reactions).sort((a, b) => b[1].count - a[1].count);
       const rxHtml = rxEntries.length
@@ -761,14 +786,25 @@
               ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
             </button>`).join('')}</div>`
         : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
+      const infoPanel = hasInfo ? `<div class="img-info-panel" id="${infoId}" style="display:none">
+        ${description ? `<div class="img-info-desc">${esc(description)}</div>` : ''}
+        ${myPhrases.length ? `<div class="img-info-phrases">${myPhrases.map(p =>
+          `<button class="img-phrase-chip" onclick="pastePhrase(${JSON.stringify(p)})">${esc(p)}</button>`
+        ).join('')}</div>` : ''}
+      </div>` : '';
+      const infoBtn = hasInfo
+        ? `<button class="img-info-btn" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info">ℹ</button>`
+        : '';
       return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
         ${nameHtml}
         <div class="msg-bubble msg-photo-bubble">
-          <img src="${esc(m.original_text)}" class="msg-photo" loading="lazy"
-               onclick="openPhoto('${esc(m.original_text)}')" alt="photo">
+          <img src="${esc(imgSrc)}" class="msg-photo" loading="lazy"
+               onclick="openPhoto('${esc(imgSrc)}')" alt="photo">
+          ${infoBtn}
         </div>
+        ${infoPanel}
         ${isSending ? '' : rxHtml}
-        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Uploading…</span>' : relTime(m.created_at)}</div>
+        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Analyzing…</span>' : relTime(m.created_at)}</div>
       </div>`;
     }
 
@@ -1098,7 +1134,7 @@
         <div class="msg-bubble msg-photo-bubble" style="opacity:0.55">
           <img src="${objUrl}" class="msg-photo" alt="uploading…">
         </div>
-        <div class="msg-bubble-time"><span class="sending-indicator">⟳ Uploading…</span></div>
+        <div class="msg-bubble-time"><span class="sending-indicator">⟳ Analyzing…</span></div>
       </div>`);
     thread.scrollTop = thread.scrollHeight;
 
@@ -1111,9 +1147,11 @@
       document.getElementById(tempId)?.remove();
       const realBubble = {
         id: data.msg_id, is_mine: true,
-        display_text: data.url, original_text: data.url,
+        display_text: data.url, original_text: `📷 ${data.description || 'Photo'}`,
         sender_name: 'Me', created_at: new Date().toISOString(),
-        analysis: { type: 'image' }, reactions: {},
+        analysis: { type: 'image', url: data.url, description: data.description || '',
+                    suggestions: data.suggestions || {} },
+        reactions: {},
       };
       thread.insertAdjacentHTML('beforeend', renderBubble(realBubble));
       thread.scrollTop = thread.scrollHeight;
@@ -1135,6 +1173,25 @@
     lb.innerHTML = `<img src="${src}" alt="photo">`;
     lb.onclick = () => lb.remove();
     document.body.appendChild(lb);
+  }
+
+  function toggleImgInfo(id) {
+    const panel = document.getElementById(id);
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? '' : 'none';
+    const btn = panel.previousElementSibling?.querySelector('.img-info-btn');
+    if (btn) btn.classList.toggle('on', isHidden);
+  }
+
+  function pastePhrase(phrase) {
+    const input = document.getElementById('msg-input');
+    if (!input) return;
+    input.value = phrase;
+    input.focus();
+    input.dispatchEvent(new Event('input'));
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   }
 
   // ── Send message ──────────────────────────────────────────────────────────

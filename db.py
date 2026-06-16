@@ -2917,6 +2917,16 @@ async def add_media_record(media_id: str, user_id: int, conv_id: int | None, siz
         await db.commit()
 
 
+async def update_image_message(msg_id: int, description: str, analysis: dict) -> None:
+    analysis_json = json.dumps(analysis, ensure_ascii=False)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE messages SET original_text=?, analysis=? WHERE id=?",
+            (f"📷 {description}", analysis_json, msg_id),
+        )
+        await db.commit()
+
+
 # ── Messenger account ──────────────────────────────────────────────────────────
 
 async def get_messenger_account(user_id: int) -> dict | None:
