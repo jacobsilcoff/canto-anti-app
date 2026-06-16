@@ -306,6 +306,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
         link("/messages", "Messages",   "messages", notif=True),
+        link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
     ]
@@ -918,6 +919,11 @@ async def tutor_page():
 @app.get("/messages", response_class=HTMLResponse)
 async def messages_page():
     return _html("messages.html", active="/messages")
+
+
+@app.get("/browse", response_class=HTMLResponse)
+async def browse_page():
+    return _html("browse.html", active="/browse")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -3376,7 +3382,8 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
         api_key=access.api_key, model=access.model_reader,
     )
     text_id = await db.create_reader_text(
-        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang
+        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang,
+        difficulty=req.difficulty,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
@@ -3430,7 +3437,7 @@ async def reader_generate_from_image(
     stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
     text_id = await db.create_reader_text(
         user["id"], result["title"], stored_prompt, result["content"], target_lang,
-        image_media_id=media_id,
+        image_media_id=media_id, difficulty=difficulty,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
@@ -3845,6 +3852,174 @@ async def reader_comprehension_xp(req: ComprehensionXpRequest, user: dict = Depe
     await db.add_points(user["id"], lang, _COMPREHENSION_XP, "comprehension")
     await db.record_study_activity(user["id"])
     return {"xp": _COMPREHENSION_XP}
+
+
+# ── Story sharing ────────────────────────────────────────────────────────────
+
+class PublishStoryRequest(BaseModel):
+    visibility: str = "public"
+
+@app.put("/api/reader/texts/{text_id}/publish")
+async def publish_story(text_id: int, req: PublishStoryRequest, user: dict = Depends(current_user)):
+    if req.visibility not in ("private", "friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    ok = await db.publish_story(user["id"], text_id, req.visibility)
+    if not ok:
+        raise HTTPException(404, "Story not found")
+    return {"ok": True}
+
+class RateStoryRequest(BaseModel):
+    rating: int
+
+@app.post("/api/reader/texts/{text_id}/rate")
+async def rate_story(text_id: int, req: RateStoryRequest, user: dict = Depends(current_user)):
+    if not 1 <= req.rating <= 5:
+        raise HTTPException(400, "Rating must be 1-5")
+    story = await db.get_story_public(text_id, user["id"])
+    if not story:
+        raise HTTPException(404, "Story not found or not accessible")
+    await db.rate_story(user["id"], text_id, req.rating)
+    return {"ok": True}
+
+@app.get("/api/reader/community")
+async def reader_community(
+    request: Request,
+    difficulty: str | None = None,
+    min_rating: float | None = None,
+    search: str | None = None,
+    sort: str = "newest",
+    length: str | None = None,
+    user: dict = Depends(current_user),
+):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    stories = await db.list_community_stories(
+        lang, user["id"], difficulty=difficulty,
+        min_rating=min_rating, search=search, sort=sort,
+    )
+    if length:
+        thresholds = {"short": (0, 300), "medium": (300, 1000), "long": (1000, 999999)}
+        lo, hi = thresholds.get(length, (0, 999999))
+        stories = [s for s in stories if lo <= s.get("content_length", 0) < hi]
+    return {"stories": stories}
+
+@app.get("/api/reader/community/{text_id}")
+async def reader_community_text(text_id: int, user: dict = Depends(current_user)):
+    text = await db.get_story_public(text_id, user["id"])
+    if not text:
+        raise HTTPException(404, "Story not found or not accessible")
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    words = [t["text"] for t in tokens if t["is_word"]]
+    unique_words = list(dict.fromkeys(words))
+    statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
+    sentences = await db.get_reader_sentences_public(text_id)
+    preload_complete = bool(sentences) and all(
+        s["translation"] and s["has_audio"] for s in sentences
+    )
+    rom_map = tokenizer.romanize_words(words, text["target_lang"])
+    rating_info = await db.get_story_rating(text_id)
+    user_rating = await db.get_user_story_rating(user["id"], text_id)
+    resp = {
+        **text,
+        "tokens": _annotate_tokens(tokens, statuses),
+        "sentences": sentences,
+        "preload_complete": preload_complete,
+        "romanization": rom_map,
+        "avg_rating": rating_info["avg_rating"],
+        "rating_count": rating_info["rating_count"],
+        "user_rating": user_rating,
+    }
+    img_id = text.get("image_media_id")
+    if img_id:
+        resp["image_url"] = f"/api/media/{img_id}.jpg"
+    return resp
+
+
+# ── Shared decks ─────────────────────────────────────────────────────────────
+
+class CreateDeckRequest(BaseModel):
+    name: str
+    description: str = ""
+    visibility: str = "friends"
+    card_ids: list[int] = []
+
+@app.post("/api/decks")
+async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)):
+    if not req.name.strip():
+        raise HTTPException(400, "Name required")
+    if req.visibility not in ("friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    if not req.card_ids:
+        raise HTTPException(400, "Select at least one card")
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    cards = await db.get_all_cards(user["id"])
+    card_map = {c["id"]: c for c in cards}
+    items = []
+    for cid in req.card_ids:
+        c = card_map.get(cid)
+        if c:
+            items.append({
+                "source_text": c["source_text"],
+                "target_text": c["target_text"],
+                "romanization": c.get("romanization"),
+                "notes": c.get("notes"),
+            })
+    if not items:
+        raise HTTPException(400, "No valid cards found")
+    deck_id = await db.create_shared_deck(
+        user["id"], req.name.strip(), req.description.strip(),
+        lang, req.visibility, items,
+    )
+    return {"id": deck_id}
+
+class UpdateDeckRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    visibility: str | None = None
+
+@app.put("/api/decks/{deck_id}")
+async def update_deck(deck_id: int, req: UpdateDeckRequest, user: dict = Depends(current_user)):
+    if req.visibility and req.visibility not in ("friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    ok = await db.update_shared_deck(user["id"], deck_id, req.name, req.description, req.visibility)
+    if not ok:
+        raise HTTPException(404, "Deck not found")
+    return {"ok": True}
+
+@app.delete("/api/decks/{deck_id}")
+async def delete_deck(deck_id: int, user: dict = Depends(current_user)):
+    ok = await db.delete_shared_deck(user["id"], deck_id)
+    if not ok:
+        raise HTTPException(404, "Deck not found")
+    return {"ok": True}
+
+@app.get("/api/decks/mine")
+async def my_decks(user: dict = Depends(current_user)):
+    return {"decks": await db.list_my_decks(user["id"])}
+
+@app.get("/api/decks/community")
+async def community_decks(
+    search: str | None = None,
+    user: dict = Depends(current_user),
+):
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    return {"decks": await db.list_community_decks(lang, user["id"], search=search)}
+
+@app.get("/api/decks/{deck_id}")
+async def get_deck(deck_id: int, user: dict = Depends(current_user)):
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    return deck
+
+@app.post("/api/decks/{deck_id}/import")
+async def import_deck(deck_id: int, user: dict = Depends(current_user)):
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    result = await db.import_deck(user["id"], deck_id)
+    if not result["ok"]:
+        raise HTTPException(400, result.get("error", "Import failed"))
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════════════

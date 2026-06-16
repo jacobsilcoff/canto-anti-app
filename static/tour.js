@@ -1,18 +1,20 @@
 (function () {
-  var TOUR_VERSION = 2;
+  var TOUR_VERSION = 3;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
     { icon: '🃏', title: 'Study your cards daily',
       body: 'The Flashcards tab shows you cards due today. Each card has three faces: recognition, production, and pronunciation — spaced repetition handles the scheduling.', v: 1 },
-    { icon: '📖', title: 'Read real stories',
-      body: 'The Reader generates texts in your language — from a prompt, an uploaded image, or completely at random. Tap any word to look it up or add it to your deck.', v: 1 },
+    { icon: '📖', title: 'Read & share stories',
+      body: 'The Reader generates texts in your language. Publish your stories for the community to read and rate, or browse stories shared by others.', v: 3 },
     { icon: '🎓', title: 'AI-guided lessons',
       body: 'The Learn tab builds a personalized course that adapts to what you know. Each lesson teaches grammar or vocabulary with interactive drills and earns you XP.', v: 2 },
     { icon: '💬', title: 'Chat with a tutor',
       body: 'The Tutor is an AI conversation partner. It replies in your target language, corrects your mistakes, and suggests new words you can add to your deck in one tap.', v: 2 },
     { icon: '✉️', title: 'Message other learners',
       body: 'The Messages tab lets you chat with friends. Every message gets romanization, word-by-word translations, and corrections — like having a tutor in every conversation.', v: 2 },
+    { icon: '🔍', title: 'Browse shared decks',
+      body: 'The Browse page lets you create card decks and share them with friends or the community. Import decks from other learners to jumpstart your vocabulary.', v: 3 },
     { icon: '⚠️', title: 'Report bugs & ideas',
       body: 'Found a bug or have a feature request? Use the Feedback page to submit a report — you can attach a screenshot and track the status of your submissions.', v: 2 },
   ];

@@ -202,6 +202,46 @@
     .quiz-feedback.correct { background: var(--good-soft,#e8f9ef); color: var(--good-strong,#1d8c4a); }
     .quiz-feedback.wrong { background: var(--danger-soft,#fde8e8); color: var(--danger,#d32f2f); }
     .quiz-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── Tab switcher ── */
+    .reader-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .reader-tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.88rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+    .reader-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Community filters ── */
+    .community-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .community-filters input { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 10px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .community-filters input:focus { outline: none; border-color: var(--primary); }
+    .community-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px;
+      font-size: 0.82rem; background: var(--bg); color: var(--text); }
+
+    /* ── Community story card ── */
+    .community-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+    .community-card:hover { border-color: var(--primary); }
+    .community-card-title { font-weight: 600; font-size: 0.95rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .community-card-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .community-card-stars { color: var(--warn-accent); font-size: 0.82rem; }
+    .community-empty { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; }
+
+    /* ── Publish & rating in reader ── */
+    .publish-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .publish-btn { border: 1px solid var(--primary); color: var(--primary); background: none; border-radius: 8px;
+      padding: 5px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .publish-btn:hover { background: var(--primary); color: #fff; }
+    .publish-btn.active { background: var(--primary); color: #fff; }
+    .publish-select { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px;
+      font-size: 0.82rem; background: var(--bg); color: var(--text); }
+    .rating-stars { display: inline-flex; gap: 2px; cursor: pointer; }
+    .rating-stars .star { font-size: 1.3rem; color: var(--border); transition: color 0.1s; }
+    .rating-stars .star.filled { color: var(--warn-accent); }
+    .rating-stars .star:hover { color: var(--warn-accent); }
+    .rating-info { font-size: 0.78rem; color: var(--text-muted); margin-left: 4px; }
+    .story-author { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; }
   </style>
 </head>
 <body>
@@ -209,6 +249,12 @@
 <header>{{NAV}}</header>
 
 <main class="reader-page">
+
+  <!-- Tab switcher -->
+  <div class="reader-tabs" id="reader-tabs">
+    <button class="reader-tab active" onclick="switchTab('mine')">My Stories</button>
+    <button class="reader-tab" onclick="switchTab('community')">Community</button>
+  </div>
 
   <!-- Home: generate + saved list -->
   <div id="home-view">
@@ -260,6 +306,31 @@
     </div>
   </div>
 
+  <!-- Community view -->
+  <div id="community-view" style="display:none">
+    <div class="community-filters">
+      <input type="text" id="comm-search" placeholder="Search stories…" oninput="loadCommunity()">
+      <select id="comm-difficulty" class="settings-select" onchange="loadCommunity()">
+        <option value="">Any difficulty</option>
+        <option value="A1">A1</option><option value="A2">A2</option>
+        <option value="B1">B1</option><option value="B2">B2</option>
+        <option value="C1">C1</option><option value="C2">C2</option>
+      </select>
+      <select id="comm-length" class="settings-select" onchange="loadCommunity()">
+        <option value="">Any length</option>
+        <option value="short">Short</option>
+        <option value="medium">Medium</option>
+        <option value="long">Long</option>
+      </select>
+      <select id="comm-sort" class="settings-select" onchange="loadCommunity()">
+        <option value="newest">Newest</option>
+        <option value="rating">Top rated</option>
+        <option value="popular">Most rated</option>
+      </select>
+    </div>
+    <div class="saved-list" id="community-list"></div>
+  </div>
+
   <!-- Loading view (shown during generate + preload) -->
   <div id="loading-view" style="display:none">
     <div class="loading-view">
@@ -289,6 +360,22 @@
           <button class="reader-quiz-btn" id="reader-quiz-btn" onclick="openQuiz()" title="Comprehension quiz" style="display:none">Quiz me</button>
         </div>
       </div>
+    </div>
+
+    <!-- Author info (community stories) -->
+    <div class="story-author" id="story-author" style="display:none"></div>
+
+    <!-- Publish / rating row -->
+    <div class="publish-row" id="publish-row" style="display:none">
+      <select class="publish-select" id="publish-select" onchange="publishStory()">
+        <option value="private">Private</option>
+        <option value="friends">Friends only</option>
+        <option value="public">Public</option>
+      </select>
+      <span id="rating-section" style="display:none">
+        <span class="rating-stars" id="rating-stars"></span>
+        <span class="rating-info" id="rating-info"></span>
+      </span>
     </div>
 
     <!-- Sentence translation panel -->
@@ -618,6 +705,19 @@
     romBtn.classList.remove('active');
     romBtn.classList.add('rom-toggle-off');
     document.getElementById('reader-text').classList.remove('show-rom');
+    document.getElementById('reader-tabs').style.display = 'none';
+    document.getElementById('community-view').style.display = 'none';
+    // Publish controls for own stories
+    if (!_isCommunityStory) {
+      document.getElementById('story-author').style.display = 'none';
+      const pubRow = document.getElementById('publish-row');
+      pubRow.style.display = '';
+      const sel = document.getElementById('publish-select');
+      sel.style.display = '';
+      sel.value = data.visibility || 'private';
+      document.getElementById('rating-section').style.display = 'none';
+    }
+    _isCommunityStory = false;
   }
 
   async function addAllVocab() {
@@ -739,9 +839,160 @@
     if (audioMode) audioStop();
     document.getElementById('reader-view').style.display = 'none';
     document.getElementById('loading-view').style.display = 'none';
-    document.getElementById('home-view').style.display = 'block';
+    const activeTab = document.querySelector('.reader-tab.active');
+    const tab = activeTab ? activeTab.textContent.trim() : 'My Stories';
+    document.getElementById('home-view').style.display = tab === 'My Stories' ? 'block' : 'none';
+    document.getElementById('community-view').style.display = tab === 'Community' ? 'block' : 'none';
+    document.getElementById('reader-tabs').style.display = '';
     closeTooltip();
     currentSentenceIdx = null;
+  }
+
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+  let _currentTab = 'mine';
+  let _isCommunityStory = false;
+
+  function switchTab(tab) {
+    _currentTab = tab;
+    document.querySelectorAll('.reader-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.reader-tab')[tab === 'mine' ? 0 : 1].classList.add('active');
+    document.getElementById('home-view').style.display = tab === 'mine' ? 'block' : 'none';
+    document.getElementById('community-view').style.display = tab === 'community' ? 'block' : 'none';
+    document.getElementById('reader-view').style.display = 'none';
+    if (tab === 'community') loadCommunity();
+  }
+
+  // ── Community stories ──────────────────────────────────────────────────
+  let _commDebounce = null;
+  function loadCommunity() {
+    clearTimeout(_commDebounce);
+    _commDebounce = setTimeout(_loadCommunity, 200);
+  }
+
+  async function _loadCommunity() {
+    const params = new URLSearchParams();
+    const s = document.getElementById('comm-search').value.trim();
+    const d = document.getElementById('comm-difficulty').value;
+    const l = document.getElementById('comm-length').value;
+    const o = document.getElementById('comm-sort').value;
+    if (s) params.set('search', s);
+    if (d) params.set('difficulty', d);
+    if (l) params.set('length', l);
+    if (o) params.set('sort', o);
+    const list = document.getElementById('community-list');
+    try {
+      const res = await fetch('/api/reader/community?' + params).then(r => r.json());
+      const stories = res.stories || [];
+      if (!stories.length) {
+        list.innerHTML = '<div class="community-empty">No stories found. Be the first to publish one!</div>';
+        return;
+      }
+      list.innerHTML = '';
+      stories.forEach(st => {
+        const langInfo = languages.find(x => x.code === st.target_lang);
+        const flag = langInfo?.flag || '';
+        const date = new Date(st.created_at + 'Z').toLocaleDateString();
+        const stars = st.avg_rating > 0
+          ? _starsHtml(Math.round(st.avg_rating)) + ` <span style="color:var(--text-muted)">(${st.rating_count})</span>`
+          : '';
+        const lenLabel = st.content_length < 300 ? 'Short' : st.content_length < 1000 ? 'Medium' : 'Long';
+        const card = document.createElement('div');
+        card.className = 'community-card';
+        card.innerHTML = `
+          <div class="community-card-title">${esc(st.title)}</div>
+          <div class="community-card-meta">
+            <span>${flag} ${st.difficulty || ''}</span>
+            <span>${lenLabel}</span>
+            <span>by ${esc(st.author)}</span>
+            <span>${stars}</span>
+            <span>${date}</span>
+          </div>`;
+        card.onclick = () => openCommunityStory(st.id);
+        list.appendChild(card);
+      });
+    } catch {
+      list.innerHTML = '<div class="community-empty">Could not load stories.</div>';
+    }
+  }
+
+  function _starsHtml(n) {
+    let h = '';
+    for (let i = 1; i <= 5; i++) h += `<span class="star${i <= n ? ' filled' : ''}">★</span>`;
+    return h;
+  }
+
+  async function openCommunityStory(id) {
+    _isCommunityStory = true;
+    document.getElementById('reader-tabs').style.display = 'none';
+    document.getElementById('community-view').style.display = 'none';
+    document.getElementById('loading-view').style.display = 'block';
+    setStep('generate', 'done');
+    setStep('preload', 'active');
+    try {
+      const data = await fetch(`/api/reader/community/${id}`).then(r => r.json());
+      setStep('preload', 'done');
+      _showCommunityReader(data);
+    } catch {
+      showToast('Failed to load story');
+      showHome();
+    }
+  }
+
+  function _showCommunityReader(data) {
+    showReaderView(data);
+    document.getElementById('reader-vocab-btn').style.display = 'none';
+    document.getElementById('reader-add-all-btn').style.display = 'none';
+    document.getElementById('reader-quiz-btn').style.display = 'none';
+    const authorEl = document.getElementById('story-author');
+    authorEl.textContent = `By ${data.author || 'unknown'} · ${data.difficulty || ''}`;
+    authorEl.style.display = '';
+    const pubRow = document.getElementById('publish-row');
+    pubRow.style.display = '';
+    document.getElementById('publish-select').style.display = 'none';
+    _showRating(data.avg_rating || 0, data.rating_count || 0, data.user_rating, data.id);
+  }
+
+  // ── Publishing ─────────────────────────────────────────────────────────
+  async function publishStory() {
+    const vis = document.getElementById('publish-select').value;
+    try {
+      await fetch(`/api/reader/texts/${currentTextId}/publish`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: vis }),
+      });
+      showToast(vis === 'private' ? 'Story set to private' : `Published to ${vis}`);
+    } catch { showToast('Failed to update'); }
+  }
+
+  // ── Rating ─────────────────────────────────────────────────────────────
+  function _showRating(avg, count, userRating, textId) {
+    const section = document.getElementById('rating-section');
+    section.style.display = '';
+    const starsEl = document.getElementById('rating-stars');
+    starsEl.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement('span');
+      s.className = 'star' + (i <= (userRating || 0) ? ' filled' : '');
+      s.textContent = '★';
+      s.onclick = async (e) => {
+        e.stopPropagation();
+        try {
+          await fetch(`/api/reader/texts/${textId}/rate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating: i }),
+          });
+          starsEl.querySelectorAll('.star').forEach((st, idx) => {
+            st.classList.toggle('filled', idx < i);
+          });
+          showToast('Rating saved');
+        } catch { showToast('Failed to rate'); }
+      };
+      starsEl.appendChild(s);
+    }
+    const info = document.getElementById('rating-info');
+    info.textContent = count > 0 ? `${avg.toFixed(1)} (${count})` : 'No ratings yet';
   }
 
   // Split flat token list into sentence groups, split on sentence-ending punctuation.

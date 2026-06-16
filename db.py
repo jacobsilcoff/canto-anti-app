@@ -1550,17 +1550,28 @@ async def get_or_create_story_label(user_id: int, text_id: int) -> dict:
 
 # ── Reader texts ──────────────────────────────────────────────────────────────
 
+async def _ensure_reader_cols(db) -> None:
+    for col, default in [
+        ("image_media_id", None),
+        ("visibility", "'private'"),
+        ("difficulty", "'B1'"),
+    ]:
+        if not await _column_exists(db, "reader_texts", col):
+            dflt = f" DEFAULT {default}" if default else ""
+            await db.execute(f"ALTER TABLE reader_texts ADD COLUMN {col} TEXT{dflt}")
+
+
 async def create_reader_text(
     user_id: int, title: str, prompt: str, content: str, target_lang: str,
-    image_media_id: str | None = None,
+    image_media_id: str | None = None, difficulty: str = "B1",
 ) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        if not await _column_exists(db, "reader_texts", "image_media_id"):
-            await db.execute("ALTER TABLE reader_texts ADD COLUMN image_media_id TEXT")
+        await _ensure_reader_cols(db)
         cursor = await db.execute(
-            """INSERT INTO reader_texts (user_id, title, prompt, content, target_lang, image_media_id)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (user_id, title, prompt, content, target_lang, image_media_id),
+            """INSERT INTO reader_texts
+               (user_id, title, prompt, content, target_lang, image_media_id, difficulty)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, title, prompt, content, target_lang, image_media_id, difficulty),
         )
         await db.commit()
         return cursor.lastrowid
@@ -1587,21 +1598,15 @@ async def list_reader_texts(user_id: int, target_lang: str | None = None) -> lis
 async def get_reader_text(user_id: int, text_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        has_img = await _column_exists(db, "reader_texts", "image_media_id")
-        cols = "id, title, prompt, content, target_lang, created_at"
-        if has_img:
-            cols += ", image_media_id"
+        await _ensure_reader_cols(db)
         async with db.execute(
-            f"SELECT {cols} FROM reader_texts WHERE id=? AND user_id=?",
+            """SELECT id, title, prompt, content, target_lang, created_at,
+                      image_media_id, visibility, difficulty, user_id as owner_id
+               FROM reader_texts WHERE id=? AND user_id=?""",
             (text_id, user_id),
         ) as cur:
             row = await cur.fetchone()
-            if not row:
-                return None
-            d = dict(row)
-            if not has_img:
-                d["image_media_id"] = None
-            return d
+            return dict(row) if row else None
 
 
 async def delete_reader_text(user_id: int, text_id: int):
@@ -3144,3 +3149,390 @@ async def list_user_feedback(user_id: int) -> list[dict]:
             (user_id,),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+
+# ── Story sharing ────────────────────────────────────────────────────────────
+
+
+async def publish_story(user_id: int, text_id: int, visibility: str) -> bool:
+    if visibility not in ("private", "friends", "public"):
+        return False
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _ensure_reader_cols(db)
+        cur = await db.execute(
+            "UPDATE reader_texts SET visibility=? WHERE id=? AND user_id=?",
+            (visibility, text_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def rate_story(user_id: int, text_id: int, rating: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO story_ratings (text_id, user_id, rating)
+               VALUES (?, ?, ?)
+               ON CONFLICT(text_id, user_id) DO UPDATE SET rating=excluded.rating""",
+            (text_id, user_id, rating),
+        )
+        await db.commit()
+
+
+async def get_story_rating(text_id: int) -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT COALESCE(AVG(rating), 0) as avg_rating,
+                      COUNT(*) as rating_count
+               FROM story_ratings WHERE text_id=?""",
+            (text_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else {"avg_rating": 0, "rating_count": 0}
+
+
+async def get_user_story_rating(user_id: int, text_id: int) -> int | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT rating FROM story_ratings WHERE user_id=? AND text_id=?",
+            (user_id, text_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
+async def get_story_public(text_id: int, requesting_user_id: int) -> dict | None:
+    """Get a story if the requesting user has access (own, public, or friend-shared)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await _ensure_reader_cols(db)
+        async with db.execute(
+            """SELECT rt.id, rt.title, rt.prompt, rt.content, rt.target_lang,
+                      rt.created_at, rt.image_media_id, rt.visibility,
+                      rt.difficulty, rt.user_id as owner_id, u.username as author
+               FROM reader_texts rt
+               JOIN users u ON rt.user_id = u.id
+               WHERE rt.id=?""",
+            (text_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+        if d["owner_id"] == requesting_user_id:
+            return d
+        if d["visibility"] == "public":
+            return d
+        if d["visibility"] == "friends":
+            async with db.execute(
+                """SELECT 1 FROM friendships
+                   WHERE status='accepted'
+                     AND ((requester_id=? AND addressee_id=?)
+                       OR (addressee_id=? AND requester_id=?))""",
+                (requesting_user_id, d["owner_id"],
+                 requesting_user_id, d["owner_id"]),
+            ) as cur2:
+                if await cur2.fetchone():
+                    return d
+        return None
+
+
+async def get_reader_sentences_public(text_id: int) -> list[dict]:
+    """Get sentences for a story without user_id ownership check."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT sentence_idx, sentence_text, translation, romanization,
+                      CASE WHEN audio_data IS NOT NULL THEN 1 ELSE 0 END AS has_audio
+               FROM reader_sentences WHERE text_id=? ORDER BY sentence_idx""",
+            (text_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def list_community_stories(
+    target_lang: str, requesting_user_id: int,
+    difficulty: str | None = None, min_rating: float | None = None,
+    search: str | None = None, sort: str = "newest",
+) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await _ensure_reader_cols(db)
+        params: list = [requesting_user_id, target_lang, requesting_user_id]
+        sql = """
+            SELECT rt.id, rt.title, rt.prompt, rt.target_lang,
+                   rt.created_at, rt.image_media_id, rt.visibility,
+                   rt.difficulty, rt.user_id as owner_id,
+                   u.username as author,
+                   LENGTH(rt.content) as content_length,
+                   COALESCE(sr.avg_r, 0) as avg_rating,
+                   COALESCE(sr.cnt, 0) as rating_count
+            FROM reader_texts rt
+            JOIN users u ON rt.user_id = u.id
+            LEFT JOIN (
+                SELECT text_id, AVG(rating) as avg_r, COUNT(*) as cnt
+                FROM story_ratings GROUP BY text_id
+            ) sr ON rt.id = sr.text_id
+            WHERE rt.user_id != ?
+              AND rt.target_lang = ?
+              AND (rt.visibility = 'public'
+                   OR (rt.visibility = 'friends' AND EXISTS (
+                       SELECT 1 FROM friendships f
+                       WHERE f.status='accepted'
+                         AND ((f.requester_id=? AND f.addressee_id=rt.user_id)
+                           OR (f.addressee_id=? AND f.requester_id=rt.user_id))
+                   )))
+        """
+        params.append(requesting_user_id)
+        if difficulty:
+            sql += " AND rt.difficulty = ?"
+            params.append(difficulty)
+        if search:
+            sql += " AND (rt.title LIKE ? OR rt.prompt LIKE ?)"
+            params.extend([f"%{search}%", f"%{search}%"])
+        sql += " GROUP BY rt.id"
+        if min_rating and min_rating > 0:
+            sql += f" HAVING avg_rating >= ?"
+            params.append(min_rating)
+        order = {"newest": "rt.created_at DESC",
+                 "rating": "avg_rating DESC, rating_count DESC",
+                 "popular": "rating_count DESC, avg_rating DESC"}
+        sql += f" ORDER BY {order.get(sort, 'rt.created_at DESC')} LIMIT 100"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+# ── Shared decks ─────────────────────────────────────────────────────────────
+
+
+async def create_shared_deck(
+    creator_id: int, name: str, description: str,
+    target_lang: str, visibility: str, items: list[dict],
+) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO shared_decks (creator_id, name, description, target_lang, visibility)
+               VALUES (?, ?, ?, ?, ?)""",
+            (creator_id, name, description, target_lang, visibility),
+        )
+        deck_id = cur.lastrowid
+        for i, item in enumerate(items):
+            await db.execute(
+                """INSERT INTO shared_deck_items
+                   (deck_id, source_text, target_text, romanization, notes, sort_order)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (deck_id, item["source_text"], item["target_text"],
+                 item.get("romanization"), item.get("notes"), i),
+            )
+        await db.commit()
+        return deck_id
+
+
+async def update_shared_deck(
+    user_id: int, deck_id: int,
+    name: str | None = None, description: str | None = None,
+    visibility: str | None = None,
+) -> bool:
+    updates, params = [], []
+    if name is not None:
+        updates.append("name=?"); params.append(name)
+    if description is not None:
+        updates.append("description=?"); params.append(description)
+    if visibility is not None:
+        updates.append("visibility=?"); params.append(visibility)
+    if not updates:
+        return False
+    params.extend([deck_id, user_id])
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"UPDATE shared_decks SET {', '.join(updates)} WHERE id=? AND creator_id=?",
+            params,
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def delete_shared_deck(user_id: int, deck_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "DELETE FROM shared_decks WHERE id=? AND creator_id=?", (deck_id, user_id)
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def list_my_decks(user_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT sd.id, sd.name, sd.description, sd.target_lang,
+                      sd.visibility, sd.created_at,
+                      COUNT(sdi.id) as card_count,
+                      (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count
+               FROM shared_decks sd
+               LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+               WHERE sd.creator_id=?
+               GROUP BY sd.id ORDER BY sd.created_at DESC""",
+            (user_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def list_community_decks(
+    target_lang: str, requesting_user_id: int, search: str | None = None,
+) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        params: list = [requesting_user_id, target_lang, requesting_user_id, requesting_user_id]
+        sql = """
+            SELECT sd.id, sd.name, sd.description, sd.target_lang,
+                   sd.visibility, sd.created_at,
+                   u.username as creator,
+                   COUNT(sdi.id) as card_count,
+                   (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
+                   EXISTS(SELECT 1 FROM deck_imports di2
+                          WHERE di2.deck_id=sd.id AND di2.user_id=?) as imported
+            FROM shared_decks sd
+            JOIN users u ON sd.creator_id = u.id
+            LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+            WHERE sd.creator_id != ?
+              AND sd.target_lang = ?
+              AND (sd.visibility = 'public'
+                   OR (sd.visibility = 'friends' AND EXISTS (
+                       SELECT 1 FROM friendships f
+                       WHERE f.status='accepted'
+                         AND ((f.requester_id=? AND f.addressee_id=sd.creator_id)
+                           OR (f.addressee_id=? AND f.requester_id=sd.creator_id))
+                   )))
+        """
+        params.append(requesting_user_id)
+        if search:
+            sql += " AND (sd.name LIKE ? OR sd.description LIKE ?)"
+            params.extend([f"%{search}%", f"%{search}%"])
+        sql += " GROUP BY sd.id ORDER BY sd.created_at DESC LIMIT 100"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT sd.*, u.username as creator
+               FROM shared_decks sd JOIN users u ON sd.creator_id = u.id
+               WHERE sd.id=?""",
+            (deck_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+        uid = requesting_user_id
+        cid = d["creator_id"]
+        if cid != uid and d["visibility"] != "public":
+            if d["visibility"] == "friends":
+                async with db.execute(
+                    """SELECT 1 FROM friendships
+                       WHERE status='accepted'
+                         AND ((requester_id=? AND addressee_id=?)
+                           OR (addressee_id=? AND requester_id=?))""",
+                    (uid, cid, uid, cid),
+                ) as cur2:
+                    if not await cur2.fetchone():
+                        return None
+            else:
+                return None
+        async with db.execute(
+            """SELECT source_text, target_text, romanization, notes
+               FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
+            (deck_id,),
+        ) as cur:
+            d["items"] = [dict(r) for r in await cur.fetchall()]
+        async with db.execute(
+            "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (uid, deck_id),
+        ) as cur:
+            d["imported"] = bool(await cur.fetchone())
+        d["import_count"] = 0
+        async with db.execute(
+            "SELECT COUNT(*) FROM deck_imports WHERE deck_id=?", (deck_id,),
+        ) as cur:
+            row2 = await cur.fetchone()
+            if row2:
+                d["import_count"] = row2[0]
+        return d
+
+
+async def import_deck(user_id: int, deck_id: int) -> dict:
+    """Import a shared deck: create cards + label in user's account."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        ) as cur:
+            if await cur.fetchone():
+                return {"ok": False, "error": "Already imported"}
+        async with db.execute(
+            "SELECT name, target_lang FROM shared_decks WHERE id=?", (deck_id,),
+        ) as cur:
+            deck_row = await cur.fetchone()
+            if not deck_row:
+                return {"ok": False, "error": "Deck not found"}
+        deck_name, target_lang = deck_row["name"], deck_row["target_lang"]
+        label_name = f"📦 {deck_name}"
+        cur = await db.execute(
+            """INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)""",
+            (user_id, label_name),
+        )
+        if cur.lastrowid:
+            label_id = cur.lastrowid
+        else:
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, label_name),
+            ) as cur2:
+                label_id = (await cur2.fetchone())[0]
+        async with db.execute(
+            """SELECT source_text, target_text, romanization, notes
+               FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
+            (deck_id,),
+        ) as cur:
+            items = [dict(r) for r in await cur.fetchall()]
+        created = 0
+        for item in items:
+            async with db.execute(
+                """SELECT id FROM cards
+                   WHERE user_id=? AND target_text=? AND target_lang=?""",
+                (user_id, item["target_text"], target_lang),
+            ) as cur:
+                existing = await cur.fetchone()
+            if existing:
+                card_id = existing[0]
+            else:
+                c = await db.execute(
+                    """INSERT INTO cards
+                       (user_id, source_text, target_text, romanization,
+                        target_lang, notes, priority)
+                       VALUES (?, ?, ?, ?, ?, ?, 3)""",
+                    (user_id, item["source_text"], item["target_text"],
+                     item.get("romanization"), target_lang, item.get("notes")),
+                )
+                card_id = c.lastrowid
+                for face in ("source", "target", "pronunciation"):
+                    await db.execute(
+                        """INSERT OR IGNORE INTO card_faces (card_id, face)
+                           VALUES (?, ?)""",
+                        (card_id, face),
+                    )
+                created += 1
+            await db.execute(
+                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+                (card_id, label_id),
+            )
+        await db.execute(
+            "INSERT OR IGNORE INTO deck_imports (user_id, deck_id) VALUES (?, ?)",
+            (user_id, deck_id),
+        )
+        await db.commit()
+        return {"ok": True, "created": created, "total": len(items)}

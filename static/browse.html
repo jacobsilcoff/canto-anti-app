@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Browse</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .browse-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+
+    /* ── Tabs ── */
+    .browse-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .browse-tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.88rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+    .browse-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Deck card ── */
+    .deck-list { display: flex; flex-direction: column; gap: 8px; }
+    .deck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+    .deck-card:hover { border-color: var(--primary); }
+    .deck-card-title { font-weight: 600; font-size: 0.98rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deck-card-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .deck-card-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .deck-empty { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; }
+
+    /* ── Create deck form ── */
+    .create-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .create-form h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+    .create-form input, .create-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px;
+      font-size: 0.92rem; font-family: inherit; }
+    .create-form input:focus, .create-form textarea:focus { outline: none; border-color: var(--primary); }
+    .create-form textarea { resize: vertical; min-height: 60px; }
+    .create-form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .create-form-group { display: flex; flex-direction: column; gap: 3px; }
+    .create-form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.04em; }
+    .create-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 9px 20px; font-size: 0.92rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .create-btn:disabled { opacity: 0.5; cursor: default; }
+    .create-btn:hover:not(:disabled) { opacity: 0.9; }
+
+    /* ── Card picker ── */
+    .card-picker { border: 1px solid var(--border); border-radius: 10px; max-height: 280px;
+      overflow-y: auto; background: var(--bg); }
+    .card-picker-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-bottom: 1px solid var(--border); cursor: pointer; }
+    .card-picker-item:last-child { border-bottom: none; }
+    .card-picker-item:hover { background: var(--surface); }
+    .card-picker-item input[type="checkbox"] { flex-shrink: 0; }
+    .card-picker-text { flex: 1; min-width: 0; }
+    .card-picker-target { font-weight: 500; color: var(--text); }
+    .card-picker-source { font-size: 0.82rem; color: var(--text-muted); }
+    .card-picker-search { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 8px 8px 0 0; background: var(--bg); color: var(--text);
+      padding: 8px 12px; font-size: 0.88rem; font-family: inherit; border-bottom: none; }
+    .card-picker-search:focus { outline: none; border-color: var(--primary); }
+    .picker-count { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ── Community search ── */
+    .browse-search { display: flex; gap: 8px; margin-bottom: 14px; }
+    .browse-search input { flex: 1; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .browse-search input:focus { outline: none; border-color: var(--primary); }
+
+    /* ── Deck detail ── */
+    .deck-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .deck-detail h2 { font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text); }
+    .deck-detail-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+    .deck-detail-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .deck-detail-items { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .deck-detail-item { padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 12px; align-items: baseline; }
+    .deck-detail-item:last-child { border-bottom: none; }
+    .deck-detail-target { font-weight: 500; color: var(--text); flex: 1; }
+    .deck-detail-source { font-size: 0.88rem; color: var(--text-muted); flex: 1; }
+    .deck-import-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 10px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; align-self: flex-start; }
+    .deck-import-btn:disabled { opacity: 0.5; cursor: default; }
+    .deck-import-btn:hover:not(:disabled) { opacity: 0.9; }
+    .deck-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); cursor: pointer; padding: 6px 14px; font-size: 0.88rem; align-self: flex-start; }
+    .deck-back-btn:hover { border-color: var(--primary); }
+    .deck-actions-row { display: flex; gap: 8px; align-items: center; }
+    .deck-delete-btn { background: none; border: 1px solid var(--danger); border-radius: 8px;
+      color: var(--danger); cursor: pointer; padding: 5px 12px; font-size: 0.82rem; font-weight: 600; }
+    .deck-delete-btn:hover { background: var(--danger); color: #fff; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="browse-page">
+  <div class="browse-tabs" id="browse-tabs">
+    <button class="browse-tab active" onclick="switchTab('mine')">My Decks</button>
+    <button class="browse-tab" onclick="switchTab('community')">Community</button>
+  </div>
+
+  <!-- My decks -->
+  <div id="my-decks-view">
+    <div class="create-form" id="create-form">
+      <h3>Create a shared deck</h3>
+      <div class="create-form-group">
+        <div class="create-form-label">Deck name</div>
+        <input id="deck-name" placeholder="e.g. HKDSE Core Vocabulary">
+      </div>
+      <div class="create-form-group">
+        <div class="create-form-label">Description</div>
+        <textarea id="deck-desc" rows="2" placeholder="What's in this deck?"></textarea>
+      </div>
+      <div class="create-form-row">
+        <div class="create-form-group">
+          <div class="create-form-label">Visibility</div>
+          <select id="deck-visibility" class="settings-select">
+            <option value="friends">Friends only</option>
+            <option value="public">Public</option>
+          </select>
+        </div>
+        <span class="picker-count" id="picker-count">0 cards selected</span>
+      </div>
+      <div class="create-form-group">
+        <div class="create-form-label">Select cards</div>
+        <input class="card-picker-search" id="picker-search" placeholder="Search cards…" oninput="filterPicker()">
+        <div class="card-picker" id="card-picker"></div>
+      </div>
+      <button class="create-btn" id="create-btn" onclick="createDeck()" disabled>Create deck</button>
+    </div>
+    <div class="deck-list" id="my-deck-list"></div>
+  </div>
+
+  <!-- Community decks -->
+  <div id="community-decks-view" style="display:none">
+    <div class="browse-search">
+      <input id="deck-search" placeholder="Search decks…" oninput="searchCommunity()">
+    </div>
+    <div class="deck-list" id="community-deck-list"></div>
+  </div>
+
+  <!-- Deck detail -->
+  <div id="deck-detail-view" style="display:none">
+    <div class="deck-detail" id="deck-detail"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let _allCards = [];
+  let _selectedCards = new Set();
+  let _currentTab = 'mine';
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Init ──
+  async function init() {
+    await loadMyCards();
+    loadMyDecks();
+  }
+
+  // ── Tabs ──
+  function switchTab(tab) {
+    _currentTab = tab;
+    document.querySelectorAll('.browse-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.browse-tab')[tab === 'mine' ? 0 : 1].classList.add('active');
+    document.getElementById('my-decks-view').style.display = tab === 'mine' ? '' : 'none';
+    document.getElementById('community-decks-view').style.display = tab === 'community' ? '' : 'none';
+    document.getElementById('deck-detail-view').style.display = 'none';
+    document.getElementById('browse-tabs').style.display = '';
+    if (tab === 'community') loadCommunityDecks();
+    if (tab === 'mine') loadMyDecks();
+  }
+
+  // ── Card picker ──
+  async function loadMyCards() {
+    try {
+      const res = await fetch('/api/cards/all').then(r => r.json());
+      _allCards = res.cards || [];
+      renderPicker();
+    } catch {}
+  }
+
+  function renderPicker() {
+    const q = (document.getElementById('picker-search').value || '').toLowerCase();
+    const picker = document.getElementById('card-picker');
+    const filtered = _allCards.filter(c =>
+      !q || c.target_text.toLowerCase().includes(q) ||
+      c.source_text.toLowerCase().includes(q) ||
+      (c.romanization || '').toLowerCase().includes(q)
+    );
+    picker.innerHTML = '';
+    filtered.slice(0, 200).forEach(c => {
+      const item = document.createElement('label');
+      item.className = 'card-picker-item';
+      item.innerHTML = `
+        <input type="checkbox" ${_selectedCards.has(c.id) ? 'checked' : ''}>
+        <div class="card-picker-text">
+          <div class="card-picker-target">${esc(c.target_text)}</div>
+          <div class="card-picker-source">${esc(c.source_text)}</div>
+        </div>`;
+      item.querySelector('input').onchange = (e) => {
+        if (e.target.checked) _selectedCards.add(c.id);
+        else _selectedCards.delete(c.id);
+        updatePickerCount();
+      };
+      picker.appendChild(item);
+    });
+  }
+
+  function filterPicker() { renderPicker(); }
+
+  function updatePickerCount() {
+    const n = _selectedCards.size;
+    document.getElementById('picker-count').textContent = `${n} card${n !== 1 ? 's' : ''} selected`;
+    document.getElementById('create-btn').disabled = n === 0 || !document.getElementById('deck-name').value.trim();
+  }
+
+  // ── Create deck ──
+  async function createDeck() {
+    const name = document.getElementById('deck-name').value.trim();
+    if (!name || !_selectedCards.size) return;
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    try {
+      await fetch('/api/decks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: document.getElementById('deck-desc').value.trim(),
+          visibility: document.getElementById('deck-visibility').value,
+          card_ids: [..._selectedCards],
+        }),
+      });
+      showToast('Deck created!');
+      document.getElementById('deck-name').value = '';
+      document.getElementById('deck-desc').value = '';
+      _selectedCards.clear();
+      renderPicker();
+      updatePickerCount();
+      loadMyDecks();
+    } catch {
+      showToast('Failed to create deck');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Create deck';
+  }
+
+  // ── My decks ──
+  async function loadMyDecks() {
+    try {
+      const res = await fetch('/api/decks/mine').then(r => r.json());
+      const list = document.getElementById('my-deck-list');
+      const decks = res.decks || [];
+      if (!decks.length) {
+        list.innerHTML = '<div class="deck-empty">No decks yet. Create one above to share with the community.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      decks.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'deck-card';
+        card.innerHTML = `
+          <div class="deck-card-title">${esc(d.name)}</div>
+          ${d.description ? `<div class="deck-card-desc">${esc(d.description)}</div>` : ''}
+          <div class="deck-card-meta">
+            <span>${d.card_count} cards</span>
+            <span>${d.visibility}</span>
+            <span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>
+          </div>`;
+        card.onclick = () => openDeckDetail(d.id, true);
+        list.appendChild(card);
+      });
+    } catch {}
+  }
+
+  // ── Community decks ──
+  let _searchDebounce = null;
+  function searchCommunity() {
+    clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(loadCommunityDecks, 200);
+  }
+
+  async function loadCommunityDecks() {
+    const q = document.getElementById('deck-search').value.trim();
+    const params = q ? '?search=' + encodeURIComponent(q) : '';
+    const list = document.getElementById('community-deck-list');
+    try {
+      const res = await fetch('/api/decks/community' + params).then(r => r.json());
+      const decks = res.decks || [];
+      if (!decks.length) {
+        list.innerHTML = '<div class="deck-empty">No shared decks found.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      decks.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'deck-card';
+        card.innerHTML = `
+          <div class="deck-card-title">${esc(d.name)}</div>
+          ${d.description ? `<div class="deck-card-desc">${esc(d.description)}</div>` : ''}
+          <div class="deck-card-meta">
+            <span>${d.card_count} cards</span>
+            <span>by ${esc(d.creator)}</span>
+            <span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>
+            ${d.imported ? '<span style="color:var(--primary);font-weight:600">Imported</span>' : ''}
+          </div>`;
+        card.onclick = () => openDeckDetail(d.id, false);
+        list.appendChild(card);
+      });
+    } catch {
+      list.innerHTML = '<div class="deck-empty">Could not load decks.</div>';
+    }
+  }
+
+  // ── Deck detail ──
+  async function openDeckDetail(deckId, isMine) {
+    document.getElementById('browse-tabs').style.display = 'none';
+    document.getElementById('my-decks-view').style.display = 'none';
+    document.getElementById('community-decks-view').style.display = 'none';
+    document.getElementById('deck-detail-view').style.display = '';
+    const container = document.getElementById('deck-detail');
+    container.innerHTML = '<div class="deck-empty">Loading…</div>';
+    try {
+      const d = await fetch(`/api/decks/${deckId}`).then(r => r.json());
+      const items = d.items || [];
+      let actionsHtml = '';
+      if (isMine) {
+        actionsHtml = `<div class="deck-actions-row">
+          <button class="deck-delete-btn" onclick="deleteDeck(${d.id})">Delete deck</button>
+        </div>`;
+      } else if (d.imported) {
+        actionsHtml = '<button class="deck-import-btn" disabled>Already imported</button>';
+      } else {
+        actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id})">Import ${items.length} cards to my deck</button>`;
+      }
+      container.innerHTML = `
+        <button class="deck-back-btn" onclick="closeDeckDetail()">← Back</button>
+        <h2>${esc(d.name)}</h2>
+        ${d.description ? `<div class="deck-detail-desc">${esc(d.description)}</div>` : ''}
+        <div class="deck-detail-meta">
+          <span>${items.length} cards</span>
+          ${d.creator ? `<span>by ${esc(d.creator)}</span>` : ''}
+          <span>${d.import_count || 0} import${(d.import_count||0) !== 1 ? 's' : ''}</span>
+          <span>${d.visibility}</span>
+        </div>
+        ${actionsHtml}
+        <div class="deck-detail-items">
+          ${items.map(it => `
+            <div class="deck-detail-item">
+              <span class="deck-detail-target">${esc(it.target_text)}</span>
+              <span class="deck-detail-source">${esc(it.source_text)}</span>
+            </div>
+          `).join('')}
+        </div>`;
+    } catch {
+      container.innerHTML = '<div class="deck-empty">Could not load deck.</div>';
+    }
+  }
+
+  function closeDeckDetail() {
+    document.getElementById('deck-detail-view').style.display = 'none';
+    document.getElementById('browse-tabs').style.display = '';
+    if (_currentTab === 'mine') {
+      document.getElementById('my-decks-view').style.display = '';
+    } else {
+      document.getElementById('community-decks-view').style.display = '';
+    }
+  }
+
+  async function importDeck(deckId) {
+    const btn = document.getElementById('import-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    try {
+      const res = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' }).then(r => r.json());
+      btn.textContent = 'Imported!';
+      showToast(`Imported ${res.created} new cards (${res.total} total)`);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Import failed — try again';
+      showToast('Import failed');
+    }
+  }
+
+  async function deleteDeck(deckId) {
+    if (!confirm('Delete this deck? This cannot be undone.')) return;
+    try {
+      await fetch(`/api/decks/${deckId}`, { method: 'DELETE' });
+      showToast('Deck deleted');
+      closeDeckDetail();
+      loadMyDecks();
+    } catch {
+      showToast('Failed to delete');
+    }
+  }
+
+  // ── Nav ──
+  function toggleDropdown() {
+    document.getElementById('nav-dropdown').classList.toggle('open');
+  }
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('header')) {
+      const dd = document.getElementById('nav-dropdown');
+      if (dd) dd.classList.remove('open');
+    }
+  });
+
+  async function doLogout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    window.location.replace('/login');
+  }
+
+  document.getElementById('deck-name').addEventListener('input', updatePickerCount);
+
+  init();
+</script>
+</body>
+</html>
