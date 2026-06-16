@@ -1442,7 +1442,7 @@ async def get_settings(user: dict = Depends(current_user)):
     auto_add_reader_vocab = (await db.get_setting(user["id"], "auto_add_reader_vocab") or "false") == "true"
     audio_show_romanization = (await db.get_setting(user["id"], "audio_show_romanization") or "true") == "true"
     has_api_key = bool(await db.get_setting(user["id"], "gemini_api_key"))
-    tour_seen = bool(await db.get_setting(user["id"], "tour_seen"))
+    tour_seen = await db.get_setting(user["id"], "tour_seen") or "0"
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
     return {
@@ -1586,8 +1586,10 @@ async def mark_onboarded(
 
 
 @app.post("/api/tour-seen")
-async def mark_tour_seen(user: dict = Depends(current_user)):
-    await db.set_setting(user["id"], "tour_seen", "1")
+async def mark_tour_seen(request: Request, user: dict = Depends(current_user)):
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    version = str(int(body.get("version", 1)))
+    await db.set_setting(user["id"], "tour_seen", version)
     return {"ok": True}
 
 

@@ -292,6 +292,7 @@
   }
 
   // ── Tour ─────────────────────────────────────────────────────────────────
+  const TOUR_VERSION = 2;
   const TOUR_STEPS = [
     {
       icon: '✏️',
@@ -365,7 +366,7 @@
 
   async function dismissTour() {
     document.getElementById('tour-overlay').style.display = 'none';
-    try { await fetch('/api/tour-seen', { method: 'POST' }); } catch {}
+    try { await fetch('/api/tour-seen', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({version: TOUR_VERSION}) }); } catch {}
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -740,7 +741,7 @@
       const s = await fetch('/api/settings').then(r => r.json());
       if (s.default_target_lang) targetLang = s.default_target_lang;
       updateDirectionButtons();
-      if (!s.tour_seen) showTour();
+      if ((parseInt(s.tour_seen, 10) || 0) < TOUR_VERSION) showTour();
     } catch {}
   }
 
