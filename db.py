@@ -3251,14 +3251,14 @@ async def get_reader_sentences_public(text_id: int) -> list[dict]:
 
 
 async def list_community_stories(
-    target_lang: str, requesting_user_id: int,
+    requesting_user_id: int, target_lang: str | None = None,
     difficulty: str | None = None, min_rating: float | None = None,
     search: str | None = None, sort: str = "newest",
 ) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         await _ensure_reader_cols(db)
-        params: list = [requesting_user_id, target_lang, requesting_user_id]
+        params: list = [requesting_user_id, requesting_user_id, requesting_user_id]
         sql = """
             SELECT rt.id, rt.title, rt.prompt, rt.target_lang,
                    rt.created_at, rt.image_media_id, rt.visibility,
@@ -3274,7 +3274,6 @@ async def list_community_stories(
                 FROM story_ratings GROUP BY text_id
             ) sr ON rt.id = sr.text_id
             WHERE rt.user_id != ?
-              AND rt.target_lang = ?
               AND (rt.visibility = 'public'
                    OR (rt.visibility = 'friends' AND EXISTS (
                        SELECT 1 FROM friendships f
@@ -3283,7 +3282,9 @@ async def list_community_stories(
                            OR (f.addressee_id=? AND f.requester_id=rt.user_id))
                    )))
         """
-        params.append(requesting_user_id)
+        if target_lang:
+            sql += " AND rt.target_lang = ?"
+            params.append(target_lang)
         if difficulty:
             sql += " AND rt.difficulty = ?"
             params.append(difficulty)
@@ -3379,11 +3380,12 @@ async def list_my_decks(user_id: int) -> list[dict]:
 
 
 async def list_community_decks(
-    target_lang: str, requesting_user_id: int, search: str | None = None,
+    requesting_user_id: int, target_lang: str | None = None,
+    search: str | None = None,
 ) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        params: list = [requesting_user_id, requesting_user_id, target_lang,
+        params: list = [requesting_user_id, requesting_user_id,
                         requesting_user_id, requesting_user_id]
         sql = """
             SELECT sd.id, sd.name, sd.description, sd.target_lang,
@@ -3397,7 +3399,6 @@ async def list_community_decks(
             JOIN users u ON sd.creator_id = u.id
             LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
             WHERE sd.creator_id != ?
-              AND sd.target_lang = ?
               AND (sd.visibility = 'public'
                    OR (sd.visibility = 'friends' AND EXISTS (
                        SELECT 1 FROM friendships f
@@ -3406,6 +3407,9 @@ async def list_community_decks(
                            OR (f.addressee_id=? AND f.requester_id=sd.creator_id))
                    )))
         """
+        if target_lang:
+            sql += " AND sd.target_lang = ?"
+            params.append(target_lang)
         if search:
             sql += " AND (sd.name LIKE ? OR sd.description LIKE ?)"
             params.extend([f"%{search}%", f"%{search}%"])

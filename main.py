@@ -338,12 +338,12 @@ def _build_nav(active: str = "") -> str:
         + signout_dropdown + "\n"
         "  </nav>\n"
         "  <script>"
-        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}"
-        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}"
+        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}\n"
+        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}\n"
+        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
         "document.addEventListener('click',function(e){"
         "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
-        "})"
-        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}"
+        "});"
         "</script>\n"
     )
 
@@ -3866,11 +3866,11 @@ async def reader_community(
     search: str | None = None,
     sort: str = "newest",
     length: str | None = None,
+    lang: str | None = None,
     user: dict = Depends(current_user),
 ):
-    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     stories = await db.list_community_stories(
-        lang, user["id"], difficulty=difficulty,
+        user["id"], target_lang=lang, difficulty=difficulty,
         min_rating=min_rating, search=search, sort=sort,
     )
     if length:
@@ -3976,10 +3976,10 @@ async def my_decks(user: dict = Depends(current_user)):
 @app.get("/api/decks/community")
 async def community_decks(
     search: str | None = None,
+    lang: str | None = None,
     user: dict = Depends(current_user),
 ):
-    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    return {"decks": await db.list_community_decks(lang, user["id"], search=search)}
+    return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search)}
 
 @app.get("/api/decks/{deck_id}")
 async def get_deck(deck_id: int, user: dict = Depends(current_user)):
