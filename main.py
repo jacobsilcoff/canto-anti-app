@@ -3927,26 +3927,37 @@ async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)
         raise HTTPException(400, "Invalid visibility")
     if not req.card_ids:
         raise HTTPException(400, "Select at least one card")
-    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    default_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     cards = await db.get_all_cards(user["id"])
     card_map = {c["id"]: c for c in cards}
     items = []
+    lang_counts: dict[str, int] = {}
     for cid in req.card_ids:
         c = card_map.get(cid)
         if c:
+            clang = c.get("target_lang") or default_lang
+            lang_counts[clang] = lang_counts.get(clang, 0) + 1
             items.append({
                 "source_text": c["source_text"],
                 "target_text": c["target_text"],
                 "romanization": c.get("romanization"),
                 "notes": c.get("notes"),
+                "target_lang": clang,
             })
     if not items:
         raise HTTPException(400, "No valid cards found")
+    # Deck-level language = the dominant language among the chosen cards (used for
+    # the badge / optional language filter). Each item keeps its own language so a
+    # mixed-language deck imports each card correctly.
+    deck_lang = max(lang_counts, key=lang_counts.get) if lang_counts else default_lang
     deck_id = await db.create_shared_deck(
         user["id"], req.name.strip(), req.description.strip(),
-        lang, req.visibility, items,
+        deck_lang, req.visibility, items,
     )
-    return {"id": deck_id}
+    # Tag the creator's own cards with a "📦 {name}" label so they can study this
+    # deck immediately (same label scheme importers get).
+    label_id = await db.label_cards_for_deck(user["id"], req.name.strip(), req.card_ids)
+    return {"id": deck_id, "label_id": label_id}
 
 class UpdateDeckRequest(BaseModel):
     name: str | None = None

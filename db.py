@@ -1580,15 +1580,16 @@ async def create_reader_text(
 async def list_reader_texts(user_id: int, target_lang: str | None = None) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+        await _ensure_reader_cols(db)
         if target_lang is not None:
             async with db.execute(
-                """SELECT id, title, prompt, target_lang, created_at
+                """SELECT id, title, prompt, target_lang, created_at, visibility
                    FROM reader_texts WHERE user_id=? AND target_lang=? ORDER BY created_at DESC""",
                 (user_id, target_lang),
             ) as cur:
                 return [dict(r) for r in await cur.fetchall()]
         async with db.execute(
-            """SELECT id, title, prompt, target_lang, created_at
+            """SELECT id, title, prompt, target_lang, created_at, visibility
                FROM reader_texts WHERE user_id=? ORDER BY created_at DESC""",
             (user_id,),
         ) as cur:
@@ -3320,10 +3321,11 @@ async def create_shared_deck(
         for i, item in enumerate(items):
             await db.execute(
                 """INSERT INTO shared_deck_items
-                   (deck_id, source_text, target_text, romanization, notes, sort_order)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (deck_id, item["source_text"], item["target_text"],
-                 item.get("romanization"), item.get("notes"), i),
+                 item.get("romanization"), item.get("notes"), i,
+                 item.get("target_lang") or target_lang),
             )
         await db.commit()
         return deck_id
@@ -3447,11 +3449,13 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             else:
                 return None
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes
+            """SELECT source_text, target_text, romanization, notes, target_lang
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
             d["items"] = [dict(r) for r in await cur.fetchall()]
+        langs = {it["target_lang"] for it in d["items"] if it.get("target_lang")}
+        d["mixed_lang"] = len(langs) > 1
         async with db.execute(
             "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
             (uid, deck_id),
@@ -3508,17 +3512,18 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             ) as cur2:
                 label_id = (await cur2.fetchone())[0]
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes
+            """SELECT source_text, target_text, romanization, notes, target_lang
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
             items = [dict(r) for r in await cur.fetchall()]
         created = 0
         for item in items:
+            item_lang = item.get("target_lang") or target_lang
             async with db.execute(
                 """SELECT id FROM cards
                    WHERE user_id=? AND target_text=? AND target_lang=?""",
-                (user_id, item["target_text"], target_lang),
+                (user_id, item["target_text"], item_lang),
             ) as cur:
                 existing = await cur.fetchone()
             if existing:
@@ -3530,7 +3535,7 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
                         target_lang, notes, priority)
                        VALUES (?, ?, ?, ?, ?, ?, 3)""",
                     (user_id, item["source_text"], item["target_text"],
-                     item.get("romanization"), target_lang, item.get("notes")),
+                     item.get("romanization"), item_lang, item.get("notes")),
                 )
                 card_id = c.lastrowid
                 for face in ("source", "target", "pronunciation"):
@@ -3551,3 +3556,40 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
         await db.commit()
         return {"ok": True, "created": created, "total": len(items),
                 "label_id": label_id, "label_name": label_name}
+
+
+async def label_cards_for_deck(user_id: int, deck_name: str, card_ids: list[int]) -> int | None:
+    """Tag the creator's own cards with a "📦 {deck_name}" label so they can study
+    the deck they just shared. Returns the label id (or None if no cards)."""
+    if not card_ids:
+        return None
+    label_name = f"📦 {deck_name}"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)",
+            (user_id, label_name),
+        )
+        if cur.lastrowid:
+            label_id = cur.lastrowid
+        else:
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, label_name),
+            ) as cur2:
+                row = await cur2.fetchone()
+                label_id = row[0] if row else None
+        if label_id is None:
+            return None
+        for cid in card_ids:
+            # Only label cards that actually belong to this user.
+            async with db.execute(
+                "SELECT 1 FROM cards WHERE id=? AND user_id=?", (cid, user_id),
+            ) as cur3:
+                if not await cur3.fetchone():
+                    continue
+            await db.execute(
+                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+                (cid, label_id),
+            )
+        await db.commit()
+        return label_id

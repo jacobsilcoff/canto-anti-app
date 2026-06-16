@@ -416,7 +416,7 @@
     btn.disabled = true;
     btn.textContent = 'Creating…';
     try {
-      await fetch('/api/decks', {
+      const res = await fetch('/api/decks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -425,13 +425,15 @@
           visibility: document.getElementById('deck-visibility').value,
           card_ids: [..._selectedCards],
         }),
-      });
-      showToast('Deck created!');
+      }).then(r => r.json());
+      showToast('Deck created! These cards now carry a "📦 ' + name + '" label you can study.');
       document.getElementById('deck-name').value = '';
       document.getElementById('deck-desc').value = '';
       _selectedCards.clear();
       renderPicker();
       updatePickerCount();
+      loadLabels();
+      loadMyCards();
       loadMyDecks();
     } catch {
       showToast('Failed to create deck');

@@ -55,6 +55,9 @@
     .saved-item-meta { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
     .saved-item-delete { background: none; border: none; cursor: pointer; color: var(--text-muted, #aaa); padding: 4px; border-radius: 6px; flex-shrink: 0; }
     .saved-item-delete:hover { color: var(--danger); background: var(--danger-soft); }
+    .saved-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .saved-item-share { font-size: 0.78rem; padding-top: 5px; padding-bottom: 5px; }
+    .saved-item-share.shared { border-color: var(--primary); color: var(--primary); font-weight: 600; }
 
     /* ── Reader view ── */
     .reader-view { display: none; }
@@ -228,14 +231,8 @@
     .community-card-stars { color: var(--warn-accent); font-size: 0.82rem; }
     .community-empty { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; }
 
-    /* ── Publish & rating in reader ── */
+    /* ── Rating in reader (community stories) ── */
     .publish-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .publish-btn { border: 1px solid var(--primary); color: var(--primary); background: none; border-radius: 8px;
-      padding: 5px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-    .publish-btn:hover { background: var(--primary); color: #fff; }
-    .publish-btn.active { background: var(--primary); color: #fff; }
-    .publish-select { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px;
-      font-size: 0.82rem; background: var(--bg); color: var(--text); }
     .rating-stars { display: inline-flex; gap: 2px; cursor: pointer; }
     .rating-stars .star { font-size: 1.3rem; color: var(--border); transition: color 0.1s; }
     .rating-stars .star.filled { color: var(--warn-accent); }
@@ -365,13 +362,8 @@
     <!-- Author info (community stories) -->
     <div class="story-author" id="story-author" style="display:none"></div>
 
-    <!-- Publish / rating row -->
+    <!-- Rating row (community stories) -->
     <div class="publish-row" id="publish-row" style="display:none">
-      <select class="publish-select" id="publish-select" onchange="publishStory()">
-        <option value="private">Private</option>
-        <option value="friends">Friends only</option>
-        <option value="public">Public</option>
-      </select>
       <span id="rating-section" style="display:none">
         <span class="rating-stars" id="rating-stars"></span>
         <span class="rating-info" id="rating-info"></span>
@@ -528,6 +520,7 @@
       const langInfo = languages.find(l => l.code === t.target_lang);
       const flag = langInfo?.flag || '';
       const date = new Date(t.created_at + 'Z').toLocaleDateString();
+      const vis = t.visibility || 'private';
       const item = document.createElement('div');
       item.className = 'saved-item';
       item.innerHTML = `
@@ -535,9 +528,17 @@
           <div class="saved-item-title">${esc(t.title)}</div>
           <div class="saved-item-meta">${flag} ${langInfo?.name || t.target_lang} · ${date}</div>
         </div>
-        <button class="saved-item-delete" title="Delete" onclick="deleteText(event,${t.id})">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        </button>`;
+        <div class="saved-item-actions">
+          <select class="settings-select saved-item-share${vis !== 'private' ? ' shared' : ''}" title="Sharing"
+                  onclick="event.stopPropagation()" onchange="shareSavedText(event, ${t.id})">
+            <option value="private"${vis === 'private' ? ' selected' : ''}>🔒 Private</option>
+            <option value="friends"${vis === 'friends' ? ' selected' : ''}>👥 Friends</option>
+            <option value="public"${vis === 'public' ? ' selected' : ''}>🌐 Public</option>
+          </select>
+          <button class="saved-item-delete" title="Delete" onclick="deleteText(event,${t.id})">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+        </div>`;
       item.querySelector('.saved-item-info').onclick = () => openSavedText(t.id);
       list.appendChild(item);
     });
@@ -707,15 +708,11 @@
     document.getElementById('reader-text').classList.remove('show-rom');
     document.getElementById('reader-tabs').style.display = 'none';
     document.getElementById('community-view').style.display = 'none';
-    // Publish controls for own stories
+    // Own stories: sharing is now managed from the story list, so hide the
+    // in-reader publish row entirely. (Community stories still show ratings.)
     if (!_isCommunityStory) {
       document.getElementById('story-author').style.display = 'none';
-      const pubRow = document.getElementById('publish-row');
-      pubRow.style.display = '';
-      const sel = document.getElementById('publish-select');
-      sel.style.display = '';
-      sel.value = data.visibility || 'private';
-      document.getElementById('rating-section').style.display = 'none';
+      document.getElementById('publish-row').style.display = 'none';
     }
     _isCommunityStory = false;
   }
@@ -946,23 +943,26 @@
     const authorEl = document.getElementById('story-author');
     authorEl.textContent = `By ${data.author || 'unknown'} · ${data.difficulty || ''}`;
     authorEl.style.display = '';
-    const pubRow = document.getElementById('publish-row');
-    pubRow.style.display = '';
-    document.getElementById('publish-select').style.display = 'none';
+    document.getElementById('publish-row').style.display = '';
     _showRating(data.avg_rating || 0, data.rating_count || 0, data.user_rating, data.id);
   }
 
   // ── Publishing ─────────────────────────────────────────────────────────
-  async function publishStory() {
-    const vis = document.getElementById('publish-select').value;
+  // Share/publish directly from the story list (no need to open the story).
+  async function shareSavedText(e, id) {
+    e.stopPropagation();
+    const sel = e.target;
+    const vis = sel.value;
     try {
-      await fetch(`/api/reader/texts/${currentTextId}/publish`, {
+      await fetch(`/api/reader/texts/${id}/publish`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ visibility: vis }),
       });
-      showToast(vis === 'private' ? 'Story set to private' : `Published to ${vis}`);
-    } catch { showToast('Failed to update'); }
+      sel.classList.toggle('shared', vis !== 'private');
+      showToast(vis === 'private' ? 'Story set to private'
+                : vis === 'friends' ? 'Shared with friends' : 'Published publicly');
+    } catch { showToast('Failed to update sharing'); }
   }
 
   // ── Rating ─────────────────────────────────────────────────────────────
