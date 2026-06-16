@@ -731,7 +731,11 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
     src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
     tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
     rules = LANG_INFO.get(target_lang, {}).get("rules", "")
-    rules_block = f"\nFollow these language rules strictly:\n{rules}" if rules else ""
+    rules_block = (
+        f"\nLanguage rules:\n{rules}\n"
+        "CRITICAL: the translated text must contain ONLY native script — "
+        "never embed romanization, jyutping, pinyin, or pronunciation in the output."
+    ) if rules else ""
     reply_en = text if source_lang == "en" else None
 
     if source_lang == target_lang:
@@ -768,7 +772,11 @@ async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
         return {"corrections": [], "reply_en": text}
     lang_name = LANG_INFO.get(lang, {}).get("name", lang)
     rules = LANG_INFO.get(lang, {}).get("rules", "")
-    rules_block = f"\nLanguage rules:\n{rules}" if rules else ""
+    rules_block = (
+        f"\nLanguage rules:\n{rules}\n"
+        "CRITICAL: all target-language text in your JSON must be native script only — "
+        "never embed romanization, jyutping, or pinyin in the output fields."
+    ) if rules else ""
     prompt = (
         f"You are a {lang_name} tutor reviewing a short chat message.{rules_block}\n\n"
         f"Message: {text}\n\n"
