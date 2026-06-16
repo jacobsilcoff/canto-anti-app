@@ -36,7 +36,9 @@
     .cards-toolbar select:focus { outline: none; border-color: var(--primary); }
     .cards-toolbar label { display: flex; align-items: center; gap: 5px; font-size: 0.82rem;
       color: var(--text-muted); white-space: nowrap; cursor: pointer; user-select: none; }
-    .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; }
+    .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+    .study-link { font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; }
+    .study-link:hover { text-decoration: underline; }
     .card-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
       border-bottom: 1px solid var(--border); background: var(--surface); }
     .card-row:first-child { border-radius: 10px 10px 0 0; }
@@ -306,7 +308,10 @@
 
   function renderCardsList(cards) {
     const el = document.getElementById('cards-count');
-    el.textContent = cards.length + ' card' + (cards.length !== 1 ? 's' : '');
+    const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
+    const studyHref = labelId ? `/cards?label_id=${labelId}&study=1` : '/cards?study=1';
+    el.innerHTML = `<span>${cards.length} card${cards.length !== 1 ? 's' : ''}</span>` +
+      (cards.length ? `<a class="study-link" href="${studyHref}">Study${labelId ? ' this label' : ''} →</a>` : '');
     const list = document.getElementById('cards-list');
     if (!cards.length) {
       list.innerHTML = '<div class="deck-empty">No cards found.</div>';
@@ -506,7 +511,10 @@
           <button class="deck-delete-btn" onclick="deleteDeck(${d.id})">Delete deck</button>
         </div>`;
       } else if (d.imported) {
-        actionsHtml = '<button class="deck-import-btn" disabled>Already imported</button>';
+        const studyLink = d.import_label_id
+          ? `<a class="deck-import-btn" href="/cards?label_id=${d.import_label_id}&study=1" style="text-decoration:none;display:inline-block">Study this deck</a>`
+          : '';
+        actionsHtml = `<div class="deck-actions-row">${studyLink}<button class="deck-import-btn" disabled style="background:var(--neutral-soft);color:var(--text-muted)">Imported</button></div>`;
       } else {
         actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id})">Import ${items.length} cards to my deck</button>`;
       }
@@ -549,8 +557,12 @@
     btn.textContent = 'Importing…';
     try {
       const res = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' }).then(r => r.json());
-      btn.textContent = 'Imported!';
       showToast(`Imported ${res.created} new cards (${res.total} total)`);
+      if (res.label_id) {
+        btn.outerHTML = `<a class="deck-import-btn" href="/cards?label_id=${res.label_id}&study=1" style="text-decoration:none;display:inline-block">Study now</a>`;
+      } else {
+        btn.textContent = 'Imported!';
+      }
     } catch {
       btn.disabled = false;
       btn.textContent = 'Import failed — try again';

@@ -3383,7 +3383,8 @@ async def list_community_decks(
 ) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        params: list = [requesting_user_id, target_lang, requesting_user_id, requesting_user_id]
+        params: list = [requesting_user_id, requesting_user_id, target_lang,
+                        requesting_user_id, requesting_user_id]
         sql = """
             SELECT sd.id, sd.name, sd.description, sd.target_lang,
                    sd.visibility, sd.created_at,
@@ -3405,7 +3406,6 @@ async def list_community_decks(
                            OR (f.addressee_id=? AND f.requester_id=sd.creator_id))
                    )))
         """
-        params.append(requesting_user_id)
         if search:
             sql += " AND (sd.name LIKE ? OR sd.description LIKE ?)"
             params.extend([f"%{search}%", f"%{search}%"])
@@ -3453,6 +3453,16 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             (uid, deck_id),
         ) as cur:
             d["imported"] = bool(await cur.fetchone())
+        d["import_label_id"] = None
+        if d["imported"]:
+            label_name = f"📦 {d['name']}"
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (uid, label_name),
+            ) as cur:
+                lrow = await cur.fetchone()
+                if lrow:
+                    d["import_label_id"] = lrow[0]
         d["import_count"] = 0
         async with db.execute(
             "SELECT COUNT(*) FROM deck_imports WHERE deck_id=?", (deck_id,),
@@ -3535,4 +3545,5 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             (user_id, deck_id),
         )
         await db.commit()
-        return {"ok": True, "created": created, "total": len(items)}
+        return {"ok": True, "created": created, "total": len(items),
+                "label_id": label_id, "label_name": label_name}
