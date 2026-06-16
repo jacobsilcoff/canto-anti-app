@@ -299,7 +299,10 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         for code in langs if code in LANG_INFO
     )
     phrase_blocks = "\n".join(
-        f'  "{code}": [{{"text": "phrase in {LANG_INFO[code]["name"]}", "en": "English meaning"}}, ...]'
+        f'  "{code}": {{\n'
+        f'    "sender": [{{"text": "phrase the photo-sender would say", "en": "English"}}],\n'
+        f'    "receiver": [{{"text": "phrase the photo-receiver would say in response", "en": "English"}}]\n'
+        f'  }}'
         for code in langs if code in LANG_INFO
     )
     prompt = (
@@ -308,11 +311,15 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "1. Write a single short English sentence describing what you see (10–15 words).\n"
         f"2. For each target language ({lang_names}), write ONE sentence describing the image "
         "in that language (target script only, no romanization).\n"
-        f"3. For each target language, provide 4–6 natural phrases "
-        "a learner might want to say about this image. "
+        f"3. For each target language, provide 3–5 conversational phrases for EACH perspective:\n"
+        "   - sender: what the person who sent the photo might say (e.g. sharing context, "
+        "expressing feeling about the scene, captioning it)\n"
+        "   - receiver: what the person viewing the photo might say in response (e.g. reacting, "
+        "asking a question, expressing emotion)\n"
         "Each phrase must be in the target script only (no romanization). "
-        "Also provide a short English translation for each phrase. "
-        "Choose varied, conversational phrases spanning objects, actions, feelings, and context.\n\n"
+        "Include a short English translation for each phrase. "
+        "Make the two perspectives contextually distinct when the image warrants it "
+        "(e.g. a graduation photo: sender says 'just graduated!', receiver says 'congrats!').\n\n"
         "Respond with ONLY this JSON (no markdown, no explanation):\n"
         "{\n"
         '  "description": "...",\n'
@@ -334,14 +341,9 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
             d = str(raw_desc.get(code) or "").strip()
             if d:
                 descriptions[code] = d
-        suggestions: dict[str, list[dict]] = {}
-        raw_sugg = result.get("suggestions") or {}
-        for code in langs:
-            phrases = raw_sugg.get(code)
-            if not isinstance(phrases, list):
-                continue
-            cleaned = []
-            for p in phrases:
+        def _clean_phrases(raw_list) -> list[dict]:
+            out = []
+            for p in (raw_list or []):
                 if isinstance(p, dict):
                     text = str(p.get("text") or "").strip()
                     en = str(p.get("en") or "").strip()
@@ -350,8 +352,22 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
                 else:
                     continue
                 if text:
-                    cleaned.append({"text": text, "en": en})
-            suggestions[code] = cleaned[:6]
+                    out.append({"text": text, "en": en})
+            return out[:5]
+
+        suggestions: dict[str, dict] = {}
+        raw_sugg = result.get("suggestions") or {}
+        for code in langs:
+            entry = raw_sugg.get(code)
+            if isinstance(entry, dict):
+                suggestions[code] = {
+                    "sender": _clean_phrases(entry.get("sender")),
+                    "receiver": _clean_phrases(entry.get("receiver")),
+                }
+            elif isinstance(entry, list):
+                # Legacy flat list — assign to both perspectives
+                phrases = _clean_phrases(entry)
+                suggestions[code] = {"sender": phrases, "receiver": phrases}
         return {"description": description, "descriptions": descriptions,
                 "suggestions": suggestions}
     except Exception:

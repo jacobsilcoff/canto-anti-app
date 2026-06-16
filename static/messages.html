@@ -162,11 +162,16 @@
       line-height: 2; color: var(--text); }
     .img-phrase-target ruby { line-height: 1; }
     .img-phrase-en { font-size: 0.75rem; color: var(--text-muted); margin-top: -1px; }
-    .img-phrase-add { background: var(--primary-soft); color: var(--primary); border: none;
-      border-radius: 7px; padding: 4px 9px; font-size: 0.76rem; font-weight: 600;
-      cursor: pointer; flex-shrink: 0; transition: background 0.12s, color 0.12s; }
-    .img-phrase-add:hover { background: var(--primary); color: #fff; }
-    .img-phrase-add.added { background: var(--good-soft); color: var(--good-strong); cursor: default; }
+    .img-phrases-hint { font-size: 0.71rem; color: var(--text-muted); padding: 5px 11px 2px;
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .img-phrase-add { background: none; color: var(--text-muted); border: 1px solid var(--border);
+      border-radius: 7px; padding: 4px 8px; font-size: 0.73rem; font-weight: 600;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: background 0.12s, color 0.12s, border-color 0.12s; }
+    .img-phrase-add:hover { background: var(--primary-soft); color: var(--primary);
+      border-color: var(--primary); }
+    .img-phrase-add.added { background: var(--good-soft); color: var(--good-strong);
+      border-color: var(--good-soft); cursor: default; }
 
     /* ── Friends modal ── */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 500;
@@ -805,17 +810,23 @@
               ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
             </button>`).join('')}</div>`
         : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
-      // Normalise phrases: new format {text,en} or legacy plain string
+      // Pick sender vs receiver perspective; handle legacy flat-array format
       const normPhrase = p => typeof p === 'string' ? {text: p, en: ''} : {text: p.text || '', en: p.en || ''};
-      const myPhrases = ((analysis.suggestions || {})[_targetLang] || []).map(normPhrase).filter(p => p.text);
+      const _sugg = (analysis.suggestions || {})[_targetLang];
+      let myPhrases = [];
+      if (_sugg) {
+        const perspective = mine ? 'sender' : 'receiver';
+        const raw = Array.isArray(_sugg) ? _sugg : (_sugg[perspective] || _sugg.sender || []);
+        myPhrases = raw.map(normPhrase).filter(p => p.text);
+      }
       const hasInfo = !!(description || myPhrases.length);
       const phraseRows = myPhrases.map(p => `
         <div class="img-phrase-row">
-          <div class="img-phrase-content" onclick="pastePhrase(${JSON.stringify(p.text)})" title="Tap to paste">
+          <div class="img-phrase-content" onclick="pastePhrase(${JSON.stringify(p.text)})" title="Tap to paste into composer">
             <div class="img-phrase-target">${needsRuby(_targetLang) ? rbSpan(p.text) : esc(p.text)}</div>
             ${p.en ? `<div class="img-phrase-en">${esc(p.en)}</div>` : ''}
           </div>
-          <button class="img-phrase-add" onclick="addPhraseCard(this,${JSON.stringify(p.text)},${JSON.stringify(p.en)})">＋</button>
+          <button class="img-phrase-add" onclick="addPhraseCard(this,${JSON.stringify(p.text)},${JSON.stringify(p.en)})" title="Save to flashcard deck">Add card</button>
         </div>`).join('');
       // Description in viewer's target language if available, else English
       const descLang = (analysis.descriptions || {})[_targetLang] || description;
@@ -827,6 +838,7 @@
           <div class="img-info-desc">${descHtml}</div>
           <button class="img-info-close" onclick="toggleImgInfo('${infoId}')" title="Close">✕</button>
         </div>
+        ${myPhrases.length ? `<div class="img-phrases-hint">Tap a phrase to use it</div>` : ''}
         ${phraseRows}
       </div>` : '';
       const infoBtn = hasInfo
@@ -1243,11 +1255,12 @@
         }),
       });
       if (res.ok || res.status === 409) {
-        btn.textContent = '✓'; btn.classList.add('added');
-        showToast(res.status === 409 ? 'Already in deck' : 'Added to deck ✓');
+        btn.textContent = res.status === 409 ? 'In deck' : '✓ Saved';
+        btn.classList.add('added');
+        showToast(res.status === 409 ? 'Already in deck' : 'Added to flashcard deck ✓');
       } else { throw new Error(); }
     } catch {
-      btn.disabled = false; btn.textContent = '＋'; showToast('Could not add');
+      btn.disabled = false; btn.textContent = 'Add card'; showToast('Could not add');
     }
   }
 
@@ -1259,6 +1272,10 @@
     input.dispatchEvent(new Event('input'));
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    // Brief highlight so the user sees where the text went
+    input.style.borderColor = 'var(--primary)';
+    input.style.boxShadow = '0 0 0 2px var(--primary-soft)';
+    setTimeout(() => { input.style.borderColor = ''; input.style.boxShadow = ''; }, 700);
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
