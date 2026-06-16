@@ -1366,3 +1366,39 @@ textarea.edit-input {
   .nav-desktop { display: none; }
   .nav-mobile  { display: flex; }
 }
+
+/* ── Onboarding tour overlay ─────────────────────────────────────────── */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: var(--overlay);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.tour-card {
+  background: var(--surface); border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  padding: 32px 28px; max-width: 420px; width: 100%;
+  display: flex; flex-direction: column; gap: 16px;
+  position: relative;
+}
+.tour-step-num {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--primary);
+}
+.tour-icon { font-size: 2.4rem; line-height: 1; }
+.tour-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 0; }
+.tour-body { font-size: 0.95rem; color: var(--text-muted); line-height: 1.55; margin: 0; }
+.tour-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.tour-dot.active { background: var(--primary); }
+.tour-next-btn {
+  background: var(--primary); color: #fff; border: none; border-radius: 8px;
+  padding: 10px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.tour-next-btn:hover { opacity: 0.9; }
+.tour-skip {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1rem; color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
+}
+.tour-skip:hover { background: var(--bg); }

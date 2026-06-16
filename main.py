@@ -653,6 +653,24 @@ _verifyBellState();
 """
 
 
+_TOUR_WIDGET = """
+<div id="tour-overlay" class="tour-overlay" style="display:none" aria-modal="true" role="dialog">
+  <div class="tour-card">
+    <button class="tour-skip" onclick="_tourDismiss()" title="Skip tour">✕</button>
+    <div class="tour-step-num" id="tour-step-num"></div>
+    <div class="tour-icon" id="tour-icon"></div>
+    <h2 class="tour-title" id="tour-title"></h2>
+    <p class="tour-body" id="tour-body"></p>
+    <div class="tour-footer">
+      <div class="tour-dots" id="tour-dots"></div>
+      <button class="tour-next-btn" id="tour-next-btn" onclick="_tourNext()">Next →</button>
+    </div>
+  </div>
+</div>
+<script src="/static/tour.js"></script>
+"""
+
+
 def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
@@ -665,6 +683,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
+    content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
     # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
     # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
@@ -680,7 +699,7 @@ def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: 
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
