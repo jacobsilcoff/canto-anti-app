@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Browse</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/label-picker.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .browse-page { max-width: 720px; width: 100%; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
+
+    /* ── Tabs ── */
+    .browse-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .browse-tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.88rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+    .browse-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── My Cards ── */
+    .cards-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+    .cards-toolbar input[type="text"] { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .cards-toolbar input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .cards-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+    .filter-group { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .cards-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
+      font-size: 0.8rem; background: var(--bg); color: var(--text); font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+    .cards-filters select:focus { outline: none; border-color: var(--primary); }
+    .filter-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.04em; }
+    .filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+    .filter-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+    .filter-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
+      padding: 3px 9px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer;
+      transition: all 0.12s; user-select: none; white-space: nowrap; }
+    .filter-chip:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-chip.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+    .filter-clear { background: none; border: 1px solid var(--border); border-radius: 999px;
+      padding: 3px 10px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer;
+      transition: all 0.12s; white-space: nowrap; }
+    .filter-clear:hover { border-color: var(--primary); color: var(--primary); }
+    .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+    .study-link { font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; }
+    .study-link:hover { text-decoration: underline; }
+    .card-list-wrap { min-width: 0; padding-bottom: 60px; }
+    .card-select-cb { width: 18px; height: 18px; margin: 0; flex-shrink: 0; cursor: pointer;
+      accent-color: var(--primary); }
+    .card-list-item { display: flex; gap: 10px; align-items: flex-start; }
+    .card-list-item .card-display { flex: 1; min-width: 0; }
+    .selection-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 -2px 8px var(--shadow); transition: transform 0.2s; }
+    .selection-bar.hidden { transform: translateY(100%); pointer-events: none; }
+    .selection-bar .sel-count { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .selection-bar .sel-action { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 8px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .selection-bar .sel-action:hover { opacity: 0.9; }
+    .selection-bar .sel-clear { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
+    .selection-bar .sel-clear:hover { border-color: var(--primary); color: var(--primary); }
+    .sel-all-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
+    .sel-all-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── Create deck modal ── */
+    .deck-modal-overlay { position: fixed; inset: 0; z-index: 100; background: var(--overlay);
+      display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .deck-modal { background: var(--surface); border-radius: 14px; width: 100%; max-width: 420px;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 8px 32px var(--shadow-pop); }
+    .deck-modal h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+    .deck-modal input, .deck-modal textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px;
+      font-size: 0.92rem; font-family: inherit; }
+    .deck-modal input:focus, .deck-modal textarea:focus { outline: none; border-color: var(--primary); }
+    .deck-modal textarea { resize: vertical; min-height: 60px; }
+    .deck-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .deck-modal-actions .cancel-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 16px; font-size: 0.88rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .deck-modal-actions .cancel-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Card-browser styles ported from the flashcards page (most live in the
+       shared style.css; these are the page-specific extras). */
+    .lang-tag { display: inline-block; background: var(--primary-soft); color: var(--primary);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
+    .priority-dots { display: inline-flex; gap: 4px; align-items: center; }
+    .priority-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border);
+      transition: background 0.15s; flex-shrink: 0; }
+    .priority-dot.filled { background: var(--primary); }
+    .priority-dots.interactive .priority-dot { cursor: pointer; width: 10px; height: 10px; }
+    .priority-dots.interactive .priority-dot:hover { background: var(--primary); opacity: 0.6; }
+    .meta-action-btn { background: none; border: 1px solid var(--border); border-radius: 999px;
+      padding: 5px 12px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s; }
+    .meta-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .meta-action-btn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .meta-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
+    .meta-action-btn svg.icon { width: 13px; height: 13px; vertical-align: 0; }
+    .cefr-badge { display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em;
+      padding: 1px 6px; border-radius: 8px; vertical-align: middle; margin-left: 4px; }
+    .cefr-A1 { background: #dcfce7; color: #166534; }
+    .cefr-A2 { background: #bbf7d0; color: #15803d; }
+    .cefr-B1 { background: #fef9c3; color: #854d0e; }
+    .cefr-B2 { background: #fed7aa; color: #9a3412; }
+    .cefr-C1 { background: #fecaca; color: #991b1b; }
+    .cefr-C2 { background: #f3e8ff; color: #6b21a8; }
+    .card-list-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .card-list-item.suspended { opacity: 0.45; }
+    .suspended-badge { display: inline-block; background: var(--neutral-soft); color: var(--text-muted);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
+    .tutor-flag-badge { display: inline-block; background: var(--primary-soft); color: var(--primary);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
+
+    .strength-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 1px 7px; border-radius: 8px; vertical-align: middle; }
+    .strength-new { background: var(--neutral-soft); color: var(--text-muted); }
+    .strength-learning { background: #fef9c3; color: #854d0e; }
+    .strength-familiar { background: #bbf7d0; color: #15803d; }
+    .strength-strong { background: #dcfce7; color: #166534; }
+    .label-chip-static { cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+    .label-chip-static:hover { background: var(--primary-soft); border-color: var(--primary); }
+
+    /* ── Deck card ── */
+    .deck-list { display: flex; flex-direction: column; gap: 8px; }
+    .deck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .deck-card:hover { border-color: var(--primary); }
+    .deck-card-title { font-weight: 600; font-size: 0.98rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deck-card-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .deck-card-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .deck-empty { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; }
+
+    .create-form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.04em; }
+    .create-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 9px 20px; font-size: 0.92rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .create-btn:disabled { opacity: 0.5; cursor: default; }
+    .create-btn:hover:not(:disabled) { opacity: 0.9; }
+
+    /* ── Community search ── */
+    .browse-search { display: flex; gap: 8px; margin-bottom: 14px; }
+    .browse-search input { flex: 1; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .browse-search input:focus { outline: none; border-color: var(--primary); }
+
+    /* ── Deck detail ── */
+    .deck-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; }
+    .deck-detail h2 { font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text); }
+    .deck-detail-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+    .deck-detail-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .deck-detail-items { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 0; }
+    .deck-detail-item { padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 12px; align-items: baseline; }
+    .deck-detail-item:last-child { border-bottom: none; }
+    .deck-detail-target { font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deck-detail-source { font-size: 0.88rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deck-import-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 10px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; align-self: flex-start; }
+    .deck-import-btn:disabled { opacity: 0.5; cursor: default; }
+    .deck-import-btn:hover:not(:disabled) { opacity: 0.9; }
+    .deck-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); cursor: pointer; padding: 6px 14px; font-size: 0.88rem; align-self: flex-start; }
+    .deck-back-btn:hover { border-color: var(--primary); }
+    .deck-actions-row { display: flex; gap: 8px; align-items: center; }
+    .deck-delete-btn { background: none; border: 1px solid var(--danger); border-radius: 8px;
+      color: var(--danger); cursor: pointer; padding: 5px 12px; font-size: 0.82rem; font-weight: 600; }
+    .deck-delete-btn:hover { background: var(--danger); color: #fff; }
+
+    /* ── Community filters ── */
+    .comm-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .comm-filters input { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .comm-filters input:focus { outline: none; border-color: var(--primary); }
+    .comm-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px;
+      font-size: 0.82rem; background: var(--bg); color: var(--text); font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+    .comm-filters select:focus { outline: none; border-color: var(--primary); }
+
+    /* ── Rating stars ── */
+    .deck-stars { display: inline-flex; gap: 1px; }
+    .deck-stars .star { color: var(--border); cursor: default; font-size: 0.9rem; }
+    .deck-stars .star.filled { color: var(--warn-accent); }
+    .deck-stars-interactive .star { cursor: pointer; font-size: 1.1rem; transition: color 0.1s; }
+    .deck-stars-interactive .star:hover { color: var(--warn-accent); }
+    .deck-rating-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
+    .deck-card-stars { font-size: 0.78rem; }
+    .deck-card-stars .filled { color: var(--warn-accent); }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="browse-page">
+  <div class="browse-tabs" id="browse-tabs">
+    <button class="browse-tab active" data-tab="cards" onclick="switchTab('cards')">My Cards</button>
+    <button class="browse-tab" data-tab="decks" onclick="switchTab('decks')">My Decks</button>
+    <button class="browse-tab" data-tab="community" onclick="switchTab('community')">Community</button>
+  </div>
+
+  <!-- My cards -->
+  <div id="cards-view">
+    <div class="cards-toolbar">
+      <input type="text" id="cards-search" placeholder="Search cards…" oninput="filterCards()">
+    </div>
+    <div class="cards-filters" id="cards-filters">
+      <div class="filter-group">
+        <span class="filter-label">Lang</span>
+        <select id="cards-lang-filter" onchange="filterCards()"></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Label</span>
+        <select id="cards-label-filter" onchange="filterCards()">
+          <option value="">All</option>
+        </select>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">CEFR</span>
+        <div class="filter-chips" id="cefr-chips">
+          <span class="filter-chip" data-val="A1" onclick="toggleChip(this)">A1</span>
+          <span class="filter-chip" data-val="A2" onclick="toggleChip(this)">A2</span>
+          <span class="filter-chip" data-val="B1" onclick="toggleChip(this)">B1</span>
+          <span class="filter-chip" data-val="B2" onclick="toggleChip(this)">B2</span>
+          <span class="filter-chip" data-val="C1" onclick="toggleChip(this)">C1</span>
+          <span class="filter-chip" data-val="C2" onclick="toggleChip(this)">C2</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Strength</span>
+        <div class="filter-chips" id="strength-chips">
+          <span class="filter-chip" data-val="new" onclick="toggleChip(this)">New</span>
+          <span class="filter-chip" data-val="learning" onclick="toggleChip(this)">Learning</span>
+          <span class="filter-chip" data-val="familiar" onclick="toggleChip(this)">Familiar</span>
+          <span class="filter-chip" data-val="strong" onclick="toggleChip(this)">Strong</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <div class="filter-chips" id="status-chips">
+          <span class="filter-chip" data-val="active" onclick="toggleChip(this)">Active</span>
+          <span class="filter-chip" data-val="suspended" onclick="toggleChip(this)">Suspended</span>
+          <span class="filter-chip" data-val="flagged" onclick="toggleChip(this)">Flagged</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Sort</span>
+        <select id="cards-sort" onchange="filterCards()">
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="priority">Priority</option>
+          <option value="alpha">A → Z</option>
+          <option value="cefr">CEFR level</option>
+          <option value="strength">Strength</option>
+        </select>
+      </div>
+      <button class="filter-clear" onclick="clearFilters()">Clear filters</button>
+    </div>
+    <div class="cards-count" id="cards-count"></div>
+    <div class="card-list-wrap" id="cards-list"></div>
+  </div>
+
+  <!-- My decks -->
+  <div id="my-decks-view" style="display:none">
+    <div class="deck-list" id="my-deck-list"></div>
+  </div>
+
+  <!-- Community decks -->
+  <div id="community-decks-view" style="display:none">
+    <div class="comm-filters">
+      <input id="deck-search" placeholder="Search decks…" oninput="searchCommunity()">
+      <select id="comm-deck-lang" class="settings-select" onchange="loadCommunityDecks()"></select>
+      <select id="comm-deck-sort" class="settings-select" onchange="loadCommunityDecks()">
+        <option value="">Newest</option>
+        <option value="rating">Top rated</option>
+        <option value="popular">Most imported</option>
+      </select>
+    </div>
+    <div class="deck-list" id="community-deck-list"></div>
+  </div>
+
+  <!-- Deck detail -->
+  <div id="deck-detail-view" style="display:none">
+    <div class="deck-detail" id="deck-detail"></div>
+  </div>
+</main>
+
+<div class="selection-bar hidden" id="selection-bar">
+  <span class="sel-count" id="sel-count">0 selected</span>
+  <button class="sel-all-btn" onclick="selectAllFiltered()">Select all</button>
+  <button class="sel-action" onclick="showCreateDeckModal()">Create deck</button>
+  <button class="sel-clear" onclick="clearSelection()">Clear</button>
+</div>
+
+<div class="deck-modal-overlay" id="deck-modal" style="display:none" onclick="if(event.target===this)closeDeckModal()">
+  <div class="deck-modal">
+    <h3>Create a shared deck</h3>
+    <div>
+      <div class="create-form-label">Deck name</div>
+      <input id="deck-name" placeholder="e.g. HKDSE Core Vocabulary">
+    </div>
+    <div>
+      <div class="create-form-label">Description</div>
+      <textarea id="deck-desc" rows="2" placeholder="What's in this deck?"></textarea>
+    </div>
+    <div>
+      <div class="create-form-label">Visibility</div>
+      <select id="deck-visibility" class="settings-select">
+        <option value="public">Public</option>
+        <option value="friends">Friends only</option>
+        <option value="private">Private</option>
+      </select>
+    </div>
+    <div class="deck-modal-actions">
+      <button class="cancel-btn" onclick="closeDeckModal()">Cancel</button>
+      <button class="create-btn" id="create-btn" onclick="createDeck()">Create deck</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let _allCards = [];
+  let _allLabels = [];
+  let allLabels = [];          // alias used by the ported card-browser helpers
+  let _selectedCards = new Set();
+  let _currentTab = 'cards';
+  let _defaultLang = '';
+  let _langMap = {};
+  let languages = [];
+  let langByCode = {};
+
+  // SVG icons (subset used by the card browser).
+  const ICONS = {
+    pencil: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+    trash: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    note: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+    bookmark: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+  };
+
+  const STRENGTH_ORDER = { 'new': 0, learning: 1, familiar: 2, strong: 3 };
+  function cardStrength(card) {
+    if (!card.first_seen_date) return 'new';
+    if (card.learning_step != null) return 'learning';
+    if ((card.interval_days || 1) >= 21 && (card.ease_factor || 2.5) >= 2.0) return 'strong';
+    return 'familiar';
+  }
+  function strengthBadge(card) {
+    const s = cardStrength(card);
+    const labels = { 'new': 'New', learning: 'Learning', familiar: 'Familiar', strong: 'Strong' };
+    return `<span class="strength-badge strength-${s}">${labels[s]}</span>`;
+  }
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+
+  function langBadge(code) {
+    const l = _langMap[code];
+    if (!l) return code ? esc(code) : '';
+    return `${l.flag || ''} ${esc(l.name || code)}`.trim();
+  }
+
+  // ── Language helpers (ported from the flashcards page) ──
+  function langInfo(code) {
+    return langByCode[code] || { code, name: code, romanization: null, logographic: false };
+  }
+  function isLogographic(code) { return !!langInfo(code).logographic; }
+  function scriptFamily(code) { return langInfo(code).script_family || 'latin'; }
+  function applyScript(el, code) {
+    if (!el) return;
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
+    el.classList.add('script-' + scriptFamily(code));
+  }
+  function faceLabels(code) {
+    const info = langInfo(code);
+    return {
+      source: 'English',
+      target: info.name,
+      pronunciation: info.romanization
+        ? info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1)
+        : 'Audio',
+    };
+  }
+  function romanizationFieldLabel(code) {
+    const info = langInfo(code);
+    if (!info.romanization) return null;
+    return info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1);
+  }
+
+  // ── Priority dots ──
+  function renderPriorityDots(priority, interactive, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'priority-dots' + (interactive ? ' interactive' : '');
+    wrap.title = `Priority: ${priority}/5`;
+    for (let i = 1; i <= 5; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'priority-dot' + (i <= priority ? ' filled' : '');
+      if (interactive && onChange) { const level = i; dot.onclick = () => onChange(level); }
+      wrap.appendChild(dot);
+    }
+    return wrap;
+  }
+  function updatePriorityDots(container, priority) {
+    container.querySelectorAll('.priority-dot').forEach((dot, i) => {
+      dot.classList.toggle('filled', i + 1 <= priority);
+    });
+    container.title = `Priority: ${priority}/5`;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Init ──
+  async function init() {
+    const [, settingsRes, langs] = await Promise.all([
+      loadMyCards(),
+      fetch('/api/settings').then(r => r.json()).catch(() => ({})),
+      fetch('/api/languages').then(r => r.json()).catch(() => ({})),
+    ]);
+    _defaultLang = settingsRes.default_target_lang || '';
+    languages = langs.languages || langs || [];
+    languages.forEach(l => { if (l && l.code) _langMap[l.code] = l; });
+    langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
+    populateCardsLangFilter();
+    populateCommDeckLangFilter();
+    loadLabels();
+    filterCards();
+  }
+
+  async function loadLabels() {
+    try {
+      const res = await fetch('/api/labels').then(r => r.json());
+      _allLabels = allLabels = res.labels || [];
+      const opts = _allLabels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+      document.getElementById('cards-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
+    } catch {}
+  }
+
+  function populateCardsLangFilter() {
+    const sel = document.getElementById('cards-lang-filter');
+    if (!sel) return;
+    const present = [...new Set(_allCards.map(c => c.target_lang).filter(Boolean))];
+    let opts = '<option value="">All languages</option>';
+    present.forEach(code => {
+      opts += `<option value="${code}"${code === _defaultLang ? ' selected' : ''}>${langBadge(code)}</option>`;
+    });
+    sel.innerHTML = opts;
+    if (_defaultLang && present.includes(_defaultLang)) sel.value = _defaultLang;
+  }
+
+  // ── Tabs ──
+  const _tabViews = { cards: 'cards-view', decks: 'my-decks-view', community: 'community-decks-view' };
+
+  function switchTab(tab) {
+    _currentTab = tab;
+    document.querySelectorAll('.browse-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    Object.entries(_tabViews).forEach(([k, id]) => {
+      document.getElementById(id).style.display = k === tab ? '' : 'none';
+    });
+    document.getElementById('deck-detail-view').style.display = 'none';
+    document.getElementById('browse-tabs').style.display = '';
+    if (tab === 'community') loadCommunityDecks();
+    if (tab === 'decks') loadMyDecks();
+    if (tab === 'cards') filterCards();
+    document.getElementById('selection-bar').classList.toggle('hidden', tab !== 'cards' || !_selectedCards.size);
+  }
+
+  // ── My Cards (browse all) ──
+  async function loadMyCards() {
+    try {
+      const res = await fetch('/api/cards/all').then(r => r.json());
+      _allCards = res.cards || [];
+    } catch {}
+  }
+
+  function getActiveChips(containerId) {
+    return [...document.querySelectorAll(`#${containerId} .filter-chip.active`)].map(c => c.dataset.val);
+  }
+  function toggleChip(el) {
+    el.classList.toggle('active');
+    filterCards();
+  }
+
+  function filterCards() {
+    const q = (document.getElementById('cards-search').value || '').toLowerCase();
+    const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
+    const langFilter = document.getElementById('cards-lang-filter').value;
+    const cefrVals = getActiveChips('cefr-chips');
+    const strengthVals = getActiveChips('strength-chips');
+    const statusVals = getActiveChips('status-chips');
+    const sortBy = document.getElementById('cards-sort').value;
+    let filtered = _allCards;
+    if (langFilter) {
+      filtered = filtered.filter(c => c.target_lang === langFilter);
+    }
+    if (q) {
+      filtered = filtered.filter(c =>
+        (c.target_text || '').toLowerCase().includes(q) ||
+        (c.source_text || '').toLowerCase().includes(q) ||
+        (c.romanization || '').toLowerCase().includes(q) ||
+        (c.notes || '').toLowerCase().includes(q)
+      );
+    }
+    if (labelId) {
+      filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
+    }
+    if (cefrVals.length) {
+      filtered = filtered.filter(c => cefrVals.includes(c.cefr_level));
+    }
+    if (strengthVals.length) {
+      filtered = filtered.filter(c => strengthVals.includes(cardStrength(c)));
+    }
+    if (statusVals.length) {
+      filtered = filtered.filter(c => {
+        for (const v of statusVals) {
+          if (v === 'active' && !c.suspended && !c.tutor_flag) return true;
+          if (v === 'suspended' && c.suspended) return true;
+          if (v === 'flagged' && c.tutor_flag) return true;
+        }
+        return false;
+      });
+    }
+    const CEFR_ORDER = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    if (sortBy === 'oldest') {
+      filtered = filtered.slice().sort((a, b) => a.id - b.id);
+    } else if (sortBy === 'priority') {
+      filtered = filtered.slice().sort((a, b) => (b.priority || 3) - (a.priority || 3));
+    } else if (sortBy === 'alpha') {
+      filtered = filtered.slice().sort((a, b) => (a.target_text || '').localeCompare(b.target_text || ''));
+    } else if (sortBy === 'cefr') {
+      filtered = filtered.slice().sort((a, b) => (CEFR_ORDER[a.cefr_level] || 99) - (CEFR_ORDER[b.cefr_level] || 99));
+    } else if (sortBy === 'strength') {
+      filtered = filtered.slice().sort((a, b) => STRENGTH_ORDER[cardStrength(a)] - STRENGTH_ORDER[cardStrength(b)]);
+    }
+    renderCardsList(filtered);
+  }
+
+  function clearFilters() {
+    document.getElementById('cards-search').value = '';
+    document.getElementById('cards-lang-filter').value = _defaultLang || '';
+    document.getElementById('cards-label-filter').value = '';
+    document.querySelectorAll('.cards-filters .filter-chip.active').forEach(c => c.classList.remove('active'));
+    document.getElementById('cards-sort').value = 'newest';
+    filterCards();
+  }
+
+  function filterByLabel(labelId) {
+    document.getElementById('cards-label-filter').value = String(labelId);
+    filterCards();
+  }
+
+  function renderCardsList(cards) {
+    _lastFilteredCards = cards;
+    const el = document.getElementById('cards-count');
+    const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
+    const studyHref = labelId ? `/cards?label_id=${labelId}&study=1` : '/cards?study=1';
+    el.innerHTML = `<span>${cards.length} card${cards.length !== 1 ? 's' : ''}</span>` +
+      (cards.length ? `<a class="study-link" href="${studyHref}">Study${labelId ? ' this label' : ''} →</a>` : '');
+    const list = document.getElementById('cards-list');
+    if (!cards.length) {
+      list.innerHTML = '<div class="deck-empty">No cards found.</div>';
+      updateSelectionBar();
+      return;
+    }
+    list.innerHTML = '';
+    cards.slice(0, 500).forEach(card => renderCardListItem(card, list));
+    cards.forEach(card => {
+      if (card.canonical_card_id) {
+        const elc = document.getElementById(`canonical-target-${card.id}`);
+        if (elc) elc.textContent = canonicalCardText(card.canonical_card_id) || `#${card.canonical_card_id}`;
+      }
+    });
+    updateSelectionBar();
+  }
+
+  // ── Card list item (ported from flashcards page) ──
+  function renderCardListItem(card, container) {
+    const item = document.createElement('div');
+    item.className = 'card-list-item' + (card.suspended ? ' suspended' : '');
+    item.id = `cli-${card.id}`;
+    item._cardLabelIds = (card.labels || []).map(l => l.id);
+    item._priority = card.priority || 3;
+    item._tutorFlag = !!card.tutor_flag;
+    item._suspended = !!card.suspended;
+    item._targetLang = card.target_lang || 'yue';
+    item._canonicalCardId = card.canonical_card_id || null;
+
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
+    const labels = faceLabels(langCode);
+    applyScript(item, langCode);
+
+    const labelsHtml = (card.labels || []).map(l =>
+      `<span class="label-chip-static" onclick="filterByLabel(${l.id})" title="Filter by this label">${escHtml(l.name)}</span>`
+    ).join('');
+    const notesHtml = card.notes
+      ? `<details class="card-list-notes"><summary>${ICONS.note} Note</summary><div>${escHtml(card.notes)}</div></details>`
+      : '';
+    const langTagHtml = languages.length > 1
+      ? `<span class="lang-tag" style="margin-bottom:4px">${escHtml(labels.target)}</span>`
+      : '';
+    const romanRowHtml = (logographic && card.romanization)
+      ? `<div class="jyutping">${escHtml(card.romanization)}</div>` : '';
+    const romanInputHtml = logographic
+      ? `<input class="edit-input" id="edit-roman-${card.id}" value="${escAttr(card.romanization || '')}" placeholder="${escAttr(romanizationFieldLabel(langCode) || 'Romanization')}">`
+      : '';
+
+    item.innerHTML = `
+      <input type="checkbox" class="card-select-cb" id="sel-${card.id}" ${_selectedCards.has(card.id) ? 'checked' : ''}
+        onchange="toggleCardSelect(${card.id}, this.checked)">
+      <div class="card-display" id="display-${card.id}">
+        ${langTagHtml}
+        <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
+        ${romanRowHtml}
+        ${card.classifier ? `<span class="card-classifier">${escHtml(card.classifier)}</span>` : ''}
+        ${card.cefr_level ? `<span class="cefr-badge cefr-${card.cefr_level}">${escHtml(card.cefr_level)}</span>` : ''}
+        ${strengthBadge(card)}
+        <div class="english">${escHtml(card.source_text)}</div>
+        ${card.canonical_card_id ? `<div class="card-canonical-ref" id="canonical-ref-${card.id}">Form of: <span class="canonical-target" id="canonical-target-${card.id}">…</span></div>` : ''}
+        <div class="card-list-meta" id="meta-${card.id}"></div>
+        ${labelsHtml ? `<div class="card-list-labels">${labelsHtml}</div>` : ''}
+        ${notesHtml}
+      </div>
+      <div class="card-edit-form" id="edit-form-${card.id}" style="display:none">
+        <input class="edit-input" id="edit-source-${card.id}" value="${escAttr(card.source_text)}" placeholder="English">
+        <input class="edit-input" id="edit-target-${card.id}" value="${escAttr(card.target_text)}" placeholder="${escAttr(labels.target)}">
+        ${romanInputHtml}
+        <textarea class="edit-input" id="edit-notes-${card.id}" placeholder="Notes (optional)" rows="2">${escHtml(card.notes || '')}</textarea>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Labels</div>
+          <div id="edit-labels-${card.id}"></div>
+        </div>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Canonical / base form <span style="font-weight:400;font-size:0.8rem;color:var(--text-muted)">(e.g. infinitive for conjugations)</span></div>
+          <div class="canonical-search-wrap">
+            <input class="edit-input" id="edit-canonical-${card.id}" placeholder="Search cards…" autocomplete="off" oninput="filterCanonicalResults(${card.id})">
+            <div class="canonical-results" id="canonical-results-${card.id}" style="display:none"></div>
+            <div class="canonical-current" id="canonical-current-${card.id}"></div>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
+          <button class="edit-cancel-btn" onclick="cancelEdit(${card.id})">Cancel</button>
+        </div>
+      </div>
+      <div class="card-actions" id="actions-${card.id}">
+        <button class="edit-card-btn" onclick="startEdit(${card.id})" title="Edit" aria-label="Edit">${ICONS.pencil}</button>
+        <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete" aria-label="Delete">${ICONS.trash}</button>
+      </div>
+    `;
+    container.appendChild(item);
+    renderCardListMeta(card.id);
+  }
+
+  function renderCardListMeta(cardId) {
+    const item = document.getElementById(`cli-${cardId}`);
+    const metaEl = document.getElementById(`meta-${cardId}`);
+    if (!item || !metaEl) return;
+    metaEl.innerHTML = '';
+
+    const dots = renderPriorityDots(item._priority, true, async (level) => {
+      try {
+        const res = await fetch(`/api/cards/${cardId}/priority`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: level }),
+        });
+        if (!res.ok) throw new Error();
+        item._priority = level;
+        updatePriorityDots(dots, level);
+      } catch { showToast('Failed to update priority.'); }
+    });
+    metaEl.appendChild(dots);
+
+    const flagBtn = document.createElement('button');
+    flagBtn.className = 'meta-action-btn' + (item._tutorFlag ? ' active' : '');
+    flagBtn.style.padding = '2px 8px';
+    flagBtn.style.fontSize = '0.7rem';
+    flagBtn.innerHTML = `${ICONS.bookmark} ${item._tutorFlag ? 'Flagged' : 'Tutor flag'}`;
+    flagBtn.onclick = async () => {
+      const newVal = !item._tutorFlag;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/tutor-flag`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flagged: newVal }),
+        });
+        if (!res.ok) throw new Error();
+        item._tutorFlag = newVal;
+        flagBtn.classList.toggle('active', newVal);
+        flagBtn.innerHTML = `${ICONS.bookmark} ${newVal ? 'Flagged' : 'Tutor flag'}`;
+      } catch { showToast('Failed to update flag.'); }
+    };
+    metaEl.appendChild(flagBtn);
+
+    const suspendBtn = document.createElement('button');
+    suspendBtn.className = 'meta-action-btn' + (item._suspended ? '' : ' danger');
+    suspendBtn.style.padding = '2px 8px';
+    suspendBtn.style.fontSize = '0.7rem';
+    suspendBtn.textContent = item._suspended ? 'Unsuspend' : 'Suspend';
+    suspendBtn.onclick = async () => {
+      const newVal = !item._suspended;
+      if (newVal && !confirm('Suspend this card? It won\'t appear in study sessions.')) return;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/suspend`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suspended: newVal }),
+        });
+        if (!res.ok) throw new Error();
+        item._suspended = newVal;
+        item.classList.toggle('suspended', newVal);
+        suspendBtn.textContent = newVal ? 'Unsuspend' : 'Suspend';
+        suspendBtn.classList.toggle('danger', !newVal);
+        showToast(newVal ? 'Card suspended.' : 'Card unsuspended.');
+      } catch { showToast('Failed to update.'); }
+    };
+    metaEl.appendChild(suspendBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'meta-action-btn danger';
+    resetBtn.style.padding = '2px 8px';
+    resetBtn.style.fontSize = '0.7rem';
+    resetBtn.textContent = 'Reset';
+    resetBtn.title = 'Reset to new & set priority to 1';
+    resetBtn.onclick = async () => {
+      if (!confirm('Reset this card to "new" and set priority to 1? This clears all SRS progress.')) return;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/reset`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+        item._priority = 1;
+        renderCardListMeta(cardId);
+        showToast('Card reset and deprioritized.');
+      } catch { showToast('Failed to reset card.'); }
+    };
+    metaEl.appendChild(resetBtn);
+  }
+
+  // ── Canonical card helpers ──
+  function canonicalCardText(canonicalId) {
+    if (!canonicalId) return null;
+    const found = _allCards.find(c => c.id === canonicalId);
+    return found ? (found.target_text + (found.source_text ? ` (${found.source_text})` : '')) : `#${canonicalId}`;
+  }
+  function renderCanonicalCurrent(cardId, canonicalId) {
+    const el = document.getElementById(`canonical-current-${cardId}`);
+    if (!el) return;
+    if (!canonicalId) { el.innerHTML = ''; return; }
+    const label = canonicalCardText(canonicalId);
+    el.innerHTML = `<span class="canonical-chip">${escHtml(label)}</span> <button class="canonical-clear-btn" onclick="clearCanonical(${cardId})">✕ Remove</button>`;
+  }
+  function clearCanonical(cardId) {
+    const item = document.getElementById(`cli-${cardId}`);
+    if (!item) return;
+    item._pendingCanonicalId = null;
+    renderCanonicalCurrent(cardId, null);
+  }
+  function filterCanonicalResults(cardId) {
+    const input = document.getElementById(`edit-canonical-${cardId}`);
+    const results = document.getElementById(`canonical-results-${cardId}`);
+    const query = input.value.trim().toLowerCase();
+    if (!query) { results.style.display = 'none'; return; }
+    const item = document.getElementById(`cli-${cardId}`);
+    const matches = _allCards.filter(c =>
+      c.id !== cardId &&
+      (c.target_text.toLowerCase().includes(query) || c.source_text.toLowerCase().includes(query))
+    ).slice(0, 8);
+    if (!matches.length) { results.style.display = 'none'; return; }
+    results.innerHTML = '';
+    matches.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'canonical-result-row';
+      row.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
+      row.onclick = () => {
+        item._pendingCanonicalId = c.id;
+        renderCanonicalCurrent(cardId, c.id);
+        input.value = '';
+        results.style.display = 'none';
+      };
+      results.appendChild(row);
+    });
+    results.style.display = '';
+  }
+
+  // ── Edit / delete ──
+  function startEdit(id) {
+    document.getElementById(`display-${id}`).style.display = 'none';
+    document.getElementById(`actions-${id}`).style.display = 'none';
+    document.getElementById(`edit-form-${id}`).style.display = 'block';
+    document.getElementById(`edit-source-${id}`).focus();
+
+    const item = document.getElementById(`cli-${id}`);
+    const pickerContainer = document.getElementById(`edit-labels-${id}`);
+    pickerContainer.innerHTML = '';
+    item._editPicker = new LabelPicker(pickerContainer, {
+      allLabels,
+      initialIds: item._cardLabelIds || [],
+      allowCreate: true,
+      mode: 'multi',
+      placeholder: 'Add label…',
+      onLabelsRefreshed: labels => { allLabels = _allLabels = labels; },
+    });
+
+    item._pendingCanonicalId = item._canonicalCardId || null;
+    renderCanonicalCurrent(id, item._pendingCanonicalId);
+  }
+
+  function cancelEdit(id) {
+    document.getElementById(`display-${id}`).style.display = '';
+    document.getElementById(`actions-${id}`).style.display = '';
+    document.getElementById(`edit-form-${id}`).style.display = 'none';
+    const item = document.getElementById(`cli-${id}`);
+    item._editPicker = null;
+  }
+
+  async function saveCard(id) {
+    const sourceText = document.getElementById(`edit-source-${id}`).value.trim();
+    const targetText = document.getElementById(`edit-target-${id}`).value.trim();
+    const romanEl = document.getElementById(`edit-roman-${id}`);
+    const romanization = romanEl ? romanEl.value.trim() : '';
+    const notes = document.getElementById(`edit-notes-${id}`).value;
+    const item = document.getElementById(`cli-${id}`);
+    const labelIds = item._editPicker ? [...item._editPicker.getSelected()] : [];
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
+
+    if (!sourceText || !targetText) { showToast('Source and target text are required.'); return; }
+    if (logographic && !romanization) { showToast('Romanization is required for this language.'); return; }
+
+    const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const pendingCanonicalId = item._pendingCanonicalId !== undefined
+      ? item._pendingCanonicalId : item._canonicalCardId;
+
+    try {
+      const res = await fetch(`/api/cards/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: sourceText, target_text: targetText,
+          romanization, notes, label_ids: labelIds,
+        }),
+      });
+      if (!res.ok) throw new Error();
+
+      if (pendingCanonicalId !== item._canonicalCardId) {
+        await fetch(`/api/cards/${id}/canonical`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canonical_card_id: pendingCanonicalId }),
+        });
+      }
+
+      const cardData = {
+        id, source_text: sourceText, target_text: targetText, romanization, notes,
+        priority: item._priority,
+        tutor_flag: item._tutorFlag ? 1 : 0,
+        suspended: item._suspended ? 1 : 0,
+        target_lang: langCode,
+        labels: allLabels.filter(l => labelIds.includes(l.id)),
+        canonical_card_id: pendingCanonicalId,
+      };
+      // Keep the in-memory copy in sync so search/canonical reflect the edit.
+      const ci = _allCards.findIndex(c => c.id === id);
+      if (ci !== -1) _allCards[ci] = { ..._allCards[ci], ...cardData };
+
+      const parent = item.parentNode;
+      const next = item.nextSibling;
+      item.remove();
+      const tmp = document.createElement('div');
+      renderCardListItem(cardData, tmp);
+      const newItem = tmp.firstElementChild;
+      parent.insertBefore(newItem, next);
+      if (pendingCanonicalId) {
+        const elc = document.getElementById(`canonical-target-${id}`);
+        if (elc) elc.textContent = canonicalCardText(pendingCanonicalId) || `#${pendingCanonicalId}`;
+      }
+
+      showToast('Card updated.');
+      loadLabels();
+    } catch { showToast('Failed to save card.'); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+
+  async function deleteCard(id) {
+    if (!confirm('Delete this card and all its progress?')) return;
+    try {
+      await fetch(`/api/cards/${id}`, { method: 'DELETE' });
+      _allCards = _allCards.filter(c => c.id !== id);
+      filterCards();   // re-renders the list + count
+      loadLabels();
+    } catch { showToast('Failed to delete card.'); }
+  }
+
+  // ── Card selection (for deck creation) ──
+  let _lastFilteredCards = [];
+
+  function toggleCardSelect(id, checked) {
+    if (checked) _selectedCards.add(id);
+    else _selectedCards.delete(id);
+    updateSelectionBar();
+  }
+
+  function selectAllFiltered() {
+    _lastFilteredCards.forEach(c => _selectedCards.add(c.id));
+    filterCards();
+  }
+
+  function clearSelection() {
+    _selectedCards.clear();
+    filterCards();
+  }
+
+  function updateSelectionBar() {
+    const n = _selectedCards.size;
+    const bar = document.getElementById('selection-bar');
+    bar.classList.toggle('hidden', n === 0);
+    document.getElementById('sel-count').textContent = `${n} selected`;
+  }
+
+  function showCreateDeckModal() {
+    if (!_selectedCards.size) return;
+    const langs = new Set();
+    _allCards.forEach(c => { if (_selectedCards.has(c.id)) langs.add(c.target_lang); });
+    if (langs.size > 1) {
+      showToast('A deck can only contain one language. Filter by language first, then select cards.');
+      return;
+    }
+    document.getElementById('deck-modal').style.display = 'flex';
+    document.getElementById('deck-name').value = '';
+    document.getElementById('deck-desc').value = '';
+    document.getElementById('deck-name').focus();
+  }
+
+  function closeDeckModal() {
+    document.getElementById('deck-modal').style.display = 'none';
+  }
+
+  // ── Create deck ──
+  async function createDeck() {
+    const name = document.getElementById('deck-name').value.trim();
+    if (!name || !_selectedCards.size) return;
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    try {
+      const resp = await fetch('/api/decks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: document.getElementById('deck-desc').value.trim(),
+          visibility: document.getElementById('deck-visibility').value,
+          card_ids: [..._selectedCards],
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showToast(err.detail || 'Failed to create deck');
+        btn.disabled = false; btn.textContent = 'Create deck';
+        return;
+      }
+      closeDeckModal();
+      showToast('Deck created! These cards now carry a "📦 ' + name + '" label you can study.');
+      _selectedCards.clear();
+      await loadMyCards();
+      populateCardsLangFilter();
+      loadLabels();
+      filterCards();
+    } catch {
+      showToast('Failed to create deck');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Create deck';
+  }
+
+  // ── My decks ──
+  async function loadMyDecks() {
+    try {
+      const res = await fetch('/api/decks/mine').then(r => r.json());
+      const list = document.getElementById('my-deck-list');
+      const decks = res.decks || [];
+      if (!decks.length) {
+        list.innerHTML = '<div class="deck-empty">No decks yet. Select cards in My Cards to create one.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      decks.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'deck-card';
+        const isCreator = d.is_creator;
+        card.innerHTML = `
+          <div class="deck-card-title">${esc(d.name)}${!isCreator ? ' <span style="font-size:0.72rem;color:var(--text-muted);font-weight:400">(imported)</span>' : ''}</div>
+          ${d.description ? `<div class="deck-card-desc">${esc(d.description)}</div>` : ''}
+          <div class="deck-card-meta">
+            ${d.target_lang ? `<span>${langBadge(d.target_lang)}</span>` : ''}
+            <span>${d.card_count} cards</span>
+            ${!isCreator && d.creator ? `<span>by ${esc(d.creator)}</span>` : ''}
+            <span>${d.visibility}</span>
+            ${isCreator ? `<span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>` : ''}
+            ${_deckStarsHtml(d.avg_rating, d.rating_count)}
+          </div>`;
+        card.onclick = () => openDeckDetail(d.id, isCreator);
+        list.appendChild(card);
+      });
+    } catch {}
+  }
+
+  // ── Community decks ──
+  let _searchDebounce = null;
+  function searchCommunity() {
+    clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(loadCommunityDecks, 200);
+  }
+
+  function _deckStarsHtml(avg, count) {
+    if (!count) return '';
+    let h = '<span class="deck-card-stars">';
+    const rounded = Math.round(avg);
+    for (let i = 1; i <= 5; i++) h += `<span class="${i <= rounded ? 'filled' : ''}">★</span>`;
+    h += ` <span style="color:var(--text-muted)">(${count})</span></span>`;
+    return h;
+  }
+
+  function _interactiveStars(currentRating, deckId) {
+    let h = '';
+    for (let i = 1; i <= 5; i++) {
+      h += `<span class="star${i <= currentRating ? ' filled' : ''}" onclick="rateDeck(${deckId},${i})" data-star="${i}">★</span>`;
+    }
+    return h;
+  }
+
+  async function rateDeck(deckId, rating) {
+    try {
+      const res = await fetch(`/api/decks/${deckId}/rate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rating})
+      }).then(r => r.json());
+      const starsEl = document.getElementById('deck-rate-stars');
+      if (starsEl) starsEl.innerHTML = _interactiveStars(rating, deckId);
+      const infoEl = document.getElementById('deck-rate-info');
+      if (infoEl) infoEl.textContent = `${Number(res.avg_rating).toFixed(1)} avg (${res.rating_count})`;
+    } catch {
+      showToast('Rating failed');
+    }
+  }
+
+  function populateCommDeckLangFilter() {
+    const sel = document.getElementById('comm-deck-lang');
+    sel.innerHTML = '<option value="">All languages</option>';
+    languages.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = `${l.flag} ${l.name}`;
+      if (l.code === _defaultLang) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  async function loadCommunityDecks() {
+    const params = new URLSearchParams();
+    const q = document.getElementById('deck-search').value.trim();
+    const lang = document.getElementById('comm-deck-lang').value;
+    const sort = document.getElementById('comm-deck-sort').value;
+    if (q) params.set('search', q);
+    if (lang) params.set('lang', lang);
+    if (sort) params.set('sort', sort);
+    const qs = params.toString();
+    const list = document.getElementById('community-deck-list');
+    try {
+      const res = await fetch('/api/decks/community' + (qs ? '?' + qs : '')).then(r => r.json());
+      const decks = res.decks || [];
+      if (!decks.length) {
+        list.innerHTML = '<div class="deck-empty">No shared decks found.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      decks.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'deck-card';
+        card.innerHTML = `
+          <div class="deck-card-title">${esc(d.name)}</div>
+          ${d.description ? `<div class="deck-card-desc">${esc(d.description)}</div>` : ''}
+          <div class="deck-card-meta">
+            ${d.target_lang ? `<span>${langBadge(d.target_lang)}</span>` : ''}
+            <span>${d.card_count} cards</span>
+            <span>by ${esc(d.creator)}</span>
+            <span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>
+            ${_deckStarsHtml(d.avg_rating, d.rating_count)}
+            ${d.imported ? '<span style="color:var(--primary);font-weight:600">Imported</span>' : ''}
+          </div>`;
+        card.onclick = () => openDeckDetail(d.id, false);
+        list.appendChild(card);
+      });
+    } catch {
+      list.innerHTML = '<div class="deck-empty">Could not load decks.</div>';
+    }
+  }
+
+  // ── Deck detail ──
+  async function openDeckDetail(deckId, isMine) {
+    document.getElementById('browse-tabs').style.display = 'none';
+    Object.values(_tabViews).forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('deck-detail-view').style.display = '';
+    const container = document.getElementById('deck-detail');
+    container.innerHTML = '<div class="deck-empty">Loading…</div>';
+    try {
+      const d = await fetch(`/api/decks/${deckId}`).then(r => r.json());
+      const items = d.items || [];
+      let actionsHtml = '';
+      if (isMine) {
+        const studyLink = d.import_label_id
+          ? `<a class="deck-import-btn" href="/cards?label_id=${d.import_label_id}&study=1" style="text-decoration:none;display:inline-block">Study this deck</a>`
+          : '';
+        actionsHtml = `<div class="deck-actions-row">
+          ${studyLink}
+          <button class="deck-delete-btn" onclick="deleteDeck(${d.id})">Delete deck</button>
+        </div>`;
+      } else if (d.imported) {
+        const studyLink = d.import_label_id
+          ? `<a class="deck-import-btn" href="/cards?label_id=${d.import_label_id}&study=1" style="text-decoration:none;display:inline-block">Study this deck</a>`
+          : '';
+        actionsHtml = `<div class="deck-actions-row">${studyLink}<button class="deck-import-btn" disabled style="background:var(--neutral-soft);color:var(--text-muted)">Imported</button></div>`;
+      } else {
+        actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id})">Import ${items.length} cards to my deck</button>`;
+      }
+      const ratingHtml = isMine ? '' : `
+        <div class="deck-rating-row">
+          <span>Rate this deck:</span>
+          <span class="deck-stars deck-stars-interactive" id="deck-rate-stars">${_interactiveStars(d.user_rating || 0, deckId)}</span>
+          <span id="deck-rate-info">${d.rating_count ? `${Number(d.avg_rating).toFixed(1)} avg (${d.rating_count})` : 'No ratings yet'}</span>
+        </div>`;
+      container.innerHTML = `
+        <button class="deck-back-btn" onclick="closeDeckDetail()">← Back</button>
+        <h2>${esc(d.name)}</h2>
+        ${d.description ? `<div class="deck-detail-desc">${esc(d.description)}</div>` : ''}
+        <div class="deck-detail-meta">
+          <span>${items.length} cards</span>
+          ${d.creator ? `<span>by ${esc(d.creator)}</span>` : ''}
+          <span>${d.import_count || 0} import${(d.import_count||0) !== 1 ? 's' : ''}</span>
+          <span>${d.visibility}</span>
+        </div>
+        ${ratingHtml}
+        ${actionsHtml}
+        <div class="deck-detail-items">
+          ${items.map(it => `
+            <div class="deck-detail-item">
+              <span class="deck-detail-target">${esc(it.target_text)}</span>
+              <span class="deck-detail-source">${esc(it.source_text)}</span>
+            </div>
+          `).join('')}
+        </div>`;
+    } catch {
+      container.innerHTML = '<div class="deck-empty">Could not load deck.</div>';
+    }
+  }
+
+  function closeDeckDetail() {
+    document.getElementById('deck-detail-view').style.display = 'none';
+    document.getElementById('browse-tabs').style.display = '';
+    Object.entries(_tabViews).forEach(([k, id]) => {
+      document.getElementById(id).style.display = k === _currentTab ? '' : 'none';
+    });
+  }
+
+  async function importDeck(deckId) {
+    const btn = document.getElementById('import-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    try {
+      const res = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' }).then(r => r.json());
+      showToast(`Imported ${res.created} new cards (${res.total} total)`);
+      if (res.label_id) {
+        btn.outerHTML = `<a class="deck-import-btn" href="/cards?label_id=${res.label_id}&study=1" style="text-decoration:none;display:inline-block">Study now</a>`;
+      } else {
+        btn.textContent = 'Imported!';
+      }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Import failed — try again';
+      showToast('Import failed');
+    }
+  }
+
+  async function deleteDeck(deckId) {
+    if (!confirm('Delete this deck? This cannot be undone.')) return;
+    try {
+      await fetch(`/api/decks/${deckId}`, { method: 'DELETE' });
+      showToast('Deck deleted');
+      closeDeckDetail();
+      loadMyDecks();
+    } catch {
+      showToast('Failed to delete');
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDeckModal();
+  });
+
+  init();
+</script>
+</body>
+</html>

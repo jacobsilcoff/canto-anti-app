@@ -149,6 +149,56 @@ async def test_primary_in_learning_keeps_secondaries_locked(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_phrase_card_deferred_until_constituents_graduate(fresh_db):
+    """A phrase card is deferred until all its constituent word cards graduate."""
+    user_id = fresh_db
+    # Create a phrase card and its constituent word cards (French for easier tokenization)
+    phrase_id = await db.create_card(user_id, "The red cat", "le chat rouge", "", target_lang="fr")
+    word1_id = await db.create_card(user_id, "the", "le", "", target_lang="fr")
+    word2_id = await db.create_card(user_id, "cat", "chat", "", target_lang="fr")
+    word3_id = await db.create_card(user_id, "red", "rouge", "", target_lang="fr")
+
+    session = await db.get_study_session(user_id)
+    new_card_ids = [c["card_id"] for c in session["cards"]]
+    # The single-word cards should appear first; the phrase card should be deferred
+    assert word1_id in new_card_ids
+    assert word2_id in new_card_ids
+    assert word3_id in new_card_ids
+    # Phrase is deferred (constituents not graduated)
+    assert phrase_id not in new_card_ids or new_card_ids.index(phrase_id) > new_card_ids.index(word3_id)
+
+
+@pytest.mark.asyncio
+async def test_phrase_card_available_after_constituents_graduate(fresh_db):
+    """Once all constituent words graduate, the phrase card becomes available."""
+    user_id = fresh_db
+    phrase_id = await db.create_card(user_id, "The red cat", "le chat rouge", "", target_lang="fr")
+    word1_id = await db.create_card(user_id, "the", "le", "", target_lang="fr")
+    word2_id = await db.create_card(user_id, "cat", "chat", "", target_lang="fr")
+    word3_id = await db.create_card(user_id, "red", "rouge", "", target_lang="fr")
+
+    grad_state = {
+        "interval_days": 1, "ease_factor": 2.5, "repetitions": 1,
+        "next_review": "2099-01-01 00:00:00", "learning_step": None,
+    }
+    for cid in (word1_id, word2_id, word3_id):
+        await db.update_face_review(user_id, cid, db.PRIMARY_FACE, grad_state)
+
+    session = await db.get_study_session(user_id)
+    new_card_ids = [c["card_id"] for c in session["cards"]]
+    assert phrase_id in new_card_ids
+
+
+@pytest.mark.asyncio
+async def test_single_word_card_not_affected_by_phrase_gating(fresh_db):
+    """Single-word cards are never deferred by the phrase gating logic."""
+    user_id = fresh_db
+    word_id = await db.create_card(user_id, "cat", "chat", "", target_lang="fr")
+    session = await db.get_study_session(user_id)
+    assert any(c["card_id"] == word_id for c in session["cards"])
+
+
+@pytest.mark.asyncio
 async def test_delete_card_removes_faces(fresh_db):
     user_id = fresh_db
     card_id = await db.create_card(user_id, "Bye", "拜拜", "baai3 baai3")

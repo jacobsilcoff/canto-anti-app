@@ -1354,15 +1354,15 @@ textarea.edit-input {
    stays compact at every width where the desktop nav is visible, keeping
    the total header content (h1 ~135px + nav ~770px incl. all 8 items)
    well within bounds. Above 1100px the full name fits with room to spare. */
-@media (max-width: 1099px) {
+@media (max-width: 1199px) {
   .lang-pill-name { display: none; }
 }
 
-/* Nav collapses to hamburger at 960px (raised from 840px when Feedback was
-   added as the 8th nav item — h1 ~135px + nav ~770px + 32px margin must fit).
+/* Nav collapses to hamburger at 1040px (raised from 960px when Browse was
+   added as the 9th nav item — h1 ~135px + nav ~860px + 32px margin must fit).
    Below this only the compact h1 (logo + flag emoji + plan pill) and the
    hamburger button remain visible in the header. */
-@media (max-width: 959px) {
+@media (max-width: 1039px) {
   .nav-desktop { display: none; }
   .nav-mobile  { display: flex; }
 }

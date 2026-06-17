@@ -266,7 +266,7 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> str:
+def _build_nav(active: str = "") -> str:
     """Return the full <header> inner HTML with the active page highlighted."""
     _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
@@ -306,6 +306,7 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
         link("/messages", "Messages",   "messages", notif=True),
+        link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
     ]
@@ -319,14 +320,10 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         'style="border:none;cursor:pointer;background:none">\n'
         f'      {svgs["signout"]}\n      Sign out\n    </button>'
     )
-    desktop_extra = f"\n{extra_desktop}" if extra_desktop else ""
-    dropdown_extra = f"\n{extra_dropdown}" if extra_dropdown else ""
-
     return (
         "  <h1>{{APP_NAME_HTML}}</h1>\n"
         "  <nav class=\"nav-desktop\">\n"
-        + "\n".join(nav_links)
-        + desktop_extra + "\n"
+        + "\n".join(nav_links) + "\n"
         "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
         + signout_btn + "\n"
         "  </nav>\n"
@@ -337,10 +334,17 @@ def _build_nav(active: str = "", extra_desktop: str = "", extra_dropdown: str = 
         "    </button>\n"
         "  </div>\n"
         "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
-        + "\n".join(nav_links)
-        + dropdown_extra + "\n"
+        + "\n".join(nav_links) + "\n"
         + signout_dropdown + "\n"
         "  </nav>\n"
+        "  <script>"
+        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}\n"
+        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}\n"
+        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
+        "document.addEventListener('click',function(e){"
+        "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
+        "});"
+        "</script>\n"
     )
 
 
@@ -671,14 +675,10 @@ _TOUR_WIDGET = """
 """
 
 
-def _html(name: str, active: str = "", extra_desktop: str = "", extra_dropdown: str = "") -> HTMLResponse:
+def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    # Replace only the FIRST {{NAV}} (the one in <header>). The nav markup is
-    # multi-line HTML; substituting it into a later occurrence (e.g. a literal
-    # "{{NAV}}" inside a // comment in a <script>) would break out of the comment
-    # and inject raw <nav> HTML into the JS, killing the whole script.
-    content = content.replace("{{NAV}}", _build_nav(active, extra_desktop, extra_dropdown), 1)
+    content = content.replace("{{NAV}}", _build_nav(active), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
@@ -868,26 +868,6 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
-_BROWSE_ICON = (
-    'class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'
-)
-_BROWSE_BTN_DESKTOP = (
-    '    <button class="nav-link" onclick="showBrowse()" '
-    'style="border:none;cursor:pointer;background:none">\n'
-    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
-    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
-    '      Browse\n    </button>'
-)
-_BROWSE_BTN_DROPDOWN = (
-    '    <button class="nav-link" onclick="closeMobileMenu();showBrowse()" '
-    'style="border:none;cursor:pointer;background:none">\n'
-    f'      <svg {_BROWSE_ICON}><circle cx="11" cy="11" r="8"/>'
-    '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n'
-    '      Browse\n    </button>'
-)
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return _html("index.html", active="/")
@@ -895,9 +875,7 @@ async def index():
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/cards",
-                 extra_desktop=_BROWSE_BTN_DESKTOP,
-                 extra_dropdown=_BROWSE_BTN_DROPDOWN)
+    return _html("cards.html", active="/cards")
 
 
 @app.get("/reader", response_class=HTMLResponse)
@@ -918,6 +896,11 @@ async def tutor_page():
 @app.get("/messages", response_class=HTMLResponse)
 async def messages_page():
     return _html("messages.html", active="/messages")
+
+
+@app.get("/browse", response_class=HTMLResponse)
+async def browse_page():
+    return _html("browse.html", active="/browse")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -1291,10 +1274,28 @@ async def _atomize_phrase_bg(
                 label_ids=label_ids,
                 priority=result.get("priority", priority),
                 classifier=result.get("classifier", ""),
+                suggested_label_names=result.get("suggested_labels", []),
                 cefr_level=result.get("cefr_level"),
             )
         except Exception:
             pass
+
+
+async def _autolabel_card_bg(
+    user_id: int, card_id: int, source_text: str, target_text: str,
+    target_lang: str, api_key: str, model: str,
+) -> None:
+    """Background: generate + attach organisational labels for a card that was
+    created without any. Keeps every add path (tutor chips, lesson 'add to deck',
+    atomized words) consistently labeled. Best-effort."""
+    try:
+        names = await translation.suggest_labels(
+            source_text, target_text, target_lang, api_key=api_key, model=model,
+        )
+        if names:
+            await db.add_labels_by_name(user_id, card_id, names)
+    except Exception:
+        pass
 
 
 async def _backfill_classifiers_bg(user_id: int, lang: str, api_key: str) -> None:
@@ -1371,6 +1372,14 @@ async def create_card(
                 _atomize_phrase_bg,
                 user["id"], target_text, req.target_lang,
                 extra_label_ids, req.priority, access.api_key, access.model_translate,
+            )
+        # Auto-label cards added without any labels (tutor chips, lesson "add to
+        # deck", etc.) so every word in the deck is organised, like translate adds.
+        if not extra_label_ids and not (req.suggested_labels or []):
+            background_tasks.add_task(
+                _autolabel_card_bg,
+                user["id"], card_id, req.source_text.strip(), target_text,
+                req.target_lang, access.api_key, access.model_translate,
             )
     except HTTPException:
         pass
@@ -3376,7 +3385,8 @@ async def reader_generate(request: Request, req: ReaderGenerateRequest, user: di
         api_key=access.api_key, model=access.model_reader,
     )
     text_id = await db.create_reader_text(
-        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang
+        user["id"], result["title"], req.prompt or "(auto-generated)", result["content"], req.target_lang,
+        difficulty=req.difficulty,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
@@ -3430,7 +3440,7 @@ async def reader_generate_from_image(
     stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
     text_id = await db.create_reader_text(
         user["id"], result["title"], stored_prompt, result["content"], target_lang,
-        image_media_id=media_id,
+        image_media_id=media_id, difficulty=difficulty,
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
@@ -3847,6 +3857,198 @@ async def reader_comprehension_xp(req: ComprehensionXpRequest, user: dict = Depe
     return {"xp": _COMPREHENSION_XP}
 
 
+# ── Story sharing ────────────────────────────────────────────────────────────
+
+class PublishStoryRequest(BaseModel):
+    visibility: str = "public"
+
+@app.put("/api/reader/texts/{text_id}/publish")
+async def publish_story(text_id: int, req: PublishStoryRequest, user: dict = Depends(current_user)):
+    if req.visibility not in ("private", "friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    ok = await db.publish_story(user["id"], text_id, req.visibility)
+    if not ok:
+        raise HTTPException(404, "Story not found")
+    return {"ok": True}
+
+class RateStoryRequest(BaseModel):
+    rating: int
+
+@app.post("/api/reader/texts/{text_id}/rate")
+async def rate_story(text_id: int, req: RateStoryRequest, user: dict = Depends(current_user)):
+    if not 1 <= req.rating <= 5:
+        raise HTTPException(400, "Rating must be 1-5")
+    story = await db.get_story_public(text_id, user["id"])
+    if not story:
+        raise HTTPException(404, "Story not found or not accessible")
+    await db.rate_story(user["id"], text_id, req.rating)
+    return {"ok": True}
+
+@app.get("/api/reader/community")
+async def reader_community(
+    request: Request,
+    difficulty: str | None = None,
+    min_rating: float | None = None,
+    search: str | None = None,
+    sort: str = "newest",
+    length: str | None = None,
+    lang: str | None = None,
+    user: dict = Depends(current_user),
+):
+    stories = await db.list_community_stories(
+        user["id"], target_lang=lang, difficulty=difficulty,
+        min_rating=min_rating, search=search, sort=sort,
+    )
+    if length:
+        thresholds = {"short": (0, 300), "medium": (300, 1000), "long": (1000, 999999)}
+        lo, hi = thresholds.get(length, (0, 999999))
+        stories = [s for s in stories if lo <= s.get("content_length", 0) < hi]
+    return {"stories": stories}
+
+@app.get("/api/reader/community/{text_id}")
+async def reader_community_text(text_id: int, user: dict = Depends(current_user)):
+    text = await db.get_story_public(text_id, user["id"])
+    if not text:
+        raise HTTPException(404, "Story not found or not accessible")
+    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+    words = [t["text"] for t in tokens if t["is_word"]]
+    unique_words = list(dict.fromkeys(words))
+    statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
+    sentences = await db.get_reader_sentences_public(text_id)
+    preload_complete = bool(sentences) and all(
+        s["translation"] and s["has_audio"] for s in sentences
+    )
+    rom_map = tokenizer.romanize_words(words, text["target_lang"])
+    rating_info = await db.get_story_rating(text_id)
+    user_rating = await db.get_user_story_rating(user["id"], text_id)
+    resp = {
+        **text,
+        "tokens": _annotate_tokens(tokens, statuses),
+        "sentences": sentences,
+        "preload_complete": preload_complete,
+        "romanization": rom_map,
+        "avg_rating": rating_info["avg_rating"],
+        "rating_count": rating_info["rating_count"],
+        "user_rating": user_rating,
+    }
+    img_id = text.get("image_media_id")
+    if img_id:
+        resp["image_url"] = f"/api/media/{img_id}.jpg"
+    return resp
+
+
+# ── Shared decks ─────────────────────────────────────────────────────────────
+
+class CreateDeckRequest(BaseModel):
+    name: str
+    description: str = ""
+    visibility: str = "public"
+    card_ids: list[int] = []
+
+@app.post("/api/decks")
+async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)):
+    if not req.name.strip():
+        raise HTTPException(400, "Name required")
+    if req.visibility not in ("private", "friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    if not req.card_ids:
+        raise HTTPException(400, "Select at least one card")
+    default_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    cards = await db.get_all_cards(user["id"])
+    card_map = {c["id"]: c for c in cards}
+    items = []
+    langs: set[str] = set()
+    for cid in req.card_ids:
+        c = card_map.get(cid)
+        if c:
+            clang = c.get("target_lang") or default_lang
+            langs.add(clang)
+            items.append({
+                "source_text": c["source_text"],
+                "target_text": c["target_text"],
+                "romanization": c.get("romanization"),
+                "notes": c.get("notes"),
+                "target_lang": clang,
+            })
+    if not items:
+        raise HTTPException(400, "No valid cards found")
+    # A deck holds a single language — keeps the deck (and importers' cards) coherent.
+    if len(langs) > 1:
+        raise HTTPException(400, "A deck can only contain cards from one language")
+    deck_lang = next(iter(langs)) if langs else default_lang
+    deck_id = await db.create_shared_deck(
+        user["id"], req.name.strip(), req.description.strip(),
+        deck_lang, req.visibility, items,
+    )
+    # Tag the creator's own cards with a "📦 {name}" label so they can study this
+    # deck immediately (same label scheme importers get).
+    label_id = await db.label_cards_for_deck(user["id"], req.name.strip(), req.card_ids)
+    return {"id": deck_id, "label_id": label_id}
+
+class UpdateDeckRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    visibility: str | None = None
+
+@app.put("/api/decks/{deck_id}")
+async def update_deck(deck_id: int, req: UpdateDeckRequest, user: dict = Depends(current_user)):
+    if req.visibility and req.visibility not in ("private", "friends", "public"):
+        raise HTTPException(400, "Invalid visibility")
+    ok = await db.update_shared_deck(user["id"], deck_id, req.name, req.description, req.visibility)
+    if not ok:
+        raise HTTPException(404, "Deck not found")
+    return {"ok": True}
+
+@app.delete("/api/decks/{deck_id}")
+async def delete_deck(deck_id: int, user: dict = Depends(current_user)):
+    ok = await db.delete_shared_deck(user["id"], deck_id)
+    if not ok:
+        raise HTTPException(404, "Deck not found")
+    return {"ok": True}
+
+@app.get("/api/decks/mine")
+async def my_decks(user: dict = Depends(current_user)):
+    return {"decks": await db.list_my_decks(user["id"])}
+
+@app.get("/api/decks/community")
+async def community_decks(
+    search: str | None = None,
+    lang: str | None = None,
+    sort: str | None = None,
+    user: dict = Depends(current_user),
+):
+    return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search, sort=sort)}
+
+@app.get("/api/decks/{deck_id}")
+async def get_deck(deck_id: int, user: dict = Depends(current_user)):
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    return deck
+
+@app.post("/api/decks/{deck_id}/rate")
+async def rate_deck(deck_id: int, request: Request, user: dict = Depends(current_user)):
+    body = await request.json()
+    rating = body.get("rating")
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        raise HTTPException(400, "Rating must be 1–5")
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    await db.rate_deck(user["id"], deck_id, rating)
+    return await db.get_deck_rating(deck_id)
+
+@app.post("/api/decks/{deck_id}/import")
+async def import_deck(deck_id: int, user: dict = Depends(current_user)):
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    result = await db.import_deck(user["id"], deck_id)
+    if not result["ok"]:
+        raise HTTPException(400, result.get("error", "Import failed"))
+    return result
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Friends + Messaging
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4078,19 +4280,50 @@ async def get_messages(conv_id: int, before_id: int = 0,
     msgs = await db.get_messages(conv_id, user["id"], limit=50,
                                  before_id=before_id or None)
     if not msgs:
-        # Also verifies participation
         convs = await db.list_conversations(user["id"])
         if not any(c["id"] == conv_id for c in convs):
             raise HTTPException(403, "Not a participant")
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     msg_ids = [m["id"] for m in msgs]
     reactions_map = await db.get_reactions_for_messages(msg_ids, user["id"])
+
+    # Resolve an API key once (only needed if on-demand translation is required)
+    api_key = None
+
     result = []
     for m in msgs:
         is_mine = m["sender_user_id"] == user["id"]
         trans = json.loads(m["translations"]) if m.get("translations") else {}
-        display = trans.get(lang) or m["original_text"]
         analysis = json.loads(m["analysis"]) if m.get("analysis") else {}
+        display = trans.get(lang)
+
+        # On-demand translation: if the viewer's language isn't cached
+        # (e.g. recipient changed their target language after the message was
+        # sent, or the translation was never generated), translate now and
+        # persist so future loads are instant.
+        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang:
+            if api_key is None:
+                try:
+                    access = await _resolve_gemini(user, meter=False)
+                    api_key = access.api_key
+                except Exception:
+                    api_key = ""
+            if api_key:
+                try:
+                    tr = await translation.translate_message(
+                        m["original_text"], m["original_lang"], lang, api_key=api_key)
+                    display = tr["translated"]
+                    trans[lang] = display
+                    if not analysis.get("reply_en") and m["original_lang"] != "en":
+                        analysis["reply_en"] = tr.get("reply_en", "")
+                    asyncio.create_task(
+                        db.update_message_translations(m["id"], trans))
+                except Exception:
+                    pass
+
+        if not display:
+            display = trans.get(lang) or m["original_text"]
+
         result.append({
             "id": m["id"],
             "is_mine": is_mine,
@@ -4145,13 +4378,22 @@ async def send_message(conv_id: int, body: SendMessageBody,
     analysis: dict = {}
 
     if body.mode == "native":
-        # Typed English → translate to sender's target lang; get nuance note
+        # Typed English → translate to sender's target lang; get nuance note + vocab
         tr = await translation.translate_message(body.text, "en", sender_lang, api_key=api_key)
         sender_display = tr["translated"]
         translations[sender_lang] = sender_display
         analysis["reply_en"] = body.text
         if tr.get("nuance_note"):
             analysis["nuance_note"] = tr["nuance_note"]
+        if tr.get("explanation"):
+            analysis["explanation"] = tr["explanation"]
+        vocab = tr.get("vocab") or []
+        if vocab:
+            words = [v["target_text"] for v in vocab]
+            statuses = await db.get_word_statuses(user["id"], words, sender_lang)
+            vocab = [v for v in vocab if v["target_text"] not in statuses]
+        if vocab:
+            analysis["vocab"] = vocab
     else:
         # Already in target lang — grammar check + English meaning
         sender_display = body.text
@@ -4179,6 +4421,7 @@ async def send_message(conv_id: int, body: SendMessageBody,
     if sender_lang in _RUBY_LANGS:
         texts = [sender_display] + [c.get("corrected", "")
                                     for c in analysis.get("corrections", [])]
+        texts += [v.get("target_text", "") for v in analysis.get("vocab", [])]
         tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
 
     # Push notification to the other party (in-app conversations only)

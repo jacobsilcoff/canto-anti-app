@@ -604,10 +604,6 @@
     } catch {}
   }
 
-  function toggleMobileMenu() {
-    document.getElementById('nav-dropdown').classList.toggle('open');
-  }
-
   async function loadSettings() {
     try {
       const s = await fetch('/api/settings').then(r => r.json());
@@ -616,12 +612,7 @@
     } catch {}
   }
 
-  async function doLogout() {
-    try {
-      await fetch('/api/logout', { method: 'POST' });
-    } catch {}
-    window.location.replace('/login');
-  }
+
 
   function showToast(msg) {
     const t = document.getElementById('toast');

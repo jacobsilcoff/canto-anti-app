@@ -2180,20 +2180,6 @@
     } catch { show('empty'); }
   }
 
-  async function doLogout() {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    location.href = '/login';
-  }
-
-  // ── Mobile nav (the shared NAV hamburger calls these) ──────────────────────
-  function toggleMobileMenu() {
-    document.getElementById('nav-dropdown').classList.toggle('open');
-  }
-  document.addEventListener('click', e => {
-    const dd = document.getElementById('nav-dropdown');
-    if (dd && dd.classList.contains('open') && !e.target.closest('header')) dd.classList.remove('open');
-  });
-
   // ── Viewport-clamped tooltip for .gl[data-gloss] spans ─────────────────────
   // The CSS ::after approach can't clamp to viewport bounds, so we use one shared
   // fixed-position div repositioned on every show().

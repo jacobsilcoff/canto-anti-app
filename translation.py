@@ -877,10 +877,13 @@ async def translate(
 
 async def translate_message(text: str, source_lang: str, target_lang: str, *, api_key: str) -> dict:
     """Translate a chat message and generate a brief nuance note.
-    Returns {translated: str, nuance_note: str, reply_en: str}
-    reply_en = English meaning (= text if source is English, else translate to en)."""
+    Returns {translated, nuance_note, reply_en, explanation, vocab}.
+    When source is English, also returns an explanation of the translation and
+    a vocab list of key words the learner can add to their deck."""
+    empty = {"translated": text, "nuance_note": "", "reply_en": text,
+             "explanation": "", "vocab": []}
     if not text.strip():
-        return {"translated": text, "nuance_note": "", "reply_en": text}
+        return empty
     src_name = LANG_INFO.get(source_lang, {}).get("name", source_lang) if source_lang != "en" else "English"
     tgt_name = LANG_INFO.get(target_lang, {}).get("name", target_lang) if target_lang != "en" else "English"
     rules = LANG_INFO.get(target_lang, {}).get("rules", "")
@@ -890,17 +893,33 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
         "never embed romanization, jyutping, pinyin, or pronunciation in the output."
     ) if rules else ""
     reply_en = text if source_lang == "en" else None
+    from_english = source_lang == "en"
 
     if source_lang == target_lang:
-        return {"translated": text, "nuance_note": "", "reply_en": reply_en or text}
+        return {**empty, "translated": text, "reply_en": reply_en or text}
+
+    vocab_block = ""
+    vocab_json = ""
+    if from_english:
+        vocab_block = (
+            "Also return:\n"
+            f"- `explanation`: 1–2 sentences in English explaining HOW the {tgt_name} "
+            "translation works (word order, grammar patterns, any idiom used).\n"
+            f"- `vocab`: array of the key {tgt_name} content words/phrases in the "
+            "translation. Each item: {\"target_text\": \"<native>\", \"english\": "
+            "\"<short gloss>\"}. Include 2–6 items — the words worth learning. "
+            "Skip function words / particles unless they carry important meaning.\n"
+        )
+        vocab_json = ', "explanation": "...", "vocab": [{"target_text": "...", "english": "..."}]'
 
     prompt = (
         f"Translate this {src_name} chat message to natural, conversational {tgt_name} "
         f"— the kind you'd text a friend.{rules_block}\n"
         "Also write a brief English nuance note (1 sentence max) explaining tone, register, "
         "idiom, or cultural meaning lost or changed in translation — empty string if nothing significant.\n"
+        f"{vocab_block}"
         "Return ONLY valid JSON, nothing else:\n"
-        '{"translated": "...", "nuance_note": "..."}\n\n'
+        f'{{"translated": "...", "nuance_note": "..."{vocab_json}}}\n\n'
         f"Message: {text}"
     )
     loop = asyncio.get_event_loop()
@@ -912,9 +931,29 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
     except Exception:
         translated = raw.strip()
         nuance_note = ""
+        data = {}
     if reply_en is None:
-        reply_en = text  # source is already target lang; en not needed here
-    return {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en}
+        reply_en = text
+
+    explanation = ""
+    vocab: list[dict] = []
+    if from_english:
+        explanation = str(data.get("explanation", "")).strip()
+        import tokenizer
+        for v in (data.get("vocab") or [])[:6]:
+            if not isinstance(v, dict):
+                continue
+            t = (v.get("target_text") or "").strip()
+            e = (v.get("english") or "").strip()
+            if t and e:
+                vocab.append({
+                    "target_text": t,
+                    "english": e,
+                    "romanization": tokenizer.romanize_text(t, target_lang) or "",
+                })
+
+    return {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en,
+            "explanation": explanation, "vocab": vocab}
 
 
 async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
@@ -977,3 +1016,33 @@ async def translate_simple(text: str, source_lang: str, target_lang: str, *, api
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
     return result.strip()
+
+
+async def suggest_labels(
+    source_text: str, target_text: str, target_lang: str, *,
+    api_key: str, model: str = DEFAULT_MODEL,
+) -> list[str]:
+    """Generate 2–4 short organisational labels for a single vocab card.
+
+    Standalone version of the `suggested_labels` field baked into translate(), for
+    cards added through paths that don't run a full translation (tutor chips, lesson
+    "add to deck", atomized words). Cheap single call; returns [] on any failure."""
+    name = LANG_INFO.get(target_lang, {}).get("name", target_lang)
+    prompt = (
+        f'Suggest 2–4 short English labels (lowercase) to help a learner of {name} organise '
+        f'this vocabulary card in their deck. Include: (1) part of speech (e.g. "verb", "noun", '
+        f'"adjective", "adverb"); (2) grammatical function when relevant (e.g. "irregular verb", '
+        f'"modal verb", "reflexive verb", "negation"); (3) topic labels only when genuinely useful '
+        f'(nested specificity is fine, e.g. both "food" and "vegetable"). Do NOT include near-synonym '
+        f'labels for the same concept. Every label must add distinct organisational value.\n'
+        f'Return ONLY a JSON array of strings, e.g. ["noun", "food"].\n\n'
+        f'{name} word: {target_text}\nEnglish meaning: {source_text}'
+    )
+    try:
+        raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+    except Exception:
+        return []
+    items = raw if isinstance(raw, list) else (raw.get("suggested_labels") or raw.get("labels")) if isinstance(raw, dict) else []
+    if not isinstance(items, list):
+        return []
+    return [l.strip().lower() for l in items if isinstance(l, str) and l.strip()][:4]
