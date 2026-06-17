@@ -616,10 +616,11 @@
 
   async function loadMergeSuggestions() {
     const container = document.getElementById('merge-suggestions');
-    container.innerHTML = '';
+    container.innerHTML = '<div style="padding:10px 0;color:var(--text-muted);font-size:0.82rem">Checking for merge suggestions…</div>';
     try {
       const res = await fetch('/api/labels/suggest-merges');
       const { groups } = await res.json();
+      container.innerHTML = '';
       if (!groups || !groups.length) return;
       const filtered = groups.filter(g => {
         const key = g.labels.map(l => l.id).sort().join(',');
@@ -673,7 +674,9 @@
       });
 
       container.appendChild(wrap);
-    } catch {}
+    } catch {
+      container.innerHTML = '';
+    }
   }
 
   function _updateSuggestionsCount(wrap) {

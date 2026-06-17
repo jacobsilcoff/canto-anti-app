@@ -19,13 +19,13 @@
     .settings-page h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; color: var(--text); }
 
     /* ── Category tabs ── */
-    .settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+    .settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
     .settings-tabs::-webkit-scrollbar { display: none; }
     .settings-tab {
       background: none; border: 1px solid var(--border); border-radius: 999px;
-      padding: 8px 14px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);
+      padding: 7px 12px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
       cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.15s;
-      display: flex; align-items: center; gap: 5px; flex: 0 0 auto;
+      display: flex; align-items: center; gap: 4px; flex: 0 0 auto;
     }
     .settings-tab:hover { border-color: var(--primary); color: var(--primary); }
     .settings-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
