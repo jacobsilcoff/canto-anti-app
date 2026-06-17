@@ -10,6 +10,7 @@ A self-hosted multi-user Anki-style spaced repetition (SRS) flashcard app for la
 
 - **`develop`** auto-deploys to the **dev site**: `dev.canto-ank.silcoff-labs.ca`. Push here to test.
 - **`main`** auto-deploys to **production**. Merge `develop → main` to ship.
+- **Always develop on `develop`** unless the user explicitly says otherwise. Never push directly to `main`.
 - The **lesson (AI Learning Path) and tutor pages are NOT live on production yet** — they currently exist only on the dev site. Keep that in mind before referencing them as shipped to end users.
 
 SSH to production (only if debugging): `ssh -i ssh-key-2026-05-26.key ubuntu@40.233.111.173`
