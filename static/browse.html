@@ -229,8 +229,9 @@
     .lbl-action.danger:hover { border-color: var(--danger); color: var(--danger); }
     .lbl-confirm { background: none; border: 1px solid var(--good-strong); border-radius: 999px;
       padding: 2px 8px; font-size: 0.78rem; color: var(--good-strong); cursor: pointer;
-      white-space: nowrap; transition: all 0.12s; display: none; }
+      white-space: nowrap; transition: all 0.12s; }
     .lbl-confirm:hover { background: var(--good-soft); }
+    .lbl-confirm.hidden { display: none; }
     .lbl-merge-cb { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
     .merge-bar { display: flex; align-items: center; gap: 8px; padding: 10px 0 14px; flex-wrap: wrap; }
     .merge-sug-wrap { background: var(--surface); border: 1px solid var(--warn-border); border-radius: 10px;
@@ -580,7 +581,7 @@
         <input type="checkbox" class="lbl-merge-cb" title="Select for merge">
         <input class="lbl-name" value="${escAttr(lbl.name)}" data-orig="${escAttr(lbl.name)}" maxlength="50">
         <span class="lbl-count">${lbl.card_count} card${lbl.card_count !== 1 ? 's' : ''}</span>
-        <button class="lbl-confirm" title="Confirm rename">✓</button>
+        <button class="lbl-confirm hidden" title="Confirm rename">✓</button>
         <button class="lbl-action" title="Generate vocab for this category">Populate</button>
         <button class="lbl-action danger" title="Delete label">${ICONS.trash}</button>
       `;
@@ -588,7 +589,7 @@
       const confirmBtn = row.querySelector('.lbl-confirm');
       nameInput.addEventListener('input', () => {
         const changed = nameInput.value.trim() !== nameInput.dataset.orig;
-        confirmBtn.style.display = changed ? '' : 'none';
+        confirmBtn.classList.toggle('hidden', !changed);
       });
       confirmBtn.onclick = () => renameLabelBrowse(lbl.id, nameInput.value, nameInput);
       const btns = row.querySelectorAll('.lbl-action');
@@ -843,7 +844,7 @@
         return;
       }
       if (!res.ok) { showToast('Could not rename label.'); return; }
-      if (inputEl) { inputEl.dataset.orig = name; inputEl.closest('.lbl-row').querySelector('.lbl-confirm').style.display = 'none'; }
+      if (inputEl) { inputEl.dataset.orig = name; inputEl.closest('.lbl-row').querySelector('.lbl-confirm').classList.add('hidden'); }
       await loadLabelsTab();
       showToast('Label renamed.');
     } catch { showToast('Could not rename label.'); }

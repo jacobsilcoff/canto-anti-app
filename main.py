@@ -2274,20 +2274,22 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
     if lang not in translation.LANG_INFO:
         raise HTTPException(400, f"Unsupported language: {lang}")
     access = await _resolve_gemini(user, meter=False)
-    known = await db.get_known_words(user["id"], lang, limit=100)
+    known = await db.get_known_words(user["id"], lang, limit=150)
     known_words = [w["target_text"] for w in known]
+    # Request extra from the LLM since post-filtering may remove some
+    llm_count = min(req.count * 2, 20)
     loop = asyncio.get_event_loop()
     suggestions = await loop.run_in_executor(
         None, translation.suggest_vocab_for_label,
-        req.label_name, lang, known_words, access.api_key, min(req.count, 20),
+        req.label_name, lang, known_words, access.api_key, llm_count,
     )
-    # Filter out words already in the deck
+    # Filter out words already in the deck (exact match only — no CJK substring)
     if suggestions:
         existing = await db.get_word_statuses(
-            user["id"], [s["target"] for s in suggestions], lang
+            user["id"], [s["target"] for s in suggestions], lang, exact_only=True
         )
         suggestions = [s for s in suggestions if s["target"] not in existing]
-    return {"suggestions": suggestions, "lang": lang}
+    return {"suggestions": suggestions[:req.count], "lang": lang}
 
 
 @app.get("/api/labels/suggest-cards")

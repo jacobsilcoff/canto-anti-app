@@ -2280,7 +2280,7 @@ def _normalize_word(text: str) -> str:
     return _NON_ALPHA_RE.sub("", text).lower()
 
 
-async def get_word_statuses(user_id: int, words: list[str], target_lang: str) -> dict[str, str]:
+async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *, exact_only: bool = False) -> dict[str, str]:
     """Return a mapping of word → 'known' | 'weak' for words present in the user's deck.
 
     Words not in the deck are absent from the result (callers treat absence as 'new').
@@ -2325,7 +2325,7 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
             continue
         # CJK substring heuristic: token '去' inside card '我去旅行'.
         # Cap at 'weak' — user may have learned the phrase, not the isolated character.
-        if is_cjk_lang:
+        if is_cjk_lang and not exact_only:
             best: str | None = None
             for card_norm, status in card_lookup.items():
                 if norm in card_norm:
