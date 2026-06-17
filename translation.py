@@ -1066,9 +1066,12 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
         translated = data.get("translated", text).strip()
         nuance_note = data.get("nuance_note", "").strip()
     except Exception:
-        translated = raw.strip()
+        logger.warning("translate_message: failed to parse LLM response, falling back to original text")
+        translated = text
         nuance_note = ""
         data = {}
+    if not translated or translated.startswith("{") or translated.startswith("["):
+        translated = text
     if reply_en is None:
         reply_en = text
 
