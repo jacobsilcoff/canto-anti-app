@@ -263,6 +263,20 @@
     </div>
   </div>
 
+  <div class="settings-section" id="chat-section">
+    <div class="settings-section-title">Chat</div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Compact photo button</div>
+        <div class="settings-desc">Show only the lightbulb icon on photo messages (hide "Phrases" text)</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="settings-compact-phrases" onchange="saveCompactPhrases()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
   <div class="settings-section" id="reader-section">
     <div class="settings-section-title">Reader</div>
     <div class="settings-row">
@@ -811,6 +825,7 @@
     document.getElementById('settings-lesson-buffer').value = settings.lesson_buffer !== undefined ? settings.lesson_buffer : 3;
     document.getElementById('settings-audio-romanization').checked = settings.audio_show_romanization !== false;
     document.getElementById('settings-auto-add-vocab').checked = !!settings.auto_add_reader_vocab;
+    document.getElementById('settings-compact-phrases').checked = !!settings.chat_compact_phrases;
     document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
     document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
     if (settings.lesson_premium_model) {
@@ -979,6 +994,23 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveCompactPhrases() {
+    const checked = document.getElementById('settings-compact-phrases').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_compact_phrases: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.chat_compact_phrases = checked;
+      showToast(checked ? 'Photo button: icon only.' : 'Photo button: icon + text.');
+    } catch {
+      document.getElementById('settings-compact-phrases').checked = !checked;
       showToast('Failed to save setting.');
     }
   }

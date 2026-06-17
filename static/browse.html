@@ -208,6 +208,46 @@
     .deck-rating-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
     .deck-card-stars { font-size: 0.78rem; }
     .deck-card-stars .filled { color: var(--warn-accent); }
+
+    /* ── Labels tab ── */
+    .labels-create-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .labels-create-row input { flex: 1; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .labels-create-row input:focus { outline: none; border-color: var(--primary); }
+    .lbl-row { display: flex; align-items: center; gap: 8px; padding: 10px 0;
+      border-bottom: 1px solid var(--border); }
+    .lbl-row:last-child { border-bottom: none; }
+    .lbl-name { flex: 1; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px;
+      font-size: 0.9rem; background: transparent; color: var(--text); font-family: inherit;
+      min-width: 0; }
+    .lbl-name:focus { outline: none; border-color: var(--primary); background: var(--bg); }
+    .lbl-count { font-size: 0.75rem; color: var(--text-muted); min-width: 28px; text-align: right; flex-shrink: 0; }
+    .lbl-action { background: none; border: 1px solid var(--border); border-radius: 999px;
+      padding: 4px 10px; font-size: 0.72rem; color: var(--text-muted); cursor: pointer;
+      white-space: nowrap; transition: all 0.12s; }
+    .lbl-action:hover { border-color: var(--primary); color: var(--primary); }
+    .lbl-action.danger:hover { border-color: var(--danger); color: var(--danger); }
+    .lbl-merge-cb { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+    .merge-bar { display: flex; align-items: center; gap: 8px; padding: 10px 0 14px; flex-wrap: wrap; }
+    .merge-sug { background: var(--surface); border: 1px solid var(--warn-border); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 10px; }
+    .merge-sug-title { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .merge-sug-labels { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    .merge-sug-chip { background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: 999px;
+      padding: 2px 10px; font-size: 0.8rem; color: var(--text); }
+    .merge-sug-actions { display: flex; gap: 6px; }
+    .merge-sug-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      padding: 5px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .merge-sug-btn:hover { opacity: 0.9; }
+    .merge-sug-dismiss { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 14px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; }
+    .merge-sug-dismiss:hover { border-color: var(--primary); color: var(--primary); }
+    .lbl-suggest-panel { padding: 8px 0 8px 28px; }
+    .lbl-suggest-cards { display: flex; gap: 4px; flex-wrap: wrap; }
+    .lbl-suggest-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px 10px; font-size: 0.8rem; color: var(--text); cursor: pointer; transition: all 0.12s; }
+    .lbl-suggest-card:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .lbl-suggest-card:disabled { opacity: 0.5; cursor: default; }
   </style>
 </head>
 <body>
@@ -218,6 +258,7 @@
   <div class="browse-tabs" id="browse-tabs">
     <button class="browse-tab active" data-tab="cards" onclick="switchTab('cards')">My Cards</button>
     <button class="browse-tab" data-tab="decks" onclick="switchTab('decks')">My Decks</button>
+    <button class="browse-tab" data-tab="labels" onclick="switchTab('labels')">Labels</button>
     <button class="browse-tab" data-tab="community" onclick="switchTab('community')">Community</button>
   </div>
 
@@ -289,6 +330,16 @@
   <!-- My decks -->
   <div id="my-decks-view" style="display:none">
     <div class="deck-list" id="my-deck-list"></div>
+  </div>
+
+  <!-- Labels -->
+  <div id="labels-view" style="display:none">
+    <div id="merge-suggestions"></div>
+    <div class="labels-create-row">
+      <input type="text" id="new-label-name" placeholder="New label name…" maxlength="50" onkeydown="if(event.key==='Enter')createNewLabel()">
+      <button class="create-btn" onclick="createNewLabel()">Add</button>
+    </div>
+    <div id="labels-list"></div>
   </div>
 
   <!-- Community decks -->
@@ -468,6 +519,227 @@
     } catch {}
   }
 
+  // ── Labels tab ──
+  let _dismissedMergeSuggestions = new Set();
+
+  async function loadLabelsTab() {
+    await loadLabels();
+    renderLabelsList();
+    loadMergeSuggestions();
+  }
+
+  function renderLabelsList() {
+    const list = document.getElementById('labels-list');
+    list.innerHTML = '';
+    if (!allLabels.length) {
+      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px">No labels yet. Create one above.</p>';
+      return;
+    }
+    const mergeBar = document.createElement('div');
+    mergeBar.id = 'labels-merge-bar';
+    mergeBar.className = 'merge-bar';
+    mergeBar.style.display = 'none';
+    mergeBar.innerHTML = `
+      <span style="font-size:0.85rem;color:var(--text-muted)">Merge selected into:</span>
+      <select id="labels-merge-target" class="settings-select" style="flex:1;min-width:120px"></select>
+      <button class="lbl-action" onclick="mergeSelectedLabels()">Merge</button>
+      <button class="lbl-action danger" onclick="clearMergeSelection()" title="Cancel">✕</button>
+    `;
+    list.appendChild(mergeBar);
+
+    allLabels.forEach(lbl => {
+      const row = document.createElement('div');
+      row.className = 'lbl-row';
+      row.dataset.labelId = lbl.id;
+      row.innerHTML = `
+        <input type="checkbox" class="lbl-merge-cb" title="Select for merge">
+        <input class="lbl-name" value="${escAttr(lbl.name)}" maxlength="50">
+        <span class="lbl-count">${lbl.card_count} card${lbl.card_count !== 1 ? 's' : ''}</span>
+        <button class="lbl-action" title="Save name">Save</button>
+        <button class="lbl-action" title="Suggest cards by similarity">Suggest</button>
+        <button class="lbl-action danger" title="Delete label">${ICONS.trash}</button>
+      `;
+      const btns = row.querySelectorAll('.lbl-action');
+      btns[0].onclick = () => renameLabelBrowse(lbl.id, row.querySelector('.lbl-name').value);
+      btns[1].onclick = () => suggestCardsForLabel(lbl.id, lbl.name, row);
+      btns[2].onclick = () => deleteLabelBrowse(lbl.id, lbl.name);
+      row.querySelector('.lbl-merge-cb').onchange = updateMergeBar;
+      list.appendChild(row);
+    });
+  }
+
+  function updateMergeBar() {
+    const checks = [...document.querySelectorAll('#labels-list .lbl-merge-cb:checked')];
+    const bar = document.getElementById('labels-merge-bar');
+    if (!bar) return;
+    if (checks.length < 2) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const checkedIds = new Set(checks.map(c => parseInt(c.closest('.lbl-row').dataset.labelId)));
+    const sel = document.getElementById('labels-merge-target');
+    sel.innerHTML = allLabels
+      .filter(l => checkedIds.has(l.id))
+      .map(l => `<option value="${l.id}">${escHtml(l.name)}</option>`)
+      .join('');
+  }
+
+  function clearMergeSelection() {
+    document.querySelectorAll('#labels-list .lbl-merge-cb').forEach(c => c.checked = false);
+    const bar = document.getElementById('labels-merge-bar');
+    if (bar) bar.style.display = 'none';
+  }
+
+  async function mergeSelectedLabels() {
+    const checks = [...document.querySelectorAll('#labels-list .lbl-merge-cb:checked')];
+    if (checks.length < 2) return;
+    const targetId = parseInt(document.getElementById('labels-merge-target').value);
+    const sourceIds = checks.map(c => parseInt(c.closest('.lbl-row').dataset.labelId)).filter(id => id !== targetId);
+    if (!sourceIds.length) { showToast('Select at least two different labels.'); return; }
+    const targetName = allLabels.find(l => l.id === targetId)?.name || '';
+    if (!confirm(`Merge ${sourceIds.length} label(s) into "${targetName}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch('/api/labels/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_ids: sourceIds, target_id: targetId }),
+      });
+      if (!res.ok) throw new Error();
+      await loadLabelsTab();
+      showToast('Labels merged.');
+    } catch { showToast('Could not merge labels.'); }
+  }
+
+  async function loadMergeSuggestions() {
+    const container = document.getElementById('merge-suggestions');
+    container.innerHTML = '';
+    try {
+      const res = await fetch('/api/labels/suggest-merges');
+      const { groups } = await res.json();
+      if (!groups || !groups.length) return;
+      const filtered = groups.filter(g => {
+        const key = g.labels.map(l => l.id).sort().join(',');
+        return !_dismissedMergeSuggestions.has(key);
+      });
+      if (!filtered.length) return;
+      filtered.forEach(group => {
+        const key = group.labels.map(l => l.id).sort().join(',');
+        const card = document.createElement('div');
+        card.className = 'merge-sug';
+        const chips = group.labels.map(l =>
+          `<span class="merge-sug-chip">${esc(l.name)} <span style="color:var(--text-muted)">(${l.card_count})</span></span>`
+        ).join('');
+        card.innerHTML = `
+          <div class="merge-sug-title">Similar labels found</div>
+          <div class="merge-sug-labels">${chips}</div>
+          <div class="merge-sug-actions">
+            <select class="settings-select merge-sug-target" style="min-width:100px;font-size:0.82rem">
+              ${group.labels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('')}
+            </select>
+            <button class="merge-sug-btn">Merge into this</button>
+            <button class="merge-sug-dismiss">Dismiss</button>
+          </div>
+        `;
+        card.querySelector('.merge-sug-btn').onclick = () => acceptMergeSuggestion(group, card);
+        card.querySelector('.merge-sug-dismiss').onclick = () => {
+          _dismissedMergeSuggestions.add(key);
+          card.remove();
+        };
+        container.appendChild(card);
+      });
+    } catch {}
+  }
+
+  async function acceptMergeSuggestion(group, cardEl) {
+    const targetId = parseInt(cardEl.querySelector('.merge-sug-target').value);
+    const sourceIds = group.labels.map(l => l.id).filter(id => id !== targetId);
+    if (!sourceIds.length) return;
+    const targetName = group.labels.find(l => l.id === targetId)?.name || '';
+    if (!confirm(`Merge ${sourceIds.length} label(s) into "${targetName}"?`)) return;
+    try {
+      const res = await fetch('/api/labels/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_ids: sourceIds, target_id: targetId }),
+      });
+      if (!res.ok) throw new Error();
+      await loadLabelsTab();
+      showToast('Labels merged.');
+    } catch { showToast('Could not merge labels.'); }
+  }
+
+  async function createNewLabel() {
+    const input = document.getElementById('new-label-name');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/labels', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error();
+      input.value = '';
+      await loadLabelsTab();
+      showToast('Label created.');
+    } catch { showToast('Could not create label.'); }
+  }
+
+  async function renameLabelBrowse(id, name) {
+    name = name.trim();
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/labels/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) { showToast((await res.text()) || 'Could not rename label.'); return; }
+      await loadLabelsTab();
+      showToast('Label renamed.');
+    } catch { showToast('Could not rename label.'); }
+  }
+
+  async function deleteLabelBrowse(id, name) {
+    if (!confirm(`Delete label "${name}"? Cards keep their other labels.`)) return;
+    try {
+      await fetch(`/api/labels/${id}`, { method: 'DELETE' });
+      await loadLabelsTab();
+      showToast('Label deleted.');
+    } catch { showToast('Could not delete label.'); }
+  }
+
+  async function suggestCardsForLabel(labelId, labelName, rowEl) {
+    rowEl.parentNode.querySelectorAll('.lbl-suggest-panel').forEach(el => el.remove());
+    const panel = document.createElement('div');
+    panel.className = 'lbl-suggest-panel';
+    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Finding similar cards…</span>';
+    rowEl.after(panel);
+    try {
+      const res = await fetch(`/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}&label_id=${labelId}&limit=10`);
+      const { cards } = await res.json();
+      if (!cards || !cards.length) {
+        panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No similar unassigned cards found.</span>';
+        return;
+      }
+      panel.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">Cards similar to "${escHtml(labelName)}" — click to add:</div><div class="lbl-suggest-cards"></div>`;
+      const wrap = panel.querySelector('.lbl-suggest-cards');
+      cards.forEach(c => {
+        const chip = document.createElement('button');
+        chip.className = 'lbl-suggest-card';
+        chip.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
+        chip.onclick = async () => {
+          chip.disabled = true;
+          try {
+            const r = await fetch(`/api/labels/${labelId}/cards`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ card_id: c.id }),
+            });
+            if (!r.ok) throw new Error();
+            chip.textContent = '✓ ' + chip.textContent;
+          } catch { chip.disabled = false; showToast('Failed to add card.'); }
+        };
+        wrap.appendChild(chip);
+      });
+    } catch {
+      panel.innerHTML = '<span style="color:var(--danger);font-size:0.85rem">Failed to fetch suggestions.</span>';
+    }
+  }
+
   function populateCardsLangFilter() {
     const sel = document.getElementById('cards-lang-filter');
     if (!sel) return;
@@ -481,7 +753,7 @@
   }
 
   // ── Tabs ──
-  const _tabViews = { cards: 'cards-view', decks: 'my-decks-view', community: 'community-decks-view' };
+  const _tabViews = { cards: 'cards-view', decks: 'my-decks-view', community: 'community-decks-view', labels: 'labels-view' };
 
   function switchTab(tab) {
     _currentTab = tab;
@@ -496,6 +768,7 @@
     if (tab === 'community') loadCommunityDecks();
     if (tab === 'decks') loadMyDecks();
     if (tab === 'cards') filterCards();
+    if (tab === 'labels') loadLabelsTab();
     document.getElementById('selection-bar').classList.toggle('hidden', tab !== 'cards' || !_selectedCards.size);
   }
 

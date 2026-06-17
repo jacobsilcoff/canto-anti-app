@@ -143,6 +143,7 @@
     .img-info-btn:hover, .img-info-btn.on { background: rgba(0,0,0,0.78); transform: scale(1.05); }
     @keyframes bulb-glow { 0%,100% { filter: drop-shadow(0 0 2px rgba(251,191,36,0.3)); } 50% { filter: drop-shadow(0 0 6px rgba(251,191,36,0.7)); } }
     .img-info-btn svg { animation: bulb-glow 2.5s ease-in-out infinite; }
+    .img-info-btn.compact { padding: 0; width: 28px; justify-content: center; border-radius: 50%; }
     .img-info-panel { max-width: 280px; background: var(--bg); border: 1px solid var(--border);
       border-radius: 12px; margin-top: 6px; overflow: hidden;
       box-shadow: var(--shadow); }
@@ -694,10 +695,12 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  let _compactPhrases = false;
   async function init() {
     try {
       const s = await fetch('/api/settings').then(r => r.json());
       _targetLang = s.default_target_lang || 'yue';
+      _compactPhrases = !!s.chat_compact_phrases;
     } catch {}
     await loadConvs();
     loadFriends();
@@ -892,7 +895,7 @@
         ${phraseRows}
       </div>` : '';
       const infoBtn = hasInfo
-        ? `<button class="img-info-btn" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2.3A7 7 0 0 1 12 2z"/></svg> Phrases</button>`
+        ? `<button class="img-info-btn${_compactPhrases ? ' compact' : ''}" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2.3A7 7 0 0 1 12 2z"/></svg>${_compactPhrases ? '' : ' Phrases'}</button>`
         : '';
       return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
         ${nameHtml}

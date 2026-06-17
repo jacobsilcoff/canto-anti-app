@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 4;
+  var TOUR_VERSION = 5;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -17,6 +17,8 @@
       body: 'In friend chats, type in English and your message auto-translates. A breakdown panel shows the original, explains the translation, and lists words you can add to your deck. On photos, tap the lightbulb for suggested phrases.', v: 4 },
     { icon: '🔍', title: 'Browse shared decks',
       body: 'The Browse page lets you create card decks and share them with friends or the community. Import decks from other learners to jumpstart your vocabulary.', v: 3 },
+    { icon: '🏷️', title: 'Manage your labels',
+      body: 'The Labels tab in Browse lets you rename, merge, and delete labels. It auto-suggests merges for similar labels (like "food & drinks" and "foods and drinks") so your deck stays tidy.', v: 5 },
     { icon: '⚠️', title: 'Report bugs & ideas',
       body: 'Found a bug or have a feature request? Use the Feedback page to submit a report — you can attach a screenshot and track the status of your submissions.', v: 2 },
   ];

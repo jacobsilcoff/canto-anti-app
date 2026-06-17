@@ -1498,6 +1498,7 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_model_options": LESSON_MODEL_ALLOWLIST,
         "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
         "lesson_buffer": lesson_buffer,
+        "chat_compact_phrases": (await db.get_setting(user["id"], "chat_compact_phrases") or "false") == "true",
     }
 
 
@@ -1514,6 +1515,7 @@ class SettingsUpdate(BaseModel):
     lesson_model: str | None = None
     learner_profile: str | None = None
     lesson_buffer: int | None = None
+    chat_compact_phrases: bool | None = None
 
 
 @app.put("/api/settings")
@@ -1562,6 +1564,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "learner_profile", req.learner_profile[:2000].strip())
     if req.lesson_buffer is not None:
         await db.set_setting(user["id"], "lesson_buffer", max(0, min(10, req.lesson_buffer)))
+    if req.chat_compact_phrases is not None:
+        await db.set_setting(user["id"], "chat_compact_phrases", "true" if req.chat_compact_phrases else "false")
     return {"success": True}
 
 
@@ -2063,6 +2067,64 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if not mag_a or not mag_b:
         return 0.0
     return dot / (mag_a * mag_b)
+
+
+@app.get("/api/labels/suggest-merges")
+async def suggest_label_merges(user: dict = Depends(current_user)):
+    """Find groups of labels with very similar names (likely duplicates)."""
+    labels = await db.list_labels(user["id"])
+    if len(labels) < 2:
+        return {"groups": []}
+
+    import re, unicodedata
+
+    def _norm(name: str) -> str:
+        s = unicodedata.normalize("NFKD", name).lower().strip()
+        s = re.sub(r"[^\w\s]", " ", s)
+        s = re.sub(r"\b(and|the|a|an|of)\b", "", s)
+        s = re.sub(r"s\b", "", s)
+        return re.sub(r"\s+", " ", s).strip()
+
+    normed = [(l, _norm(l["name"])) for l in labels]
+    seen: set[int] = set()
+    groups: list[dict] = []
+    for i, (la, na) in enumerate(normed):
+        if la["id"] in seen or not na:
+            continue
+        cluster = [la]
+        for j in range(i + 1, len(normed)):
+            lb, nb = normed[j]
+            if lb["id"] in seen or not nb:
+                continue
+            if na == nb or _levenshtein_ratio(na, nb) >= 0.8:
+                cluster.append(lb)
+                seen.add(lb["id"])
+        if len(cluster) >= 2:
+            seen.add(la["id"])
+            total = sum(l["card_count"] for l in cluster)
+            groups.append({
+                "labels": [{"id": l["id"], "name": l["name"], "card_count": l["card_count"]} for l in cluster],
+                "total_cards": total,
+            })
+    groups.sort(key=lambda g: g["total_cards"], reverse=True)
+    return {"groups": groups}
+
+
+def _levenshtein_ratio(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    n, m = len(a), len(b)
+    if n > m:
+        a, b, n, m = b, a, m, n
+    prev = list(range(n + 1))
+    for j in range(1, m + 1):
+        curr = [j] + [0] * n
+        for i in range(1, n + 1):
+            curr[i] = min(prev[i] + 1, curr[i - 1] + 1,
+                          prev[i - 1] + (0 if a[i - 1] == b[j - 1] else 1))
+        prev = curr
+    dist = prev[n]
+    return 1.0 - dist / max(n, m)
 
 
 @app.get("/api/labels/suggest-cards")
