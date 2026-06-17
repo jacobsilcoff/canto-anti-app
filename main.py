@@ -2274,26 +2274,41 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
     if lang not in translation.LANG_INFO:
         raise HTTPException(400, f"Unsupported language: {lang}")
     access = await _resolve_gemini(user, meter=False)
-    known = await db.get_known_words(user["id"], lang, limit=150)
-    known_words = [w["target_text"] for w in known]
+    # Feed the LLM ONLY the words already under this label (token-lean) — not the
+    # whole deck. Suggestions that happen to already be cards become "tag this
+    # card" suggestions instead of being silently dropped.
     label_words = await db.get_label_words(user["id"], req.label_id, lang)
     llm_count = min(req.count * 2, 20)
     loop = asyncio.get_event_loop()
     suggestions = await loop.run_in_executor(
         None, translation.suggest_vocab_for_label,
-        req.label_name, lang, known_words, access.api_key, llm_count, label_words,
+        req.label_name, lang, [], access.api_key, llm_count, label_words,
     )
-    logger.info("populate_label %r lang=%s: LLM returned %d, known=%d, in-label=%d",
-                req.label_name, lang, len(suggestions) if suggestions else 0,
-                len(known_words), len(label_words))
-    if suggestions:
-        targets = [s["target"] for s in suggestions]
-        existing = await db.get_cards_by_target(user["id"], targets, lang)
-        pre_filter = len(suggestions)
-        suggestions = [s for s in suggestions if s["target"] not in existing]
-        logger.info("populate_label %r: filtered %d→%d (matched %d existing)",
-                    req.label_name, pre_filter, len(suggestions), len(existing))
-    return {"suggestions": suggestions[:req.count], "lang": lang}
+    if not suggestions:
+        logger.info("populate_label %r lang=%s: LLM returned 0 (in-label=%d)",
+                    req.label_name, lang, len(label_words))
+        return {"new": [], "existing": [], "lang": lang}
+
+    matches = await db.match_cards_by_target(
+        user["id"], [s["target"] for s in suggestions], lang, req.label_id
+    )
+    new_words: list[dict] = []
+    existing_cards: list[dict] = []
+    for s in suggestions:
+        m = matches.get(s["target"])
+        if m is None:
+            new_words.append(s)                       # not in deck → add a new card
+        elif m["in_label"]:
+            continue                                  # already under this label → skip
+        else:                                         # in deck, unlabeled → tag it
+            existing_cards.append({
+                "id": m["id"], "target": s["target"],
+                "source": m["source_text"] or s["source"],
+            })
+    logger.info("populate_label %r lang=%s: LLM=%d → new=%d, tag-existing=%d (in-label=%d)",
+                req.label_name, lang, len(suggestions), len(new_words),
+                len(existing_cards), len(label_words))
+    return {"new": new_words[:req.count], "existing": existing_cards[:req.count], "lang": lang}
 
 
 @app.get("/api/labels/suggest-cards")

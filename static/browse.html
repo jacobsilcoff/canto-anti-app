@@ -863,6 +863,7 @@
     rowEl.parentNode.querySelectorAll('.lbl-suggest-panel').forEach(el => el.remove());
     const panel = document.createElement('div');
     panel.className = 'lbl-suggest-panel';
+    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Generating vocab…</span>';
     rowEl.after(panel);
 
     const countEl = rowEl.querySelector('.lbl-count');
@@ -872,86 +873,80 @@
       countEl.textContent = n + ' card' + (n !== 1 ? 's' : '');
     }
 
-    // Placeholder sections that fill in as responses arrive
-    const llmSec = document.createElement('div');
-    llmSec.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Generating new vocab…</span>';
-    panel.appendChild(llmSec);
-
-    const deckSec = document.createElement('div');
-    deckSec.style.marginBottom = '10px';
-    deckSec.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Finding matching cards in your deck…</span>';
-    panel.appendChild(deckSec);
-
-    function renderChipAdd(chip, s, lang) {
-      chip.onclick = async () => {
-        chip.disabled = true; chip.style.opacity = '0.6';
-        try {
-          const r = await fetch('/api/cards', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_text: s.source, target_text: s.target,
-              romanization: s.romanization || '', target_lang: lang, label_ids: [labelId] }),
-          });
-          if (!r.ok) throw new Error();
-          chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
-        } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to add card.'); }
-      };
-    }
-    function renderChipTag(chip, cardId) {
-      chip.onclick = async () => {
-        chip.disabled = true; chip.style.opacity = '0.6';
-        try {
-          const r = await fetch(`/api/labels/${labelId}/cards`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ card_id: cardId }),
-          });
-          if (!r.ok) throw new Error();
-          chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
-        } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to tag card.'); }
-      };
+    function makeSection(title) {
+      const sec = document.createElement('div');
+      sec.style.marginBottom = '10px';
+      sec.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">${title}</div><div class="lbl-suggest-cards"></div>`;
+      return sec;
     }
 
-    // Fire both in parallel, render each as it arrives
-    const llmP = fetch('/api/labels/populate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label_name: labelName, label_id: labelId }),
-    }).then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Failed'); return r.json(); })
-    .then(data => {
-      if (data.suggestions?.length) {
-        llmSec.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">New words — click to add:</div><div class="lbl-suggest-cards"></div>`;
-        const wrap = llmSec.querySelector('.lbl-suggest-cards');
-        data.suggestions.forEach(s => {
-          const chip = document.createElement('button');
-          chip.className = 'lbl-suggest-card';
-          const rom = s.romanization ? ` (${s.romanization})` : '';
-          chip.textContent = s.target + rom + ' — ' + s.source;
-          renderChipAdd(chip, s, data.lang);
-          wrap.appendChild(chip);
-        });
-      } else {
-        llmSec.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">No new words to suggest — you may already have them all.</span>';
-      }
-    }).catch(err => {
-      llmSec.innerHTML = `<span style="color:var(--danger);font-size:0.82rem">Could not generate new words: ${escHtml(err.message || 'unknown error')}</span>`;
-    });
+    let data;
+    try {
+      const r = await fetch('/api/labels/populate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label_name: labelName, label_id: labelId }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Failed');
+      data = await r.json();
+    } catch (err) {
+      panel.innerHTML = `<span style="color:var(--danger);font-size:0.82rem">Could not generate suggestions: ${escHtml(err.message || 'unknown error')}</span>`;
+      return;
+    }
 
-    const deckP = fetch(`/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}&label_id=${labelId}&limit=10`)
-    .then(r => r.json()).then(data => {
-      if (data.cards?.length) {
-        deckSec.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">Tag from your deck:</div><div class="lbl-suggest-cards"></div>`;
-        const wrap = deckSec.querySelector('.lbl-suggest-cards');
-        data.cards.forEach(c => {
-          const chip = document.createElement('button');
-          chip.className = 'lbl-suggest-card';
-          chip.textContent = c.target_text + ' — ' + c.source_text;
-          renderChipTag(chip, c.id);
-          wrap.appendChild(chip);
-        });
-      } else { deckSec.remove(); }
-    }).catch(() => { deckSec.remove(); });
+    panel.innerHTML = '';
 
-    await Promise.allSettled([llmP, deckP]);
+    // Words already in your deck (other labels / unlabeled) → tag them
+    if (data.existing?.length) {
+      const sec = makeSection('Already in your deck — tag with this label:');
+      const wrap = sec.querySelector('.lbl-suggest-cards');
+      data.existing.forEach(c => {
+        const chip = document.createElement('button');
+        chip.className = 'lbl-suggest-card';
+        chip.textContent = c.target + ' — ' + c.source;
+        chip.onclick = async () => {
+          chip.disabled = true; chip.style.opacity = '0.6';
+          try {
+            const rr = await fetch(`/api/labels/${labelId}/cards`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ card_id: c.id }),
+            });
+            if (!rr.ok) throw new Error();
+            chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
+          } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to tag card.'); }
+        };
+        wrap.appendChild(chip);
+      });
+      panel.appendChild(sec);
+    }
+
+    // Brand-new words → create cards
+    if (data.new?.length) {
+      const sec = makeSection('New words — click to add:');
+      const wrap = sec.querySelector('.lbl-suggest-cards');
+      data.new.forEach(s => {
+        const chip = document.createElement('button');
+        chip.className = 'lbl-suggest-card';
+        const rom = s.romanization ? ` (${s.romanization})` : '';
+        chip.textContent = s.target + rom + ' — ' + s.source;
+        chip.onclick = async () => {
+          chip.disabled = true; chip.style.opacity = '0.6';
+          try {
+            const rr = await fetch('/api/cards', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source_text: s.source, target_text: s.target,
+                romanization: s.romanization || '', target_lang: data.lang, label_ids: [labelId] }),
+            });
+            if (!rr.ok) throw new Error();
+            chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
+          } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to add card.'); }
+        };
+        wrap.appendChild(chip);
+      });
+      panel.appendChild(sec);
+    }
+
     if (!panel.children.length) {
-      panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No suggestions found.</span>';
+      panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">No suggestions — this label looks well covered.</span>';
     }
   }
 

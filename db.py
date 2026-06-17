@@ -2336,17 +2336,34 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *,
     return result
 
 
-async def get_cards_by_target(user_id: int, targets: list[str], target_lang: str) -> set[str]:
-    """Return the subset of *targets* that already exist as cards in the user's deck (exact match)."""
+async def match_cards_by_target(user_id: int, targets: list[str], target_lang: str, label_id: int) -> dict[str, dict]:
+    """For each target word that exists as a card, return
+    {target_text: {id, source_text, in_label}}. `in_label` says whether that card
+    is already tagged with `label_id`. When duplicates share a target_text, prefer
+    the copy already in the label. Used to route populate suggestions: in-deck words
+    not yet in the label become 'tag this card' suggestions."""
     if not targets:
-        return set()
+        return {}
     async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
         placeholders = ",".join("?" for _ in targets)
         async with conn.execute(
-            f"SELECT target_text FROM cards WHERE user_id=? AND target_lang=? AND target_text IN ({placeholders})",
-            (user_id, target_lang, *targets),
+            f"""SELECT c.id, c.target_text, c.source_text,
+                       EXISTS(SELECT 1 FROM card_labels cl
+                              WHERE cl.card_id=c.id AND cl.label_id=?) AS in_label
+                FROM cards c
+                WHERE c.user_id=? AND c.target_lang=? AND c.target_text IN ({placeholders})""",
+            (label_id, user_id, target_lang, *targets),
         ) as cur:
-            return {r[0] for r in await cur.fetchall()}
+            rows = await cur.fetchall()
+    result: dict[str, dict] = {}
+    for r in rows:
+        prev = result.get(r["target_text"])
+        if prev is None or (r["in_label"] and not prev["in_label"]):
+            result[r["target_text"]] = {
+                "id": r["id"], "source_text": r["source_text"], "in_label": bool(r["in_label"]),
+            }
+    return result
 
 
 async def get_label_words(user_id: int, label_id: int, target_lang: str, limit: int = 60) -> list[dict]:
