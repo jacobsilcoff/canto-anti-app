@@ -56,7 +56,40 @@
     .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
     .study-link { font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; }
     .study-link:hover { text-decoration: underline; }
-    .card-list-wrap { min-width: 0; }
+    .card-list-wrap { min-width: 0; padding-bottom: 60px; }
+    .card-select-cb { width: 18px; height: 18px; margin: 0; flex-shrink: 0; cursor: pointer;
+      accent-color: var(--primary); }
+    .card-list-item { display: flex; gap: 10px; align-items: flex-start; }
+    .card-list-item .card-display { flex: 1; min-width: 0; }
+    .selection-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 -2px 8px var(--shadow); transition: transform 0.2s; }
+    .selection-bar.hidden { transform: translateY(100%); pointer-events: none; }
+    .selection-bar .sel-count { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .selection-bar .sel-action { background: var(--primary); color: #fff; border: none; border-radius: 9px;
+      padding: 8px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .selection-bar .sel-action:hover { opacity: 0.9; }
+    .selection-bar .sel-clear { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
+    .selection-bar .sel-clear:hover { border-color: var(--primary); color: var(--primary); }
+    .sel-all-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
+    .sel-all-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── Create deck modal ── */
+    .deck-modal-overlay { position: fixed; inset: 0; z-index: 100; background: var(--overlay);
+      display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .deck-modal { background: var(--surface); border-radius: 14px; width: 100%; max-width: 420px;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 8px 32px var(--shadow-pop); }
+    .deck-modal h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
+    .deck-modal input, .deck-modal textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px;
+      font-size: 0.92rem; font-family: inherit; }
+    .deck-modal input:focus, .deck-modal textarea:focus { outline: none; border-color: var(--primary); }
+    .deck-modal textarea { resize: vertical; min-height: 60px; }
+    .deck-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
     /* Card-browser styles ported from the flashcards page (most live in the
        shared style.css; these are the page-specific extras). */
@@ -114,48 +147,12 @@
     .deck-card-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
     .deck-empty { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; }
 
-    /* ── Create deck form ── */
-    .create-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 18px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px;
-      min-width: 0; overflow: hidden; }
-    .create-form h3 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
-    .create-form input, .create-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
-      border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px;
-      font-size: 0.92rem; font-family: inherit; }
-    .create-form input:focus, .create-form textarea:focus { outline: none; border-color: var(--primary); }
-    .create-form textarea { resize: vertical; min-height: 60px; }
-    .create-form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-    .create-form-group { display: flex; flex-direction: column; gap: 3px; }
     .create-form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
       text-transform: uppercase; letter-spacing: 0.04em; }
     .create-btn { background: var(--primary); color: #fff; border: none; border-radius: 9px;
       padding: 9px 20px; font-size: 0.92rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .create-btn:disabled { opacity: 0.5; cursor: default; }
     .create-btn:hover:not(:disabled) { opacity: 0.9; }
-
-    /* ── Card picker ── */
-    .card-picker { border: 1px solid var(--border); border-radius: 0 0 10px 10px; max-height: 280px;
-      overflow-y: auto; overflow-x: hidden; background: var(--bg); }
-    .card-picker-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-      border-bottom: 1px solid var(--border); cursor: pointer; }
-    .card-picker-item:last-child { border-bottom: none; }
-    .card-picker-item:hover { background: var(--surface); }
-    .card-picker-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; margin: 0; }
-    .card-picker-text { flex: 1; min-width: 0; overflow: hidden; }
-    .card-picker-target { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card-picker-source { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .picker-toolbar { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px 10px 0 0;
-      border-bottom: none; overflow: hidden; }
-    .picker-toolbar input[type="text"] { flex: 1; min-width: 0; border: none; background: var(--bg); color: var(--text);
-      padding: 8px 10px; font-size: 0.88rem; font-family: inherit; outline: none; }
-    .picker-toolbar select { border: none; border-left: 1px solid var(--border); background: var(--bg);
-      color: var(--text); padding: 8px 8px; font-size: 0.82rem; font-family: inherit; outline: none;
-      max-width: 120px; }
-    .picker-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-    .picker-count { font-size: 0.78rem; color: var(--text-muted); }
-    .picker-sel-btn { font-size: 0.78rem; color: var(--primary); cursor: pointer; background: none;
-      border: none; padding: 0; font-family: inherit; font-weight: 600; }
-    .picker-sel-btn:hover { text-decoration: underline; }
 
     /* ── Community search ── */
     .browse-search { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -266,43 +263,6 @@
 
   <!-- My decks -->
   <div id="my-decks-view" style="display:none">
-    <div class="create-form" id="create-form">
-      <h3>Create a shared deck</h3>
-      <div class="create-form-group">
-        <div class="create-form-label">Deck name</div>
-        <input id="deck-name" placeholder="e.g. HKDSE Core Vocabulary">
-      </div>
-      <div class="create-form-group">
-        <div class="create-form-label">Description</div>
-        <textarea id="deck-desc" rows="2" placeholder="What's in this deck?"></textarea>
-      </div>
-      <div class="create-form-row">
-        <div class="create-form-group">
-          <div class="create-form-label">Visibility</div>
-          <select id="deck-visibility" class="settings-select">
-            <option value="friends">Friends only</option>
-            <option value="public">Public</option>
-          </select>
-        </div>
-      </div>
-      <div class="create-form-group">
-        <div class="create-form-label">Select cards <span style="font-weight:400;text-transform:none;letter-spacing:0">· one language per deck</span></div>
-        <div class="picker-toolbar">
-          <input type="text" id="picker-search" placeholder="Search cards…" oninput="filterPicker()">
-          <select id="picker-lang-filter" onchange="onPickerLangChange()"></select>
-          <select id="picker-label-filter" onchange="filterPicker()">
-            <option value="">All labels</option>
-          </select>
-        </div>
-        <div class="card-picker" id="card-picker"></div>
-        <div class="picker-actions">
-          <span class="picker-count" id="picker-count">0 cards selected</span>
-          <button class="picker-sel-btn" onclick="selectAllVisible()">Select all</button>
-          <button class="picker-sel-btn" onclick="deselectAll()">Deselect all</button>
-        </div>
-      </div>
-      <button class="create-btn" id="create-btn" onclick="createDeck()" disabled>Create deck</button>
-    </div>
     <div class="deck-list" id="my-deck-list"></div>
   </div>
 
@@ -320,6 +280,38 @@
   </div>
 </main>
 
+<div class="selection-bar hidden" id="selection-bar">
+  <span class="sel-count" id="sel-count">0 selected</span>
+  <button class="sel-all-btn" onclick="selectAllFiltered()">Select all</button>
+  <button class="sel-action" onclick="showCreateDeckModal()">Create deck</button>
+  <button class="sel-clear" onclick="clearSelection()">Clear</button>
+</div>
+
+<div class="deck-modal-overlay" id="deck-modal" style="display:none" onclick="if(event.target===this)closeDeckModal()">
+  <div class="deck-modal">
+    <h3>Create a shared deck</h3>
+    <div>
+      <div class="create-form-label">Deck name</div>
+      <input id="deck-name" placeholder="e.g. HKDSE Core Vocabulary">
+    </div>
+    <div>
+      <div class="create-form-label">Description</div>
+      <textarea id="deck-desc" rows="2" placeholder="What's in this deck?"></textarea>
+    </div>
+    <div>
+      <div class="create-form-label">Visibility</div>
+      <select id="deck-visibility" class="settings-select">
+        <option value="friends">Friends only</option>
+        <option value="public">Public</option>
+      </select>
+    </div>
+    <div class="deck-modal-actions">
+      <button class="sel-clear" onclick="closeDeckModal()">Cancel</button>
+      <button class="create-btn" id="create-btn" onclick="createDeck()">Create deck</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -327,7 +319,6 @@
   let _allLabels = [];
   let allLabels = [];          // alias used by the ported card-browser helpers
   let _selectedCards = new Set();
-  let _pickerLang = '';        // language the deck picker is restricted to
   let _currentTab = 'cards';
   let _defaultLang = '';
   let _langMap = {};
@@ -430,8 +421,6 @@
     languages = langs.languages || langs || [];
     languages.forEach(l => { if (l && l.code) _langMap[l.code] = l; });
     langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
-    _pickerLang = _defaultLang || (languages[0] && languages[0].code) || '';
-    populatePickerLangFilter();
     populateCardsLangFilter();
     loadLabels();
     filterCards();
@@ -443,20 +432,7 @@
       _allLabels = allLabels = res.labels || [];
       const opts = _allLabels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
       document.getElementById('cards-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
-      document.getElementById('picker-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
     } catch {}
-  }
-
-  // Populate the deck picker's language selector from the languages the user
-  // actually has cards in (a deck holds a single language).
-  function populatePickerLangFilter() {
-    const sel = document.getElementById('picker-lang-filter');
-    if (!sel) return;
-    const present = [...new Set(_allCards.map(c => c.target_lang).filter(Boolean))];
-    if (_pickerLang && !present.includes(_pickerLang)) present.unshift(_pickerLang);
-    sel.innerHTML = present.map(code =>
-      `<option value="${code}"${code === _pickerLang ? ' selected' : ''}>${langBadge(code)}</option>`
-    ).join('');
   }
 
   function populateCardsLangFilter() {
@@ -485,8 +461,9 @@
     document.getElementById('deck-detail-view').style.display = 'none';
     document.getElementById('browse-tabs').style.display = '';
     if (tab === 'community') loadCommunityDecks();
-    if (tab === 'decks') { loadMyDecks(); renderPicker(); }
+    if (tab === 'decks') loadMyDecks();
     if (tab === 'cards') filterCards();
+    document.getElementById('selection-bar').classList.toggle('hidden', tab !== 'cards' || !_selectedCards.size);
   }
 
   // ── My Cards (browse all) ──
@@ -574,6 +551,7 @@
   }
 
   function renderCardsList(cards) {
+    _lastFilteredCards = cards;
     const el = document.getElementById('cards-count');
     const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
     const studyHref = labelId ? `/cards?label_id=${labelId}&study=1` : '/cards?study=1';
@@ -582,6 +560,7 @@
     const list = document.getElementById('cards-list');
     if (!cards.length) {
       list.innerHTML = '<div class="deck-empty">No cards found.</div>';
+      updateSelectionBar();
       return;
     }
     list.innerHTML = '';
@@ -592,6 +571,7 @@
         if (elc) elc.textContent = canonicalCardText(card.canonical_card_id) || `#${card.canonical_card_id}`;
       }
     });
+    updateSelectionBar();
   }
 
   // ── Card list item (ported from flashcards page) ──
@@ -627,6 +607,8 @@
       : '';
 
     item.innerHTML = `
+      <input type="checkbox" class="card-select-cb" id="sel-${card.id}" ${_selectedCards.has(card.id) ? 'checked' : ''}
+        onchange="toggleCardSelect(${card.id}, this.checked)">
       <div class="card-display" id="display-${card.id}">
         ${langTagHtml}
         <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
@@ -906,75 +888,48 @@
     } catch { showToast('Failed to delete card.'); }
   }
 
-  // ── Card picker (for deck creation) ──
-  // A deck holds a single language, so the picker only ever shows cards of the
-  // currently-selected language. Switching language clears the selection so a
-  // deck can never end up mixed.
-  function onPickerLangChange() {
-    const sel = document.getElementById('picker-lang-filter');
-    const lang = sel ? sel.value : '';
-    if (lang !== _pickerLang && _selectedCards.size) _selectedCards.clear();
-    _pickerLang = lang;
-    renderPicker();
+  // ── Card selection (for deck creation) ──
+  let _lastFilteredCards = [];
+
+  function toggleCardSelect(id, checked) {
+    if (checked) _selectedCards.add(id);
+    else _selectedCards.delete(id);
+    updateSelectionBar();
   }
 
-  function getFilteredPickerCards() {
-    const q = (document.getElementById('picker-search').value || '').toLowerCase();
-    const labelId = parseInt(document.getElementById('picker-label-filter').value) || 0;
-    let filtered = _allCards.filter(c => (c.target_lang || '') === _pickerLang);
-    if (q) {
-      filtered = filtered.filter(c =>
-        c.target_text.toLowerCase().includes(q) ||
-        c.source_text.toLowerCase().includes(q) ||
-        (c.romanization || '').toLowerCase().includes(q)
-      );
-    }
-    if (labelId) {
-      filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
-    }
-    return filtered;
+  function selectAllFiltered() {
+    _lastFilteredCards.forEach(c => _selectedCards.add(c.id));
+    filterCards();
   }
 
-  function renderPicker() {
-    const filtered = getFilteredPickerCards();
-    const picker = document.getElementById('card-picker');
-    picker.innerHTML = '';
-    filtered.slice(0, 200).forEach(c => {
-      const item = document.createElement('label');
-      item.className = 'card-picker-item';
-      item.innerHTML = `
-        <input type="checkbox" ${_selectedCards.has(c.id) ? 'checked' : ''}>
-        <div class="card-picker-text">
-          <div class="card-picker-target">${esc(c.target_text)}</div>
-          <div class="card-picker-source">${esc(c.source_text)}</div>
-        </div>`;
-      item.querySelector('input').onchange = (e) => {
-        if (e.target.checked) _selectedCards.add(c.id);
-        else _selectedCards.delete(c.id);
-        updatePickerCount();
-      };
-      picker.appendChild(item);
-    });
-    updatePickerCount();
-  }
-
-  function filterPicker() { renderPicker(); }
-
-  function selectAllVisible() {
-    const filtered = getFilteredPickerCards();
-    filtered.slice(0, 200).forEach(c => _selectedCards.add(c.id));
-    renderPicker();
-  }
-
-  function deselectAll() {
+  function clearSelection() {
     _selectedCards.clear();
-    renderPicker();
+    filterCards();
   }
 
-  function updatePickerCount() {
+  function updateSelectionBar() {
     const n = _selectedCards.size;
-    document.getElementById('picker-count').textContent = `${n} card${n !== 1 ? 's' : ''} selected`;
-    document.getElementById('create-btn').disabled = n === 0 || !document.getElementById('deck-name').value.trim();
+    const bar = document.getElementById('selection-bar');
+    bar.classList.toggle('hidden', n === 0);
+    document.getElementById('sel-count').textContent = `${n} selected`;
+  }
+
+  function showCreateDeckModal() {
+    if (!_selectedCards.size) return;
+    const langs = new Set();
+    _allCards.forEach(c => { if (_selectedCards.has(c.id)) langs.add(c.target_lang); });
+    if (langs.size > 1) {
+      showToast('A deck can only contain one language. Filter by language first, then select cards.');
+      return;
+    }
+    document.getElementById('deck-modal').style.display = 'flex';
+    document.getElementById('deck-name').value = '';
+    document.getElementById('deck-desc').value = '';
+    document.getElementById('deck-name').focus();
+  }
+
+  function closeDeckModal() {
+    document.getElementById('deck-modal').style.display = 'none';
   }
 
   // ── Create deck ──
@@ -1001,16 +956,13 @@
         btn.disabled = false; btn.textContent = 'Create deck';
         return;
       }
+      closeDeckModal();
       showToast('Deck created! These cards now carry a "📦 ' + name + '" label you can study.');
-      document.getElementById('deck-name').value = '';
-      document.getElementById('deck-desc').value = '';
       _selectedCards.clear();
       await loadMyCards();
-      populatePickerLangFilter();
-      renderPicker();
-      updatePickerCount();
+      populateCardsLangFilter();
       loadLabels();
-      loadMyDecks();
+      filterCards();
     } catch {
       showToast('Failed to create deck');
     }
@@ -1025,7 +977,7 @@
       const list = document.getElementById('my-deck-list');
       const decks = res.decks || [];
       if (!decks.length) {
-        list.innerHTML = '<div class="deck-empty">No decks yet. Create one above to share with the community.</div>';
+        list.innerHTML = '<div class="deck-empty">No decks yet. Select cards in My Cards to create one.</div>';
         return;
       }
       list.innerHTML = '';
@@ -1178,7 +1130,9 @@
     }
   }
 
-  document.getElementById('deck-name').addEventListener('input', updatePickerCount);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDeckModal();
+  });
 
   init();
 </script>
