@@ -867,7 +867,7 @@
     rowEl.parentNode.querySelectorAll('.lbl-suggest-panel').forEach(el => el.remove());
     const panel = document.createElement('div');
     panel.className = 'lbl-suggest-panel';
-    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Generating vocab…</span>';
+    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Generating vocab… then checking your deck</span>';
     rowEl.after(panel);
 
     const countEl = rowEl.querySelector('.lbl-count');
@@ -951,7 +951,7 @@
     }
 
     if (!panel.children.length) {
-      panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">No suggestions — this label looks well covered.</span>';
+      panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">No new suggestions — all generated words are already under this label.</span>';
     }
 
     // Header with a Done button to dismiss the suggestions when finished

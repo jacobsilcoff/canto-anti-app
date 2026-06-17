@@ -2336,24 +2336,34 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *,
     return result
 
 
-async def match_cards_by_target(user_id: int, targets: list[str], target_lang: str, label_id: int) -> dict[str, dict]:
+async def match_cards_by_target(user_id: int, targets: list[str], target_lang: str, label_id: int,
+                                sources: list[str] | None = None) -> dict[str, dict]:
     """For each target word that exists as a card, return
     {target_text: {id, source_text, in_label}}. `in_label` says whether that card
     is already tagged with `label_id`. When duplicates share a target_text, prefer
     the copy already in the label. Used to route populate suggestions: in-deck words
-    not yet in the label become 'tag this card' suggestions."""
+    not yet in the label become 'tag this card' suggestions.
+
+    Also matches by source_text (English) if `sources` is provided — this catches
+    cards where the LLM's target form differs slightly from what's in the deck."""
     if not targets:
         return {}
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
         placeholders = ",".join("?" for _ in targets)
+        where = f"c.target_text IN ({placeholders})"
+        params: list = [label_id, user_id, target_lang, *targets]
+        if sources:
+            src_placeholders = ",".join("?" for _ in sources)
+            where = f"({where} OR LOWER(c.source_text) IN ({src_placeholders}))"
+            params.extend(s.lower() for s in sources)
         async with conn.execute(
             f"""SELECT c.id, c.target_text, c.source_text,
                        EXISTS(SELECT 1 FROM card_labels cl
                               WHERE cl.card_id=c.id AND cl.label_id=?) AS in_label
                 FROM cards c
-                WHERE c.user_id=? AND c.target_lang=? AND c.target_text IN ({placeholders})""",
-            (label_id, user_id, target_lang, *targets),
+                WHERE c.user_id=? AND c.target_lang=? AND {where}""",
+            params,
         ) as cur:
             rows = await cur.fetchall()
     result: dict[str, dict] = {}

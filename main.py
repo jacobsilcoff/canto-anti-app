@@ -2290,17 +2290,32 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
         return {"new": [], "existing": [], "lang": lang}
 
     matches = await db.match_cards_by_target(
-        user["id"], [s["target"] for s in suggestions], lang, req.label_id
+        user["id"], [s["target"] for s in suggestions], lang, req.label_id,
+        sources=[s["source"] for s in suggestions],
     )
+    # Build a reverse lookup by lowercase source_text for source-based matches
+    # (catches cards where the LLM's target form differs from the stored one)
+    source_index: dict[str, dict] = {}
+    for m in matches.values():
+        if m.get("source_text"):
+            key = m["source_text"].strip().lower()
+            prev = source_index.get(key)
+            if prev is None or (m["in_label"] and not prev["in_label"]):
+                source_index[key] = m
     new_words: list[dict] = []
     existing_cards: list[dict] = []
+    seen_card_ids: set[int] = set()
     for s in suggestions:
-        m = matches.get(s["target"])
+        m = matches.get(s["target"]) or source_index.get(s["source"].strip().lower())
         if m is None:
-            new_words.append(s)                       # not in deck → add a new card
+            new_words.append(s)
+        elif m["id"] in seen_card_ids:
+            continue
         elif m["in_label"]:
-            continue                                  # already under this label → skip
-        else:                                         # in deck, unlabeled → tag it
+            seen_card_ids.add(m["id"])
+            continue
+        else:
+            seen_card_ids.add(m["id"])
             existing_cards.append({
                 "id": m["id"], "target": s["target"],
                 "source": m["source_text"] or s["source"],
