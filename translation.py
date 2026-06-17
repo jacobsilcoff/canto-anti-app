@@ -809,6 +809,43 @@ def triage_feedback(
         }
 
 
+def review_label_merge(
+    label_names: list[str],
+    api_key: str,
+) -> dict:
+    """Ask a cheap LLM whether a proposed label merge makes sense.
+
+    Returns: { "verdict": "merge"|"reject", "suggested_name": "...", "reason": "..." }
+    """
+    names_str = ", ".join(f'"{n}"' for n in label_names)
+    prompt = (
+        "You are organising labels/tags for a language-learning flashcard deck. "
+        "Someone proposed merging these labels into one:\n\n"
+        f"Labels: [{names_str}]\n\n"
+        "Decide:\n"
+        "1. Do these labels genuinely refer to the SAME category/concept? "
+        "Labels that merely share a common word (e.g. 'expressing quantity' vs "
+        "'expressing emotions') are DIFFERENT categories — reject those.\n"
+        "2. If they should merge, suggest the best single label name (concise, "
+        "lowercase, no emoji). Prefer the most specific or commonly used form.\n\n"
+        "Respond with ONLY valid JSON:\n"
+        '{"verdict":"merge" or "reject", "suggested_name":"the merged label name (empty if reject)", "reason":"one short sentence"}\n'
+    )
+    try:
+        raw = _call(prompt, api_key, DEFAULT_MODEL)
+        data = _parse_json(raw)
+        verdict = data.get("verdict", "reject")
+        if verdict not in ("merge", "reject"):
+            verdict = "reject"
+        return {
+            "verdict": verdict,
+            "suggested_name": (data.get("suggested_name") or "").strip()[:100],
+            "reason": (data.get("reason") or "").strip()[:200],
+        }
+    except Exception:
+        return {"verdict": "merge", "suggested_name": label_names[0], "reason": ""}
+
+
 async def translate_sentence(
     text: str, target_lang: str, *, api_key: str, model: str = DEFAULT_MODEL,
 ) -> dict:

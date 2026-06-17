@@ -241,8 +241,11 @@
     .merge-sug-title { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     .merge-sug-labels { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
     .merge-sug-chip { background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: 999px;
-      padding: 2px 10px; font-size: 0.8rem; color: var(--text); }
-    .merge-sug-actions { display: flex; gap: 6px; }
+      padding: 2px 10px; font-size: 0.8rem; color: var(--text); display: inline-flex; align-items: center; gap: 4px; }
+    .merge-sug-chip .chip-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 0 2px; line-height: 1; opacity: 0.6; }
+    .merge-sug-chip .chip-remove:hover { opacity: 1; color: var(--again); }
+    .merge-sug-reason { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-bottom: 6px; }
+    .merge-sug-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .merge-sug-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px;
       padding: 5px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
     .merge-sug-btn:hover { opacity: 0.9; }
@@ -616,7 +619,7 @@
 
   async function loadMergeSuggestions() {
     const container = document.getElementById('merge-suggestions');
-    container.innerHTML = '<div style="padding:10px 0;color:var(--text-muted);font-size:0.82rem">Checking for merge suggestions…</div>';
+    container.innerHTML = '<div style="padding:10px 0;color:var(--text-muted);font-size:0.82rem">Finding similar labels and reviewing with AI…</div>';
     try {
       const res = await fetch('/api/labels/suggest-merges');
       const { groups } = await res.json();
@@ -650,26 +653,11 @@
         const key = group.labels.map(l => l.id).sort().join(',');
         const card = document.createElement('div');
         card.className = 'merge-sug';
-        const chips = group.labels.map(l =>
-          `<span class="merge-sug-chip">${esc(l.name)} <span style="color:var(--text-muted)">(${l.card_count})</span></span>`
-        ).join('');
-        card.innerHTML = `
-          <div class="merge-sug-labels">${chips}</div>
-          <div class="merge-sug-actions">
-            <span style="font-size:0.78rem;color:var(--text-muted)">Keep:</span>
-            <select class="settings-select merge-sug-target" style="min-width:100px;font-size:0.82rem">
-              ${group.labels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('')}
-            </select>
-            <button class="merge-sug-btn">Merge</button>
-            <button class="merge-sug-dismiss">Dismiss</button>
-          </div>
-        `;
-        card.querySelector('.merge-sug-btn').onclick = () => acceptMergeSuggestion(group, card, wrap);
-        card.querySelector('.merge-sug-dismiss').onclick = () => {
-          _dismissedMergeSuggestions.add(key);
-          card.remove();
-          _updateSuggestionsCount(wrap);
-        };
+        card._labels = [...group.labels];
+        card._dismissKey = key;
+        const sugName = group.suggested_name || group.labels[0].name;
+        const reason = group.reason || '';
+        _renderMergeCard(card, sugName, reason, wrap);
         body.appendChild(card);
       });
 
@@ -679,6 +667,46 @@
     }
   }
 
+  function _renderMergeCard(card, sugName, reason, wrap) {
+    const labels = card._labels;
+    const chips = labels.map(l => {
+      const removeBtn = labels.length > 2
+        ? `<button class="chip-remove" data-id="${l.id}" title="Remove from group">&times;</button>`
+        : '';
+      return `<span class="merge-sug-chip">${esc(l.name)} <span style="color:var(--text-muted)">(${l.card_count})</span>${removeBtn}</span>`;
+    }).join('');
+    const reasonHtml = reason ? `<div class="merge-sug-reason">${esc(reason)}</div>` : '';
+    card.innerHTML = `
+      <div class="merge-sug-labels">${chips}</div>
+      ${reasonHtml}
+      <div class="merge-sug-actions">
+        <span style="font-size:0.78rem;color:var(--text-muted)">Name:</span>
+        <input type="text" class="merge-sug-name" value="${esc(sugName)}" style="border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:0.82rem;min-width:100px;flex:1;max-width:200px;background:var(--bg);color:var(--text);font-family:inherit">
+        <button class="merge-sug-btn">Merge</button>
+        <button class="merge-sug-dismiss">Dismiss</button>
+      </div>
+    `;
+    card.querySelector('.merge-sug-btn').onclick = () => acceptMergeSuggestion(card, wrap);
+    card.querySelector('.merge-sug-dismiss').onclick = () => {
+      if (card._dismissKey) _dismissedMergeSuggestions.add(card._dismissKey);
+      card.remove();
+      _updateSuggestionsCount(wrap);
+    };
+    card.querySelectorAll('.chip-remove').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const removeId = parseInt(btn.dataset.id);
+        card._labels = card._labels.filter(l => l.id !== removeId);
+        if (card._labels.length < 2) {
+          card.remove();
+          _updateSuggestionsCount(wrap);
+        } else {
+          _renderMergeCard(card, card.querySelector('.merge-sug-name').value, '', wrap);
+        }
+      };
+    });
+  }
+
   function _updateSuggestionsCount(wrap) {
     const remaining = wrap.querySelectorAll('.merge-sug').length;
     if (remaining === 0) { wrap.remove(); return; }
@@ -686,13 +714,21 @@
     if (countEl) countEl.textContent = `${remaining} group${remaining !== 1 ? 's' : ''}`;
   }
 
-  async function acceptMergeSuggestion(group, cardEl, wrap) {
-    const targetId = parseInt(cardEl.querySelector('.merge-sug-target').value);
-    const sourceIds = group.labels.map(l => l.id).filter(id => id !== targetId);
-    if (!sourceIds.length) return;
-    const targetName = group.labels.find(l => l.id === targetId)?.name || '';
-    if (!confirm(`Merge ${sourceIds.length} label(s) into "${targetName}"?`)) return;
+  async function acceptMergeSuggestion(cardEl, wrap) {
+    const labels = cardEl._labels;
+    if (!labels || labels.length < 2) return;
+    const desiredName = (cardEl.querySelector('.merge-sug-name')?.value || '').trim();
+    const targetId = labels.reduce((a, b) => a.card_count >= b.card_count ? a : b).id;
+    const sourceIds = labels.map(l => l.id).filter(id => id !== targetId);
+    const targetLabel = labels.find(l => l.id === targetId);
+    if (!confirm(`Merge ${sourceIds.length} label(s) into "${desiredName || targetLabel.name}"?`)) return;
     try {
+      if (desiredName && desiredName !== targetLabel.name) {
+        await fetch(`/api/labels/${targetId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: desiredName }),
+        });
+      }
       const res = await fetch('/api/labels/merge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source_ids: sourceIds, target_id: targetId }),
