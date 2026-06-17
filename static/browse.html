@@ -86,6 +86,15 @@
       font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px;
       border-radius: 10px; text-transform: uppercase; }
 
+    .strength-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 1px 7px; border-radius: 8px; vertical-align: middle; }
+    .strength-new { background: var(--neutral-soft); color: var(--text-muted); }
+    .strength-learning { background: #fef9c3; color: #854d0e; }
+    .strength-familiar { background: #bbf7d0; color: #15803d; }
+    .strength-strong { background: #dcfce7; color: #166534; }
+    .label-chip-static { cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+    .label-chip-static:hover { background: var(--primary-soft); border-color: var(--primary); }
+
     /* ── Deck card ── */
     .deck-list { display: flex; flex-direction: column; gap: 8px; }
     .deck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -205,6 +214,14 @@
         <option value="C1">C1</option>
         <option value="C2">C2</option>
       </select>
+      <span class="filter-label">Strength</span>
+      <select id="cards-strength-filter" onchange="filterCards()">
+        <option value="">All</option>
+        <option value="new">New</option>
+        <option value="learning">Learning</option>
+        <option value="familiar">Familiar</option>
+        <option value="strong">Strong</option>
+      </select>
       <span class="filter-sep"></span>
       <span class="filter-label">Status</span>
       <select id="cards-status-filter" onchange="filterCards()">
@@ -220,6 +237,7 @@
         <option value="priority">Priority</option>
         <option value="alpha">A → Z</option>
         <option value="cefr">CEFR level</option>
+        <option value="strength">Strength</option>
       </select>
       <button class="filter-clear" onclick="clearFilters()">Clear filters</button>
     </div>
@@ -304,6 +322,19 @@
     note: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
     bookmark: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
   };
+
+  const STRENGTH_ORDER = { 'new': 0, learning: 1, familiar: 2, strong: 3 };
+  function cardStrength(card) {
+    if (!card.first_seen_date) return 'new';
+    if (card.learning_step != null) return 'learning';
+    if ((card.interval_days || 1) >= 21 && (card.ease_factor || 2.5) >= 2.0) return 'strong';
+    return 'familiar';
+  }
+  function strengthBadge(card) {
+    const s = cardStrength(card);
+    const labels = { 'new': 'New', learning: 'Learning', familiar: 'Familiar', strong: 'Strong' };
+    return `<span class="strength-badge strength-${s}">${labels[s]}</span>`;
+  }
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -479,6 +510,10 @@
     } else if (statusFilter === 'flagged') {
       filtered = filtered.filter(c => c.tutor_flag);
     }
+    const strengthFilter = document.getElementById('cards-strength-filter').value;
+    if (strengthFilter) {
+      filtered = filtered.filter(c => cardStrength(c) === strengthFilter);
+    }
     const CEFR_ORDER = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
     if (sortBy === 'oldest') {
       filtered = filtered.slice().sort((a, b) => a.id - b.id);
@@ -488,6 +523,8 @@
       filtered = filtered.slice().sort((a, b) => (a.target_text || '').localeCompare(b.target_text || ''));
     } else if (sortBy === 'cefr') {
       filtered = filtered.slice().sort((a, b) => (CEFR_ORDER[a.cefr_level] || 99) - (CEFR_ORDER[b.cefr_level] || 99));
+    } else if (sortBy === 'strength') {
+      filtered = filtered.slice().sort((a, b) => STRENGTH_ORDER[cardStrength(a)] - STRENGTH_ORDER[cardStrength(b)]);
     }
     renderCardsList(filtered);
   }
@@ -498,7 +535,13 @@
     document.getElementById('cards-label-filter').value = '';
     document.getElementById('cards-cefr-filter').value = '';
     document.getElementById('cards-status-filter').value = '';
+    document.getElementById('cards-strength-filter').value = '';
     document.getElementById('cards-sort').value = 'newest';
+    filterCards();
+  }
+
+  function filterByLabel(labelId) {
+    document.getElementById('cards-label-filter').value = String(labelId);
     filterCards();
   }
 
@@ -541,7 +584,7 @@
     applyScript(item, langCode);
 
     const labelsHtml = (card.labels || []).map(l =>
-      `<span class="label-chip-static">${escHtml(l.name)}</span>`
+      `<span class="label-chip-static" onclick="filterByLabel(${l.id})" title="Filter by this label">${escHtml(l.name)}</span>`
     ).join('');
     const notesHtml = card.notes
       ? `<details class="card-list-notes"><summary>${ICONS.note} Note</summary><div>${escHtml(card.notes)}</div></details>`
@@ -562,6 +605,7 @@
         ${romanRowHtml}
         ${card.classifier ? `<span class="card-classifier">${escHtml(card.classifier)}</span>` : ''}
         ${card.cefr_level ? `<span class="cefr-badge cefr-${card.cefr_level}">${escHtml(card.cefr_level)}</span>` : ''}
+        ${strengthBadge(card)}
         <div class="english">${escHtml(card.source_text)}</div>
         ${card.canonical_card_id ? `<div class="card-canonical-ref" id="canonical-ref-${card.id}">Form of: <span class="canonical-target" id="canonical-target-${card.id}">…</span></div>` : ''}
         <div class="card-list-meta" id="meta-${card.id}"></div>

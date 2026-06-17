@@ -1238,11 +1238,35 @@ async def get_all_cards(user_id: int) -> list[dict]:
             tuple(ids) + (user_id,),
         ) as cur:
             label_rows = await cur.fetchall()
+        async with db.execute(
+            f"""SELECT card_id, ease_factor, repetitions, interval_days,
+                       learning_step, first_seen_date
+                FROM card_faces
+                WHERE card_id IN ({placeholders}) AND face = ?""",
+            tuple(ids) + (PRIMARY_FACE,),
+        ) as cur:
+            face_rows = await cur.fetchall()
     by_card: dict[int, list[dict]] = {}
     for lr in label_rows:
         by_card.setdefault(lr["card_id"], []).append({"id": lr["id"], "name": lr["name"]})
+    face_by_card: dict[int, dict] = {}
+    for fr in face_rows:
+        face_by_card[fr["card_id"]] = dict(fr)
     for c in cards:
         c["labels"] = by_card.get(c["id"], [])
+        f = face_by_card.get(c["id"])
+        if f:
+            c["ease_factor"] = f["ease_factor"]
+            c["repetitions"] = f["repetitions"]
+            c["interval_days"] = f["interval_days"]
+            c["learning_step"] = f["learning_step"]
+            c["first_seen_date"] = f["first_seen_date"]
+        else:
+            c["ease_factor"] = 2.5
+            c["repetitions"] = 0
+            c["interval_days"] = 1
+            c["learning_step"] = None
+            c["first_seen_date"] = None
     return cards
 
 
