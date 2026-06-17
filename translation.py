@@ -836,35 +836,39 @@ def suggest_vocab_for_label(
         )
 
     prompt = (
-        f"You are a {lang_name} vocabulary tutor. Suggest {count} useful "
+        f"You are a {lang_name} vocabulary tutor. Suggest exactly {count} "
         f'{lang_name} vocabulary words/phrases that belong to the category '
         f'"{label_name}".\n'
         f"{known_block}\n"
-        f"Return ONLY a JSON array. Each item:\n"
+        f"Return ONLY a JSON array of exactly {count} items. Each item:\n"
         f'{{"target": "({lang_name} word)"{rom_field}, "source": "(English meaning)"}}\n'
         f"Pick common, practical words a language learner should know. "
-        f"Mix difficulty levels. No duplicates.\n"
+        f"Mix difficulty levels (beginner to intermediate). No duplicates. "
+        f"You MUST return {count} items — never return an empty array.\n"
     )
-    try:
-        raw = _call(prompt, api_key, DEFAULT_MODEL)
-        data = _parse_json(raw)
-        if not isinstance(data, list):
-            return []
-        results = []
-        for item in data[:count]:
-            if not isinstance(item, dict):
+    for _attempt in range(2):
+        try:
+            raw = _call(prompt, api_key, DEFAULT_MODEL)
+            data = _parse_json(raw)
+            if not isinstance(data, list):
                 continue
-            target = (item.get("target") or "").strip()
-            source = (item.get("source") or "").strip()
-            if target and source:
-                results.append({
-                    "target": target,
-                    "source": source,
-                    "romanization": (item.get("romanization") or "").strip(),
-                })
-        return results
-    except Exception:
-        return []
+            results = []
+            for item in data[:count]:
+                if not isinstance(item, dict):
+                    continue
+                target = (item.get("target") or "").strip()
+                source = (item.get("source") or "").strip()
+                if target and source:
+                    results.append({
+                        "target": target,
+                        "source": source,
+                        "romanization": (item.get("romanization") or "").strip(),
+                    })
+            if results:
+                return results
+        except Exception:
+            pass
+    return []
 
 
 def review_label_merge(
