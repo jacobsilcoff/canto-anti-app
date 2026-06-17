@@ -67,3 +67,36 @@ async def get_managed_pages(user_token: str) -> list[dict]:
         )
     data = r.json()
     return data.get("data", [])
+
+
+async def get_me(user_token: str) -> dict:
+    """Fetch the authenticated user's basic profile {id, name}."""
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.get(
+            f"{GRAPH}/me",
+            params={"fields": "id,name", "access_token": user_token},
+        )
+    if r.status_code == 200:
+        return r.json()
+    return {}
+
+
+async def get_app_friends(user_token: str) -> list[dict]:
+    """Return the user's friends who ALSO use this app (the only friend data Meta
+    exposes — requires the `user_friends` permission, granted via App Review or
+    for app testers/devs). Each: {id, name}. Paginates through all results."""
+    friends: list[dict] = []
+    url = f"{GRAPH}/me/friends"
+    params = {"access_token": user_token, "fields": "id,name", "limit": "200"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        for _ in range(20):  # hard page cap, just in case
+            r = await client.get(url, params=params)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            friends.extend(data.get("data", []))
+            nxt = (data.get("paging") or {}).get("next")
+            if not nxt:
+                break
+            url, params = nxt, None  # `next` is a fully-formed URL
+    return friends

@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 5;
+  var TOUR_VERSION = 6;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -21,6 +21,8 @@
       body: 'The Labels tab in Browse lets you rename, merge, and delete labels. It auto-suggests merges for similar labels (like "food & drinks" and "foods and drinks") so your deck stays tidy.', v: 5 },
     { icon: '⚠️', title: 'Report bugs & ideas',
       body: 'Found a bug or have a feature request? Use the Feedback page to submit a report — you can attach a screenshot and track the status of your submissions.', v: 2 },
+    { icon: '📘', title: 'Find friends from Facebook',
+      body: 'Open Friends in Messages and connect Facebook to find friends who already use the app, then add them in one tap. Or fill out the Populate suggestions on a label to flesh out a category.', v: 6 },
   ];
 
   var steps, stepIdx;

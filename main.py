@@ -4846,6 +4846,104 @@ async def disconnect_messenger(user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+# ── Social connect (Facebook) — identity + mutual-app-friend discovery ─────────
+# NOTE: friend discovery uses Graph `/me/friends`, which returns ONLY friends who
+# also use this app AND granted `user_friends`. Until Meta App Review approves
+# `user_friends`, this works only for the app's own developers/testers. The OAuth
+# + matching plumbing is in place so enabling it later is just a review away.
+
+_FB_OAUTH_SCOPES = "public_profile,user_friends"
+_oauth_states: dict[str, tuple[int, float]] = {}  # CSRF state → (user_id, expiry)
+
+
+def _fb_redirect_uri() -> str:
+    return f"{email_utils.APP_URL}/api/social/facebook/callback"
+
+
+@app.get("/api/social/facebook/login")
+async def facebook_login(user: dict = Depends(current_user)):
+    """Return the Facebook OAuth dialog URL (frontend redirects the browser to it)."""
+    if not _FB_APP_ID or not _FB_APP_SECRET:
+        raise HTTPException(400, "Facebook integration is not configured.")
+    now = time.time()
+    for k in [k for k, (_, exp) in _oauth_states.items() if exp < now]:
+        _oauth_states.pop(k, None)
+    state = secrets.token_urlsafe(24)
+    _oauth_states[state] = (user["id"], now + 600)
+    from urllib.parse import urlencode
+    params = urlencode({
+        "client_id": _FB_APP_ID,
+        "redirect_uri": _fb_redirect_uri(),
+        "state": state,
+        "scope": _FB_OAUTH_SCOPES,
+        "response_type": "code",
+    })
+    return {"url": f"https://www.facebook.com/v19.0/dialog/oauth?{params}"}
+
+
+@app.get("/api/social/facebook/callback")
+async def facebook_callback(code: str = "", state: str = "", error: str = "",
+                            user: dict = Depends(current_user)):
+    """OAuth redirect target. Verifies CSRF state, exchanges the code, stores the
+    connection, then bounces back to the messages page."""
+    if error or not code:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    entry = _oauth_states.pop(state, None)
+    if not entry or entry[0] != user["id"] or entry[1] < time.time():
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    token_resp = await _messenger.exchange_code_for_token(
+        _FB_APP_ID, _FB_APP_SECRET, _fb_redirect_uri(), code)
+    token = token_resp.get("access_token")
+    if not token:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    me = await _messenger.get_me(token)
+    fb_id = me.get("id")
+    if not fb_id:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    await db.upsert_social_account(
+        user["id"], "facebook", fb_id, crypto.encrypt(token), me.get("name"))
+    return RedirectResponse("/messages?fb=connected", status_code=302)
+
+
+@app.get("/api/social/facebook/status")
+async def facebook_status(user: dict = Depends(current_user)):
+    acct = await db.get_social_account(user["id"], "facebook")
+    return {
+        "connected": bool(acct),
+        "display_name": acct["display_name"] if acct else None,
+        "configured": bool(_FB_APP_ID and _FB_APP_SECRET),
+    }
+
+
+@app.delete("/api/social/facebook/disconnect")
+async def facebook_disconnect(user: dict = Depends(current_user)):
+    await db.delete_social_account(user["id"], "facebook")
+    return {"ok": True}
+
+
+@app.get("/api/social/facebook/friend-suggestions")
+async def facebook_friend_suggestions(user: dict = Depends(current_user)):
+    """Friends-of-this-user who also use the app (mapped from Facebook), minus
+    anyone already a friend / pending. Each: {user_id, username}."""
+    acct = await db.get_social_account(user["id"], "facebook")
+    if not acct:
+        raise HTTPException(400, "Facebook not connected")
+    try:
+        token = crypto.decrypt(acct["access_token"])
+    except Exception:
+        raise HTTPException(400, "Stored Facebook token is invalid — please reconnect.")
+    fb_friends = await _messenger.get_app_friends(token)
+    fb_ids = [f["id"] for f in fb_friends if f.get("id")]
+    matched = await db.get_users_by_social_ids("facebook", fb_ids, user["id"])
+    rel = await db.get_friends(user["id"])
+    excluded = ({f["user_id"] for f in rel["friends"]}
+                | {f["user_id"] for f in rel["sent"]}
+                | {f["user_id"] for f in rel["received"]})
+    suggestions = [{"user_id": m["user_id"], "username": m["username"]}
+                   for m in matched if m["user_id"] not in excluded]
+    return {"suggestions": suggestions, "fb_friend_count": len(fb_ids)}
+
+
 @app.get("/api/messenger/webhook")
 async def messenger_webhook_verify(
     request: Request,

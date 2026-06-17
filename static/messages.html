@@ -498,6 +498,25 @@
           <div id="friend-search-result"></div>
         </div>
 
+        <!-- Find friends via Facebook -->
+        <div class="modal-section" id="fb-friends-section" style="display:none">
+          <div class="modal-section-title">Find friends from Facebook</div>
+          <div id="fb-connect-view">
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 10px">
+              Connect Facebook to find friends who already use the app.
+            </p>
+            <button class="friend-search-btn" onclick="connectFacebook()">📘 Connect Facebook</button>
+          </div>
+          <div id="fb-connected-view" style="display:none">
+            <div class="friend-result">
+              <span class="friend-result-name">📘 <span id="fb-display-name"></span></span>
+              <button class="friend-action-btn" onclick="loadFacebookSuggestions()">Find friends</button>
+              <button class="friend-action-btn danger" onclick="disconnectFacebook()">Disconnect</button>
+            </div>
+            <div id="fb-suggestions"></div>
+          </div>
+        </div>
+
         <!-- Pending requests -->
         <div class="modal-section" id="pending-section" style="display:none">
           <div class="modal-section-title">Friend requests</div>
@@ -706,6 +725,14 @@
     loadFriends();
     loadMessengerStatus();
     startPolling();
+
+    // Handle the Facebook OAuth callback redirect (?fb=connected|error)
+    const fb = new URLSearchParams(location.search).get('fb');
+    if (fb) {
+      history.replaceState(null, '', location.pathname);
+      if (fb === 'connected') { showToast('Facebook connected ✓'); openFriendsModal(); }
+      else if (fb === 'error') { showToast('Facebook connection failed'); }
+    }
   }
 
   // ── Conversations list ────────────────────────────────────────────────────
@@ -1526,6 +1553,55 @@
     switchFriendsTab('friends');
     loadFriends();
     loadMessengerStatus();
+    loadFacebookStatus();
+  }
+
+  // ── Find friends via Facebook ─────────────────────────────────────────────
+  async function loadFacebookStatus() {
+    try {
+      const data = await fetch('/api/social/facebook/status').then(r => r.json());
+      const section = document.getElementById('fb-friends-section');
+      if (!data.configured) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      document.getElementById('fb-connect-view').style.display = data.connected ? 'none' : '';
+      document.getElementById('fb-connected-view').style.display = data.connected ? '' : 'none';
+      if (data.connected) document.getElementById('fb-display-name').textContent = data.display_name || 'Connected';
+    } catch {}
+  }
+
+  async function connectFacebook() {
+    try {
+      const { url } = await fetch('/api/social/facebook/login').then(r => r.json());
+      if (url) window.location.href = url;
+    } catch { showToast('Could not start Facebook connect'); }
+  }
+
+  async function disconnectFacebook() {
+    if (!confirm('Disconnect Facebook?')) return;
+    await fetch('/api/social/facebook/disconnect', { method: 'DELETE' });
+    loadFacebookStatus();
+  }
+
+  async function loadFacebookSuggestions() {
+    const el = document.getElementById('fb-suggestions');
+    el.innerHTML = '<div class="modal-empty">Looking for friends…</div>';
+    try {
+      const data = await fetch('/api/social/facebook/friend-suggestions').then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Failed');
+        return r.json();
+      });
+      if (!data.suggestions || !data.suggestions.length) {
+        el.innerHTML = `<div class="modal-empty">No Facebook friends on the app yet${data.fb_friend_count ? '' : ' (and none of your friends have connected Facebook here)'}. Invite them!</div>`;
+        return;
+      }
+      el.innerHTML = data.suggestions.map(s => `
+        <div class="friend-result">
+          <span class="friend-result-name">${esc(s.username)}</span>
+          <button class="friend-action-btn" onclick="sendReq('${esc(s.username)}', this)">Add friend</button>
+        </div>`).join('');
+    } catch (e) {
+      el.innerHTML = `<div class="modal-empty">${esc(e.message || 'Could not load suggestions.')}</div>`;
+    }
   }
   function closeFriendsModal() {
     document.getElementById('friends-modal').style.display = 'none';

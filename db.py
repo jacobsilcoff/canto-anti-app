@@ -3229,6 +3229,67 @@ async def get_user_by_messenger_page(page_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+# ── Connected social accounts (Facebook / Instagram) ───────────────────────────
+
+async def upsert_social_account(user_id: int, provider: str, provider_user_id: str,
+                                access_token: str | None, display_name: str | None) -> None:
+    """Store/refresh a user's connected social account. access_token is ciphertext."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO social_accounts
+                 (user_id, provider, provider_user_id, access_token, display_name)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(user_id, provider) DO UPDATE SET
+                 provider_user_id=excluded.provider_user_id,
+                 access_token=excluded.access_token,
+                 display_name=excluded.display_name,
+                 connected_at=datetime('now')""",
+            (user_id, provider, provider_user_id, access_token, display_name),
+        )
+        await db.commit()
+
+
+async def get_social_account(user_id: int, provider: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT provider, provider_user_id, access_token, display_name, connected_at
+               FROM social_accounts WHERE user_id=? AND provider=?""",
+            (user_id, provider),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_social_account(user_id: int, provider: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM social_accounts WHERE user_id=? AND provider=?", (user_id, provider)
+        )
+        await db.commit()
+
+
+async def get_users_by_social_ids(provider: str, provider_user_ids: list[str],
+                                  exclude_user_id: int) -> list[dict]:
+    """Map a list of provider account ids → our users who connected that provider.
+    Used to surface a learner's app-using social friends. Returns
+    [{user_id, username, provider_user_id}]."""
+    if not provider_user_ids:
+        return []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        placeholders = ",".join("?" for _ in provider_user_ids)
+        async with db.execute(
+            f"""SELECT s.user_id, s.provider_user_id, u.username
+                FROM social_accounts s JOIN users u ON u.id = s.user_id
+                WHERE s.provider=? AND s.user_id!=? AND s.provider_user_id IN ({placeholders})""",
+            (provider, exclude_user_id, *provider_user_ids),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [{"user_id": r["user_id"], "username": r["username"],
+             "provider_user_id": r["provider_user_id"]} for r in rows]
+
+
 # ── Feedback / bug reports ───────────────────────────────────────────────────
 
 async def create_feedback(
