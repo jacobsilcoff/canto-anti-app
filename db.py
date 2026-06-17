@@ -3520,7 +3520,7 @@ async def list_my_decks(user_id: int) -> list[dict]:
 
 async def list_community_decks(
     requesting_user_id: int, target_lang: str | None = None,
-    search: str | None = None,
+    search: str | None = None, sort: str | None = None,
 ) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -3533,10 +3533,14 @@ async def list_community_decks(
                    COUNT(sdi.id) as card_count,
                    (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
                    EXISTS(SELECT 1 FROM deck_imports di2
-                          WHERE di2.deck_id=sd.id AND di2.user_id=?) as imported
+                          WHERE di2.deck_id=sd.id AND di2.user_id=?) as imported,
+                   COALESCE(dr.avg_r, 0) as avg_rating,
+                   COALESCE(dr.cnt, 0) as rating_count
             FROM shared_decks sd
             JOIN users u ON sd.creator_id = u.id
             LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+            LEFT JOIN (SELECT deck_id, AVG(rating) as avg_r, COUNT(*) as cnt
+                       FROM deck_ratings GROUP BY deck_id) dr ON dr.deck_id = sd.id
             WHERE sd.creator_id != ?
               AND (sd.visibility = 'public'
                    OR (sd.visibility = 'friends' AND EXISTS (
@@ -3552,7 +3556,11 @@ async def list_community_decks(
         if search:
             sql += " AND (sd.name LIKE ? OR sd.description LIKE ?)"
             params.extend([f"%{search}%", f"%{search}%"])
-        sql += " GROUP BY sd.id ORDER BY sd.created_at DESC LIMIT 100"
+        order_map = {
+            "rating": "avg_rating DESC, sd.created_at DESC",
+            "popular": "import_count DESC, sd.created_at DESC",
+        }
+        sql += f" GROUP BY sd.id ORDER BY {order_map.get(sort or '', 'sd.created_at DESC')} LIMIT 100"
         async with db.execute(sql, params) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
@@ -3617,7 +3625,44 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             row2 = await cur.fetchone()
             if row2:
                 d["import_count"] = row2[0]
+        async with db.execute(
+            "SELECT AVG(rating), COUNT(*) FROM deck_ratings WHERE deck_id=?",
+            (deck_id,),
+        ) as cur:
+            rrow = await cur.fetchone()
+            d["avg_rating"] = rrow[0] or 0
+            d["rating_count"] = rrow[1] or 0
+        async with db.execute(
+            "SELECT rating FROM deck_ratings WHERE deck_id=? AND user_id=?",
+            (deck_id, requesting_user_id),
+        ) as cur:
+            urow = await cur.fetchone()
+            d["user_rating"] = urow[0] if urow else None
         return d
+
+
+async def rate_deck(user_id: int, deck_id: int, rating: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO deck_ratings (deck_id, user_id, rating)
+               VALUES (?, ?, ?)
+               ON CONFLICT(deck_id, user_id) DO UPDATE SET rating=excluded.rating""",
+            (deck_id, user_id, rating),
+        )
+        await db.commit()
+
+
+async def get_deck_rating(deck_id: int) -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT AVG(rating), COUNT(*) FROM deck_ratings WHERE deck_id=?",
+            (deck_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            return {
+                "avg_rating": row[0] or 0,
+                "rating_count": row[1] or 0,
+            }
 
 
 async def import_deck(user_id: int, deck_id: int) -> dict:

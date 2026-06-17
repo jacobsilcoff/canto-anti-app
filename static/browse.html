@@ -186,6 +186,28 @@
     .deck-delete-btn { background: none; border: 1px solid var(--danger); border-radius: 8px;
       color: var(--danger); cursor: pointer; padding: 5px 12px; font-size: 0.82rem; font-weight: 600; }
     .deck-delete-btn:hover { background: var(--danger); color: #fff; }
+
+    /* ── Community filters ── */
+    .comm-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .comm-filters input { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
+    .comm-filters input:focus { outline: none; border-color: var(--primary); }
+    .comm-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px;
+      font-size: 0.82rem; background: var(--bg); color: var(--text); font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+    .comm-filters select:focus { outline: none; border-color: var(--primary); }
+
+    /* ── Rating stars ── */
+    .deck-stars { display: inline-flex; gap: 1px; }
+    .deck-stars .star { color: var(--border); cursor: default; font-size: 0.9rem; }
+    .deck-stars .star.filled { color: var(--warn-accent); }
+    .deck-stars-interactive .star { cursor: pointer; font-size: 1.1rem; transition: color 0.1s; }
+    .deck-stars-interactive .star:hover { color: var(--warn-accent); }
+    .deck-rating-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
+    .deck-card-stars { font-size: 0.78rem; }
+    .deck-card-stars .filled { color: var(--warn-accent); }
   </style>
 </head>
 <body>
@@ -271,8 +293,14 @@
 
   <!-- Community decks -->
   <div id="community-decks-view" style="display:none">
-    <div class="browse-search">
+    <div class="comm-filters">
       <input id="deck-search" placeholder="Search decks…" oninput="searchCommunity()">
+      <select id="comm-deck-lang" class="settings-select" onchange="loadCommunityDecks()"></select>
+      <select id="comm-deck-sort" class="settings-select" onchange="loadCommunityDecks()">
+        <option value="">Newest</option>
+        <option value="rating">Top rated</option>
+        <option value="popular">Most imported</option>
+      </select>
     </div>
     <div class="deck-list" id="community-deck-list"></div>
   </div>
@@ -425,6 +453,7 @@
     languages.forEach(l => { if (l && l.code) _langMap[l.code] = l; });
     langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
     populateCardsLangFilter();
+    populateCommDeckLangFilter();
     loadLabels();
     filterCards();
   }
@@ -1009,12 +1038,63 @@
     _searchDebounce = setTimeout(loadCommunityDecks, 200);
   }
 
+  function _deckStarsHtml(avg, count) {
+    if (!count) return '';
+    let h = '<span class="deck-card-stars">';
+    const rounded = Math.round(avg);
+    for (let i = 1; i <= 5; i++) h += `<span class="${i <= rounded ? 'filled' : ''}">★</span>`;
+    h += ` <span style="color:var(--text-muted)">(${count})</span></span>`;
+    return h;
+  }
+
+  function _interactiveStars(currentRating, deckId) {
+    let h = '';
+    for (let i = 1; i <= 5; i++) {
+      h += `<span class="star${i <= currentRating ? ' filled' : ''}" onclick="rateDeck(${deckId},${i})" data-star="${i}">★</span>`;
+    }
+    return h;
+  }
+
+  async function rateDeck(deckId, rating) {
+    try {
+      const res = await fetch(`/api/decks/${deckId}/rate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rating})
+      }).then(r => r.json());
+      const starsEl = document.getElementById('deck-rate-stars');
+      if (starsEl) starsEl.innerHTML = _interactiveStars(rating, deckId);
+      const infoEl = document.getElementById('deck-rate-info');
+      if (infoEl) infoEl.textContent = `${Number(res.avg_rating).toFixed(1)} avg (${res.rating_count})`;
+    } catch {
+      showToast('Rating failed');
+    }
+  }
+
+  function populateCommDeckLangFilter() {
+    const sel = document.getElementById('comm-deck-lang');
+    sel.innerHTML = '<option value="">All languages</option>';
+    languages.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = `${l.flag} ${l.name}`;
+      if (l.code === _defaultLang) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
   async function loadCommunityDecks() {
+    const params = new URLSearchParams();
     const q = document.getElementById('deck-search').value.trim();
-    const params = q ? '?search=' + encodeURIComponent(q) : '';
+    const lang = document.getElementById('comm-deck-lang').value;
+    const sort = document.getElementById('comm-deck-sort').value;
+    if (q) params.set('search', q);
+    if (lang) params.set('lang', lang);
+    if (sort) params.set('sort', sort);
+    const qs = params.toString();
     const list = document.getElementById('community-deck-list');
     try {
-      const res = await fetch('/api/decks/community' + params).then(r => r.json());
+      const res = await fetch('/api/decks/community' + (qs ? '?' + qs : '')).then(r => r.json());
       const decks = res.decks || [];
       if (!decks.length) {
         list.innerHTML = '<div class="deck-empty">No shared decks found.</div>';
@@ -1032,6 +1112,7 @@
             <span>${d.card_count} cards</span>
             <span>by ${esc(d.creator)}</span>
             <span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>
+            ${_deckStarsHtml(d.avg_rating, d.rating_count)}
             ${d.imported ? '<span style="color:var(--primary);font-weight:600">Imported</span>' : ''}
           </div>`;
         card.onclick = () => openDeckDetail(d.id, false);
@@ -1069,6 +1150,12 @@
       } else {
         actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id})">Import ${items.length} cards to my deck</button>`;
       }
+      const ratingHtml = isMine ? '' : `
+        <div class="deck-rating-row">
+          <span>Rate this deck:</span>
+          <span class="deck-stars deck-stars-interactive" id="deck-rate-stars">${_interactiveStars(d.user_rating || 0, deckId)}</span>
+          <span id="deck-rate-info">${d.rating_count ? `${Number(d.avg_rating).toFixed(1)} avg (${d.rating_count})` : 'No ratings yet'}</span>
+        </div>`;
       container.innerHTML = `
         <button class="deck-back-btn" onclick="closeDeckDetail()">← Back</button>
         <h2>${esc(d.name)}</h2>
@@ -1079,6 +1166,7 @@
           <span>${d.import_count || 0} import${(d.import_count||0) !== 1 ? 's' : ''}</span>
           <span>${d.visibility}</span>
         </div>
+        ${ratingHtml}
         ${actionsHtml}
         <div class="deck-detail-items">
           ${items.map(it => `

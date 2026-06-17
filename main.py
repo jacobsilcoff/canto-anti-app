@@ -4014,9 +4014,10 @@ async def my_decks(user: dict = Depends(current_user)):
 async def community_decks(
     search: str | None = None,
     lang: str | None = None,
+    sort: str | None = None,
     user: dict = Depends(current_user),
 ):
-    return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search)}
+    return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search, sort=sort)}
 
 @app.get("/api/decks/{deck_id}")
 async def get_deck(deck_id: int, user: dict = Depends(current_user)):
@@ -4024,6 +4025,18 @@ async def get_deck(deck_id: int, user: dict = Depends(current_user)):
     if not deck:
         raise HTTPException(404, "Deck not found or not accessible")
     return deck
+
+@app.post("/api/decks/{deck_id}/rate")
+async def rate_deck(deck_id: int, request: Request, user: dict = Depends(current_user)):
+    body = await request.json()
+    rating = body.get("rating")
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        raise HTTPException(400, "Rating must be 1–5")
+    deck = await db.get_shared_deck(deck_id, user["id"])
+    if not deck:
+        raise HTTPException(404, "Deck not found or not accessible")
+    await db.rate_deck(user["id"], deck_id, rating)
+    return await db.get_deck_rating(deck_id)
 
 @app.post("/api/decks/{deck_id}/import")
 async def import_deck(deck_id: int, user: dict = Depends(current_user)):
