@@ -3476,11 +3476,29 @@ async def update_shared_deck(
 
 async def delete_shared_deck(user_id: int, deck_id: int) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute(
+        async with db.execute(
+            "SELECT name FROM shared_decks WHERE id=? AND creator_id=?",
+            (deck_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return False
+        deck_name = row[0]
+        await db.execute(
             "DELETE FROM shared_decks WHERE id=? AND creator_id=?", (deck_id, user_id)
         )
+        label_name = f"📦 {deck_name}"
+        async with db.execute(
+            "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+            (user_id, label_name),
+        ) as cur:
+            lrow = await cur.fetchone()
+        if lrow:
+            label_id = lrow[0]
+            await db.execute("DELETE FROM card_labels WHERE label_id=?", (label_id,))
+            await db.execute("DELETE FROM labels WHERE id=?", (label_id,))
         await db.commit()
-        return cur.rowcount > 0
+        return True
 
 
 async def list_my_decks(user_id: int) -> list[dict]:
