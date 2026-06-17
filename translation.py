@@ -809,6 +809,64 @@ def triage_feedback(
         }
 
 
+def suggest_vocab_for_label(
+    label_name: str,
+    target_lang: str,
+    known_words: list[str],
+    api_key: str,
+    count: int = 10,
+) -> list[dict]:
+    """Ask an LLM to suggest vocabulary words that fit a label/category.
+
+    Returns: [{"target": "...", "source": "...", "romanization": "..."}]
+    """
+    if target_lang not in LANG_INFO:
+        return []
+    info = LANG_INFO[target_lang]
+    lang_name = info["name"]
+    rom_name = info.get("romanization", "")
+    rom_field = f', "romanization": "({rom_name})"' if rom_name else ""
+
+    known_block = ""
+    if known_words:
+        sample = known_words[:50]
+        known_block = (
+            f"\nThe learner already knows these words (do NOT repeat them): "
+            f"{', '.join(sample)}\n"
+        )
+
+    prompt = (
+        f"You are a {lang_name} vocabulary tutor. Suggest {count} useful "
+        f'{lang_name} vocabulary words/phrases that belong to the category '
+        f'"{label_name}".\n'
+        f"{known_block}\n"
+        f"Return ONLY a JSON array. Each item:\n"
+        f'{{"target": "({lang_name} word)"{rom_field}, "source": "(English meaning)"}}\n'
+        f"Pick common, practical words a language learner should know. "
+        f"Mix difficulty levels. No duplicates.\n"
+    )
+    try:
+        raw = _call(prompt, api_key, DEFAULT_MODEL)
+        data = _parse_json(raw)
+        if not isinstance(data, list):
+            return []
+        results = []
+        for item in data[:count]:
+            if not isinstance(item, dict):
+                continue
+            target = (item.get("target") or "").strip()
+            source = (item.get("source") or "").strip()
+            if target and source:
+                results.append({
+                    "target": target,
+                    "source": source,
+                    "romanization": (item.get("romanization") or "").strip(),
+                })
+        return results
+    except Exception:
+        return []
+
+
 def review_label_merge(
     label_names: list[str],
     api_key: str,
