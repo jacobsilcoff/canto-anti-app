@@ -1274,10 +1274,28 @@ async def _atomize_phrase_bg(
                 label_ids=label_ids,
                 priority=result.get("priority", priority),
                 classifier=result.get("classifier", ""),
+                suggested_label_names=result.get("suggested_labels", []),
                 cefr_level=result.get("cefr_level"),
             )
         except Exception:
             pass
+
+
+async def _autolabel_card_bg(
+    user_id: int, card_id: int, source_text: str, target_text: str,
+    target_lang: str, api_key: str, model: str,
+) -> None:
+    """Background: generate + attach organisational labels for a card that was
+    created without any. Keeps every add path (tutor chips, lesson 'add to deck',
+    atomized words) consistently labeled. Best-effort."""
+    try:
+        names = await translation.suggest_labels(
+            source_text, target_text, target_lang, api_key=api_key, model=model,
+        )
+        if names:
+            await db.add_labels_by_name(user_id, card_id, names)
+    except Exception:
+        pass
 
 
 async def _backfill_classifiers_bg(user_id: int, lang: str, api_key: str) -> None:
@@ -1354,6 +1372,14 @@ async def create_card(
                 _atomize_phrase_bg,
                 user["id"], target_text, req.target_lang,
                 extra_label_ids, req.priority, access.api_key, access.model_translate,
+            )
+        # Auto-label cards added without any labels (tutor chips, lesson "add to
+        # deck", etc.) so every word in the deck is organised, like translate adds.
+        if not extra_label_ids and not (req.suggested_labels or []):
+            background_tasks.add_task(
+                _autolabel_card_bg,
+                user["id"], card_id, req.source_text.strip(), target_text,
+                req.target_lang, access.api_key, access.model_translate,
             )
     except HTTPException:
         pass
@@ -3931,12 +3957,12 @@ async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)
     cards = await db.get_all_cards(user["id"])
     card_map = {c["id"]: c for c in cards}
     items = []
-    lang_counts: dict[str, int] = {}
+    langs: set[str] = set()
     for cid in req.card_ids:
         c = card_map.get(cid)
         if c:
             clang = c.get("target_lang") or default_lang
-            lang_counts[clang] = lang_counts.get(clang, 0) + 1
+            langs.add(clang)
             items.append({
                 "source_text": c["source_text"],
                 "target_text": c["target_text"],
@@ -3946,10 +3972,10 @@ async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)
             })
     if not items:
         raise HTTPException(400, "No valid cards found")
-    # Deck-level language = the dominant language among the chosen cards (used for
-    # the badge / optional language filter). Each item keeps its own language so a
-    # mixed-language deck imports each card correctly.
-    deck_lang = max(lang_counts, key=lang_counts.get) if lang_counts else default_lang
+    # A deck holds a single language — keeps the deck (and importers' cards) coherent.
+    if len(langs) > 1:
+        raise HTTPException(400, "A deck can only contain cards from one language")
+    deck_lang = next(iter(langs)) if langs else default_lang
     deck_id = await db.create_shared_deck(
         user["id"], req.name.strip(), req.description.strip(),
         deck_lang, req.visibility, items,

@@ -913,6 +913,42 @@ async def create_card(
         return card_id
 
 
+async def add_labels_by_name(user_id: int, card_id: int, names: list[str]) -> list[int]:
+    """Auto-create labels by name (if needed) and attach them to an existing card.
+    Used by the background auto-labeler. Returns the attached label ids."""
+    if not names:
+        return []
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Only operate on a card the user actually owns.
+        async with db.execute(
+            "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return []
+        attached: list[int] = []
+        for name in names:
+            name = (name or "").strip()
+            if not name:
+                continue
+            await db.execute(
+                "INSERT OR IGNORE INTO labels (user_id, name, is_story_label) VALUES (?, ?, 0)",
+                (user_id, name),
+            )
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, name),
+            ) as cur:
+                row = await cur.fetchone()
+            if row:
+                await db.execute(
+                    "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+                    (card_id, row[0]),
+                )
+                attached.append(row[0])
+        await db.commit()
+        return attached
+
+
 _CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, priority, tutor_flag, suspended, classifier, canonical_card_id, cefr_level"
 
 
@@ -3461,8 +3497,10 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             (uid, deck_id),
         ) as cur:
             d["imported"] = bool(await cur.fetchone())
+        # The "📦 {name}" label exists for both the creator (tagged at creation)
+        # and importers — expose its id so either can study the deck directly.
         d["import_label_id"] = None
-        if d["imported"]:
+        if d["imported"] or cid == uid:
             label_name = f"📦 {d['name']}"
             async with db.execute(
                 "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",

@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/label-picker.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -39,21 +40,42 @@
     .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
     .study-link { font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; }
     .study-link:hover { text-decoration: underline; }
-    .card-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-      border-bottom: 1px solid var(--border); background: var(--surface); }
-    .card-row:first-child { border-radius: 10px 10px 0 0; }
-    .card-row:last-child { border-bottom: none; border-radius: 0 0 10px 10px; }
-    .card-row:only-child { border-radius: 10px; }
-    .card-row-body { flex: 1; min-width: 0; }
-    .card-row-target { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card-row-roman { font-size: 0.82rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card-row-source { font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card-row-labels { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
-    .card-row-label { font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 10px;
-      background: var(--primary-soft); color: var(--primary); white-space: nowrap; }
-    .card-row-cefr { font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 10px;
-      background: var(--neutral-soft); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
-    .card-list-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 0; }
+    .card-list-wrap { min-width: 0; }
+
+    /* Card-browser styles ported from the flashcards page (most live in the
+       shared style.css; these are the page-specific extras). */
+    .lang-tag { display: inline-block; background: var(--primary-soft); color: var(--primary);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
+    .priority-dots { display: inline-flex; gap: 4px; align-items: center; }
+    .priority-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border);
+      transition: background 0.15s; flex-shrink: 0; }
+    .priority-dot.filled { background: var(--primary); }
+    .priority-dots.interactive .priority-dot { cursor: pointer; width: 10px; height: 10px; }
+    .priority-dots.interactive .priority-dot:hover { background: var(--primary); opacity: 0.6; }
+    .meta-action-btn { background: none; border: 1px solid var(--border); border-radius: 999px;
+      padding: 5px 12px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s; }
+    .meta-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .meta-action-btn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .meta-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
+    .meta-action-btn svg.icon { width: 13px; height: 13px; vertical-align: 0; }
+    .cefr-badge { display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em;
+      padding: 1px 6px; border-radius: 8px; vertical-align: middle; margin-left: 4px; }
+    .cefr-A1 { background: #dcfce7; color: #166534; }
+    .cefr-A2 { background: #bbf7d0; color: #15803d; }
+    .cefr-B1 { background: #fef9c3; color: #854d0e; }
+    .cefr-B2 { background: #fed7aa; color: #9a3412; }
+    .cefr-C1 { background: #fecaca; color: #991b1b; }
+    .cefr-C2 { background: #f3e8ff; color: #6b21a8; }
+    .card-list-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .card-list-item.suspended { opacity: 0.45; }
+    .suspended-badge { display: inline-block; background: var(--neutral-soft); color: var(--text-muted);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
+    .tutor-flag-badge { display: inline-block; background: var(--primary-soft); color: var(--primary);
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px;
+      border-radius: 10px; text-transform: uppercase; }
 
     /* ── Deck card ── */
     .deck-list { display: flex; flex-direction: column; gap: 8px; }
@@ -190,9 +212,10 @@
         </div>
       </div>
       <div class="create-form-group">
-        <div class="create-form-label">Select cards</div>
+        <div class="create-form-label">Select cards <span style="font-weight:400;text-transform:none;letter-spacing:0">· one language per deck</span></div>
         <div class="picker-toolbar">
           <input type="text" id="picker-search" placeholder="Search cards…" oninput="filterPicker()">
+          <select id="picker-lang-filter" onchange="onPickerLangChange()"></select>
           <select id="picker-label-filter" onchange="filterPicker()">
             <option value="">All labels</option>
           </select>
@@ -228,17 +251,78 @@
 <script>
   let _allCards = [];
   let _allLabels = [];
+  let allLabels = [];          // alias used by the ported card-browser helpers
   let _selectedCards = new Set();
+  let _pickerLang = '';        // language the deck picker is restricted to
   let _currentTab = 'cards';
   let _defaultLang = '';
   let _langMap = {};
+  let languages = [];
+  let langByCode = {};
+
+  // SVG icons (subset used by the card browser).
+  const ICONS = {
+    pencil: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+    trash: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    note: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+    bookmark: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+  };
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
 
   function langBadge(code) {
     const l = _langMap[code];
     if (!l) return code ? esc(code) : '';
     return `${l.flag || ''} ${esc(l.name || code)}`.trim();
+  }
+
+  // ── Language helpers (ported from the flashcards page) ──
+  function langInfo(code) {
+    return langByCode[code] || { code, name: code, romanization: null, logographic: false };
+  }
+  function isLogographic(code) { return !!langInfo(code).logographic; }
+  function scriptFamily(code) { return langInfo(code).script_family || 'latin'; }
+  function applyScript(el, code) {
+    if (!el) return;
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
+    el.classList.add('script-' + scriptFamily(code));
+  }
+  function faceLabels(code) {
+    const info = langInfo(code);
+    return {
+      source: 'English',
+      target: info.name,
+      pronunciation: info.romanization
+        ? info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1)
+        : 'Audio',
+    };
+  }
+  function romanizationFieldLabel(code) {
+    const info = langInfo(code);
+    if (!info.romanization) return null;
+    return info.romanization.charAt(0).toUpperCase() + info.romanization.slice(1);
+  }
+
+  // ── Priority dots ──
+  function renderPriorityDots(priority, interactive, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'priority-dots' + (interactive ? ' interactive' : '');
+    wrap.title = `Priority: ${priority}/5`;
+    for (let i = 1; i <= 5; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'priority-dot' + (i <= priority ? ' filled' : '');
+      if (interactive && onChange) { const level = i; dot.onclick = () => onChange(level); }
+      wrap.appendChild(dot);
+    }
+    return wrap;
+  }
+  function updatePriorityDots(container, priority) {
+    container.querySelectorAll('.priority-dot').forEach((dot, i) => {
+      dot.classList.toggle('filled', i + 1 <= priority);
+    });
+    container.title = `Priority: ${priority}/5`;
   }
 
   function showToast(msg) {
@@ -256,7 +340,11 @@
       fetch('/api/languages').then(r => r.json()).catch(() => ({})),
     ]);
     _defaultLang = settingsRes.default_target_lang || '';
-    (langs.languages || langs || []).forEach(l => { if (l && l.code) _langMap[l.code] = l; });
+    languages = langs.languages || langs || [];
+    languages.forEach(l => { if (l && l.code) _langMap[l.code] = l; });
+    langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
+    _pickerLang = _defaultLang || (languages[0] && languages[0].code) || '';
+    populatePickerLangFilter();
     loadLabels();
     filterCards();
   }
@@ -264,11 +352,23 @@
   async function loadLabels() {
     try {
       const res = await fetch('/api/labels').then(r => r.json());
-      _allLabels = res.labels || [];
+      _allLabels = allLabels = res.labels || [];
       const opts = _allLabels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
       document.getElementById('cards-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
       document.getElementById('picker-label-filter').innerHTML = '<option value="">All labels</option>' + opts;
     } catch {}
+  }
+
+  // Populate the deck picker's language selector from the languages the user
+  // actually has cards in (a deck holds a single language).
+  function populatePickerLangFilter() {
+    const sel = document.getElementById('picker-lang-filter');
+    if (!sel) return;
+    const present = [...new Set(_allCards.map(c => c.target_lang).filter(Boolean))];
+    if (_pickerLang && !present.includes(_pickerLang)) present.unshift(_pickerLang);
+    sel.innerHTML = present.map(code =>
+      `<option value="${code}"${code === _pickerLang ? ' selected' : ''}>${langBadge(code)}</option>`
+    ).join('');
   }
 
   // ── Tabs ──
@@ -330,29 +430,342 @@
       return;
     }
     list.innerHTML = '';
-    cards.slice(0, 500).forEach(c => {
-      const row = document.createElement('div');
-      row.className = 'card-row';
-      const labelsHtml = (c.labels || []).map(l =>
-        `<span class="card-row-label">${esc(l.name)}</span>`
-      ).join('');
-      row.innerHTML = `
-        <div class="card-row-body">
-          <div class="card-row-target">${esc(c.target_text)}</div>
-          ${c.romanization ? `<div class="card-row-roman">${esc(c.romanization)}</div>` : ''}
-          <div class="card-row-source">${esc(c.source_text)}</div>
-          ${labelsHtml ? `<div class="card-row-labels">${labelsHtml}</div>` : ''}
-        </div>
-        ${c.cefr_level ? `<span class="card-row-cefr">${esc(c.cefr_level)}</span>` : ''}`;
-      list.appendChild(row);
+    cards.slice(0, 500).forEach(card => renderCardListItem(card, list));
+    cards.forEach(card => {
+      if (card.canonical_card_id) {
+        const elc = document.getElementById(`canonical-target-${card.id}`);
+        if (elc) elc.textContent = canonicalCardText(card.canonical_card_id) || `#${card.canonical_card_id}`;
+      }
     });
   }
 
+  // ── Card list item (ported from flashcards page) ──
+  function renderCardListItem(card, container) {
+    const item = document.createElement('div');
+    item.className = 'card-list-item' + (card.suspended ? ' suspended' : '');
+    item.id = `cli-${card.id}`;
+    item._cardLabelIds = (card.labels || []).map(l => l.id);
+    item._priority = card.priority || 3;
+    item._tutorFlag = !!card.tutor_flag;
+    item._suspended = !!card.suspended;
+    item._targetLang = card.target_lang || 'yue';
+    item._canonicalCardId = card.canonical_card_id || null;
+
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
+    const labels = faceLabels(langCode);
+    applyScript(item, langCode);
+
+    const labelsHtml = (card.labels || []).map(l =>
+      `<span class="label-chip-static">${escHtml(l.name)}</span>`
+    ).join('');
+    const notesHtml = card.notes
+      ? `<details class="card-list-notes"><summary>${ICONS.note} Note</summary><div>${escHtml(card.notes)}</div></details>`
+      : '';
+    const langTagHtml = languages.length > 1
+      ? `<span class="lang-tag" style="margin-bottom:4px">${escHtml(labels.target)}</span>`
+      : '';
+    const romanRowHtml = (logographic && card.romanization)
+      ? `<div class="jyutping">${escHtml(card.romanization)}</div>` : '';
+    const romanInputHtml = logographic
+      ? `<input class="edit-input" id="edit-roman-${card.id}" value="${escAttr(card.romanization || '')}" placeholder="${escAttr(romanizationFieldLabel(langCode) || 'Romanization')}">`
+      : '';
+
+    item.innerHTML = `
+      <div class="card-display" id="display-${card.id}">
+        ${langTagHtml}
+        <div class="${logographic ? 'chinese' : ''}">${escHtml(card.target_text)}</div>
+        ${romanRowHtml}
+        ${card.classifier ? `<span class="card-classifier">${escHtml(card.classifier)}</span>` : ''}
+        ${card.cefr_level ? `<span class="cefr-badge cefr-${card.cefr_level}">${escHtml(card.cefr_level)}</span>` : ''}
+        <div class="english">${escHtml(card.source_text)}</div>
+        ${card.canonical_card_id ? `<div class="card-canonical-ref" id="canonical-ref-${card.id}">Form of: <span class="canonical-target" id="canonical-target-${card.id}">…</span></div>` : ''}
+        <div class="card-list-meta" id="meta-${card.id}"></div>
+        ${labelsHtml ? `<div class="card-list-labels">${labelsHtml}</div>` : ''}
+        ${notesHtml}
+      </div>
+      <div class="card-edit-form" id="edit-form-${card.id}" style="display:none">
+        <input class="edit-input" id="edit-source-${card.id}" value="${escAttr(card.source_text)}" placeholder="English">
+        <input class="edit-input" id="edit-target-${card.id}" value="${escAttr(card.target_text)}" placeholder="${escAttr(labels.target)}">
+        ${romanInputHtml}
+        <textarea class="edit-input" id="edit-notes-${card.id}" placeholder="Notes (optional)" rows="2">${escHtml(card.notes || '')}</textarea>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Labels</div>
+          <div id="edit-labels-${card.id}"></div>
+        </div>
+        <div class="inline-labels-section">
+          <div class="inline-labels-title">Canonical / base form <span style="font-weight:400;font-size:0.8rem;color:var(--text-muted)">(e.g. infinitive for conjugations)</span></div>
+          <div class="canonical-search-wrap">
+            <input class="edit-input" id="edit-canonical-${card.id}" placeholder="Search cards…" autocomplete="off" oninput="filterCanonicalResults(${card.id})">
+            <div class="canonical-results" id="canonical-results-${card.id}" style="display:none"></div>
+            <div class="canonical-current" id="canonical-current-${card.id}"></div>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="edit-save-btn" onclick="saveCard(${card.id})">Save</button>
+          <button class="edit-cancel-btn" onclick="cancelEdit(${card.id})">Cancel</button>
+        </div>
+      </div>
+      <div class="card-actions" id="actions-${card.id}">
+        <button class="edit-card-btn" onclick="startEdit(${card.id})" title="Edit" aria-label="Edit">${ICONS.pencil}</button>
+        <button class="delete-card-btn" onclick="deleteCard(${card.id})" title="Delete" aria-label="Delete">${ICONS.trash}</button>
+      </div>
+    `;
+    container.appendChild(item);
+    renderCardListMeta(card.id);
+  }
+
+  function renderCardListMeta(cardId) {
+    const item = document.getElementById(`cli-${cardId}`);
+    const metaEl = document.getElementById(`meta-${cardId}`);
+    if (!item || !metaEl) return;
+    metaEl.innerHTML = '';
+
+    const dots = renderPriorityDots(item._priority, true, async (level) => {
+      try {
+        const res = await fetch(`/api/cards/${cardId}/priority`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: level }),
+        });
+        if (!res.ok) throw new Error();
+        item._priority = level;
+        updatePriorityDots(dots, level);
+      } catch { showToast('Failed to update priority.'); }
+    });
+    metaEl.appendChild(dots);
+
+    const flagBtn = document.createElement('button');
+    flagBtn.className = 'meta-action-btn' + (item._tutorFlag ? ' active' : '');
+    flagBtn.style.padding = '2px 8px';
+    flagBtn.style.fontSize = '0.7rem';
+    flagBtn.innerHTML = `${ICONS.bookmark} ${item._tutorFlag ? 'Flagged' : 'Tutor flag'}`;
+    flagBtn.onclick = async () => {
+      const newVal = !item._tutorFlag;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/tutor-flag`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flagged: newVal }),
+        });
+        if (!res.ok) throw new Error();
+        item._tutorFlag = newVal;
+        flagBtn.classList.toggle('active', newVal);
+        flagBtn.innerHTML = `${ICONS.bookmark} ${newVal ? 'Flagged' : 'Tutor flag'}`;
+      } catch { showToast('Failed to update flag.'); }
+    };
+    metaEl.appendChild(flagBtn);
+
+    const suspendBtn = document.createElement('button');
+    suspendBtn.className = 'meta-action-btn' + (item._suspended ? '' : ' danger');
+    suspendBtn.style.padding = '2px 8px';
+    suspendBtn.style.fontSize = '0.7rem';
+    suspendBtn.textContent = item._suspended ? 'Unsuspend' : 'Suspend';
+    suspendBtn.onclick = async () => {
+      const newVal = !item._suspended;
+      if (newVal && !confirm('Suspend this card? It won\'t appear in study sessions.')) return;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/suspend`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suspended: newVal }),
+        });
+        if (!res.ok) throw new Error();
+        item._suspended = newVal;
+        item.classList.toggle('suspended', newVal);
+        suspendBtn.textContent = newVal ? 'Unsuspend' : 'Suspend';
+        suspendBtn.classList.toggle('danger', !newVal);
+        showToast(newVal ? 'Card suspended.' : 'Card unsuspended.');
+      } catch { showToast('Failed to update.'); }
+    };
+    metaEl.appendChild(suspendBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'meta-action-btn danger';
+    resetBtn.style.padding = '2px 8px';
+    resetBtn.style.fontSize = '0.7rem';
+    resetBtn.textContent = 'Reset';
+    resetBtn.title = 'Reset to new & set priority to 1';
+    resetBtn.onclick = async () => {
+      if (!confirm('Reset this card to "new" and set priority to 1? This clears all SRS progress.')) return;
+      try {
+        const res = await fetch(`/api/cards/${cardId}/reset`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+        item._priority = 1;
+        renderCardListMeta(cardId);
+        showToast('Card reset and deprioritized.');
+      } catch { showToast('Failed to reset card.'); }
+    };
+    metaEl.appendChild(resetBtn);
+  }
+
+  // ── Canonical card helpers ──
+  function canonicalCardText(canonicalId) {
+    if (!canonicalId) return null;
+    const found = _allCards.find(c => c.id === canonicalId);
+    return found ? (found.target_text + (found.source_text ? ` (${found.source_text})` : '')) : `#${canonicalId}`;
+  }
+  function renderCanonicalCurrent(cardId, canonicalId) {
+    const el = document.getElementById(`canonical-current-${cardId}`);
+    if (!el) return;
+    if (!canonicalId) { el.innerHTML = ''; return; }
+    const label = canonicalCardText(canonicalId);
+    el.innerHTML = `<span class="canonical-chip">${escHtml(label)}</span> <button class="canonical-clear-btn" onclick="clearCanonical(${cardId})">✕ Remove</button>`;
+  }
+  function clearCanonical(cardId) {
+    const item = document.getElementById(`cli-${cardId}`);
+    if (!item) return;
+    item._pendingCanonicalId = null;
+    renderCanonicalCurrent(cardId, null);
+  }
+  function filterCanonicalResults(cardId) {
+    const input = document.getElementById(`edit-canonical-${cardId}`);
+    const results = document.getElementById(`canonical-results-${cardId}`);
+    const query = input.value.trim().toLowerCase();
+    if (!query) { results.style.display = 'none'; return; }
+    const item = document.getElementById(`cli-${cardId}`);
+    const matches = _allCards.filter(c =>
+      c.id !== cardId &&
+      (c.target_text.toLowerCase().includes(query) || c.source_text.toLowerCase().includes(query))
+    ).slice(0, 8);
+    if (!matches.length) { results.style.display = 'none'; return; }
+    results.innerHTML = '';
+    matches.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'canonical-result-row';
+      row.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
+      row.onclick = () => {
+        item._pendingCanonicalId = c.id;
+        renderCanonicalCurrent(cardId, c.id);
+        input.value = '';
+        results.style.display = 'none';
+      };
+      results.appendChild(row);
+    });
+    results.style.display = '';
+  }
+
+  // ── Edit / delete ──
+  function startEdit(id) {
+    document.getElementById(`display-${id}`).style.display = 'none';
+    document.getElementById(`actions-${id}`).style.display = 'none';
+    document.getElementById(`edit-form-${id}`).style.display = 'block';
+    document.getElementById(`edit-source-${id}`).focus();
+
+    const item = document.getElementById(`cli-${id}`);
+    const pickerContainer = document.getElementById(`edit-labels-${id}`);
+    pickerContainer.innerHTML = '';
+    item._editPicker = new LabelPicker(pickerContainer, {
+      allLabels,
+      initialIds: item._cardLabelIds || [],
+      allowCreate: true,
+      mode: 'multi',
+      placeholder: 'Add label…',
+      onLabelsRefreshed: labels => { allLabels = _allLabels = labels; },
+    });
+
+    item._pendingCanonicalId = item._canonicalCardId || null;
+    renderCanonicalCurrent(id, item._pendingCanonicalId);
+  }
+
+  function cancelEdit(id) {
+    document.getElementById(`display-${id}`).style.display = '';
+    document.getElementById(`actions-${id}`).style.display = '';
+    document.getElementById(`edit-form-${id}`).style.display = 'none';
+    const item = document.getElementById(`cli-${id}`);
+    item._editPicker = null;
+  }
+
+  async function saveCard(id) {
+    const sourceText = document.getElementById(`edit-source-${id}`).value.trim();
+    const targetText = document.getElementById(`edit-target-${id}`).value.trim();
+    const romanEl = document.getElementById(`edit-roman-${id}`);
+    const romanization = romanEl ? romanEl.value.trim() : '';
+    const notes = document.getElementById(`edit-notes-${id}`).value;
+    const item = document.getElementById(`cli-${id}`);
+    const labelIds = item._editPicker ? [...item._editPicker.getSelected()] : [];
+    const langCode = item._targetLang;
+    const logographic = isLogographic(langCode);
+
+    if (!sourceText || !targetText) { showToast('Source and target text are required.'); return; }
+    if (logographic && !romanization) { showToast('Romanization is required for this language.'); return; }
+
+    const btn = document.querySelector(`#edit-form-${id} .edit-save-btn`);
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const pendingCanonicalId = item._pendingCanonicalId !== undefined
+      ? item._pendingCanonicalId : item._canonicalCardId;
+
+    try {
+      const res = await fetch(`/api/cards/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: sourceText, target_text: targetText,
+          romanization, notes, label_ids: labelIds,
+        }),
+      });
+      if (!res.ok) throw new Error();
+
+      if (pendingCanonicalId !== item._canonicalCardId) {
+        await fetch(`/api/cards/${id}/canonical`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canonical_card_id: pendingCanonicalId }),
+        });
+      }
+
+      const cardData = {
+        id, source_text: sourceText, target_text: targetText, romanization, notes,
+        priority: item._priority,
+        tutor_flag: item._tutorFlag ? 1 : 0,
+        suspended: item._suspended ? 1 : 0,
+        target_lang: langCode,
+        labels: allLabels.filter(l => labelIds.includes(l.id)),
+        canonical_card_id: pendingCanonicalId,
+      };
+      // Keep the in-memory copy in sync so search/canonical reflect the edit.
+      const ci = _allCards.findIndex(c => c.id === id);
+      if (ci !== -1) _allCards[ci] = { ..._allCards[ci], ...cardData };
+
+      const parent = item.parentNode;
+      const next = item.nextSibling;
+      item.remove();
+      const tmp = document.createElement('div');
+      renderCardListItem(cardData, tmp);
+      const newItem = tmp.firstElementChild;
+      parent.insertBefore(newItem, next);
+      if (pendingCanonicalId) {
+        const elc = document.getElementById(`canonical-target-${id}`);
+        if (elc) elc.textContent = canonicalCardText(pendingCanonicalId) || `#${pendingCanonicalId}`;
+      }
+
+      showToast('Card updated.');
+      loadLabels();
+    } catch { showToast('Failed to save card.'); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+
+  async function deleteCard(id) {
+    if (!confirm('Delete this card and all its progress?')) return;
+    try {
+      await fetch(`/api/cards/${id}`, { method: 'DELETE' });
+      _allCards = _allCards.filter(c => c.id !== id);
+      filterCards();   // re-renders the list + count
+      loadLabels();
+    } catch { showToast('Failed to delete card.'); }
+  }
+
   // ── Card picker (for deck creation) ──
+  // A deck holds a single language, so the picker only ever shows cards of the
+  // currently-selected language. Switching language clears the selection so a
+  // deck can never end up mixed.
+  function onPickerLangChange() {
+    const sel = document.getElementById('picker-lang-filter');
+    const lang = sel ? sel.value : '';
+    if (lang !== _pickerLang && _selectedCards.size) _selectedCards.clear();
+    _pickerLang = lang;
+    renderPicker();
+  }
+
   function getFilteredPickerCards() {
     const q = (document.getElementById('picker-search').value || '').toLowerCase();
     const labelId = parseInt(document.getElementById('picker-label-filter').value) || 0;
-    let filtered = _allCards;
+    let filtered = _allCards.filter(c => (c.target_lang || '') === _pickerLang);
     if (q) {
       filtered = filtered.filter(c =>
         c.target_text.toLowerCase().includes(q) ||
@@ -416,7 +829,7 @@
     btn.disabled = true;
     btn.textContent = 'Creating…';
     try {
-      const res = await fetch('/api/decks', {
+      const resp = await fetch('/api/decks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -425,15 +838,22 @@
           visibility: document.getElementById('deck-visibility').value,
           card_ids: [..._selectedCards],
         }),
-      }).then(r => r.json());
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showToast(err.detail || 'Failed to create deck');
+        btn.disabled = false; btn.textContent = 'Create deck';
+        return;
+      }
       showToast('Deck created! These cards now carry a "📦 ' + name + '" label you can study.');
       document.getElementById('deck-name').value = '';
       document.getElementById('deck-desc').value = '';
       _selectedCards.clear();
+      await loadMyCards();
+      populatePickerLangFilter();
       renderPicker();
       updatePickerCount();
       loadLabels();
-      loadMyCards();
       loadMyDecks();
     } catch {
       showToast('Failed to create deck');
@@ -523,7 +943,11 @@
       const items = d.items || [];
       let actionsHtml = '';
       if (isMine) {
+        const studyLink = d.import_label_id
+          ? `<a class="deck-import-btn" href="/cards?label_id=${d.import_label_id}&study=1" style="text-decoration:none;display:inline-block">Study this deck</a>`
+          : '';
         actionsHtml = `<div class="deck-actions-row">
+          ${studyLink}
           <button class="deck-delete-btn" onclick="deleteDeck(${d.id})">Delete deck</button>
         </div>`;
       } else if (d.imported) {
