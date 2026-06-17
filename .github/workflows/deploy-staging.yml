@@ -2,7 +2,7 @@ name: Deploy (staging)
 
 on:
   push:
-    branches: [develop]
+    branches-ignore: [main]
 
 jobs:
   deploy-staging:
@@ -60,8 +60,8 @@ jobs:
             cd ~/canto-anti-app-staging
             mkdir -p ~/db-backups
             docker cp canto-app-staging:/data/cards.db ~/db-backups/staging-$(date +%F-%H%M%S).db 2>/dev/null || true
-            git fetch origin develop
-            git checkout develop
-            git pull
+            BRANCH="${{ github.ref_name }}"
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
             docker rm -f canto-app-staging 2>/dev/null || true
             docker compose -p staging -f docker-compose.staging.yml up -d --build
