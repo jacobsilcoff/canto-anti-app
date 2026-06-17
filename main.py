@@ -1473,6 +1473,7 @@ async def get_settings(user: dict = Depends(current_user)):
     tour_seen = await db.get_setting(user["id"], "tour_seen") or "0"
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
+    populate_min_score = max(0.0, min(1.0, float(await db.get_setting(user["id"], "populate_min_score") or 0.55)))
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
@@ -1499,6 +1500,7 @@ async def get_settings(user: dict = Depends(current_user)):
         "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
         "lesson_buffer": lesson_buffer,
         "chat_compact_phrases": (await db.get_setting(user["id"], "chat_compact_phrases") or "false") == "true",
+        "populate_min_score": populate_min_score,
     }
 
 
@@ -1516,6 +1518,7 @@ class SettingsUpdate(BaseModel):
     learner_profile: str | None = None
     lesson_buffer: int | None = None
     chat_compact_phrases: bool | None = None
+    populate_min_score: float | None = None
 
 
 @app.put("/api/settings")
@@ -1566,6 +1569,9 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_buffer", max(0, min(10, req.lesson_buffer)))
     if req.chat_compact_phrases is not None:
         await db.set_setting(user["id"], "chat_compact_phrases", "true" if req.chat_compact_phrases else "false")
+    if req.populate_min_score is not None:
+        val = max(0.0, min(1.0, req.populate_min_score))
+        await db.set_setting(user["id"], "populate_min_score", f"{val:.2f}")
     return {"success": True}
 
 

@@ -437,6 +437,7 @@
   let _selectedCards = new Set();
   let _currentTab = 'cards';
   let _defaultLang = '';
+  let _populateMinScore = 0.55;
   let _langMap = {};
   let languages = [];
   let langByCode = {};
@@ -534,6 +535,7 @@
       fetch('/api/languages').then(r => r.json()).catch(() => ({})),
     ]);
     _defaultLang = settingsRes.default_target_lang || '';
+    _populateMinScore = settingsRes.populate_min_score !== undefined ? settingsRes.populate_min_score : 0.55;
     languages = langs.languages || langs || [];
     languages.forEach(l => { if (l && l.code) _langMap[l.code] = l; });
     langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
@@ -951,7 +953,7 @@
     const deckPromise = (async () => {
       try {
         const url = `/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}` +
-          `&label_id=${labelId}&limit=15&min_score=0.55`;
+          `&label_id=${labelId}&limit=15&min_score=${_populateMinScore}`;
         const res = await fetch(url).then(r => r.json());
         (res.cards || []).forEach(c => addDeckChip({
           id: c.id, target: c.target_text, source: c.source_text,
