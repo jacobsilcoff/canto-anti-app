@@ -21,8 +21,6 @@
       body: 'The Labels tab in Browse lets you rename, merge, and delete labels. It auto-suggests merges for similar labels (like "food & drinks" and "foods and drinks") so your deck stays tidy.', v: 5 },
     { icon: '⚠️', title: 'Report bugs & ideas',
       body: 'Found a bug or have a feature request? Use the Feedback page to submit a report — you can attach a screenshot and track the status of your submissions.', v: 2 },
-    { icon: '📘', title: 'Find friends from Facebook',
-      body: 'Open Friends in Messages and connect Facebook to find friends who already use the app, then add them in one tap.', v: 6 },
     { icon: '✨', title: 'Populate a label',
       body: 'Each label in Browse has a Populate button that suggests vocab for that category — tag words already in your deck or add brand-new ones in one tap.', v: 6 },
   ];
