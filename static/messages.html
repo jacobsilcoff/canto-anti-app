@@ -972,9 +972,10 @@
         </div>
       </div>` : '';
 
+    const showOriginal = hasDiff && !isTranslated && m.original_lang !== 'en';
     const aaInner = [
       hasEn && !isTranslated ? `<div>${esc(replyEn)}</div>` : '',
-      hasDiff && !isTranslated ? `<div class="msg-aa-orig">Original: ${esc(m.original_text)}${nuanceNote ? `<div class="msg-aa-nuance">💡 ${esc(nuanceNote)}</div>` : ''}</div>` : '',
+      showOriginal ? `<div class="msg-aa-orig">Original: ${esc(m.original_text)}${nuanceNote ? `<div class="msg-aa-nuance">💡 ${esc(nuanceNote)}</div>` : ''}</div>` : '',
     ].join('');
     const hasAaContent = aaInner.replace(/<[^>]*>/g, '').trim();
     const aaHtml = hasAaContent ? `<div class="msg-aa" id="aa-${m.id}" style="display:none">${aaInner}</div>` : '';

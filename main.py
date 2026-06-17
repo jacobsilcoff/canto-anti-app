@@ -4280,19 +4280,50 @@ async def get_messages(conv_id: int, before_id: int = 0,
     msgs = await db.get_messages(conv_id, user["id"], limit=50,
                                  before_id=before_id or None)
     if not msgs:
-        # Also verifies participation
         convs = await db.list_conversations(user["id"])
         if not any(c["id"] == conv_id for c in convs):
             raise HTTPException(403, "Not a participant")
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     msg_ids = [m["id"] for m in msgs]
     reactions_map = await db.get_reactions_for_messages(msg_ids, user["id"])
+
+    # Resolve an API key once (only needed if on-demand translation is required)
+    api_key = None
+
     result = []
     for m in msgs:
         is_mine = m["sender_user_id"] == user["id"]
         trans = json.loads(m["translations"]) if m.get("translations") else {}
-        display = trans.get(lang) or m["original_text"]
         analysis = json.loads(m["analysis"]) if m.get("analysis") else {}
+        display = trans.get(lang)
+
+        # On-demand translation: if the viewer's language isn't cached
+        # (e.g. recipient changed their target language after the message was
+        # sent, or the translation was never generated), translate now and
+        # persist so future loads are instant.
+        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang:
+            if api_key is None:
+                try:
+                    access = await _resolve_gemini(user, meter=False)
+                    api_key = access.api_key
+                except Exception:
+                    api_key = ""
+            if api_key:
+                try:
+                    tr = await translation.translate_message(
+                        m["original_text"], m["original_lang"], lang, api_key=api_key)
+                    display = tr["translated"]
+                    trans[lang] = display
+                    if not analysis.get("reply_en") and m["original_lang"] != "en":
+                        analysis["reply_en"] = tr.get("reply_en", "")
+                    asyncio.create_task(
+                        db.update_message_translations(m["id"], trans))
+                except Exception:
+                    pass
+
+        if not display:
+            display = trans.get(lang) or m["original_text"]
+
         result.append({
             "id": m["id"],
             "is_mine": is_mine,

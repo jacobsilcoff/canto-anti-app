@@ -3035,6 +3035,15 @@ async def add_message(
     return msg_id
 
 
+async def update_message_translations(msg_id: int, translations: dict) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE messages SET translations=? WHERE id=?",
+            (json.dumps(translations, ensure_ascii=False), msg_id),
+        )
+        await db.commit()
+
+
 async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
