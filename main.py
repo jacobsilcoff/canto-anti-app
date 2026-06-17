@@ -2301,7 +2301,12 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
         access = await _resolve_gemini(user, meter=False)
     except HTTPException:
         return {"cards": []}
-    query_embedding = await translation.get_embedding(name, api_key=access.api_key)
+    # Use the shared label-embedding cache (pre-computed on label creation) so we
+    # don't re-embed the query name on every call.
+    label_vecs = await _label_vectors(user, [name])
+    query_embedding = label_vecs.get(_label_embed_text(name))
+    if not query_embedding:
+        query_embedding = await translation.get_embedding(name, api_key=access.api_key)
     if not query_embedding:
         return {"cards": []}
 

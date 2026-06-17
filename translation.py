@@ -408,11 +408,12 @@ def get_classifiers_batch(words: list[str], lang: str, api_key: str) -> dict[str
     return {}
 
 
-def _parse_json(text: str) -> dict:
-    """Parse the first JSON object from the model response.
+def _parse_json(text: str):
+    """Parse the first JSON object OR array from the model response.
 
     Handles bare JSON, JSON inside ```...``` code fences, and responses
     with a preamble or suffix (e.g. 'Here is the lesson:\n{...}\nDone.').
+    Returns a dict for object payloads and a list for array payloads.
     """
     if not text:
         raise ValueError("Empty response from model")
@@ -423,11 +424,24 @@ def _parse_json(text: str) -> dict:
         if "\n" in inner:
             inner = inner.split("\n", 1)[1]
         text = inner.rsplit("```", 1)[0]
-    # Skip any preamble before the first { and trim trailing text after the last }
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end >= start:
-        text = text[start:end + 1]
+    text = text.strip()
+    # Trim any preamble/suffix around the payload. Detect whether the payload is
+    # an array ([...]) or an object ({...}) by whichever delimiter appears first.
+    obj_start = text.find("{")
+    arr_start = text.find("[")
+    if arr_start != -1 and (obj_start == -1 or arr_start < obj_start):
+        primary = (arr_start, text.rfind("]"))
+        fallback = (obj_start, text.rfind("}"))
+    else:
+        primary = (obj_start, text.rfind("}"))
+        fallback = (arr_start, text.rfind("]"))
+    for start, end in (primary, fallback):
+        if start != -1 and end != -1 and end >= start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+    # Last resort: try the raw text (may raise, which callers handle)
     return json.loads(text)
 
 
