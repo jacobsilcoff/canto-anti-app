@@ -5,6 +5,8 @@ import time
 
 import aiosqlite
 
+import tokenizer
+
 DB_PATH = os.getenv("DB_PATH", "data/cards.db")
 MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
 
@@ -1017,6 +1019,55 @@ async def _faces_with_labels(user_id: int, rows: list[dict]) -> list[dict]:
     return rows
 
 
+async def _gate_phrases(db, user_id: int, faces: list[dict]) -> list[dict]:
+    """Defer phrase cards until all constituent single-word cards have graduated.
+
+    A phrase is any card whose target_text tokenizes into >1 word.  For each
+    phrase, we check whether every constituent word exists as a separate card
+    (same user + language) with its primary face graduated (learning_step IS NULL
+    and first_seen_date IS NOT NULL).  Phrases with ungraduated constituents are
+    moved to the end so single-word cards are taught first.
+    """
+    if not faces:
+        return faces
+
+    langs = {f["target_lang"] for f in faces}
+    graduated: dict[str, set[str]] = {}
+    for lang in langs:
+        async with db.execute(
+            """SELECT DISTINCT c.target_text FROM cards c
+               JOIN card_faces cf ON cf.card_id = c.id
+               WHERE c.user_id = ? AND c.target_lang = ?
+                 AND cf.face = ?
+                 AND cf.first_seen_date IS NOT NULL
+                 AND cf.learning_step IS NULL""",
+            (user_id, lang, PRIMARY_FACE),
+        ) as cur:
+            graduated[lang] = {r[0] for r in await cur.fetchall()}
+
+    ready = []
+    deferred = []
+    seen_cards: set[int] = set()
+    for face in faces:
+        cid = face["card_id"]
+        if cid in seen_cards:
+            bucket = ready if any(f["card_id"] == cid for f in ready) else deferred
+            bucket.append(face)
+            continue
+        seen_cards.add(cid)
+        words = tokenizer.phrase_words(face["target_text"], face["target_lang"])
+        if len(words) <= 1:
+            ready.append(face)
+            continue
+        grad_set = graduated.get(face["target_lang"], set())
+        if all(w in grad_set or w == face["target_text"] for w in words):
+            ready.append(face)
+        else:
+            deferred.append(face)
+
+    return ready + deferred
+
+
 async def get_study_session(
     user_id: int,
     label_id: int | None = None,
@@ -1077,6 +1128,11 @@ async def get_study_session(
             # learning (learning_step IS NULL with a first_seen_date set), so the
             # three faces of one word spread across days instead of clustering in
             # a single session.
+            #
+            # Phrase gating: phrase cards (multi-word target_text) are deferred
+            # until all constituent single-word cards have their primary face
+            # graduated.  Over-fetch to compensate for filtered phrases.
+            fetch_limit = remaining * 3
             new_sql = f"""
                 SELECT cf.id AS face_id, cf.card_id, cf.face, cf.next_review,
                        cf.interval_days, cf.ease_factor, cf.repetitions, cf.first_seen_date,
@@ -1102,9 +1158,12 @@ async def get_study_session(
             """
             async with db.execute(
                 new_sql,
-                (user_id, PRIMARY_FACE, PRIMARY_FACE) + label_params + (remaining,),
+                (user_id, PRIMARY_FACE, PRIMARY_FACE) + label_params + (fetch_limit,),
             ) as cur:
                 new_faces = [dict(r) for r in await cur.fetchall()]
+
+            new_faces = await _gate_phrases(db, user_id, new_faces)
+            new_faces = new_faces[:remaining]
 
     all_faces = await _faces_with_labels(user_id, reviews + new_faces)
     return {

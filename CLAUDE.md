@@ -93,7 +93,7 @@ SM-2 with sub-day **learning steps** (`LEARNING_STEPS_MIN = [1, 10]` minutes). A
 
 ### Study session logic (`db.get_study_session`)
 
-Returns due review faces (next_review ≤ now) + new faces up to the daily cap (default 20 new/day, `new_cards_per_day` setting). New faces are **staggered**: a brand-new word only offers its `PRIMARY_FACE` (`target`); the other faces become eligible once the primary has graduated (`learning_step IS NULL AND first_seen_date IS NOT NULL`). New faces ordered by priority DESC then id ASC. `db.get_due_count` applies the same staggering gate so the badge matches.
+Returns due review faces (next_review ≤ now) + new faces up to the daily cap (default 20 new/day, `new_cards_per_day` setting). New faces are **staggered**: a brand-new word only offers its `PRIMARY_FACE` (`target`); the other faces become eligible once the primary has graduated (`learning_step IS NULL AND first_seen_date IS NOT NULL`). **Phrase gating** (`_gate_phrases`): phrase cards (multi-word `target_text`, detected by `tokenizer.phrase_words`) are deferred until ALL constituent single-word cards have their primary face graduated — so learners always study individual words before the phrase that contains them. Over-fetches 3× and post-filters in Python. New faces ordered by priority DESC then id ASC. `db.get_due_count` applies the same staggering gate so the badge matches.
 
 ### Translation flow
 
