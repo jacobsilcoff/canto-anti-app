@@ -2285,9 +2285,8 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
     logger.info("populate_label %r lang=%s: LLM returned %d, known=%d",
                 req.label_name, lang, len(suggestions) if suggestions else 0, len(known_words))
     if suggestions:
-        existing = await db.get_word_statuses(
-            user["id"], [s["target"] for s in suggestions], lang, exact_only=True
-        )
+        targets = [s["target"] for s in suggestions]
+        existing = await db.get_cards_by_target(user["id"], targets, lang)
         pre_filter = len(suggestions)
         suggestions = [s for s in suggestions if s["target"] not in existing]
         logger.info("populate_label %r: filtered %d→%d (matched %d existing)",

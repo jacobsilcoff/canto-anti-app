@@ -2336,6 +2336,19 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *,
     return result
 
 
+async def get_cards_by_target(user_id: int, targets: list[str], target_lang: str) -> set[str]:
+    """Return the subset of *targets* that already exist as cards in the user's deck (exact match)."""
+    if not targets:
+        return set()
+    async with aiosqlite.connect(DB_PATH) as conn:
+        placeholders = ",".join("?" for _ in targets)
+        async with conn.execute(
+            f"SELECT target_text FROM cards WHERE user_id=? AND target_lang=? AND target_text IN ({placeholders})",
+            (user_id, target_lang, *targets),
+        ) as cur:
+            return {r[0] for r in await cur.fetchall()}
+
+
 async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> list[dict]:
     """The user's well-known deck words, strongest first — fed into lesson/tutor
     prompts so generation builds on what the learner already knows.
