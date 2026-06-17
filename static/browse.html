@@ -267,6 +267,17 @@
       padding: 4px 10px; font-size: 0.8rem; color: var(--text); cursor: pointer; transition: all 0.12s; }
     .lbl-suggest-card:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
     .lbl-suggest-card:disabled { opacity: 0.5; cursor: default; }
+    .lbl-suggest-section { margin-bottom: 10px; }
+    .lbl-suggest-sectitle { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px; }
+    .lbl-loadbar { height: 3px; border-radius: 3px; background: var(--border); overflow: hidden;
+      position: relative; margin-top: 2px; }
+    .lbl-loadbar::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 40%;
+      border-radius: 3px; background: var(--primary); animation: lblIndeterminate 1.1s ease-in-out infinite; }
+    @keyframes lblIndeterminate {
+      0% { left: -40%; } 100% { left: 100%; }
+    }
+    .lbl-section-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
   </style>
 </head>
 <body>
@@ -867,7 +878,6 @@
     rowEl.parentNode.querySelectorAll('.lbl-suggest-panel').forEach(el => el.remove());
     const panel = document.createElement('div');
     panel.className = 'lbl-suggest-panel';
-    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Generating vocab… then checking your deck</span>';
     rowEl.after(panel);
 
     const countEl = rowEl.querySelector('.lbl-count');
@@ -877,58 +887,98 @@
       countEl.textContent = n + ' card' + (n !== 1 ? 's' : '');
     }
 
+    // Header with a Done button to dismiss the suggestions when finished
+    const head = document.createElement('div');
+    head.className = 'lbl-suggest-head';
+    head.innerHTML = `<span style="font-size:0.78rem;font-weight:600;color:var(--text)">Populate "${escHtml(labelName)}"</span><button class="lbl-suggest-done">Done</button>`;
+    head.querySelector('.lbl-suggest-done').onclick = () => panel.remove();
+    panel.appendChild(head);
+
+    // Two sections, each with its own indeterminate loading bar, so each fills in
+    // as its source resolves — deck search and LLM generation run in parallel.
     function makeSection(title) {
       const sec = document.createElement('div');
-      sec.style.marginBottom = '10px';
-      sec.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">${title}</div><div class="lbl-suggest-cards"></div>`;
+      sec.className = 'lbl-suggest-section';
+      sec.innerHTML =
+        `<div class="lbl-suggest-sectitle">${title}</div>` +
+        `<div class="lbl-loadbar"></div>` +
+        `<div class="lbl-suggest-cards"></div>`;
       return sec;
     }
+    const deckSec = makeSection('Already in your deck — tap to tag');
+    const newSec = makeSection('New ideas — tap to add');
+    panel.appendChild(deckSec);
+    panel.appendChild(newSec);
+    const deckWrap = deckSec.querySelector('.lbl-suggest-cards');
+    const newWrap = newSec.querySelector('.lbl-suggest-cards');
+    const shownCardIds = new Set();
 
-    let data;
-    try {
-      const r = await fetch('/api/labels/populate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label_name: labelName, label_id: labelId }),
-      });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Failed');
-      data = await r.json();
-    } catch (err) {
-      panel.innerHTML = `<div class="lbl-suggest-head"><span style="color:var(--danger);font-size:0.82rem">Could not generate suggestions: ${escHtml(err.message || 'unknown error')}</span><button class="lbl-suggest-done">Close</button></div>`;
-      panel.querySelector('.lbl-suggest-done').onclick = () => panel.remove();
-      return;
+    function finishSection(sec, wrap, emptyMsg) {
+      sec.querySelector('.lbl-loadbar')?.remove();
+      if (!wrap.children.length) {
+        const e = document.createElement('div');
+        e.className = 'lbl-section-empty';
+        e.textContent = emptyMsg;
+        wrap.appendChild(e);
+      }
     }
 
-    panel.innerHTML = '';
-
-    // Words already in your deck (other labels / unlabeled) → tag them
-    if (data.existing?.length) {
-      const sec = makeSection('Already in your deck — tag with this label:');
-      const wrap = sec.querySelector('.lbl-suggest-cards');
-      data.existing.forEach(c => {
-        const chip = document.createElement('button');
-        chip.className = 'lbl-suggest-card';
-        chip.textContent = c.target + ' — ' + c.source;
-        chip.onclick = async () => {
-          chip.disabled = true; chip.style.opacity = '0.6';
-          try {
-            const rr = await fetch(`/api/labels/${labelId}/cards`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ card_id: c.id }),
-            });
-            if (!rr.ok) throw new Error();
-            chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
-          } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to tag card.'); }
-        };
-        wrap.appendChild(chip);
-      });
-      panel.appendChild(sec);
+    // A deck card already in the user's collection → one tap tags it with this label.
+    function addDeckChip(c) {
+      // c: {id, target, source}
+      if (c.id == null || shownCardIds.has(c.id)) return;
+      shownCardIds.add(c.id);
+      // Clear an earlier "none found" placeholder if a late match arrives.
+      deckWrap.querySelector('.lbl-section-empty')?.remove();
+      const chip = document.createElement('button');
+      chip.className = 'lbl-suggest-card';
+      chip.textContent = c.target + (c.source ? ' — ' + c.source : '');
+      chip.onclick = async () => {
+        chip.disabled = true; chip.style.opacity = '0.6';
+        try {
+          const rr = await fetch(`/api/labels/${labelId}/cards`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_id: c.id }),
+          });
+          if (!rr.ok) throw new Error();
+          chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
+        } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to tag card.'); }
+      };
+      deckWrap.appendChild(chip);
     }
 
-    // Brand-new words → create cards
-    if (data.new?.length) {
-      const sec = makeSection('New words — click to add:');
-      const wrap = sec.querySelector('.lbl-suggest-cards');
-      data.new.forEach(s => {
+    // 1) Deck search (embedding similarity) — independent of the LLM, runs first.
+    const deckPromise = (async () => {
+      try {
+        const url = `/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}` +
+          `&label_id=${labelId}&limit=15&min_score=0.55`;
+        const res = await fetch(url).then(r => r.json());
+        (res.cards || []).forEach(c => addDeckChip({
+          id: c.id, target: c.target_text, source: c.source_text,
+        }));
+      } catch {}
+    })();
+
+    // 2) LLM vocab generation — the slow part. Its exact-matched deck cards merge
+    //    into the deck section; its brand-new words fill the New ideas section.
+    const llmPromise = (async () => {
+      let data;
+      try {
+        const r = await fetch('/api/labels/populate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label_name: labelName, label_id: labelId }),
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Failed');
+        data = await r.json();
+      } catch (err) {
+        finishSection(newSec, newWrap, `Could not generate ideas: ${err.message || 'unknown error'}`);
+        return;
+      }
+
+      // Exact-matched deck cards → fold into the deck section (deduped by id).
+      (data.existing || []).forEach(c => addDeckChip(c));
+
+      (data.new || []).forEach(s => {
         const chip = document.createElement('button');
         chip.className = 'lbl-suggest-card';
         const rom = s.romanization ? ` (${s.romanization})` : '';
@@ -945,21 +995,16 @@
             chip.textContent = '✓ ' + chip.textContent; chip.style.opacity = '1'; bumpCount();
           } catch { chip.disabled = false; chip.style.opacity = '1'; showToast('Failed to add card.'); }
         };
-        wrap.appendChild(chip);
+        newWrap.appendChild(chip);
       });
-      panel.appendChild(sec);
-    }
+      finishSection(newSec, newWrap, 'No new ideas — this label looks well covered.');
+    })();
 
-    if (!panel.children.length) {
-      panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">No new suggestions — all generated words are already under this label.</span>';
-    }
-
-    // Header with a Done button to dismiss the suggestions when finished
-    const head = document.createElement('div');
-    head.className = 'lbl-suggest-head';
-    head.innerHTML = `<span style="font-size:0.78rem;font-weight:600;color:var(--text)">Populate "${escHtml(labelName)}"</span><button class="lbl-suggest-done">Done</button>`;
-    head.querySelector('.lbl-suggest-done').onclick = () => panel.remove();
-    panel.prepend(head);
+    // The deck section can keep growing until BOTH sources are in (embedding +
+    // the LLM's exact matches), so only settle its loader once both resolve.
+    Promise.all([deckPromise, llmPromise]).then(() => {
+      finishSection(deckSec, deckWrap, 'No matching cards in your deck yet.');
+    });
   }
 
   function populateCardsLangFilter() {

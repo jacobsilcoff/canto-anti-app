@@ -2327,8 +2327,13 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
 
 
 @app.get("/api/labels/suggest-cards")
-async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
-    """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
+async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20,
+                                  min_score: float = 0.0, user: dict = Depends(current_user)):
+    """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id.
+
+    `min_score` (0–1) filters out cards below that cosine similarity so callers
+    can ask for only genuinely-related cards (the Populate deck search) instead
+    of the unconditional top-N (the legacy cards.html ✦ Suggest)."""
     try:
         access = await _resolve_gemini(user, meter=False)
     except HTTPException:
@@ -2358,12 +2363,13 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
         except Exception:
             continue
         score = _cosine_similarity(query_embedding, emb)
-        scored.append((score, row))
+        if score >= min_score:
+            scored.append((score, row))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    top = [r for _, r in scored[:limit]]
 
     # If filtering by label, fetch cards already in the label to exclude them.
+    already: set[int] = set()
     if label_id is not None:
         import aiosqlite as _aiosqlite
         async with _aiosqlite.connect(db.DB_PATH) as conn:
@@ -2371,9 +2377,15 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
                 "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,)
             ) as cur:
                 already = {r[0] for r in await cur.fetchall()}
-        top = [r for r in top if r["id"] not in already]
 
-    return {"cards": top[:limit]}
+    # Strip the heavy embedding blob — the client only needs id/text/score.
+    cards = [
+        {"id": r["id"], "source_text": r["source_text"],
+         "target_text": r["target_text"], "score": round(score, 3)}
+        for score, r in scored
+        if r["id"] not in already
+    ]
+    return {"cards": cards[:limit]}
 
 
 @app.get("/api/reader/texts/{text_id}/vocab-label")
