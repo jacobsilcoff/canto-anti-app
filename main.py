@@ -2069,48 +2069,140 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (mag_a * mag_b)
 
 
+# Label-merge tuning. The semantic pass catches synonyms that share no letters
+# ("drinks"/"beverages"); the string pass catches typos/plurals/punctuation
+# ("food & drinks"/"foods and drinks"). Label-name embeddings are cached under a
+# sentinel "lang" so they never collide with target-vocabulary embeddings.
+_LABEL_EMBED_LANG = "__label__"
+_SEMANTIC_MERGE_THRESHOLD = 0.84   # cosine; synonyms ~0.80–0.90, unrelated words lower
+
+
+def _label_norm(name: str) -> str:
+    """Normalize a label name for cheap string comparison (lowercase, drop
+    punctuation/articles, naive depluralize)."""
+    import re, unicodedata
+    s = unicodedata.normalize("NFKD", name).lower().strip()
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\b(and|the|a|an|of)\b", "", s)
+    s = re.sub(r"s\b", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _string_sim(na: str, nb: str) -> float:
+    """Similarity from normalized names: 1.0 if identical, else an affix-aware
+    Levenshtein ratio if it clears the bar, else 0. The affix guard stops
+    substring near-matches like 'motion'/'emotion' (one is a suffix of the
+    other) from passing on edit distance alone."""
+    if not na or not nb:
+        return 0.0
+    if na == nb:
+        return 1.0
+    ratio = _levenshtein_ratio(na, nb)
+    shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+    is_affix = shorter != longer and (longer.startswith(shorter) or longer.endswith(shorter))
+    threshold = 0.92 if is_affix else 0.8
+    return ratio if ratio >= threshold else 0.0
+
+
+def _label_embed_text(name: str) -> str:
+    """Strip a leading emoji/symbol prefix (e.g. the '📦 ' deck marker) so the
+    embedding reflects the semantic word, not the decoration."""
+    import re
+    return re.sub(r"^[\W_]+", "", name).strip().lower() or name.strip().lower()
+
+
+async def _label_vectors(user: dict, names: list[str]) -> dict[str, list[float]]:
+    """Embedding vectors for label names via the shared cache (embed only misses).
+    Best-effort: returns {} if no key / any embedding error, so the caller falls
+    back to string-only matching. Not metered — this is a derived background call."""
+    texts = list({_label_embed_text(n) for n in names if n.strip()})
+    if not texts:
+        return {}
+    try:
+        access = await _resolve_gemini(user, meter=False)
+    except HTTPException:
+        return {}
+    cached = await db.get_cached_embeddings(_LABEL_EMBED_LANG, embeddings.EMBED_MODEL, texts)
+    missing = [t for t in texts if t not in cached]
+    if missing:
+        try:
+            vecs = await embeddings.embed(missing, access.api_key)
+        except Exception as e:
+            logger.warning("label embedding failed user=%s: %s", user["id"], e)
+            vecs = []
+        if vecs:
+            packed = {t: embeddings.pack(v) for t, v in zip(missing, vecs)}
+            await db.put_cached_embeddings(_LABEL_EMBED_LANG, embeddings.EMBED_MODEL, packed)
+            cached.update(packed)
+    return {t: embeddings.unpack(b) for t, b in cached.items()}
+
+
 @app.get("/api/labels/suggest-merges")
 async def suggest_label_merges(user: dict = Depends(current_user)):
-    """Find groups of labels with very similar names (likely duplicates)."""
+    """Find groups of labels that are likely duplicates — combining a cheap string
+    pass (typos/plurals) with a semantic embedding pass (synonyms that share no
+    letters, e.g. 'drinks'/'beverages'). Groups are connected components over both
+    signals, sorted by confidence then size."""
     labels = await db.list_labels(user["id"])
     if len(labels) < 2:
         return {"groups": []}
 
-    import re, unicodedata
+    normed = {l["id"]: _label_norm(l["name"]) for l in labels}
+    vectors = await _label_vectors(user, [l["name"] for l in labels])
 
-    def _norm(name: str) -> str:
-        s = unicodedata.normalize("NFKD", name).lower().strip()
-        s = re.sub(r"[^\w\s]", " ", s)
-        s = re.sub(r"\b(and|the|a|an|of)\b", "", s)
-        s = re.sub(r"s\b", "", s)
-        return re.sub(r"\s+", " ", s).strip()
+    def _vec(l: dict) -> list[float] | None:
+        return vectors.get(_label_embed_text(l["name"]))
 
-    normed = [(l, _norm(l["name"])) for l in labels]
-    seen: set[int] = set()
+    # Union-find over labels; an edge connects two labels that are string- or
+    # semantically similar. We track the best similarity per edge for sorting.
+    parent = {l["id"]: l["id"] for l in labels}
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    edges: list[tuple[int, int, float]] = []
+    for i in range(len(labels)):
+        for j in range(i + 1, len(labels)):
+            la, lb = labels[i], labels[j]
+            sim = _string_sim(normed[la["id"]], normed[lb["id"]])
+            va, vb = _vec(la), _vec(lb)
+            if va and vb:
+                cos = embeddings.cosine(va, vb)
+                if cos >= _SEMANTIC_MERGE_THRESHOLD:
+                    sim = max(sim, cos)
+            if sim > 0:
+                union(la["id"], lb["id"])
+                edges.append((la["id"], lb["id"], sim))
+
+    # Group labels by their union-find root, then keep components of size ≥ 2.
+    by_root: dict[int, list[dict]] = {}
+    for l in labels:
+        by_root.setdefault(find(l["id"]), []).append(l)
+
     groups: list[dict] = []
-    for i, (la, na) in enumerate(normed):
-        if la["id"] in seen or not na:
+    for root, members in by_root.items():
+        # A component of 2–6 is a believable duplicate set; anything larger is
+        # almost certainly the semantic threshold over-connecting, so don't
+        # surface an alarming "merge 12 labels" suggestion.
+        if not (2 <= len(members) <= 6):
             continue
-        cluster = [la]
-        for j in range(i + 1, len(normed)):
-            lb, nb = normed[j]
-            if lb["id"] in seen or not nb:
-                continue
-            ratio = _levenshtein_ratio(na, nb)
-            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
-            is_affix = shorter != longer and (longer.startswith(shorter) or longer.endswith(shorter))
-            threshold = 0.92 if is_affix else 0.8
-            if na == nb or ratio >= threshold:
-                cluster.append(lb)
-                seen.add(lb["id"])
-        if len(cluster) >= 2:
-            seen.add(la["id"])
-            total = sum(l["card_count"] for l in cluster)
-            groups.append({
-                "labels": [{"id": l["id"], "name": l["name"], "card_count": l["card_count"]} for l in cluster],
-                "total_cards": total,
-            })
-    groups.sort(key=lambda g: g["total_cards"], reverse=True)
+        member_ids = {m["id"] for m in members}
+        score = max((s for a, b, s in edges if a in member_ids and b in member_ids), default=0.0)
+        groups.append({
+            "labels": [{"id": m["id"], "name": m["name"], "card_count": m["card_count"]} for m in members],
+            "total_cards": sum(m["card_count"] for m in members),
+            "score": round(score, 3),
+        })
+    # Most confident first (synonym/typo certainty), then by reach (card count).
+    groups.sort(key=lambda g: (g["score"], g["total_cards"]), reverse=True)
     return {"groups": groups}
 
 
