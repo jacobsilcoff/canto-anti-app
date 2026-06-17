@@ -832,8 +832,13 @@ def suggest_vocab_for_label(
     known_words: list[str],
     api_key: str,
     count: int = 10,
+    label_words: list[dict] | None = None,
 ) -> list[dict]:
     """Ask an LLM to suggest vocabulary words that fit a label/category.
+
+    `label_words` is the vocab already tagged with this label
+    ([{target_text, source_text}]) — passed so the model matches its style/
+    granularity and never re-suggests what's already there.
 
     Returns: [{"target": "...", "source": "...", "romanization": "..."}]
     """
@@ -844,18 +849,30 @@ def suggest_vocab_for_label(
     rom_name = info.get("romanization", "")
     rom_field = f', "romanization": "({rom_name})"' if rom_name else ""
 
+    label_block = ""
+    if label_words:
+        items = ", ".join(
+            f"{w['target_text']} ({w['source_text']})" if w.get("source_text") else w["target_text"]
+            for w in label_words[:40]
+        )
+        label_block = (
+            f'\nThe "{label_name}" category already contains these words — match '
+            f"their style and specificity, and do NOT repeat any of them: {items}\n"
+        )
+
     known_block = ""
     if known_words:
         sample = known_words[:50]
         known_block = (
-            f"\nThe learner already knows these words (do NOT repeat them): "
-            f"{', '.join(sample)}\n"
+            f"\nThe learner already knows these words elsewhere in their deck "
+            f"(do NOT repeat them): {', '.join(sample)}\n"
         )
 
     prompt = (
         f"You are a {lang_name} vocabulary tutor. Suggest exactly {count} "
         f'{lang_name} vocabulary words/phrases that belong to the category '
         f'"{label_name}".\n'
+        f"{label_block}"
         f"{known_block}\n"
         f"Return ONLY a JSON array of exactly {count} items. Each item:\n"
         f'{{"target": "({lang_name} word)"{rom_field}, "source": "(English meaning)"}}\n'

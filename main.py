@@ -2276,14 +2276,16 @@ async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current
     access = await _resolve_gemini(user, meter=False)
     known = await db.get_known_words(user["id"], lang, limit=150)
     known_words = [w["target_text"] for w in known]
+    label_words = await db.get_label_words(user["id"], req.label_id, lang)
     llm_count = min(req.count * 2, 20)
     loop = asyncio.get_event_loop()
     suggestions = await loop.run_in_executor(
         None, translation.suggest_vocab_for_label,
-        req.label_name, lang, known_words, access.api_key, llm_count,
+        req.label_name, lang, known_words, access.api_key, llm_count, label_words,
     )
-    logger.info("populate_label %r lang=%s: LLM returned %d, known=%d",
-                req.label_name, lang, len(suggestions) if suggestions else 0, len(known_words))
+    logger.info("populate_label %r lang=%s: LLM returned %d, known=%d, in-label=%d",
+                req.label_name, lang, len(suggestions) if suggestions else 0,
+                len(known_words), len(label_words))
     if suggestions:
         targets = [s["target"] for s in suggestions]
         existing = await db.get_cards_by_target(user["id"], targets, lang)

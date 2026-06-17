@@ -2349,6 +2349,25 @@ async def get_cards_by_target(user_id: int, targets: list[str], target_lang: str
             return {r[0] for r in await cur.fetchall()}
 
 
+async def get_label_words(user_id: int, label_id: int, target_lang: str, limit: int = 60) -> list[dict]:
+    """The vocab already tagged with a label — [{target_text, source_text}], newest first.
+
+    Fed to the populate LLM so it learns the label's granularity/style and avoids
+    re-suggesting words already in the label."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            """SELECT c.target_text, c.source_text
+               FROM cards c
+               JOIN card_labels cl ON cl.card_id = c.id
+               WHERE cl.label_id=? AND c.user_id=? AND c.target_lang=?
+               ORDER BY c.id DESC LIMIT ?""",
+            (label_id, user_id, target_lang, limit),
+        ) as cur:
+            return [{"target_text": r["target_text"], "source_text": r["source_text"]}
+                    for r in await cur.fetchall()]
+
+
 async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> list[dict]:
     """The user's well-known deck words, strongest first — fed into lesson/tutor
     prompts so generation builds on what the learner already knows.
