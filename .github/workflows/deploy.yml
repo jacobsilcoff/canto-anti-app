@@ -60,4 +60,5 @@ jobs:
             mkdir -p ~/db-backups
             docker cp canto-app:/data/cards.db ~/db-backups/cards-$(date +%F-%H%M%S).db 2>/dev/null || true
             git pull
+            docker rm -f canto-app 2>/dev/null || true
             docker compose up -d --build

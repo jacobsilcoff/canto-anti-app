@@ -63,4 +63,5 @@ jobs:
             git fetch origin develop
             git checkout develop
             git pull
+            docker rm -f canto-app-staging 2>/dev/null || true
             docker compose -p staging -f docker-compose.staging.yml up -d --build
