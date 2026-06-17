@@ -28,15 +28,24 @@
     .browse-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
     /* ── My Cards ── */
-    .cards-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .cards-toolbar input { flex: 1; min-width: 120px; border: 1px solid var(--border); border-radius: 8px;
+    .cards-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+    .cards-toolbar input[type="text"] { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
       padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
-    .cards-toolbar input:focus { outline: none; border-color: var(--primary); }
-    .cards-toolbar select { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
-      font-size: 0.85rem; background: var(--bg); color: var(--text); font-family: inherit; }
-    .cards-toolbar select:focus { outline: none; border-color: var(--primary); }
-    .cards-toolbar label { display: flex; align-items: center; gap: 5px; font-size: 0.82rem;
-      color: var(--text-muted); white-space: nowrap; cursor: pointer; user-select: none; }
+    .cards-toolbar input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .cards-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+    .cards-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
+      font-size: 0.8rem; background: var(--bg); color: var(--text); font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+    .cards-filters select:focus { outline: none; border-color: var(--primary); }
+    .filter-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.04em; margin-right: -2px; }
+    .filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+    .filter-clear { background: none; border: 1px solid var(--border); border-radius: 999px;
+      padding: 3px 10px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer;
+      transition: all 0.12s; white-space: nowrap; }
+    .filter-clear:hover { border-color: var(--primary); color: var(--primary); }
     .cards-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
     .study-link { font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; }
     .study-link:hover { text-decoration: underline; }
@@ -177,14 +186,42 @@
   <!-- My cards -->
   <div id="cards-view">
     <div class="cards-toolbar">
-      <input id="cards-search" placeholder="Search cards…" oninput="filterCards()">
-      <select id="cards-label-filter" class="settings-select" onchange="filterCards()">
-        <option value="">All labels</option>
+      <input type="text" id="cards-search" placeholder="Search cards…" oninput="filterCards()">
+    </div>
+    <div class="cards-filters" id="cards-filters">
+      <span class="filter-label">Language</span>
+      <select id="cards-lang-filter" onchange="filterCards()"></select>
+      <span class="filter-label">Label</span>
+      <select id="cards-label-filter" onchange="filterCards()">
+        <option value="">All</option>
       </select>
-      <label>
-        <input type="checkbox" id="cards-all-langs" onchange="filterCards()">
-        All languages
-      </label>
+      <span class="filter-label">CEFR</span>
+      <select id="cards-cefr-filter" onchange="filterCards()">
+        <option value="">All</option>
+        <option value="A1">A1</option>
+        <option value="A2">A2</option>
+        <option value="B1">B1</option>
+        <option value="B2">B2</option>
+        <option value="C1">C1</option>
+        <option value="C2">C2</option>
+      </select>
+      <span class="filter-sep"></span>
+      <span class="filter-label">Status</span>
+      <select id="cards-status-filter" onchange="filterCards()">
+        <option value="">All</option>
+        <option value="active">Active</option>
+        <option value="suspended">Suspended</option>
+        <option value="flagged">Flagged</option>
+      </select>
+      <span class="filter-label">Sort</span>
+      <select id="cards-sort" onchange="filterCards()">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="priority">Priority</option>
+        <option value="alpha">A → Z</option>
+        <option value="cefr">CEFR level</option>
+      </select>
+      <button class="filter-clear" onclick="clearFilters()">Clear filters</button>
     </div>
     <div class="cards-count" id="cards-count"></div>
     <div class="card-list-wrap" id="cards-list"></div>
@@ -345,6 +382,7 @@
     langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
     _pickerLang = _defaultLang || (languages[0] && languages[0].code) || '';
     populatePickerLangFilter();
+    populateCardsLangFilter();
     loadLabels();
     filterCards();
   }
@@ -369,6 +407,18 @@
     sel.innerHTML = present.map(code =>
       `<option value="${code}"${code === _pickerLang ? ' selected' : ''}>${langBadge(code)}</option>`
     ).join('');
+  }
+
+  function populateCardsLangFilter() {
+    const sel = document.getElementById('cards-lang-filter');
+    if (!sel) return;
+    const present = [...new Set(_allCards.map(c => c.target_lang).filter(Boolean))];
+    let opts = '<option value="">All languages</option>';
+    present.forEach(code => {
+      opts += `<option value="${code}"${code === _defaultLang ? ' selected' : ''}>${langBadge(code)}</option>`;
+    });
+    sel.innerHTML = opts;
+    if (_defaultLang && present.includes(_defaultLang)) sel.value = _defaultLang;
   }
 
   // ── Tabs ──
@@ -400,22 +450,56 @@
   function filterCards() {
     const q = (document.getElementById('cards-search').value || '').toLowerCase();
     const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
-    const showAll = document.getElementById('cards-all-langs').checked;
+    const langFilter = document.getElementById('cards-lang-filter').value;
+    const cefrFilter = document.getElementById('cards-cefr-filter').value;
+    const statusFilter = document.getElementById('cards-status-filter').value;
+    const sortBy = document.getElementById('cards-sort').value;
     let filtered = _allCards;
-    if (!showAll && _defaultLang) {
-      filtered = filtered.filter(c => c.target_lang === _defaultLang);
+    if (langFilter) {
+      filtered = filtered.filter(c => c.target_lang === langFilter);
     }
     if (q) {
       filtered = filtered.filter(c =>
         (c.target_text || '').toLowerCase().includes(q) ||
         (c.source_text || '').toLowerCase().includes(q) ||
-        (c.romanization || '').toLowerCase().includes(q)
+        (c.romanization || '').toLowerCase().includes(q) ||
+        (c.notes || '').toLowerCase().includes(q)
       );
     }
     if (labelId) {
       filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
     }
+    if (cefrFilter) {
+      filtered = filtered.filter(c => c.cefr_level === cefrFilter);
+    }
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(c => !c.suspended && !c.tutor_flag);
+    } else if (statusFilter === 'suspended') {
+      filtered = filtered.filter(c => c.suspended);
+    } else if (statusFilter === 'flagged') {
+      filtered = filtered.filter(c => c.tutor_flag);
+    }
+    const CEFR_ORDER = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    if (sortBy === 'oldest') {
+      filtered = filtered.slice().sort((a, b) => a.id - b.id);
+    } else if (sortBy === 'priority') {
+      filtered = filtered.slice().sort((a, b) => (b.priority || 3) - (a.priority || 3));
+    } else if (sortBy === 'alpha') {
+      filtered = filtered.slice().sort((a, b) => (a.target_text || '').localeCompare(b.target_text || ''));
+    } else if (sortBy === 'cefr') {
+      filtered = filtered.slice().sort((a, b) => (CEFR_ORDER[a.cefr_level] || 99) - (CEFR_ORDER[b.cefr_level] || 99));
+    }
     renderCardsList(filtered);
+  }
+
+  function clearFilters() {
+    document.getElementById('cards-search').value = '';
+    document.getElementById('cards-lang-filter').value = _defaultLang || '';
+    document.getElementById('cards-label-filter').value = '';
+    document.getElementById('cards-cefr-filter').value = '';
+    document.getElementById('cards-status-filter').value = '';
+    document.getElementById('cards-sort').value = 'newest';
+    filterCards();
   }
 
   function renderCardsList(cards) {
