@@ -3949,7 +3949,7 @@ class CreateDeckRequest(BaseModel):
 async def create_deck(req: CreateDeckRequest, user: dict = Depends(current_user)):
     if not req.name.strip():
         raise HTTPException(400, "Name required")
-    if req.visibility not in ("friends", "public"):
+    if req.visibility not in ("private", "friends", "public"):
         raise HTTPException(400, "Invalid visibility")
     if not req.card_ids:
         raise HTTPException(400, "Select at least one card")
@@ -3992,7 +3992,7 @@ class UpdateDeckRequest(BaseModel):
 
 @app.put("/api/decks/{deck_id}")
 async def update_deck(deck_id: int, req: UpdateDeckRequest, user: dict = Depends(current_user)):
-    if req.visibility and req.visibility not in ("friends", "public"):
+    if req.visibility and req.visibility not in ("private", "friends", "public"):
         raise HTTPException(400, "Invalid visibility")
     ok = await db.update_shared_deck(user["id"], deck_id, req.name, req.description, req.visibility)
     if not ok:

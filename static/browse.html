@@ -332,6 +332,7 @@
     <div>
       <div class="create-form-label">Visibility</div>
       <select id="deck-visibility" class="settings-select">
+        <option value="private">Private</option>
         <option value="friends">Friends only</option>
         <option value="public">Public</option>
       </select>
@@ -1016,16 +1017,19 @@
       decks.forEach(d => {
         const card = document.createElement('div');
         card.className = 'deck-card';
+        const isCreator = d.is_creator;
         card.innerHTML = `
-          <div class="deck-card-title">${esc(d.name)}</div>
+          <div class="deck-card-title">${esc(d.name)}${!isCreator ? ' <span style="font-size:0.72rem;color:var(--text-muted);font-weight:400">(imported)</span>' : ''}</div>
           ${d.description ? `<div class="deck-card-desc">${esc(d.description)}</div>` : ''}
           <div class="deck-card-meta">
             ${d.target_lang ? `<span>${langBadge(d.target_lang)}</span>` : ''}
             <span>${d.card_count} cards</span>
+            ${!isCreator && d.creator ? `<span>by ${esc(d.creator)}</span>` : ''}
             <span>${d.visibility}</span>
-            <span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>
+            ${isCreator ? `<span>${d.import_count} import${d.import_count !== 1 ? 's' : ''}</span>` : ''}
+            ${_deckStarsHtml(d.avg_rating, d.rating_count)}
           </div>`;
-        card.onclick = () => openDeckDetail(d.id, true);
+        card.onclick = () => openDeckDetail(d.id, isCreator);
         list.appendChild(card);
       });
     } catch {}

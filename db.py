@@ -3516,15 +3516,27 @@ async def list_my_decks(user_id: int) -> list[dict]:
         async with db.execute(
             """SELECT sd.id, sd.name, sd.description, sd.target_lang,
                       sd.visibility, sd.created_at,
+                      u.username as creator,
+                      sd.creator_id,
                       COUNT(sdi.id) as card_count,
-                      (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count
+                      (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
+                      COALESCE(dr.avg_r, 0) as avg_rating,
+                      COALESCE(dr.cnt, 0) as rating_count
                FROM shared_decks sd
+               JOIN users u ON sd.creator_id = u.id
                LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+               LEFT JOIN (SELECT deck_id, AVG(rating) as avg_r, COUNT(*) as cnt
+                          FROM deck_ratings GROUP BY deck_id) dr ON dr.deck_id = sd.id
                WHERE sd.creator_id=?
+                  OR EXISTS(SELECT 1 FROM deck_imports di2
+                            WHERE di2.deck_id=sd.id AND di2.user_id=?)
                GROUP BY sd.id ORDER BY sd.created_at DESC""",
-            (user_id,),
+            (user_id, user_id),
         ) as cur:
-            return [dict(r) for r in await cur.fetchall()]
+            rows = [dict(r) for r in await cur.fetchall()]
+        for r in rows:
+            r["is_creator"] = r["creator_id"] == user_id
+        return rows
 
 
 async def list_community_decks(
@@ -3590,7 +3602,15 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
         uid = requesting_user_id
         cid = d["creator_id"]
         if cid != uid and d["visibility"] != "public":
-            if d["visibility"] == "friends":
+            # Allow access if user has already imported this deck
+            async with db.execute(
+                "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
+                (uid, deck_id),
+            ) as cur:
+                has_imported = bool(await cur.fetchone())
+            if has_imported:
+                pass  # importer always keeps access
+            elif d["visibility"] == "friends":
                 async with db.execute(
                     """SELECT 1 FROM friendships
                        WHERE status='accepted'
