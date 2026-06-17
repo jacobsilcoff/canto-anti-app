@@ -298,17 +298,18 @@
 
 
     /* ── Translation breakdown panel (English → target) ── */
-    .trans-panel { max-width: 86%; width: 100%; margin-top: 4px; align-self: flex-end; }
+    .trans-panel { max-width: 86%; width: 100%; margin-top: 4px; align-self: flex-end;
+      display: flex; flex-direction: column; align-items: flex-end; }
     .trans-toggle { display: flex; align-items: center; gap: 5px;
       padding: 5px 12px; border-radius: 999px; border: none; cursor: pointer;
       background: var(--primary-soft); border: 1px solid var(--primary);
       color: var(--primary); font-size: 0.78rem; font-weight: 600;
-      transition: background 0.15s; }
+      width: auto; transition: background 0.15s; }
     .trans-toggle:hover { background: var(--primary); color: #fff; }
     .trans-toggle svg { flex-shrink: 0; }
     .trans-body { display: none; margin-top: 6px; background: var(--surface-alt);
       border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px;
-      font-size: 0.88rem; }
+      font-size: 0.88rem; width: 100%; }
     .trans-panel.open .trans-body { display: block; }
     .trans-orig { color: var(--text-muted); font-style: italic; margin-bottom: 6px;
       padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
