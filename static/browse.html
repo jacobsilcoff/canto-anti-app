@@ -229,8 +229,15 @@
     .lbl-action.danger:hover { border-color: var(--danger); color: var(--danger); }
     .lbl-merge-cb { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
     .merge-bar { display: flex; align-items: center; gap: 8px; padding: 10px 0 14px; flex-wrap: wrap; }
-    .merge-sug { background: var(--surface); border: 1px solid var(--warn-border); border-radius: 10px;
-      padding: 12px 14px; margin-bottom: 10px; }
+    .merge-sug-wrap { background: var(--surface); border: 1px solid var(--warn-border); border-radius: 10px;
+      margin-bottom: 14px; overflow: hidden; }
+    .merge-sug-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; }
+    .merge-sug-header-title { font-size: 0.82rem; font-weight: 600; color: var(--warn-accent); }
+    .merge-sug-header-count { font-size: 0.75rem; color: var(--text-muted); }
+    .merge-sug-header .sug-chevron { margin-left: auto; font-size: 1rem; color: var(--text-muted); transition: transform 0.2s; line-height: 1; }
+    .merge-sug-wrap.collapsed .sug-chevron { transform: rotate(-90deg); }
+    .merge-sug-wrap.collapsed .merge-sug-body { display: none; }
+    .merge-sug { padding: 12px 14px; border-top: 1px solid var(--warn-border); }
     .merge-sug-title { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     .merge-sug-labels { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
     .merge-sug-chip { background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: 999px;
@@ -619,6 +626,25 @@
         return !_dismissedMergeSuggestions.has(key);
       });
       if (!filtered.length) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'merge-sug-wrap';
+      const collapsed = localStorage.getItem('merge_sug_collapsed') === '1';
+      if (collapsed) wrap.classList.add('collapsed');
+      wrap.innerHTML = `
+        <div class="merge-sug-header">
+          <span class="merge-sug-header-title">Suggested merges</span>
+          <span class="merge-sug-header-count">${filtered.length} group${filtered.length !== 1 ? 's' : ''}</span>
+          <span class="sug-chevron">›</span>
+        </div>
+        <div class="merge-sug-body"></div>
+      `;
+      wrap.querySelector('.merge-sug-header').onclick = () => {
+        wrap.classList.toggle('collapsed');
+        localStorage.setItem('merge_sug_collapsed', wrap.classList.contains('collapsed') ? '1' : '');
+      };
+      const body = wrap.querySelector('.merge-sug-body');
+
       filtered.forEach(group => {
         const key = group.labels.map(l => l.id).sort().join(',');
         const card = document.createElement('div');
@@ -627,27 +653,37 @@
           `<span class="merge-sug-chip">${esc(l.name)} <span style="color:var(--text-muted)">(${l.card_count})</span></span>`
         ).join('');
         card.innerHTML = `
-          <div class="merge-sug-title">Similar labels found</div>
           <div class="merge-sug-labels">${chips}</div>
           <div class="merge-sug-actions">
+            <span style="font-size:0.78rem;color:var(--text-muted)">Keep:</span>
             <select class="settings-select merge-sug-target" style="min-width:100px;font-size:0.82rem">
               ${group.labels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('')}
             </select>
-            <button class="merge-sug-btn">Merge into this</button>
+            <button class="merge-sug-btn">Merge</button>
             <button class="merge-sug-dismiss">Dismiss</button>
           </div>
         `;
-        card.querySelector('.merge-sug-btn').onclick = () => acceptMergeSuggestion(group, card);
+        card.querySelector('.merge-sug-btn').onclick = () => acceptMergeSuggestion(group, card, wrap);
         card.querySelector('.merge-sug-dismiss').onclick = () => {
           _dismissedMergeSuggestions.add(key);
           card.remove();
+          _updateSuggestionsCount(wrap);
         };
-        container.appendChild(card);
+        body.appendChild(card);
       });
+
+      container.appendChild(wrap);
     } catch {}
   }
 
-  async function acceptMergeSuggestion(group, cardEl) {
+  function _updateSuggestionsCount(wrap) {
+    const remaining = wrap.querySelectorAll('.merge-sug').length;
+    if (remaining === 0) { wrap.remove(); return; }
+    const countEl = wrap.querySelector('.merge-sug-header-count');
+    if (countEl) countEl.textContent = `${remaining} group${remaining !== 1 ? 's' : ''}`;
+  }
+
+  async function acceptMergeSuggestion(group, cardEl, wrap) {
     const targetId = parseInt(cardEl.querySelector('.merge-sug-target').value);
     const sourceIds = group.labels.map(l => l.id).filter(id => id !== targetId);
     if (!sourceIds.length) return;
@@ -659,7 +695,10 @@
         body: JSON.stringify({ source_ids: sourceIds, target_id: targetId }),
       });
       if (!res.ok) throw new Error();
-      await loadLabelsTab();
+      cardEl.remove();
+      _updateSuggestionsCount(wrap);
+      await loadLabels();
+      renderLabelsList();
       showToast('Labels merged.');
     } catch { showToast('Could not merge labels.'); }
   }

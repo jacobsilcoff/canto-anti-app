@@ -2096,7 +2096,11 @@ async def suggest_label_merges(user: dict = Depends(current_user)):
             lb, nb = normed[j]
             if lb["id"] in seen or not nb:
                 continue
-            if na == nb or _levenshtein_ratio(na, nb) >= 0.8:
+            ratio = _levenshtein_ratio(na, nb)
+            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+            is_affix = shorter != longer and (longer.startswith(shorter) or longer.endswith(shorter))
+            threshold = 0.92 if is_affix else 0.8
+            if na == nb or ratio >= threshold:
                 cluster.append(lb)
                 seen.add(lb["id"])
         if len(cluster) >= 2:
