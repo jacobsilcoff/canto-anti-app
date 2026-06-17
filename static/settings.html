@@ -18,18 +18,21 @@
     .settings-page { max-width: 600px; margin: 0 auto; padding: 24px 16px 60px; overflow-x: hidden; box-sizing: border-box; }
     .settings-page h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; color: var(--text); }
 
-    /* ── Category tabs ── */
-    .settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
-    .settings-tabs::-webkit-scrollbar { display: none; }
-    .settings-tab {
-      background: none; border: 1px solid var(--border); border-radius: 999px;
-      padding: 7px 12px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
-      cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.15s;
-      display: flex; align-items: center; gap: 4px; flex: 0 0 auto;
+    /* ── Category tabs (segmented pill) ── */
+    .settings-tabs {
+      display: flex; margin-bottom: 20px; border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; max-width: 100%;
     }
-    .settings-tab:hover { border-color: var(--primary); color: var(--primary); }
-    .settings-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
-    .settings-tab .tab-icon { font-size: 0.95rem; line-height: 1; }
+    .settings-tab {
+      flex: 1; background: var(--surface); border: none; border-left: 1px solid var(--border);
+      padding: 9px 4px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .settings-tab:first-child { border-left: none; }
+    .settings-tab:hover { background: var(--bg); color: var(--primary); }
+    .settings-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+    .settings-tab .tab-icon { font-size: 0.9rem; line-height: 1; }
     .settings-pane { display: none; }
     .settings-pane.active { display: block; animation: fadePane 0.15s ease; }
     @keyframes fadePane { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
