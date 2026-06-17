@@ -3942,7 +3942,7 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
 class CreateDeckRequest(BaseModel):
     name: str
     description: str = ""
-    visibility: str = "friends"
+    visibility: str = "public"
     card_ids: list[int] = []
 
 @app.post("/api/decks")
