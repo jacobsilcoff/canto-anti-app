@@ -4334,13 +4334,22 @@ async def send_message(conv_id: int, body: SendMessageBody,
     analysis: dict = {}
 
     if body.mode == "native":
-        # Typed English → translate to sender's target lang; get nuance note
+        # Typed English → translate to sender's target lang; get nuance note + vocab
         tr = await translation.translate_message(body.text, "en", sender_lang, api_key=api_key)
         sender_display = tr["translated"]
         translations[sender_lang] = sender_display
         analysis["reply_en"] = body.text
         if tr.get("nuance_note"):
             analysis["nuance_note"] = tr["nuance_note"]
+        if tr.get("explanation"):
+            analysis["explanation"] = tr["explanation"]
+        vocab = tr.get("vocab") or []
+        if vocab:
+            words = [v["target_text"] for v in vocab]
+            statuses = await db.get_word_statuses(user["id"], words, sender_lang)
+            vocab = [v for v in vocab if v["target_text"] not in statuses]
+        if vocab:
+            analysis["vocab"] = vocab
     else:
         # Already in target lang — grammar check + English meaning
         sender_display = body.text
@@ -4368,6 +4377,7 @@ async def send_message(conv_id: int, body: SendMessageBody,
     if sender_lang in _RUBY_LANGS:
         texts = [sender_display] + [c.get("corrected", "")
                                     for c in analysis.get("corrections", [])]
+        texts += [v.get("target_text", "") for v in analysis.get("vocab", [])]
         tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
 
     # Push notification to the other party (in-app conversations only)

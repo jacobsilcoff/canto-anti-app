@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 3;
+  var TOUR_VERSION = 4;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -13,6 +13,8 @@
       body: 'The Tutor is an AI conversation partner. It replies in your target language, corrects your mistakes, and suggests new words you can add to your deck in one tap.', v: 2 },
     { icon: '✉️', title: 'Message other learners',
       body: 'The Messages tab lets you chat with friends. Every message gets romanization, word-by-word translations, and corrections — like having a tutor in every conversation.', v: 2 },
+    { icon: '💡', title: 'Type English to learn vocab',
+      body: 'In friend chats, type in English and your message auto-translates. A breakdown panel shows the original, explains the translation, and lists words you can add to your deck. On photos, tap the lightbulb for suggested phrases.', v: 4 },
     { icon: '🔍', title: 'Browse shared decks',
       body: 'The Browse page lets you create card decks and share them with friends or the community. Import decks from other learners to jumpstart your vocabulary.', v: 3 },
     { icon: '⚠️', title: 'Report bugs & ideas',
