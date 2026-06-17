@@ -23,9 +23,9 @@
     .settings-tabs::-webkit-scrollbar { display: none; }
     .settings-tab {
       background: none; border: 1px solid var(--border); border-radius: 999px;
-      padding: 8px 18px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);
+      padding: 8px 14px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);
       cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.15s;
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 5px; flex: 0 0 auto;
     }
     .settings-tab:hover { border-color: var(--primary); color: var(--primary); }
     .settings-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
@@ -37,11 +37,16 @@
     /* ── Sections & rows ── */
     .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px; overflow: hidden; }
     .settings-section-title { font-size: 0.78rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
-    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .settings-row:last-child { border-bottom: none; }
+    /* The text column must be allowed to shrink (min-width:0) so a long token
+       (e.g. a URL in a description) can wrap instead of forcing the page wider
+       than the screen. Safe for the column-layout rows too. */
+    .settings-row > div:first-child { min-width: 0; }
     .settings-label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
-    .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
-    .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; text-align: center; }
+    .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; overflow-wrap: anywhere; }
+    .settings-desc a { overflow-wrap: anywhere; }
+    .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; max-width: 100%; text-align: center; box-sizing: border-box; }
     .settings-select {
       border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
       padding: 7px 30px 7px 10px; font-size: 0.9rem; cursor: pointer;
@@ -97,9 +102,8 @@
 
   <div class="settings-tabs" id="settings-tabs">
     <button class="settings-tab active" data-pane="account" onclick="switchPane('account')"><span class="tab-icon">👤</span> Account</button>
-    <button class="settings-tab" data-pane="learning" onclick="switchPane('learning')"><span class="tab-icon">📚</span> Learning</button>
+    <button class="settings-tab" data-pane="learning" onclick="switchPane('learning')"><span class="tab-icon">📚</span> Study</button>
     <button class="settings-tab" data-pane="preferences" onclick="switchPane('preferences')"><span class="tab-icon">⚙️</span> Preferences</button>
-    <button class="settings-tab" data-pane="ai" onclick="switchPane('ai')"><span class="tab-icon">🤖</span> AI</button>
     <button class="settings-tab" data-pane="admin" onclick="switchPane('admin')" id="admin-tab" style="display:none"><span class="tab-icon">🔧</span> Admin</button>
   </div>
 
@@ -156,18 +160,37 @@
     </div>
 
     <div class="settings-section">
-      <div class="settings-section-title">Appearance</div>
-      <div class="settings-row">
-        <div style="flex:1;min-width:0">
-          <div class="settings-label">Theme</div>
-          <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+      <div class="settings-section-title">Gemini API</div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div>
+          <div class="settings-label">Your Gemini API key</div>
+          <div class="settings-desc">
+            Powers translation and reader generation. Stored encrypted; only you can use it.
+            Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+            <span id="api-key-status"></span>
+          </div>
         </div>
-        <div class="theme-seg" id="theme-seg">
-          <button type="button" data-pref="auto">Auto</button>
-          <button type="button" data-pref="light">Light</button>
-          <button type="button" data-pref="dark">Dark</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off" style="flex:1;min-width:140px;text-align:left">
+          <button class="settings-btn primary" onclick="saveApiKey()">Save</button>
+          <button class="settings-btn" onclick="clearApiKey()">Clear</button>
         </div>
       </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Translation model</div>
+          <div class="settings-desc">Used for word/phrase translation</div>
+        </div>
+        <select id="settings-model-translate" class="settings-select" onchange="saveModels()"></select>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Reader model</div>
+          <div class="settings-desc">Used to generate reader texts</div>
+        </div>
+        <select id="settings-model-reader" class="settings-select" onchange="saveModels()"></select>
+      </div>
+      <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
     </div>
   </div>
 
@@ -242,6 +265,21 @@
   <!-- ════ Preferences ════ -->
   <div class="settings-pane" id="pane-preferences">
     <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Theme</div>
+          <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+        </div>
+        <div class="theme-seg" id="theme-seg">
+          <button type="button" data-pref="auto">Auto</button>
+          <button type="button" data-pref="light">Light</button>
+          <button type="button" data-pref="dark">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-section-title">Flashcards</div>
       <div class="settings-row">
         <div>
@@ -306,43 +344,6 @@
         </div>
         <button class="notif-bell-btn" onclick="toggleNotifications()"></button>
       </div>
-    </div>
-  </div>
-
-  <!-- ════ AI ════ -->
-  <div class="settings-pane" id="pane-ai">
-    <div class="settings-section">
-      <div class="settings-section-title">Gemini API</div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">Your Gemini API key</div>
-          <div class="settings-desc">
-            Powers translation and reader generation. Stored encrypted; only you can use it.
-            Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-            <span id="api-key-status"></span>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-          <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off" style="width:160px;text-align:left">
-          <button class="settings-btn primary" onclick="saveApiKey()">Save</button>
-          <button class="settings-btn" onclick="clearApiKey()">Clear</button>
-        </div>
-      </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">Translation model</div>
-          <div class="settings-desc">Used for word/phrase translation</div>
-        </div>
-        <select id="settings-model-translate" class="settings-select" onchange="saveModels()"></select>
-      </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">Reader model</div>
-          <div class="settings-desc">Used to generate reader texts</div>
-        </div>
-        <select id="settings-model-reader" class="settings-select" onchange="saveModels()"></select>
-      </div>
-      <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
     </div>
   </div>
 
@@ -640,6 +641,7 @@
       const me = await fetch('/api/me').then(r => r.json());
       if (me.is_admin) {
         document.getElementById('admin-tab').style.display = '';
+        await loadUsers();
       }
     } catch {}
   }
