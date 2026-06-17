@@ -946,6 +946,14 @@
         wrap.appendChild(chip);
       });
       panel.appendChild(sec);
+    } else if (llmRes.status === 'rejected') {
+      const sec = document.createElement('div');
+      sec.innerHTML = `<span style="color:var(--danger);font-size:0.82rem">Could not generate new words: ${escHtml(llmRes.reason?.message || 'unknown error')}</span>`;
+      panel.appendChild(sec);
+    } else if (llmRes.status === 'fulfilled' && (!llmRes.value.suggestions || !llmRes.value.suggestions.length)) {
+      const sec = document.createElement('div');
+      sec.innerHTML = `<span style="color:var(--text-muted);font-size:0.82rem">No new words to suggest — you may already have them all.</span>`;
+      panel.appendChild(sec);
     }
 
     if (!panel.children.length) {

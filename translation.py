@@ -2,8 +2,11 @@ import os
 import json
 import time
 import asyncio
+import logging
 from google import genai
 from google.genai.errors import ServerError
+
+logger = logging.getLogger(__name__)
 
 _clients: dict[str, "genai.Client"] = {}
 
@@ -851,6 +854,8 @@ def suggest_vocab_for_label(
             raw = _call(prompt, api_key, DEFAULT_MODEL)
             data = _parse_json(raw)
             if not isinstance(data, list):
+                logger.warning("suggest_vocab %r attempt %d: parsed non-list type=%s",
+                               label_name, _attempt, type(data).__name__)
                 continue
             results = []
             for item in data[:count]:
@@ -864,10 +869,12 @@ def suggest_vocab_for_label(
                         "source": source,
                         "romanization": (item.get("romanization") or "").strip(),
                     })
+            logger.info("suggest_vocab %r attempt %d: %d results from %d items",
+                        label_name, _attempt, len(results), len(data))
             if results:
                 return results
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("suggest_vocab %r attempt %d failed: %s", label_name, _attempt, exc)
     return []
 
 
