@@ -4634,6 +4634,8 @@ async def send_message(conv_id: int, body: SendMessageBody,
         sender_display = tr["translated"]
         translations[sender_lang] = sender_display
         analysis["reply_en"] = body.text
+        if tr.get("translation_failed"):
+            analysis["translation_failed"] = True
         if tr.get("nuance_note"):
             analysis["nuance_note"] = tr["nuance_note"]
         if tr.get("explanation"):
@@ -4689,6 +4691,55 @@ async def send_message(conv_id: int, body: SendMessageBody,
 
     return {"ok": True, "display_text": sender_display, "msg_id": msg_id,
             "analysis": analysis, "tokens": tokens}
+
+
+@app.post("/api/messages/{msg_id}/retry-translate")
+@limiter.limit("10/minute")
+async def retry_translate_message(msg_id: int, request: Request,
+                                  user: dict = Depends(current_user)):
+    """Re-attempt translation for a message that failed."""
+    msg = await db.get_message(msg_id, user["id"])
+    if not msg:
+        raise HTTPException(404, "Message not found")
+    if msg["sender_user_id"] != user["id"]:
+        raise HTTPException(403, "Not your message")
+    if msg["original_lang"] != "en":
+        raise HTTPException(400, "Only English messages can be retranslated")
+
+    access = await _resolve_gemini(user, meter=True)
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+
+    tr = await translation.translate_message(
+        msg["original_text"], "en", sender_lang, api_key=access.api_key)
+    if tr.get("translation_failed"):
+        raise HTTPException(502, "Translation failed again — try later")
+
+    translations = msg["translations"]
+    translations[sender_lang] = tr["translated"]
+    analysis = msg["analysis"]
+    analysis.pop("translation_failed", None)
+    analysis["reply_en"] = msg["original_text"]
+    if tr.get("nuance_note"):
+        analysis["nuance_note"] = tr["nuance_note"]
+    if tr.get("explanation"):
+        analysis["explanation"] = tr["explanation"]
+    vocab = tr.get("vocab") or []
+    if vocab:
+        words = [v["target_text"] for v in vocab]
+        statuses = await db.get_word_statuses(user["id"], words, sender_lang)
+        vocab = [v for v in vocab if v["target_text"] not in statuses]
+    if vocab:
+        analysis["vocab"] = vocab
+
+    await db.update_message_analysis(msg_id, translations, analysis)
+
+    tokens: dict = {}
+    display = tr["translated"]
+    if sender_lang in _RUBY_LANGS:
+        texts = [display] + [v.get("target_text", "") for v in vocab]
+        tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
+
+    return {"ok": True, "display_text": display, "analysis": analysis, "tokens": tokens}
 
 
 @app.post("/api/conversations/{conv_id}/image")

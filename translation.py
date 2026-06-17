@@ -1061,6 +1061,7 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
     )
     loop = asyncio.get_event_loop()
     raw = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
+    failed = False
     try:
         data = _parse_json(raw)
         translated = data.get("translated", text).strip()
@@ -1070,8 +1071,10 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
         translated = text
         nuance_note = ""
         data = {}
+        failed = True
     if not translated or translated.startswith("{") or translated.startswith("["):
         translated = text
+        failed = True
     if reply_en is None:
         reply_en = text
 
@@ -1092,8 +1095,11 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
                     "romanization": tokenizer.romanize_text(t, target_lang) or "",
                 })
 
-    return {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en,
-            "explanation": explanation, "vocab": vocab}
+    result = {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en,
+              "explanation": explanation, "vocab": vocab}
+    if failed:
+        result["translation_failed"] = True
+    return result
 
 
 async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:

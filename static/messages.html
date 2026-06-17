@@ -334,6 +334,15 @@
       cursor: pointer; color: var(--text-muted); padding: 2px 6px; font-size: 0.76rem;
       flex-shrink: 0; line-height: 1; }
     .trans-vocab-speak:hover { border-color: var(--primary); color: var(--primary); }
+    .trans-failed-toggle { display: flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 999px; border: 1px solid var(--warn-border);
+      background: var(--warn-soft); color: var(--warn-strong);
+      font-size: 0.78rem; font-weight: 600; cursor: default; }
+    .trans-retry-btn { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary);
+      border-radius: 8px; padding: 2px 10px; font-size: 0.76rem; font-weight: 600;
+      cursor: pointer; margin-left: 6px; transition: background 0.12s; }
+    .trans-retry-btn:hover { background: var(--primary); color: #fff; }
+    .trans-retry-btn:disabled { opacity: 0.6; cursor: default; }
 
     /* ── Emoji reactions ── */
     .msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 6px 2px; }
@@ -951,7 +960,7 @@
       ? rbSpan(m.display_text || '')
       : glossedText(m.display_text || '');
 
-    const willHaveTransPanel = mine && hasDiff && m.original_lang === 'en';
+    const willHaveTransPanel = mine && m.original_lang === 'en' && (hasDiff || !!(analysis.translation_failed));
     const showAa = hasAa && !willHaveTransPanel;
     const tools = isSending ? '' : `<div class="bubble-tools">
       <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
@@ -983,9 +992,19 @@
     // Translation breakdown panel: when user typed English and it was auto-translated
     const vocab = analysis.vocab || [];
     const explanation = analysis.explanation || '';
+    const translationFailed = !!(analysis.translation_failed);
     const isTranslated = mine && !isSending && hasDiff && m.original_lang === 'en';
-    const transHtml = isTranslated ? `
-      <div class="trans-panel open" id="tpanel-${m.id}">
+    const showTransPanel = mine && !isSending && m.original_lang === 'en' && (isTranslated || translationFailed);
+    let transHtml = '';
+    if (showTransPanel && translationFailed) {
+      transHtml = `<div class="trans-panel" id="tpanel-${m.id}">
+        <div class="trans-failed-toggle">
+          ⚠ Translation failed
+          <button class="trans-retry-btn" data-msg-id="${m.id}">Retry</button>
+        </div>
+      </div>`;
+    } else if (showTransPanel) {
+      transHtml = `<div class="trans-panel open" id="tpanel-${m.id}">
         <button class="trans-toggle" data-panel="${m.id}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2.3A7 7 0 0 1 12 2z"/></svg>
           Translation · ${vocab.length ? vocab.length + ' words' : 'details'} <span>▾</span>
@@ -1001,7 +1020,8 @@
               <button class="trans-vocab-add" data-target="${escAttr(v.target_text)}" data-english="${escAttr(v.english)}" data-roman="${escAttr(v.romanization || '')}">＋ Add</button>
             </div>`).join('')}` : ''}
         </div>
-      </div>` : '';
+      </div>`;
+    }
 
     const showOriginal = hasDiff && !isTranslated && m.original_lang !== 'en';
     const aaInner = [
@@ -1196,6 +1216,9 @@
     // Translation panel toggle
     const transToggle = e.target.closest('.trans-toggle[data-panel]');
     if (transToggle) { document.getElementById(`tpanel-${transToggle.dataset.panel}`)?.classList.toggle('open'); return; }
+    // Translation retry button
+    const retryBtn = e.target.closest('.trans-retry-btn[data-msg-id]');
+    if (retryBtn && !retryBtn.disabled) { retryTranslation(retryBtn); return; }
     // Translation vocab "Add" button
     const vocabAdd = e.target.closest('.trans-vocab-add[data-target]');
     if (vocabAdd && !vocabAdd.classList.contains('added')) { addTransVocab(vocabAdd); return; }
@@ -1230,6 +1253,56 @@
       btn.disabled = false;
       btn.textContent = '＋ Add';
       showToast('Could not add');
+    }
+  }
+
+  async function retryTranslation(btn) {
+    const msgId = btn.dataset.msgId;
+    btn.disabled = true;
+    btn.textContent = 'Retrying…';
+    try {
+      const res = await fetch(`/api/messages/${msgId}/retry-translate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Failed');
+      const data = await res.json();
+      const bwrap = document.getElementById(`bwrap-${msgId}`);
+      if (!bwrap) return;
+      const bubble = bwrap.querySelector('.msg-bubble');
+      if (bubble) {
+        bubble.innerHTML = needsRuby(_targetLang) ? rbSpan(data.display_text) : glossedText(data.display_text);
+      }
+      bwrap.dataset.msgtext = data.display_text;
+      if (data.tokens) _ingestTokens([{ tokens: data.tokens }]);
+      const panel = document.getElementById(`tpanel-${msgId}`);
+      if (panel) {
+        const vocab = data.analysis?.vocab || [];
+        const explanation = data.analysis?.explanation || '';
+        const nuanceNote = data.analysis?.nuance_note || '';
+        const origText = bwrap.querySelector('.msg-bubble')?.textContent || '';
+        panel.className = 'trans-panel open';
+        panel.innerHTML = `
+          <button class="trans-toggle" data-panel="${msgId}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2.3A7 7 0 0 1 12 2z"/></svg>
+            Translation · ${vocab.length ? vocab.length + ' words' : 'details'} <span>▾</span>
+          </button>
+          <div class="trans-body">
+            ${explanation ? `<div class="trans-explain">${esc(explanation)}${nuanceNote ? ` <em>${esc(nuanceNote)}</em>` : ''}</div>` : ''}
+            ${vocab.length ? `<div class="trans-vocab-title">Words to learn</div>
+              ${vocab.map(v => `<div class="trans-vocab-item">
+                <button class="trans-vocab-speak" data-speak="${esc(v.target_text)}" title="Listen">🔊</button>
+                <span class="trans-vocab-word">${needsRuby(_targetLang) ? rbSpan(v.target_text) : esc(v.target_text)}</span>
+                <span class="trans-vocab-gloss">${esc(v.english)}</span>
+                <button class="trans-vocab-add" data-target="${escAttr(v.target_text)}" data-english="${escAttr(v.english)}" data-roman="${escAttr(v.romanization || '')}">＋ Add</button>
+              </div>`).join('')}` : ''}
+          </div>`;
+      }
+      paintRuby(bwrap);
+      showToast('Translated ✓');
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Retry';
+      showToast(e.message || 'Translation failed — try again');
     }
   }
 

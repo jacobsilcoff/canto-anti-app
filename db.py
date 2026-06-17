@@ -3093,6 +3093,39 @@ async def update_message_translations(msg_id: int, translations: dict) -> None:
         await db.commit()
 
 
+async def get_message(msg_id: int, user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await conn.execute_fetchall(
+            """SELECT m.id, m.conversation_id, m.sender_user_id,
+                      m.original_text, m.original_lang, m.translations, m.analysis
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.id = ? AND (c.user1_id = ? OR c.user2_id = ?)""",
+            (msg_id, user_id, user_id),
+        )
+        if not row:
+            return None
+        r = row[0]
+        return {
+            "id": r["id"], "conversation_id": r["conversation_id"],
+            "sender_user_id": r["sender_user_id"],
+            "original_text": r["original_text"], "original_lang": r["original_lang"],
+            "translations": json.loads(r["translations"]) if r["translations"] else {},
+            "analysis": json.loads(r["analysis"]) if r["analysis"] else {},
+        }
+
+
+async def update_message_analysis(msg_id: int, translations: dict, analysis: dict) -> None:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        await conn.execute(
+            "UPDATE messages SET translations=?, analysis=? WHERE id=?",
+            (json.dumps(translations, ensure_ascii=False),
+             json.dumps(analysis, ensure_ascii=False), msg_id),
+        )
+        await conn.commit()
+
+
 async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
