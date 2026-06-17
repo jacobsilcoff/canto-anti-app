@@ -32,7 +32,8 @@
     .cards-toolbar input[type="text"] { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: 8px;
       padding: 8px 12px; font-size: 0.88rem; background: var(--bg); color: var(--text); font-family: inherit; }
     .cards-toolbar input[type="text"]:focus { outline: none; border-color: var(--primary); }
-    .cards-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+    .cards-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+    .filter-group { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
     .cards-filters select { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
       font-size: 0.8rem; background: var(--bg); color: var(--text); font-family: inherit;
       appearance: none; -webkit-appearance: none;
@@ -40,8 +41,14 @@
       background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
     .cards-filters select:focus { outline: none; border-color: var(--primary); }
     .filter-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;
-      letter-spacing: 0.04em; margin-right: -2px; }
+      letter-spacing: 0.04em; }
     .filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+    .filter-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+    .filter-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
+      padding: 3px 9px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer;
+      transition: all 0.12s; user-select: none; white-space: nowrap; }
+    .filter-chip:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-chip.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600; }
     .filter-clear { background: none; border: 1px solid var(--border); border-radius: 999px;
       padding: 3px 10px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer;
       transition: all 0.12s; white-space: nowrap; }
@@ -198,47 +205,59 @@
       <input type="text" id="cards-search" placeholder="Search cards…" oninput="filterCards()">
     </div>
     <div class="cards-filters" id="cards-filters">
-      <span class="filter-label">Language</span>
-      <select id="cards-lang-filter" onchange="filterCards()"></select>
-      <span class="filter-label">Label</span>
-      <select id="cards-label-filter" onchange="filterCards()">
-        <option value="">All</option>
-      </select>
-      <span class="filter-label">CEFR</span>
-      <select id="cards-cefr-filter" onchange="filterCards()">
-        <option value="">All</option>
-        <option value="A1">A1</option>
-        <option value="A2">A2</option>
-        <option value="B1">B1</option>
-        <option value="B2">B2</option>
-        <option value="C1">C1</option>
-        <option value="C2">C2</option>
-      </select>
-      <span class="filter-label">Strength</span>
-      <select id="cards-strength-filter" onchange="filterCards()">
-        <option value="">All</option>
-        <option value="new">New</option>
-        <option value="learning">Learning</option>
-        <option value="familiar">Familiar</option>
-        <option value="strong">Strong</option>
-      </select>
+      <div class="filter-group">
+        <span class="filter-label">Lang</span>
+        <select id="cards-lang-filter" onchange="filterCards()"></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Label</span>
+        <select id="cards-label-filter" onchange="filterCards()">
+          <option value="">All</option>
+        </select>
+      </div>
       <span class="filter-sep"></span>
-      <span class="filter-label">Status</span>
-      <select id="cards-status-filter" onchange="filterCards()">
-        <option value="">All</option>
-        <option value="active">Active</option>
-        <option value="suspended">Suspended</option>
-        <option value="flagged">Flagged</option>
-      </select>
-      <span class="filter-label">Sort</span>
-      <select id="cards-sort" onchange="filterCards()">
-        <option value="newest">Newest</option>
-        <option value="oldest">Oldest</option>
-        <option value="priority">Priority</option>
-        <option value="alpha">A → Z</option>
-        <option value="cefr">CEFR level</option>
-        <option value="strength">Strength</option>
-      </select>
+      <div class="filter-group">
+        <span class="filter-label">CEFR</span>
+        <div class="filter-chips" id="cefr-chips">
+          <span class="filter-chip" data-val="A1" onclick="toggleChip(this)">A1</span>
+          <span class="filter-chip" data-val="A2" onclick="toggleChip(this)">A2</span>
+          <span class="filter-chip" data-val="B1" onclick="toggleChip(this)">B1</span>
+          <span class="filter-chip" data-val="B2" onclick="toggleChip(this)">B2</span>
+          <span class="filter-chip" data-val="C1" onclick="toggleChip(this)">C1</span>
+          <span class="filter-chip" data-val="C2" onclick="toggleChip(this)">C2</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Strength</span>
+        <div class="filter-chips" id="strength-chips">
+          <span class="filter-chip" data-val="new" onclick="toggleChip(this)">New</span>
+          <span class="filter-chip" data-val="learning" onclick="toggleChip(this)">Learning</span>
+          <span class="filter-chip" data-val="familiar" onclick="toggleChip(this)">Familiar</span>
+          <span class="filter-chip" data-val="strong" onclick="toggleChip(this)">Strong</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <div class="filter-chips" id="status-chips">
+          <span class="filter-chip" data-val="active" onclick="toggleChip(this)">Active</span>
+          <span class="filter-chip" data-val="suspended" onclick="toggleChip(this)">Suspended</span>
+          <span class="filter-chip" data-val="flagged" onclick="toggleChip(this)">Flagged</span>
+        </div>
+      </div>
+      <span class="filter-sep"></span>
+      <div class="filter-group">
+        <span class="filter-label">Sort</span>
+        <select id="cards-sort" onchange="filterCards()">
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="priority">Priority</option>
+          <option value="alpha">A → Z</option>
+          <option value="cefr">CEFR level</option>
+          <option value="strength">Strength</option>
+        </select>
+      </div>
       <button class="filter-clear" onclick="clearFilters()">Clear filters</button>
     </div>
     <div class="cards-count" id="cards-count"></div>
@@ -478,12 +497,21 @@
     } catch {}
   }
 
+  function getActiveChips(containerId) {
+    return [...document.querySelectorAll(`#${containerId} .filter-chip.active`)].map(c => c.dataset.val);
+  }
+  function toggleChip(el) {
+    el.classList.toggle('active');
+    filterCards();
+  }
+
   function filterCards() {
     const q = (document.getElementById('cards-search').value || '').toLowerCase();
     const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
     const langFilter = document.getElementById('cards-lang-filter').value;
-    const cefrFilter = document.getElementById('cards-cefr-filter').value;
-    const statusFilter = document.getElementById('cards-status-filter').value;
+    const cefrVals = getActiveChips('cefr-chips');
+    const strengthVals = getActiveChips('strength-chips');
+    const statusVals = getActiveChips('status-chips');
     const sortBy = document.getElementById('cards-sort').value;
     let filtered = _allCards;
     if (langFilter) {
@@ -500,19 +528,21 @@
     if (labelId) {
       filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
     }
-    if (cefrFilter) {
-      filtered = filtered.filter(c => c.cefr_level === cefrFilter);
+    if (cefrVals.length) {
+      filtered = filtered.filter(c => cefrVals.includes(c.cefr_level));
     }
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(c => !c.suspended && !c.tutor_flag);
-    } else if (statusFilter === 'suspended') {
-      filtered = filtered.filter(c => c.suspended);
-    } else if (statusFilter === 'flagged') {
-      filtered = filtered.filter(c => c.tutor_flag);
+    if (strengthVals.length) {
+      filtered = filtered.filter(c => strengthVals.includes(cardStrength(c)));
     }
-    const strengthFilter = document.getElementById('cards-strength-filter').value;
-    if (strengthFilter) {
-      filtered = filtered.filter(c => cardStrength(c) === strengthFilter);
+    if (statusVals.length) {
+      filtered = filtered.filter(c => {
+        for (const v of statusVals) {
+          if (v === 'active' && !c.suspended && !c.tutor_flag) return true;
+          if (v === 'suspended' && c.suspended) return true;
+          if (v === 'flagged' && c.tutor_flag) return true;
+        }
+        return false;
+      });
     }
     const CEFR_ORDER = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
     if (sortBy === 'oldest') {
@@ -533,9 +563,7 @@
     document.getElementById('cards-search').value = '';
     document.getElementById('cards-lang-filter').value = _defaultLang || '';
     document.getElementById('cards-label-filter').value = '';
-    document.getElementById('cards-cefr-filter').value = '';
-    document.getElementById('cards-status-filter').value = '';
-    document.getElementById('cards-strength-filter').value = '';
+    document.querySelectorAll('.cards-filters .filter-chip.active').forEach(c => c.classList.remove('active'));
     document.getElementById('cards-sort').value = 'newest';
     filterCards();
   }
