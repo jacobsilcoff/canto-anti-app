@@ -1990,13 +1990,24 @@ async def list_labels(user: dict = Depends(current_user)):
 
 
 @app.post("/api/labels")
-async def create_label(req: LabelRequest, user: dict = Depends(current_user)):
+async def create_label(req: LabelRequest, bg: BackgroundTasks, user: dict = Depends(current_user)):
     name = req.name.strip()
     if not name:
         raise HTTPException(400, "Name is empty")
     if len(name) > 50:
         raise HTTPException(400, "Name too long (max 50 chars)")
-    return await db.create_label(user["id"], name)
+    result = await db.create_label(user["id"], name)
+    bg.add_task(_embed_label_bg, user, name)
+    return result
+
+
+async def _embed_label_bg(user: dict, name: str):
+    """Pre-compute the embedding for a newly created label so merge suggestions
+    don't have to embed it lazily later."""
+    try:
+        await _label_vectors(user, [name])
+    except Exception:
+        pass
 
 
 @app.put("/api/labels/{label_id}")
@@ -2187,47 +2198,49 @@ async def suggest_label_merges(user: dict = Depends(current_user)):
     for l in labels:
         by_root.setdefault(find(l["id"]), []).append(l)
 
-    raw_groups: list[dict] = []
+    groups: list[dict] = []
     for root, members in by_root.items():
         if not (2 <= len(members) <= 6):
             continue
         member_ids = {m["id"] for m in members}
         score = max((s for a, b, s in edges if a in member_ids and b in member_ids), default=0.0)
-        raw_groups.append({
+        groups.append({
             "labels": [{"id": m["id"], "name": m["name"], "card_count": m["card_count"]} for m in members],
             "total_cards": sum(m["card_count"] for m in members),
             "score": round(score, 3),
         })
-    raw_groups.sort(key=lambda g: (g["score"], g["total_cards"]), reverse=True)
+    groups.sort(key=lambda g: (g["score"], g["total_cards"]), reverse=True)
+    return {"groups": groups}
 
-    # LLM review: ask a cheap model to vet each group and suggest a name.
-    # Best-effort — if no API key or any failure, groups pass through unvetted.
+
+_merge_review_cache: dict[tuple[str, ...], dict] = {}
+
+
+class MergeReviewRequest(BaseModel):
+    names: list[str]
+
+
+@app.post("/api/labels/review-merge")
+async def review_merge(req: MergeReviewRequest, user: dict = Depends(current_user)):
+    """LLM-vet a proposed label merge: suggest a name or reject.
+    Results are cached server-side by the sorted name set."""
+    names = [n.strip() for n in req.names if n.strip()]
+    if len(names) < 2:
+        raise HTTPException(400, "Need at least 2 label names")
+    cache_key = tuple(sorted(n.lower() for n in names))
+    cached = _merge_review_cache.get(cache_key)
+    if cached:
+        return cached
     try:
         access = await _resolve_gemini(user, meter=False)
-        api_key = access.api_key
-    except HTTPException:
-        api_key = None
-
-    groups: list[dict] = []
-    loop = asyncio.get_event_loop()
-    for g in raw_groups:
-        names = [l["name"] for l in g["labels"]]
-        if api_key:
-            try:
-                review = await loop.run_in_executor(
-                    None, translation.review_label_merge, names, api_key
-                )
-            except Exception:
-                review = {"verdict": "merge", "suggested_name": names[0], "reason": ""}
-        else:
-            review = {"verdict": "merge", "suggested_name": names[0], "reason": ""}
-        if review["verdict"] == "reject":
-            continue
-        g["suggested_name"] = review["suggested_name"] or names[0]
-        g["reason"] = review.get("reason", "")
-        groups.append(g)
-
-    return {"groups": groups}
+        loop = asyncio.get_event_loop()
+        review = await loop.run_in_executor(
+            None, translation.review_label_merge, names, access.api_key
+        )
+    except Exception:
+        review = {"verdict": "merge", "suggested_name": names[0], "reason": ""}
+    _merge_review_cache[cache_key] = review
+    return review
 
 
 def _levenshtein_ratio(a: str, b: str) -> float:

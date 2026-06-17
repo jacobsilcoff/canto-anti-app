@@ -349,6 +349,9 @@
       <input type="text" id="new-label-name" placeholder="New label name…" maxlength="50" onkeydown="if(event.key==='Enter')createNewLabel()">
       <button class="create-btn" onclick="createNewLabel()">Add</button>
     </div>
+    <div class="labels-create-row" style="margin-bottom:10px">
+      <input type="text" id="label-search" placeholder="Search labels…" oninput="filterLabels()">
+    </div>
     <div id="labels-list"></div>
   </div>
 
@@ -538,6 +541,14 @@
     loadMergeSuggestions();
   }
 
+  function filterLabels() {
+    const q = (document.getElementById('label-search')?.value || '').toLowerCase().trim();
+    document.querySelectorAll('#labels-list .lbl-row').forEach(row => {
+      const name = row.querySelector('.lbl-name')?.value || '';
+      row.style.display = name.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
   function renderLabelsList() {
     const list = document.getElementById('labels-list');
     list.innerHTML = '';
@@ -619,52 +630,95 @@
 
   async function loadMergeSuggestions() {
     const container = document.getElementById('merge-suggestions');
-    container.innerHTML = '<div style="padding:10px 0;color:var(--text-muted);font-size:0.82rem">Finding similar labels and reviewing with AI…</div>';
+    container.innerHTML = '';
+
+    // Build the collapsible wrap immediately with a loading state inside
+    const wrap = document.createElement('div');
+    wrap.className = 'merge-sug-wrap';
+    const collapsed = localStorage.getItem('merge_sug_collapsed') === '1';
+    if (collapsed) wrap.classList.add('collapsed');
+    wrap.innerHTML = `
+      <div class="merge-sug-header">
+        <span class="merge-sug-header-title">Suggested merges</span>
+        <span class="merge-sug-header-count">…</span>
+        <span class="sug-chevron">›</span>
+      </div>
+      <div class="merge-sug-body">
+        <div class="merge-sug-loading" style="padding:12px 14px;color:var(--text-muted);font-size:0.82rem">Finding similar labels…</div>
+      </div>
+    `;
+    wrap.querySelector('.merge-sug-header').onclick = () => {
+      wrap.classList.toggle('collapsed');
+      localStorage.setItem('merge_sug_collapsed', wrap.classList.contains('collapsed') ? '1' : '');
+    };
+    container.appendChild(wrap);
+    const body = wrap.querySelector('.merge-sug-body');
+
+    let groups;
     try {
       const res = await fetch('/api/labels/suggest-merges');
-      const { groups } = await res.json();
-      container.innerHTML = '';
-      if (!groups || !groups.length) return;
-      const filtered = groups.filter(g => {
-        const key = g.labels.map(l => l.id).sort().join(',');
-        return !_dismissedMergeSuggestions.has(key);
-      });
-      if (!filtered.length) return;
-
-      const wrap = document.createElement('div');
-      wrap.className = 'merge-sug-wrap';
-      const collapsed = localStorage.getItem('merge_sug_collapsed') === '1';
-      if (collapsed) wrap.classList.add('collapsed');
-      wrap.innerHTML = `
-        <div class="merge-sug-header">
-          <span class="merge-sug-header-title">Suggested merges</span>
-          <span class="merge-sug-header-count">${filtered.length} group${filtered.length !== 1 ? 's' : ''}</span>
-          <span class="sug-chevron">›</span>
-        </div>
-        <div class="merge-sug-body"></div>
-      `;
-      wrap.querySelector('.merge-sug-header').onclick = () => {
-        wrap.classList.toggle('collapsed');
-        localStorage.setItem('merge_sug_collapsed', wrap.classList.contains('collapsed') ? '1' : '');
-      };
-      const body = wrap.querySelector('.merge-sug-body');
-
-      filtered.forEach(group => {
-        const key = group.labels.map(l => l.id).sort().join(',');
-        const card = document.createElement('div');
-        card.className = 'merge-sug';
-        card._labels = [...group.labels];
-        card._dismissKey = key;
-        const sugName = group.suggested_name || group.labels[0].name;
-        const reason = group.reason || '';
-        _renderMergeCard(card, sugName, reason, wrap);
-        body.appendChild(card);
-      });
-
-      container.appendChild(wrap);
+      ({ groups } = await res.json());
     } catch {
-      container.innerHTML = '';
+      wrap.remove();
+      return;
     }
+
+    // Remove loading indicator
+    const loadingEl = body.querySelector('.merge-sug-loading');
+
+    if (!groups || !groups.length) { wrap.remove(); return; }
+    const filtered = groups.filter(g => {
+      const key = g.labels.map(l => l.id).sort().join(',');
+      return !_dismissedMergeSuggestions.has(key);
+    });
+    if (!filtered.length) { wrap.remove(); return; }
+
+    // Show groups immediately (unreviewed), then fire off LLM reviews
+    if (loadingEl) loadingEl.textContent = 'Reviewing with AI…';
+    let reviewedCount = 0;
+
+    for (const group of filtered) {
+      const key = group.labels.map(l => l.id).sort().join(',');
+      const card = document.createElement('div');
+      card.className = 'merge-sug';
+      card._labels = [...group.labels];
+      card._dismissKey = key;
+      _renderMergeCard(card, group.labels[0].name, '', wrap);
+      body.appendChild(card);
+    }
+    _updateSuggestionsCount(wrap);
+
+    // Progressive LLM review per group (cached server-side, fast on repeat loads)
+    for (const card of [...body.querySelectorAll('.merge-sug')]) {
+      const names = card._labels.map(l => l.name);
+      try {
+        const r = await fetch('/api/labels/review-merge', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+        });
+        const review = await r.json();
+        if (review.verdict === 'reject') {
+          card.remove();
+          _updateSuggestionsCount(wrap);
+        } else {
+          const nameInput = card.querySelector('.merge-sug-name');
+          if (nameInput && review.suggested_name) nameInput.value = review.suggested_name;
+          if (review.reason) {
+            const existing = card.querySelector('.merge-sug-reason');
+            if (existing) { existing.textContent = review.reason; }
+            else {
+              const r = document.createElement('div');
+              r.className = 'merge-sug-reason';
+              r.textContent = review.reason;
+              card.querySelector('.merge-sug-labels').after(r);
+            }
+          }
+        }
+      } catch {}
+      reviewedCount++;
+    }
+    if (loadingEl) loadingEl.remove();
+    if (!body.querySelector('.merge-sug')) wrap.remove();
   }
 
   function _renderMergeCard(card, sugName, reason, wrap) {
