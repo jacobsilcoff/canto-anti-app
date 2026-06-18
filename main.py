@@ -3892,9 +3892,20 @@ async def _auto_add_vocab_bg(user_id: int, text_id: int, text: dict, access: "_G
 
 
 @app.post("/api/reader/texts/{text_id}/preload")
-async def reader_preload(text_id: int, user: dict = Depends(current_user)):
-    """Pre-generate translations and audio for every sentence in the text.
-    Skips sentences already cached. Returns the completed sentence list."""
+async def reader_preload(
+    text_id: int,
+    start: int = 0,
+    count: int | None = None,
+    user: dict = Depends(current_user),
+):
+    """Pre-generate translations + audio for a sentence window, skipping cached.
+
+    By default (`count` unset) the WHOLE text is preloaded — used for short
+    generated stories. For long imports the frontend passes `start`/`count` to
+    preload only a window around the reader's current page (render-ahead), so a
+    50+ sentence article doesn't fire 50 LLM/TTS calls on open. Returns all
+    cached sentences + `total_sentences` and whether the WHOLE text is complete.
+    """
     text = await db.get_reader_text(user["id"], text_id)
     if not text:
         raise HTTPException(404, "Text not found")
@@ -3902,7 +3913,13 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
 
     tokens = tokenizer.tokenize(text["content"], text["target_lang"])
     sent_texts = tokenizer.split_sentences(tokens)
+    total = len(sent_texts)
     existing = {s["sentence_idx"]: s for s in await db.get_reader_sentences(user["id"], text_id)}
+
+    # Select the window to process. `count=None` → everything (legacy behaviour).
+    lo = max(0, start)
+    hi = total if count is None else min(total, lo + max(0, count))
+    window = [(i, sent_texts[i]) for i in range(lo, hi)]
 
     import asyncio as _asyncio
     sem = _asyncio.Semaphore(3)
@@ -3937,10 +3954,13 @@ async def reader_preload(text_id: int, user: dict = Depends(current_user)):
 
         await db.upsert_reader_sentence(text_id, idx, sent_text, trans_text, audio_bytes, rom_text)
 
-    await _asyncio.gather(*[process(i, s) for i, s in enumerate(sent_texts)])
+    await _asyncio.gather(*[process(i, s) for i, s in window])
 
     sentences = await db.get_reader_sentences(user["id"], text_id)
-    return {"sentences": sentences, "preload_complete": True}
+    complete = len(sentences) >= total and all(
+        s["translation"] and s["has_audio"] for s in sentences
+    )
+    return {"sentences": sentences, "total_sentences": total, "preload_complete": complete}
 
 
 @app.get("/api/reader/texts/{text_id}/sentences/{idx}/audio")

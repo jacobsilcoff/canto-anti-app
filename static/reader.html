@@ -459,6 +459,13 @@
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   const SENTENCES_PER_PAGE = 5;
+  // Preload (translate + TTS) the current page plus this many ahead, so long
+  // imports stream in lazily instead of firing one LLM/TTS call per sentence on
+  // open. The rest stays on-demand (tap a sentence/word → single live call).
+  const PRELOAD_AHEAD_PAGES = 1;
+  const PRELOAD_WINDOW = SENTENCES_PER_PAGE * (PRELOAD_AHEAD_PAGES + 1);
+  let _preloadPromises = {};   // window-start sentence idx → in-flight/settled preload
+  let _canPreload = false;     // false for community stories (not owned → no /preload)
 
   let selectedDifficulty = 'B1';
 
@@ -592,10 +599,11 @@
         setStep('preload', 'done');
         showReaderView(data);
       } else {
+        // Only preload the first window; the rest streams in as the reader pages.
         setStep('preload', 'active');
-        const preloaded = await fetch(`/api/reader/texts/${id}/preload`, { method: 'POST' }).then(r => r.json());
+        const preloaded = await fetch(`/api/reader/texts/${id}/preload?start=0&count=${PRELOAD_WINDOW}`, { method: 'POST' }).then(r => r.json());
         setStep('preload', 'done');
-        showReaderView({ ...data, sentences: preloaded.sentences, preload_complete: true });
+        showReaderView({ ...data, sentences: preloaded.sentences });
       }
     } catch (err) {
       showToast('Failed to load text');
@@ -716,10 +724,10 @@
       loadSavedTexts();
 
       setStep('preload', 'active');
-      const preloaded = await fetch(`/api/reader/texts/${data.id}/preload`, { method: 'POST' }).then(r => r.json());
+      const preloaded = await fetch(`/api/reader/texts/${data.id}/preload?start=0&count=${PRELOAD_WINDOW}`, { method: 'POST' }).then(r => r.json());
       setStep('preload', 'done');
 
-      showReaderView({ ...data, sentences: preloaded.sentences, preload_complete: true });
+      showReaderView({ ...data, sentences: preloaded.sentences });
     } catch (err) {
       showToast(err.message || 'Generation failed');
       showHome();
@@ -752,6 +760,9 @@
 
   function showReaderView(data) {
     currentTextId = data.id;
+    // Capture ownership now — showReaderView resets _isCommunityStory at its end,
+    // so later page navigations need this snapshot to know if /preload is allowed.
+    _canPreload = !_isCommunityStory;
     currentTargetLang = data.target_lang;
     currentTitle = data.title || '';
     currentSentenceIdx = null;
@@ -759,6 +770,9 @@
     // Build sentence cache from preloaded data
     sentenceCache = {};
     (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
+    // The opener already preloaded window 0 (sentences are passed in here), so
+    // mark it done to avoid an immediate redundant re-fetch from renderPage(0).
+    _preloadPromises = (data.sentences && data.sentences.length) ? { 0: Promise.resolve() } : {};
     document.getElementById('reader-title').textContent = data.title;
     // Show image banner if story was generated from an image
     const imgBanner = document.getElementById('reader-image');
@@ -1134,7 +1148,36 @@
     currentSentenceIdx = null;
 
     renderReader(pageSentences, start);
+    // Render-ahead: make sure this page + the next are translated/voiced.
+    preloadAround(pageIdx);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Preload a window of sentences (translate + TTS) around the given page so the
+  // current and next page are ready, without processing the whole text. Cached
+  // sentences are skipped server-side; community stories aren't owned so skip.
+  function preloadAround(pageIdx) {
+    if (!currentTextId || !_canPreload) return Promise.resolve();
+    const start = pageIdx * SENTENCES_PER_PAGE;
+    if (start >= sentences.length) return Promise.resolve();
+    if (_preloadPromises[start]) return _preloadPromises[start];
+    const url = `/api/reader/texts/${currentTextId}/preload?start=${start}&count=${PRELOAD_WINDOW}`;
+    const p = (async () => {
+      try {
+        const res = await fetch(url, { method: 'POST' });
+        if (!res.ok) return;
+        const d = await res.json();
+        (d.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
+        // If the selected sentence just gained a translation, fill the panel.
+        if (currentSentenceIdx !== null) {
+          const c = sentenceCache[currentSentenceIdx];
+          const el = document.getElementById('panel-translation');
+          if (c && c.translation && el && !el.textContent.trim()) el.textContent = c.translation;
+        }
+      } catch {}
+    })();
+    _preloadPromises[start] = p;
+    return p;
   }
 
   function goPage(delta) {
