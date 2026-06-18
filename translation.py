@@ -174,6 +174,20 @@ LANG_INFO = {
         ),
         "rules": "- Use standard Malay (Bahasa Melayu) as used in Malaysia",
     },
+    "en": {
+        "name": "English",
+        "flag": "🇬🇧",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, basic verbs/nouns, common particles), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon)"
+        ),
+        "rules": "- Use standard English",
+    },
     "id": {
         "name": "Indonesian",
         "flag": "🇮🇩",
@@ -1013,6 +1027,10 @@ async def translate_sentence(
     Uses a plain translation prompt rather than the vocabulary-card prompt so
     Gemini translates the whole sentence instead of just its first content word.
     """
+    # English content is already English — the "translation" is the text itself.
+    # (No LLM call: avoids a pointless/garbled English→English round trip.)
+    if target_lang == "en":
+        return {"english": text.strip(), "romanization": None}
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
@@ -1064,6 +1082,13 @@ async def translate(
     Returns: { candidates: [{target_text, english, romanization, label, notes}], priority }
     Always at least one candidate. UI shows a picker if >1.
     """
+    # English needs no translation — echo the text (reader word lookup on English).
+    if target_lang == "en":
+        t = text.strip()
+        return {"candidates": [{
+            "target_text": t, "english": t, "romanization": "",
+            "label": "", "notes": "",
+        }], "priority": 3}
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_prompt(text, target_lang, source_is_target, context)

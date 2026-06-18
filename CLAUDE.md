@@ -190,7 +190,9 @@ NOT yet built (deferred): first-class up-front **unit rows** with a visible road
 
 ### Multi-language support
 
-`translation.LANG_INFO` is the language registry — maps codes to per-language config (name, flag, script, romanization scheme, frequency scale, Gemini prompt rules). Supported: `yue cmn` (Chinese), `fr es de it pt tl ms id` (Latin), `ko hi te` (Hangul/Devanagari/Telugu). `/api/languages` derives the frontend language list from it, so the settings dropdown, language pill, and onboarding update automatically.
+`translation.LANG_INFO` is the language registry — maps codes to per-language config (name, flag, script, romanization scheme, frequency scale, Gemini prompt rules). Supported: `yue cmn` (Chinese), `fr es de it pt tl ms id en` (Latin), `ko hi te` (Hangul/Devanagari/Telugu). `/api/languages` derives the frontend language list from it, so the settings dropdown, language pill, and onboarding update automatically.
+
+**English (`en`) is a first-class language** mainly so you can read English content in the Reader (e.g. an imported English URL/PDF). Since English IS the translation target, `translation.translate_sentence` and `translation.translate` **short-circuit to identity for `en`** (no LLM call) — the reader's sentence panel / word lookup just shows the original English text. Audio uses the existing `en-US-AriaNeural` voice; no romanization (Latin). The reader is study-language-scoped (lists filter by `default_target_lang`, import uses it as the reading's language), so to read English content set the study/default language to English.
 
 **Adding a Latin-script language** = an entry in `LANG_INFO` + a voice in `audio.VOICES`. That's it.
 
