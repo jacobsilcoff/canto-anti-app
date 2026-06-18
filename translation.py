@@ -772,6 +772,65 @@ async def generate_reader_text_from_image(
     return {"title": title, "content": content, "description": description}
 
 
+async def adapt_article_to_reading(
+    source_text: str,
+    target_lang: str,
+    difficulty: str = "B1",
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """Translate + adapt an arbitrary source text (e.g. a fetched article or PDF)
+    into a target-language reading at the given CEFR difficulty.
+
+    Unlike `generate_reader_text` (which invents a story from a topic), this
+    preserves the actual content of `source_text` — it's a faithful, level-tuned
+    retelling, not a fresh composition. Used by the URL/PDF reader import when
+    the source is NOT already in the target language.
+
+    Returns: { title: str, content: str }
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
+    rules = "\n".join(
+        line for line in info["rules"].splitlines()
+        if not any(kw in line.lower() for kw in _roman_kw)
+    )
+    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
+    source_text = (source_text or "").strip()[:12_000]
+
+    full_prompt = (
+        f"Rewrite the following source text as a {name} reading for a language learner.\n"
+        "Preserve the source's actual content, facts and meaning — this is a faithful "
+        "retelling tuned to the learner's level, NOT a new story. Keep the same topic and "
+        "the key points; you may condense, simplify, and reorganise for clarity.\n"
+        "IMPORTANT: Write ONLY native-script characters. Do NOT include any romanisation, "
+        "transliteration, pinyin, jyutping, romaja, IAST, or Latin characters (except for "
+        "proper nouns/brand names that are natively written in Latin script).\n"
+        "Rules:\n"
+        f"{rules}\n"
+        f"{difficulty_rule}\n"
+        "- The 'around N words' guidance above is a per-paragraph feel; for a longer source "
+        "you may write several paragraphs at that level, but keep the whole reading focused.\n"
+        "- Write naturally, as if for a native speaker audience.\n"
+        "- Do NOT include any romanisation or English translation anywhere in the content field.\n"
+        "- Also provide a short English title (3–6 words) summarising the text.\n"
+        "Return ONLY valid JSON, no other text:\n"
+        '{ "title": "...", "content": "..." }\n\n'
+        f"Source text:\n{source_text}"
+    )
+    raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt, api_key, model)))
+    title = (raw.get("title") or "").strip() or "Imported reading"
+    content = (raw.get("content") or "").strip()
+    if not content:
+        raise ValueError("Gemini returned empty content")
+    return {"title": title, "content": content}
+
+
+
 def triage_feedback(
     title: str, description: str, existing_groups: list[str],
     api_key: str,

@@ -44,6 +44,7 @@ import foundations
 import tutor
 import embeddings
 import cefr
+import extract
 import messenger as _messenger
 
 _BOOTSTRAP_PASSWORD = os.getenv("APP_PASSWORD")
@@ -3603,6 +3604,15 @@ class ReaderGenerateRequest(BaseModel):
     num_paragraphs: int = 4
 
 
+class ReaderUrlRequest(BaseModel):
+    url: str
+    target_lang: str = "yue"
+    difficulty: str = "B1"
+    # True = the page is already in the target language → use it verbatim (no AI
+    # rewrite). False = translate/adapt it to the target language at `difficulty`.
+    in_target_language: bool = False
+
+
 class ReaderTranslateWordRequest(BaseModel):
     word: str
     context: str = ""
@@ -3728,6 +3738,83 @@ async def reader_generate_from_image(
     )
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
+
+
+async def _reading_from_source(
+    user: dict, *, title: str, text: str, target_lang: str, difficulty: str,
+    in_target_language: bool, stored_prompt: str,
+) -> dict:
+    """Turn extracted source text into a saved reading.
+
+    If `in_target_language` the text is used verbatim (no AI — the whole point of
+    the flag). Otherwise it's translated/adapted into the target language at the
+    chosen CEFR level, which costs one metered LLM call.
+    """
+    text = (text or "").strip()
+    if not text:
+        raise HTTPException(400, "Couldn't extract any readable text.")
+    if in_target_language:
+        content = text[:extract.MAX_TEXT_CHARS]
+        final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
+    else:
+        access = await _resolve_gemini(user)
+        result = await translation.adapt_article_to_reading(
+            text, target_lang, difficulty,
+            api_key=access.api_key, model=access.model_reader,
+        )
+        content = result["content"]
+        final_title = result["title"] or (title or "").strip() or "Imported reading"
+    text_id = await db.create_reader_text(
+        user["id"], final_title[:120], stored_prompt, content, target_lang,
+        difficulty=difficulty,
+    )
+    saved = await db.get_reader_text(user["id"], text_id)
+    return await _build_text_response(user["id"], saved)
+
+
+@app.post("/api/reader/generate-from-url")
+@limiter.limit("10/minute;50/day")
+async def reader_generate_from_url(request: Request, req: ReaderUrlRequest, user: dict = Depends(current_user)):
+    """Create a reading from a pasted article URL."""
+    if req.target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    try:
+        extracted = await extract.fetch_and_extract_url(req.url)
+    except extract.ExtractError as exc:
+        raise HTTPException(400, str(exc))
+    return await _reading_from_source(
+        user, title=extracted["title"], text=extracted["text"],
+        target_lang=req.target_lang, difficulty=req.difficulty,
+        in_target_language=req.in_target_language,
+        stored_prompt=f"(URL: {req.url.strip()[:300]})",
+    )
+
+
+@app.post("/api/reader/generate-from-pdf")
+@limiter.limit("10/minute;50/day")
+async def reader_generate_from_pdf(request: Request, file: UploadFile = File(...), user: dict = Depends(current_user)):
+    """Create a reading from an uploaded PDF."""
+    form = await request.form()
+    target_lang = str(form.get("target_lang", "yue"))
+    difficulty = str(form.get("difficulty", "B1"))
+    in_target = str(form.get("in_target_language", "false")).lower() == "true"
+    if target_lang not in translation.LANG_INFO:
+        raise HTTPException(400, "Unsupported language")
+    raw = await file.read()
+    if len(raw) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "PDF too large (max 20 MB)")
+    try:
+        extracted = await asyncio.to_thread(extract.extract_pdf, raw)
+    except extract.ExtractError as exc:
+        raise HTTPException(400, str(exc))
+    fname = (file.filename or "document.pdf").rsplit("/", 1)[-1]
+    title = extracted["title"] or fname.rsplit(".", 1)[0]
+    return await _reading_from_source(
+        user, title=title, text=extracted["text"],
+        target_lang=target_lang, difficulty=difficulty,
+        in_target_language=in_target,
+        stored_prompt=f"(PDF: {fname[:200]})",
+    )
 
 
 @app.get("/api/reader/texts")

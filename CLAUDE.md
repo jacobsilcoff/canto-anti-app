@@ -57,6 +57,7 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `grammar.py` | Reliable verb conjugation engine (French present) — rules + curated irregulars; an independent oracle, never trusts the LLM |
 | `grammar_lessons.py` | Legacy per-concept grammar generator (shared `concept_content` cache); **no longer called by the lesson route** — `learning.py` reuses its block/cloze helpers + `GENERATION_MODEL` |
 | `foundations.py` | Curated **reading** track for non-Latin scripts — deterministic, no LLM. Per-script-type engines: Hangul jamo (Korean) + abugida (Hindi/Telugu). `build_units()` returns pre-built course units; wired into course creation as a **skippable** prepended track |
+| `extract.py` | Reader URL/PDF import — deterministic, no LLM. `fetch_and_extract_url` (SSRF-guarded `httpx` fetch + trafilatura article extraction), `extract_pdf` (pypdf text), `clean_text`. Returns `{title, text}`; raises `ExtractError` (→ 4xx) on user-fixable failures. Heavy parsers imported lazily |
 
 ### Database schema
 
@@ -103,6 +104,10 @@ Returns due review faces (next_review ≤ now) + new faces up to the daily cap (
 ### Translation flow
 
 `POST /api/translate` → `translation.translate()` builds a language-specific Gemini prompt → parses JSON response into up to 3 candidates (for ambiguous inputs) with target_text, romanization, notes, priority. `POST /api/cards` then generates audio via edge-tts and stores everything including the MP3 BLOB.
+
+### Reader generation (4 sources)
+
+A reading can be created from: (1) a **text prompt** (`POST /api/reader/generate` → `translation.generate_reader_text`), (2) an **uploaded image** (`POST /api/reader/generate-from-image` → `generate_reader_text_from_image`, stored as a banner via `image_media_id`), (3) a **pasted URL** (`POST /api/reader/generate-from-url`), or (4) an **uploaded PDF** (`POST /api/reader/generate-from-pdf`). URL/PDF use `extract.py` (deterministic, no LLM) to pull the core text; then `main._reading_from_source` either uses the text **verbatim** when the user flags it as already in the target language (`in_target_language=true`, **no LLM call** — the AI saving) or calls `translation.adapt_article_to_reading` to translate+adapt the source into the target language at the chosen CEFR level. All four converge on `db.create_reader_text` + `_build_text_response`; per-sentence translation/audio is generated on demand / via the preload route as usual. CEFR `difficulty` shares `translation._DIFFICULTY_INSTRUCTIONS`.
 
 ### AI Learning Path — just-in-time planner + broad lessons
 

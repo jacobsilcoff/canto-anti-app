@@ -40,6 +40,11 @@
     .gen-image-name { font-size: 0.78rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gen-image-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 2px 4px; }
     .gen-image-clear:hover { color: var(--danger); }
+    .gen-import-row { display: flex; align-items: center; gap: 10px; }
+    .gen-url-input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem; font-family: inherit; }
+    .gen-url-input:focus { outline: none; border-color: var(--primary); }
+    .gen-intarget { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
+    .gen-intarget input { width: 16px; height: 16px; min-height: 0; accent-color: var(--primary); cursor: pointer; }
 
     /* Reader image banner */
     .reader-image { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 12px; object-fit: cover; border: 1px solid var(--border); }
@@ -271,6 +276,17 @@
         <span class="gen-image-name" id="gen-image-name"></span>
         <button class="gen-image-clear" id="gen-image-clear" style="display:none" onclick="clearImage()" title="Remove image">✕</button>
       </div>
+      <div class="gen-import-row">
+        <input type="url" id="gen-url-input" class="gen-url-input" placeholder="…or paste an article URL" oninput="onImportInput()">
+        <input type="file" id="gen-pdf-input" accept="application/pdf,.pdf" style="display:none" onchange="onPdfSelect(this)">
+        <button class="gen-image-btn" onclick="document.getElementById('gen-pdf-input').click()">📄 Add PDF</button>
+        <span class="gen-image-name" id="gen-pdf-name"></span>
+        <button class="gen-image-clear" id="gen-pdf-clear" style="display:none" onclick="clearPdf()" title="Remove PDF">✕</button>
+      </div>
+      <label class="gen-intarget" id="gen-intarget-wrap" style="display:none">
+        <input type="checkbox" id="gen-in-target">
+        <span>This is already in my target language — just import it (skip AI rewrite)</span>
+      </label>
       <div class="gen-bottom-row">
         <div class="gen-options">
           <div class="gen-option-group">
@@ -608,10 +624,40 @@
     document.getElementById('gen-image-clear').style.display = 'none';
   }
 
+  // ── URL / PDF import helpers ─────────────────────────────────────────────────
+  // Show the "already in my target language" checkbox only when a URL or PDF is
+  // staged — it only affects imports, not the prompt/image generators.
+  function refreshImportUi() {
+    const hasUrl = !!document.getElementById('gen-url-input').value.trim();
+    const hasPdf = !!document.getElementById('gen-pdf-input').files?.[0];
+    document.getElementById('gen-intarget-wrap').style.display = (hasUrl || hasPdf) ? 'flex' : 'none';
+  }
+
+  function onImportInput() { refreshImportUi(); }
+
+  function onPdfSelect(input) {
+    const file = input.files?.[0];
+    if (file) {
+      document.getElementById('gen-pdf-name').textContent = file.name;
+      document.getElementById('gen-pdf-clear').style.display = '';
+    }
+    refreshImportUi();
+  }
+
+  function clearPdf() {
+    document.getElementById('gen-pdf-input').value = '';
+    document.getElementById('gen-pdf-name').textContent = '';
+    document.getElementById('gen-pdf-clear').style.display = 'none';
+    refreshImportUi();
+  }
+
   // ── Generate ───────────────────────────────────────────────────────────────
   async function generate() {
     const prompt = document.getElementById('gen-prompt').value.trim();
     const imageFile = document.getElementById('gen-image-input').files?.[0];
+    const pdfFile = document.getElementById('gen-pdf-input').files?.[0];
+    const urlVal = document.getElementById('gen-url-input').value.trim();
+    const inTarget = document.getElementById('gen-in-target').checked;
     const btn = document.getElementById('gen-btn');
     btn.disabled = true;
 
@@ -620,7 +666,26 @@
 
     try {
       let res;
-      if (imageFile) {
+      // Source priority: PDF > URL > image > text prompt.
+      if (pdfFile) {
+        const fd = new FormData();
+        fd.append('file', pdfFile);
+        fd.append('target_lang', selectedLang);
+        fd.append('difficulty', selectedDifficulty);
+        fd.append('in_target_language', inTarget ? 'true' : 'false');
+        res = await fetch('/api/reader/generate-from-pdf', { method: 'POST', body: fd });
+      } else if (urlVal) {
+        res = await fetch('/api/reader/generate-from-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: urlVal,
+            target_lang: selectedLang,
+            difficulty: selectedDifficulty,
+            in_target_language: inTarget,
+          }),
+        });
+      } else if (imageFile) {
         const fd = new FormData();
         fd.append('file', imageFile);
         fd.append('target_lang', selectedLang);
@@ -644,6 +709,10 @@
       const data = await res.json();
       setStep('generate', 'done');
       clearImage();
+      clearPdf();
+      document.getElementById('gen-url-input').value = '';
+      document.getElementById('gen-in-target').checked = false;
+      refreshImportUi();
       loadSavedTexts();
 
       setStep('preload', 'active');

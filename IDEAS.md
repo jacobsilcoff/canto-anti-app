@@ -2,6 +2,7 @@
 
 ## ✅ Shipped
 
+- **Reader import from URL or PDF** — Create a reading from a pasted article URL or an uploaded PDF instead of generating one. New `extract.py` (deterministic, no-LLM): SSRF-guarded `httpx` fetch + trafilatura article extraction for URLs, pypdf text extraction for PDFs (clean error on scanned/image-only PDFs). Routes `POST /api/reader/generate-from-url` and `POST /api/reader/generate-from-pdf`. A **"This is already in my target language"** checkbox skips the AI rewrite entirely (text used verbatim — saves a call); when unchecked, `translation.adapt_article_to_reading` translates + adapts the source into the target language at the chosen CEFR level. Source text capped at 12k chars. UI: URL input + 📄 Add PDF button in the reader generate form (source priority PDF > URL > image > prompt).
 - **Connect Facebook + find friends on the app (backend only, UI deferred)** — Backend plumbing shipped: OAuth connect flow (`/api/social/facebook/login` → `/callback`, token stored Fernet-encrypted in `social_accounts`, migration 032), friend discovery via Graph `/me/friends` mapped to app users (`db.get_users_by_social_ids`). **UI commented out** in `messages.html` pending Meta App Review (`user_friends` requires review for non-dev users). Uncomment the `fb-friends-section` HTML + the JS functions + `loadFacebookStatus()` call to re-enable. Requires env `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET` + redirect URI whitelisted in the Meta app.
 - **Populate label: LLM-driven, label-scoped, tag-vs-add routing** — Populate now feeds the LLM ONLY the words already under that label (not the whole deck — far fewer tokens) so it matches the label's granularity. Each suggestion is routed against the deck: words already in your deck but unlabeled become "tag this card" suggestions (one-click adds the label, no duplicate), truly-new words become "add card" suggestions. Has a Done button to dismiss. Root-caused & fixed `_parse_json` silently failing on JSON-array responses (it only handled objects), which had been making Populate return nothing.
 - **Settings page redesign: category tabs + mobile fixes + pagination** — Replaced the vertical scroll with horizontal tab navigation (Account, Study, Preferences, Admin). Sections grouped: Profile+Plan+API+Tutor Profile under Account, Study settings+Flashcards+Concept Mastery+Deck Maintenance under Study, Appearance+Reader+Chat+Notifications under Preferences. Responsive input widths (clamp), overflow-x:hidden, pagination (10/page) on Users and Concept Mastery lists. Admin tab hidden for non-admins.
@@ -86,6 +87,16 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 **Cost baseline:** Compute runs on Oracle Cloud Free Tier (4 OCPU ARM, 24 GB RAM) — $0. Gemini 2.5 Flash Lite via AI Studio free tier (1,500 req/day) — $0. `edge-tts` is free. At small family/friend scale (~5–15 active users) virtually everything stays within free tiers. Costs noted below are what would kick in if free tiers are exceeded. Paid Gemini Flash Lite rates: input $0.075/1M tokens, output $0.30/1M tokens.
 
 ---
+
+## 47. Reader browser extension
+**Complexity: Medium–Large | Cost: same per-reading cost as URL import**
+
+A companion browser extension that grabs the current page's main text client-side and sends it straight to the reader's import endpoint. More robust than server-side fetching: handles paywalled / JS-rendered / login-gated pages the user can already see, and sidesteps SSRF + bot-blocking entirely. Gives a one-click "read this in my target language" flow from anywhere on the web. Builds directly on the URL-import backend (`/api/reader/generate-from-url` and `adapt_article_to_reading`) already shipped.
+
+## 46. Reader import: optionally simplify in-target text to my level
+**Complexity: Small | Cost: 1 metered LLM call when enabled**
+
+Today the "already in my target language" import is used verbatim (authentic, but a real news article can be B2/C1+ and overwhelm a beginner). Offer an optional toggle to still run it through `adapt_article_to_reading` at the chosen CEFR level even when it's already in the target language — trading the AI saving for a level-tuned read.
 
 ## 45. Contextual tutor pop-over on the Reader page (flashcards shipped)
 **Complexity: Medium | Cost: ~1 metered LLM call per question (same as a tutor turn)**
