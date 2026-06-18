@@ -40,11 +40,17 @@
     .gen-image-name { font-size: 0.78rem; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gen-image-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 2px 4px; }
     .gen-image-clear:hover { color: var(--danger); }
-    .gen-import-row { display: flex; align-items: center; gap: 10px; }
-    .gen-url-input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem; font-family: inherit; }
+    /* Generate-mode tabs: AI Story / From URL / From PDF */
+    .gen-mode-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .gen-mode-tab { flex: 1; padding: 8px 6px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text-muted); font-size: 0.85rem; font-weight: 500; font-family: inherit; cursor: pointer; white-space: nowrap; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+    .gen-mode-tab:hover { border-color: var(--primary); color: var(--primary); }
+    .gen-mode-tab.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+    .gen-mode-pane { display: flex; flex-direction: column; gap: 12px; }
+    .gen-url-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.9rem; font-family: inherit; }
     .gen-url-input:focus { outline: none; border-color: var(--primary); }
     .gen-intarget { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; }
     .gen-intarget input { width: 16px; height: 16px; min-height: 0; accent-color: var(--primary); cursor: pointer; }
+    .gen-import-hint { font-size: 0.78rem; color: var(--text-muted); flex: 1; min-width: 0; }
 
     /* Reader image banner */
     .reader-image { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 12px; object-fit: cover; border: 1px solid var(--border); }
@@ -265,56 +271,85 @@
   <!-- Home: generate + saved list -->
   <div id="home-view">
     <div class="gen-form">
-      <h2>Generate a text to read</h2>
-      <div class="gen-prompt-wrap">
-        <textarea id="gen-prompt" placeholder="Optional: describe what you want to read, or leave blank for a surprise" rows="3"></textarea>
+      <h2>Add a reading</h2>
+      <div class="gen-mode-tabs">
+        <button class="gen-mode-tab active" data-mode="ai" onclick="setGenMode('ai')">✨ AI Story</button>
+        <button class="gen-mode-tab" data-mode="url" onclick="setGenMode('url')">🔗 From URL</button>
+        <button class="gen-mode-tab" data-mode="pdf" onclick="setGenMode('pdf')">📄 From PDF</button>
       </div>
-      <div class="gen-image-row">
-        <input type="file" id="gen-image-input" accept="image/*" style="display:none" onchange="onImageSelect(this)">
-        <button class="gen-image-btn" onclick="document.getElementById('gen-image-input').click()">📷 Add image</button>
-        <img class="gen-image-preview" id="gen-image-preview">
-        <span class="gen-image-name" id="gen-image-name"></span>
-        <button class="gen-image-clear" id="gen-image-clear" style="display:none" onclick="clearImage()" title="Remove image">✕</button>
-      </div>
-      <div class="gen-import-row">
-        <input type="url" id="gen-url-input" class="gen-url-input" placeholder="…or paste an article URL" oninput="onImportInput()">
-        <input type="file" id="gen-pdf-input" accept="application/pdf,.pdf" style="display:none" onchange="onPdfSelect(this)">
-        <button class="gen-image-btn" onclick="document.getElementById('gen-pdf-input').click()">📄 Add PDF</button>
-        <span class="gen-image-name" id="gen-pdf-name"></span>
-        <button class="gen-image-clear" id="gen-pdf-clear" style="display:none" onclick="clearPdf()" title="Remove PDF">✕</button>
-      </div>
-      <label class="gen-intarget" id="gen-intarget-wrap" style="display:none">
-        <input type="checkbox" id="gen-in-target">
-        <span>This is already in my target language — just import it (skip AI rewrite)</span>
-      </label>
-      <div class="gen-bottom-row">
-        <div class="gen-options">
-          <div class="gen-option-group">
-            <div class="gen-option-label">Difficulty</div>
-            <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
-              <option value="A1">A1 · Beginner</option>
-              <option value="A2">A2 · Elementary</option>
-              <option value="B1">B1 · Intermediate</option>
-              <option value="B2">B2 · Upper Int.</option>
-              <option value="C1">C1 · Advanced</option>
-              <option value="C2">C2 · Mastery</option>
-            </select>
-          </div>
-          <div class="gen-option-group">
-            <div class="gen-option-label">Length</div>
-            <select id="gen-paragraphs" class="settings-select">
-              <option value="1">1 paragraph</option>
-              <option value="2">2 paragraphs</option>
-              <option value="3">3 paragraphs</option>
-              <option value="4" selected>4 paragraphs</option>
-              <option value="5">5 paragraphs</option>
-              <option value="6">6 paragraphs</option>
-              <option value="8">8 paragraphs</option>
-              <option value="10">10 paragraphs</option>
-            </select>
-          </div>
+
+      <!-- AI Story: prompt and/or image, with difficulty + length -->
+      <div class="gen-mode-pane" id="gen-pane-ai">
+        <div class="gen-prompt-wrap">
+          <textarea id="gen-prompt" placeholder="Optional: describe what you want to read, or leave blank for a surprise" rows="3"></textarea>
         </div>
-        <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
+        <div class="gen-image-row">
+          <input type="file" id="gen-image-input" accept="image/*" style="display:none" onchange="onImageSelect(this)">
+          <button class="gen-image-btn" onclick="document.getElementById('gen-image-input').click()">📷 Add image</button>
+          <img class="gen-image-preview" id="gen-image-preview">
+          <span class="gen-image-name" id="gen-image-name"></span>
+          <button class="gen-image-clear" id="gen-image-clear" style="display:none" onclick="clearImage()" title="Remove image">✕</button>
+        </div>
+        <div class="gen-bottom-row">
+          <div class="gen-options">
+            <div class="gen-option-group">
+              <div class="gen-option-label">Difficulty</div>
+              <select id="gen-difficulty" class="settings-select" onchange="saveDifficultyPref()">
+                <option value="A1">A1 · Beginner</option>
+                <option value="A2">A2 · Elementary</option>
+                <option value="B1">B1 · Intermediate</option>
+                <option value="B2">B2 · Upper Int.</option>
+                <option value="C1">C1 · Advanced</option>
+                <option value="C2">C2 · Mastery</option>
+              </select>
+            </div>
+            <div class="gen-option-group">
+              <div class="gen-option-label">Length</div>
+              <select id="gen-paragraphs" class="settings-select">
+                <option value="1">1 paragraph</option>
+                <option value="2">2 paragraphs</option>
+                <option value="3">3 paragraphs</option>
+                <option value="4" selected>4 paragraphs</option>
+                <option value="5">5 paragraphs</option>
+                <option value="6">6 paragraphs</option>
+                <option value="8">8 paragraphs</option>
+                <option value="10">10 paragraphs</option>
+              </select>
+            </div>
+          </div>
+          <button class="gen-submit-btn" id="gen-btn" onclick="generate()">Generate</button>
+        </div>
+      </div>
+
+      <!-- From URL: paste an article link -->
+      <div class="gen-mode-pane" id="gen-pane-url" style="display:none">
+        <input type="url" id="gen-url-input" class="gen-url-input" placeholder="Paste an article URL">
+        <label class="gen-intarget">
+          <input type="checkbox" id="gen-url-intarget">
+          <span>This is already in my target language — import as-is (no AI rewrite)</span>
+        </label>
+        <div class="gen-bottom-row">
+          <div class="gen-import-hint">We'll pull out the main text and turn it into a reading.</div>
+          <button class="gen-submit-btn" onclick="generate()">Import</button>
+        </div>
+      </div>
+
+      <!-- From PDF: upload a document -->
+      <div class="gen-mode-pane" id="gen-pane-pdf" style="display:none">
+        <div class="gen-image-row">
+          <input type="file" id="gen-pdf-input" accept="application/pdf,.pdf" style="display:none" onchange="onPdfSelect(this)">
+          <button class="gen-image-btn" onclick="document.getElementById('gen-pdf-input').click()">📄 Choose PDF</button>
+          <span class="gen-image-name" id="gen-pdf-name">No file chosen</span>
+          <button class="gen-image-clear" id="gen-pdf-clear" style="display:none" onclick="clearPdf()" title="Remove PDF">✕</button>
+        </div>
+        <label class="gen-intarget">
+          <input type="checkbox" id="gen-pdf-intarget">
+          <span>This is already in my target language — import as-is (no AI rewrite)</span>
+        </label>
+        <div class="gen-bottom-row">
+          <div class="gen-import-hint">Text-based PDFs only (not scanned images).</div>
+          <button class="gen-submit-btn" onclick="generate()">Import</button>
+        </div>
       </div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
@@ -632,65 +667,63 @@
     document.getElementById('gen-image-clear').style.display = 'none';
   }
 
-  // ── URL / PDF import helpers ─────────────────────────────────────────────────
-  // Show the "already in my target language" checkbox only when a URL or PDF is
-  // staged — it only affects imports, not the prompt/image generators.
-  function refreshImportUi() {
-    const hasUrl = !!document.getElementById('gen-url-input').value.trim();
-    const hasPdf = !!document.getElementById('gen-pdf-input').files?.[0];
-    document.getElementById('gen-intarget-wrap').style.display = (hasUrl || hasPdf) ? 'flex' : 'none';
+  // ── Generate mode (AI Story / From URL / From PDF) ───────────────────────────
+  let genMode = 'ai';
+  function setGenMode(m) {
+    genMode = m;
+    document.querySelectorAll('.gen-mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+    document.getElementById('gen-pane-ai').style.display  = m === 'ai'  ? '' : 'none';
+    document.getElementById('gen-pane-url').style.display = m === 'url' ? '' : 'none';
+    document.getElementById('gen-pane-pdf').style.display = m === 'pdf' ? '' : 'none';
   }
-
-  function onImportInput() { refreshImportUi(); }
 
   function onPdfSelect(input) {
     const file = input.files?.[0];
-    if (file) {
-      document.getElementById('gen-pdf-name').textContent = file.name;
-      document.getElementById('gen-pdf-clear').style.display = '';
-    }
-    refreshImportUi();
+    document.getElementById('gen-pdf-name').textContent = file ? file.name : 'No file chosen';
+    document.getElementById('gen-pdf-clear').style.display = file ? '' : 'none';
   }
 
   function clearPdf() {
     document.getElementById('gen-pdf-input').value = '';
-    document.getElementById('gen-pdf-name').textContent = '';
+    document.getElementById('gen-pdf-name').textContent = 'No file chosen';
     document.getElementById('gen-pdf-clear').style.display = 'none';
-    refreshImportUi();
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
   async function generate() {
-    const prompt = document.getElementById('gen-prompt').value.trim();
     const imageFile = document.getElementById('gen-image-input').files?.[0];
     const pdfFile = document.getElementById('gen-pdf-input').files?.[0];
     const urlVal = document.getElementById('gen-url-input').value.trim();
-    const inTarget = document.getElementById('gen-in-target').checked;
+    // Validate the active mode before showing the loading view.
+    if (genMode === 'url' && !urlVal) { showToast('Paste an article URL first.'); return; }
+    if (genMode === 'pdf' && !pdfFile) { showToast('Choose a PDF first.'); return; }
+
     const btn = document.getElementById('gen-btn');
     btn.disabled = true;
 
     showLoadingView();
+    document.querySelector('#step-generate span').textContent =
+      genMode === 'ai' ? 'Generating text' : 'Extracting text';
     setStep('generate', 'active');
 
     try {
       let res;
-      // Source priority: PDF > URL > image > text prompt.
-      if (pdfFile) {
+      if (genMode === 'pdf') {
+        // PDF import — no length/difficulty controls; difficulty defaults server-side.
         const fd = new FormData();
         fd.append('file', pdfFile);
         fd.append('target_lang', selectedLang);
-        fd.append('difficulty', selectedDifficulty);
-        fd.append('in_target_language', inTarget ? 'true' : 'false');
+        fd.append('in_target_language', document.getElementById('gen-pdf-intarget').checked ? 'true' : 'false');
         res = await fetch('/api/reader/generate-from-pdf', { method: 'POST', body: fd });
-      } else if (urlVal) {
+      } else if (genMode === 'url') {
+        // URL import — no length/difficulty controls.
         res = await fetch('/api/reader/generate-from-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             url: urlVal,
             target_lang: selectedLang,
-            difficulty: selectedDifficulty,
-            in_target_language: inTarget,
+            in_target_language: document.getElementById('gen-url-intarget').checked,
           }),
         });
       } else if (imageFile) {
@@ -699,14 +732,14 @@
         fd.append('target_lang', selectedLang);
         fd.append('difficulty', selectedDifficulty);
         fd.append('num_paragraphs', document.getElementById('gen-paragraphs').value || '4');
-        fd.append('prompt', prompt);
+        fd.append('prompt', document.getElementById('gen-prompt').value.trim());
         res = await fetch('/api/reader/generate-from-image', { method: 'POST', body: fd });
       } else {
         res = await fetch('/api/reader/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt,
+            prompt: document.getElementById('gen-prompt').value.trim(),
             target_lang: selectedLang,
             difficulty: selectedDifficulty,
             num_paragraphs: parseInt(document.getElementById('gen-paragraphs').value, 10) || 4,
@@ -719,8 +752,8 @@
       clearImage();
       clearPdf();
       document.getElementById('gen-url-input').value = '';
-      document.getElementById('gen-in-target').checked = false;
-      refreshImportUi();
+      document.getElementById('gen-url-intarget').checked = false;
+      document.getElementById('gen-pdf-intarget').checked = false;
       loadSavedTexts();
 
       setStep('preload', 'active');
