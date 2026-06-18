@@ -174,20 +174,6 @@ LANG_INFO = {
         ),
         "rules": "- Use standard Malay (Bahasa Melayu) as used in Malaysia",
     },
-    "en": {
-        "name": "English",
-        "flag": "🇬🇧",
-        "script": "Latin script",
-        "romanization": None,
-        "frequency_examples": (
-            "5 = extremely common (pronouns, basic verbs/nouns, common particles), "
-            "4 = common (food, family, daily life), "
-            "3 = intermediate (work, hobbies, conversation), "
-            "2 = less common (formal register, specific topics), "
-            "1 = rare or advanced (literary, specialised, uncommon)"
-        ),
-        "rules": "- Use standard English",
-    },
     "id": {
         "name": "Indonesian",
         "flag": "🇮🇩",
@@ -802,7 +788,12 @@ async def adapt_article_to_reading(
     retelling, not a fresh composition. Used by the URL/PDF reader import when
     the source is NOT already in the target language.
 
-    Returns: { title: str, content: str }
+    Returns sentence-ALIGNED output so the reader can show the original-language
+    meaning per sentence WITHOUT re-translating the target back to English:
+        { title: str, content: str, segments: [{target, english}] }
+    `content` is the segments' `target`s joined by newlines (so the reader's
+    sentence split lines up with `segments`); each `english` is the faithful
+    English of that sentence (≈ the original source).
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -821,27 +812,44 @@ async def adapt_article_to_reading(
         "Preserve the source's actual content, facts and meaning — this is a faithful "
         "retelling tuned to the learner's level, NOT a new story. Keep the same topic and "
         "the key points; you may condense, simplify, and reorganise for clarity.\n"
-        "IMPORTANT: Write ONLY native-script characters. Do NOT include any romanisation, "
-        "transliteration, pinyin, jyutping, romaja, IAST, or Latin characters (except for "
-        "proper nouns/brand names that are natively written in Latin script).\n"
+        "IMPORTANT: the target sentences must contain ONLY native-script characters. Do NOT "
+        "include any romanisation, transliteration, pinyin, jyutping, romaja, or IAST in the "
+        "'target' field (except proper nouns/brand names natively written in Latin script).\n"
         "Rules:\n"
         f"{rules}\n"
         f"{difficulty_rule}\n"
         "- The 'around N words' guidance above is a per-paragraph feel; for a longer source "
-        "you may write several paragraphs at that level, but keep the whole reading focused.\n"
+        "you may write several sentences at that level, but keep the whole reading focused.\n"
         "- Write naturally, as if for a native speaker audience.\n"
-        "- Do NOT include any romanisation or English translation anywhere in the content field.\n"
         "- Also provide a short English title (3–6 words) summarising the text.\n"
+        "Split the reading into individual sentences IN ORDER. For EACH sentence give:\n"
+        "  - 'target': exactly ONE sentence in " + name + ", ending with sentence-final punctuation.\n"
+        "  - 'english': the faithful English meaning of that sentence (this is shown to the "
+        "learner as the translation, so keep it close to the original source — do not omit content).\n"
         "Return ONLY valid JSON, no other text:\n"
-        '{ "title": "...", "content": "..." }\n\n'
+        '{ "title": "...", "sentences": [ {"target": "...", "english": "..."}, ... ] }\n\n'
         f"Source text:\n{source_text}"
     )
     raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt, api_key, model)))
     title = (raw.get("title") or "").strip() or "Imported reading"
-    content = (raw.get("content") or "").strip()
+
+    segments: list[dict] = []
+    for s in (raw.get("sentences") or []):
+        if not isinstance(s, dict):
+            continue
+        t = (s.get("target") or "").strip()
+        e = (s.get("english") or "").strip()
+        if t:
+            segments.append({"target": t, "english": e})
+
+    if segments:
+        content = "\n".join(s["target"] for s in segments)
+    else:
+        # Fallback: an older/looser response shape with a single content blob.
+        content = (raw.get("content") or "").strip()
     if not content:
         raise ValueError("Gemini returned empty content")
-    return {"title": title, "content": content}
+    return {"title": title, "content": content, "segments": segments}
 
 
 
@@ -1027,10 +1035,6 @@ async def translate_sentence(
     Uses a plain translation prompt rather than the vocabulary-card prompt so
     Gemini translates the whole sentence instead of just its first content word.
     """
-    # English content is already English — the "translation" is the text itself.
-    # (No LLM call: avoids a pointless/garbled English→English round trip.)
-    if target_lang == "en":
-        return {"english": text.strip(), "romanization": None}
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
@@ -1082,13 +1086,6 @@ async def translate(
     Returns: { candidates: [{target_text, english, romanization, label, notes}], priority }
     Always at least one candidate. UI shows a picker if >1.
     """
-    # English needs no translation — echo the text (reader word lookup on English).
-    if target_lang == "en":
-        t = text.strip()
-        return {"candidates": [{
-            "target_text": t, "english": t, "romanization": "",
-            "label": "", "notes": "",
-        }], "priority": 3}
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_prompt(text, target_lang, source_is_target, context)

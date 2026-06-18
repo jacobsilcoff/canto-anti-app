@@ -3753,6 +3753,7 @@ async def _reading_from_source(
     text = (text or "").strip()
     if not text:
         raise HTTPException(400, "Couldn't extract any readable text.")
+    segments: list[dict] = []
     if in_target_language:
         content = text[:extract.MAX_TEXT_CHARS]
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
@@ -3763,11 +3764,23 @@ async def _reading_from_source(
             api_key=access.api_key, model=access.model_reader,
         )
         content = result["content"]
+        segments = result.get("segments") or []
         final_title = result["title"] or (title or "").strip() or "Imported reading"
     text_id = await db.create_reader_text(
         user["id"], final_title[:120], stored_prompt, content, target_lang,
         difficulty=difficulty,
     )
+    # When we translated from a source, we ALREADY have the English per sentence —
+    # pre-store it so the reader's translation panel shows the original meaning
+    # without a second (target→English) round-trip. Only when the model's sentence
+    # split lines up with ours (else fall back to on-demand translation).
+    if segments:
+        sents = tokenizer.split_sentences(tokenizer.tokenize(content, target_lang))
+        if len(sents) == len(segments):
+            for i, seg in enumerate(segments):
+                eng = (seg.get("english") or "").strip()
+                if eng:
+                    await db.upsert_reader_sentence(text_id, i, sents[i], eng, None, None)
     saved = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], saved)
 
