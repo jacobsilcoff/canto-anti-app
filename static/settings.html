@@ -15,21 +15,41 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <style>
-    .settings-page { max-width: 560px; margin: 0 auto; padding: 24px 16px 60px; }
-    .settings-page h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 20px; color: var(--text); }
+    .settings-page { max-width: 600px; margin: 0 auto; padding: 24px 16px 60px; overflow-x: hidden; box-sizing: border-box; }
+    .settings-page h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; color: var(--text); }
 
-    .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 24px; overflow: hidden; }
-    .settings-section-title { font-size: 0.78rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; cursor: pointer; user-select: none; }
-    .settings-section-title .sec-chevron { margin-left: auto; font-size: 1.1rem; font-weight: 400; color: var(--text-muted); transition: transform 0.2s; line-height: 1; }
-    .settings-section.sec-collapsed .sec-chevron { transform: rotate(-90deg); }
-    .settings-body { }
-    .settings-section.sec-collapsed .settings-body { display: none; }
+    /* ── Category tabs (segmented pill) ── */
+    .settings-tabs {
+      display: flex; margin-bottom: 20px; border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; max-width: 100%;
+    }
+    .settings-tab {
+      flex: 1; background: var(--surface); border: none; border-left: 1px solid var(--border);
+      padding: 9px 4px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .settings-tab:first-child { border-left: none; }
+    .settings-tab:hover { background: var(--bg); color: var(--primary); }
+    .settings-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+    .settings-tab .tab-icon { font-size: 0.9rem; line-height: 1; }
+    .settings-pane { display: none; }
+    .settings-pane.active { display: block; animation: fadePane 0.15s ease; }
+    @keyframes fadePane { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    /* ── Sections & rows ── */
+    .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px; overflow: hidden; max-width: 100%; box-sizing: border-box; }
+    .settings-section-title { font-size: 0.78rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
     .settings-row:last-child { border-bottom: none; }
+    /* The text column must be allowed to shrink (min-width:0) so a long token
+       (e.g. a URL in a description) can wrap instead of forcing the page wider
+       than the screen. Safe for the column-layout rows too. */
+    .settings-row > div:first-child { min-width: 0; }
     .settings-label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
-    .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; }
-    .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; text-align: center; }
+    .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; overflow-wrap: anywhere; }
+    .settings-desc a { overflow-wrap: anywhere; }
+    .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; max-width: 100%; text-align: center; box-sizing: border-box; flex-shrink: 1; }
     .settings-select {
       border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
       padding: 7px 30px 7px 10px; font-size: 0.9rem; cursor: pointer;
@@ -46,8 +66,8 @@
     .settings-btn:hover { border-color: var(--primary); color: var(--primary); }
     .settings-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
     .settings-btn.primary:hover { background: var(--primary-hover); }
-
     .settings-info { font-size: 0.82rem; color: var(--text-muted, #888); padding: 10px 18px 14px; margin: 0; }
+
     .toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
@@ -55,74 +75,32 @@
     .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
     .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
 
-    /* ── Admin user management ── */
-    .user-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto auto;
-      gap: 8px;
-      align-items: center;
-      padding: 12px 18px;
-      border-bottom: 1px solid var(--border);
-    }
+    /* ── Admin ── */
+    .user-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
     .user-row:last-child { border-bottom: none; }
     .user-name { font-size: 0.9rem; font-weight: 500; }
-    .user-name .admin-tag {
-      display: inline-block;
-      background: var(--primary-soft);
-      color: var(--primary);
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      padding: 1px 6px;
-      border-radius: 10px;
-      text-transform: uppercase;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
-    .admin-action-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 12px;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      cursor: pointer;
-      white-space: nowrap;
-    }
+    .user-name .admin-tag { display: inline-block; background: var(--primary-soft); color: var(--primary); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 10px; text-transform: uppercase; margin-left: 6px; vertical-align: middle; }
+    .admin-action-btn { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
     .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
     .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
-    .create-form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      padding: 14px 18px;
-    }
-    @media (max-width: 480px) {
-      .user-row { grid-template-columns: 1fr; gap: 4px; }
-    }
-    .create-form input[type="text"],
-    .create-form input[type="password"] {
-      flex: 1;
-      min-width: 120px;
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-family: inherit;
-      background: var(--bg);
-      color: var(--text);
-      outline: none;
-    }
-    .create-form input[type="text"]:focus,
-    .create-form input[type="password"]:focus { border-color: var(--primary); }
+    .create-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 18px; }
+    .create-form input[type="text"], .create-form input[type="password"] { flex: 1; min-width: 120px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
+    .create-form input[type="text"]:focus, .create-form input[type="password"]:focus { border-color: var(--primary); }
     .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; }
+    @media (max-width: 480px) { .user-row { grid-template-columns: 1fr; gap: 4px; } }
 
-    /* Appearance: Auto / Light / Dark segmented control */
+    /* Theme segmented control */
     .theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
     .theme-seg button { background: var(--surface); border: none; padding: 7px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
     .theme-seg button + button { border-left: 1px solid var(--border); }
     .theme-seg button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+    /* Pagination controls */
+    .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--border); }
+    .pagination-bar button { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 14px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .pagination-bar button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .pagination-bar button:disabled { opacity: 0.35; cursor: default; }
+    .pagination-bar .page-info { font-size: 0.82rem; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -132,298 +110,333 @@
 <main class="settings-page">
   <h2>Settings</h2>
 
-  <div class="settings-section" id="profile-section">
-    <div class="settings-section-title">Profile</div>
-    <div class="settings-row">
-      <div style="flex:1;min-width:0">
-        <div class="settings-label">Full name</div>
-        <div class="settings-desc">Displayed to admins</div>
-      </div>
-      <input type="text" id="profile-display-name" class="settings-input" placeholder="Your name" style="width:180px;text-align:left">
-    </div>
-    <div class="settings-row">
-      <div style="flex:1;min-width:0">
-        <div class="settings-label">Username</div>
-        <div class="settings-desc">Used to log in; 2–30 chars (a–z, 0–9, _, -)</div>
-      </div>
-      <input type="text" id="profile-username" class="settings-input" placeholder="username" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:180px;text-align:left">
-    </div>
-    <div class="settings-row">
-      <div style="flex:1;min-width:0">
-        <div class="settings-label">Email</div>
-        <div class="settings-desc" id="profile-email-desc">Used to log in and receive notifications</div>
-      </div>
-      <input type="email" id="profile-email" class="settings-input" placeholder="you@example.com" style="width:180px;text-align:left">
-    </div>
-    <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="settings-btn primary" onclick="saveProfile()">Save profile</button>
-      <span id="profile-msg" style="font-size:0.82rem"></span>
-    </div>
+  <div class="settings-tabs" id="settings-tabs">
+    <button class="settings-tab active" data-pane="account" onclick="switchPane('account')"><span class="tab-icon">👤</span> Account</button>
+    <button class="settings-tab" data-pane="learning" onclick="switchPane('learning')"><span class="tab-icon">📚</span> Study</button>
+    <button class="settings-tab" data-pane="preferences" onclick="switchPane('preferences')"><span class="tab-icon">⚙️</span> Preferences</button>
+    <button class="settings-tab" data-pane="admin" onclick="switchPane('admin')" id="admin-tab" style="display:none"><span class="tab-icon">🔧</span> Admin</button>
   </div>
 
-  <div class="settings-section" id="appearance-section">
-    <div class="settings-section-title">Appearance</div>
-    <div class="settings-row">
-      <div style="flex:1;min-width:0">
-        <div class="settings-label">Theme</div>
-        <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+  <!-- ════ Account ════ -->
+  <div class="settings-pane active" id="pane-account">
+    <div class="settings-section">
+      <div class="settings-section-title">Profile</div>
+      <div class="settings-row">
+        <div style="flex:1;min-width:0">
+          <div class="settings-label">Full name</div>
+          <div class="settings-desc">Displayed to admins</div>
+        </div>
+        <input type="text" id="profile-display-name" class="settings-input" placeholder="Your name" style="width:clamp(120px,40%,180px);text-align:left">
       </div>
-      <div class="theme-seg" id="theme-seg">
-        <button type="button" data-pref="auto">Auto</button>
-        <button type="button" data-pref="light">Light</button>
-        <button type="button" data-pref="dark">Dark</button>
+      <div class="settings-row">
+        <div style="flex:1;min-width:0">
+          <div class="settings-label">Username</div>
+          <div class="settings-desc">Used to log in; 2–30 chars (a–z, 0–9, _, -)</div>
+        </div>
+        <input type="text" id="profile-username" class="settings-input" placeholder="username" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:clamp(120px,40%,180px);text-align:left">
+      </div>
+      <div class="settings-row">
+        <div style="flex:1;min-width:0">
+          <div class="settings-label">Email</div>
+          <div class="settings-desc" id="profile-email-desc">Used to log in and receive notifications</div>
+        </div>
+        <input type="email" id="profile-email" class="settings-input" placeholder="you@example.com" style="width:clamp(120px,40%,180px);text-align:left">
+      </div>
+      <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="settings-btn primary" onclick="saveProfile()">Save profile</button>
+        <span id="profile-msg" style="font-size:0.82rem"></span>
       </div>
     </div>
-  </div>
 
-  <div class="settings-section" id="plan-section" style="display:none">
-    <div class="settings-section-title">Plan &amp; usage</div>
-    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
-        <div class="settings-label" id="plan-name">Free</div>
-        <div class="settings-desc" id="plan-usage-text"></div>
-      </div>
-      <div id="plan-usage-bar-wrap" style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
-        <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
-      </div>
-      <div class="settings-desc" id="plan-note"></div>
-      <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--hard)"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
-        <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
-        <button class="settings-btn" id="plan-cancel-btn" style="display:none" onclick="showCancelModal()">Cancel subscription</button>
-        <button class="settings-btn primary" id="plan-resume-btn" style="display:none" onclick="resumeSubscription()">Resume subscription</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Cancel subscription confirmation modal -->
-  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;align-items:center;justify-content:center">
-    <div style="background:var(--surface);border-radius:var(--radius);padding:28px 24px;max-width:380px;width:90%;box-shadow:var(--shadow)">
-      <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
-      <div style="color:var(--text-muted);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
-        Your Pro access will continue until the end of your billing period. After that your account reverts to Free.
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="settings-btn" onclick="closeCancelModal()">Keep Pro</button>
-        <button class="settings-btn" id="cancel-confirm-btn"
-          style="background:var(--again);color:#fff;border-color:transparent"
-          onclick="confirmCancel()">Yes, cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-section" id="study-section">
-    <div class="settings-section-title">Study</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">New cards per day</div>
-        <div class="settings-desc">Max new vocabulary items introduced each day</div>
-      </div>
-      <input type="number" id="settings-new-per-day" class="settings-input" min="1" max="500" value="20" oninput="debounceSaveStudy()">
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Default target language</div>
-        <div class="settings-desc">Language pre-selected on the translate page</div>
-      </div>
-      <select id="settings-default-lang" class="settings-select" onchange="saveSettings()"></select>
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Lesson buffer</div>
-        <div class="settings-desc">Auto-generate this many unfinished lessons ahead so you never wait</div>
-      </div>
-      <input type="number" id="settings-lesson-buffer" class="settings-input" min="0" max="10" value="3" oninput="debounceSaveStudy()">
-    </div>
-  </div>
-
-  <div class="settings-section" id="flashcards-section">
-    <div class="settings-section-title">Flashcards</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Show romanization on audio cards</div>
-        <div class="settings-desc">Display romanization (e.g. jyutping) on the front of pronunciation cards</div>
-      </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="settings-audio-romanization" onchange="saveAudioRomanization()">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-  </div>
-
-  <div class="settings-section" id="notifications-section">
-    <div class="settings-section-title">Notifications</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Push notifications</div>
-        <div class="settings-desc notif-status-desc">Checking…</div>
-      </div>
-      <button class="notif-bell-btn" onclick="toggleNotifications()"></button>
-    </div>
-  </div>
-
-  <div class="settings-section" id="reader-section">
-    <div class="settings-section-title">Reader</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Default difficulty</div>
-        <div class="settings-desc">CEFR level pre-selected when you open the Reader</div>
-      </div>
-      <select id="settings-reader-difficulty" class="settings-select" onchange="saveReaderDifficulty()">
-        <option value="A1">A1 — Beginner</option>
-        <option value="A2">A2 — Elementary</option>
-        <option value="B1">B1 — Intermediate</option>
-        <option value="B2">B2 — Upper Intermediate</option>
-        <option value="C1">C1 — Advanced</option>
-        <option value="C2">C2 — Mastery</option>
-      </select>
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Auto-add vocab</div>
-        <div class="settings-desc">Automatically add all new words to your deck when opening a reader text</div>
-      </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="settings-auto-add-vocab" onchange="saveAutoAdd()">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-  </div>
-
-  <div class="settings-section" id="ai-section">
-    <div class="settings-section-title">AI / Gemini</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Your Gemini API key</div>
-        <div class="settings-desc">
-          Powers translation and reader generation. Stored encrypted; only you can use it.
-          Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-          <span id="api-key-status"></span>
+    <div class="settings-section" id="plan-section" style="display:none">
+      <div class="settings-section-title">Plan &amp; usage</div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+          <div class="settings-label" id="plan-name">Free</div>
+          <div class="settings-desc" id="plan-usage-text"></div>
+        </div>
+        <div id="plan-usage-bar-wrap" style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+          <div id="plan-usage-bar" style="height:100%;width:0;background:var(--primary);transition:width 0.3s"></div>
+        </div>
+        <div class="settings-desc" id="plan-note"></div>
+        <div class="settings-desc" id="plan-cancel-note" style="display:none;color:var(--hard)"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="settings-btn primary" id="plan-upgrade-btn" style="display:none" onclick="startCheckout()">Upgrade to Pro — $5/mo</button>
+          <button class="settings-btn" id="plan-manage-btn" style="display:none" onclick="openPortal()">Manage subscription</button>
+          <button class="settings-btn" id="plan-cancel-btn" style="display:none" onclick="showCancelModal()">Cancel subscription</button>
+          <button class="settings-btn primary" id="plan-resume-btn" style="display:none" onclick="resumeSubscription()">Resume subscription</button>
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-        <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off" style="width:160px;text-align:left">
-        <button class="settings-btn primary" onclick="saveApiKey()">Save</button>
-        <button class="settings-btn" onclick="clearApiKey()">Clear</button>
-      </div>
     </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Translation model</div>
-        <div class="settings-desc">Used for word/phrase translation</div>
-      </div>
-      <select id="settings-model-translate" class="settings-select" onchange="saveModels()"></select>
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Reader model</div>
-        <div class="settings-desc">Used to generate reader texts</div>
-      </div>
-      <select id="settings-model-reader" class="settings-select" onchange="saveModels()"></select>
-    </div>
-    <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
-  </div>
 
-  <div class="settings-section" id="learner-section">
-    <div class="settings-section-title">AI Tutor Profile</div>
-    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div class="settings-label">Your background &amp; goals</div>
-      <div class="settings-desc">Tell the AI what you already know, what you want to focus on, or any context that helps personalise your lessons.</div>
-      <textarea id="settings-learner-profile" rows="3" placeholder="e.g. I speak some Mandarin but want to learn Cantonese from scratch. I already know basic greetings." style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:0.9rem;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);outline:none"></textarea>
-    </div>
-    <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center">
-      <button class="settings-btn primary" onclick="saveLearnerProfile()">Save</button>
-      <span id="learner-profile-msg" style="font-size:0.82rem"></span>
-    </div>
-  </div>
-
-  <div class="settings-section" id="mastery-section" style="display:none">
-    <div class="settings-section-title" style="display:flex;justify-content:space-between;align-items:center">
-      <span>Concept Mastery</span>
-      <select id="mastery-lang-select" class="settings-select" style="font-size:0.8rem;padding:3px 28px 3px 8px" onchange="loadMastery()"></select>
-    </div>
-    <div class="settings-desc" style="padding:2px 18px 8px">First-pass accuracy per concept across all completed lessons.</div>
-    <div id="mastery-list" style="padding:0 18px 14px"></div>
-  </div>
-
-  <div class="settings-section" id="deck-maintenance-section">
-    <div class="settings-section-title">Deck Maintenance</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Atomize phrase cards</div>
-        <div class="settings-desc">Auto-create individual word cards for any multi-word phrase cards. Runs in the background — new cards appear in your deck shortly.</div>
+    <div class="settings-section">
+      <div class="settings-section-title">Gemini API</div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div>
+          <div class="settings-label">Your Gemini API key</div>
+          <div class="settings-desc">
+            Powers translation and reader generation. Stored encrypted; only you can use it.
+            Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+            <span id="api-key-status"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="password" id="settings-api-key" class="settings-input" placeholder="AIza…" autocomplete="off" style="flex:1;min-width:140px;text-align:left">
+          <button class="settings-btn primary" onclick="saveApiKey()">Save</button>
+          <button class="settings-btn" onclick="clearApiKey()">Clear</button>
+        </div>
       </div>
-      <button class="settings-btn" id="atomize-btn" onclick="runAtomize()">Run</button>
-    </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Backfill classifiers</div>
-        <div class="settings-desc">Add missing measure words (量詞) or articles to existing cards that don't have them.</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Translation model</div>
+          <div class="settings-desc">Used for word/phrase translation</div>
+        </div>
+        <select id="settings-model-translate" class="settings-select" onchange="saveModels()"></select>
       </div>
-      <button class="settings-btn" id="backfill-classifier-btn" onclick="runBackfillClassifiers()">Run</button>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Reader model</div>
+          <div class="settings-desc">Used to generate reader texts</div>
+        </div>
+        <select id="settings-model-reader" class="settings-select" onchange="saveModels()"></select>
+      </div>
+      <div class="settings-desc" id="model-note" style="padding:4px 18px 14px"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">AI Tutor Profile</div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="settings-label">Your background &amp; goals</div>
+        <div class="settings-desc">Tell the AI what you already know, what you want to focus on, or any context that helps personalise your lessons.</div>
+        <textarea id="settings-learner-profile" rows="3" placeholder="e.g. I speak some Mandarin but want to learn Cantonese from scratch. I already know basic greetings." style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:0.9rem;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);outline:none"></textarea>
+      </div>
+      <div style="padding:10px 18px 14px;display:flex;gap:8px;align-items:center">
+        <button class="settings-btn primary" onclick="saveLearnerProfile()">Save</button>
+        <span id="learner-profile-msg" style="font-size:0.82rem"></span>
+      </div>
     </div>
   </div>
 
-  <div class="settings-section" id="admin-lesson-section" style="display:none">
-    <div class="settings-section-title">Learning Path (admin)</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Author lessons with the premium model</div>
-        <div class="settings-desc" id="lesson-premium-desc">Use the stronger model for unit planning + lesson authoring (slower, costs more)</div>
+  <!-- ════ Learning ════ -->
+  <div class="settings-pane" id="pane-learning">
+    <div class="settings-section">
+      <div class="settings-section-title">Study</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">New cards per day</div>
+          <div class="settings-desc">Max new vocabulary items introduced each day</div>
+        </div>
+        <input type="number" id="settings-new-per-day" class="settings-input" min="1" max="500" value="20" oninput="debounceSaveStudy()">
       </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="settings-lesson-premium" onchange="saveLessonPremium()">
-        <span class="toggle-slider"></span>
-      </label>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Default target language</div>
+          <div class="settings-desc">Language pre-selected on the translate page</div>
+        </div>
+        <select id="settings-default-lang" class="settings-select" onchange="saveSettings()"></select>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Lesson buffer</div>
+          <div class="settings-desc">Auto-generate this many unfinished lessons ahead so you never wait</div>
+        </div>
+        <input type="number" id="settings-lesson-buffer" class="settings-input" min="0" max="10" value="3" oninput="debounceSaveStudy()">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Populate similarity threshold</div>
+          <div class="settings-desc">How closely a card must match a label for "Already in your deck" suggestions (higher = stricter)</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;min-width:120px">
+          <input type="range" id="settings-populate-score" min="0" max="100" value="55" style="flex:1;min-width:80px" oninput="updateScoreLabel(this.value); debounceSaveStudy()">
+          <span id="populate-score-label" style="font-size:13px;font-variant-numeric:tabular-nums;min-width:36px;text-align:right">0.55</span>
+        </div>
+      </div>
     </div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">Lesson model (A/B)</div>
-        <div class="settings-desc">Which model runs the planner + author. Overrides the toggle above. Claude options need ANTHROPIC_API_KEY on the server.</div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Flashcards</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Show romanization on audio cards</div>
+          <div class="settings-desc">Display romanization (e.g. jyutping) on the front of pronunciation cards</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-audio-romanization" onchange="saveAudioRomanization()">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
-      <select id="settings-lesson-model" class="settings-select" onchange="saveLessonModel()"></select>
+    </div>
+
+    <div class="settings-section" id="mastery-section" style="display:none">
+      <div class="settings-section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Concept Mastery</span>
+        <select id="mastery-lang-select" class="settings-select" style="font-size:0.8rem;padding:3px 28px 3px 8px" onchange="loadMastery()"></select>
+      </div>
+      <div class="settings-desc" style="padding:2px 18px 8px">First-pass accuracy per concept across all completed lessons.</div>
+      <div id="mastery-list" style="padding:0 18px 14px"></div>
+      <div id="mastery-pagination" class="pagination-bar" style="display:none"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Deck Maintenance</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Atomize phrase cards</div>
+          <div class="settings-desc">Auto-create individual word cards for any multi-word phrase cards. Runs in the background — new cards appear in your deck shortly.</div>
+        </div>
+        <button class="settings-btn" id="atomize-btn" onclick="runAtomize()">Run</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Backfill classifiers</div>
+          <div class="settings-desc">Add missing measure words (量詞) or articles to existing cards that don't have them.</div>
+        </div>
+        <button class="settings-btn" id="backfill-classifier-btn" onclick="runBackfillClassifiers()">Run</button>
+      </div>
     </div>
   </div>
 
-  <div class="settings-section" id="admin-create-section" style="display:none">
-    <div class="settings-section-title">Create user</div>
-    <form class="create-form" onsubmit="createUser(event)">
-      <input type="text" id="new-username" placeholder="Username" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <input type="password" id="new-password" placeholder="Password (min 6 chars)">
-      <label><input type="checkbox" id="new-admin"> Admin</label>
-      <button class="settings-btn primary" type="submit">Create</button>
-    </form>
+  <!-- ════ Preferences ════ -->
+  <div class="settings-pane" id="pane-preferences">
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Theme</div>
+          <div class="settings-desc">Auto follows your device's light/dark setting.</div>
+        </div>
+        <div class="theme-seg" id="theme-seg">
+          <button type="button" data-pref="auto">Auto</button>
+          <button type="button" data-pref="light">Light</button>
+          <button type="button" data-pref="dark">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Reader</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Default difficulty</div>
+          <div class="settings-desc">CEFR level pre-selected when you open the Reader</div>
+        </div>
+        <select id="settings-reader-difficulty" class="settings-select" onchange="saveReaderDifficulty()">
+          <option value="A1">A1 — Beginner</option>
+          <option value="A2">A2 — Elementary</option>
+          <option value="B1">B1 — Intermediate</option>
+          <option value="B2">B2 — Upper Intermediate</option>
+          <option value="C1">C1 — Advanced</option>
+          <option value="C2">C2 — Mastery</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Auto-add vocab</div>
+          <div class="settings-desc">Automatically add all new words to your deck when opening a reader text</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-auto-add-vocab" onchange="saveAutoAdd()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Chat</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Compact photo button</div>
+          <div class="settings-desc">Show only the lightbulb icon on photo messages (hide "Phrases" text)</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-compact-phrases" onchange="saveCompactPhrases()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Notifications</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Push notifications</div>
+          <div class="settings-desc notif-status-desc">Checking…</div>
+        </div>
+        <button class="notif-bell-btn" onclick="toggleNotifications()"></button>
+      </div>
+    </div>
   </div>
 
-  <div class="settings-section" id="admin-users-section" style="display:none">
-    <div class="settings-section-title">Users</div>
-    <div id="user-list"></div>
+  <!-- ════ Admin ════ -->
+  <div class="settings-pane" id="pane-admin">
+    <div class="settings-section" id="admin-lesson-section">
+      <div class="settings-section-title">Learning Path</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Author lessons with the premium model</div>
+          <div class="settings-desc" id="lesson-premium-desc">Use the stronger model for unit planning + lesson authoring (slower, costs more)</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-lesson-premium" onchange="saveLessonPremium()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Lesson model (A/B)</div>
+          <div class="settings-desc">Which model runs the planner + author. Overrides the toggle above. Claude options need ANTHROPIC_API_KEY on the server.</div>
+        </div>
+        <select id="settings-lesson-model" class="settings-select" onchange="saveLessonModel()"></select>
+      </div>
+    </div>
+
+    <div class="settings-section" id="admin-create-section">
+      <div class="settings-section-title">Create user</div>
+      <form class="create-form" onsubmit="createUser(event)">
+        <input type="text" id="new-username" placeholder="Username" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <input type="password" id="new-password" placeholder="Password (min 6 chars)">
+        <label><input type="checkbox" id="new-admin"> Admin</label>
+        <button class="settings-btn primary" type="submit">Create</button>
+      </form>
+    </div>
+
+    <div class="settings-section" id="admin-users-section">
+      <div class="settings-section-title">Users</div>
+      <div id="user-list"></div>
+      <div id="users-pagination" class="pagination-bar" style="display:none"></div>
+    </div>
   </div>
 </main>
+
+<!-- Cancel subscription confirmation modal -->
+<div id="cancel-modal" style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);padding:28px 24px;max-width:380px;width:90%;box-shadow:var(--shadow)">
+    <div style="font-weight:700;font-size:1.1rem;margin-bottom:10px">Cancel Pro subscription?</div>
+    <div style="color:var(--text-muted);margin-bottom:20px;line-height:1.5" id="cancel-modal-body">
+      Your Pro access will continue until the end of your billing period. After that your account reverts to Free.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="settings-btn" onclick="closeCancelModal()">Keep Pro</button>
+      <button class="settings-btn" id="cancel-confirm-btn"
+        style="background:var(--again);color:#fff;border-color:transparent"
+        onclick="confirmCancel()">Yes, cancel</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-  function initCollapsibleSections() {
-    document.querySelectorAll('.settings-section[id]').forEach(section => {
-      const title = section.querySelector('.settings-section-title');
-      if (!title) return;
-      const key = 'sec_' + section.id;
-      const chevron = document.createElement('span');
-      chevron.className = 'sec-chevron';
-      chevron.textContent = '›';
-      title.appendChild(chevron);
-      const bodyEl = document.createElement('div');
-      bodyEl.className = 'settings-body';
-      [...section.children].filter(c => c !== title).forEach(c => bodyEl.appendChild(c));
-      section.appendChild(bodyEl);
-      if (localStorage.getItem(key) === '1') section.classList.add('sec-collapsed');
-      title.onclick = () => {
-        section.classList.toggle('sec-collapsed');
-        localStorage.setItem(key, section.classList.contains('sec-collapsed') ? '1' : '');
-      };
-    });
+  // ── Tab navigation ──
+  let _currentPane = 'account';
+  function switchPane(pane) {
+    _currentPane = pane;
+    document.querySelectorAll('.settings-tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.pane === pane));
+    document.querySelectorAll('.settings-pane').forEach(p =>
+      p.classList.toggle('active', p.id === 'pane-' + pane));
+    localStorage.setItem('settings_pane', pane);
   }
 
   async function init() {
@@ -435,7 +448,8 @@
       showToast('Welcome to Pro! Your subscription is active.');
       history.replaceState(null, '', '/settings');
     }
-    initCollapsibleSections();
+    const saved = localStorage.getItem('settings_pane');
+    if (saved && document.getElementById('pane-' + saved)) switchPane(saved);
   }
 
   async function loadBilling() {
@@ -446,7 +460,6 @@
     document.getElementById('plan-section').style.display = '';
     const upgradeBtn0 = document.getElementById('plan-upgrade-btn');
     const manageBtn0 = document.getElementById('plan-manage-btn');
-    // Unlimited users (own key / admin) see a status line but no quota/upgrade UI.
     if (data.unlimited) {
       document.getElementById('plan-name').textContent = 'Unlimited';
       document.getElementById('plan-usage-text').textContent =
@@ -476,9 +489,6 @@
     const cancelBtn = document.getElementById('plan-cancel-btn');
     const resumeBtn = document.getElementById('plan-resume-btn');
 
-    // Reset every button/note to a clean baseline, then show exactly what this
-    // state needs. Without this, a button's visibility can linger from a prior
-    // render (the source of the "temperamental" feel).
     for (const b of [upgradeBtn, manageBtn, cancelBtn, resumeBtn]) {
       b.style.display = 'none';
       b.disabled = false;
@@ -488,9 +498,7 @@
 
     if (isPro) {
       note.textContent = 'Resets on the 1st of each month. Need more? Add your own Gemini key above for unlimited use.';
-
       if (data.has_subscription && data.cancel_at_period_end) {
-        // Pending cancellation: show expiry note + resume only.
         resumeBtn.style.display = '';
         let cancelMsg = 'Your subscription is set to cancel at the end of your billing period. You\'ll keep Pro until then.';
         if (data.subscription_period_end) {
@@ -501,7 +509,6 @@
         cancelNote.textContent = cancelMsg;
         cancelNote.style.display = '';
       } else if (data.has_subscription) {
-        // Active subscription: allow manage + cancel.
         manageBtn.style.display = '';
         cancelBtn.style.display = '';
       }
@@ -547,13 +554,10 @@
       bodyText = `Your Pro access will continue until ${fmt}. After that your account reverts to Free.`;
     }
     document.getElementById('cancel-modal-body').textContent = bodyText;
-    // Reset the confirm button — confirmCancel() leaves it disabled/"Canceling…"
-    // on its success path, so re-opening the modal must restore it.
     const confirmBtn = document.getElementById('cancel-confirm-btn');
     confirmBtn.disabled = false;
     confirmBtn.textContent = 'Yes, cancel';
-    const modal = document.getElementById('cancel-modal');
-    modal.style.display = 'flex';
+    document.getElementById('cancel-modal').style.display = 'flex';
   }
 
   function closeCancelModal() {
@@ -569,8 +573,6 @@
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
         closeCancelModal();
-        // The endpoint updates the DB immediately, so re-rendering from
-        // /api/billing/status gives us one source of truth for button state.
         await loadBilling();
         let fmt = 'the end of your billing period';
         if (body.period_end) {
@@ -660,9 +662,7 @@
     try {
       const me = await fetch('/api/me').then(r => r.json());
       if (me.is_admin) {
-        ['admin-lesson-section', 'admin-create-section', 'admin-users-section'].forEach(id => {
-          document.getElementById(id).style.display = '';
-        });
+        document.getElementById('admin-tab').style.display = '';
         await loadUsers();
       }
     } catch {}
@@ -672,52 +672,77 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  let _allUsers = [];
+  let _usersPage = 0;
+  const _USERS_PER_PAGE = 10;
+
   async function loadUsers() {
     const list = document.getElementById('user-list');
     list.innerHTML = '<p class="settings-desc" style="padding:12px 18px">Loading…</p>';
+    document.getElementById('users-pagination').style.display = 'none';
     try {
       const { users } = await fetch('/api/admin/users').then(r => r.json());
+      _allUsers = users;
+      _usersPage = 0;
       if (!users.length) {
         list.innerHTML = '<p class="settings-desc" style="padding:12px 18px">No users.</p>';
         return;
       }
-      list.innerHTML = '';
-      users.forEach(u => {
-        const row = document.createElement('div');
-        row.className = 'user-row';
-        const uname = escHtml(u.username).replace(/'/g, "\\'");
-        const isPro = u.plan === 'pro';
-        const hasStripe = !!u.stripe_customer_id;
-        const planBtn = u.is_admin
-          ? '<span class="settings-desc" style="white-space:nowrap">Unlimited</span>'
-          : hasStripe
-              ? `<span class="settings-desc" style="white-space:nowrap">Pro (Stripe)</span>`
-              : (isPro
-                  ? `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
-                  : `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
-        const verifiedTag = u.email_verified === 0
-          ? '<span style="color:var(--again);font-size:0.75rem;margin-left:6px">unverified</span>'
-          : '';
-        const emailLine = u.email
-          ? `<div class="settings-desc">${escHtml(u.email)}${verifiedTag}</div>`
-          : '';
-        const nameLine = u.display_name
-          ? `<div class="settings-desc" style="color:var(--text)">${escHtml(u.display_name)}</div>`
-          : '';
-        row.innerHTML = `
-          <div>
-            <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
-            ${nameLine}${emailLine}
-            <div class="settings-desc">Created ${escHtml(u.created_at || '')}</div>
-          </div>
-          ${planBtn}
-          <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset pw</button>
-          <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
-        `;
-        list.appendChild(row);
-      });
+      renderUsersPage();
     } catch {
       list.innerHTML = '<p class="settings-desc" style="padding:12px 18px;color:var(--again)">Failed to load users.</p>';
+    }
+  }
+
+  function renderUsersPage() {
+    const list = document.getElementById('user-list');
+    const total = _allUsers.length;
+    const pages = Math.ceil(total / _USERS_PER_PAGE);
+    const start = _usersPage * _USERS_PER_PAGE;
+    const slice = _allUsers.slice(start, start + _USERS_PER_PAGE);
+    list.innerHTML = '';
+    slice.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'user-row';
+      const uname = escHtml(u.username).replace(/'/g, "\\'");
+      const isPro = u.plan === 'pro';
+      const hasStripe = !!u.stripe_customer_id;
+      const planBtn = u.is_admin
+        ? '<span class="settings-desc" style="white-space:nowrap">Unlimited</span>'
+        : hasStripe
+            ? `<span class="settings-desc" style="white-space:nowrap">Pro (Stripe)</span>`
+            : (isPro
+                ? `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'free')">Plan: Pro</button>`
+                : `<button class="admin-action-btn" onclick="setPlan(${u.id}, 'pro')">Plan: Free</button>`);
+      const verifiedTag = u.email_verified === 0
+        ? '<span style="color:var(--again);font-size:0.75rem;margin-left:6px">unverified</span>'
+        : '';
+      const emailLine = u.email
+        ? `<div class="settings-desc">${escHtml(u.email)}${verifiedTag}</div>`
+        : '';
+      const nameLine = u.display_name
+        ? `<div class="settings-desc" style="color:var(--text)">${escHtml(u.display_name)}</div>`
+        : '';
+      row.innerHTML = `
+        <div>
+          <div class="user-name">${escHtml(u.username)}${u.is_admin ? '<span class="admin-tag">Admin</span>' : ''}</div>
+          ${nameLine}${emailLine}
+          <div class="settings-desc">Created ${escHtml(u.created_at || '')}</div>
+        </div>
+        ${planBtn}
+        <button class="admin-action-btn" onclick="resetPassword(${u.id}, '${uname}')">Reset pw</button>
+        <button class="admin-action-btn danger" onclick="deleteUser(${u.id}, '${uname}')">Delete</button>
+      `;
+      list.appendChild(row);
+    });
+    const pag = document.getElementById('users-pagination');
+    if (pages > 1) {
+      pag.style.display = 'flex';
+      pag.innerHTML = `<button onclick="_usersPage--;renderUsersPage()" ${_usersPage===0?'disabled':''}>&#8592; Prev</button>
+        <span class="page-info">${_usersPage+1} / ${pages}</span>
+        <button onclick="_usersPage++;renderUsersPage()" ${_usersPage>=pages-1?'disabled':''}>Next &#8594;</button>`;
+    } else {
+      pag.style.display = 'none';
     }
   }
 
@@ -811,6 +836,7 @@
     document.getElementById('settings-lesson-buffer').value = settings.lesson_buffer !== undefined ? settings.lesson_buffer : 3;
     document.getElementById('settings-audio-romanization').checked = settings.audio_show_romanization !== false;
     document.getElementById('settings-auto-add-vocab').checked = !!settings.auto_add_reader_vocab;
+    document.getElementById('settings-compact-phrases').checked = !!settings.chat_compact_phrases;
     document.getElementById('settings-reader-difficulty').value = settings.default_reader_difficulty || 'B1';
     document.getElementById('settings-lesson-premium').checked = !!settings.lesson_premium;
     if (settings.lesson_premium_model) {
@@ -824,6 +850,9 @@
       lmSel.value = settings.lesson_model || '';
     }
     document.getElementById('settings-learner-profile').value = settings.learner_profile || '';
+    const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
+    document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
+    updateScoreLabel(Math.round(pScore * 100));
 
     const sel = document.getElementById('settings-default-lang');
     sel.innerHTML = '';
@@ -860,7 +889,6 @@
     mt.value = settings.model_translate || settings.default_model;
     mr.value = settings.model_reader || settings.default_model;
 
-    // Model choice only applies when paying with your own key.
     const canChoose = !!settings.can_choose_models;
     mt.disabled = !canChoose;
     mr.disabled = !canChoose;
@@ -911,7 +939,6 @@
       document.getElementById('settings-api-key').value = '';
       settings.has_api_key = false;
       settings.can_choose_models = false;
-      // Reload to recompute model-choice state now the key is gone.
       settings = await fetch('/api/settings').then(r => r.json());
       renderAiSection();
       showToast('API key removed.');
@@ -939,6 +966,10 @@
   }
 
   let _saveStudyTimer;
+  function updateScoreLabel(v) {
+    document.getElementById('populate-score-label').textContent = (v / 100).toFixed(2);
+  }
+
   function debounceSaveStudy() {
     clearTimeout(_saveStudyTimer);
     _saveStudyTimer = setTimeout(saveSettings, 600);
@@ -948,18 +979,20 @@
     const val = parseInt(document.getElementById('settings-new-per-day').value, 10);
     const lang = document.getElementById('settings-default-lang').value;
     const buf = parseInt(document.getElementById('settings-lesson-buffer').value, 10);
+    const popScore = parseInt(document.getElementById('settings-populate-score').value, 10) / 100;
     if (!val || val < 1 || val > 500) { showToast('Must be between 1 and 500.'); return; }
     const lessonBuf = isNaN(buf) ? 3 : Math.max(0, Math.min(10, buf));
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_cards_per_day: val, default_target_lang: lang, lesson_buffer: lessonBuf }),
+        body: JSON.stringify({ new_cards_per_day: val, default_target_lang: lang, lesson_buffer: lessonBuf, populate_min_score: popScore }),
       });
       if (!res.ok) throw new Error();
       settings.new_cards_per_day = val;
       settings.default_target_lang = lang;
       settings.lesson_buffer = lessonBuf;
+      settings.populate_min_score = popScore;
       showToast('Saved.');
     } catch {
       showToast('Failed to save settings.');
@@ -979,6 +1012,23 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveCompactPhrases() {
+    const checked = document.getElementById('settings-compact-phrases').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_compact_phrases: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.chat_compact_phrases = checked;
+      showToast(checked ? 'Photo button: icon only.' : 'Photo button: icon + text.');
+    } catch {
+      document.getElementById('settings-compact-phrases').checked = !checked;
       showToast('Failed to save setting.');
     }
   }
@@ -1034,36 +1084,61 @@
     }
   }
 
+  let _masteryConcepts = [];
+  let _masteryPage = 0;
+  const _MASTERY_PER_PAGE = 10;
+
   async function loadMastery() {
     const sel = document.getElementById('mastery-lang-select');
     const lang = sel.value || (settings && settings.default_target_lang) || 'yue';
     const list = document.getElementById('mastery-list');
     list.innerHTML = '<span class="settings-desc">Loading…</span>';
+    document.getElementById('mastery-pagination').style.display = 'none';
     try {
       const { concepts } = await fetch('/api/mastery?lang=' + encodeURIComponent(lang)).then(r => r.json());
+      _masteryConcepts = concepts;
+      _masteryPage = 0;
       if (!concepts.length) {
         list.innerHTML = '<span class="settings-desc">No data yet — complete some lessons to see mastery stats.</span>';
         return;
       }
-      list.innerHTML = '';
-      concepts.forEach(c => {
-        const pct = c.total ? Math.round(c.correct / c.total * 100) : 0;
-        const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn-accent)' : 'var(--again)';
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)';
-        row.innerHTML = `
-          <div style="flex:1;min-width:0">
-            <span style="font-size:0.88rem;color:var(--text)">${escHtml(c.concept_key.replace(/_/g,' '))}</span>
-          </div>
-          <div style="width:80px;height:6px;background:var(--border);border-radius:999px;overflow:hidden;flex-shrink:0">
-            <div style="height:100%;width:${pct}%;background:${color};transition:width .3s"></div>
-          </div>
-          <div style="font-size:0.82rem;color:${color};width:44px;text-align:right;flex-shrink:0">${pct}% <span style="color:var(--text-muted)">${c.total}×</span></div>`;
-        list.appendChild(row);
-      });
+      renderMasteryPage();
       document.getElementById('mastery-section').style.display = '';
     } catch {
       list.innerHTML = '<span class="settings-desc" style="color:var(--again)">Failed to load mastery data.</span>';
+    }
+  }
+
+  function renderMasteryPage() {
+    const list = document.getElementById('mastery-list');
+    const total = _masteryConcepts.length;
+    const pages = Math.ceil(total / _MASTERY_PER_PAGE);
+    const start = _masteryPage * _MASTERY_PER_PAGE;
+    const slice = _masteryConcepts.slice(start, start + _MASTERY_PER_PAGE);
+    list.innerHTML = '';
+    slice.forEach(c => {
+      const pct = c.total ? Math.round(c.correct / c.total * 100) : 0;
+      const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn-accent)' : 'var(--again)';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)';
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <span style="font-size:0.88rem;color:var(--text)">${escHtml(c.concept_key.replace(/_/g,' '))}</span>
+        </div>
+        <div style="width:80px;height:6px;background:var(--border);border-radius:999px;overflow:hidden;flex-shrink:0">
+          <div style="height:100%;width:${pct}%;background:${color};transition:width .3s"></div>
+        </div>
+        <div style="font-size:0.82rem;color:${color};width:44px;text-align:right;flex-shrink:0">${pct}% <span style="color:var(--text-muted)">${c.total}×</span></div>`;
+      list.appendChild(row);
+    });
+    const pag = document.getElementById('mastery-pagination');
+    if (pages > 1) {
+      pag.style.display = 'flex';
+      pag.innerHTML = `<button onclick="_masteryPage--;renderMasteryPage()" ${_masteryPage===0?'disabled':''}>&#8592; Prev</button>
+        <span class="page-info">${_masteryPage+1} / ${pages}</span>
+        <button onclick="_masteryPage++;renderMasteryPage()" ${_masteryPage>=pages-1?'disabled':''}>Next &#8594;</button>`;
+    } else {
+      pag.style.display = 'none';
     }
   }
 
@@ -1113,7 +1188,6 @@
     seg.addEventListener('click', e => {
       const b = e.target.closest('button[data-pref]');
       if (!b) return;
-      // theme.js (deferred) has loaded by the time a click can happen.
       if (window.setThemePref) setThemePref(b.dataset.pref);
       sync();
     });

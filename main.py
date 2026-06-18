@@ -1473,6 +1473,7 @@ async def get_settings(user: dict = Depends(current_user)):
     tour_seen = await db.get_setting(user["id"], "tour_seen") or "0"
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
+    populate_min_score = max(0.0, min(1.0, float(await db.get_setting(user["id"], "populate_min_score") or 0.55)))
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
@@ -1498,6 +1499,8 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_model_options": LESSON_MODEL_ALLOWLIST,
         "learner_profile": await db.get_setting(user["id"], "learner_profile") or "",
         "lesson_buffer": lesson_buffer,
+        "chat_compact_phrases": (await db.get_setting(user["id"], "chat_compact_phrases") or "false") == "true",
+        "populate_min_score": populate_min_score,
     }
 
 
@@ -1514,6 +1517,8 @@ class SettingsUpdate(BaseModel):
     lesson_model: str | None = None
     learner_profile: str | None = None
     lesson_buffer: int | None = None
+    chat_compact_phrases: bool | None = None
+    populate_min_score: float | None = None
 
 
 @app.put("/api/settings")
@@ -1562,6 +1567,11 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "learner_profile", req.learner_profile[:2000].strip())
     if req.lesson_buffer is not None:
         await db.set_setting(user["id"], "lesson_buffer", max(0, min(10, req.lesson_buffer)))
+    if req.chat_compact_phrases is not None:
+        await db.set_setting(user["id"], "chat_compact_phrases", "true" if req.chat_compact_phrases else "false")
+    if req.populate_min_score is not None:
+        val = max(0.0, min(1.0, req.populate_min_score))
+        await db.set_setting(user["id"], "populate_min_score", f"{val:.2f}")
     return {"success": True}
 
 
@@ -1986,13 +1996,24 @@ async def list_labels(user: dict = Depends(current_user)):
 
 
 @app.post("/api/labels")
-async def create_label(req: LabelRequest, user: dict = Depends(current_user)):
+async def create_label(req: LabelRequest, bg: BackgroundTasks, user: dict = Depends(current_user)):
     name = req.name.strip()
     if not name:
         raise HTTPException(400, "Name is empty")
     if len(name) > 50:
         raise HTTPException(400, "Name too long (max 50 chars)")
-    return await db.create_label(user["id"], name)
+    result = await db.create_label(user["id"], name)
+    bg.add_task(_embed_label_bg, user, name)
+    return result
+
+
+async def _embed_label_bg(user: dict, name: str):
+    """Pre-compute the embedding for a newly created label so merge suggestions
+    don't have to embed it lazily later."""
+    try:
+        await _label_vectors(user, [name])
+    except Exception:
+        pass
 
 
 @app.put("/api/labels/{label_id}")
@@ -2065,14 +2086,270 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (mag_a * mag_b)
 
 
+# Label-merge tuning. The semantic pass catches synonyms that share no letters
+# ("drinks"/"beverages"); the string pass catches typos/plurals/punctuation
+# ("food & drinks"/"foods and drinks"). Label-name embeddings are cached under a
+# sentinel "lang" so they never collide with target-vocabulary embeddings.
+_LABEL_EMBED_LANG = "__label__"
+_SEMANTIC_MERGE_THRESHOLD = 0.84   # cosine; synonyms ~0.80–0.90, unrelated words lower
+
+
+def _label_norm(name: str) -> str:
+    """Normalize a label name for cheap string comparison (lowercase, drop
+    punctuation/articles, naive depluralize)."""
+    import re, unicodedata
+    s = unicodedata.normalize("NFKD", name).lower().strip()
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\b(and|the|a|an|of)\b", "", s)
+    s = re.sub(r"s\b", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _string_sim(na: str, nb: str) -> float:
+    """Similarity from normalized names: 1.0 if identical, else an affix-aware
+    Levenshtein ratio if it clears the bar, else 0. The affix guard stops
+    substring near-matches like 'motion'/'emotion' (one is a suffix of the
+    other) from passing on edit distance alone."""
+    if not na or not nb:
+        return 0.0
+    if na == nb:
+        return 1.0
+    ratio = _levenshtein_ratio(na, nb)
+    shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+    is_affix = shorter != longer and (longer.startswith(shorter) or longer.endswith(shorter))
+    threshold = 0.92 if is_affix else 0.8
+    return ratio if ratio >= threshold else 0.0
+
+
+def _label_embed_text(name: str) -> str:
+    """Strip a leading emoji/symbol prefix (e.g. the '📦 ' deck marker) so the
+    embedding reflects the semantic word, not the decoration."""
+    import re
+    return re.sub(r"^[\W_]+", "", name).strip().lower() or name.strip().lower()
+
+
+async def _label_vectors(user: dict, names: list[str]) -> dict[str, list[float]]:
+    """Embedding vectors for label names via the shared cache (embed only misses).
+    Best-effort: returns {} if no key / any embedding error, so the caller falls
+    back to string-only matching. Not metered — this is a derived background call."""
+    texts = list({_label_embed_text(n) for n in names if n.strip()})
+    if not texts:
+        return {}
+    try:
+        access = await _resolve_gemini(user, meter=False)
+    except HTTPException:
+        return {}
+    cached = await db.get_cached_embeddings(_LABEL_EMBED_LANG, embeddings.EMBED_MODEL, texts)
+    missing = [t for t in texts if t not in cached]
+    if missing:
+        try:
+            vecs = await embeddings.embed(missing, access.api_key)
+        except Exception as e:
+            logger.warning("label embedding failed user=%s: %s", user["id"], e)
+            vecs = []
+        if vecs:
+            packed = {t: embeddings.pack(v) for t, v in zip(missing, vecs)}
+            await db.put_cached_embeddings(_LABEL_EMBED_LANG, embeddings.EMBED_MODEL, packed)
+            cached.update(packed)
+    return {t: embeddings.unpack(b) for t, b in cached.items()}
+
+
+@app.get("/api/labels/suggest-merges")
+async def suggest_label_merges(user: dict = Depends(current_user)):
+    """Find groups of labels that are likely duplicates — combining a cheap string
+    pass (typos/plurals) with a semantic embedding pass (synonyms that share no
+    letters, e.g. 'drinks'/'beverages'). Groups are connected components over both
+    signals, sorted by confidence then size."""
+    labels = await db.list_labels(user["id"])
+    if len(labels) < 2:
+        return {"groups": []}
+
+    normed = {l["id"]: _label_norm(l["name"]) for l in labels}
+    vectors = await _label_vectors(user, [l["name"] for l in labels])
+
+    def _vec(l: dict) -> list[float] | None:
+        return vectors.get(_label_embed_text(l["name"]))
+
+    # Union-find over labels; an edge connects two labels that are string- or
+    # semantically similar. We track the best similarity per edge for sorting.
+    parent = {l["id"]: l["id"] for l in labels}
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    edges: list[tuple[int, int, float]] = []
+    for i in range(len(labels)):
+        for j in range(i + 1, len(labels)):
+            la, lb = labels[i], labels[j]
+            sim = _string_sim(normed[la["id"]], normed[lb["id"]])
+            va, vb = _vec(la), _vec(lb)
+            if va and vb:
+                cos = embeddings.cosine(va, vb)
+                if cos >= _SEMANTIC_MERGE_THRESHOLD:
+                    sim = max(sim, cos)
+            if sim > 0:
+                union(la["id"], lb["id"])
+                edges.append((la["id"], lb["id"], sim))
+
+    # Group labels by their union-find root, then keep components of size ≥ 2.
+    by_root: dict[int, list[dict]] = {}
+    for l in labels:
+        by_root.setdefault(find(l["id"]), []).append(l)
+
+    groups: list[dict] = []
+    for root, members in by_root.items():
+        if not (2 <= len(members) <= 6):
+            continue
+        member_ids = {m["id"] for m in members}
+        score = max((s for a, b, s in edges if a in member_ids and b in member_ids), default=0.0)
+        groups.append({
+            "labels": [{"id": m["id"], "name": m["name"], "card_count": m["card_count"]} for m in members],
+            "total_cards": sum(m["card_count"] for m in members),
+            "score": round(score, 3),
+        })
+    groups.sort(key=lambda g: (g["score"], g["total_cards"]), reverse=True)
+    return {"groups": groups}
+
+
+_merge_review_cache: dict[tuple[str, ...], dict] = {}
+
+
+class MergeReviewRequest(BaseModel):
+    names: list[str]
+
+
+@app.post("/api/labels/review-merge")
+async def review_merge(req: MergeReviewRequest, user: dict = Depends(current_user)):
+    """LLM-vet a proposed label merge: suggest a name or reject.
+    Results are cached server-side by the sorted name set."""
+    names = [n.strip() for n in req.names if n.strip()]
+    if len(names) < 2:
+        raise HTTPException(400, "Need at least 2 label names")
+    cache_key = tuple(sorted(n.lower() for n in names))
+    cached = _merge_review_cache.get(cache_key)
+    if cached:
+        return cached
+    try:
+        access = await _resolve_gemini(user, meter=False)
+        loop = asyncio.get_event_loop()
+        review = await loop.run_in_executor(
+            None, translation.review_label_merge, names, access.api_key
+        )
+    except Exception:
+        review = {"verdict": "merge", "suggested_name": names[0], "reason": ""}
+    _merge_review_cache[cache_key] = review
+    return review
+
+
+def _levenshtein_ratio(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    n, m = len(a), len(b)
+    if n > m:
+        a, b, n, m = b, a, m, n
+    prev = list(range(n + 1))
+    for j in range(1, m + 1):
+        curr = [j] + [0] * n
+        for i in range(1, n + 1):
+            curr[i] = min(prev[i] + 1, curr[i - 1] + 1,
+                          prev[i - 1] + (0 if a[i - 1] == b[j - 1] else 1))
+        prev = curr
+    dist = prev[n]
+    return 1.0 - dist / max(n, m)
+
+
+class LabelPopulateRequest(BaseModel):
+    label_name: str
+    label_id: int
+    lang: str | None = None
+    count: int = 10
+
+
+@app.post("/api/labels/populate")
+async def populate_label(req: LabelPopulateRequest, user: dict = Depends(current_user)):
+    """Ask an LLM to suggest vocab words that fit a label category."""
+    lang = req.lang or (await db.get_setting(user["id"], "default_target_lang")) or "yue"
+    if lang not in translation.LANG_INFO:
+        raise HTTPException(400, f"Unsupported language: {lang}")
+    access = await _resolve_gemini(user, meter=False)
+    # Feed the LLM ONLY the words already under this label (token-lean) — not the
+    # whole deck. Suggestions that happen to already be cards become "tag this
+    # card" suggestions instead of being silently dropped.
+    label_words = await db.get_label_words(user["id"], req.label_id, lang)
+    llm_count = min(req.count * 2, 20)
+    loop = asyncio.get_event_loop()
+    suggestions = await loop.run_in_executor(
+        None, translation.suggest_vocab_for_label,
+        req.label_name, lang, [], access.api_key, llm_count, label_words,
+    )
+    if not suggestions:
+        logger.info("populate_label %r lang=%s: LLM returned 0 (in-label=%d)",
+                    req.label_name, lang, len(label_words))
+        return {"new": [], "existing": [], "lang": lang}
+
+    matches = await db.match_cards_by_target(
+        user["id"], [s["target"] for s in suggestions], lang, req.label_id,
+        sources=[s["source"] for s in suggestions],
+    )
+    # Build a reverse lookup by lowercase source_text for source-based matches
+    # (catches cards where the LLM's target form differs from the stored one)
+    source_index: dict[str, dict] = {}
+    for m in matches.values():
+        if m.get("source_text"):
+            key = m["source_text"].strip().lower()
+            prev = source_index.get(key)
+            if prev is None or (m["in_label"] and not prev["in_label"]):
+                source_index[key] = m
+    new_words: list[dict] = []
+    existing_cards: list[dict] = []
+    seen_card_ids: set[int] = set()
+    for s in suggestions:
+        m = matches.get(s["target"]) or source_index.get(s["source"].strip().lower())
+        if m is None:
+            new_words.append(s)
+        elif m["id"] in seen_card_ids:
+            continue
+        elif m["in_label"]:
+            seen_card_ids.add(m["id"])
+            continue
+        else:
+            seen_card_ids.add(m["id"])
+            existing_cards.append({
+                "id": m["id"], "target": s["target"],
+                "source": m["source_text"] or s["source"],
+            })
+    logger.info("populate_label %r lang=%s: LLM=%d → new=%d, tag-existing=%d (in-label=%d)",
+                req.label_name, lang, len(suggestions), len(new_words),
+                len(existing_cards), len(label_words))
+    return {"new": new_words[:req.count], "existing": existing_cards[:req.count], "lang": lang}
+
+
 @app.get("/api/labels/suggest-cards")
-async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20, user: dict = Depends(current_user)):
-    """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id."""
+async def suggest_cards_for_label(name: str, label_id: int | None = None, limit: int = 20,
+                                  min_score: float = 0.0, user: dict = Depends(current_user)):
+    """Embed 'name' and return the top cards by cosine similarity, optionally excluding cards already in label_id.
+
+    `min_score` (0–1) filters out cards below that cosine similarity so callers
+    can ask for only genuinely-related cards (the Populate deck search) instead
+    of the unconditional top-N (the legacy cards.html ✦ Suggest)."""
     try:
         access = await _resolve_gemini(user, meter=False)
     except HTTPException:
         return {"cards": []}
-    query_embedding = await translation.get_embedding(name, api_key=access.api_key)
+    # Use the shared label-embedding cache (pre-computed on label creation) so we
+    # don't re-embed the query name on every call.
+    label_vecs = await _label_vectors(user, [name])
+    query_embedding = label_vecs.get(_label_embed_text(name))
+    if not query_embedding:
+        query_embedding = await translation.get_embedding(name, api_key=access.api_key)
     if not query_embedding:
         return {"cards": []}
 
@@ -2092,12 +2369,13 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
         except Exception:
             continue
         score = _cosine_similarity(query_embedding, emb)
-        scored.append((score, row))
+        if score >= min_score:
+            scored.append((score, row))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    top = [r for _, r in scored[:limit]]
 
     # If filtering by label, fetch cards already in the label to exclude them.
+    already: set[int] = set()
     if label_id is not None:
         import aiosqlite as _aiosqlite
         async with _aiosqlite.connect(db.DB_PATH) as conn:
@@ -2105,9 +2383,15 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
                 "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,)
             ) as cur:
                 already = {r[0] for r in await cur.fetchall()}
-        top = [r for r in top if r["id"] not in already]
 
-    return {"cards": top[:limit]}
+    # Strip the heavy embedding blob — the client only needs id/text/score.
+    cards = [
+        {"id": r["id"], "source_text": r["source_text"],
+         "target_text": r["target_text"], "score": round(score, 3)}
+        for score, r in scored
+        if r["id"] not in already
+    ]
+    return {"cards": cards[:limit]}
 
 
 @app.get("/api/reader/texts/{text_id}/vocab-label")
@@ -4383,6 +4667,8 @@ async def send_message(conv_id: int, body: SendMessageBody,
         sender_display = tr["translated"]
         translations[sender_lang] = sender_display
         analysis["reply_en"] = body.text
+        if tr.get("translation_failed"):
+            analysis["translation_failed"] = True
         if tr.get("nuance_note"):
             analysis["nuance_note"] = tr["nuance_note"]
         if tr.get("explanation"):
@@ -4438,6 +4724,55 @@ async def send_message(conv_id: int, body: SendMessageBody,
 
     return {"ok": True, "display_text": sender_display, "msg_id": msg_id,
             "analysis": analysis, "tokens": tokens}
+
+
+@app.post("/api/messages/{msg_id}/retry-translate")
+@limiter.limit("10/minute")
+async def retry_translate_message(msg_id: int, request: Request,
+                                  user: dict = Depends(current_user)):
+    """Re-attempt translation for a message that failed."""
+    msg = await db.get_message(msg_id, user["id"])
+    if not msg:
+        raise HTTPException(404, "Message not found")
+    if msg["sender_user_id"] != user["id"]:
+        raise HTTPException(403, "Not your message")
+    if msg["original_lang"] != "en":
+        raise HTTPException(400, "Only English messages can be retranslated")
+
+    access = await _resolve_gemini(user, meter=True)
+    sender_lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+
+    tr = await translation.translate_message(
+        msg["original_text"], "en", sender_lang, api_key=access.api_key)
+    if tr.get("translation_failed"):
+        raise HTTPException(502, "Translation failed again — try later")
+
+    translations = msg["translations"]
+    translations[sender_lang] = tr["translated"]
+    analysis = msg["analysis"]
+    analysis.pop("translation_failed", None)
+    analysis["reply_en"] = msg["original_text"]
+    if tr.get("nuance_note"):
+        analysis["nuance_note"] = tr["nuance_note"]
+    if tr.get("explanation"):
+        analysis["explanation"] = tr["explanation"]
+    vocab = tr.get("vocab") or []
+    if vocab:
+        words = [v["target_text"] for v in vocab]
+        statuses = await db.get_word_statuses(user["id"], words, sender_lang)
+        vocab = [v for v in vocab if v["target_text"] not in statuses]
+    if vocab:
+        analysis["vocab"] = vocab
+
+    await db.update_message_analysis(msg_id, translations, analysis)
+
+    tokens: dict = {}
+    display = tr["translated"]
+    if sender_lang in _RUBY_LANGS:
+        texts = [display] + [v.get("target_text", "") for v in vocab]
+        tokens = await asyncio.to_thread(_tokenize_map, [t for t in texts if t], sender_lang)
+
+    return {"ok": True, "display_text": display, "analysis": analysis, "tokens": tokens}
 
 
 @app.post("/api/conversations/{conv_id}/image")
@@ -4593,6 +4928,104 @@ async def connect_messenger(body: ConnectMessengerBody, user: dict = Depends(cur
 async def disconnect_messenger(user: dict = Depends(current_user)):
     await db.delete_messenger_account(user["id"])
     return {"ok": True}
+
+
+# ── Social connect (Facebook) — identity + mutual-app-friend discovery ─────────
+# NOTE: friend discovery uses Graph `/me/friends`, which returns ONLY friends who
+# also use this app AND granted `user_friends`. Until Meta App Review approves
+# `user_friends`, this works only for the app's own developers/testers. The OAuth
+# + matching plumbing is in place so enabling it later is just a review away.
+
+_FB_OAUTH_SCOPES = "public_profile,user_friends"
+_oauth_states: dict[str, tuple[int, float]] = {}  # CSRF state → (user_id, expiry)
+
+
+def _fb_redirect_uri() -> str:
+    return f"{email_utils.APP_URL}/api/social/facebook/callback"
+
+
+@app.get("/api/social/facebook/login")
+async def facebook_login(user: dict = Depends(current_user)):
+    """Return the Facebook OAuth dialog URL (frontend redirects the browser to it)."""
+    if not _FB_APP_ID or not _FB_APP_SECRET:
+        raise HTTPException(400, "Facebook integration is not configured.")
+    now = time.time()
+    for k in [k for k, (_, exp) in _oauth_states.items() if exp < now]:
+        _oauth_states.pop(k, None)
+    state = secrets.token_urlsafe(24)
+    _oauth_states[state] = (user["id"], now + 600)
+    from urllib.parse import urlencode
+    params = urlencode({
+        "client_id": _FB_APP_ID,
+        "redirect_uri": _fb_redirect_uri(),
+        "state": state,
+        "scope": _FB_OAUTH_SCOPES,
+        "response_type": "code",
+    })
+    return {"url": f"https://www.facebook.com/v19.0/dialog/oauth?{params}"}
+
+
+@app.get("/api/social/facebook/callback")
+async def facebook_callback(code: str = "", state: str = "", error: str = "",
+                            user: dict = Depends(current_user)):
+    """OAuth redirect target. Verifies CSRF state, exchanges the code, stores the
+    connection, then bounces back to the messages page."""
+    if error or not code:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    entry = _oauth_states.pop(state, None)
+    if not entry or entry[0] != user["id"] or entry[1] < time.time():
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    token_resp = await _messenger.exchange_code_for_token(
+        _FB_APP_ID, _FB_APP_SECRET, _fb_redirect_uri(), code)
+    token = token_resp.get("access_token")
+    if not token:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    me = await _messenger.get_me(token)
+    fb_id = me.get("id")
+    if not fb_id:
+        return RedirectResponse("/messages?fb=error", status_code=302)
+    await db.upsert_social_account(
+        user["id"], "facebook", fb_id, crypto.encrypt(token), me.get("name"))
+    return RedirectResponse("/messages?fb=connected", status_code=302)
+
+
+@app.get("/api/social/facebook/status")
+async def facebook_status(user: dict = Depends(current_user)):
+    acct = await db.get_social_account(user["id"], "facebook")
+    return {
+        "connected": bool(acct),
+        "display_name": acct["display_name"] if acct else None,
+        "configured": bool(_FB_APP_ID and _FB_APP_SECRET),
+    }
+
+
+@app.delete("/api/social/facebook/disconnect")
+async def facebook_disconnect(user: dict = Depends(current_user)):
+    await db.delete_social_account(user["id"], "facebook")
+    return {"ok": True}
+
+
+@app.get("/api/social/facebook/friend-suggestions")
+async def facebook_friend_suggestions(user: dict = Depends(current_user)):
+    """Friends-of-this-user who also use the app (mapped from Facebook), minus
+    anyone already a friend / pending. Each: {user_id, username}."""
+    acct = await db.get_social_account(user["id"], "facebook")
+    if not acct:
+        raise HTTPException(400, "Facebook not connected")
+    try:
+        token = crypto.decrypt(acct["access_token"])
+    except Exception:
+        raise HTTPException(400, "Stored Facebook token is invalid — please reconnect.")
+    fb_friends = await _messenger.get_app_friends(token)
+    fb_ids = [f["id"] for f in fb_friends if f.get("id")]
+    matched = await db.get_users_by_social_ids("facebook", fb_ids, user["id"])
+    rel = await db.get_friends(user["id"])
+    excluded = ({f["user_id"] for f in rel["friends"]}
+                | {f["user_id"] for f in rel["sent"]}
+                | {f["user_id"] for f in rel["received"]})
+    suggestions = [{"user_id": m["user_id"], "username": m["username"]}
+                   for m in matched if m["user_id"] not in excluded]
+    return {"suggestions": suggestions, "fb_friend_count": len(fb_ids)}
 
 
 @app.get("/api/messenger/webhook")

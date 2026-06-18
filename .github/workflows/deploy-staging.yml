@@ -2,7 +2,7 @@ name: Deploy (staging)
 
 on:
   push:
-    branches: [develop]
+    branches-ignore: [main]
 
 jobs:
   deploy-staging:
@@ -45,6 +45,11 @@ jobs:
             echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}" >> ~/canto-anti-app-staging/.env
             sed -i '/^STRIPE_PRICE_PRO=/d' ~/canto-anti-app-staging/.env
             echo "STRIPE_PRICE_PRO=${{ secrets.STRIPE_PRICE_PRO_TEST }}" >> ~/canto-anti-app-staging/.env
+            # Always overwrite Facebook/Meta config so app-id/secret rotations take effect.
+            sed -i '/^FACEBOOK_APP_ID=/d' ~/canto-anti-app-staging/.env
+            echo "FACEBOOK_APP_ID=${{ secrets.FACEBOOK_APP_ID }}" >> ~/canto-anti-app-staging/.env
+            sed -i '/^FACEBOOK_APP_SECRET=/d' ~/canto-anti-app-staging/.env
+            echo "FACEBOOK_APP_SECRET=${{ secrets.FACEBOOK_APP_SECRET }}" >> ~/canto-anti-app-staging/.env
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app-staging/.env || \
@@ -60,7 +65,8 @@ jobs:
             cd ~/canto-anti-app-staging
             mkdir -p ~/db-backups
             docker cp canto-app-staging:/data/cards.db ~/db-backups/staging-$(date +%F-%H%M%S).db 2>/dev/null || true
-            git fetch origin develop
-            git checkout develop
-            git pull
+            BRANCH="${{ github.ref_name }}"
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            docker rm -f canto-app-staging 2>/dev/null || true
             docker compose -p staging -f docker-compose.staging.yml up -d --build

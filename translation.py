@@ -2,8 +2,11 @@ import os
 import json
 import time
 import asyncio
+import logging
 from google import genai
 from google.genai.errors import ServerError
+
+logger = logging.getLogger(__name__)
 
 _clients: dict[str, "genai.Client"] = {}
 
@@ -405,11 +408,12 @@ def get_classifiers_batch(words: list[str], lang: str, api_key: str) -> dict[str
     return {}
 
 
-def _parse_json(text: str) -> dict:
-    """Parse the first JSON object from the model response.
+def _parse_json(text: str):
+    """Parse the first JSON object OR array from the model response.
 
     Handles bare JSON, JSON inside ```...``` code fences, and responses
     with a preamble or suffix (e.g. 'Here is the lesson:\n{...}\nDone.').
+    Returns a dict for object payloads and a list for array payloads.
     """
     if not text:
         raise ValueError("Empty response from model")
@@ -420,11 +424,24 @@ def _parse_json(text: str) -> dict:
         if "\n" in inner:
             inner = inner.split("\n", 1)[1]
         text = inner.rsplit("```", 1)[0]
-    # Skip any preamble before the first { and trim trailing text after the last }
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end >= start:
-        text = text[start:end + 1]
+    text = text.strip()
+    # Trim any preamble/suffix around the payload. Detect whether the payload is
+    # an array ([...]) or an object ({...}) by whichever delimiter appears first.
+    obj_start = text.find("{")
+    arr_start = text.find("[")
+    if arr_start != -1 and (obj_start == -1 or arr_start < obj_start):
+        primary = (arr_start, text.rfind("]"))
+        fallback = (obj_start, text.rfind("}"))
+    else:
+        primary = (obj_start, text.rfind("}"))
+        fallback = (arr_start, text.rfind("]"))
+    for start, end in (primary, fallback):
+        if start != -1 and end != -1 and end >= start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+    # Last resort: try the raw text (may raise, which callers handle)
     return json.loads(text)
 
 
@@ -809,6 +826,126 @@ def triage_feedback(
         }
 
 
+def suggest_vocab_for_label(
+    label_name: str,
+    target_lang: str,
+    known_words: list[str],
+    api_key: str,
+    count: int = 10,
+    label_words: list[dict] | None = None,
+) -> list[dict]:
+    """Ask an LLM to suggest vocabulary words that fit a label/category.
+
+    `label_words` is the vocab already tagged with this label
+    ([{target_text, source_text}]) — passed so the model matches its style/
+    granularity and never re-suggests what's already there.
+
+    Returns: [{"target": "...", "source": "...", "romanization": "..."}]
+    """
+    if target_lang not in LANG_INFO:
+        return []
+    info = LANG_INFO[target_lang]
+    lang_name = info["name"]
+    rom_name = info.get("romanization", "")
+    rom_field = f', "romanization": "({rom_name})"' if rom_name else ""
+
+    label_block = ""
+    if label_words:
+        items = ", ".join(
+            f"{w['target_text']} ({w['source_text']})" if w.get("source_text") else w["target_text"]
+            for w in label_words[:40]
+        )
+        label_block = (
+            f'\nThe "{label_name}" category already contains these words — match '
+            f"their style and specificity, and do NOT repeat any of them: {items}\n"
+        )
+
+    known_block = ""
+    if known_words:
+        sample = known_words[:50]
+        known_block = (
+            f"\nThe learner already knows these words elsewhere in their deck "
+            f"(do NOT repeat them): {', '.join(sample)}\n"
+        )
+
+    prompt = (
+        f"You are a {lang_name} vocabulary tutor. Suggest exactly {count} "
+        f'{lang_name} vocabulary words/phrases that belong to the category '
+        f'"{label_name}".\n'
+        f"{label_block}"
+        f"{known_block}\n"
+        f"Return ONLY a JSON array of exactly {count} items. Each item:\n"
+        f'{{"target": "({lang_name} word)"{rom_field}, "source": "(English meaning)"}}\n'
+        f"Pick common, practical words a language learner should know. "
+        f"Mix difficulty levels (beginner to intermediate). No duplicates. "
+        f"You MUST return {count} items — never return an empty array.\n"
+    )
+    for _attempt in range(2):
+        try:
+            raw = _call(prompt, api_key, DEFAULT_MODEL)
+            data = _parse_json(raw)
+            if not isinstance(data, list):
+                logger.warning("suggest_vocab %r attempt %d: parsed non-list type=%s",
+                               label_name, _attempt, type(data).__name__)
+                continue
+            results = []
+            for item in data[:count]:
+                if not isinstance(item, dict):
+                    continue
+                target = (item.get("target") or "").strip()
+                source = (item.get("source") or "").strip()
+                if target and source:
+                    results.append({
+                        "target": target,
+                        "source": source,
+                        "romanization": (item.get("romanization") or "").strip(),
+                    })
+            logger.info("suggest_vocab %r attempt %d: %d results from %d items",
+                        label_name, _attempt, len(results), len(data))
+            if results:
+                return results
+        except Exception as exc:
+            logger.warning("suggest_vocab %r attempt %d failed: %s", label_name, _attempt, exc)
+    return []
+
+
+def review_label_merge(
+    label_names: list[str],
+    api_key: str,
+) -> dict:
+    """Ask a cheap LLM whether a proposed label merge makes sense.
+
+    Returns: { "verdict": "merge"|"reject", "suggested_name": "...", "reason": "..." }
+    """
+    names_str = ", ".join(f'"{n}"' for n in label_names)
+    prompt = (
+        "You are organising labels/tags for a language-learning flashcard deck. "
+        "Someone proposed merging these labels into one:\n\n"
+        f"Labels: [{names_str}]\n\n"
+        "Decide:\n"
+        "1. Do these labels genuinely refer to the SAME category/concept? "
+        "Labels that merely share a common word (e.g. 'expressing quantity' vs "
+        "'expressing emotions') are DIFFERENT categories — reject those.\n"
+        "2. If they should merge, suggest the best single label name (concise, "
+        "lowercase, no emoji). Prefer the most specific or commonly used form.\n\n"
+        "Respond with ONLY valid JSON:\n"
+        '{"verdict":"merge" or "reject", "suggested_name":"the merged label name (empty if reject)", "reason":"one short sentence"}\n'
+    )
+    try:
+        raw = _call(prompt, api_key, DEFAULT_MODEL)
+        data = _parse_json(raw)
+        verdict = data.get("verdict", "reject")
+        if verdict not in ("merge", "reject"):
+            verdict = "reject"
+        return {
+            "verdict": verdict,
+            "suggested_name": (data.get("suggested_name") or "").strip()[:100],
+            "reason": (data.get("reason") or "").strip()[:200],
+        }
+    except Exception:
+        return {"verdict": "merge", "suggested_name": label_names[0], "reason": ""}
+
+
 async def translate_sentence(
     text: str, target_lang: str, *, api_key: str, model: str = DEFAULT_MODEL,
 ) -> dict:
@@ -924,14 +1061,20 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
     )
     loop = asyncio.get_event_loop()
     raw = await loop.run_in_executor(None, lambda: _call(prompt, api_key, DEFAULT_MODEL))
+    failed = False
     try:
         data = _parse_json(raw)
         translated = data.get("translated", text).strip()
         nuance_note = data.get("nuance_note", "").strip()
     except Exception:
-        translated = raw.strip()
+        logger.warning("translate_message: failed to parse LLM response, falling back to original text")
+        translated = text
         nuance_note = ""
         data = {}
+        failed = True
+    if not translated or translated.startswith("{") or translated.startswith("["):
+        translated = text
+        failed = True
     if reply_en is None:
         reply_en = text
 
@@ -952,8 +1095,11 @@ async def translate_message(text: str, source_lang: str, target_lang: str, *, ap
                     "romanization": tokenizer.romanize_text(t, target_lang) or "",
                 })
 
-    return {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en,
-            "explanation": explanation, "vocab": vocab}
+    result = {"translated": translated, "nuance_note": nuance_note, "reply_en": reply_en,
+              "explanation": explanation, "vocab": vocab}
+    if failed:
+        result["translation_failed"] = True
+    return result
 
 
 async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:

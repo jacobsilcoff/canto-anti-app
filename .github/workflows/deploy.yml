@@ -43,6 +43,11 @@ jobs:
             echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" >> ~/canto-anti-app/.env
             sed -i '/^STRIPE_PRICE_PRO=/d' ~/canto-anti-app/.env
             echo "STRIPE_PRICE_PRO=${{ secrets.STRIPE_PRICE_PRO }}" >> ~/canto-anti-app/.env
+            # Always overwrite Facebook/Meta config so app-id/secret rotations take effect.
+            sed -i '/^FACEBOOK_APP_ID=/d' ~/canto-anti-app/.env
+            echo "FACEBOOK_APP_ID=${{ secrets.FACEBOOK_APP_ID }}" >> ~/canto-anti-app/.env
+            sed -i '/^FACEBOOK_APP_SECRET=/d' ~/canto-anti-app/.env
+            echo "FACEBOOK_APP_SECRET=${{ secrets.FACEBOOK_APP_SECRET }}" >> ~/canto-anti-app/.env
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app/.env || \
@@ -60,4 +65,5 @@ jobs:
             mkdir -p ~/db-backups
             docker cp canto-app:/data/cards.db ~/db-backups/cards-$(date +%F-%H%M%S).db 2>/dev/null || true
             git pull
+            docker rm -f canto-app 2>/dev/null || true
             docker compose up -d --build

@@ -2280,7 +2280,7 @@ def _normalize_word(text: str) -> str:
     return _NON_ALPHA_RE.sub("", text).lower()
 
 
-async def get_word_statuses(user_id: int, words: list[str], target_lang: str) -> dict[str, str]:
+async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *, exact_only: bool = False) -> dict[str, str]:
     """Return a mapping of word → 'known' | 'weak' for words present in the user's deck.
 
     Words not in the deck are absent from the result (callers treat absence as 'new').
@@ -2325,7 +2325,7 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
             continue
         # CJK substring heuristic: token '去' inside card '我去旅行'.
         # Cap at 'weak' — user may have learned the phrase, not the isolated character.
-        if is_cjk_lang:
+        if is_cjk_lang and not exact_only:
             best: str | None = None
             for card_norm, status in card_lookup.items():
                 if norm in card_norm:
@@ -2334,6 +2334,65 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str) ->
             if best is not None:
                 result[word] = "weak" if best == "known" else best
     return result
+
+
+async def match_cards_by_target(user_id: int, targets: list[str], target_lang: str, label_id: int,
+                                sources: list[str] | None = None) -> dict[str, dict]:
+    """For each target word that exists as a card, return
+    {target_text: {id, source_text, in_label}}. `in_label` says whether that card
+    is already tagged with `label_id`. When duplicates share a target_text, prefer
+    the copy already in the label. Used to route populate suggestions: in-deck words
+    not yet in the label become 'tag this card' suggestions.
+
+    Also matches by source_text (English) if `sources` is provided — this catches
+    cards where the LLM's target form differs slightly from what's in the deck."""
+    if not targets:
+        return {}
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        placeholders = ",".join("?" for _ in targets)
+        where = f"c.target_text IN ({placeholders})"
+        params: list = [label_id, user_id, target_lang, *targets]
+        if sources:
+            src_placeholders = ",".join("?" for _ in sources)
+            where = f"({where} OR LOWER(c.source_text) IN ({src_placeholders}))"
+            params.extend(s.lower() for s in sources)
+        async with conn.execute(
+            f"""SELECT c.id, c.target_text, c.source_text,
+                       EXISTS(SELECT 1 FROM card_labels cl
+                              WHERE cl.card_id=c.id AND cl.label_id=?) AS in_label
+                FROM cards c
+                WHERE c.user_id=? AND c.target_lang=? AND {where}""",
+            params,
+        ) as cur:
+            rows = await cur.fetchall()
+    result: dict[str, dict] = {}
+    for r in rows:
+        prev = result.get(r["target_text"])
+        if prev is None or (r["in_label"] and not prev["in_label"]):
+            result[r["target_text"]] = {
+                "id": r["id"], "source_text": r["source_text"], "in_label": bool(r["in_label"]),
+            }
+    return result
+
+
+async def get_label_words(user_id: int, label_id: int, target_lang: str, limit: int = 60) -> list[dict]:
+    """The vocab already tagged with a label — [{target_text, source_text}], newest first.
+
+    Fed to the populate LLM so it learns the label's granularity/style and avoids
+    re-suggesting words already in the label."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            """SELECT c.target_text, c.source_text
+               FROM cards c
+               JOIN card_labels cl ON cl.card_id = c.id
+               WHERE cl.label_id=? AND c.user_id=? AND c.target_lang=?
+               ORDER BY c.id DESC LIMIT ?""",
+            (label_id, user_id, target_lang, limit),
+        ) as cur:
+            return [{"target_text": r["target_text"], "source_text": r["source_text"]}
+                    for r in await cur.fetchall()]
 
 
 async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> list[dict]:
@@ -3044,6 +3103,39 @@ async def update_message_translations(msg_id: int, translations: dict) -> None:
         await db.commit()
 
 
+async def get_message(msg_id: int, user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await conn.execute_fetchall(
+            """SELECT m.id, m.conversation_id, m.sender_user_id,
+                      m.original_text, m.original_lang, m.translations, m.analysis
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.id = ? AND (c.user1_id = ? OR c.user2_id = ?)""",
+            (msg_id, user_id, user_id),
+        )
+        if not row:
+            return None
+        r = row[0]
+        return {
+            "id": r["id"], "conversation_id": r["conversation_id"],
+            "sender_user_id": r["sender_user_id"],
+            "original_text": r["original_text"], "original_lang": r["original_lang"],
+            "translations": json.loads(r["translations"]) if r["translations"] else {},
+            "analysis": json.loads(r["analysis"]) if r["analysis"] else {},
+        }
+
+
+async def update_message_analysis(msg_id: int, translations: dict, analysis: dict) -> None:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        await conn.execute(
+            "UPDATE messages SET translations=?, analysis=? WHERE id=?",
+            (json.dumps(translations, ensure_ascii=False),
+             json.dumps(analysis, ensure_ascii=False), msg_id),
+        )
+        await conn.commit()
+
+
 async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
@@ -3178,6 +3270,67 @@ async def get_user_by_messenger_page(page_id: str) -> dict | None:
         ) as cur:
             row = await cur.fetchone()
     return dict(row) if row else None
+
+
+# ── Connected social accounts (Facebook / Instagram) ───────────────────────────
+
+async def upsert_social_account(user_id: int, provider: str, provider_user_id: str,
+                                access_token: str | None, display_name: str | None) -> None:
+    """Store/refresh a user's connected social account. access_token is ciphertext."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO social_accounts
+                 (user_id, provider, provider_user_id, access_token, display_name)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(user_id, provider) DO UPDATE SET
+                 provider_user_id=excluded.provider_user_id,
+                 access_token=excluded.access_token,
+                 display_name=excluded.display_name,
+                 connected_at=datetime('now')""",
+            (user_id, provider, provider_user_id, access_token, display_name),
+        )
+        await db.commit()
+
+
+async def get_social_account(user_id: int, provider: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT provider, provider_user_id, access_token, display_name, connected_at
+               FROM social_accounts WHERE user_id=? AND provider=?""",
+            (user_id, provider),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_social_account(user_id: int, provider: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM social_accounts WHERE user_id=? AND provider=?", (user_id, provider)
+        )
+        await db.commit()
+
+
+async def get_users_by_social_ids(provider: str, provider_user_ids: list[str],
+                                  exclude_user_id: int) -> list[dict]:
+    """Map a list of provider account ids → our users who connected that provider.
+    Used to surface a learner's app-using social friends. Returns
+    [{user_id, username, provider_user_id}]."""
+    if not provider_user_ids:
+        return []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        placeholders = ",".join("?" for _ in provider_user_ids)
+        async with db.execute(
+            f"""SELECT s.user_id, s.provider_user_id, u.username
+                FROM social_accounts s JOIN users u ON u.id = s.user_id
+                WHERE s.provider=? AND s.user_id!=? AND s.provider_user_id IN ({placeholders})""",
+            (provider, exclude_user_id, *provider_user_ids),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [{"user_id": r["user_id"], "username": r["username"],
+             "provider_user_id": r["provider_user_id"]} for r in rows]
 
 
 # ── Feedback / bug reports ───────────────────────────────────────────────────
