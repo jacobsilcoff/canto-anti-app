@@ -3759,13 +3759,13 @@ async def _reading_from_source(
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
     else:
         access = await _resolve_gemini(user)
-        result = await translation.adapt_article_to_reading(
-            text, target_lang, difficulty,
+        result = await translation.translate_article_to_reading(
+            text, target_lang,
             api_key=access.api_key, model=access.model_reader,
         )
-        content = result["content"]
-        segments = result.get("segments") or []
-        final_title = result["title"] or (title or "").strip() or "Imported reading"
+        segments = result["segments"]
+        content = "\n".join(s["target"] for s in segments)
+        final_title = (title or "").strip() or "Imported reading"
     text_id = await db.create_reader_text(
         user["id"], final_title[:120], stored_prompt, content, target_lang,
         difficulty=difficulty,

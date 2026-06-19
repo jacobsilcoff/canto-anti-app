@@ -772,28 +772,46 @@ async def generate_reader_text_from_image(
     return {"title": title, "content": content, "description": description}
 
 
-async def adapt_article_to_reading(
+def _split_source_sentences(text: str) -> list[str]:
+    """Split source (usually English) text into sentences — deterministic.
+
+    The original sentences are kept VERBATIM (this is what the reader's
+    translation panel shows), so we never trust the LLM for them. Splits on
+    sentence-final punctuation followed by whitespace, and on newlines.
+    """
+    text = (text or "").replace("\r", "")
+    out: list[str] = []
+    for para in text.split("\n"):
+        para = " ".join(para.split())  # collapse internal whitespace
+        if not para:
+            continue
+        # Split after . ! ? (and CJK/fullwidth enders) when whitespace follows.
+        for chunk in re.split(r'(?<=[.!?。！？])\s+', para):
+            chunk = chunk.strip()
+            if chunk:
+                out.append(chunk)
+    return out
+
+
+async def translate_article_to_reading(
     source_text: str,
     target_lang: str,
-    difficulty: str = "B1",
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
+    batch_size: int = 25,
 ) -> dict:
-    """Translate + adapt an arbitrary source text (e.g. a fetched article or PDF)
-    into a target-language reading at the given CEFR difficulty.
+    """Faithfully translate a source text (fetched article / PDF), sentence by
+    sentence, into the target language for the reader.
 
-    Unlike `generate_reader_text` (which invents a story from a topic), this
-    preserves the actual content of `source_text` — it's a faithful, level-tuned
-    retelling, not a fresh composition. Used by the URL/PDF reader import when
-    the source is NOT already in the target language.
+    This is a LITERAL translation, NOT an adaptation — sentences are never
+    merged, split, summarised, reordered, or simplified. We split the source
+    ourselves (so the original sentences are exact), translate each into the
+    target language in batches, and keep them 1:1 aligned.
 
-    Returns sentence-ALIGNED output so the reader can show the original-language
-    meaning per sentence WITHOUT re-translating the target back to English:
-        { title: str, content: str, segments: [{target, english}] }
-    `content` is the segments' `target`s joined by newlines (so the reader's
-    sentence split lines up with `segments`); each `english` is the faithful
-    English of that sentence (≈ the original source).
+    Returns sentence-aligned `{ segments: [{target, english}] }` where `english`
+    is the EXACT original source sentence (shown in the reader's translation
+    panel — no target→English round-trip) and `target` is its translation.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -804,52 +822,54 @@ async def adapt_article_to_reading(
         line for line in info["rules"].splitlines()
         if not any(kw in line.lower() for kw in _roman_kw)
     )
-    difficulty_rule = _DIFFICULTY_INSTRUCTIONS.get(difficulty, _DIFFICULTY_INSTRUCTIONS["B1"])
-    source_text = (source_text or "").strip()[:12_000]
 
-    full_prompt = (
-        f"Rewrite the following source text as a {name} reading for a language learner.\n"
-        "Preserve the source's actual content, facts and meaning — this is a faithful "
-        "retelling tuned to the learner's level, NOT a new story. Keep the same topic and "
-        "the key points; you may condense, simplify, and reorganise for clarity.\n"
-        "IMPORTANT: the target sentences must contain ONLY native-script characters. Do NOT "
-        "include any romanisation, transliteration, pinyin, jyutping, romaja, or IAST in the "
-        "'target' field (except proper nouns/brand names natively written in Latin script).\n"
-        "Rules:\n"
-        f"{rules}\n"
-        f"{difficulty_rule}\n"
-        "- The 'around N words' guidance above is a per-paragraph feel; for a longer source "
-        "you may write several sentences at that level, but keep the whole reading focused.\n"
-        "- Write naturally, as if for a native speaker audience.\n"
-        "- Also provide a short English title (3–6 words) summarising the text.\n"
-        "Split the reading into individual sentences IN ORDER. For EACH sentence give:\n"
-        "  - 'target': exactly ONE sentence in " + name + ", ending with sentence-final punctuation.\n"
-        "  - 'english': the faithful English meaning of that sentence (this is shown to the "
-        "learner as the translation, so keep it close to the original source — do not omit content).\n"
-        "Return ONLY valid JSON, no other text:\n"
-        '{ "title": "...", "sentences": [ {"target": "...", "english": "..."}, ... ] }\n\n'
-        f"Source text:\n{source_text}"
-    )
-    raw = await asyncio.to_thread(lambda: _parse_json(_call(full_prompt, api_key, model)))
-    title = (raw.get("title") or "").strip() or "Imported reading"
+    src_sents = _split_source_sentences((source_text or "")[:12_000])
+    if not src_sents:
+        raise ValueError("No source text to translate")
 
-    segments: list[dict] = []
-    for s in (raw.get("sentences") or []):
-        if not isinstance(s, dict):
-            continue
-        t = (s.get("target") or "").strip()
-        e = (s.get("english") or "").strip()
-        if t:
-            segments.append({"target": t, "english": e})
+    batches = [src_sents[i:i + batch_size] for i in range(0, len(src_sents), batch_size)]
+    sem = asyncio.Semaphore(3)
 
-    if segments:
-        content = "\n".join(s["target"] for s in segments)
-    else:
-        # Fallback: an older/looser response shape with a single content blob.
-        content = (raw.get("content") or "").strip()
-    if not content:
-        raise ValueError("Gemini returned empty content")
-    return {"title": title, "content": content, "segments": segments}
+    async def _do_batch(batch: list[str]) -> list[str]:
+        numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(batch))
+        prompt = (
+            f"Translate each numbered sentence into natural {name}.\n"
+            "Translate FAITHFULLY and COMPLETELY — do NOT merge, split, summarise, "
+            "reorder, add, or omit anything. Give exactly ONE translation per number, "
+            "in the same order, as one sentence.\n"
+            "Write ONLY native-script characters in each translation (no romanisation), "
+            "except proper nouns/brand names natively written in Latin script.\n"
+            f"Rules:\n{rules}\n"
+            "Return ONLY a JSON array, no other text:\n"
+            '[{"n": 1, "target": "..."}, ...]\n\n'
+            f"Sentences:\n{numbered}"
+        )
+        out = [""] * len(batch)
+        try:
+            async with sem:
+                raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+            if isinstance(raw, list):
+                for item in raw:
+                    if not isinstance(item, dict):
+                        continue
+                    n = item.get("n")
+                    tgt = (item.get("target") or "").strip().replace("\n", " ")
+                    if isinstance(n, int) and 1 <= n <= len(batch):
+                        out[n - 1] = tgt
+        except Exception:
+            pass
+        return out
+
+    results = await asyncio.gather(*[_do_batch(b) for b in batches])
+    targets = [t for batch in results for t in batch]
+
+    segments = [
+        {"target": tgt, "english": src}
+        for src, tgt in zip(src_sents, targets) if tgt
+    ]
+    if not segments:
+        raise ValueError("Translation produced no sentences")
+    return {"segments": segments}
 
 
 
