@@ -3747,13 +3747,13 @@ async def _reading_from_source(
     """Turn extracted source text into a saved reading.
 
     If `in_target_language` the text is used verbatim (no AI — the whole point of
-    the flag). Otherwise it's translated/adapted into the target language at the
-    chosen CEFR level, which costs one metered LLM call.
+    the flag). Otherwise it's translated sentence-by-sentence into the target
+    language (one metered LLM call per batch).
     """
     text = (text or "").strip()
     if not text:
         raise HTTPException(400, "Couldn't extract any readable text.")
-    segments: list[dict] = []
+    pieces: list[tuple[str, str]] = []  # (target_sentence, original_english) for the translate path
     if in_target_language:
         content = text[:extract.MAX_TEXT_CHARS]
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
@@ -3769,24 +3769,26 @@ async def _reading_from_source(
         except Exception as exc:
             logger.exception("translate_article_to_reading failed")
             raise HTTPException(502, f"Couldn't translate the article: {exc}")
-        segments = result["segments"]
-        content = "\n".join(s["target"] for s in segments)
+        # Build the body + per-sentence English so they're aligned BY CONSTRUCTION:
+        # split each translated sentence the same way the reader will, and carry the
+        # source English onto each resulting piece. Joining single sentences with
+        # newlines means tokenizer.split_sentences(content) reproduces this exact
+        # list, so reader sentence i ↔ pieces[i] ↔ the right original sentence.
+        for seg in result["segments"]:
+            subs = tokenizer.split_sentences(tokenizer.tokenize(seg["target"], target_lang)) or [seg["target"]]
+            for sub in subs:
+                pieces.append((sub, seg["english"]))
+        content = "\n".join(p[0] for p in pieces)
         final_title = (title or "").strip() or "Imported reading"
     text_id = await db.create_reader_text(
         user["id"], final_title[:120], stored_prompt, content, target_lang,
         difficulty=difficulty,
     )
-    # When we translated from a source, we ALREADY have the English per sentence —
-    # pre-store it so the reader's translation panel shows the original meaning
-    # without a second (target→English) round-trip. Only when the model's sentence
-    # split lines up with ours (else fall back to on-demand translation).
-    if segments:
-        sents = tokenizer.split_sentences(tokenizer.tokenize(content, target_lang))
-        if len(sents) == len(segments):
-            for i, seg in enumerate(segments):
-                eng = (seg.get("english") or "").strip()
-                if eng:
-                    await db.upsert_reader_sentence(text_id, i, sents[i], eng, None, None)
+    # Pre-store the original English per sentence so the reader shows the source
+    # verbatim (no target→English round-trip). Aligned by construction (above).
+    for i, (tgt, eng) in enumerate(pieces):
+        if eng:
+            await db.upsert_reader_sentence(text_id, i, tgt, eng, None, None)
     saved = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], saved)
 

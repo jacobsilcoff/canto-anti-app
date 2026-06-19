@@ -800,19 +800,21 @@ async def translate_article_to_reading(
     *,
     api_key: str,
     model: str = DEFAULT_MODEL,
-    batch_size: int = 25,
+    batch_size: int = 20,
 ) -> dict:
     """Faithfully translate a source text (fetched article / PDF), sentence by
     sentence, into the target language for the reader.
 
-    This is a LITERAL translation, NOT an adaptation — sentences are never
-    merged, split, summarised, reordered, or simplified. We split the source
-    ourselves (so the original sentences are exact), translate each into the
-    target language in batches, and keep them 1:1 aligned.
+    LITERAL translation, NOT adaptation — never merge/split/summarise/reorder/
+    simplify. We split the source ourselves (so the originals are exact) and
+    translate in batches that return a JSON array of strings in the SAME ORDER,
+    one per input sentence. Alignment is enforced by COUNT: if a batch doesn't
+    come back with exactly N translations we split it in half and retry (down to
+    a single sentence), so a flaky batch can never drop or shift the rest.
 
-    Returns sentence-aligned `{ segments: [{target, english}] }` where `english`
-    is the EXACT original source sentence (shown in the reader's translation
-    panel — no target→English round-trip) and `target` is its translation.
+    Returns `{ segments: [{target, english}] }` — `english` is the EXACT original
+    source sentence (shown in the reader, no target→English round-trip),
+    positionally aligned with its `target` translation.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -828,41 +830,61 @@ async def translate_article_to_reading(
     if not src_sents:
         raise ValueError("No source text to translate")
 
-    batches = [src_sents[i:i + batch_size] for i in range(0, len(src_sents), batch_size)]
     sem = asyncio.Semaphore(3)
 
-    async def _do_batch(batch: list[str]) -> list[str]:
-        numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(batch))
+    def _as_target(x) -> str:
+        if isinstance(x, str):
+            return x.strip().replace("\n", " ")
+        if isinstance(x, dict):  # tolerate {"target": ...} / {"text": ...}
+            return str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
+        return ""
+
+    async def _translate_chunk(chunk: list[str]) -> list[str]:
+        """Return exactly len(chunk) translations, positionally aligned."""
+        numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(chunk))
         prompt = (
-            f"Translate each numbered sentence into natural {name}.\n"
+            f"Translate each numbered sentence below into natural {name}.\n"
             "Translate FAITHFULLY and COMPLETELY — do NOT merge, split, summarise, "
-            "reorder, add, or omit anything. Give exactly ONE translation per number, "
-            "in the same order, as one sentence.\n"
-            "Write ONLY native-script characters in each translation (no romanisation), "
-            "except proper nouns/brand names natively written in Latin script.\n"
+            "reorder, add, or omit. Output the translations IN THE SAME ORDER, "
+            "exactly ONE per input sentence (same count). Even a heading or fragment "
+            "gets its own translation.\n"
+            "Native script only (no romanisation), except proper nouns/brand names.\n"
             f"Rules:\n{rules}\n"
-            "Return ONLY a JSON array, no other text:\n"
-            '[{"n": 1, "target": "..."}, ...]\n\n'
+            'Return ONLY a JSON array of strings, e.g. ["译文1", "译文2"], same length '
+            "and order as the input.\n\n"
             f"Sentences:\n{numbered}"
         )
-        out = [""] * len(batch)
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
-            if isinstance(raw, list):
-                for item in raw:
-                    if not isinstance(item, dict):
-                        continue
-                    n = item.get("n")
-                    tgt = (item.get("target") or "").strip().replace("\n", " ")
-                    if isinstance(n, int) and 1 <= n <= len(batch):
-                        out[n - 1] = tgt
         except Exception:
-            pass
-        return out
+            raw = None
 
-    results = await asyncio.gather(*[_do_batch(b) for b in batches])
-    targets = [t for batch in results for t in batch]
+        if isinstance(raw, list) and len(raw) == len(chunk):
+            return [_as_target(x) for x in raw]
+
+        # Misaligned / failed response — split to keep the rest aligned.
+        if len(chunk) > 1:
+            mid = len(chunk) // 2
+            left, right = await asyncio.gather(
+                _translate_chunk(chunk[:mid]), _translate_chunk(chunk[mid:])
+            )
+            return left + right
+
+        # Single sentence that wouldn't translate cleanly — one focused retry.
+        try:
+            async with sem:
+                single = await asyncio.to_thread(lambda: _parse_json(_call(
+                    f"Translate this sentence into natural {name} (native script only, "
+                    f'no romanisation). Return ONLY JSON: {{"target": "..."}}\n\n'
+                    f"Sentence: {chunk[0]}", api_key, model)))
+            return [_as_target((single or {}).get("target", ""))]
+        except Exception:
+            return [""]
+
+    chunks = [src_sents[i:i + batch_size] for i in range(0, len(src_sents), batch_size)]
+    results = await asyncio.gather(*[_translate_chunk(c) for c in chunks])
+    targets = [t for r in results for t in r]  # positionally aligned with src_sents
 
     segments = [
         {"target": tgt, "english": src}
@@ -870,6 +892,10 @@ async def translate_article_to_reading(
     ]
     if not segments:
         raise ValueError("Translation produced no sentences")
+    logger.info(
+        "article import (%s): %d source sentences → %d translated",
+        target_lang, len(src_sents), len(segments),
+    )
     return {"segments": segments}
 
 
