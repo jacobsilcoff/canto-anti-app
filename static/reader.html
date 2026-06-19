@@ -1323,7 +1323,7 @@
       const res = await fetch('/api/reader/translate-sentence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang }),
+        body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang, text_id: currentTextId, sentence_idx: si }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -1675,7 +1675,7 @@
         fetchPromise = fetch('/api/reader/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang }),
+          body: JSON.stringify({ text: sentences[si].text, target_lang: currentTargetLang, text_id: currentTextId, sentence_idx: si }),
         }).then(r => { if (!r.ok) throw new Error(); return r.blob(); });
       }
 

@@ -3995,6 +3995,8 @@ async def sentence_audio(text_id: int, idx: int, user: dict = Depends(current_us
 class SentenceTranslateRequest(BaseModel):
     text: str
     target_lang: str = "yue"
+    text_id: int | None = None
+    sentence_idx: int | None = None
 
 
 @app.post("/api/reader/translate-sentence")
@@ -4012,6 +4014,12 @@ async def reader_translate_sentence(
         req.text, req.target_lang,
         api_key=access.api_key, model=access.model_translate,
     )
+    if req.text_id is not None and req.sentence_idx is not None:
+        await db.upsert_reader_sentence(
+            req.text_id, req.sentence_idx, req.text,
+            translation=result.get("english"),
+            romanization=result.get("romanization"),
+        )
     return result
 
 
@@ -4094,6 +4102,8 @@ async def reader_add_all_vocab(
 class ReaderTTSRequest(BaseModel):
     text: str
     target_lang: str = "yue"
+    text_id: int | None = None
+    sentence_idx: int | None = None
 
 
 @app.get("/api/reader/texts/{text_id}/romanize")
@@ -4114,6 +4124,11 @@ async def reader_tts(request: Request, req: ReaderTTSRequest, user: dict = Depen
     if not req.text.strip():
         raise HTTPException(400, "Text is empty")
     data = await audio.generate(req.text.strip(), req.target_lang)
+    if req.text_id is not None and req.sentence_idx is not None:
+        await db.upsert_reader_sentence(
+            req.text_id, req.sentence_idx, req.text.strip(),
+            audio_data=data,
+        )
     return Response(content=data, media_type="audio/mpeg")
 
 
