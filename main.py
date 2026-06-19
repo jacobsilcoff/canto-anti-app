@@ -3759,10 +3759,16 @@ async def _reading_from_source(
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
     else:
         access = await _resolve_gemini(user)
-        result = await translation.translate_article_to_reading(
-            text, target_lang,
-            api_key=access.api_key, model=access.model_reader,
-        )
+        try:
+            result = await translation.translate_article_to_reading(
+                text, target_lang,
+                api_key=access.api_key, model=access.model_reader,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("translate_article_to_reading failed")
+            raise HTTPException(502, f"Couldn't translate the article: {exc}")
         segments = result["segments"]
         content = "\n".join(s["target"] for s in segments)
         final_title = (title or "").strip() or "Imported reading"

@@ -690,6 +690,17 @@
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
+  // Read an error response safely — a 500 may send plain text (not JSON), and
+  // res.json() on that throws a cryptic DOMException ("string didn't match the
+  // expected pattern") that would otherwise mask the real error.
+  async function errDetail(res, fallback) {
+    try {
+      const t = await res.text();
+      try { return JSON.parse(t).detail || t || fallback; }
+      catch { return t || fallback; }
+    } catch { return fallback; }
+  }
+
   async function generate() {
     const imageFile = document.getElementById('gen-image-input').files?.[0];
     const pdfFile = document.getElementById('gen-pdf-input').files?.[0];
@@ -746,7 +757,7 @@
           }),
         });
       }
-      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Generation failed'); }
+      if (!res.ok) { throw new Error(await errDetail(res, 'Generation failed')); }
       const data = await res.json();
       setStep('generate', 'done');
       clearImage();
