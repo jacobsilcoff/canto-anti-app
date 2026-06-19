@@ -500,14 +500,23 @@ def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: 
     # Build language-specific etymology hint for the notes rule.
     if target_lang in ("yue", "cmn"):
         etymology_hint = (
-            "If the word is a loanword from English (e.g. 巴士 from \"bus\", 的士 from \"taxi\"), "
-            "or if an English word derives from it (e.g. 颱風 → \"typhoon\", 茶 → \"tea\"), "
-            "mention the connection in one clause."
+            "ONLY if the word is a GENUINE loanword from English (e.g. 巴士 from \"bus\", 的士 from \"taxi\"), "
+            "or if an English word genuinely derives from it historically (e.g. 颱風 → \"typhoon\", 茶 → \"tea\"), "
+            "mention the connection in one clause. Do NOT fabricate etymological connections — most Chinese words "
+            "have NO relation to their English translations. Never claim a Chinese word 'comes from' or 'is a cognate of' "
+            "its English translation unless it is a well-documented loanword."
+        )
+    elif target_lang in ("ko", "hi", "te"):
+        etymology_hint = (
+            "ONLY if the word is a GENUINE loanword from English (e.g. Korean 컴퓨터 from \"computer\"), "
+            "mention the connection in one clause. Do NOT fabricate etymological connections — most words "
+            "have NO relation to their English translations."
         )
     else:
         etymology_hint = (
             "If the word shares a Latin/Greek root with an English word, or is a recognisable cognate "
-            "or false friend (e.g. French \"librairie\" ≠ \"library\"), note the connection in one clause."
+            "or false friend (e.g. French \"librairie\" ≠ \"library\"), note the connection in one clause. "
+            "Do NOT fabricate connections — only mention genuine, well-known etymological links."
         )
 
     classifier_rule = (
