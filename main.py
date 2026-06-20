@@ -3633,7 +3633,12 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
     # For texts with stored sentence boundaries (URL/PDF imports), tokenize
     # each sentence individually so the frontend uses OUR boundaries instead
     # of re-deriving them from punctuation (which always drifts).
-    has_stored = sentences and sentences[0].get("sentence_text")
+    # Verify the stored sentences reconstruct the content (old imports have
+    # sentence_text set but from a different splitting — fall back for those).
+    has_stored = False
+    if sentences and sentences[0].get("sentence_text"):
+        joined = "\n".join(s["sentence_text"] for s in sentences)
+        has_stored = joined == text["content"]
     if has_stored:
         all_words: list[str] = []
         groups: list[list[dict]] = []
@@ -3952,7 +3957,13 @@ async def reader_preload(
     existing = {s["sentence_idx"]: s for s in await db.get_reader_sentences(user["id"], text_id)}
     # Use stored sentence texts when available (URL/PDF imports store 1:1 with
     # source sentences). Otherwise derive from tokenization (AI stories).
+    # Verify stored sentences reconstruct the content (old imports may not).
+    use_stored = False
     if existing and next(iter(existing.values())).get("sentence_text"):
+        total_stored = max(existing.keys()) + 1
+        joined = "\n".join(existing[i]["sentence_text"] for i in range(total_stored) if i in existing)
+        use_stored = joined == text["content"]
+    if use_stored:
         total = max(existing.keys()) + 1
         sent_texts = [existing[i]["sentence_text"] for i in range(total)]
     else:
@@ -4361,7 +4372,10 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
     if not text:
         raise HTTPException(404, "Story not found or not accessible")
     sentences = await db.get_reader_sentences_public(text_id)
-    has_stored = sentences and sentences[0].get("sentence_text")
+    has_stored = False
+    if sentences and sentences[0].get("sentence_text"):
+        joined = "\n".join(s["sentence_text"] for s in sentences)
+        has_stored = joined == text["content"]
     if has_stored:
         all_words: list[str] = []
         groups: list[list[dict]] = []
