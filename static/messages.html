@@ -1439,13 +1439,17 @@
       <div class="nw-vocab-title">Words to learn
         <button class="trans-vocab-addall nw-add-all" data-msg-id="${msgId}">＋ Add all</button>
       </div>
-      ${items.map(d => `<div class="nw-vocab-item">
+      ${items.map(d => {
+        const wordHtml = needsRuby(_targetLang) && d.romanization
+          ? `<span class="gl" tabindex="0" data-word="${escAttr(d.target_text)}"><ruby>${esc(d.target_text)}<rt>${esc(d.romanization)}</rt></ruby></span>`
+          : `<span class="gl" tabindex="0" data-word="${escAttr(d.target_text)}">${esc(d.target_text)}</span>`;
+        return `<div class="nw-vocab-item">
         <button class="trans-vocab-speak" data-speak="${escAttr(d.target_text)}" title="Listen">🔊</button>
-        <span class="nw-vocab-word">${needsRuby(_targetLang) ? rbSpan(d.target_text) : esc(d.target_text)}</span>
+        <span class="nw-vocab-word">${wordHtml}</span>
         <span class="nw-vocab-gloss">${esc(d.source_text)}</span>
         <button class="nw-vocab-add" data-target="${escAttr(d.target_text)}" data-english="${escAttr(d.source_text)}" data-roman="${escAttr(d.romanization || '')}">＋ Add</button>
-      </div>`).join('')}`;
-    if (needsRuby(_targetLang)) paintRuby(body);
+      </div>`;
+      }).join('')}`;
   }
 
   async function addNewWordItem(btn) {
