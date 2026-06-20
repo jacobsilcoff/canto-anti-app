@@ -884,7 +884,9 @@ async def translate_article_to_reading(
             "gets its own translation.\n"
             f"{adapt_line}"
             "Native script only (no romanisation), except proper nouns/brand names.\n"
-            "Plain text only — no markdown, no **bold**, no formatting.\n"
+            "No **bold** or other inline formatting.\n"
+            "If a sentence starts with ## or ### (a heading marker), keep the "
+            "marker prefix and translate only the text after it.\n"
             f"Rules:\n{rules}\n"
             'Return ONLY a JSON array of strings, e.g. ["译文1", "译文2"], same length '
             "and order as the input.\n\n"
@@ -990,7 +992,9 @@ async def simplify_article(
             "Do NOT merge, split, or omit sentences. Output exactly ONE rewritten "
             "sentence per input, IN THE SAME ORDER.\n"
             "Native script only (no romanisation).\n"
-            "Plain text only — no markdown, no **bold**, no formatting.\n"
+            "No **bold** or other inline formatting.\n"
+            "If a sentence starts with ## or ### (a heading marker), keep the "
+            "marker prefix and simplify only the text after it.\n"
             f"Rules:\n{rules}\n"
             'Return ONLY a JSON array of strings, same length and order as input.\n\n'
             f"Sentences:\n{numbered}"

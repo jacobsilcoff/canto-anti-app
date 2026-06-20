@@ -194,10 +194,8 @@ def clean_text(text: str) -> str:
     import re
     # Join words split across a line break with a hyphen: "inter-\nnational".
     text = text.replace("-\n", "")
-    # Strip markdown heading markers (trafilatura include_formatting=True adds
-    # "# ", "## ", etc.).  Keep the heading text on its own line.
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-    # Strip wiki [edit] links that trafilatura leaves in.
+    # Keep markdown heading markers from trafilatura (e.g. "## History") — the
+    # reader frontend uses them to style headings.  Only strip [edit] wiki links.
     text = re.sub(r'\[edit\]', '', text)
     lines = [ln.strip() for ln in text.replace("\r", "").split("\n")]
     out: list[str] = []

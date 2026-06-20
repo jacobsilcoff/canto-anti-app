@@ -55,6 +55,11 @@
     /* Reader image banner */
     .reader-image { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 12px; object-fit: cover; border: 1px solid var(--border); }
 
+    /* Reader headings (from markdown ## markers in extracted text) */
+    .reader-heading { display: block; font-weight: 700; margin: 0.6em 0 0.2em; color: var(--text); }
+    .reader-h1, .reader-h2 { font-size: 1.15em; }
+    .reader-h3, .reader-h4, .reader-h5, .reader-h6 { font-size: 1.05em; }
+
     /* ── Saved texts list ── */
     .saved-section { margin-bottom: 24px; }
     .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
@@ -1207,11 +1212,24 @@
     }));
   }
 
+  function _headingLevel(sent) {
+    const m = (sent.text || '').match(/^(#{1,6})\s/);
+    return m ? m[1].length : 0;
+  }
+
   function _buildSentenceEl(sent, si) {
-    const sentEl = document.createElement('span');
-    sentEl.className = 'sentence';
+    const hlevel = _headingLevel(sent);
+    const sentEl = document.createElement(hlevel ? 'div' : 'span');
+    sentEl.className = 'sentence' + (hlevel ? ' reader-heading reader-h' + hlevel : '');
     sentEl.dataset.si = si;
-    sent.tokens.forEach(tok => {
+    let tokens = sent.tokens;
+    if (hlevel) {
+      // Strip leading "## " marker tokens from display
+      let skip = 0;
+      while (skip < tokens.length && /^[#\s]+$/.test(tokens[skip].text) && !tokens[skip].is_word) skip++;
+      tokens = tokens.slice(skip);
+    }
+    tokens.forEach(tok => {
       let el;
       if (tok.is_word) {
         el = document.createElement('ruby');
