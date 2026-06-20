@@ -2,6 +2,7 @@
 
 ## ✅ Shipped
 
+- **8 new languages** — Added Japanese, Bengali, Urdu, Arabic, Swahili, Russian, Vietnamese, and Farsi. Full support: `LANG_INFO` entries with language-specific Gemini rules, edge-tts voices, `SCRIPT_BY_LANG` mapping, tokenizer Unicode ranges (Bengali/Arabic/Cyrillic), Japanese CJK tokenization (fugashi fallback to char), Bengali romanization via indic-transliteration, Google Fonts (Noto Sans JP/Bengali/Naskh Arabic), CSS font variables + `.script-*` classes (including `direction: rtl` for Arabic family), welcome page samples, and RUBY_LANGS for inline romanization. Arabic/Urdu/Farsi share the `arabic` script family; Vietnamese/Swahili use Latin script (just LANG_INFO + voice).
 - **Admin dashboard** — `/admin/dashboard` with KPI tiles (users by tier, DAU/WAU/MAU, AI calls + cost estimate, pro revenue, XP, server memory/uptime, feedback counts), bar charts for user tiers and language distribution, feedback status breakdown, and a full user table showing cards/AI usage/last active per user. Linked from the Admin tab in Settings. `db.get_admin_dashboard_stats()` runs all aggregation in one DB connection. Server stats via `/proc` (no extra dependency).
 - **Flashcards deck picker + multi-label intersection** — Replaced label management on the flashcards page (now on /browse) with a collapsible deck selector. Selecting a deck filters to its cards; an additional label filter intersects with the deck. Backend `label_ids` param generates one `AND ... IN (SELECT...)` clause per label for intersection filtering. Label picker chips now appear below the input row (not above), and the deck's own label is hidden from the filter picker since it's already shown in the dropdown.
 - **Message vocab enhancements** — Bulk "Add all" for translated message vocab. Unknown words in received messages get visual highlighting (`.gl-known`/`.gl-weak`/`.gl-new` classes). New-words section redesigned as a collapsible left-aligned dropdown with progressive word loading (words shown immediately, translations stream in). Speaker/pencil/book emoji replaced with SVG icons.
@@ -109,6 +110,11 @@ The **flashcard** half shipped (see ✅ Shipped: the 💬 pop-over on the study 
 - **Reuse:** the backend is mostly there — `tutor.ask_about_card` already takes a free-form `card` context block + question + ephemeral history; a reader variant would pass `{target_text: <sentence>, notes: <story title/context>}` (or a small dedicated `build_*` prompt if sentence-level help wants different guidance than word-level). The `/api/tutor/ask` route + the pop-over widget (CSS/JS in `cards.html`) can be lifted to `reader.html` — a good moment to finally factor the tutor bubble/ruby/gloss + pop-over into a shared file (long-standing follow-up).
 
 Open question still: ephemeral one-off asks (current flashcard behavior) vs. threading reader asks into the persisted tutor history.
+
+## 48. Japanese kanji→hiragana "romanization" (furigana)
+**Complexity: Medium | Cost: $0 (offline)**
+
+The romanization line for Japanese currently relies on the LLM-provided romaji. For a native Japanese learner experience, kanji should be annotated with **hiragana readings** (furigana) rather than Latin romaji — ironic given the あ icon we use for romanization. `pykakasi` or `fugashi` (MeCab-based, already used for tokenization) can produce readings: `fugashi` word nodes carry `.feature.kana` which gives the katakana reading (convert to hiragana via a simple codepoint shift). This would replace the romaji romanization in the reader ruby, teach-text ruby, and flashcard pronunciation face with hiragana — much more natural for Japanese learners. Romaji could remain as a fallback/option for absolute beginners. The `romanize_words` branch for `ja` would use the MeCab reading rather than a Latin transliterator.
 
 ## 44. Per-card embedding coverage tidy-ups (low priority)
 **Complexity: Low | Cost: negligible**

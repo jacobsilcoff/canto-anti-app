@@ -16,6 +16,14 @@ VOICES = {
     "ko": "ko-KR-SunHiNeural",
     "hi": "hi-IN-SwaraNeural",
     "te": "te-IN-ShrutiNeural",
+    "ja": "ja-JP-NanamiNeural",
+    "bn": "bn-IN-TanishaNeural",
+    "ur": "ur-PK-UzmaNeural",
+    "ar": "ar-SA-ZariyahNeural",
+    "sw": "sw-KE-ZulaNeural",
+    "ru": "ru-RU-SvetlanaNeural",
+    "vi": "vi-VN-HoaiMyNeural",
+    "fa": "fa-IR-DilaraNeural",
 }
 
 

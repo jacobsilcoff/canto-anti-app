@@ -19,8 +19,8 @@ FACES = ("source", "target", "pronunciation")
 # single word no longer shows up three times in the same first session.
 PRIMARY_FACE = "target"
 
-SUPPORTED_LANGS = ("yue", "cmn", "fr", "es")
-LOGOGRAPHIC_LANGS = {"yue", "cmn"}
+SUPPORTED_LANGS = ("yue", "cmn", "fr", "es", "de", "it", "pt", "tl", "ms", "id", "ko", "hi", "te", "ja", "bn", "ur", "ar", "sw", "ru", "vi", "fa")
+LOGOGRAPHIC_LANGS = {"yue", "cmn", "ja"}
 
 
 async def _column_exists(db, table: str, column: str) -> bool:

@@ -241,13 +241,156 @@ LANG_INFO = {
             "- Provide romanisation using IAST/ISO transliteration (e.g. namaste, nīḻlu, tèlugu)"
         ),
     },
+    "ja": {
+        "name": "Japanese",
+        "flag": "🇯🇵",
+        "script": "Japanese (kanji + kana)",
+        "romanization": "romaji",
+        "frequency_examples": (
+            "5 = extremely common (particles は/が/を/に, pronouns, copula, basic verbs/nouns), "
+            "4 = common (food, family, daily life, greetings), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, uncommon kanji)"
+        ),
+        "rules": (
+            "- Use standard Japanese with the natural kanji/hiragana/katakana mix\n"
+            "- Provide romaji romanisation (e.g. konnichiwa, arigatou)\n"
+            "- Use polite form (です/ます) unless context says otherwise\n"
+            "- Katakana for loanwords (コーヒー, パソコン, etc.)"
+        ),
+    },
+    "bn": {
+        "name": "Bengali",
+        "flag": "🇧🇩",
+        "script": "Bengali (Bangla)",
+        "romanization": "IAST",
+        "frequency_examples": (
+            "5 = extremely common (postpositions, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, Sanskritised register)"
+        ),
+        "rules": (
+            "- Use standard Modern Bengali (বাংলা) in Bengali script\n"
+            "- Provide romanisation using IAST transliteration (e.g. āmi, tumi, dhanyabād)"
+        ),
+    },
+    "ur": {
+        "name": "Urdu",
+        "flag": "🇵🇰",
+        "script": "Nastaliq (Arabic script)",
+        "romanization": "romanized Urdu",
+        "frequency_examples": (
+            "5 = extremely common (postpositions, pronouns, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, Persianised/Arabic register)"
+        ),
+        "rules": (
+            "- Use standard Modern Urdu (اردو) in Nastaliq/Arabic script\n"
+            "- Write right-to-left\n"
+            "- Provide romanisation (e.g. shukriya, mera naam, kitaab)"
+        ),
+    },
+    "ar": {
+        "name": "Arabic",
+        "flag": "🇸🇦",
+        "script": "Arabic script",
+        "romanization": "romanized Arabic",
+        "frequency_examples": (
+            "5 = extremely common (articles, pronouns, basic verbs/nouns, prepositions), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, classical, specialised)"
+        ),
+        "rules": (
+            "- Use Modern Standard Arabic (العربية الفصحى) in Arabic script\n"
+            "- Write right-to-left\n"
+            "- Provide romanisation (e.g. marhaba, shukran, kitaab)\n"
+            "- Include short vowel diacritics (tashkeel) on the Arabic text for learners"
+        ),
+    },
+    "sw": {
+        "name": "Swahili",
+        "flag": "🇹🇿",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, basic verbs/nouns, common prefixes), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, archaic)"
+        ),
+        "rules": "- Use standard Swahili (Kiswahili) as used in Tanzania/Kenya",
+    },
+    "ru": {
+        "name": "Russian",
+        "flag": "🇷🇺",
+        "script": "Cyrillic",
+        "romanization": "romanized Russian",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, prepositions, basic verbs/nouns, conjunctions), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, archaic)"
+        ),
+        "rules": (
+            "- Use standard Russian (русский) in Cyrillic script\n"
+            "- Provide romanisation (e.g. privet, spasibo, khorosho)\n"
+            "- Include stress marks (ударение) on the Russian text for learners where helpful"
+        ),
+    },
+    "vi": {
+        "name": "Vietnamese",
+        "flag": "🇻🇳",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (particles, pronouns, basic verbs/nouns, classifiers), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, archaic)"
+        ),
+        "rules": (
+            "- Use standard Vietnamese with correct diacritics and tone marks\n"
+            "- Use Northern (Hanoi) pronunciation conventions unless context says otherwise"
+        ),
+    },
+    "fa": {
+        "name": "Farsi",
+        "flag": "🇮🇷",
+        "script": "Persian (Arabic script)",
+        "romanization": "romanized Farsi",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, prepositions, basic verbs/nouns, ezafe), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, specialised, archaic Arabic loanwords)"
+        ),
+        "rules": (
+            "- Use standard Modern Persian (فارسی) in Persian script\n"
+            "- Write right-to-left\n"
+            "- Provide romanisation (e.g. salam, mersi, ketab)\n"
+            "- Use Persian vocabulary over Arabic alternatives where both exist (e.g. دانشگاه not جامعة)"
+        ),
+    },
 }
 
 # Machine-readable script family per language, used by the frontend to pick the
 # right font and (for the reader) how to render/segment text. Defaults to "latin".
 SCRIPT_BY_LANG = {
-    "yue": "chinese", "cmn": "chinese",
+    "yue": "chinese", "cmn": "chinese", "ja": "japanese",
     "ko": "hangul", "hi": "devanagari", "te": "telugu",
+    "bn": "bengali", "ur": "arabic", "ar": "arabic", "fa": "arabic",
+    "ru": "cyrillic",
 }
 
 

@@ -42,6 +42,10 @@
   --devanagari-font: 'Noto Sans Devanagari', 'Nirmala UI', sans-serif;
   --telugu-font: 'Noto Sans Telugu', 'Gautami', sans-serif;
   --hangul-font: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --japanese-font: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif;
+  --bengali-font: 'Noto Sans Bengali', 'Vrinda', sans-serif;
+  --arabic-font: 'Noto Naskh Arabic', 'Tahoma', 'Arial', sans-serif;
+  --cyrillic-font: 'Noto Sans', 'Segoe UI', 'Arial', sans-serif;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
   --shadow-pop: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
@@ -116,6 +120,10 @@ body {
 .script-telugu { --script-font: var(--telugu-font); }
 .script-hangul { --script-font: var(--hangul-font); }
 .script-chinese { --script-font: var(--chinese-font); }
+.script-japanese { --script-font: var(--japanese-font); }
+.script-bengali { --script-font: var(--bengali-font); }
+.script-arabic { --script-font: var(--arabic-font); direction: rtl; }
+.script-cyrillic { --script-font: var(--cyrillic-font); }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 header {

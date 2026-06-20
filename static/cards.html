@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
     .deck-toggle { display: flex; align-items: center; gap: 6px;
@@ -623,7 +623,7 @@
   // the right --script-font for the language's writing system.
   function applyScript(el, code) {
     if (!el) return;
-    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-latin');
+    el.classList.remove('script-chinese', 'script-devanagari', 'script-telugu', 'script-hangul', 'script-japanese', 'script-bengali', 'script-arabic', 'script-cyrillic', 'script-latin');
     el.classList.add('script-' + scriptFamily(code));
   }
   // Returns { source, target, pronunciation } display labels for the given language

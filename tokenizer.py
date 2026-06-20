@@ -22,7 +22,7 @@ _CLOSE_QUOTES = set('"»」』')
 # Used to tokenise any non-CJK script where words are separated by spaces.
 # Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
 # those stay as sentence punctuation rather than getting glued onto a word.
-_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏"
+_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿؀-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 
@@ -102,10 +102,10 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
         except Exception:
             pass
         return result
-    if lang in ("hi", "te"):
+    if lang in ("hi", "te", "bn"):
         try:
             from indic_transliteration import sanscript
-            src = sanscript.DEVANAGARI if lang == "hi" else sanscript.TELUGU
+            src = sanscript.DEVANAGARI if lang == "hi" else (sanscript.BENGALI if lang == "bn" else sanscript.TELUGU)
             for word in words:
                 if word not in result:
                     rom = sanscript.transliterate(word, src, sanscript.IAST)
@@ -150,7 +150,7 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
 
 def tokenize(text: str, lang: str) -> list[Token]:
     """Split text into word and non-word tokens for the reader view."""
-    if lang in ("yue", "cmn"):
+    if lang in ("yue", "cmn", "ja"):
         return _tokenize_cjk(text, lang)
     return _tokenize_latin(text)
 
@@ -186,6 +186,14 @@ def _tokenize_cjk(text: str, lang: str) -> list[Token]:
             return _words_to_tokens(words)
         except Exception:
             pass
+    elif lang == "ja":
+        try:
+            import fugashi
+            tagger = fugashi.Tagger()
+            words = [w.surface for w in tagger(text)]
+            return _words_to_tokens(words)
+        except Exception:
+            pass
     return _char_tokenize(text)
 
 
@@ -212,6 +220,8 @@ def _is_cjk_word(s: str) -> bool:
     return bool(s.strip()) and any(
         '一' <= c <= '鿿' or '㐀' <= c <= '䶿'
         or '豈' <= c <= '﫿'
+        or '぀' <= c <= 'ゟ'
+        or '゠' <= c <= 'ヿ'
         for c in s
     )
 

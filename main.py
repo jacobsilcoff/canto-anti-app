@@ -3367,7 +3367,7 @@ class RubyBatchRequest(BaseModel):
 
 # Languages whose messages get inline romanization ruby (non-Latin scripts).
 # Mirrors the client-side RUBY_LANGS set in messages.html / tutor.html.
-_RUBY_LANGS = {"yue", "cmn", "ko", "hi", "te"}
+_RUBY_LANGS = {"yue", "cmn", "ko", "hi", "te", "ja", "bn", "ur", "ar", "ru", "fa"}
 
 
 def _tokenize_map(texts: list[str], lang: str) -> dict:
