@@ -78,14 +78,14 @@
     /* ── Reader view ── */
     .reader-view { display: none; }
     .reader-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .reader-header-nav { display: flex; align-items: center; gap: 8px; }
-    .reader-header-actions { display: flex; gap: 8px; margin-left: auto; }
-    .reader-back-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
-    .reader-back-btn:hover { border-color: var(--primary); }
-    .reader-vocab-btn { background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
+    .reader-title-row { display: flex; align-items: center; gap: 8px; }
+    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .reader-close-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.2rem; padding: 2px 6px; line-height: 1; flex-shrink: 0; }
+    .reader-close-btn:hover { color: var(--text); }
+    .reader-header-actions { display: flex; gap: 6px; }
+    .reader-vocab-btn { background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; padding: 5px 10px; font-size: 0.82rem; flex-shrink: 0; }
     .reader-vocab-btn:hover { opacity: 0.88; }
-    .reader-add-all-btn { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; cursor: pointer; padding: 6px 12px; font-size: 0.88rem; flex-shrink: 0; }
+    .reader-add-all-btn { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; cursor: pointer; padding: 5px 10px; font-size: 0.82rem; flex-shrink: 0; }
     .reader-add-all-btn:hover { background: var(--primary); color: #fff; }
     .reader-add-all-btn:disabled { opacity: 0.5; cursor: default; }
 
@@ -200,7 +200,7 @@
     .audio-mode-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
     /* ── Comprehension quiz ── */
-    .reader-quiz-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; padding: 7px 14px; font-size: 0.85rem; font-weight: 600; }
+    .reader-quiz-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; padding: 5px 10px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
     .reader-quiz-btn:hover { border-color: var(--primary); color: var(--primary); }
     #quiz-modal { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px 16px; background: rgba(0,0,0,.45); }
     .quiz-card { width: min(480px,100%); max-height: min(520px,78dvh); background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; overflow: hidden; }
@@ -435,14 +435,14 @@
   <!-- Reader view -->
   <div id="reader-view" style="display:none">
     <div class="reader-header">
-      <div class="reader-title" id="reader-title"></div>
-      <div class="reader-header-nav">
-        <button class="reader-back-btn" onclick="showHome()">← Back</button>
-        <div class="reader-header-actions">
-          <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
-          <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
-          <button class="reader-quiz-btn" id="reader-quiz-btn" onclick="openQuiz()" title="Comprehension quiz" style="display:none">Quiz me</button>
-        </div>
+      <div class="reader-title-row">
+        <div class="reader-title" id="reader-title"></div>
+        <button class="reader-close-btn" onclick="showHome()" title="Close">✕</button>
+      </div>
+      <div class="reader-header-actions">
+        <button class="reader-vocab-btn" id="reader-vocab-btn" onclick="reviewVocab()" title="Study vocab from this text" style="display:none">Study vocab</button>
+        <button class="reader-add-all-btn" id="reader-add-all-btn" onclick="addAllVocab()" title="Add all unseen words to deck" style="display:none">+ Add all vocab</button>
+        <button class="reader-quiz-btn" id="reader-quiz-btn" onclick="openQuiz()" title="Comprehension quiz" style="display:none">Quiz me</button>
       </div>
     </div>
 
