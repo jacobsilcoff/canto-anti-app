@@ -119,6 +119,7 @@ def extract_article_html(html: str, url: str | None = None) -> dict:
     text = trafilatura.extract(
         html, url=url, favor_recall=True,
         include_comments=False, include_tables=False,
+        include_formatting=True,
     ) or ""
     text = clean_text(text)
     if len(text) < 80:
@@ -185,11 +186,19 @@ def extract_pdf(pdf_bytes: bytes) -> dict:
 # ── Shared cleanup ─────────────────────────────────────────────────────────────
 
 def clean_text(text: str) -> str:
-    """Normalize extracted text: fix hyphenated line breaks, collapse blank runs."""
+    """Normalize extracted text: fix hyphenated line breaks, collapse blank runs,
+    strip markdown heading markers from trafilatura's ``include_formatting`` output.
+    """
     if not text:
         return ""
+    import re
     # Join words split across a line break with a hyphen: "inter-\nnational".
     text = text.replace("-\n", "")
+    # Strip markdown heading markers (trafilatura include_formatting=True adds
+    # "# ", "## ", etc.).  Keep the heading text on its own line.
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Strip wiki [edit] links that trafilatura leaves in.
+    text = re.sub(r'\[edit\]', '', text)
     lines = [ln.strip() for ln in text.replace("\r", "").split("\n")]
     out: list[str] = []
     blank = 0

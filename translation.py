@@ -790,6 +790,15 @@ def _split_source_sentences(text: str) -> list[str]:
     sentence-final punctuation followed by whitespace, and on newlines.
     """
     text = (text or "").replace("\r", "")
+    # Strip wiki-style bracket citations/tags (e.g. [3], [edit], [citation needed])
+    # so they don't block sentence-boundary detection.  We strip BEFORE splitting
+    # but the originals are gone — this is acceptable because citations are noise
+    # in a language-learning reading.
+    text = re.sub(r'\[(?:\d+|edit|citation needed)\]', '', text)
+    # Insert a newline before runs of title-case / uppercase words that are glued
+    # directly after a sentence-ending period (trafilatura sometimes concatenates
+    # headings without whitespace, e.g. "…mountains.HistoryFirst Nations").
+    text = re.sub(r'(?<=[.!?。！？])(?=[A-ZÀ-ɏ])', '\n', text)
     out: list[str] = []
     for para in text.split("\n"):
         para = " ".join(para.split())  # collapse internal whitespace
