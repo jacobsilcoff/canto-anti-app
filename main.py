@@ -675,6 +675,39 @@ _TOUR_WIDGET = """
 <script src="/static/tour.js"></script>
 """
 
+_PWA_INSTALL_WIDGET = """
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:500;padding:0 12px 12px;pointer-events:none">
+  <div style="max-width:440px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:14px 16px;display:flex;align-items:flex-start;gap:12px;pointer-events:auto">
+    <div style="font-size:1.6rem;line-height:1;flex-shrink:0">📲</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:700;font-size:0.92rem;margin-bottom:3px">Install this app</div>
+      <div id="pwa-install-body" style="font-size:0.82rem;color:var(--text-muted);line-height:1.4">
+        Add to your home screen for a full-screen experience with faster loading.
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button id="pwa-install-action" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;display:none" onclick="_pwaInstall()">Install</button>
+        <button style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:0.82rem;color:var(--text-muted);cursor:pointer" onclick="_pwaDismiss()">Not now</button>
+      </div>
+    </div>
+    <button style="background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0" onclick="_pwaDismiss()">✕</button>
+  </div>
+</div>
+<script src="/static/pwa-install.js"></script>
+<script>
+// Platform-specific instructions + install button
+(function(){
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  var body = document.getElementById('pwa-install-body');
+  var btn = document.getElementById('pwa-install-action');
+  if (isIOS && body) {
+    body.innerHTML = 'Tap <svg style="display:inline-block;vertical-align:-3px" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> then <b>Add to Home Screen</b>';
+  } else if (btn) {
+    btn.style.display = '';
+  }
+})();
+</script>
+"""
+
 
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
@@ -685,6 +718,7 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
+    content = content.replace("/static/pwa-install.js", f"/static/pwa-install.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
     # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
     # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
@@ -700,7 +734,7 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
