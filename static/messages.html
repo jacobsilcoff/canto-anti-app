@@ -102,6 +102,26 @@
       border-radius: 2px; transition: background 0.1s; }
     .gl:hover, .gl.tapped { background: rgba(var(--primary-rgb, 90,90,200), 0.12); }
     .mine .gl:hover, .mine .gl.tapped { background: rgba(255,255,255,0.25); }
+    .theirs .gl.gl-new { border-bottom: 1.5px solid var(--primary); background: var(--primary-soft); }
+    .theirs .gl.gl-known { border-bottom: none; }
+    .theirs .gl.gl-weak { border-bottom: 1px dotted var(--warn-accent); }
+    .new-words-badge { background: var(--primary); color: #fff; border-radius: 999px;
+      font-size: 0.66rem; font-weight: 700; min-width: 16px; height: 16px;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0 4px; margin-left: 4px; vertical-align: middle; }
+    .new-words-panel { background: var(--surface-alt); border-radius: 10px;
+      margin-top: 4px; padding: 8px 10px; font-size: 0.82rem; }
+    .new-words-panel-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between; }
+    .new-words-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .new-word-chip { display: inline-flex; align-items: center; gap: 4px;
+      background: var(--primary-soft); border: 1px solid var(--primary); color: var(--primary);
+      border-radius: 8px; padding: 2px 8px; font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; transition: background 0.12s; }
+    .new-word-chip:hover { background: var(--primary); color: #fff; }
+    .new-word-chip.added { background: var(--good-soft); color: var(--good-strong);
+      border-color: var(--good-soft); cursor: default; }
 
     /* Composer */
     .msg-composer { flex-shrink: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -635,7 +655,7 @@
   async function _preloadWordStatuses(words) {
     if (!words.length) return;
     const toFetch = words.filter(w => !(w in _wordStatusCache)).slice(0, 100);
-    if (!toFetch.length) return;
+    if (!toFetch.length) { _applyWordHighlights(); return; }
     try {
       const { statuses } = await fetch('/api/cards/status', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -643,17 +663,47 @@
       }).then(r => r.json());
       Object.assign(_wordStatusCache, statuses || {});
     } catch {}
+    _applyWordHighlights();
+  }
+
+  function _applyWordHighlights() {
+    document.querySelectorAll('.msg-bubble-wrap.theirs .msg-bubble .gl[data-word]').forEach(el => {
+      const w = el.dataset.word;
+      const st = _wordStatusCache[w];
+      el.classList.remove('gl-known', 'gl-weak', 'gl-new');
+      if (st === 'known') el.classList.add('gl-known');
+      else if (st === 'weak') el.classList.add('gl-weak');
+      else el.classList.add('gl-new');
+    });
+    _updateNewWordCounts();
+  }
+
+  function _updateNewWordCounts() {
+    document.querySelectorAll('.msg-bubble-wrap.theirs').forEach(bwrap => {
+      const badge = bwrap.querySelector('.new-words-badge');
+      if (!badge) return;
+      const newCount = bwrap.querySelectorAll('.msg-bubble .gl.gl-new').length;
+      if (newCount > 0) {
+        badge.textContent = newCount;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    });
   }
 
   function _wordsFromMessages(msgs) {
     const s = new Set();
-    if (!needsRuby(_targetLang)) return s;
     msgs.forEach(m => {
       if (m.analysis?.type === 'image') return;
-      const collect = txt => (_tokenCache[_ck(txt)] || []).forEach(
-        tok => { if (tok.is_word && tok.text) s.add(tok.text); });
-      if (m.display_text) collect(m.display_text);
-      (m.analysis?.corrections || []).forEach(c => { if (c.corrected) collect(c.corrected); });
+      if (needsRuby(_targetLang)) {
+        const collect = txt => (_tokenCache[_ck(txt)] || []).forEach(
+          tok => { if (tok.is_word && tok.text) s.add(tok.text); });
+        if (m.display_text) collect(m.display_text);
+        if (m.is_mine) (m.analysis?.corrections || []).forEach(c => { if (c.corrected) collect(c.corrected); });
+      } else if (m.display_text && !m.is_mine) {
+        m.display_text.split(/\s+/).forEach(w => { if (w) s.add(w); });
+      }
     });
     return s;
   }
@@ -971,10 +1021,12 @@
 
     const willHaveTransPanel = mine && m.original_lang === 'en' && (hasDiff || !!(analysis.translation_failed));
     const showAa = hasAa && !willHaveTransPanel;
+    const wordsBtn = !mine ? `<button class="tool-btn words-btn" data-msg-id="${m.id}" title="New words">＋<span class="new-words-badge" style="display:none">0</span></button>` : '';
     const tools = isSending ? '' : `<div class="bubble-tools">
       <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
       ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
       ${showAa ? `<button class="tool-btn aa-btn" data-id="${m.id}" title="Translation">Aa</button>` : ''}
+      ${wordsBtn}
       <button class="tool-btn rx-open-btn" data-msg-id="${m.id}" title="Add reaction"><svg width="14" height="14" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="11" r="7"/><path d="M6 13.5s1 1.5 3 1.5 3-1.5 3-1.5"/><circle cx="7" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="11" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><line x1="17" y1="4" x2="21" y2="4"/><line x1="19" y1="2" x2="19" y2="6"/></svg></button>
     </div>`;
 
@@ -1049,12 +1101,15 @@
         </button>`).join('')}
     </div>` : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
 
+    const newWordsPanel = !mine ? `<div class="new-words-panel" id="nwpanel-${m.id}" style="display:none"></div>` : '';
+
     return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
       ${nameHtml}
       <div class="msg-bubble">${textHtml}</div>
       ${tools}
       ${corrHtml}
       ${transHtml}
+      ${newWordsPanel}
       ${aaHtml}
       ${isSending ? '' : rxHtml}
       <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Processing…</span>' : relTime(m.created_at)}</div>
@@ -1220,6 +1275,15 @@
     // Aa translation panel
     const aa = e.target.closest('.aa-btn[data-id]');
     if (aa) { toggleAa(aa.dataset.id); return; }
+    // New words button (received messages)
+    const wordsBtn = e.target.closest('.words-btn[data-msg-id]');
+    if (wordsBtn) { toggleNewWordsPanel(wordsBtn.dataset.msgId); return; }
+    // New words panel "Add all" button
+    const nwAddAll = e.target.closest('.nw-add-all[data-msg-id]');
+    if (nwAddAll && !nwAddAll.classList.contains('added')) { addAllNewWords(nwAddAll); return; }
+    // New word chip add
+    const nwChip = e.target.closest('.new-word-chip[data-word]');
+    if (nwChip && !nwChip.classList.contains('added')) { addNewWordChip(nwChip); return; }
     // Corrections toggle
     const corr = e.target.closest('.corr-xtra-head[data-id]');
     if (corr) { document.getElementById(`cxtra-${corr.dataset.id}`)?.classList.toggle('open'); return; }
@@ -1306,6 +1370,112 @@
     if (dupes) parts.push(`${dupes} already in deck`);
     if (failed) parts.push(`${failed} failed`);
     showToast(parts.join(', '));
+  }
+
+  async function toggleNewWordsPanel(msgId) {
+    const panel = document.getElementById(`nwpanel-${msgId}`);
+    if (!panel) return;
+    if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+    const bwrap = document.getElementById(`bwrap-${msgId}`);
+    if (!bwrap) return;
+    const glEls = bwrap.querySelectorAll('.msg-bubble .gl.gl-new');
+    const newWords = [...new Set([...glEls].map(el => el.dataset.word))].filter(Boolean);
+    if (!newWords.length) {
+      panel.innerHTML = '<div class="new-words-panel-title">All words already in deck</div>';
+      panel.style.display = '';
+      return;
+    }
+    const lookups = await Promise.all(newWords.slice(0, 20).map(async w => {
+      try {
+        const context = bwrap.dataset.msgtext || '';
+        const res = await fetch('/api/reader/translate-word', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: w, context, target_lang: _targetLang }),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    }));
+    const items = lookups.filter(Boolean);
+    if (!items.length) { panel.style.display = 'none'; return; }
+    panel.innerHTML = `
+      <div class="new-words-panel-title">New words · ${items.length}
+        <button class="trans-vocab-addall nw-add-all" data-msg-id="${msgId}">＋ Add all</button>
+      </div>
+      <div class="new-words-list">${items.map(d =>
+        `<span class="new-word-chip" data-word="${escAttr(d.target_text)}"
+              data-english="${escAttr(d.source_text)}"
+              data-roman="${escAttr(d.romanization || '')}"
+              title="${esc(d.source_text)}">${esc(d.target_text)}</span>`
+      ).join('')}</div>`;
+    _nwPanelItems[msgId] = items;
+    panel.style.display = '';
+  }
+  const _nwPanelItems = {};
+
+  async function addNewWordChip(chip) {
+    const target = chip.dataset.word;
+    const english = chip.dataset.english;
+    const roman = chip.dataset.roman || '';
+    chip.classList.add('added');
+    chip.style.pointerEvents = 'none';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: english, target_text: target,
+          romanization: roman, target_lang: _targetLang,
+          notes: 'From message', priority: 3,
+        }),
+      });
+      if (!res.ok && res.status !== 409) throw new Error();
+      _wordStatusCache[target] = 'weak';
+      chip.textContent = res.status === 409 ? `${target} ✓` : `${target} ✓`;
+      showToast(res.status === 409 ? 'Already in deck' : 'Added to deck ✓');
+      _applyWordHighlights();
+    } catch {
+      chip.classList.remove('added');
+      chip.style.pointerEvents = '';
+      showToast('Could not add');
+    }
+  }
+
+  async function addAllNewWords(btn) {
+    const msgId = btn.dataset.msgId;
+    const items = _nwPanelItems[msgId];
+    if (!items || !items.length) return;
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    const panel = document.getElementById(`nwpanel-${msgId}`);
+    const chips = panel ? panel.querySelectorAll('.new-word-chip') : [];
+    let added = 0, dupes = 0, failed = 0;
+    for (let i = 0; i < items.length; i++) {
+      const d = items[i];
+      const chip = chips[i];
+      if (chip?.classList.contains('added')) { dupes++; continue; }
+      try {
+        const res = await fetch('/api/cards', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_text: d.source_text, target_text: d.target_text,
+            romanization: d.romanization || '', target_lang: _targetLang,
+            notes: 'From message', priority: 3,
+          }),
+        });
+        if (!res.ok && res.status !== 409) { failed++; continue; }
+        _wordStatusCache[d.target_text] = 'weak';
+        if (chip) { chip.classList.add('added'); chip.textContent = `${d.target_text} ✓`; }
+        if (res.status === 409) dupes++; else added++;
+      } catch { failed++; }
+    }
+    btn.textContent = '✓ All added';
+    btn.classList.add('added');
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (dupes) parts.push(`${dupes} already in deck`);
+    if (failed) parts.push(`${failed} failed`);
+    showToast(parts.join(', '));
+    _applyWordHighlights();
   }
 
   async function retryTranslation(btn) {
