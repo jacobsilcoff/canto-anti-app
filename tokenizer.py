@@ -25,6 +25,28 @@ _CLOSE_QUOTES = set('"»」』')
 _ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿؀-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
+_AR_CHAR = {
+    'ا': 'a', 'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'ḥ', 'خ': 'kh',
+    'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 'ṣ',
+    'ض': 'ḍ', 'ط': 'ṭ', 'ظ': 'ẓ', 'ع': "'", 'غ': 'gh', 'ف': 'f', 'ق': 'q',
+    'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h', 'و': 'w', 'ي': 'y',
+    'ة': 'a', 'ى': 'a', 'ء': "'", 'آ': 'aa', 'أ': 'a', 'إ': 'i', 'ؤ': "'",
+    'ئ': "'",
+    'َ': 'a', 'ُ': 'u', 'ِ': 'i',
+    'ً': 'an', 'ٌ': 'un', 'ٍ': 'in',
+    'ّ': '', 'ْ': '',
+    'پ': 'p', 'چ': 'ch', 'ژ': 'zh', 'گ': 'g',
+    'ک': 'k', 'ی': 'y', 'ں': 'n', 'ے': 'e', 'ۓ': 'e', 'ہ': 'h', 'ھ': 'h',
+}
+
+
+def _arabic_romanize(word: str) -> str:
+    out: list[str] = []
+    for ch in word:
+        if ch in _AR_CHAR:
+            out.append(_AR_CHAR[ch])
+    return ''.join(out)
+
 
 def split_sentences(tokens: list[Token]) -> list[str]:
     """Group tokens into sentence strings, split on sentence-ending punctuation.
@@ -126,6 +148,24 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
                         result[word] = rom
         except Exception:
             pass
+        return result
+    if lang == "ru":
+        try:
+            from transliterate import translit
+            for word in words:
+                if word not in result:
+                    rom = translit(word, "ru", reversed=True)
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            pass
+        return result
+    if lang in ("ar", "ur", "fa"):
+        for word in words:
+            if word not in result:
+                rom = _arabic_romanize(word)
+                if rom:
+                    result[word] = rom
         return result
     if lang == "yue":
         try:
