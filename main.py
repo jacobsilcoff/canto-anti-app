@@ -398,15 +398,17 @@ _LANG_WIDGET = """
     pill.appendChild(chevronSpan);
 
     var dd = document.createElement('div');
+    var multiCol = langs.length > 12 && window.innerWidth >= 420;
     dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;'
       + 'background:var(--surface);border:1px solid var(--border);border-radius:10px;'
-      + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;min-width:170px;';
+      + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:70vh;overflow-y:auto;'
+      + (multiCol ? 'min-width:340px;columns:2;column-gap:0;' : 'min-width:170px;');
 
     langs.forEach(function (l) {
       var opt = document.createElement('div');
       var isCurrent = l.code === currentCode;
       opt.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:0.85em;border-radius:6px;'
-        + 'font-weight:500;display:flex;align-items:center;gap:8px;'
+        + 'font-weight:500;display:flex;align-items:center;gap:8px;break-inside:avoid;'
         + 'color:' + (isCurrent ? 'var(--primary)' : 'var(--text)') + ';';
       var check = document.createElement('span');
       check.style.cssText = 'width:14px;font-size:0.8em;flex-shrink:0;';
