@@ -628,37 +628,43 @@ def _parse_response(raw: dict, text: str, source_is_target: bool) -> dict:
     }
 
 
-_DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
+_DIFFICULTY_LEVEL: dict[str, str] = {
     "A1": (
-        "- CEFR A1 (Beginner): very basic, high-frequency words only (colours, numbers, greetings, "
-        "simple objects). Very short sentences (3–6 words). Present tense only. "
-        "No idioms. Write around 50–70 words total."
+        "CEFR A1 (Beginner): very basic, high-frequency words only (colours, numbers, greetings, "
+        "simple objects). Very short sentences (3–6 words). Present tense only. No idioms."
     ),
     "A2": (
-        "- CEFR A2 (Elementary): common everyday vocabulary. Simple sentences with basic connectors "
-        "(and, but, because). Simple past and future allowed. Minimal idioms. "
-        "Write around 70–100 words total."
+        "CEFR A2 (Elementary): common everyday vocabulary. Simple sentences with basic connectors "
+        "(and, but, because). Simple past and future allowed. Minimal idioms."
     ),
     "B1": (
-        "- CEFR B1 (Intermediate): mainstream vocabulary, some common idioms and fixed expressions. "
-        "Mix of simple and compound sentences. Range of tenses. "
-        "Write around 100–150 words total."
+        "CEFR B1 (Intermediate): mainstream vocabulary, some common idioms and fixed expressions. "
+        "Mix of simple and compound sentences. Range of tenses."
     ),
     "B2": (
-        "- CEFR B2 (Upper Intermediate): broader vocabulary including less common words and "
-        "idiomatic phrases. Varied sentence structure including subordinate clauses. "
-        "Write around 130–180 words total."
+        "CEFR B2 (Upper Intermediate): broader vocabulary including less common words and "
+        "idiomatic phrases. Varied sentence structure including subordinate clauses."
     ),
     "C1": (
-        "- CEFR C1 (Advanced): sophisticated vocabulary, nuanced expressions, culture-specific "
-        "references, and complex grammar. Fluent, natural prose. "
-        "Write around 150–200 words total."
+        "CEFR C1 (Advanced): sophisticated vocabulary, nuanced expressions, culture-specific "
+        "references, and complex grammar. Fluent, natural prose."
     ),
     "C2": (
-        "- CEFR C2 (Mastery): near-native register; may include literary devices, proverbs, "
-        "regional expressions, and subtle pragmatic nuance. No simplification. "
-        "Write around 170–220 words total."
+        "CEFR C2 (Mastery): near-native register; may include literary devices, proverbs, "
+        "regional expressions, and subtle pragmatic nuance. No simplification."
     ),
+}
+
+_DIFFICULTY_INSTRUCTIONS: dict[str, str] = {
+    level: f"- {desc} Write around {wc} words total."
+    for level, desc, wc in [
+        ("A1", _DIFFICULTY_LEVEL["A1"], "50–70"),
+        ("A2", _DIFFICULTY_LEVEL["A2"], "70–100"),
+        ("B1", _DIFFICULTY_LEVEL["B1"], "100–150"),
+        ("B2", _DIFFICULTY_LEVEL["B2"], "130–180"),
+        ("C1", _DIFFICULTY_LEVEL["C1"], "150–200"),
+        ("C2", _DIFFICULTY_LEVEL["C2"], "170–220"),
+    ]
 }
 
 
@@ -853,12 +859,14 @@ async def translate_article_to_reading(
 
     def _as_target(x) -> str:
         if isinstance(x, str):
-            return x.strip().replace("\n", " ")
-        if isinstance(x, dict):  # tolerate {"target": ...} / {"text": ...}
-            return str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
-        return ""
+            s = x.strip().replace("\n", " ")
+        elif isinstance(x, dict):  # tolerate {"target": ...} / {"text": ...}
+            s = str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
+        else:
+            return ""
+        return re.sub(r'\*{1,2}', '', s)
 
-    diff_instr = _DIFFICULTY_INSTRUCTIONS.get(difficulty, "") if difficulty else ""
+    diff_instr = _DIFFICULTY_LEVEL.get(difficulty, "") if difficulty else ""
     adapt_line = (
         f"\nADAPT the language to this level (simplify vocabulary and grammar as needed, "
         f"but keep the MEANING of each sentence):\n{diff_instr}\n"
@@ -876,6 +884,7 @@ async def translate_article_to_reading(
             "gets its own translation.\n"
             f"{adapt_line}"
             "Native script only (no romanisation), except proper nouns/brand names.\n"
+            "Plain text only — no markdown, no **bold**, no formatting.\n"
             f"Rules:\n{rules}\n"
             'Return ONLY a JSON array of strings, e.g. ["译文1", "译文2"], same length '
             "and order as the input.\n\n"
@@ -946,7 +955,7 @@ async def simplify_article(
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
     name = info["name"]
-    diff_instr = _DIFFICULTY_INSTRUCTIONS.get(difficulty, "")
+    diff_instr = _DIFFICULTY_LEVEL.get(difficulty, "")
     if not diff_instr:
         src_sents = _split_source_sentences((source_text or "")[:12_000])
         return {"segments": [{"target": s, "english": ""} for s in src_sents]}
@@ -965,10 +974,12 @@ async def simplify_article(
 
     def _as_target(x) -> str:
         if isinstance(x, str):
-            return x.strip().replace("\n", " ")
-        if isinstance(x, dict):
-            return str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
-        return ""
+            s = x.strip().replace("\n", " ")
+        elif isinstance(x, dict):
+            s = str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
+        else:
+            return ""
+        return re.sub(r'\*{1,2}', '', s)
 
     async def _simplify_chunk(chunk: list[str]) -> list[str]:
         numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(chunk))
@@ -979,6 +990,7 @@ async def simplify_article(
             "Do NOT merge, split, or omit sentences. Output exactly ONE rewritten "
             "sentence per input, IN THE SAME ORDER.\n"
             "Native script only (no romanisation).\n"
+            "Plain text only — no markdown, no **bold**, no formatting.\n"
             f"Rules:\n{rules}\n"
             'Return ONLY a JSON array of strings, same length and order as input.\n\n'
             f"Sentences:\n{numbered}"
