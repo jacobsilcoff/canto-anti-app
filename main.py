@@ -290,6 +290,7 @@ def _build_nav(active: str = "") -> str:
                       'a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83'
                       'l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09'
                       'a1.65 1.65 0 0 0-1.51 1z"/></svg>'),
+        "dashboard": f'<svg {_i}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
         "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
         "hamburger": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
@@ -301,6 +302,11 @@ def _build_nav(active: str = "") -> str:
         nbd = ' <span class="badge notif-badge"></span>' if notif else ""
         return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
 
+    def admin_link(href: str, label: str, icon: str) -> str:
+        extra = "color:var(--primary);" if href == active else ""
+        return (f'    <a href="{href}" class="nav-link nav-admin"'
+                f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
+
     nav_links = [
         link("/",         "Add Vocab",  "translate"),
         link("/cards",    "Flashcards", "cards",    badge=True),
@@ -311,6 +317,7 @@ def _build_nav(active: str = "") -> str:
         link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
+        admin_link("/admin/dashboard", "Dashboard", "dashboard"),
     ]
     signout_btn = (
         '    <button class="nav-link" onclick="doLogout()" '
@@ -345,7 +352,10 @@ def _build_nav(active: str = "") -> str:
         "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
         "document.addEventListener('click',function(e){"
         "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
-        "});"
+        "});\n"
+        "fetch('/api/me').then(function(r){return r.json()}).then(function(u){"
+        "if(u.is_admin)document.querySelectorAll('.nav-admin').forEach(function(el){el.style.display=''})"
+        "}).catch(function(){});"
         "</script>\n"
     )
 

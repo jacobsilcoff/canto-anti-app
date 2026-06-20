@@ -10,21 +10,26 @@
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
   <style>
-    .dash { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+    .dash { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px;
+      overflow-x: hidden; box-sizing: border-box; width: 100%; }
     .dash h2 { font-size: 1.2rem; font-weight: 700; margin: 0 0 14px; }
-    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
     .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
-    .kpi-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 2px;
+      min-width: 0; overflow: hidden; }
+    .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;
       letter-spacing: 0.05em; font-weight: 600; }
-    .kpi-val { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1.2; }
-    .kpi-sub { font-size: 0.72rem; color: var(--text-muted); }
+    .kpi-val { font-size: 1.35rem; font-weight: 700; color: var(--text); line-height: 1.2;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kpi-sub { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; }
     .kpi-val.green { color: var(--good-strong); }
     .kpi-val.blue { color: var(--primary); }
     .kpi-val.amber { color: var(--warn-accent); }
 
     .dash-section { background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+      border-radius: 10px; padding: 16px; margin-bottom: 16px;
+      overflow: hidden; box-sizing: border-box; }
     .dash-section h3 { font-size: 0.95rem; font-weight: 700; margin: 0 0 12px; color: var(--text); }
 
     /* Tables */
@@ -45,18 +50,18 @@
     .tag-free { background: var(--neutral-soft); color: var(--neutral-strong); }
 
     /* Bar chart */
-    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .bar-label { width: 60px; font-size: 0.78rem; color: var(--text); text-align: right;
-      flex-shrink: 0; font-weight: 500; }
-    .bar-track { flex: 1; height: 20px; background: var(--neutral-soft); border-radius: 6px;
-      overflow: hidden; position: relative; }
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .bar-label { min-width: 0; flex-shrink: 0; font-size: 0.78rem; color: var(--text);
+      text-align: right; font-weight: 500; white-space: nowrap; }
+    .bar-track { flex: 1; min-width: 40px; height: 20px; background: var(--neutral-soft);
+      border-radius: 6px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; min-width: 1px; }
-    .bar-count { width: 50px; font-size: 0.75rem; color: var(--text-muted);
-      font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .bar-count { font-size: 0.75rem; color: var(--text-muted);
+      font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
 
     /* Feedback status */
-    .fb-stat { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px;
-      margin-bottom: 6px; font-size: 0.85rem; }
+    .fb-stat { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px;
+      margin-bottom: 6px; font-size: 0.82rem; white-space: nowrap; }
     .fb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .fb-dot.new { background: var(--primary); }
     .fb-dot.triaged { background: var(--warn-accent); }
@@ -65,7 +70,7 @@
     .fb-dot.closed { background: var(--text-faint); }
 
     /* Scrollable table wrapper */
-    .table-scroll { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     /* Collapsible sections */
     .dash-toggle { cursor: pointer; display: flex; align-items: center; gap: 6px;
@@ -250,7 +255,7 @@
     // ── Feedback breakdown ──
     html += '<div class="dash-section">';
     html += '<h3>Feedback</h3>';
-    html += '<div style="margin-bottom:8px">';
+    html += '<div style="margin-bottom:8px;display:flex;flex-wrap:wrap">';
     const statuses = ['new', 'triaged', 'in_progress', 'resolved', 'closed'];
     statuses.forEach(s => {
       const c = fb.by_status[s] || 0;
