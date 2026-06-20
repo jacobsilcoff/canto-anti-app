@@ -49,16 +49,16 @@
     .tag-pro { background: var(--good-soft); color: var(--good-strong); }
     .tag-free { background: var(--neutral-soft); color: var(--neutral-strong); }
 
-    /* Bar chart */
-    .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-    .bar-label { width: 80px; flex-shrink: 0; font-size: 0.78rem; color: var(--text);
-      text-align: right; font-weight: 500; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis; }
-    .bar-track { flex: 1; min-width: 40px; height: 20px; background: var(--neutral-soft);
-      border-radius: 6px; overflow: hidden; }
+    /* Bar chart — grid keeps labels aligned without truncating */
+    .bar-chart { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px;
+      align-items: center; }
+    .bar-label { font-size: 0.78rem; color: var(--text); text-align: right;
+      font-weight: 500; white-space: nowrap; }
+    .bar-track { height: 20px; background: var(--neutral-soft); border-radius: 6px;
+      overflow: hidden; min-width: 40px; }
     .bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; min-width: 1px; }
     .bar-count { font-size: 0.75rem; color: var(--text-muted);
-      font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
+      font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     /* Feedback status */
     .fb-stat { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px;
@@ -234,15 +234,14 @@
       { label: 'Free', count: t.free || 0, color: 'var(--text-muted)' },
     ];
     const maxTier = Math.max(1, ...tiers.map(x => x.count));
+    html += '<div class="bar-chart">';
     tiers.forEach(({ label, count, color }) => {
       const pct = Math.round((count / maxTier) * 100);
-      html += `<div class="bar-row">
-        <div class="bar-label">${label}</div>
+      html += `<div class="bar-label">${label}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
-        <div class="bar-count">${count}</div>
-      </div>`;
+        <div class="bar-count">${count}</div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
 
     // ── Language breakdown ──
     if (d.languages.cards.length) {
@@ -251,18 +250,17 @@
       const maxLang = Math.max(1, ...d.languages.cards.map(x => x.cnt));
       const colors = ['var(--primary)', 'var(--good-strong)', 'var(--warn-accent)', 'var(--danger)',
         'var(--grammar-strong)', 'var(--text-muted)'];
+      html += '<div class="bar-chart">';
       d.languages.cards.forEach((l, i) => {
         const learnerRow = d.languages.learners.find(x => x.target_lang === l.target_lang);
         const learners = learnerRow ? learnerRow.learners : 0;
         const pct = Math.round((l.cnt / maxLang) * 100);
         const flag = _LANG_FLAGS[l.target_lang] || '';
-        html += `<div class="bar-row">
-          <div class="bar-label">${flag} ${langName(l.target_lang)}</div>
+        html += `<div class="bar-label">${flag} ${langName(l.target_lang)}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${colors[i % colors.length]}"></div></div>
-          <div class="bar-count">${fmtNum(l.cnt)} <span style="color:var(--text-faint);font-size:0.68rem">(${learners} users)</span></div>
-        </div>`;
+          <div class="bar-count">${fmtNum(l.cnt)} <span style="color:var(--text-faint);font-size:0.68rem">(${learners})</span></div>`;
       });
-      html += '</div>';
+      html += '</div></div>';
     }
 
     // ── Feedback breakdown ──
