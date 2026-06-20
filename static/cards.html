@@ -424,7 +424,7 @@
     <span id="deck-toggle-label">All cards</span>
     <span class="deck-toggle-chevron">▾</span>
   </button>
-  <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
+  <div id="filter-picker-wrap"></div>
 </div>
 <div class="deck-picker" id="deck-picker" style="display:none">
   <div class="deck-picker-inner" id="deck-picker-list"></div>
@@ -764,13 +764,14 @@
       allLabels = labels;
     } catch { allLabels = []; }
 
+    const pickerLabels = _filterPickerLabels();
     if (filterPicker) {
-      filterPicker.setLabels(allLabels);
+      filterPicker.setLabels(pickerLabels);
     } else {
       filterPicker = new LabelPicker(
         document.getElementById('filter-picker-wrap'),
         {
-          allLabels,
+          allLabels: pickerLabels,
           initialIds: filterLabelId ? [filterLabelId] : [],
           allowCreate: false,
           mode: 'single',
@@ -1555,7 +1556,7 @@
       allowCreate: true,
       mode: 'multi',
       placeholder: 'Add label…',
-      onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(labels); },
+      onLabelsRefreshed: labels => { allLabels = labels; if (filterPicker) filterPicker.setLabels(_filterPickerLabels()); },
     });
 
     // Populate canonical current state.
@@ -1711,12 +1712,24 @@
     }
   });
 
+  function _deckLabelId() {
+    if (!_activeDeckId) return null;
+    return (_myDecks.find(d => d.id === _activeDeckId) || {}).import_label_id || null;
+  }
+
+  function _filterPickerLabels() {
+    const hide = _deckLabelId();
+    return hide ? allLabels.filter(l => l.id !== hide) : allLabels;
+  }
+
   function selectDeck(row) {
     const deckId = row.dataset.deckId ? parseInt(row.dataset.deckId) : null;
-    const labelId = row.dataset.labelId ? parseInt(row.dataset.labelId) : null;
     _activeDeckId = deckId;
-    filterLabelId = labelId;
-    if (filterPicker) filterPicker.setSelected(labelId ? [labelId] : []);
+    filterLabelId = null;
+    if (filterPicker) {
+      filterPicker.setLabels(_filterPickerLabels());
+      filterPicker.setSelected([]);
+    }
     document.getElementById('deck-toggle-label').textContent =
       deckId ? row.querySelector('.deck-pick-name').textContent : 'All cards';
     document.getElementById('deck-picker').style.display = 'none';
@@ -1762,7 +1775,7 @@
       allowCreate: true,
       mode: 'multi',
       placeholder: 'Add label…',
-      onLabelsRefreshed: lbls => { allLabels = lbls; if (filterPicker) filterPicker.setLabels(lbls); },
+      onLabelsRefreshed: lbls => { allLabels = lbls; if (filterPicker) filterPicker.setLabels(_filterPickerLabels()); },
     });
 
     document.getElementById('prompt-text').style.display    = 'none';
@@ -2040,12 +2053,14 @@
     if (_params.has('label_id')) {
       const lid = parseInt(_params.get('label_id'), 10);
       if (!isNaN(lid)) {
-        filterLabelId = lid;
-        if (filterPicker) filterPicker.setSelected([lid]);
         const deck = _myDecks.find(d => d.import_label_id === lid);
         if (deck) {
           _activeDeckId = deck.id;
           document.getElementById('deck-toggle-label').textContent = deck.name;
+          if (filterPicker) filterPicker.setLabels(_filterPickerLabels());
+        } else {
+          filterLabelId = lid;
+          if (filterPicker) filterPicker.setSelected([lid]);
         }
       }
     }

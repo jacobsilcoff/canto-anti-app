@@ -1038,12 +1038,17 @@ textarea {
   background: var(--bg);
   padding: 10px 16px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
 }
+.filter-bar #filter-picker-wrap,
+.filter-bar .lp-wrap { display: contents; }
+.filter-bar .lp-input-row { flex: 1; min-width: 0; }
+.filter-bar .lp-chips { width: 100%; order: 1; }
 
 .filter-label {
   font-size: 0.78rem;
