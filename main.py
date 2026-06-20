@@ -2483,6 +2483,7 @@ async def list_languages():
             {
                 "code": code,
                 "name": info["name"],
+                "full_name": info.get("full_name", info["name"]),
                 "flag": info.get("flag", ""),
                 "script": info["script"],
                 "script_family": translation.SCRIPT_BY_LANG.get(code, "latin"),
@@ -4454,7 +4455,7 @@ async def reader_comprehension(request: Request, req: ComprehensionRequest, user
     if not text:
         raise HTTPException(400, "text required")
     access = await _resolve_gemini(user)
-    lang_name = translation.LANG_INFO[req.lang]["name"]
+    lang_name = translation.LANG_INFO[req.lang].get("full_name", translation.LANG_INFO[req.lang]["name"])
     snippet = text[:2000]
     prompt = (
         f"You are a reading comprehension quiz generator for {lang_name} learners.\n\n"

@@ -68,7 +68,7 @@ def build_tutor_prompt(
     practiced: list[str] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
 
     # Drill bullets: in a manual drill sub-session (`drill_skill` set) the learner
     # ends the drill themselves, so the tutor must KEEP posing phrases and never
@@ -382,7 +382,7 @@ def build_card_ask_prompt(
     known_words: list[dict] | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
 
     profile = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
     deck = ""
@@ -472,7 +472,7 @@ def build_drill_prompt(
     can verify the answer uses familiar vocab. `palette` (known substitutes) and
     `avoid` (words the learner doesn't know) are only set on a verify-fail REGEN."""
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     bg = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n" if learner_profile.strip() else ""
     if not known_words:
         deck = ""
@@ -671,7 +671,7 @@ def build_lesson_drill_prompt(
     max_turns: int,
 ) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
             if known_words else "")
     convo = ""

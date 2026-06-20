@@ -22,7 +22,7 @@ _CLOSE_QUOTES = set('"»」』')
 # Used to tokenise any non-CJK script where words are separated by spaces.
 # Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
 # those stay as sentence punctuation rather than getting glued onto a word.
-_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
+_ALPHA = r"a-zA-ZÀ-ÿĀ-ſƀ-ɏḀ-ỿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 _AR_CHAR = {

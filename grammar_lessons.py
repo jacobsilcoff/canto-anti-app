@@ -51,7 +51,7 @@ def _default_call_json(api_key: str, model: str):
 
 def _generate_prompt(lang: str, concept: dict) -> str:
     info = LANG_INFO[lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     rules = info["rules"]
     label = (concept.get("label") or "").strip()
     gloss = (concept.get("gloss") or "").strip()
@@ -130,7 +130,7 @@ def _block_summary(b: dict) -> str:
 def _critic_prompt(lang: str, gen: dict) -> str:
     """Ask a fresh pass to INDEPENDENTLY re-derive and judge each item. Returns
     boolean verdict arrays aligned by index — items judged false are dropped."""
-    name = LANG_INFO[lang]["name"]
+    name = LANG_INFO[lang].get("full_name", LANG_INFO[lang]["name"])
     blocks = gen.get("blocks") or []
     cloze = gen.get("cloze") or []
     reorder = gen.get("reorder") or []

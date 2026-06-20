@@ -233,7 +233,9 @@
           <div class="settings-label">Default target language</div>
           <div class="settings-desc">Language pre-selected on the translate page</div>
         </div>
-        <select id="settings-default-lang" class="settings-select" onchange="saveSettings()"></select>
+        <select id="settings-default-lang" class="settings-select" onchange="saveSettings(); renderLangDetail()"></select>
+      </div>
+      <div id="lang-detail" style="display:none; background:var(--surface-alt); border-radius:var(--radius); padding:12px 14px; margin:-4px 0 4px; font-size:0.85rem; color:var(--text-muted); line-height:1.6">
       </div>
       <div class="settings-row">
         <div>
@@ -863,7 +865,22 @@
       sel.appendChild(opt);
     });
     sel.value = settings.default_target_lang || 'yue';
+    renderLangDetail();
     renderAiSection();
+  }
+
+  function renderLangDetail() {
+    const code = document.getElementById('settings-default-lang').value;
+    const l = languages.find(x => x.code === code);
+    const panel = document.getElementById('lang-detail');
+    if (!l) { panel.style.display = 'none'; return; }
+    const rows = [];
+    if (l.full_name && l.full_name !== l.name) rows.push(`<strong>Variant:</strong> ${l.full_name}`);
+    rows.push(`<strong>Script:</strong> ${l.script}`);
+    if (l.romanization) rows.push(`<strong>Romanization:</strong> ${l.romanization}`);
+    rows.push(`<strong>Code:</strong> ${l.code}`);
+    panel.innerHTML = rows.join('<span style="margin:0 8px;color:var(--border)">·</span>');
+    panel.style.display = '';
   }
 
   function modelLabel(m) {

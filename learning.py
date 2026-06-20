@@ -115,7 +115,7 @@ def _lang_preamble(info: dict) -> str:
         if rom else
         "This language uses the Latin alphabet — no romanisation needed.\n"
     )
-    return (f"Target language: {info['name']}\n"
+    return (f"Target language: {info.get('full_name', info['name'])}\n"
             f"Writing system: {info['script']}\n"
             f"{rom_note}"
             f"Language-specific notes:\n{info['rules']}\n\n")
@@ -151,7 +151,7 @@ def _build_plan_prompt(
     recent_cards: list[dict] | None = None, cefr_spread: str = "",
 ) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
 
     profile_section = ""
     if (learner_profile or "").strip():
@@ -430,7 +430,7 @@ def _build_lesson_prompt(
     brief: dict | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     taught_block = ""
     if taught:
         taught_block = f"── ALREADY TAUGHT (the learner knows these) ──\n{_registry_block(taught)}\n\n"

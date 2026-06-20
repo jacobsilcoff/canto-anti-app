@@ -32,7 +32,8 @@ MODEL_ALLOWLIST = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"
 # needs to produce authentic output.
 LANG_INFO = {
     "yue": {
-        "name": "Hong Kong Cantonese",
+        "name": "Cantonese",
+        "full_name": "Hong Kong Cantonese",
         "flag": "🇭🇰",
         "script": "Traditional Chinese characters",
         "romanization": "jyutping",
@@ -58,7 +59,8 @@ LANG_INFO = {
         ),
     },
     "cmn": {
-        "name": "Mandarin Chinese",
+        "name": "Mandarin",
+        "full_name": "Mandarin Chinese",
         "flag": "🇨🇳",
         "script": "Simplified Chinese characters",
         "romanization": "pinyin",
@@ -131,7 +133,8 @@ LANG_INFO = {
         "rules": "- Use standard Italian with correct accents (à, è, é, ì, ò, ù) and grammar",
     },
     "pt": {
-        "name": "Brazilian Portuguese",
+        "name": "Portuguese",
+        "full_name": "Brazilian Portuguese",
         "flag": "🇧🇷",
         "script": "Latin script",
         "romanization": None,
@@ -439,10 +442,10 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
     On any failure returns a minimal fallback so the upload still succeeds.
     """
     lang_names = ", ".join(
-        f"{code} ({LANG_INFO[code]['name']})" for code in langs if code in LANG_INFO
+        f"{code} ({LANG_INFO[code].get('full_name', LANG_INFO[code]['name'])})" for code in langs if code in LANG_INFO
     )
     desc_blocks = "\n".join(
-        f'  "{code}": "one sentence in {LANG_INFO[code]["name"]} describing the image"'
+        f'  "{code}": "one sentence in {LANG_INFO[code].get("full_name", LANG_INFO[code]["name"])} describing the image"'
         for code in langs if code in LANG_INFO
     )
     phrase_blocks = "\n".join(
@@ -617,7 +620,7 @@ _CLASSIFIER_HINT = {
 
 def _build_prompt(text: str, target_lang: str, source_is_target: bool, context: str) -> str:
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     rom = info["romanization"]
     rules = info["rules"]
     freq = info["frequency_examples"]
@@ -827,7 +830,7 @@ async def generate_reader_text(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     # Strip romanization-providing instructions — they conflict with the reader's
     # strict no-romanization requirement and cause the LLM to embed jyutping/pinyin
     # directly in the generated text body.
@@ -881,7 +884,7 @@ async def generate_reader_text_from_image(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
     rules = "\n".join(
         line for line in info["rules"].splitlines()
@@ -987,7 +990,7 @@ async def translate_article_to_reading(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
     rules = "\n".join(
         line for line in info["rules"].splitlines()
@@ -1099,7 +1102,7 @@ async def simplify_article(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     diff_instr = _DIFFICULTY_LEVEL.get(difficulty, "")
     if not diff_instr:
         src_sents = _split_source_sentences((source_text or "")[:12_000])
@@ -1255,7 +1258,7 @@ def suggest_vocab_for_label(
     if target_lang not in LANG_INFO:
         return []
     info = LANG_INFO[target_lang]
-    lang_name = info["name"]
+    lang_name = info.get("full_name", info["name"])
     rom_name = info.get("romanization", "")
     rom_field = f', "romanization": "({rom_name})"' if rom_name else ""
 
@@ -1367,7 +1370,7 @@ async def translate_sentence(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     info = LANG_INFO[target_lang]
-    name = info["name"]
+    name = info.get("full_name", info["name"])
     rom = info["romanization"]
 
     rom_field = f'"romanization": "..."  // full sentence in {rom}\n' if rom else ""
@@ -1518,7 +1521,8 @@ async def analyze_message(text: str, lang: str, *, api_key: str) -> dict:
     corrections items: {original, corrected, explanation, construction}"""
     if not text.strip():
         return {"corrections": [], "reply_en": text}
-    lang_name = LANG_INFO.get(lang, {}).get("name", lang)
+    _info = LANG_INFO.get(lang, {})
+    lang_name = _info.get("full_name", _info.get("name", lang))
     rules = LANG_INFO.get(lang, {}).get("rules", "")
     rules_block = (
         f"\nLanguage rules:\n{rules}\n"

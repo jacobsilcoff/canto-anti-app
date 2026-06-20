@@ -49,5 +49,5 @@ async def tag(target_lang: str, words: list[str], api_key: str, *, model: str = 
     words = [w for w in {w.strip() for w in words if w and w.strip()}]
     if not words or target_lang not in LANG_INFO:
         return {}
-    name = LANG_INFO[target_lang]["name"]
+    name = LANG_INFO[target_lang].get("full_name", LANG_INFO[target_lang]["name"])
     return await asyncio.to_thread(_tag_sync, name, words, api_key, model)
