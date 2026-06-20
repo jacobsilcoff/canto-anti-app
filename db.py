@@ -1136,19 +1136,25 @@ async def _faces_with_labels(user_id: int, rows: list[dict]) -> list[dict]:
 
 
 async def _gate_phrases(db, user_id: int, faces: list[dict]) -> list[dict]:
-    """Defer phrase cards until all constituent single-word cards have graduated.
+    """Exclude phrase cards until all constituent single-word cards have graduated.
 
     A phrase is any card whose target_text tokenizes into >1 word.  For each
     phrase, we check whether every constituent word exists as a separate card
     (same user + language) with its primary face graduated (learning_step IS NULL
-    and first_seen_date IS NOT NULL).  Phrases with ungraduated constituents are
-    moved to the end so single-word cards are taught first.
+    and first_seen_date IS NOT NULL).  Phrases whose constituents exist as cards
+    but haven't all graduated yet are EXCLUDED (not just deprioritized) so
+    learners always study individual words before the phrases that contain them.
+
+    If NONE of the constituent words exist as separate cards, the phrase is NOT
+    gated — it's a standalone vocabulary item (e.g. CJK compound words that the
+    tokenizer segments but the user hasn't atomized).
     """
     if not faces:
         return faces
 
     langs = {f["target_lang"] for f in faces}
     graduated: dict[str, set[str]] = {}
+    existing: dict[str, set[str]] = {}
     for lang in langs:
         async with db.execute(
             """SELECT DISTINCT c.target_text FROM cards c
@@ -1160,15 +1166,22 @@ async def _gate_phrases(db, user_id: int, faces: list[dict]) -> list[dict]:
             (user_id, lang, PRIMARY_FACE),
         ) as cur:
             graduated[lang] = {r[0] for r in await cur.fetchall()}
+        async with db.execute(
+            """SELECT DISTINCT c.target_text FROM cards c
+               WHERE c.user_id = ? AND c.target_lang = ?""",
+            (user_id, lang),
+        ) as cur:
+            existing[lang] = {r[0] for r in await cur.fetchall()}
 
     ready = []
-    deferred = []
+    gated_cards: set[int] = set()
     seen_cards: set[int] = set()
     for face in faces:
         cid = face["card_id"]
+        if cid in gated_cards:
+            continue
         if cid in seen_cards:
-            bucket = ready if any(f["card_id"] == cid for f in ready) else deferred
-            bucket.append(face)
+            ready.append(face)
             continue
         seen_cards.add(cid)
         words = tokenizer.phrase_words(face["target_text"], face["target_lang"])
@@ -1176,12 +1189,17 @@ async def _gate_phrases(db, user_id: int, faces: list[dict]) -> list[dict]:
             ready.append(face)
             continue
         grad_set = graduated.get(face["target_lang"], set())
-        if all(w in grad_set or w == face["target_text"] for w in words):
+        exist_set = existing.get(face["target_lang"], set())
+        constituent_words = [w for w in words if w != face["target_text"]]
+        words_in_deck = [w for w in constituent_words if w in exist_set]
+        if not words_in_deck:
+            ready.append(face)
+        elif all(w in grad_set for w in words_in_deck):
             ready.append(face)
         else:
-            deferred.append(face)
+            gated_cards.add(cid)
 
-    return ready + deferred
+    return ready
 
 
 async def get_study_session(
@@ -1407,23 +1425,55 @@ async def get_due_count(
         extra += " AND c.target_lang = ?"
         extra_params += (target_lang,)
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # Reviews (already seen)
         async with db.execute(
             f"""SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
                WHERE c.user_id = ? AND cf.next_review <= datetime('now') AND c.suspended = 0
-                 AND (
-                       cf.first_seen_date IS NOT NULL
-                       OR cf.face = ?
-                       OR EXISTS (
-                           SELECT 1 FROM card_faces p
-                           WHERE p.card_id = cf.card_id AND p.face = ?
-                             AND p.first_seen_date IS NOT NULL
-                             AND p.learning_step IS NULL
-                       )
-                 ){extra}""",
-            (user_id, PRIMARY_FACE, PRIMARY_FACE) + extra_params,
+                 AND cf.first_seen_date IS NOT NULL{extra}""",
+            (user_id,) + extra_params,
         ) as cur:
             row = await cur.fetchone()
-        return row[0] if row else 0
+        review_count = row[0] if row else 0
+
+        # New faces — apply phrase gating so the badge matches the session
+        cap = int(await get_setting(user_id, "new_cards_per_day") or 20)
+        async with db.execute(
+            """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+               WHERE c.user_id = ? AND cf.first_seen_date = date('now')""",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+            daily_new_used = row[0] if row else 0
+        remaining = max(0, cap - daily_new_used)
+
+        new_count = 0
+        if remaining > 0:
+            async with db.execute(
+                f"""SELECT cf.id AS face_id, cf.card_id, cf.face,
+                           c.target_text, c.target_lang
+                    FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+                    WHERE c.user_id = ?
+                      AND cf.first_seen_date IS NULL
+                      AND c.suspended = 0
+                      AND (
+                            cf.face = ?
+                            OR EXISTS (
+                                SELECT 1 FROM card_faces p
+                                WHERE p.card_id = cf.card_id AND p.face = ?
+                                  AND p.first_seen_date IS NOT NULL
+                                  AND p.learning_step IS NULL
+                            )
+                      ){extra}
+                    ORDER BY c.priority DESC, c.id ASC
+                    LIMIT ?""",
+                (user_id, PRIMARY_FACE, PRIMARY_FACE) + extra_params + (remaining * 3,),
+            ) as cur:
+                new_faces = [dict(r) for r in await cur.fetchall()]
+            gated = await _gate_phrases(db, user_id, new_faces)
+            new_count = min(len(gated), remaining)
+
+        return review_count + new_count
 
 
 async def get_audio(user_id: int, card_id: int) -> bytes | None:
