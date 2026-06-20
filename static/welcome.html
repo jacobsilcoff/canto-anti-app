@@ -10,7 +10,7 @@
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
     .welcome-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
     .welcome-inner { width:100%; max-width:720px; display:flex; flex-direction:column; gap:20px; }
@@ -158,10 +158,13 @@
           ko: '안녕하세요', hi: 'नमस्ते', te: 'నమస్తే',
           ja: 'こんにちは', bn: 'নমস্কার', ur: 'السلام علیکم', ar: 'مرحبا',
           sw: 'Habari', ru: 'Привет', vi: 'Xin chào', fa: 'سلام',
+          tr: 'Merhaba', nl: 'Hallo', pl: 'Cześć', sv: 'Hej', nb: 'Hei', ro: 'Bună',
+          uk: 'Привіт', el: 'Γεια σου', th: 'สวัสดี', he: 'שלום',
         };
         const scriptFonts = {
           hangul: 'var(--hangul-font)', devanagari: 'var(--devanagari-font)', telugu: 'var(--telugu-font)', chinese: 'var(--chinese-font)',
           japanese: 'var(--japanese-font)', bengali: 'var(--bengali-font)', arabic: 'var(--arabic-font)', cyrillic: 'var(--cyrillic-font)',
+          greek: 'var(--greek-font)', thai: 'var(--thai-font)', hebrew: 'var(--hebrew-font)',
         };
         const sampleFont = scriptFonts[l.script_family] || 'inherit';
         card.innerHTML = `

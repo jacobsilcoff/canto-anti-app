@@ -24,6 +24,16 @@ VOICES = {
     "ru": "ru-RU-SvetlanaNeural",
     "vi": "vi-VN-HoaiMyNeural",
     "fa": "fa-IR-DilaraNeural",
+    "tr": "tr-TR-EmelNeural",
+    "nl": "nl-NL-ColetteNeural",
+    "pl": "pl-PL-AgnieszkaNeural",
+    "sv": "sv-SE-SofieNeural",
+    "nb": "nb-NO-PernilleNeural",
+    "ro": "ro-RO-AlinaNeural",
+    "uk": "uk-UA-PolinaNeural",
+    "el": "el-GR-AthinaNeural",
+    "th": "th-TH-PremwadeeNeural",
+    "he": "he-IL-HilaNeural",
 }
 
 

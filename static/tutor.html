@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
     /* ChatGPT-style fixed chat: the page itself never scrolls — the thread is
        the ONLY scroller and the composer stays pinned above the keyboard.
@@ -249,7 +249,7 @@
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
   // ── Ruby helpers ─────────────────────────────────────────────────────────────
-  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa']);
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa', 'uk', 'el', 'th', 'he']);
   function needsRuby(l) { return RUBY_LANGS.has(l); }
 
   // Token cache (lang+text → [{text, roman, is_word}]) filled by ONE batched

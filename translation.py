@@ -385,6 +385,185 @@ LANG_INFO = {
             "- Use Persian vocabulary over Arabic alternatives where both exist (e.g. دانشگاه not جامعة)"
         ),
     },
+    "tr": {
+        "name": "Turkish",
+        "flag": "🇹🇷",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, postpositions, basic verbs, -mek/-mak infinitives), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, travel, conversation), "
+            "2 = less common (formal, bureaucratic, specific topics), "
+            "1 = rare or advanced (literary, Ottoman loanwords, technical)"
+        ),
+        "rules": (
+            "- Use standard Istanbul Turkish with correct vowel harmony and agglutination\n"
+            "- Preserve Turkish-specific characters: ç, ğ, ı, ö, ş, ü (and their capitals Ç, Ğ, İ, Ö, Ş, Ü)\n"
+            "- Use the dotless ı / dotted İ distinction correctly"
+        ),
+    },
+    "nl": {
+        "name": "Dutch",
+        "flag": "🇳🇱",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, articles, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Netherlands Dutch (Standaardnederlands)\n"
+            "- Preserve Dutch digraphs (ij, oe, ui, eu, ei) and diacritics where needed"
+        ),
+    },
+    "pl": {
+        "name": "Polish",
+        "flag": "🇵🇱",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, prepositions, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Polish with correct diacritics: ą, ć, ę, ł, ń, ó, ś, ź, ż\n"
+            "- Use natural conversational register unless formal is requested"
+        ),
+    },
+    "sv": {
+        "name": "Swedish",
+        "flag": "🇸🇪",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, articles, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Swedish (rikssvenska)\n"
+            "- Preserve Swedish-specific characters: å, ä, ö"
+        ),
+    },
+    "nb": {
+        "name": "Norwegian",
+        "full_name": "Norwegian Bokmål",
+        "flag": "🇳🇴",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, articles, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, hobbies, conversation), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, Nynorsk-only)"
+        ),
+        "rules": (
+            "- Use Bokmål (the more common written standard)\n"
+            "- Preserve Norwegian-specific characters: å, æ, ø"
+        ),
+    },
+    "ro": {
+        "name": "Romanian",
+        "flag": "🇷🇴",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, articles, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Romanian with correct diacritics: ă, â, î, ș, ț\n"
+            "- Use the definite article enclitic system correctly (e.g. casa = the house)"
+        ),
+    },
+    "uk": {
+        "name": "Ukrainian",
+        "flag": "🇺🇦",
+        "script": "Cyrillic",
+        "romanization": "romanized Ukrainian",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, prepositions, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Ukrainian (українська) in Cyrillic script\n"
+            "- Use Ukrainian vocabulary, NOT Russian equivalents (e.g. гарний not красивый)\n"
+            "- Provide romanisation using Ukrainian Latin transliteration\n"
+            "- Include the Ukrainian-specific letters: ґ, є, і, ї"
+        ),
+    },
+    "el": {
+        "name": "Greek",
+        "flag": "🇬🇷",
+        "script": "Greek alphabet",
+        "romanization": "romanized Greek",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, articles, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic/katharevousa, highly specialised)"
+        ),
+        "rules": (
+            "- Use modern standard Greek (Demotic / Δημοτική)\n"
+            "- Write in the Greek alphabet with correct accent marks (tonos)\n"
+            "- Provide romanisation (e.g. kalimera, efcharisto, nero)"
+        ),
+    },
+    "th": {
+        "name": "Thai",
+        "flag": "🇹🇭",
+        "script": "Thai script",
+        "romanization": "romanized Thai (RTGS)",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, particles, basic verbs/nouns, classifiers), "
+            "4 = common (food, family, daily life, polite particles), "
+            "3 = intermediate (work, travel, conversation), "
+            "2 = less common (formal register, specific topics), "
+            "1 = rare or advanced (literary, royal vocabulary, Pali/Sanskrit loanwords)"
+        ),
+        "rules": (
+            "- Use standard Central Thai (ภาษาไทยกลาง)\n"
+            "- Write in Thai script without spaces between words (standard Thai orthography)\n"
+            "- Provide romanisation using RTGS (Royal Thai General System)\n"
+            "- Include polite particles ครับ/ค่ะ where natural"
+        ),
+    },
+    "he": {
+        "name": "Hebrew",
+        "flag": "🇮🇱",
+        "script": "Hebrew alphabet",
+        "romanization": "romanized Hebrew",
+        "frequency_examples": (
+            "5 = extremely common (pronouns, prepositions, basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, Biblical/archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use Modern Hebrew (עברית חדשה) in Hebrew script\n"
+            "- Write right-to-left without vowel points (niqqud) — standard unpointed script\n"
+            "- Provide romanisation (e.g. shalom, toda, boker tov)\n"
+            "- Use informal/spoken register unless formal is requested"
+        ),
+    },
 }
 
 # Machine-readable script family per language, used by the frontend to pick the
@@ -393,7 +572,8 @@ SCRIPT_BY_LANG = {
     "yue": "chinese", "cmn": "chinese", "ja": "japanese",
     "ko": "hangul", "hi": "devanagari", "te": "telugu",
     "bn": "bengali", "ur": "arabic", "ar": "arabic", "fa": "arabic",
-    "ru": "cyrillic",
+    "ru": "cyrillic", "uk": "cyrillic",
+    "el": "greek", "th": "thai", "he": "hebrew",
 }
 
 

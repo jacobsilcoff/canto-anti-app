@@ -22,7 +22,7 @@ _CLOSE_QUOTES = set('"»」』')
 # Used to tokenise any non-CJK script where words are separated by spaces.
 # Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
 # those stay as sentence punctuation rather than getting glued onto a word.
-_ALPHA = r"a-zA-ZÀ-ÿĀ-ſƀ-ɏḀ-ỿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
+_ALPHA = r"a-zA-ZÀ-ÿĀ-ſƀ-ɏḀ-ỿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿͰ-Ͽά-ωϐ-Ͽἀ-῾ְ-תก-๎"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 _AR_CHAR = {
@@ -40,11 +40,44 @@ _AR_CHAR = {
 }
 
 
+_EL_CHAR = {
+    'α': 'a', 'β': 'v', 'γ': 'g', 'δ': 'd', 'ε': 'e', 'ζ': 'z', 'η': 'i',
+    'θ': 'th', 'ι': 'i', 'κ': 'k', 'λ': 'l', 'μ': 'm', 'ν': 'n', 'ξ': 'x',
+    'ο': 'o', 'π': 'p', 'ρ': 'r', 'σ': 's', 'ς': 's', 'τ': 't', 'υ': 'y',
+    'φ': 'f', 'χ': 'ch', 'ψ': 'ps', 'ω': 'o',
+    'ά': 'a', 'έ': 'e', 'ή': 'i', 'ί': 'i', 'ό': 'o', 'ύ': 'y', 'ώ': 'o',
+    'ϊ': 'i', 'ϋ': 'y', 'ΐ': 'i', 'ΰ': 'y',
+}
+
+_HE_CHAR = {
+    'א': "'", 'ב': 'v', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
+    'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'kh', 'ך': 'kh', 'ל': 'l', 'מ': 'm',
+    'ם': 'm', 'נ': 'n', 'ן': 'n', 'ס': 's', 'ע': "'", 'פ': 'f', 'ף': 'f',
+    'צ': 'ts', 'ץ': 'ts', 'ק': 'k', 'ר': 'r', 'ש': 'sh', 'ת': 't',
+}
+
+
 def _arabic_romanize(word: str) -> str:
     out: list[str] = []
     for ch in word:
         if ch in _AR_CHAR:
             out.append(_AR_CHAR[ch])
+    return ''.join(out)
+
+
+def _greek_romanize(word: str) -> str:
+    out: list[str] = []
+    for ch in word.lower():
+        if ch in _EL_CHAR:
+            out.append(_EL_CHAR[ch])
+    return ''.join(out)
+
+
+def _hebrew_romanize(word: str) -> str:
+    out: list[str] = []
+    for ch in word:
+        if ch in _HE_CHAR:
+            out.append(_HE_CHAR[ch])
     return ''.join(out)
 
 
@@ -167,6 +200,44 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
                 if rom:
                     result[word] = rom
         return result
+    if lang == "uk":
+        try:
+            from transliterate import translit
+            for word in words:
+                if word not in result:
+                    rom = translit(word, "uk", reversed=True)
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            pass
+        return result
+    if lang == "el":
+        for word in words:
+            if word not in result:
+                rom = _greek_romanize(word)
+                if rom:
+                    result[word] = rom
+        return result
+    if lang == "he":
+        for word in words:
+            if word not in result:
+                rom = _hebrew_romanize(word)
+                if rom:
+                    result[word] = rom
+        return result
+    if lang == "th":
+        try:
+            from pythainlp.transliterate import romanize as th_romanize
+            for word in words:
+                if word not in result:
+                    rom = th_romanize(word, engine="royin")
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            for word in words:
+                if word not in result:
+                    result[word] = word
+        return result
     if lang == "yue":
         try:
             import pycantonese
@@ -205,6 +276,8 @@ def tokenize(text: str, lang: str) -> list[Token]:
     """Split text into word and non-word tokens for the reader view."""
     if lang in ("yue", "cmn", "ja"):
         return _tokenize_cjk(text, lang)
+    if lang == "th":
+        return _tokenize_thai(text)
     return _tokenize_latin(text)
 
 
@@ -295,6 +368,39 @@ def _char_tokenize(text: str) -> list[Token]:
     if buf:
         tokens.append({"text": buf, "is_word": False})
     return tokens
+
+
+def _is_thai(ch: str) -> bool:
+    return 'ก' <= ch <= '๎'
+
+
+def _tokenize_thai(text: str) -> list[Token]:
+    """Tokenise Thai using pythainlp dictionary segmentation (no spaces)."""
+    try:
+        from pythainlp.tokenize import word_tokenize
+        words = word_tokenize(text, engine="newmm")
+        tokens = []
+        for w in words:
+            is_word = bool(w.strip()) and any(_is_thai(c) for c in w)
+            tokens.append({"text": w, "is_word": is_word})
+        return tokens
+    except Exception:
+        tokens = []
+        buf = ""
+        for ch in text:
+            if _is_thai(ch):
+                if buf and not any(_is_thai(c) for c in buf):
+                    tokens.append({"text": buf, "is_word": False})
+                    buf = ""
+                buf += ch
+            else:
+                if buf and any(_is_thai(c) for c in buf):
+                    tokens.append({"text": buf, "is_word": True})
+                    buf = ""
+                buf += ch
+        if buf:
+            tokens.append({"text": buf, "is_word": any(_is_thai(c) for c in buf)})
+        return tokens
 
 
 def _tokenize_latin(text: str) -> list[Token]:

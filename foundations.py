@@ -1454,3 +1454,428 @@ _FARSI_TRACK = {
 }
 
 FOUNDATIONS["fa"] = _FARSI_TRACK
+
+
+# ── Greek (el) — simple_alphabet ─────────────────────────────────────────────
+# Greek alphabet: 24 letters. Some look like Latin but sound different (ρ = r,
+# ν = n, η = i). Digraphs/diphthongs are common in modern Greek pronunciation.
+
+_EL_VOWELS = [
+    SL("α", "a", "α"), SL("ε", "e", "ε"), SL("η", "i", "η", n="Sounds like 'i' in modern Greek"),
+    SL("ι", "i", "ι"), SL("ο", "o", "ο"),
+    SL("υ", "i", "υ", n="Sounds like 'i' in modern Greek (not 'u')"),
+    SL("ω", "o", "ω", n="Same sound as ο in modern Greek"),
+]
+_EL_CONS_1 = [
+    SL("β", "v", "β", n="Sounds like 'v' (not 'b')"),
+    SL("γ", "gh", "γ", n="A soft guttural 'g' — like gargling"),
+    SL("δ", "dh", "δ", n="Like 'th' in 'this' (not 'd')"),
+    SL("κ", "k", "κ"), SL("λ", "l", "λ"), SL("μ", "m", "μ"),
+    SL("ν", "n", "ν"), SL("π", "p", "π"),
+    SL("ρ", "r", "ρ", n="Trilled or tapped 'r'"),
+    SL("σ", "s", "σ", n="ς at the end of a word"),
+    SL("τ", "t", "τ"),
+]
+_EL_CONS_2 = [
+    SL("ζ", "z", "ζ"),
+    SL("θ", "th", "θ", n="Like 'th' in 'think'"),
+    SL("ξ", "ks", "ξ", n="Like 'x' in 'fox'"),
+    SL("φ", "f", "φ"), SL("χ", "ch", "χ", n="Like 'ch' in Scottish 'loch'"),
+    SL("ψ", "ps", "ψ", n="Like 'ps' in 'apse'"),
+]
+
+# Digraphs / diphthongs — taught as letter combinations with their modern sound.
+# These reuse the SL constructor; `audio` is a short Greek word containing the sound.
+_EL_DIGRAPHS = [
+    SL("αι", "e", "αίμα", n="Sounds like ε — 'e'"),
+    SL("ει", "i", "είναι", n="Sounds like 'i'"),
+    SL("οι", "i", "οίκος", n="Sounds like 'i'"),
+    SL("ου", "u", "ούτε", n="The only way to write the 'u/oo' sound"),
+    SL("μπ", "b", "μπαμπάς", n="'b' at the start of a word, 'mb' in the middle"),
+    SL("ντ", "d", "ντομάτα", n="'d' at the start, 'nd' in the middle"),
+    SL("γκ", "g", "γκολ", n="'g' at the start, 'ng' in the middle"),
+]
+
+_EL_WORDS_1 = [("μαμά", "mom"), ("νερό", "water"), ("καλό", "good"),
+               ("μέρα", "day"), ("πόλη", "city"), ("νόμος", "law")]
+_EL_WORDS_2 = [("ζωή", "life"), ("θέμα", "topic"), ("φωνή", "voice"),
+               ("ψωμί", "bread"), ("χώρα", "country"), ("ξένος", "stranger")]
+_EL_WORDS_3 = [("αίμα", "blood"), ("ούτε", "neither"), ("μπίρα", "beer"),
+               ("ντομάτα", "tomato"), ("γκολ", "goal")]
+
+_GREEK_TRACK = {
+    "script_type": "simple_alphabet",
+    "title": "Read Greek",
+    "units": [
+        {"title": "Greek Alphabet Basics", "objective": "How the Greek alphabet works and the vowels", "lessons": [
+            {"title": "How Greek Works", "type": "info",
+             "intro": "Greek uses its own alphabet — 24 letters, some familiar-looking but with "
+                      "different sounds (ρ = 'r', ν = 'n', η = 'i'). Modern Greek pronunciation "
+                      "is quite different from ancient Greek. Several vowel letters share the same "
+                      "sound ('i': η, ι, υ, ει, οι; 'o': ο, ω). Digraphs like μπ, ντ, γκ represent "
+                      "sounds that single letters can't. Let's start with the vowels."},
+            {"title": "Vowels α ε η ι ο υ ω", "type": "graphemes", "graphemes": _EL_VOWELS,
+             "intro": "The seven vowel letters. In modern Greek, η, ι, and υ all sound like 'i', "
+                      "and ο and ω both sound like 'o'."},
+        ]},
+        {"title": "Common Consonants", "objective": "The most frequent consonants and first words", "lessons": [
+            {"title": "Consonants β γ δ κ λ μ ν π ρ σ τ", "type": "graphemes", "graphemes": _EL_CONS_1,
+             "intro": "Watch out: β = 'v' (not 'b'), γ = a soft guttural 'g', δ = 'th' as in 'this' "
+                      "(not 'd'). σ becomes ς at the end of a word."},
+            {"title": "Your First Words", "type": "words", "words": _EL_WORDS_1},
+        ]},
+        {"title": "Remaining Consonants", "objective": "The less common consonants", "lessons": [
+            {"title": "Consonants ζ θ ξ φ χ ψ", "type": "graphemes", "graphemes": _EL_CONS_2,
+             "intro": "These include double sounds: ξ = 'ks' and ψ = 'ps'. θ is the 'th' in 'think' "
+                      "(voiceless, unlike δ which is voiced)."},
+            {"title": "More Words", "type": "words", "words": _EL_WORDS_2},
+        ]},
+        {"title": "Digraphs & Diphthongs", "objective": "Common letter combinations with special sounds", "lessons": [
+            {"title": "Digraphs αι ει οι ου μπ ντ γκ", "type": "graphemes", "graphemes": _EL_DIGRAPHS,
+             "intro": "Greek uses letter pairs for sounds that single letters can't express. "
+                      "αι, ει, οι all collapse to 'i'; ου is the only way to write 'u/oo'. "
+                      "μπ = 'b', ντ = 'd', γκ = 'g' at the start of a word."},
+            {"title": "Reading Practice", "type": "words", "words": _EL_WORDS_3},
+        ]},
+    ],
+}
+
+FOUNDATIONS["el"] = _GREEK_TRACK
+
+
+# ── Ukrainian (uk) — simple_alphabet (Cyrillic variant) ─────────────────────
+# Ukrainian Cyrillic differs from Russian: has Ґ/ґ, Є/є, І/і, Ї/ї;
+# missing Ё/ё, Ъ/ъ, Ы/ы, Э/э. Some shared letters have different sounds.
+
+_UK_VOWELS = [
+    SL("А", "a"), SL("Е", "e"), SL("Є", "ye", n="Like 'ye' in 'yes' — unique to Ukrainian"),
+    SL("И", "y", n="Like 'i' in 'bit' — different from Russian И"),
+    SL("І", "i", n="Like 'ee' in 'see' — replaces Russian И for this sound"),
+    SL("Ї", "yi", n="Always 'yi' — unique to Ukrainian"),
+    SL("О", "o"), SL("У", "u"),
+    SL("Ю", "yu"), SL("Я", "ya"),
+]
+_UK_CONS_1 = [
+    SL("Б", "b"), SL("В", "v"), SL("Г", "h", n="Sounds like 'h' in Ukrainian (not 'g')"),
+    SL("Ґ", "g", n="The actual 'g' sound — unique to Ukrainian Cyrillic"),
+    SL("Д", "d"), SL("К", "k"), SL("Л", "l"),
+    SL("М", "m"), SL("Н", "n"), SL("П", "p"),
+    SL("Р", "r", n="Trilled or tapped 'r'"), SL("С", "s"), SL("Т", "t"),
+]
+_UK_CONS_2 = [
+    SL("Ж", "zh", n="Like 's' in 'pleasure'"),
+    SL("З", "z"), SL("Х", "kh", n="Like 'ch' in Scottish 'loch'"),
+    SL("Ц", "ts"), SL("Ч", "ch"),
+    SL("Ш", "sh"), SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
+    SL("Ф", "f"), SL("Ь", "'", n="Soft sign — softens the previous consonant"),
+]
+
+_UK_WORDS_1 = [("мама", "mom"), ("тато", "dad"), ("дім", "house"),
+               ("кіт", "cat"), ("сон", "dream"), ("нас", "us")]
+_UK_WORDS_2 = [("вода", "water"), ("рука", "hand"), ("місто", "city"),
+               ("день", "day"), ("ніч", "night"), ("час", "hour")]
+_UK_WORDS_3 = [("жук", "beetle"), ("шум", "noise"), ("звук", "sound"),
+               ("хліб", "bread"), ("цвіт", "bloom"), ("щур", "rat")]
+
+_UKRAINIAN_TRACK = {
+    "script_type": "simple_alphabet",
+    "title": "Read Ukrainian",
+    "units": [
+        {"title": "Ukrainian Cyrillic Basics", "objective": "How Ukrainian Cyrillic works and the vowels", "lessons": [
+            {"title": "How Ukrainian Cyrillic Works", "type": "info",
+             "intro": "Ukrainian uses a Cyrillic alphabet with 33 letters. It looks similar to "
+                      "Russian Cyrillic but has key differences: Г sounds like 'h' (not 'g'), "
+                      "and Ukrainian has unique letters Ґ (g), Є (ye), І (i), Ї (yi) that "
+                      "Russian doesn't have. Russian Ё, Ъ, Ы, Э don't exist in Ukrainian."},
+            {"title": "Vowels А Е Є И І Ї О У Ю Я", "type": "graphemes", "graphemes": _UK_VOWELS,
+             "intro": "Ten vowel letters. Note: И sounds like 'y' (short 'i'), while І sounds like "
+                      "'ee'. Є and Ї are unique to Ukrainian."},
+        ]},
+        {"title": "Common Consonants", "objective": "Core consonants and first words", "lessons": [
+            {"title": "Consonants Б В Г Ґ Д К Л М Н П Р С Т", "type": "graphemes", "graphemes": _UK_CONS_1,
+             "intro": "Important: Г = 'h' in Ukrainian (not 'g' as in Russian). For the 'g' sound, "
+                      "Ukrainian uses the unique letter Ґ."},
+            {"title": "Your First Words", "type": "words", "words": _UK_WORDS_1},
+            {"title": "More Words", "type": "words", "words": _UK_WORDS_2},
+        ]},
+        {"title": "More Consonants & Signs", "objective": "Remaining consonants and the soft sign", "lessons": [
+            {"title": "Consonants Ж З Х Ц Ч Ш Щ Ф Ь", "type": "graphemes", "graphemes": _UK_CONS_2,
+             "intro": "These include the sibilants (Ж, Ш, Щ), affricates (Ц, Ч), and the soft sign Ь "
+                      "which softens the preceding consonant without adding a sound of its own."},
+            {"title": "Reading Practice", "type": "words", "words": _UK_WORDS_3},
+        ]},
+    ],
+}
+
+FOUNDATIONS["uk"] = _UKRAINIAN_TRACK
+
+
+# ── Thai (th) — tonal engine ─────────────────────────────────────────────────
+# Thai has 5 tones, 44 consonants (in 3 classes), and a complex vowel system.
+# The tone of a syllable is determined by consonant class + vowel length + final
+# consonant + tone mark — but for Foundations we teach the 5 tones by ear first.
+
+_TH_TONE_DEFS = [
+    TN(0, "mid (สามัญ)",     "33"),
+    TN(1, "low (เอก)",       "21"),
+    TN(2, "falling (โท)",    "51"),
+    TN(3, "high (ตรี)",      "45"),
+    TN(4, "rising (จัตวา)",   "315"),
+]
+
+# Minimal pairs: กา (kaa, mid) vs ก่า (kàa, low) vs ก้า (kâa, falling) vs etc.
+# Thai tonal minimal pairs using real words where possible.
+_TH_PAIRS_KAA = [
+    TP("กา",  "kaa",  "กา",  "crow",           0),
+    TP("ข่า",  "khàa", "ข่า",  "galangal",       1),
+    TP("ค้า",  "kháa", "ค้า",  "to trade",       2),
+    TP("ขา",  "khǎa", "ขา",  "leg",            3),
+    TP("คา",  "khaa", "คา",  "to be stuck",    4),
+]
+
+_TH_PAIRS_MAA = [
+    TP("มา",  "maa",  "มา",  "to come",        0),
+    TP("ม่า",  "màa",  "ม่า",  "(low tone)",     1),
+    TP("ม้า",  "máa",  "ม้า",  "horse",          2),
+    TP("หมา", "mǎa",  "หมา", "dog",            3),
+    TP("ม๋า",  "maa",  "ม๋า",  "(rising tone)",  4),
+]
+
+_TH_MID_CONSONANTS = [
+    TI("ก",  "ก",   "gɔɔ",  "ก",  "chicken (ก ไก่)",       "Mid class — determines base mid tone"),
+    TI("จ",  "จ",   "jɔɔ",  "จ",  "plate (จ จาน)",         "Mid class"),
+    TI("ด",  "ด",   "dɔɔ",  "ด",  "child (ด เด็ก)",        "Mid class"),
+    TI("ต",  "ต",   "dtɔɔ", "ต",  "turtle (ต เต่า)",       "Mid class"),
+    TI("บ",  "บ",   "bɔɔ",  "บ",  "leaf (บ ใบไม้)",        "Mid class"),
+    TI("ป",  "ป",   "bpɔɔ", "ป",  "fish (ป ปลา)",          "Mid class"),
+    TI("อ",  "อ",   "ɔɔ",   "อ",  "basin (อ อ่าง)",        "Mid class — silent initial"),
+]
+_TH_HIGH_CONSONANTS = [
+    TI("ข",  "ข",   "khɔɔ", "ข",  "egg (ข ไข่)",           "High class — determines rising tone"),
+    TI("ฉ",  "ฉ",   "chɔɔ", "ฉ",  "cymbals (ฉ ฉิ่ง)",      "High class"),
+    TI("ถ",  "ถ",   "thɔɔ", "ถ",  "bag (ถ ถุง)",           "High class"),
+    TI("ผ",  "ผ",   "phɔɔ", "ผ",  "bee (ผ ผึ้ง)",          "High class"),
+    TI("ฝ",  "ฝ",   "fɔɔ",  "ฝ",  "lid (ฝ ฝา)",           "High class"),
+    TI("ส",  "ส",   "sɔɔ",  "ส",  "tiger (ส เสือ)",        "High class"),
+    TI("ห",  "ห",   "hɔɔ",  "ห",  "box (ห หีบ)",           "High class — also a silent leader"),
+]
+_TH_LOW_CONSONANTS = [
+    TI("ค",  "ค",   "khɔɔ", "ค",  "buffalo (ค ควาย)",      "Low class — determines high tone"),
+    TI("ง",  "ง",   "ngɔɔ", "ง",  "snake (ง งู)",          "Low class — 'ng' at start"),
+    TI("ช",  "ช",   "chɔɔ", "ช",  "elephant (ช ช้าง)",     "Low class"),
+    TI("ท",  "ท",   "thɔɔ", "ท",  "soldier (ท ทหาร)",      "Low class"),
+    TI("น",  "น",   "nɔɔ",  "น",  "mouse (น หนู)",         "Low class"),
+    TI("พ",  "พ",   "phɔɔ", "พ",  "tray (พ พาน)",          "Low class"),
+    TI("ม",  "ม",   "mɔɔ",  "ม",  "horse (ม ม้า)",         "Low class"),
+    TI("ย",  "ย",   "yɔɔ",  "ย",  "giant (ย ยักษ์)",       "Low class"),
+    TI("ร",  "ร",   "rɔɔ",  "ร",  "boat (ร เรือ)",         "Low class"),
+    TI("ล",  "ล",   "lɔɔ",  "ล",  "monkey (ล ลิง)",        "Low class"),
+    TI("ว",  "ว",   "wɔɔ",  "ว",  "ring (ว แหวน)",         "Low class"),
+]
+
+_TH_VOWELS = [
+    TF("กะ",   "a",    "กะ",   "short a",   "-ะ: short 'a' — open and brief"),
+    TF("กา",   "aa",   "กา",   "long a",    "-า: long 'aa' — like 'father'"),
+    TF("กิ",   "i",    "กิ",    "short i",   "-ิ: short 'i' — like 'bit'"),
+    TF("กี",   "ii",   "กี",    "long i",    "-ี: long 'ii' — like 'see'"),
+    TF("กุ",   "u",    "กุ",    "short u",   "-ุ: short 'u' — like 'put'"),
+    TF("กู",   "uu",   "กู",    "long u",    "-ู: long 'uu' — like 'food'"),
+    TF("เก",   "ee",   "เก",   "long e",    "เ-: long 'e' — like 'day'"),
+    TF("แก",   "ae",   "แก",   "long ae",   "แ-: long 'ae' — like 'bad'"),
+    TF("โก",   "oo",   "โก",   "long o",    "โ-: long 'o' — like 'go'"),
+    TF("กอ",   "aw",   "กอ",   "long aw",   "-อ: like 'aw' in 'law'"),
+]
+
+_THAI_TRACK = {
+    "script_type": "tonal",
+    "title": "Thai Sounds",
+    "units": [
+        {"title": "How Thai Sounds Work",
+         "objective": "The Thai writing system and its tonal nature",
+         "lessons": [
+            {"title": "Thai Script & Tones", "type": "info",
+             "intro": (
+                 "Thai has 44 consonants, 28+ vowel forms, and 5 tones. Tones change meaning "
+                 "entirely — the same syllable with a different pitch means a different word.\n\n"
+                 "The 5 tones are: mid (สามัญ), low (เอก), falling (โท), high (ตรี), and rising (จัตวา).\n\n"
+                 "Thai consonants are divided into 3 classes (mid, high, low) which interact with "
+                 "tone marks and vowel length to determine the spoken tone. Vowels are written "
+                 "around consonants — above, below, before, or after. There are no spaces between "
+                 "words in Thai script."
+             )},
+         ]},
+        {"title": "The Five Tones",
+         "objective": "Hear and distinguish all five Thai tones",
+         "lessons": [
+            {"title": "Mid, Low & Falling Tones", "type": "tones",
+             "tone_defs": _TH_TONE_DEFS[:3],
+             "pairs": _TH_PAIRS_KAA[:3],
+             "intro": (
+                 "The first three tones:\n"
+                 "• Mid (สามัญ): stays flat in the middle — กา 'kaa' (crow)\n"
+                 "• Low (เอก): drops down — ข่า 'khàa' (galangal)\n"
+                 "• Falling (โท): starts high, falls — ค้า 'kháa' (to trade)"
+             )},
+            {"title": "High & Rising Tones", "type": "tones",
+             "tone_defs": _TH_TONE_DEFS[3:],
+             "pairs": _TH_PAIRS_KAA[3:] + [_TH_PAIRS_MAA[3], _TH_PAIRS_MAA[4]],
+             "intro": (
+                 "The last two tones:\n"
+                 "• High (ตรี): pitched high — ขา 'khǎa' (leg)\n"
+                 "• Rising (จัตวา): rises from low to high — คา 'khaa' (to be stuck)"
+             )},
+            {"title": "All Five Tones", "type": "tones",
+             "tone_defs": _TH_TONE_DEFS,
+             "pairs": _TH_PAIRS_MAA,
+             "intro": (
+                 "Practice all five tones on the ม (m) initial: "
+                 "มา (come) · ม่า · ม้า (horse) · หมา (dog) · ม๋า. "
+                 "Listen for the overall pitch contour — flat, falling, rising, high, or low."
+             )},
+         ]},
+        {"title": "Consonant Classes",
+         "objective": "The three consonant classes that determine tone",
+         "lessons": [
+            {"title": "Mid Class Consonants", "type": "initials",
+             "initials": _TH_MID_CONSONANTS,
+             "intro": (
+                 "Thai consonants are divided into 3 classes that determine how tone marks "
+                 "affect the syllable's tone. MID class consonants (กจดตบปอ) produce a mid "
+                 "tone by default. Each consonant is traditionally taught with a keyword — "
+                 "e.g. ก ไก่ (chicken)."
+             )},
+            {"title": "High Class Consonants", "type": "initials",
+             "initials": _TH_HIGH_CONSONANTS,
+             "intro": (
+                 "HIGH class consonants produce a rising tone by default (in live syllables). "
+                 "They include aspirated versions of mid-class sounds: ข (kh), ถ (th), ผ (ph). "
+                 "ห is also used as a silent leader to shift low-class consonants to high-class tone rules."
+             )},
+            {"title": "Low Class Consonants", "type": "initials",
+             "initials": _TH_LOW_CONSONANTS,
+             "intro": (
+                 "LOW class consonants produce a mid tone by default in live syllables. "
+                 "This is the largest class and includes common sounds like ค (kh), ง (ng), "
+                 "น (n), ม (m), ร (r), ล (l), ว (w). Note: ง (ng) can start a syllable in Thai."
+             )},
+         ]},
+        {"title": "Key Vowels",
+         "objective": "The most common vowel forms",
+         "lessons": [
+            {"title": "Core Vowels", "type": "finals",
+             "finals": _TH_VOWELS,
+             "intro": (
+                 "Thai vowels wrap around the consonant — they can appear above (-ิ, -ี), "
+                 "below (-ุ, -ู), before (เ-, แ-), after (-า), or a combination. "
+                 "Short and long vowels are distinct: กะ (short a) vs กา (long aa). "
+                 "The consonant ก (g) is used here as the base to demonstrate each vowel."
+             )},
+         ]},
+    ],
+}
+
+FOUNDATIONS["th"] = _THAI_TRACK
+
+
+# ── Hebrew (he) — abjad engine ───────────────────────────────────────────────
+# Hebrew consonant alphabet (22 letters) + optional vowel points (nikkud).
+# Written right-to-left. Five letters have special final (sofit) forms.
+
+_HE_LETTERS_1 = [
+    AL("א", "'", "alef", "א", n="Silent letter — carrier for vowels"),
+    AL("ב", "v", "bet", "ב", n="'v' without dagesh; 'b' with dagesh (בּ)"),
+    AL("ג", "g", "gimel", "ג"),
+    AL("ד", "d", "dalet", "ד"),
+    AL("ה", "h", "he", "ה", n="Light 'h' — often silent at the end of a word"),
+    AL("ו", "v", "vav", "ו", n="'v' as consonant; also used for 'o' and 'u' vowels"),
+    AL("ז", "z", "zayin", "ז"),
+    AL("ח", "ch", "chet", "ח", n="Guttural — like 'ch' in Scottish 'loch'"),
+    AL("ט", "t", "tet", "ט"),
+]
+_HE_LETTERS_2 = [
+    AL("י", "y", "yod", "י", n="'y' as consonant; also used for 'i' vowel"),
+    AL("כ", "kh", "kaf", "כ", n="'kh' without dagesh; 'k' with dagesh (כּ). Final form: ך"),
+    AL("ל", "l", "lamed", "ל"),
+    AL("מ", "m", "mem", "מ", n="Final form: ם"),
+    AL("נ", "n", "nun", "נ", n="Final form: ן"),
+    AL("ס", "s", "samekh", "ס"),
+    AL("ע", "'", "ayin", "ע", n="Guttural — usually silent in modern Hebrew"),
+    AL("פ", "f", "pe", "פ", n="'f' without dagesh; 'p' with dagesh (פּ). Final form: ף"),
+    AL("צ", "ts", "tsadi", "צ", n="Like 'ts' in 'cats'. Final form: ץ"),
+    AL("ק", "k", "qof", "ק"),
+    AL("ר", "r", "resh", "ר", n="Guttural 'r' — similar to French 'r'"),
+    AL("ש", "sh", "shin", "ש", n="'sh' with right dot (שׁ); 's' with left dot (שׂ)"),
+    AL("ת", "t", "tav", "ת"),
+]
+
+# Nikkud (vowel points) — taught as letter-like graphemes for the abjad engine.
+# The `audio` field uses a consonant + vowel syllable so TTS can pronounce it.
+_HE_NIKKUD = [
+    AL("בַ", "a", "patach", "בַ", n="Short 'a' — a horizontal line below the letter"),
+    AL("בָ", "a", "kamatz", "בָ", n="'a' or 'o' — a T-shape below the letter"),
+    AL("בֶ", "e", "segol", "בֶ", n="Short 'e' — three dots in a triangle below"),
+    AL("בֵ", "e", "tsere", "בֵ", n="Long 'e' — two dots side by side below"),
+    AL("בִ", "i", "chirik", "בִ", n="'i' sound — a single dot below"),
+    AL("בֹ", "o", "cholam", "בֹ", n="'o' sound — a dot above the letter"),
+    AL("בֻ", "u", "kubutz", "בֻ", n="'u' sound — three diagonal dots below"),
+    AL("בּ", "b", "dagesh", "בּ", n="A dot inside — hardens the consonant (ב→בּ, כ→כּ, פ→פּ)"),
+]
+
+# Special features — final forms and shin/sin distinction
+_HE_SPECIAL = [
+    AL("ך", "kh", "kaf sofit", "ך", n="Final form of כ — used at the end of a word"),
+    AL("ם", "m", "mem sofit", "ם", n="Final form of מ — a closed square"),
+    AL("ן", "n", "nun sofit", "ן", n="Final form of נ — extends below the line"),
+    AL("ף", "f", "pe sofit", "ף", n="Final form of פ"),
+    AL("ץ", "ts", "tsadi sofit", "ץ", n="Final form of צ"),
+    AL("שׁ", "sh", "shin", "שׁ", n="Dot on the RIGHT = 'sh' sound"),
+    AL("שׂ", "s", "sin", "שׂ", n="Dot on the LEFT = 's' sound"),
+]
+
+_HE_WORDS_1 = [("אב", "father"), ("בת", "daughter"), ("דג", "fish"),
+               ("זהב", "gold"), ("חג", "holiday")]
+_HE_WORDS_2 = [("ילד", "boy"), ("מלך", "king"), ("ספר", "book"),
+               ("קול", "voice"), ("שלום", "peace")]
+_HE_WORDS_3 = [("לחם", "bread"), ("רגל", "foot"), ("תפוז", "orange")]
+
+_HEBREW_TRACK = {
+    "script_type": "abjad",
+    "title": "Read Hebrew",
+    "units": [
+        {"title": "Hebrew Script Basics", "objective": "How the Hebrew alphabet works", "lessons": [
+            {"title": "How Hebrew Works", "type": "info",
+             "intro": "Hebrew is written RIGHT TO LEFT using a 22-letter consonant alphabet. "
+                      "Vowels are represented by optional dots and dashes (nikkud) placed above "
+                      "and below the letters — in everyday text they're usually omitted, and readers "
+                      "infer vowels from context. Five letters have special 'final' forms used at "
+                      "the end of a word (כ→ך, מ→ם, נ→ן, פ→ף, צ→ץ). Letters ב, כ, פ change their "
+                      "sound depending on whether they have a dot (dagesh) inside."},
+            {"title": "Letters א ב ג ד ה ו ז ח ט", "type": "graphemes", "graphemes": _HE_LETTERS_1,
+             "intro": "The first nine letters. א (alef) is silent — it serves as a carrier for vowels. "
+                      "ח (chet) is a guttural sound like 'ch' in 'loch'."},
+        ]},
+        {"title": "Completing the Alphabet", "objective": "The remaining Hebrew letters", "lessons": [
+            {"title": "Letters י כ ל מ נ ס ע פ צ ק ר ש ת", "type": "graphemes", "graphemes": _HE_LETTERS_2,
+             "intro": "The remaining 13 letters. Five have final forms (כ→ך, מ→ם, נ→ן, פ→ף, צ→ץ). "
+                      "ש (shin) makes 'sh' or 's' depending on the position of a dot."},
+            {"title": "First Words", "type": "words", "words": _HE_WORDS_1},
+            {"title": "More Words", "type": "words", "words": _HE_WORDS_2},
+        ]},
+        {"title": "Vowels (Nikkud)", "objective": "The vowel points that appear below and above letters", "lessons": [
+            {"title": "Vowel Points", "type": "graphemes", "graphemes": _HE_NIKKUD,
+             "intro": "Nikkud are dots and dashes placed around letters to indicate vowels. "
+                      "In children's books and religious texts they're written out; in everyday "
+                      "Hebrew they're usually omitted. The dagesh (dot inside) hardens consonants: "
+                      "ב (v) → בּ (b), כ (kh) → כּ (k), פ (f) → פּ (p)."},
+        ]},
+        {"title": "Special Features", "objective": "Final forms and shin/sin distinction", "lessons": [
+            {"title": "Final Forms & Shin/Sin", "type": "graphemes", "graphemes": _HE_SPECIAL,
+             "intro": "Five letters change shape at the end of a word: כ→ך, מ→ם, נ→ן, פ→ף, צ→ץ. "
+                      "The letter ש has two readings: שׁ (shin, 'sh') with the dot on the right, "
+                      "and שׂ (sin, 's') with the dot on the left."},
+            {"title": "Reading Practice", "type": "words", "words": _HE_WORDS_3},
+        ]},
+    ],
+}
+
+FOUNDATIONS["he"] = _HEBREW_TRACK

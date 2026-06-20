@@ -19,7 +19,7 @@ FACES = ("source", "target", "pronunciation")
 # single word no longer shows up three times in the same first session.
 PRIMARY_FACE = "target"
 
-SUPPORTED_LANGS = ("yue", "cmn", "fr", "es", "de", "it", "pt", "tl", "ms", "id", "ko", "hi", "te", "ja", "bn", "ur", "ar", "sw", "ru", "vi", "fa")
+SUPPORTED_LANGS = ("yue", "cmn", "fr", "es", "de", "it", "pt", "tl", "ms", "id", "ko", "hi", "te", "ja", "bn", "ur", "ar", "sw", "ru", "vi", "fa", "tr", "nl", "pl", "sv", "nb", "ro", "uk", "el", "th", "he")
 LOGOGRAPHIC_LANGS = {"yue", "cmn", "ja"}
 
 

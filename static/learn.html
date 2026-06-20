@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
     .learn-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
 
@@ -1771,7 +1771,7 @@
   // Strips parenthetical romanization (which contains tone numbers), markdown markers,
   // and for CJK/Hangul scripts, trailing ASCII text the generator sometimes appends.
   // Languages where we have offline romanizers → ruby annotations make sense.
-  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa']);
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa', 'uk', 'el', 'th', 'he']);
   function needsRuby(lang) { return RUBY_LANGS.has(lang); }
 
   function cleanForTTS(text, lang) {

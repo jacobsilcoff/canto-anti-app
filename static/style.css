@@ -46,6 +46,9 @@
   --bengali-font: 'Noto Sans Bengali', 'Vrinda', sans-serif;
   --arabic-font: 'Noto Naskh Arabic', 'Tahoma', 'Arial', sans-serif;
   --cyrillic-font: 'Noto Sans', 'Segoe UI', 'Arial', sans-serif;
+  --greek-font: 'Noto Sans', 'Segoe UI', sans-serif;
+  --thai-font: 'Noto Sans Thai', 'Tahoma', 'Leelawadee UI', sans-serif;
+  --hebrew-font: 'Noto Sans Hebrew', 'Arial Hebrew', 'Tahoma', sans-serif;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
   --shadow-pop: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
@@ -124,24 +127,26 @@ body {
 .script-bengali { --script-font: var(--bengali-font); }
 .script-arabic { --script-font: var(--arabic-font); }
 .script-cyrillic { --script-font: var(--cyrillic-font); }
+.script-greek { --script-font: var(--greek-font); }
+.script-thai { --script-font: var(--thai-font); }
+.script-hebrew { --script-font: var(--hebrew-font); }
 
 /* RTL scoped to target-language content areas — never the whole page chrome.
-   .script-arabic is set on a container (body on index.html, #flashcard on
-   cards.html, #reader-text on reader.html, etc.), so these selectors only
-   flip the text elements that actually render Arabic/Urdu/Farsi, leaving
-   headers, nav, and buttons in their normal LTR positions. */
-.script-arabic .output-chinese,
-.script-arabic .candidate-target,
-.script-arabic .is-chinese,
-.script-arabic .chinese,
-.script-arabic .answer-value.chinese,
-.script-arabic .sentence,
-.script-arabic .bubble-reply,
-.script-arabic .corr-form,
-.script-arabic .new-item-word,
-.script-arabic .teach-target,
-.script-arabic .tb-prose,
-.script-arabic .ex-prompt { direction: rtl; text-align: right; }
+   .script-arabic/.script-hebrew is set on a container, so these selectors
+   only flip elements that actually render RTL text, leaving headers, nav,
+   and buttons in their normal LTR positions. */
+.script-arabic .output-chinese, .script-hebrew .output-chinese,
+.script-arabic .candidate-target, .script-hebrew .candidate-target,
+.script-arabic .is-chinese, .script-hebrew .is-chinese,
+.script-arabic .chinese, .script-hebrew .chinese,
+.script-arabic .answer-value.chinese, .script-hebrew .answer-value.chinese,
+.script-arabic .sentence, .script-hebrew .sentence,
+.script-arabic .bubble-reply, .script-hebrew .bubble-reply,
+.script-arabic .corr-form, .script-hebrew .corr-form,
+.script-arabic .new-item-word, .script-hebrew .new-item-word,
+.script-arabic .teach-target, .script-hebrew .teach-target,
+.script-arabic .tb-prose, .script-hebrew .tb-prose,
+.script-arabic .ex-prompt, .script-hebrew .ex-prompt { direction: rtl; text-align: right; }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 header {

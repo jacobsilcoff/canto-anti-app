@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
     /* ── Page layout ── */
     body { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; min-height: 0; overflow: hidden;
@@ -629,7 +629,7 @@
   const _msgVocab = {};  // msgId → [{target_text, english, romanization}] for "Add all"
 
   // ── Ruby helpers (same pipeline as tutor.html) ────────────────────────────
-  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa']);
+  const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te', 'ja', 'bn', 'ur', 'ar', 'ru', 'fa', 'uk', 'el', 'th', 'he']);
   function needsRuby(l) { return RUBY_LANGS.has(l); }
   let rubyDefault = localStorage.getItem('msg_ruby_inline') !== '0';
 
