@@ -2066,6 +2066,10 @@
     }
     loadSession(_params.get('study') === '1' ? 'all' : 'due');
   })();
+
+  document.addEventListener('langchange', function () {
+    loadSession('due');
+  });
 </script>
 <div class="xp-pop" id="xp-pop"></div>
 </body>

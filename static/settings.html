@@ -1281,6 +1281,10 @@
   }
 
   init();
+  document.addEventListener('langchange', function (e) {
+    var sel = document.getElementById('settings-default-lang');
+    if (sel && e.detail && e.detail.code) { sel.value = e.detail.code; renderLangDetail(); }
+  });
 </script>
 <p style="text-align:center;font-size:0.72rem;color:var(--text-muted,#888);padding:16px 0 32px;margin:0">
   v{{ASSET_VERSION}}

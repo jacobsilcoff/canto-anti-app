@@ -643,6 +643,10 @@
     await loadLanguages();
     await Promise.all([loadSettings(), loadDueCount(), loadLabels(), loadStreak()]);
   })();
+
+  document.addEventListener('langchange', function () {
+    loadSettings(); loadDueCount();
+  });
 </script>
 </body>
 </html>

@@ -408,13 +408,13 @@ _LANG_WIDGET = """
 
     langs.forEach(function (l) {
       var opt = document.createElement('div');
-      var isCurrent = l.code === currentCode;
+      opt.dataset.code = l.code;
       opt.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:0.85em;border-radius:6px;'
         + 'font-weight:500;display:flex;align-items:center;gap:8px;break-inside:avoid;'
-        + 'color:' + (isCurrent ? 'var(--primary)' : 'var(--text)') + ';';
+        + 'color:' + (l.code === currentCode ? 'var(--primary)' : 'var(--text)') + ';';
       var check = document.createElement('span');
       check.style.cssText = 'width:14px;font-size:0.8em;flex-shrink:0;';
-      check.textContent = isCurrent ? '✓' : '';
+      check.textContent = l.code === currentCode ? '✓' : '';
       opt.appendChild(check);
       var lbl = document.createElement('span');
       lbl.textContent = (l.flag ? l.flag + ' ' : '') + l.name;
@@ -423,7 +423,7 @@ _LANG_WIDGET = """
       opt.addEventListener('mouseleave', function () { opt.style.background = ''; });
       opt.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (isCurrent) { dd.style.display = 'none'; return; }
+        if (l.code === currentCode) { dd.style.display = 'none'; return; }
         opt.style.opacity = '0.5';
         opt.style.pointerEvents = 'none';
         pill.style.pointerEvents = 'none';
@@ -431,7 +431,24 @@ _LANG_WIDGET = """
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ default_target_lang: l.code }),
-        }).then(function () { location.reload(); }).catch(function () {
+        }).then(function () {
+          flagSpan.textContent = l.flag || '🌐';
+          nameSpan.textContent = l.name;
+          dd.style.display = 'none';
+          // Update checkmarks and highlight
+          var opts = dd.querySelectorAll('[data-code]');
+          for (var i = 0; i < opts.length; i++) {
+            opts[i].querySelector('span').textContent = '';
+            opts[i].style.color = 'var(--text)';
+          }
+          check.textContent = '✓';
+          opt.style.color = 'var(--primary)';
+          opt.style.opacity = '';
+          opt.style.pointerEvents = '';
+          pill.style.pointerEvents = '';
+          currentCode = l.code;
+          document.dispatchEvent(new CustomEvent('langchange', { detail: { code: l.code, lang: l } }));
+        }).catch(function () {
           opt.style.opacity = ''; opt.style.pointerEvents = '';
           pill.style.pointerEvents = '';
         });

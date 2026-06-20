@@ -1827,6 +1827,7 @@
   }
 
   init();
+  document.addEventListener('langchange', function () { init(); });
 
   let _resizeTimer;
   window.addEventListener('resize', () => {
