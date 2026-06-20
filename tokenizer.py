@@ -114,6 +114,19 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
         except Exception:
             pass
         return result
+    if lang == "ja":
+        try:
+            import pykakasi
+            kks = pykakasi.kakasi()
+            for word in words:
+                if word not in result:
+                    items = kks.convert(word)
+                    rom = "".join(item["hepburn"] for item in items)
+                    if rom:
+                        result[word] = rom
+        except Exception:
+            pass
+        return result
     if lang == "yue":
         try:
             import pycantonese
@@ -188,9 +201,10 @@ def _tokenize_cjk(text: str, lang: str) -> list[Token]:
             pass
     elif lang == "ja":
         try:
-            import fugashi
-            tagger = fugashi.Tagger()
-            words = [w.surface for w in tagger(text)]
+            import pykakasi
+            kks = pykakasi.kakasi()
+            items = kks.convert(text)
+            words = [item["orig"] for item in items]
             return _words_to_tokens(words)
         except Exception:
             pass
