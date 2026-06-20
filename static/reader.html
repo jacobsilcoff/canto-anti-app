@@ -1194,12 +1194,10 @@
     if (!sentences.length) { pageBreaks = [0]; return; }
     const container = document.getElementById('reader-text');
     const nav = document.getElementById('page-nav');
-    const navH = nav ? nav.offsetHeight : 50;
-    const readerView = document.getElementById('reader-view');
-    const readerRect = readerView.getBoundingClientRect();
-    const textRect = container.getBoundingClientRect();
-    const chromeBefore = textRect.top - readerRect.top;
-    const availH = window.innerHeight - chromeBefore - navH - 24;
+    nav.style.display = '';
+    const navH = nav.offsetHeight + 20;
+    const panel = document.getElementById('sentence-panel');
+    const panelH = panel ? panel.offsetHeight : 0;
 
     container.style.visibility = 'hidden';
     container.innerHTML = '';
@@ -1213,6 +1211,9 @@
     }
     container.innerHTML = '';
     container.style.visibility = '';
+
+    const textTop = container.getBoundingClientRect().top;
+    const availH = window.innerHeight - textTop - navH - 8;
 
     pageBreaks = [0];
     let cumH = 0;
