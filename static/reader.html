@@ -1271,9 +1271,14 @@
       while (i + added < sentences.length) {
         const el = _buildSentenceEl(sentences[i + added], i + added);
         container.appendChild(el);
+        if (!el.classList.contains('reader-heading')) {
+          container.appendChild(document.createTextNode(' '));
+        }
         pageH = container.scrollHeight;
         if (pageH > availH && added > 0) {
           container.removeChild(el);
+          // also remove the trailing space node we just added
+          if (container.lastChild && container.lastChild.nodeType === 3) container.removeChild(container.lastChild);
           break;
         }
         added++;
@@ -1383,6 +1388,9 @@
         el.addEventListener('pointerleave', () => clearTimeout(pressTimer));
       });
       container.appendChild(sentEl);
+      if (!sentEl.classList.contains('reader-heading')) {
+        container.appendChild(document.createTextNode(' '));
+      }
     });
   }
 
