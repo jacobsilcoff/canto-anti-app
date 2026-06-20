@@ -3782,8 +3782,24 @@ async def _reading_from_source(
     if not text:
         raise HTTPException(400, "Couldn't extract any readable text.")
     segments = None  # [{target, english}] when translated
-    if in_target_language:
+    simplify = difficulty and difficulty != "original"
+    if in_target_language and not simplify:
         content = text[:extract.MAX_TEXT_CHARS]
+        final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
+    elif in_target_language and simplify:
+        access = await _resolve_gemini(user)
+        try:
+            result = await translation.simplify_article(
+                text, target_lang, difficulty,
+                api_key=access.api_key, model=access.model_reader,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("simplify_article failed")
+            raise HTTPException(502, f"Couldn't simplify the article: {exc}")
+        segments = result["segments"]
+        content = "\n".join(seg["target"] for seg in segments)
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
     else:
         access = await _resolve_gemini(user)
@@ -3791,6 +3807,7 @@ async def _reading_from_source(
             result = await translation.translate_article_to_reading(
                 text, target_lang,
                 api_key=access.api_key, model=access.model_reader,
+                difficulty=difficulty if simplify else "",
             )
         except HTTPException:
             raise

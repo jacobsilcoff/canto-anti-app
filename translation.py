@@ -810,6 +810,7 @@ async def translate_article_to_reading(
     api_key: str,
     model: str = DEFAULT_MODEL,
     batch_size: int = 20,
+    difficulty: str = "",
 ) -> dict:
     """Faithfully translate a source text (fetched article / PDF), sentence by
     sentence, into the target language for the reader.
@@ -848,6 +849,13 @@ async def translate_article_to_reading(
             return str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
         return ""
 
+    diff_instr = _DIFFICULTY_INSTRUCTIONS.get(difficulty, "") if difficulty else ""
+    adapt_line = (
+        f"\nADAPT the language to this level (simplify vocabulary and grammar as needed, "
+        f"but keep the MEANING of each sentence):\n{diff_instr}\n"
+        if diff_instr else ""
+    )
+
     async def _translate_chunk(chunk: list[str]) -> list[str]:
         """Return exactly len(chunk) translations, positionally aligned."""
         numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(chunk))
@@ -857,6 +865,7 @@ async def translate_article_to_reading(
             "reorder, add, or omit. Output the translations IN THE SAME ORDER, "
             "exactly ONE per input sentence (same count). Even a heading or fragment "
             "gets its own translation.\n"
+            f"{adapt_line}"
             "Native script only (no romanisation), except proper nouns/brand names.\n"
             f"Rules:\n{rules}\n"
             'Return ONLY a JSON array of strings, e.g. ["译文1", "译文2"], same length '
@@ -904,6 +913,102 @@ async def translate_article_to_reading(
     logger.info(
         "article import (%s): %d source sentences → %d translated",
         target_lang, len(src_sents), len(segments),
+    )
+    return {"segments": segments}
+
+
+async def simplify_article(
+    source_text: str,
+    target_lang: str,
+    difficulty: str,
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+    batch_size: int = 20,
+) -> dict:
+    """Rewrite text that is ALREADY in the target language at a given CEFR level.
+
+    Same sentence-by-sentence alignment contract as translate_article_to_reading:
+    returns ``{segments: [{target, english}]}`` where ``english`` is the ORIGINAL
+    sentence and ``target`` is the simplified version.  If no simplification is
+    needed (C2 or unrecognised level) it passes through verbatim.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info["name"]
+    diff_instr = _DIFFICULTY_INSTRUCTIONS.get(difficulty, "")
+    if not diff_instr:
+        src_sents = _split_source_sentences((source_text or "")[:12_000])
+        return {"segments": [{"target": s, "english": ""} for s in src_sents]}
+
+    _roman_kw = ("romanis", "transliterat", "pinyin", "jyutping", "romaja", "iast")
+    rules = "\n".join(
+        line for line in info["rules"].splitlines()
+        if not any(kw in line.lower() for kw in _roman_kw)
+    )
+
+    src_sents = _split_source_sentences((source_text or "")[:12_000])
+    if not src_sents:
+        raise ValueError("No source text to simplify")
+
+    sem = asyncio.Semaphore(3)
+
+    def _as_target(x) -> str:
+        if isinstance(x, str):
+            return x.strip().replace("\n", " ")
+        if isinstance(x, dict):
+            return str(x.get("target") or x.get("text") or "").strip().replace("\n", " ")
+        return ""
+
+    async def _simplify_chunk(chunk: list[str]) -> list[str]:
+        numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(chunk))
+        prompt = (
+            f"Rewrite each numbered {name} sentence below at a simpler level.\n"
+            f"Keep the MEANING of each sentence but adapt the vocabulary and grammar:\n"
+            f"{diff_instr}\n"
+            "Do NOT merge, split, or omit sentences. Output exactly ONE rewritten "
+            "sentence per input, IN THE SAME ORDER.\n"
+            "Native script only (no romanisation).\n"
+            f"Rules:\n{rules}\n"
+            'Return ONLY a JSON array of strings, same length and order as input.\n\n'
+            f"Sentences:\n{numbered}"
+        )
+        try:
+            async with sem:
+                raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except Exception:
+            raw = None
+        if isinstance(raw, list) and len(raw) == len(chunk):
+            return [_as_target(x) for x in raw]
+        if len(chunk) > 1:
+            mid = len(chunk) // 2
+            left, right = await asyncio.gather(
+                _simplify_chunk(chunk[:mid]), _simplify_chunk(chunk[mid:])
+            )
+            return left + right
+        try:
+            async with sem:
+                single = await asyncio.to_thread(lambda: _parse_json(_call(
+                    f"Rewrite this {name} sentence at a simpler level ({difficulty}). "
+                    f"Keep the meaning. Native script only.\n"
+                    f'Return ONLY JSON: {{"target": "..."}}\n\n'
+                    f"Sentence: {chunk[0]}", api_key, model)))
+            return [_as_target((single or {}).get("target", ""))]
+        except Exception:
+            return [chunk[0]]
+
+    chunks = [src_sents[i:i + batch_size] for i in range(0, len(src_sents), batch_size)]
+    results = await asyncio.gather(*[_simplify_chunk(c) for c in chunks])
+    targets = [t for r in results for t in r]
+
+    segments = [
+        {"target": tgt or src, "english": src}
+        for src, tgt in zip(src_sents, targets)
+    ]
+    logger.info(
+        "article simplify (%s, %s): %d sentences",
+        target_lang, difficulty, len(segments),
     )
     return {"segments": segments}
 

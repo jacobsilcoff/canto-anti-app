@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 7;
+  var TOUR_VERSION = 8;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -25,6 +25,8 @@
       body: 'Each label in Browse has a Populate button that suggests vocab for that category — tag words already in your deck or add brand-new ones in one tap.', v: 6 },
     { icon: '🔗', title: 'Read real articles & PDFs',
       body: 'In the Reader, paste a news article URL or upload a PDF to turn it into a reading. If it\'s already in your target language, tick the box to import it as-is; otherwise it\'s translated to your level.', v: 7 },
+    { icon: '📊', title: 'Simplify imports to your level',
+      body: 'URL and PDF imports now have a Level selector. Pick a CEFR level (A1-C2) to simplify the text to your level, or keep "Keep original" for the full authentic text.', v: 8 },
   ];
 
   var steps, stepIdx;

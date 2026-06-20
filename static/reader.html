@@ -326,10 +326,23 @@
         <input type="url" id="gen-url-input" class="gen-url-input" placeholder="Paste an article URL">
         <label class="gen-intarget">
           <input type="checkbox" id="gen-url-intarget">
-          <span>This is already in my target language — import as-is (no AI rewrite)</span>
+          <span>This is already in my target language</span>
         </label>
         <div class="gen-bottom-row">
-          <div class="gen-import-hint">We'll pull out the main text and turn it into a reading.</div>
+          <div class="gen-options">
+            <div class="gen-option-group">
+              <div class="gen-option-label">Level</div>
+              <select id="gen-url-difficulty" class="settings-select">
+                <option value="original" selected>Keep original</option>
+                <option value="A1">A1 · Beginner</option>
+                <option value="A2">A2 · Elementary</option>
+                <option value="B1">B1 · Intermediate</option>
+                <option value="B2">B2 · Upper Int.</option>
+                <option value="C1">C1 · Advanced</option>
+                <option value="C2">C2 · Mastery</option>
+              </select>
+            </div>
+          </div>
           <button class="gen-submit-btn" onclick="generate()">Import</button>
         </div>
       </div>
@@ -344,10 +357,23 @@
         </div>
         <label class="gen-intarget">
           <input type="checkbox" id="gen-pdf-intarget">
-          <span>This is already in my target language — import as-is (no AI rewrite)</span>
+          <span>This is already in my target language</span>
         </label>
         <div class="gen-bottom-row">
-          <div class="gen-import-hint">Text-based PDFs only (not scanned images).</div>
+          <div class="gen-options">
+            <div class="gen-option-group">
+              <div class="gen-option-label">Level</div>
+              <select id="gen-pdf-difficulty" class="settings-select">
+                <option value="original" selected>Keep original</option>
+                <option value="A1">A1 · Beginner</option>
+                <option value="A2">A2 · Elementary</option>
+                <option value="B1">B1 · Intermediate</option>
+                <option value="B2">B2 · Upper Int.</option>
+                <option value="C1">C1 · Advanced</option>
+                <option value="C2">C2 · Mastery</option>
+              </select>
+            </div>
+          </div>
           <button class="gen-submit-btn" onclick="generate()">Import</button>
         </div>
       </div>
@@ -721,20 +747,20 @@
     try {
       let res;
       if (genMode === 'pdf') {
-        // PDF import — no length/difficulty controls; difficulty defaults server-side.
         const fd = new FormData();
         fd.append('file', pdfFile);
         fd.append('target_lang', selectedLang);
+        fd.append('difficulty', document.getElementById('gen-pdf-difficulty').value);
         fd.append('in_target_language', document.getElementById('gen-pdf-intarget').checked ? 'true' : 'false');
         res = await fetch('/api/reader/generate-from-pdf', { method: 'POST', body: fd });
       } else if (genMode === 'url') {
-        // URL import — no length/difficulty controls.
         res = await fetch('/api/reader/generate-from-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             url: urlVal,
             target_lang: selectedLang,
+            difficulty: document.getElementById('gen-url-difficulty').value,
             in_target_language: document.getElementById('gen-url-intarget').checked,
           }),
         });
