@@ -3753,7 +3753,7 @@ async def _reading_from_source(
     text = (text or "").strip()
     if not text:
         raise HTTPException(400, "Couldn't extract any readable text.")
-    pieces: list[tuple[str, str]] = []  # (target_sentence, original_english) for the translate path
+    segments = None  # [{target, english}] when translated
     if in_target_language:
         content = text[:extract.MAX_TEXT_CHARS]
         final_title = (title or "").strip() or (content.split("\n", 1)[0][:60]) or "Imported reading"
@@ -3769,26 +3769,42 @@ async def _reading_from_source(
         except Exception as exc:
             logger.exception("translate_article_to_reading failed")
             raise HTTPException(502, f"Couldn't translate the article: {exc}")
-        # Build the body + per-sentence English so they're aligned BY CONSTRUCTION:
-        # split each translated sentence the same way the reader will, and carry the
-        # source English onto each resulting piece. Joining single sentences with
-        # newlines means tokenizer.split_sentences(content) reproduces this exact
-        # list, so reader sentence i ↔ pieces[i] ↔ the right original sentence.
-        for seg in result["segments"]:
-            subs = tokenizer.split_sentences(tokenizer.tokenize(seg["target"], target_lang)) or [seg["target"]]
-            for sub in subs:
-                pieces.append((sub, seg["english"]))
-        content = "\n".join(p[0] for p in pieces)
+        segments = result["segments"]
+        # One source sentence = one line in content. No sub-splitting — if the
+        # translated text has internal punctuation the reader may split it into
+        # multiple display sentences, but they all map to the same source English.
+        content = "\n".join(seg["target"] for seg in segments)
         final_title = (title or "").strip() or "Imported reading"
     text_id = await db.create_reader_text(
         user["id"], final_title[:120], stored_prompt, content, target_lang,
         difficulty=difficulty,
     )
-    # Pre-store the original English per sentence so the reader shows the source
-    # verbatim (no target→English round-trip). Aligned by construction (above).
-    for i, (tgt, eng) in enumerate(pieces):
-        if eng:
-            await db.upsert_reader_sentence(text_id, i, tgt, eng, None, None)
+    # Pre-store the original English for every reader sentence.  The reader will
+    # re-tokenize and split_sentences on the stored content — which may produce
+    # more sentences than source segments (internal 。 etc).  Map each back to
+    # the source segment it came from by tracking cumulative character offsets.
+    if segments:
+        seg_boundaries: list[tuple[int, int, str]] = []   # (char_start, char_end, english)
+        pos = 0
+        for seg in segments:
+            end = pos + len(seg["target"])
+            seg_boundaries.append((pos, end, seg["english"]))
+            pos = end + 1          # +1 for the \n separator
+        reader_sents = tokenizer.split_sentences(
+            tokenizer.tokenize(content, target_lang)
+        )
+        sent_pos = 0
+        for i, sent_text in enumerate(reader_sents):
+            idx = content.find(sent_text, sent_pos)
+            if idx == -1:
+                idx = sent_pos
+            eng = ""
+            for s_start, s_end, s_eng in seg_boundaries:
+                if idx < s_end and idx + len(sent_text) > s_start:
+                    eng = s_eng
+                    break
+            await db.upsert_reader_sentence(text_id, i, sent_text, eng or None, None, None)
+            sent_pos = idx + len(sent_text)
     saved = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], saved)
 
