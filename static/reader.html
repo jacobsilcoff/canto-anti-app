@@ -818,6 +818,7 @@
     if (data.image_url) {
       imgBanner.src = data.image_url;
       imgBanner.style.display = '';
+      imgBanner.onload = () => { computePageBreaks(); renderPage(currentPage); };
     } else {
       imgBanner.style.display = 'none';
     }
