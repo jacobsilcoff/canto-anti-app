@@ -316,7 +316,15 @@
       padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
     .trans-explain { color: var(--text); margin-bottom: 8px; line-height: 1.5; font-size: 0.84rem; }
     .trans-vocab-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 6px; }
+      letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between; }
+    .trans-vocab-addall { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary);
+      border-radius: 8px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: background 0.12s; text-transform: none;
+      letter-spacing: 0; }
+    .trans-vocab-addall:hover { background: var(--primary); color: #fff; }
+    .trans-vocab-addall.added { background: var(--good-soft); color: var(--good-strong);
+      border-color: var(--good-soft); cursor: default; }
     .trans-vocab-item { display: flex; align-items: center; gap: 8px; padding: 6px 0;
       border-bottom: 1px solid var(--border); }
     .trans-vocab-item:last-child { border-bottom: none; }
@@ -585,6 +593,7 @@
   let _pollTimer = null;
   let _lastMsgId = 0;
   const _wordStatusCache = {};  // word → 'known'|'weak' (populated by preload; absent = unknown)
+  const _msgVocab = {};  // msgId → [{target_text, english, romanization}] for "Add all"
 
   // ── Ruby helpers (same pipeline as tutor.html) ────────────────────────────
   const RUBY_LANGS = new Set(['yue', 'cmn', 'ko', 'hi', 'te']);
@@ -991,6 +1000,7 @@
 
     // Translation breakdown panel: when user typed English and it was auto-translated
     const vocab = analysis.vocab || [];
+    if (vocab.length) _msgVocab[m.id] = vocab;
     const explanation = analysis.explanation || '';
     const translationFailed = !!(analysis.translation_failed);
     const isTranslated = mine && !isSending && hasDiff && m.original_lang === 'en';
@@ -1012,7 +1022,7 @@
         <div class="trans-body">
           <div class="trans-orig">"${esc(m.original_text)}"</div>
           ${explanation ? `<div class="trans-explain">${esc(explanation)}${nuanceNote ? ` <em>${esc(nuanceNote)}</em>` : ''}</div>` : ''}
-          ${vocab.length ? `<div class="trans-vocab-title">Words to learn</div>
+          ${vocab.length ? `<div class="trans-vocab-title">Words to learn <button class="trans-vocab-addall" data-msg-id="${m.id}">＋ Add all</button></div>
             ${vocab.map(v => `<div class="trans-vocab-item">
               <button class="trans-vocab-speak" data-speak="${esc(v.target_text)}" title="Listen">🔊</button>
               <span class="trans-vocab-word">${needsRuby(_targetLang) ? rbSpan(v.target_text) : esc(v.target_text)}</span>
@@ -1219,6 +1229,9 @@
     // Translation retry button
     const retryBtn = e.target.closest('.trans-retry-btn[data-msg-id]');
     if (retryBtn && !retryBtn.disabled) { retryTranslation(retryBtn); return; }
+    // Translation vocab "Add all" button
+    const vocabAddAll = e.target.closest('.trans-vocab-addall[data-msg-id]');
+    if (vocabAddAll && !vocabAddAll.classList.contains('added')) { addAllTransVocab(vocabAddAll); return; }
     // Translation vocab "Add" button
     const vocabAdd = e.target.closest('.trans-vocab-add[data-target]');
     if (vocabAdd && !vocabAdd.classList.contains('added')) { addTransVocab(vocabAdd); return; }
@@ -1256,6 +1269,45 @@
     }
   }
 
+  async function addAllTransVocab(btn) {
+    const msgId = btn.dataset.msgId;
+    const vocab = _msgVocab[msgId];
+    if (!vocab || !vocab.length) return;
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    const panel = document.getElementById(`tpanel-${msgId}`);
+    const itemBtns = panel ? panel.querySelectorAll('.trans-vocab-add') : [];
+    let added = 0, dupes = 0, failed = 0;
+    for (let i = 0; i < vocab.length; i++) {
+      const v = vocab[i];
+      const itemBtn = itemBtns[i];
+      if (itemBtn?.classList.contains('added')) { dupes++; continue; }
+      try {
+        const res = await fetch('/api/cards', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_text: v.english, target_text: v.target_text,
+            romanization: v.romanization || '', target_lang: _targetLang,
+            notes: 'From chat translation', priority: 3,
+          }),
+        });
+        if (!res.ok && res.status !== 409) { failed++; continue; }
+        if (itemBtn) {
+          itemBtn.textContent = res.status === 409 ? 'In deck' : '✓ Added';
+          itemBtn.classList.add('added');
+        }
+        if (res.status === 409) dupes++; else added++;
+      } catch { failed++; }
+    }
+    btn.textContent = '✓ All added';
+    btn.classList.add('added');
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (dupes) parts.push(`${dupes} already in deck`);
+    if (failed) parts.push(`${failed} failed`);
+    showToast(parts.join(', '));
+  }
+
   async function retryTranslation(btn) {
     const msgId = btn.dataset.msgId;
     btn.disabled = true;
@@ -1277,6 +1329,7 @@
       const panel = document.getElementById(`tpanel-${msgId}`);
       if (panel) {
         const vocab = data.analysis?.vocab || [];
+        if (vocab.length) _msgVocab[msgId] = vocab;
         const explanation = data.analysis?.explanation || '';
         const nuanceNote = data.analysis?.nuance_note || '';
         const origText = bwrap.querySelector('.msg-bubble')?.textContent || '';
@@ -1288,7 +1341,7 @@
           </button>
           <div class="trans-body">
             ${explanation ? `<div class="trans-explain">${esc(explanation)}${nuanceNote ? ` <em>${esc(nuanceNote)}</em>` : ''}</div>` : ''}
-            ${vocab.length ? `<div class="trans-vocab-title">Words to learn</div>
+            ${vocab.length ? `<div class="trans-vocab-title">Words to learn <button class="trans-vocab-addall" data-msg-id="${msgId}">＋ Add all</button></div>
               ${vocab.map(v => `<div class="trans-vocab-item">
                 <button class="trans-vocab-speak" data-speak="${esc(v.target_text)}" title="Listen">🔊</button>
                 <span class="trans-vocab-word">${needsRuby(_targetLang) ? rbSpan(v.target_text) : esc(v.target_text)}</span>
