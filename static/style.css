@@ -122,8 +122,26 @@ body {
 .script-chinese { --script-font: var(--chinese-font); }
 .script-japanese { --script-font: var(--japanese-font); }
 .script-bengali { --script-font: var(--bengali-font); }
-.script-arabic { --script-font: var(--arabic-font); direction: rtl; }
+.script-arabic { --script-font: var(--arabic-font); }
 .script-cyrillic { --script-font: var(--cyrillic-font); }
+
+/* RTL scoped to target-language content areas — never the whole page chrome.
+   .script-arabic is set on a container (body on index.html, #flashcard on
+   cards.html, #reader-text on reader.html, etc.), so these selectors only
+   flip the text elements that actually render Arabic/Urdu/Farsi, leaving
+   headers, nav, and buttons in their normal LTR positions. */
+.script-arabic .output-chinese,
+.script-arabic .candidate-target,
+.script-arabic .is-chinese,
+.script-arabic .chinese,
+.script-arabic .answer-value.chinese,
+.script-arabic .sentence,
+.script-arabic .bubble-reply,
+.script-arabic .corr-form,
+.script-arabic .new-item-word,
+.script-arabic .teach-target,
+.script-arabic .tb-prose,
+.script-arabic .ex-prompt { direction: rtl; text-align: right; }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 header {

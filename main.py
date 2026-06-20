@@ -421,14 +421,20 @@ _LANG_WIDGET = """
       opt.appendChild(lbl);
       opt.addEventListener('mouseenter', function () { opt.style.background = 'var(--bg)'; });
       opt.addEventListener('mouseleave', function () { opt.style.background = ''; });
-      opt.addEventListener('click', function () {
+      opt.addEventListener('click', function (e) {
+        e.stopPropagation();
         if (isCurrent) { dd.style.display = 'none'; return; }
         opt.style.opacity = '0.5';
+        opt.style.pointerEvents = 'none';
+        pill.style.pointerEvents = 'none';
         fetch('/api/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ default_target_lang: l.code }),
-        }).then(function () { location.reload(); }).catch(function () { opt.style.opacity = ''; });
+        }).then(function () { location.reload(); }).catch(function () {
+          opt.style.opacity = ''; opt.style.pointerEvents = '';
+          pill.style.pointerEvents = '';
+        });
       });
       dd.appendChild(opt);
     });
