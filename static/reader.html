@@ -1196,38 +1196,35 @@
     const nav = document.getElementById('page-nav');
     nav.style.display = '';
     const navH = nav.offsetHeight + 20;
-
-    // Lay out ALL sentences together so inline wrapping is real, then read each
-    // sentence's actual top/bottom. Sentences are inline spans that share lines,
-    // so summing individual offsetHeights double-counts shared lines — we must
-    // use laid-out positions instead.
-    container.style.visibility = 'hidden';
-    container.innerHTML = '';
-    for (let i = 0; i < sentences.length; i++) {
-      container.appendChild(_buildSentenceEl(sentences[i], i));
-    }
-    const tops = [];
-    const bottoms = [];
-    for (let i = 0; i < container.children.length; i++) {
-      const c = container.children[i];
-      tops.push(c.offsetTop);
-      bottoms.push(c.offsetTop + c.offsetHeight);
-    }
     const containerTop = container.getBoundingClientRect().top;
-    container.innerHTML = '';
-    container.style.visibility = '';
-
     const availH = window.innerHeight - containerTop - navH - 8;
 
+    // Simulate actual page rendering: each page starts with an empty container
+    // and adds sentences until the next one would overflow. This matches what
+    // renderReader does (only the page's sentences in the container), so inline
+    // wrapping is measured accurately.
+    container.style.visibility = 'hidden';
     pageBreaks = [0];
-    let pageTop = tops[0];
-    for (let i = 1; i < sentences.length; i++) {
-      // Break before sentence i if including it would overflow the page.
-      if (bottoms[i] - pageTop > availH) {
-        pageBreaks.push(i);
-        pageTop = tops[i];
+    let i = 0;
+    while (i < sentences.length) {
+      container.innerHTML = '';
+      let pageH = 0;
+      let added = 0;
+      while (i + added < sentences.length) {
+        const el = _buildSentenceEl(sentences[i + added], i + added);
+        container.appendChild(el);
+        pageH = container.scrollHeight;
+        if (pageH > availH && added > 0) {
+          container.removeChild(el);
+          break;
+        }
+        added++;
       }
+      i += added;
+      if (i < sentences.length) pageBreaks.push(i);
     }
+    container.innerHTML = '';
+    container.style.visibility = '';
   }
 
   function _totalPages() { return pageBreaks.length; }
