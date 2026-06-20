@@ -1070,7 +1070,7 @@ async def _gate_phrases(db, user_id: int, faces: list[dict]) -> list[dict]:
 
 async def get_study_session(
     user_id: int,
-    label_id: int | None = None,
+    label_ids: list[int] | None = None,
     target_lang: str | None = None,
 ) -> dict:
     """Return due reviews + new cards up to the daily cap, with stats."""
@@ -1078,13 +1078,14 @@ async def get_study_session(
 
     extra_filter = ""
     extra_params: tuple = ()
-    if label_id is not None:
-        extra_filter += (
-            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
-            "JOIN labels l ON l.id = cl.label_id "
-            "WHERE cl.label_id=? AND l.user_id=?)"
-        )
-        extra_params += (label_id, user_id)
+    if label_ids:
+        for lid in label_ids:
+            extra_filter += (
+                " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+                "JOIN labels l ON l.id = cl.label_id "
+                "WHERE cl.label_id=? AND l.user_id=?)"
+            )
+            extra_params += (lid, user_id)
     if target_lang is not None:
         extra_filter += " AND c.target_lang = ?"
         extra_params += (target_lang,)
@@ -1195,18 +1196,19 @@ async def get_due_faces(user_id: int, label_id: int | None = None) -> list[dict]
 
 async def get_all_faces(
     user_id: int,
-    label_id: int | None = None,
+    label_ids: list[int] | None = None,
     target_lang: str | None = None,
 ) -> list[dict]:
     extra = ""
     extra_params: tuple = ()
-    if label_id is not None:
-        extra += (
-            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
-            "JOIN labels l ON l.id = cl.label_id "
-            "WHERE cl.label_id=? AND l.user_id=?)"
-        )
-        extra_params += (label_id, user_id)
+    if label_ids:
+        for lid in label_ids:
+            extra += (
+                " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+                "JOIN labels l ON l.id = cl.label_id "
+                "WHERE cl.label_id=? AND l.user_id=?)"
+            )
+            extra_params += (lid, user_id)
     if target_lang is not None:
         extra += " AND c.target_lang = ?"
         extra_params += (target_lang,)
@@ -1272,18 +1274,19 @@ async def get_all_cards(user_id: int) -> list[dict]:
 
 async def get_due_count(
     user_id: int,
-    label_id: int | None = None,
+    label_ids: list[int] | None = None,
     target_lang: str | None = None,
 ) -> int:
     extra = ""
     extra_params: tuple = ()
-    if label_id is not None:
-        extra += (
-            " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
-            "JOIN labels l ON l.id = cl.label_id "
-            "WHERE cl.label_id=? AND l.user_id=?)"
-        )
-        extra_params += (label_id, user_id)
+    if label_ids:
+        for lid in label_ids:
+            extra += (
+                " AND cf.card_id IN (SELECT cl.card_id FROM card_labels cl "
+                "JOIN labels l ON l.id = cl.label_id "
+                "WHERE cl.label_id=? AND l.user_id=?)"
+            )
+            extra_params += (lid, user_id)
     if target_lang is not None:
         extra += " AND c.target_lang = ?"
         extra_params += (target_lang,)
@@ -3696,6 +3699,13 @@ async def list_my_decks(user_id: int) -> list[dict]:
             rows = [dict(r) for r in await cur.fetchall()]
         for r in rows:
             r["is_creator"] = r["creator_id"] == user_id
+            label_name = f"📦 {r['name']}"
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, label_name),
+            ) as cur:
+                lrow = await cur.fetchone()
+                r["import_label_id"] = lrow[0] if lrow else None
         return rows
 
 

@@ -18,6 +18,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
   <script src="/static/label-picker.js"></script>
   <style>
+    .deck-toggle { display: flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 12px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      color: var(--text); transition: all 0.15s; flex-shrink: 0; white-space: nowrap; }
+    .deck-toggle:hover { border-color: var(--primary); color: var(--primary); }
+    .deck-toggle svg { flex-shrink: 0; }
+    .deck-toggle-chevron { font-size: 0.7rem; color: var(--text-muted);
+      transition: transform 0.2s; }
+    .deck-toggle.open .deck-toggle-chevron { transform: rotate(180deg); }
+    .deck-picker { max-width: 600px; margin: 0 auto; width: 100%;
+      padding: 0 16px; }
+    .deck-picker-inner { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+    .deck-pick-row { display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+      transition: background 0.1s; font-size: 0.88rem; }
+    .deck-pick-row:last-child { border-bottom: none; }
+    .deck-pick-row:hover { background: var(--surface-alt); }
+    .deck-pick-row.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+    .deck-pick-name { flex: 1; min-width: 0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .deck-pick-meta { font-size: 0.76rem; color: var(--text-muted); flex-shrink: 0; }
+    .deck-pick-row.active .deck-pick-meta { color: var(--primary); }
+    .deck-pick-check { width: 16px; height: 16px; border: 2px solid var(--border);
+      border-radius: 50%; flex-shrink: 0; display: flex; align-items: center;
+      justify-content: center; }
+    .deck-pick-row.active .deck-pick-check { border-color: var(--primary);
+      background: var(--primary); }
+    .deck-pick-row.active .deck-pick-check::after { content: '';
+      width: 6px; height: 6px; background: #fff; border-radius: 50%; }
     .offline-bar {
       background: var(--hard);
       color: white;
@@ -389,10 +419,15 @@
 <header>{{NAV}}</header>
 
 <div class="filter-bar">
-  <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
-  <button class="filter-manage-btn" onclick="showManageLabels()" title="Manage labels" aria-label="Manage labels">
-    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+  <button class="deck-toggle" id="deck-toggle" onclick="toggleDeckPicker()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+    <span id="deck-toggle-label">All cards</span>
+    <span class="deck-toggle-chevron">▾</span>
   </button>
+  <div id="filter-picker-wrap" style="flex:1;min-width:0"></div>
+</div>
+<div class="deck-picker" id="deck-picker" style="display:none">
+  <div class="deck-picker-inner" id="deck-picker-list"></div>
 </div>
 
 <div class="cards-page" id="state-loading">
@@ -537,21 +572,6 @@
 </div>
 
 
-<div class="modal-overlay" id="labels-overlay" style="display:none" onclick="closeManageLabels(event)">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <h2 style="font-size:1.1rem">Manage Labels</h2>
-      <button class="modal-close" onclick="closeManageLabels()" aria-label="Close">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="manage-labels-create">
-      <input type="text" id="new-label-input" class="edit-input" placeholder="New label name…" maxlength="50">
-      <button class="edit-save-btn" onclick="createLabelFromModal()">Add</button>
-    </div>
-    <div id="labels-manage-list"></div>
-  </div>
-</div>
 
 <div class="toast" id="toast"></div>
 
@@ -586,6 +606,8 @@
   let inlinePicker = null;
   let settings = { new_cards_per_day: 20, default_target_lang: 'yue' };
   let sessionStats = { review_count: 0, new_count: 0, daily_new_used: 0, daily_new_limit: 20 };
+  let _myDecks = [];
+  let _activeDeckId = null;
 
   // ── Language helpers ──────────────────────────────────────────────────────
   function langInfo(code) {
@@ -767,7 +789,15 @@
   }
 
   function filterQuery() {
-    return filterLabelId ? `?label_id=${filterLabelId}` : '';
+    const ids = [];
+    const deckLabel = _activeDeckId
+      ? (_myDecks.find(d => d.id === _activeDeckId) || {}).import_label_id
+      : null;
+    if (deckLabel) ids.push(deckLabel);
+    if (filterLabelId && filterLabelId !== deckLabel) ids.push(filterLabelId);
+    if (!ids.length) return '';
+    if (ids.length === 1) return `?label_id=${ids[0]}`;
+    return `?label_ids=${ids.join(',')}`;
   }
 
   // ── Priority dots ─────────────────────────────────────────────────────────
@@ -842,7 +872,7 @@
             daily_new_used: data.daily_new_used || 0,
             daily_new_limit: data.daily_new_limit || settings.new_cards_per_day,
           };
-          if (!filterLabelId) {
+          if (!filterLabelId && !_activeDeckId) {
             await idbClear('cards');
             for (const c of cards) await idbPut('cards', { ...c, id: `${c.card_id}-${c.face}` });
           }
@@ -860,11 +890,13 @@
     const emptyTitle   = document.getElementById('empty-title');
     const emptyMsg     = document.getElementById('empty-msg');
     const caughtupMsg  = document.getElementById('caughtup-msg');
-    if (filterLabelId) {
-      const name = (allLabels.find(l => l.id === filterLabelId) || {}).name || 'this label';
-      emptyTitle.textContent  = `No cards for "${name}"`;
-      emptyMsg.textContent    = 'Try a different label or translate something new.';
-      caughtupMsg.textContent = `No cards due for "${name}".`;
+    const deckName = _activeDeckId ? (_myDecks.find(d => d.id === _activeDeckId) || {}).name : null;
+    const labelName = filterLabelId ? (allLabels.find(l => l.id === filterLabelId) || {}).name : null;
+    const filterDesc = [deckName, labelName].filter(Boolean).join(' + ') || null;
+    if (filterDesc) {
+      emptyTitle.textContent  = `No cards for "${filterDesc}"`;
+      emptyMsg.textContent    = 'Try a different filter or translate something new.';
+      caughtupMsg.textContent = `No cards due for "${filterDesc}".`;
     } else {
       emptyTitle.textContent  = 'No flashcards yet';
       emptyMsg.textContent    = 'Translate some phrases to build your deck.';
@@ -1628,186 +1660,68 @@
     loadLabels();
   }
 
-  // ── Manage labels modal ───────────────────────────────────────────────────
-  async function showManageLabels() {
-    await loadLabels();
-    document.getElementById('labels-overlay').style.display = 'flex';
-    document.getElementById('new-label-input').value = '';
-    renderManageLabelsList();
+  // ── Deck picker ────────────────────────────────────────────────────────────
+  async function loadDecks() {
+    try {
+      const { decks } = await fetch('/api/decks/mine').then(r => r.json());
+      _myDecks = decks;
+    } catch { _myDecks = []; }
   }
 
-  function renderManageLabelsList() {
-    const list = document.getElementById('labels-manage-list');
-    list.innerHTML = '';
-    if (allLabels.length === 0) {
-      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">No labels yet.</p>';
-      return;
+  function toggleDeckPicker() {
+    const picker = document.getElementById('deck-picker');
+    const btn = document.getElementById('deck-toggle');
+    if (picker.style.display === 'none') {
+      renderDeckPicker();
+      picker.style.display = '';
+      btn.classList.add('open');
+    } else {
+      picker.style.display = 'none';
+      btn.classList.remove('open');
     }
+  }
 
-    // Merge bar (shown when ≥2 checkboxes are ticked)
-    const mergeBar = document.createElement('div');
-    mergeBar.id = 'merge-bar';
-    mergeBar.style.cssText = 'display:none;align-items:center;gap:8px;padding:8px 0 12px;flex-wrap:wrap';
-    mergeBar.innerHTML = `
-      <span style="font-size:0.85rem;color:var(--text-muted)">Merge selected into:</span>
-      <select id="merge-target-select" class="settings-select" style="flex:1;min-width:120px"></select>
-      <button class="edit-save-btn" onclick="mergeSelectedLabels()">Merge</button>
-      <button class="delete-card-btn" onclick="clearMergeSelection()" title="Cancel" style="padding:6px 10px">✕</button>
-    `;
-    list.appendChild(mergeBar);
-
-    allLabels.forEach(lbl => {
-      const row = document.createElement('div');
-      row.className = 'label-manage-row';
-      row.dataset.labelId = lbl.id;
-      row.innerHTML = `
-        <input type="checkbox" class="label-merge-check" style="margin-right:4px;cursor:pointer" title="Select for merge">
-        <input class="edit-input label-manage-name" value="${escAttr(lbl.name)}" maxlength="50">
-        <span class="label-manage-count">${lbl.card_count}</span>
-        <button class="edit-save-btn label-manage-save">Save</button>
-        <button class="suggest-cards-btn" title="Suggest cards by similarity">✦ Suggest</button>
-        <button class="delete-card-btn label-manage-delete" title="Delete label" aria-label="Delete label">${ICONS.trash}</button>
-      `;
-      row.querySelector('.label-manage-save').onclick = () =>
-        renameLabel(lbl.id, row.querySelector('.label-manage-name').value);
-      row.querySelector('.label-manage-delete').onclick = () => deleteLabel(lbl.id, lbl.name);
-      row.querySelector('.suggest-cards-btn').onclick = () => suggestCardsForLabel(lbl.id, lbl.name, row);
-      row.querySelector('.label-merge-check').onchange = updateMergeBar;
-      list.appendChild(row);
+  function renderDeckPicker() {
+    const list = document.getElementById('deck-picker-list');
+    const rows = [`<div class="deck-pick-row${_activeDeckId === null ? ' active' : ''}" data-deck-id="">
+      <span class="deck-pick-check"></span>
+      <span class="deck-pick-name">All cards</span>
+    </div>`];
+    _myDecks.forEach(d => {
+      if (!d.import_label_id) return;
+      rows.push(`<div class="deck-pick-row${_activeDeckId === d.id ? ' active' : ''}" data-deck-id="${d.id}" data-label-id="${d.import_label_id}">
+        <span class="deck-pick-check"></span>
+        <span class="deck-pick-name">${escHtml(d.name)}</span>
+        <span class="deck-pick-meta">${d.card_count} cards</span>
+      </div>`);
+    });
+    list.innerHTML = rows.join('');
+    list.querySelectorAll('.deck-pick-row').forEach(row => {
+      row.onclick = () => selectDeck(row);
     });
   }
 
-  function updateMergeBar() {
-    const checks = [...document.querySelectorAll('.label-merge-check:checked')];
-    const bar = document.getElementById('merge-bar');
-    if (!bar) return;
-    if (checks.length < 2) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    const checkedIds = new Set(checks.map(c => parseInt(c.closest('.label-manage-row').dataset.labelId)));
-    const sel = document.getElementById('merge-target-select');
-    sel.innerHTML = allLabels
-      .filter(l => checkedIds.has(l.id))
-      .map(l => `<option value="${l.id}">${escHtml(l.name)}</option>`)
-      .join('');
-  }
-
-  function clearMergeSelection() {
-    document.querySelectorAll('.label-merge-check').forEach(c => c.checked = false);
-    const bar = document.getElementById('merge-bar');
-    if (bar) bar.style.display = 'none';
-  }
-
-  async function mergeSelectedLabels() {
-    const checks = [...document.querySelectorAll('.label-merge-check:checked')];
-    if (checks.length < 2) return;
-    const targetId = parseInt(document.getElementById('merge-target-select').value);
-    const sourceIds = checks.map(c => parseInt(c.closest('.label-manage-row').dataset.labelId)).filter(id => id !== targetId);
-    if (!sourceIds.length) { showToast('Select at least two different labels.'); return; }
-    const targetName = allLabels.find(l => l.id === targetId)?.name || '';
-    if (!confirm(`Merge ${sourceIds.length} label(s) into "${targetName}"? This cannot be undone.`)) return;
-    try {
-      const res = await fetch('/api/labels/merge', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_ids: sourceIds, target_id: targetId }),
-      });
-      if (!res.ok) throw new Error();
-      if (filterLabelId && sourceIds.includes(filterLabelId)) {
-        filterLabelId = targetId;
-        if (filterPicker) filterPicker.setSelected([targetId]);
-      }
-      await loadLabels();
-      renderManageLabelsList();
-      showToast('Labels merged.');
-    } catch { showToast('Could not merge labels.'); }
-  }
-
-  async function suggestCardsForLabel(labelId, labelName, rowEl) {
-    // Remove any previous suggestion panel for this label.
-    rowEl.parentNode.querySelectorAll('.label-suggest-panel').forEach(el => el.remove());
-
-    const panel = document.createElement('div');
-    panel.className = 'label-suggest-panel';
-    panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Finding similar cards…</span>';
-    rowEl.after(panel);
-
-    try {
-      const res = await fetch(`/api/labels/suggest-cards?name=${encodeURIComponent(labelName)}&label_id=${labelId}&limit=10`);
-      const { cards } = await res.json();
-      if (!cards.length) {
-        panel.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No unassigned cards found with similar embeddings. Cards need to be added first to generate embeddings.</span>';
-        return;
-      }
-      panel.innerHTML = `<div class="label-suggest-header">Cards similar to "${escHtml(labelName)}" — click to add:</div>`;
-      cards.forEach(c => {
-        const chip = document.createElement('button');
-        chip.className = 'label-suggest-card-btn';
-        chip.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
-        chip.onclick = async () => {
-          chip.disabled = true;
-          try {
-            const res = await fetch(`/api/labels/${labelId}/cards`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ card_id: c.id }),
-            });
-            if (!res.ok) throw new Error();
-            chip.textContent = '✓ ' + chip.textContent;
-            chip.style.opacity = '0.5';
-          } catch { chip.disabled = false; showToast('Failed to add card to label.'); }
-        };
-        panel.appendChild(chip);
-      });
-    } catch {
-      panel.innerHTML = '<span style="color:var(--again);font-size:0.85rem">Failed to fetch suggestions.</span>';
+  document.addEventListener('click', e => {
+    const picker = document.getElementById('deck-picker');
+    const toggle = document.getElementById('deck-toggle');
+    if (picker.style.display !== 'none' &&
+        !picker.contains(e.target) && !toggle.contains(e.target)) {
+      picker.style.display = 'none';
+      toggle.classList.remove('open');
     }
-  }
+  });
 
-  async function createLabelFromModal() {
-    const input = document.getElementById('new-label-input');
-    const name = input.value.trim();
-    if (!name) return;
-    try {
-      const res = await fetch('/api/labels', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) throw new Error();
-      input.value = '';
-      await loadLabels();
-      renderManageLabelsList();
-    } catch { showToast('Could not create label.'); }
-  }
-
-  async function renameLabel(id, name) {
-    name = name.trim();
-    if (!name) return;
-    try {
-      const res = await fetch(`/api/labels/${id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) { showToast((await res.text()) || 'Could not rename label.'); return; }
-      await loadLabels();
-      renderManageLabelsList();
-      showToast('Label renamed.');
-    } catch { showToast('Could not rename label.'); }
-  }
-
-  async function deleteLabel(id, name) {
-    if (!confirm(`Delete label "${name}"? Cards keep their other labels.`)) return;
-    try {
-      await fetch(`/api/labels/${id}`, { method: 'DELETE' });
-      if (filterLabelId === id) {
-        filterLabelId = null;
-        if (filterPicker) filterPicker.setSelected([]);
-      }
-      await loadLabels();
-      renderManageLabelsList();
-    } catch { showToast('Could not delete label.'); }
-  }
-
-  function closeManageLabels(e) {
-    if (!e || e.target === document.getElementById('labels-overlay'))
-      document.getElementById('labels-overlay').style.display = 'none';
+  function selectDeck(row) {
+    const deckId = row.dataset.deckId ? parseInt(row.dataset.deckId) : null;
+    const labelId = row.dataset.labelId ? parseInt(row.dataset.labelId) : null;
+    _activeDeckId = deckId;
+    filterLabelId = labelId;
+    if (filterPicker) filterPicker.setSelected(labelId ? [labelId] : []);
+    document.getElementById('deck-toggle-label').textContent =
+      deckId ? row.querySelector('.deck-pick-name').textContent : 'All cards';
+    document.getElementById('deck-picker').style.display = 'none';
+    document.getElementById('deck-toggle').classList.remove('open');
+    loadSession('due');
   }
 
   function showToast(msg) {
@@ -2103,7 +2017,6 @@
       if (e.key === 'Escape') closeAskTutor();
       return;
     }
-    if (document.getElementById('labels-overlay').style.display !== 'none') return;
     if (document.getElementById('state-review').style.display === 'none') return;
     if (document.getElementById('card-inline-edit').style.display !== 'none') return;
     if (!revealed) {
@@ -2122,14 +2035,18 @@
 
   (async () => {
     await loadLanguages();
-    await Promise.all([loadLabels(), loadSettings(), loadStreak()]);
-    // Support ?study=1&label_id=X from reader vocab review.
+    await Promise.all([loadLabels(), loadSettings(), loadStreak(), loadDecks()]);
     const _params = new URLSearchParams(window.location.search);
     if (_params.has('label_id')) {
       const lid = parseInt(_params.get('label_id'), 10);
       if (!isNaN(lid)) {
         filterLabelId = lid;
         if (filterPicker) filterPicker.setSelected([lid]);
+        const deck = _myDecks.find(d => d.import_label_id === lid);
+        if (deck) {
+          _activeDeckId = deck.id;
+          document.getElementById('deck-toggle-label').textContent = deck.name;
+        }
       }
     }
     loadSession(_params.get('study') === '1' ? 'all' : 'due');

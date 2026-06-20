@@ -1839,16 +1839,23 @@ async def stripe_webhook(request: Request):
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
+def _parse_label_ids(label_id: int | None, label_ids: str | None) -> list[int] | None:
+    if label_ids:
+        return [int(x) for x in label_ids.split(",") if x.strip().isdigit()]
+    if label_id is not None:
+        return [label_id]
+    return None
+
 @app.get("/api/cards/due")
-async def get_due_cards(label_id: int | None = None, user: dict = Depends(current_user)):
+async def get_due_cards(label_id: int | None = None, label_ids: str | None = None, user: dict = Depends(current_user)):
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    return await db.get_study_session(user["id"], label_id=label_id, target_lang=lang)
+    return await db.get_study_session(user["id"], label_ids=_parse_label_ids(label_id, label_ids), target_lang=lang)
 
 
 @app.get("/api/cards/all-faces")
-async def get_all_faces(label_id: int | None = None, user: dict = Depends(current_user)):
+async def get_all_faces(label_id: int | None = None, label_ids: str | None = None, user: dict = Depends(current_user)):
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    faces = await db.get_all_faces(user["id"], label_id=label_id, target_lang=lang)
+    faces = await db.get_all_faces(user["id"], label_ids=_parse_label_ids(label_id, label_ids), target_lang=lang)
     return {"cards": faces, "count": len(faces)}
 
 
@@ -1859,9 +1866,9 @@ async def get_all_cards(user: dict = Depends(current_user)):
 
 
 @app.get("/api/cards/due-count")
-async def due_count(label_id: int | None = None, user: dict = Depends(current_user)):
+async def due_count(label_id: int | None = None, label_ids: str | None = None, user: dict = Depends(current_user)):
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    return {"count": await db.get_due_count(user["id"], label_id=label_id, target_lang=lang)}
+    return {"count": await db.get_due_count(user["id"], label_ids=_parse_label_ids(label_id, label_ids), target_lang=lang)}
 
 
 @app.get("/api/cards/cefr-distribution")
