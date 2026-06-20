@@ -896,10 +896,10 @@ async def translate_article_to_reading(
     targets = [t for r in results for t in r]  # positionally aligned with src_sents
 
     segments = [
-        {"target": tgt, "english": src}
-        for src, tgt in zip(src_sents, targets) if tgt
+        {"target": tgt or src, "english": src}
+        for src, tgt in zip(src_sents, targets)
     ]
-    if not segments:
+    if not any(seg["target"] for seg in segments):
         raise ValueError("Translation produced no sentences")
     logger.info(
         "article import (%s): %d source sentences → %d translated",
