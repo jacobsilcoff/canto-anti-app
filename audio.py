@@ -17,7 +17,7 @@ VOICES = {
     "hi": "hi-IN-SwaraNeural",
     "te": "te-IN-ShrutiNeural",
     "ja": "ja-JP-NanamiNeural",
-    "bn": "bn-IN-TanishaNeural",
+    "bn": "bn-IN-TanishaaNeural",
     "ur": "ur-PK-UzmaNeural",
     "ar": "ar-SA-ZariyahNeural",
     "sw": "sw-KE-ZulaNeural",

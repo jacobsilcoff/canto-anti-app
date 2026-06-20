@@ -5,13 +5,13 @@ Token = dict
 
 # Matches sentence-ending punctuation that is NOT inside quotes.
 # CJK: 。！？; Latin: . ! ?; Devanagari danda: । ॥; also newlines.
-_SENTENCE_ENDERS = re.compile(r'[。！？.!?।॥\n]')
+_SENTENCE_ENDERS = re.compile(r'[。！？.!?।॥۔؟\n]')
 
 # Punctuation that must never be swallowed inside a word token. Includes the
 # middle-dot family (· U+00B7, ・ U+30FB, ‧ U+2027, • U+2022) used to list
 # individual syllables (詩·史·試·時·市·事) — splitting on them lets each character
 # become its own token and get its own romanization.
-_INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉·・‧•\n])')
+_INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉·・‧•۔؟،؛\n])')
 # Opening/closing quote characters — we avoid splitting mid-quote.
 _OPEN_QUOTES = set('"«「『')
 _CLOSE_QUOTES = set('"»」』')
@@ -22,7 +22,7 @@ _CLOSE_QUOTES = set('"»」』')
 # Used to tokenise any non-CJK script where words are separated by spaces.
 # Devanagari range deliberately skips U+0964–U+0965 (danda / double danda) so
 # those stay as sentence punctuation rather than getting glued onto a word.
-_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿؀-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
+_ALPHA = r"a-zA-ZÀ-ÿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿ"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
 _AR_CHAR = {

@@ -148,19 +148,19 @@
     }
     .tooltip-word { font-size: 1.7rem; font-weight: 700; font-family: var(--script-font, 'Noto Sans TC'), sans-serif; color: var(--text); line-height: 1.2; }
     .tooltip-rom  { font-size: 0.9rem; color: var(--text-muted, #888); margin: 3px 0 5px; }
-    .tooltip-eng  { font-size: 0.95rem; color: var(--text); margin-bottom: 8px; }
-    .tooltip-notes { font-size: 0.8rem; color: var(--text-muted, #888); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 10px; }
-    .tooltip-status-badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; font-weight: 600; }
+    .tooltip-eng  { font-size: 0.95rem; color: var(--text); margin-bottom: 8px; direction: ltr; text-align: left; }
+    .tooltip-notes { font-size: 0.8rem; color: var(--text-muted, #888); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 10px; direction: ltr; text-align: left; }
+    .tooltip-status-badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; font-weight: 600; direction: ltr; }
     .tooltip-status-badge.known { background: var(--good-soft); color: var(--good-strong); }
     .tooltip-status-badge.weak  { background: var(--warn-soft); color: var(--warn-strong); }
     .tooltip-status-badge.new   { background: var(--neutral-soft); color: var(--text-muted); }
     .tooltip-loading { font-size: 0.88rem; color: var(--text-muted, #aaa); padding: 4px 0; }
     .tooltip-error  { font-size: 0.82rem; color: var(--danger); }
-    .tooltip-actions { display: flex; gap: 8px; align-items: center; }
+    .tooltip-actions { display: flex; gap: 8px; align-items: center; direction: ltr; }
     .tooltip-add-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
     .tooltip-add-btn:disabled { opacity: 0.5; cursor: default; }
     .tooltip-add-btn.added { background: var(--good); }
-    .tooltip-alt-meaning { background: var(--bg, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+    .tooltip-alt-meaning { background: var(--bg, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; direction: ltr; text-align: left; }
     .tooltip-alt-label { font-weight: 600; color: var(--text-muted, #888); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
     .tooltip-update-meaning-btn { display: block; margin-top: 6px; background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
     .tooltip-update-meaning-btn:hover { background: var(--primary); color: #fff; }

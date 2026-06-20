@@ -399,10 +399,12 @@ _LANG_WIDGET = """
 
     var dd = document.createElement('div');
     var multiCol = langs.length > 12 && window.innerWidth >= 420;
-    dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;'
+    dd.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);'
       + 'background:var(--surface);border:1px solid var(--border);border-radius:10px;'
       + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:70vh;overflow-y:auto;'
-      + (multiCol ? 'min-width:340px;columns:2;column-gap:0;' : 'min-width:170px;');
+      + (multiCol
+        ? 'left:0;right:auto;min-width:340px;max-width:calc(100vw - 24px);columns:2;column-gap:0;'
+        : 'left:0;min-width:170px;');
 
     langs.forEach(function (l) {
       var opt = document.createElement('div');
@@ -433,7 +435,16 @@ _LANG_WIDGET = """
 
     pill.addEventListener('click', function (e) {
       e.stopPropagation();
-      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+      var show = dd.style.display === 'none';
+      dd.style.display = show ? 'block' : 'none';
+      if (show) {
+        dd.style.left = '0'; dd.style.right = 'auto';
+        var r = dd.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8) {
+          var shift = Math.min(r.left - 8, r.right - window.innerWidth + 8);
+          dd.style.left = -shift + 'px';
+        }
+      }
     });
     document.addEventListener('click', function () { dd.style.display = 'none'; });
 
