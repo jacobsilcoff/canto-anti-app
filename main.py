@@ -181,6 +181,7 @@ async def current_admin(user: dict = Depends(current_user)) -> dict:
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _static = Path("static")
+_SERVER_START = time.time()
 
 APP_NAME = "廣東卡"
 _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
@@ -956,6 +957,11 @@ async def welcome_page():
 @app.get("/admin")
 async def admin_page(_: dict = Depends(current_admin)):
     return RedirectResponse("/settings", status_code=301)
+
+
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard_page(_: dict = Depends(current_admin)):
+    return _html("dashboard.html", active="/admin/dashboard")
 
 
 @app.get("/register", response_class=HTMLResponse)
@@ -3416,6 +3422,31 @@ async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depen
         raise HTTPException(502, "TTS failed")
     return Response(content=data, media_type="audio/mpeg",
                     headers={"Cache-Control": "public, max-age=86400"})
+
+
+# ── Admin: dashboard ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/dashboard")
+async def admin_dashboard_stats(user: dict = Depends(current_admin)):
+    import resource
+    stats = await db.get_admin_dashboard_stats()
+    rusage = resource.getrusage(resource.RUSAGE_SELF)
+    rss_mb = rusage.ru_maxrss / 1024  # Linux reports in KB
+    try:
+        with open(f"/proc/{os.getpid()}/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    rss_mb = int(line.split()[1]) / 1024
+                    break
+    except OSError:
+        pass
+    stats["server"] = {
+        "rss_mb": round(rss_mb, 1),
+        "uptime_seconds": int(time.time() - _SERVER_START),
+        "pid": os.getpid(),
+    }
+    stats["plan_limits"] = PLAN_LIMITS
+    return stats
 
 
 # ── Admin: user management ────────────────────────────────────────────────────

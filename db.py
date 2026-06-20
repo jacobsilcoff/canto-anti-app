@@ -763,6 +763,122 @@ async def set_setting(user_id: int, key: str, value):
 
 # ── Billing & usage metering ────────────────────────────────────────────────
 
+async def get_admin_dashboard_stats() -> dict:
+    """Aggregate stats for the admin dashboard — runs in one connection."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # ── Users by tier ──
+        async with db.execute(
+            """SELECT
+                 COUNT(*) AS total,
+                 COALESCE(SUM(is_admin),0) AS admins,
+                 COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NOT NULL THEN 1 ELSE 0 END),0) AS pro_paid,
+                 COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NULL AND NOT is_admin THEN 1 ELSE 0 END),0) AS pro_comped,
+                 COALESCE(SUM(CASE WHEN plan='free' AND NOT is_admin THEN 1 ELSE 0 END),0) AS free
+               FROM users"""
+        ) as cur:
+            tier_row = dict(await cur.fetchone())
+
+        # ── Per-user activity summary ──
+        async with db.execute(
+            """SELECT u.id, u.username, u.plan, u.is_admin, u.created_at,
+                      u.stripe_customer_id,
+                      (SELECT COUNT(*) FROM cards c WHERE c.user_id=u.id) AS card_count,
+                      (SELECT MAX(study_date) FROM study_activity sa WHERE sa.user_id=u.id) AS last_active,
+                      (SELECT ai_calls FROM usage_counters uc
+                       WHERE uc.user_id=u.id AND uc.period=strftime('%Y-%m','now')) AS ai_calls_month
+               FROM users u ORDER BY u.id"""
+        ) as cur:
+            users = [dict(r) for r in await cur.fetchall()]
+
+        # ── DAU / WAU / MAU ──
+        async with db.execute(
+            """SELECT
+                 (SELECT COUNT(DISTINCT user_id) FROM study_activity WHERE study_date=date('now')) AS dau,
+                 (SELECT COUNT(DISTINCT user_id) FROM study_activity WHERE study_date>=date('now','-7 days')) AS wau,
+                 (SELECT COUNT(DISTINCT user_id) FROM study_activity WHERE study_date>=date('now','-30 days')) AS mau"""
+        ) as cur:
+            activity = dict(await cur.fetchone())
+
+        # ── Signups this week / month ──
+        async with db.execute(
+            """SELECT
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-7 days')) AS signups_week,
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-30 days')) AS signups_month"""
+        ) as cur:
+            signups = dict(await cur.fetchone())
+
+        # ── AI usage totals (current month) ──
+        async with db.execute(
+            """SELECT COALESCE(SUM(ai_calls),0) AS total_calls
+               FROM usage_counters WHERE period=strftime('%Y-%m','now')"""
+        ) as cur:
+            row = await cur.fetchone()
+            ai_calls_total = row[0]
+
+        # ── AI usage last month ──
+        async with db.execute(
+            """SELECT COALESCE(SUM(ai_calls),0) AS total_calls
+               FROM usage_counters WHERE period=strftime('%Y-%m','now','-1 month')"""
+        ) as cur:
+            row = await cur.fetchone()
+            ai_calls_last_month = row[0]
+
+        # ── Language breakdown (cards across all users) ──
+        async with db.execute(
+            "SELECT target_lang, COUNT(*) AS cnt FROM cards GROUP BY target_lang ORDER BY cnt DESC"
+        ) as cur:
+            lang_dist = [dict(r) for r in await cur.fetchall()]
+
+        # ── Language breakdown by active learners ──
+        async with db.execute(
+            """SELECT c.target_lang, COUNT(DISTINCT c.user_id) AS learners
+               FROM cards c GROUP BY c.target_lang ORDER BY learners DESC"""
+        ) as cur:
+            lang_learners = [dict(r) for r in await cur.fetchall()]
+
+        # ── Feedback summary ──
+        async with db.execute(
+            """SELECT status, COUNT(*) AS cnt FROM feedback GROUP BY status"""
+        ) as cur:
+            feedback_by_status = {r["status"]: r["cnt"] for r in await cur.fetchall()}
+        async with db.execute(
+            """SELECT type, COUNT(*) AS cnt FROM feedback GROUP BY type"""
+        ) as cur:
+            feedback_by_type = {r["type"]: r["cnt"] for r in await cur.fetchall()}
+
+        # ── Total cards, reviews ──
+        async with db.execute("SELECT COUNT(*) FROM cards") as cur:
+            total_cards = (await cur.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM study_activity") as cur:
+            total_study_days = (await cur.fetchone())[0]
+
+        # ── Points today (all users) ──
+        async with db.execute(
+            "SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE date(created_at)=date('now')"
+        ) as cur:
+            xp_today = (await cur.fetchone())[0]
+
+    return {
+        "tiers": tier_row,
+        "users": users,
+        "activity": activity,
+        "signups": signups,
+        "ai_usage": {
+            "this_month": ai_calls_total,
+            "last_month": ai_calls_last_month,
+        },
+        "languages": {"cards": lang_dist, "learners": lang_learners},
+        "feedback": {"by_status": feedback_by_status, "by_type": feedback_by_type},
+        "totals": {
+            "cards": total_cards,
+            "study_days": total_study_days,
+            "xp_today": xp_today,
+        },
+    }
+
+
 async def get_usage(user_id: int) -> int:
     """AI calls the user has made in the current calendar month (UTC)."""
     async with aiosqlite.connect(DB_PATH) as db:

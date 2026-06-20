@@ -89,6 +89,10 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 
 Per-face SRS is the central design: each card has 3 independently scheduled faces so recognition and production are practiced separately. New words are **staggered** — only the primary `target` face is introduced first; `source`/`pronunciation` unlock once the primary graduates (see `db.get_study_session`).
 
+### Admin dashboard (`/admin/dashboard`, `static/dashboard.html`)
+
+Admin-only page showing KPI tiles + drill-down sections. `GET /api/admin/dashboard` → `db.get_admin_dashboard_stats()` runs all aggregation in one DB connection: user counts by tier (admin/pro-paid/pro-comped/free), per-user activity summary (cards, AI calls this month, last active), DAU/WAU/MAU from `study_activity`, signups this week/month, AI usage totals (this month vs last), language distribution (cards + distinct learners), feedback by status/type, total cards, XP today. Server stats (RSS via `/proc`, uptime via `_SERVER_START` module-level timestamp) are added at the route level — no extra dependency. Linked from the Admin tab in Settings.
+
 ### Auth & sessions
 
 Sessions are in-memory (`_sessions` dict in `main.py`): token → (user_id, expiry). Auth middleware runs on every request; unauthenticated HTML requests redirect to `/login`, API requests get 401. Sessions expire after 30 days and are purged on next login.

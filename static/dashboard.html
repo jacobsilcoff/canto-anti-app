@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f8f9fa">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Admin Dashboard</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .dash { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+    .dash h2 { font-size: 1.2rem; font-weight: 700; margin: 0 0 14px; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+    .kpi-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600; }
+    .kpi-val { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .kpi-sub { font-size: 0.72rem; color: var(--text-muted); }
+    .kpi-val.green { color: var(--good-strong); }
+    .kpi-val.blue { color: var(--primary); }
+    .kpi-val.amber { color: var(--warn-accent); }
+
+    .dash-section { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .dash-section h3 { font-size: 0.95rem; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+
+    /* Tables */
+    .dash-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .dash-table th { text-align: left; font-weight: 600; color: var(--text-muted);
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 6px 8px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+    .dash-table td { padding: 8px 8px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle; }
+    .dash-table tr:last-child td { border-bottom: none; }
+    .dash-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Tags */
+    .tag { display: inline-block; font-size: 0.68rem; font-weight: 600; padding: 1px 7px;
+      border-radius: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .tag-admin { background: var(--primary-soft); color: var(--primary); }
+    .tag-pro { background: var(--good-soft); color: var(--good-strong); }
+    .tag-free { background: var(--neutral-soft); color: var(--neutral-strong); }
+
+    /* Bar chart */
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .bar-label { width: 60px; font-size: 0.78rem; color: var(--text); text-align: right;
+      flex-shrink: 0; font-weight: 500; }
+    .bar-track { flex: 1; height: 20px; background: var(--neutral-soft); border-radius: 6px;
+      overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; min-width: 1px; }
+    .bar-count { width: 50px; font-size: 0.75rem; color: var(--text-muted);
+      font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+    /* Feedback status */
+    .fb-stat { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px;
+      margin-bottom: 6px; font-size: 0.85rem; }
+    .fb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .fb-dot.new { background: var(--primary); }
+    .fb-dot.triaged { background: var(--warn-accent); }
+    .fb-dot.in_progress { background: var(--good-strong); }
+    .fb-dot.resolved { background: var(--text-muted); }
+    .fb-dot.closed { background: var(--text-faint); }
+
+    /* Scrollable table wrapper */
+    .table-scroll { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+
+    /* Collapsible sections */
+    .dash-toggle { cursor: pointer; display: flex; align-items: center; gap: 6px;
+      user-select: none; }
+    .dash-toggle .chevron { font-size: 0.7rem; color: var(--text-muted);
+      transition: transform 0.2s; }
+    .dash-toggle.collapsed .chevron { transform: rotate(-90deg); }
+
+    .refresh-btn { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; color: var(--text-muted); transition: all 0.15s; font-family: inherit; }
+    .refresh-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    .dash-header { display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .dash-header h2 { margin: 0; }
+
+    .loading-msg { text-align: center; color: var(--text-muted); padding: 40px 0;
+      font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<div class="dash" id="dash">
+  <div class="dash-header">
+    <h2>Admin Dashboard</h2>
+    <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
+  </div>
+  <div id="dash-content">
+    <div class="loading-msg">Loading dashboard...</div>
+  </div>
+</div>
+
+<script>
+  const _LANG_NAMES = {};
+  const _LANG_FLAGS = {};
+  const _COST_PER_CALL = 0.000133;
+
+  async function loadLanguages() {
+    try {
+      const { languages } = await fetch('/api/languages').then(r => r.json());
+      languages.forEach(l => {
+        _LANG_NAMES[l.code] = l.name;
+        _LANG_FLAGS[l.code] = l.flag || '';
+      });
+    } catch {}
+  }
+
+  function langName(code) {
+    return _LANG_NAMES[code] || code;
+  }
+
+  function fmtNum(n) {
+    if (n == null) return '0';
+    return n.toLocaleString();
+  }
+
+  function fmtDuration(seconds) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
+  function fmtAgo(dateStr) {
+    if (!dateStr) return 'Never';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    const days = Math.floor(diff / 86400);
+    if (days === 1) return 'yesterday';
+    if (days < 30) return days + 'd ago';
+    return d.toLocaleDateString();
+  }
+
+  function tierTag(user) {
+    if (user.is_admin) return '<span class="tag tag-admin">Admin</span>';
+    if (user.plan === 'pro' && user.stripe_customer_id) return '<span class="tag tag-pro">Pro</span>';
+    if (user.plan === 'pro') return '<span class="tag tag-pro">Comped</span>';
+    return '<span class="tag tag-free">Free</span>';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  async function loadDashboard() {
+    const el = document.getElementById('dash-content');
+    el.innerHTML = '<div class="loading-msg">Loading dashboard...</div>';
+    let data;
+    try {
+      const res = await fetch('/api/admin/dashboard');
+      if (res.status === 403) {
+        el.innerHTML = '<div class="loading-msg">Admin access required.</div>';
+        return;
+      }
+      data = await res.json();
+    } catch (e) {
+      el.innerHTML = '<div class="loading-msg">Failed to load dashboard.</div>';
+      return;
+    }
+    renderDashboard(data);
+  }
+
+  function renderDashboard(d) {
+    const el = document.getElementById('dash-content');
+    const t = d.tiers;
+    const ai = d.ai_usage;
+    const srv = d.server;
+    const fb = d.feedback;
+    const act = d.activity;
+    const sig = d.signups;
+
+    const estCost = (ai.this_month * _COST_PER_CALL).toFixed(2);
+    const estCostLast = (ai.last_month * _COST_PER_CALL).toFixed(2);
+    const proRevenue = (t.pro_paid || 0) * 4.99;
+
+    let html = '';
+
+    // ── KPI tiles ──
+    html += '<div class="dash-grid">';
+    html += kpi('Total Users', t.total, `+${sig.signups_week || 0} this week`);
+    html += kpi('DAU / WAU / MAU', `${act.dau}/${act.wau}/${act.mau}`, '');
+    html += kpi('AI Calls (month)', fmtNum(ai.this_month), `Last month: ${fmtNum(ai.last_month)}`);
+    html += kpi('Est. Cost (month)', `$${estCost}`, `Last month: $${estCostLast}`);
+    html += kpi('Pro Revenue', `$${proRevenue.toFixed(2)}/mo`, `${t.pro_paid || 0} paid, ${t.pro_comped || 0} comped`);
+    html += kpi('XP Today', fmtNum(d.totals.xp_today), `${fmtNum(d.totals.cards)} total cards`);
+    html += kpi('Server RSS', `${srv.rss_mb} MB`, `Up ${fmtDuration(srv.uptime_seconds)}`);
+    html += kpi('Feedback Open',
+      (fb.by_status.new || 0) + (fb.by_status.triaged || 0) + (fb.by_status.in_progress || 0),
+      `${fb.by_status.resolved || 0} resolved`);
+    html += '</div>';
+
+    // ── User tiers breakdown ──
+    html += '<div class="dash-section">';
+    html += '<h3>User Tiers</h3>';
+    const tiers = [
+      { label: 'Admin', count: t.admins || 0, color: 'var(--primary)' },
+      { label: 'Pro (paid)', count: t.pro_paid || 0, color: 'var(--good-strong)' },
+      { label: 'Pro (comped)', count: t.pro_comped || 0, color: 'var(--warn-accent)' },
+      { label: 'Free', count: t.free || 0, color: 'var(--text-muted)' },
+    ];
+    const maxTier = Math.max(1, ...tiers.map(x => x.count));
+    tiers.forEach(({ label, count, color }) => {
+      const pct = Math.round((count / maxTier) * 100);
+      html += `<div class="bar-row">
+        <div class="bar-label">${label}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="bar-count">${count}</div>
+      </div>`;
+    });
+    html += '</div>';
+
+    // ── Language breakdown ──
+    if (d.languages.cards.length) {
+      html += '<div class="dash-section">';
+      html += '<h3>Languages (by cards)</h3>';
+      const maxLang = Math.max(1, ...d.languages.cards.map(x => x.cnt));
+      const colors = ['var(--primary)', 'var(--good-strong)', 'var(--warn-accent)', 'var(--danger)',
+        'var(--grammar-strong)', 'var(--text-muted)'];
+      d.languages.cards.forEach((l, i) => {
+        const learnerRow = d.languages.learners.find(x => x.target_lang === l.target_lang);
+        const learners = learnerRow ? learnerRow.learners : 0;
+        const pct = Math.round((l.cnt / maxLang) * 100);
+        const flag = _LANG_FLAGS[l.target_lang] || '';
+        html += `<div class="bar-row">
+          <div class="bar-label">${flag} ${langName(l.target_lang)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${colors[i % colors.length]}"></div></div>
+          <div class="bar-count">${fmtNum(l.cnt)} <span style="color:var(--text-faint);font-size:0.68rem">(${learners} users)</span></div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    // ── Feedback breakdown ──
+    html += '<div class="dash-section">';
+    html += '<h3>Feedback</h3>';
+    html += '<div style="margin-bottom:8px">';
+    const statuses = ['new', 'triaged', 'in_progress', 'resolved', 'closed'];
+    statuses.forEach(s => {
+      const c = fb.by_status[s] || 0;
+      if (c > 0 || s === 'new') {
+        const label = s.replace('_', ' ');
+        html += `<span class="fb-stat"><span class="fb-dot ${s}"></span>${label}: <b>${c}</b></span>`;
+      }
+    });
+    html += '</div>';
+    const bugs = fb.by_type.bug || 0;
+    const features = fb.by_type.feature || 0;
+    if (bugs || features) {
+      html += `<div style="font-size:0.82rem;color:var(--text-muted)">Bugs: ${bugs} &middot; Feature requests: ${features}</div>`;
+    }
+    if (bugs + features > 0) {
+      html += `<div style="margin-top:8px"><a href="/feedback" style="font-size:0.82rem;color:var(--primary);text-decoration:none;font-weight:600">View all feedback &rarr;</a></div>`;
+    }
+    html += '</div>';
+
+    // ── Users table ──
+    html += '<div class="dash-section">';
+    html += `<div class="dash-toggle" onclick="toggleSection(this, 'users-table')">
+      <h3 style="margin:0">Users (${d.users.length})</h3>
+      <span class="chevron">&#9662;</span>
+    </div>`;
+    html += '<div id="users-table" style="margin-top:12px">';
+    html += '<div class="table-scroll">';
+    html += '<table class="dash-table">';
+    html += '<thead><tr><th>User</th><th>Tier</th><th>Cards</th><th class="num">AI (mo)</th><th>Last Active</th><th>Joined</th></tr></thead>';
+    html += '<tbody>';
+    d.users.forEach(u => {
+      const limit = u.is_admin ? '&infin;' : (d.plan_limits[u.plan] || d.plan_limits.free);
+      const calls = u.ai_calls_month || 0;
+      const pct = u.is_admin ? 0 : Math.round((calls / (d.plan_limits[u.plan] || d.plan_limits.free)) * 100);
+      const usageColor = pct >= 90 ? 'color:var(--danger)' : (pct >= 70 ? 'color:var(--warn-accent)' : '');
+      html += `<tr>
+        <td><b>${escHtml(u.username)}</b></td>
+        <td>${tierTag(u)}</td>
+        <td class="num">${fmtNum(u.card_count || 0)}</td>
+        <td class="num" style="${usageColor}">${calls}/${limit}</td>
+        <td>${fmtAgo(u.last_active)}</td>
+        <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : ''}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div></div>';
+
+    // ── Server ──
+    html += '<div class="dash-section">';
+    html += '<h3>Server</h3>';
+    html += `<div style="font-size:0.85rem;display:flex;flex-wrap:wrap;gap:16px">
+      <div><span style="color:var(--text-muted)">Memory (RSS):</span> <b>${srv.rss_mb} MB</b></div>
+      <div><span style="color:var(--text-muted)">Uptime:</span> <b>${fmtDuration(srv.uptime_seconds)}</b></div>
+      <div><span style="color:var(--text-muted)">PID:</span> ${srv.pid}</div>
+      <div><span style="color:var(--text-muted)">Total study-days:</span> ${fmtNum(d.totals.study_days)}</div>
+    </div>`;
+    html += '</div>';
+
+    el.innerHTML = html;
+  }
+
+  function kpi(label, val, sub) {
+    return `<div class="kpi">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-val">${val}</div>
+      ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}
+    </div>`;
+  }
+
+  function toggleSection(toggle, id) {
+    const el = document.getElementById(id);
+    const collapsed = toggle.classList.toggle('collapsed');
+    el.style.display = collapsed ? 'none' : '';
+  }
+
+  async function loadStreak() {
+    try {
+      const d = await fetch('/api/streak').then(r => r.json());
+      const el = document.getElementById('streak-display');
+      const el2 = document.getElementById('streak-display-mobile');
+      if (el && d.streak > 0) { el.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el.style.display = ''; }
+      if (el2 && d.streak > 0) { el2.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el2.style.display = ''; }
+    } catch {}
+  }
+
+  (async () => {
+    await loadLanguages();
+    loadStreak();
+    loadDashboard();
+  })();
+</script>
+</body>
+</html>
