@@ -1196,37 +1196,37 @@
     const nav = document.getElementById('page-nav');
     nav.style.display = '';
     const navH = nav.offsetHeight + 20;
-    const panel = document.getElementById('sentence-panel');
-    const panelH = panel ? panel.offsetHeight : 0;
 
+    // Lay out ALL sentences together so inline wrapping is real, then read each
+    // sentence's actual top/bottom. Sentences are inline spans that share lines,
+    // so summing individual offsetHeights double-counts shared lines — we must
+    // use laid-out positions instead.
     container.style.visibility = 'hidden';
     container.innerHTML = '';
-    const heights = [];
     for (let i = 0; i < sentences.length; i++) {
-      const el = _buildSentenceEl(sentences[i], i);
-      container.appendChild(el);
+      container.appendChild(_buildSentenceEl(sentences[i], i));
     }
+    const tops = [];
+    const bottoms = [];
     for (let i = 0; i < container.children.length; i++) {
-      heights.push(container.children[i].offsetHeight);
+      const c = container.children[i];
+      tops.push(c.offsetTop);
+      bottoms.push(c.offsetTop + c.offsetHeight);
     }
+    const containerTop = container.getBoundingClientRect().top;
     container.innerHTML = '';
     container.style.visibility = '';
 
-    const textTop = container.getBoundingClientRect().top;
-    const availH = window.innerHeight - textTop - navH - 8;
+    const availH = window.innerHeight - containerTop - navH - 8;
 
     pageBreaks = [0];
-    let cumH = 0;
-    const minPerPage = 1;
-    let countOnPage = 0;
-    for (let i = 0; i < heights.length; i++) {
-      if (cumH + heights[i] > availH && countOnPage >= minPerPage) {
+    let pageTop = tops[0];
+    for (let i = 1; i < sentences.length; i++) {
+      // Break before sentence i if including it would overflow the page.
+      if (bottoms[i] - pageTop > availH) {
         pageBreaks.push(i);
-        cumH = 0;
-        countOnPage = 0;
+        pageTop = tops[i];
       }
-      cumH += heights[i];
-      countOnPage++;
     }
   }
 
