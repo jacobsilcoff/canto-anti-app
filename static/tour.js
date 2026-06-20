@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 9;
+  var TOUR_VERSION = 10;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -29,6 +29,8 @@
       body: 'URL and PDF imports now have a Level selector. Pick a CEFR level (A1-C2) to simplify the text to your level, or keep "Keep original" for the full authentic text.', v: 8 },
     { icon: '🌍', title: '8 new languages',
       body: 'Now supporting Japanese, Bengali, Urdu, Arabic, Swahili, Russian, Vietnamese, and Farsi — with native fonts, audio, and romanization. Change your language in Settings.', v: 9 },
+    { icon: '📖', title: 'Script reading tracks',
+      body: 'New optional reading foundations for Japanese (hiragana & katakana), Russian (Cyrillic), Bengali, Arabic, Urdu, and Farsi. Learn to read the script before diving into vocabulary — available in the Learn tab.', v: 10 },
   ];
 
   var steps, stepIdx;

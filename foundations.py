@@ -433,6 +433,10 @@ def _build_lesson_content(lesson: dict, taught: list[dict], script_type: str, la
         return _build_abugida_lesson_content(lesson, taught, lang)
     if script_type == "tonal":
         return _build_tonal_lesson_content(lesson, lang)
+    if script_type == "simple_alphabet":
+        return _build_simple_alphabet_lesson_content(lesson, taught, lang)
+    if script_type == "abjad":
+        return _build_abjad_lesson_content(lesson, taught, lang)
     return _build_hangul_lesson_content(lesson, taught)
 
 
@@ -939,3 +943,514 @@ def _build_tonal_lesson_content(lesson: dict, lang: str) -> dict:
 
 FOUNDATIONS["yue"] = _CANTONESE_TRACK
 FOUNDATIONS["cmn"] = _MANDARIN_TRACK
+
+
+# ── Simple alphabet engine (Cyrillic, kana, …) ──────────────────────────────
+# For scripts where each character maps to a sound and words are just sequences
+# of characters — no composition math (unlike Hangul), no matras (unlike abugida).
+# Decomposition = set of characters. Exercise types: graphemes, words.
+
+def decompose_simple(text: str) -> set[str]:
+    return {ch for ch in text if not ch.isspace()}
+
+
+SL = lambda s, r, a=None, n="": {"symbol": s, "roman": r, "audio": a or s, "note": n, "kind": "letter"}
+
+
+def _build_simple_alphabet_lesson_content(lesson: dict, taught: list[dict], lang: str) -> dict:
+    ltype = lesson["type"]
+    taught_romans = [g["roman"] for g in taught]
+
+    if ltype == "info":
+        return {"segments": [{"teach": {"intro": lesson["intro"], "items": []}, "exercises": []}]}
+
+    if ltype == "graphemes":
+        graphemes = lesson["graphemes"]
+        roman_pool = [g["roman"] for g in graphemes] + taught_romans
+        exs = [_grapheme_to_sound(g, roman_pool) for g in graphemes]
+        if len(graphemes) >= 3:
+            exs.append(_grapheme_match(graphemes))
+        random.shuffle(exs)
+        teach = {"intro": lesson.get("intro", ""), "items": [_teach_item_grapheme(g) for g in graphemes]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "words":
+        known = {g["symbol"] for g in taught}
+        valid = [(w, m) for (w, m) in lesson["words"] if decompose_simple(w) <= known][:6]
+        if not valid:
+            valid = lesson["words"][:4]
+        word_pool = [w for w, _ in valid]
+        roman_pool = [_romanize(w, lang) for w in word_pool]
+        exs = [_read_word(w, roman_pool, m, lang) for w, m in valid]
+        for w, _ in valid[:3]:
+            exs.append(_listen_word(w, word_pool, lang))
+        random.shuffle(exs)
+        teach = {"intro": lesson.get("intro", "Words you can now read:"),
+                 "items": [_teach_item_word(w, m, lang) for w, m in valid]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    return {"segments": [{"teach": {"intro": "", "items": []}, "exercises": []}]}
+
+
+# ── Russian / Cyrillic track ─────────────────────────────────────────────────
+_RU_VOWELS = [
+    SL("А", "a"), SL("О", "o"), SL("У", "u"), SL("Э", "e"), SL("И", "i"), SL("Ы", "y", n="No English equivalent — say 'i' with your tongue pulled back"),
+]
+_RU_CONS_1 = [
+    SL("М", "m"), SL("Н", "n"), SL("К", "k"), SL("Т", "t"), SL("Д", "d"), SL("С", "s"),
+]
+_RU_CONS_2 = [
+    SL("Л", "l"), SL("Р", "r"), SL("П", "p"), SL("Б", "b"), SL("В", "v"), SL("Г", "g"),
+]
+_RU_CONS_3 = [
+    SL("Ж", "zh", n="Like 's' in 'pleasure'"), SL("Ш", "sh"), SL("З", "z"),
+    SL("Ф", "f"), SL("Х", "kh", n="Like 'ch' in Scottish 'loch'"),
+    SL("Ц", "ts"), SL("Ч", "ch"),
+]
+_RU_SPECIAL = [
+    SL("Й", "y", n="Short 'y' — only after vowels"),
+    SL("Я", "ya"), SL("Ё", "yo"), SL("Ю", "yu"), SL("Е", "ye"),
+    SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
+    SL("Ь", "'", n="Soft sign — softens the previous consonant"),
+    SL("Ъ", "", n="Hard sign — prevents softening (rare)"),
+]
+
+_RU_WORDS_1 = [("мама", "mom"), ("дом", "house"), ("кот", "cat"),
+               ("сон", "dream"), ("нос", "nose"), ("там", "there")]
+_RU_WORDS_2 = [("вода", "water"), ("рука", "hand"), ("луна", "moon"),
+               ("папа", "dad"), ("губа", "lip"), ("пара", "pair")]
+_RU_WORDS_3 = [("жук", "beetle"), ("шум", "noise"), ("час", "hour"),
+               ("зуб", "tooth"), ("фон", "background"), ("цвет", "color")]
+
+_CYRILLIC_TRACK = {
+    "script_type": "simple_alphabet",
+    "title": "Read Cyrillic",
+    "units": [
+        {"title": "Cyrillic Basics", "objective": "How the script works and first letters", "lessons": [
+            {"title": "How Cyrillic Works", "type": "info",
+             "intro": "Russian is written in Cyrillic — a true alphabet where each letter "
+                      "represents a sound. Some letters look like Latin but sound different "
+                      "(Р = 'r', С = 's', Н = 'n'). There are 33 letters total. "
+                      "Let's start with the vowels."},
+            {"title": "Vowels А О У Э И Ы", "type": "graphemes", "graphemes": _RU_VOWELS,
+             "intro": "The six basic vowels. Ы has no English equivalent — "
+                      "try saying 'i' with your tongue pulled back."},
+        ]},
+        {"title": "First Consonants", "objective": "Core consonants and first words", "lessons": [
+            {"title": "Consonants М Н К Т Д С", "type": "graphemes", "graphemes": _RU_CONS_1,
+             "intro": "These consonants are straightforward — most have English equivalents."},
+            {"title": "Your First Words", "type": "words", "words": _RU_WORDS_1},
+            {"title": "Consonants Л Р П Б В Г", "type": "graphemes", "graphemes": _RU_CONS_2,
+             "intro": "Note: Р is 'r' (not 'p'!), В is 'v' (not 'b'!), Б is 'b'."},
+            {"title": "More Words", "type": "words", "words": _RU_WORDS_2},
+        ]},
+        {"title": "More Consonants", "objective": "The remaining consonants", "lessons": [
+            {"title": "Consonants Ж Ш З Ф Х Ц Ч", "type": "graphemes", "graphemes": _RU_CONS_3,
+             "intro": "These include sounds less common in English — pay attention to Ж (zh) and Х (kh)."},
+            {"title": "Reading Practice", "type": "words", "words": _RU_WORDS_3},
+        ]},
+        {"title": "Special Letters", "objective": "Soft vowels, signs, and full reading", "lessons": [
+            {"title": "Й Я Ё Ю Е Щ Ь Ъ", "type": "graphemes", "graphemes": _RU_SPECIAL,
+             "intro": "Я (ya), Ё (yo), Ю (yu), Е (ye) are 'yotated' vowels — they add a 'y' "
+                      "before the vowel sound. Ь (soft sign) and Ъ (hard sign) modify pronunciation "
+                      "but have no sound of their own."},
+        ]},
+    ],
+}
+
+FOUNDATIONS["ru"] = _CYRILLIC_TRACK
+
+
+# ── Bengali / Bangla track (abugida) ────────────────────────────────────────
+_BN_VOWELS = [IV("অ", "o"), IV("আ", "a"), IV("ই", "i"), IV("ঈ", "ii"),
+              IV("উ", "u"), IV("ঊ", "uu"), IV("এ", "e"), IV("ও", "o")]
+_BN_CONS_1 = [IC("ক", "ko"), IC("গ", "go"), IC("ন", "no"),
+              IC("ম", "mo"), IC("র", "ro"), IC("ল", "lo")]
+_BN_CONS_2 = [IC("ত", "to"), IC("দ", "do"), IC("প", "po"),
+              IC("ব", "bo"), IC("স", "sho"), IC("হ", "ho")]
+_BN_MATRAS = [IM("া", "a", "কা"), IM("ি", "i", "কি"), IM("ী", "ii", "কী"),
+              IM("ু", "u", "কু"), IM("ূ", "uu", "কূ"), IM("ে", "e", "কে"), IM("ো", "o", "কো")]
+
+_BN_WORDS_1 = [("কলম", "pen"), ("মন", "mind"), ("নল", "tube"),
+               ("কমল", "lotus"), ("মরন", "death")]
+_BN_WORDS_2 = [("নাম", "name"), ("কাম", "work"), ("পানি", "water"),
+               ("দিন", "day"), ("রাত", "night"), ("বন", "forest")]
+
+_BENGALI_TRACK = {
+    "script_type": "abugida",
+    "title": "Read Bengali",
+    "units": [
+        {"title": "How Bengali Script Works", "objective": "How the script works + the vowels", "lessons": [
+            {"title": "How Bengali Works", "type": "info",
+             "intro": "Bengali is written in its own script — an abugida. Each consonant carries a "
+                      "built-in 'o' sound (ক = 'ko'). A vowel SIGN (matra/kar) attached to a consonant "
+                      "changes that vowel; full vowel LETTERS are used at the start of a word. "
+                      "Learn the letters and you can read almost anything."},
+            {"title": "Vowels", "type": "graphemes", "graphemes": _BN_VOWELS,
+             "intro": "These are the independent vowel letters (used at the start of a word or standalone)."},
+        ]},
+        {"title": "First Consonants", "objective": "Core consonants and your first words", "lessons": [
+            {"title": "Consonants ক গ ন ম র ল", "type": "graphemes", "graphemes": _BN_CONS_1,
+             "intro": "Each consonant already includes an 'o': ক = 'ko', ন = 'no'. Read them aloud."},
+            {"title": "Your First Words", "type": "words", "words": _BN_WORDS_1},
+            {"title": "Consonants ত দ প ব স হ", "type": "graphemes", "graphemes": _BN_CONS_2},
+        ]},
+        {"title": "Vowel Signs", "objective": "Matras/Kar change a consonant's vowel", "lessons": [
+            {"title": "Vowel Signs (Kar)", "type": "matras", "graphemes": _BN_MATRAS,
+             "intro": "A vowel sign (kar) attaches to a consonant and replaces its built-in 'o'. "
+                      "ক + া → কা (ka), ক + ি → কি (ki). Build a few."},
+            {"title": "More Words", "type": "words", "words": _BN_WORDS_2},
+        ]},
+    ],
+}
+
+FOUNDATIONS["bn"] = _BENGALI_TRACK
+
+
+# ── Japanese / Kana track (simple_alphabet) ──────────────────────────────────
+# Hiragana first (primary syllabary), then katakana (foreign words, emphasis).
+# Japanese kana are syllabaries — each symbol = one mora (syllable).
+# No composition needed: あ = 'a', か = 'ka', etc.
+
+_JA_HIRA_VOWELS = [
+    SL("あ", "a"), SL("い", "i"), SL("う", "u"), SL("え", "e"), SL("お", "o"),
+]
+_JA_HIRA_K = [SL("か", "ka"), SL("き", "ki"), SL("く", "ku"), SL("け", "ke"), SL("こ", "ko")]
+_JA_HIRA_S = [SL("さ", "sa"), SL("し", "shi"), SL("す", "su"), SL("せ", "se"), SL("そ", "so")]
+_JA_HIRA_T = [SL("た", "ta"), SL("ち", "chi"), SL("つ", "tsu"), SL("て", "te"), SL("と", "to")]
+_JA_HIRA_N = [SL("な", "na"), SL("に", "ni"), SL("ぬ", "nu"), SL("ね", "ne"), SL("の", "no")]
+_JA_HIRA_H = [SL("は", "ha"), SL("ひ", "hi"), SL("ふ", "fu"), SL("へ", "he"), SL("ほ", "ho")]
+_JA_HIRA_M = [SL("ま", "ma"), SL("み", "mi"), SL("む", "mu"), SL("め", "me"), SL("も", "mo")]
+_JA_HIRA_R = [SL("ら", "ra"), SL("り", "ri"), SL("る", "ru"), SL("れ", "re"), SL("ろ", "ro")]
+_JA_HIRA_YWN = [SL("や", "ya"), SL("ゆ", "yu"), SL("よ", "yo"),
+                SL("わ", "wa"), SL("を", "wo"), SL("ん", "n", n="Standalone nasal — the only kana without a vowel")]
+
+_JA_KATA_VOWELS = [SL("ア", "a"), SL("イ", "i"), SL("ウ", "u"), SL("エ", "e"), SL("オ", "o")]
+_JA_KATA_K = [SL("カ", "ka"), SL("キ", "ki"), SL("ク", "ku"), SL("ケ", "ke"), SL("コ", "ko")]
+_JA_KATA_S = [SL("サ", "sa"), SL("シ", "shi"), SL("ス", "su"), SL("セ", "se"), SL("ソ", "so")]
+_JA_KATA_T = [SL("タ", "ta"), SL("チ", "chi"), SL("ツ", "tsu"), SL("テ", "te"), SL("ト", "to")]
+_JA_KATA_N = [SL("ナ", "na"), SL("ニ", "ni"), SL("ヌ", "nu"), SL("ネ", "ne"), SL("ノ", "no")]
+_JA_KATA_H = [SL("ハ", "ha"), SL("ヒ", "hi"), SL("フ", "fu"), SL("ヘ", "he"), SL("ホ", "ho")]
+_JA_KATA_MR = [SL("マ", "ma"), SL("ミ", "mi"), SL("ム", "mu"), SL("メ", "me"), SL("モ", "mo"),
+               SL("ラ", "ra"), SL("リ", "ri"), SL("ル", "ru"), SL("レ", "re"), SL("ロ", "ro")]
+_JA_KATA_YWN = [SL("ヤ", "ya"), SL("ユ", "yu"), SL("ヨ", "yo"),
+                SL("ワ", "wa"), SL("ヲ", "wo"), SL("ン", "n")]
+
+_JA_HIRA_WORDS_1 = [("あい", "love"), ("かき", "persimmon"), ("いけ", "pond"),
+                    ("あき", "autumn"), ("いか", "squid"), ("えき", "station")]
+_JA_HIRA_WORDS_2 = [("さけ", "sake"), ("すし", "sushi"), ("した", "below"),
+                    ("そと", "outside"), ("つき", "moon"), ("くち", "mouth")]
+_JA_HIRA_WORDS_3 = [("はな", "flower"), ("にく", "meat"), ("ほね", "bone"),
+                    ("ひと", "person"), ("ねこ", "cat"), ("なに", "what")]
+_JA_HIRA_WORDS_4 = [("まち", "town"), ("もも", "peach"), ("むし", "insect"),
+                    ("みち", "road"), ("めし", "rice"), ("やま", "mountain")]
+_JA_HIRA_WORDS_5 = [("りんご", "apple"), ("よる", "night"), ("わたし", "I/me"),
+                    ("れきし", "history"), ("ろく", "six")]
+
+_JA_KATA_WORDS = [("アメリカ", "America"), ("コーヒー", "coffee"), ("テスト", "test"),
+                  ("タクシー", "taxi"), ("ホテル", "hotel"), ("メニュー", "menu")]
+
+_HIRAGANA_KATAKANA_TRACK = {
+    "script_type": "simple_alphabet",
+    "title": "Read Japanese Kana",
+    "units": [
+        {"title": "Hiragana: Vowels", "objective": "The five vowel sounds and their hiragana", "lessons": [
+            {"title": "How Kana Works", "type": "info",
+             "intro": "Japanese uses two syllabaries: hiragana (ひらがな) for native words and "
+                      "katakana (カタカナ) for foreign/loan words. Each symbol represents one "
+                      "mora (syllable). There are only 46 basic characters in each set — "
+                      "very regular. Let's start with hiragana."},
+            {"title": "Vowels あ い う え お", "type": "graphemes", "graphemes": _JA_HIRA_VOWELS,
+             "intro": "The five vowels are the foundation of every kana row. "
+                      "Every other hiragana is a consonant + one of these vowels."},
+        ]},
+        {"title": "Hiragana: K & S rows", "objective": "か行 and さ行", "lessons": [
+            {"title": "K-row か き く け こ", "type": "graphemes", "graphemes": _JA_HIRA_K},
+            {"title": "First Words", "type": "words", "words": _JA_HIRA_WORDS_1},
+            {"title": "S-row さ し す せ そ", "type": "graphemes", "graphemes": _JA_HIRA_S,
+             "intro": "Note: し is 'shi' (not 'si') — an irregular romanization."},
+            {"title": "T-row た ち つ て と", "type": "graphemes", "graphemes": _JA_HIRA_T,
+             "intro": "Note: ち = 'chi' and つ = 'tsu' — irregular romanizations."},
+            {"title": "Reading Practice", "type": "words", "words": _JA_HIRA_WORDS_2},
+        ]},
+        {"title": "Hiragana: N & H rows", "objective": "な行 and は行", "lessons": [
+            {"title": "N-row な に ぬ ね の", "type": "graphemes", "graphemes": _JA_HIRA_N},
+            {"title": "H-row は ひ ふ へ ほ", "type": "graphemes", "graphemes": _JA_HIRA_H,
+             "intro": "Note: ふ is 'fu' (not 'hu') — the lips are rounded but not quite an 'f'."},
+            {"title": "More Words", "type": "words", "words": _JA_HIRA_WORDS_3},
+        ]},
+        {"title": "Hiragana: M & R rows", "objective": "ま行 and ら行", "lessons": [
+            {"title": "M-row ま み む め も", "type": "graphemes", "graphemes": _JA_HIRA_M},
+            {"title": "R-row ら り る れ ろ", "type": "graphemes", "graphemes": _JA_HIRA_R,
+             "intro": "The Japanese 'r' is a light tap — between English 'r', 'l', and 'd'."},
+            {"title": "Reading Practice", "type": "words", "words": _JA_HIRA_WORDS_4},
+        ]},
+        {"title": "Hiragana: Y, W & N", "objective": "The remaining hiragana", "lessons": [
+            {"title": "や ゆ よ わ を ん", "type": "graphemes", "graphemes": _JA_HIRA_YWN,
+             "intro": "The final hiragana group. ん is special — it's the only kana without a vowel (a standalone nasal). "
+                      "を is the object particle (pronounced 'o' in modern Japanese)."},
+            {"title": "Full Hiragana Practice", "type": "words", "words": _JA_HIRA_WORDS_5},
+        ]},
+        {"title": "Katakana", "objective": "The katakana syllabary for foreign words", "lessons": [
+            {"title": "What is Katakana?", "type": "info",
+             "intro": "Katakana (カタカナ) is the second syllabary — same sounds as hiragana, "
+                      "but different shapes. It's used for foreign loan words, onomatopoeia, "
+                      "and emphasis. Each katakana has a hiragana twin: あ = ア, か = カ, etc."},
+            {"title": "Vowels ア イ ウ エ オ", "type": "graphemes", "graphemes": _JA_KATA_VOWELS},
+            {"title": "K-row カ キ ク ケ コ", "type": "graphemes", "graphemes": _JA_KATA_K},
+            {"title": "S-row サ シ ス セ ソ", "type": "graphemes", "graphemes": _JA_KATA_S},
+            {"title": "T-row タ チ ツ テ ト", "type": "graphemes", "graphemes": _JA_KATA_T},
+            {"title": "N-row ナ ニ ヌ ネ ノ", "type": "graphemes", "graphemes": _JA_KATA_N},
+            {"title": "H-row ハ ヒ フ ヘ ホ", "type": "graphemes", "graphemes": _JA_KATA_H},
+            {"title": "M & R rows", "type": "graphemes", "graphemes": _JA_KATA_MR},
+            {"title": "ヤ ユ ヨ ワ ヲ ン", "type": "graphemes", "graphemes": _JA_KATA_YWN},
+            {"title": "Katakana Words", "type": "words", "words": _JA_KATA_WORDS},
+        ]},
+    ],
+}
+
+FOUNDATIONS["ja"] = _HIRAGANA_KATAKANA_TRACK
+
+
+# ── Abjad engine (Arabic script — ar, ur, fa) ────────────────────────────────
+# Arabic script is an abjad: letters represent consonants; short vowels are
+# optional diacritics. Letters change shape by position (isolated/initial/medial/
+# final). The engine teaches the isolated form + sound, then words.
+# Right-to-left rendering is handled by CSS (.script-arabic { direction: rtl }).
+
+AL = lambda s, r, name, a=None, n="": {"symbol": s, "roman": r, "audio": a or s, "note": n, "kind": "letter", "name": name}
+
+
+def _build_abjad_lesson_content(lesson: dict, taught: list[dict], lang: str) -> dict:
+    ltype = lesson["type"]
+    taught_romans = [g["roman"] for g in taught]
+
+    if ltype == "info":
+        return {"segments": [{"teach": {"intro": lesson["intro"], "items": []}, "exercises": []}]}
+
+    if ltype == "graphemes":
+        graphemes = lesson["graphemes"]
+        roman_pool = [g["roman"] for g in graphemes] + taught_romans
+        exs = [_grapheme_to_sound(g, roman_pool) for g in graphemes]
+        if len(graphemes) >= 3:
+            exs.append(_grapheme_match(graphemes))
+        random.shuffle(exs)
+        items = []
+        for g in graphemes:
+            item = _teach_item_grapheme(g)
+            if g.get("name"):
+                item["note"] = g["name"] + ((" — " + g["note"]) if g.get("note") else "")
+            items.append(item)
+        teach = {"intro": lesson.get("intro", ""), "items": items}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    if ltype == "words":
+        known = {g["symbol"] for g in taught}
+        valid = [(w, m) for (w, m) in lesson["words"] if decompose_simple(w) <= known][:6]
+        if not valid:
+            valid = lesson["words"][:4]
+        word_pool = [w for w, _ in valid]
+        roman_pool = [_romanize(w, lang) for w in word_pool]
+        exs = [_read_word(w, roman_pool, m, lang) for w, m in valid]
+        for w, _ in valid[:3]:
+            exs.append(_listen_word(w, word_pool, lang))
+        random.shuffle(exs)
+        teach = {"intro": lesson.get("intro", "Words you can now read:"),
+                 "items": [_teach_item_word(w, m, lang) for w, m in valid]}
+        return {"segments": [{"teach": teach, "exercises": exs}]}
+
+    return {"segments": [{"teach": {"intro": "", "items": []}, "exercises": []}]}
+
+
+# ── Arabic (ar) ──────────────────────────────────────────────────────────────
+_AR_LETTERS_1 = [
+    AL("ا", "a", "alif", n="A tall vertical stroke — carrier for vowels"),
+    AL("ب", "b", "baa"), AL("ت", "t", "taa"), AL("ث", "th", "thaa", n="Like 'th' in 'think'"),
+    AL("ن", "n", "nun"), AL("ي", "y", "yaa"),
+]
+_AR_LETTERS_2 = [
+    AL("ج", "j", "jiim"), AL("ح", "ḥ", "haa", n="Deep breathy 'h' from the throat"),
+    AL("خ", "kh", "khaa", n="Like 'ch' in Scottish 'loch'"),
+    AL("د", "d", "daal"), AL("ذ", "dh", "dhaal", n="Like 'th' in 'this'"),
+    AL("ر", "r", "raa"),
+]
+_AR_LETTERS_3 = [
+    AL("س", "s", "siin"), AL("ش", "sh", "shiin"),
+    AL("ص", "ṣ", "ṣaad", n="Emphatic 's' — tongue pressed to roof"),
+    AL("ض", "ḍ", "ḍaad", n="Emphatic 'd' — unique to Arabic"),
+    AL("ز", "z", "zaay"), AL("ع", "'", "ayn", n="A deep guttural vowel — no English equivalent"),
+]
+_AR_LETTERS_4 = [
+    AL("ط", "ṭ", "ṭaa", n="Emphatic 't'"), AL("ظ", "ẓ", "ẓaa", n="Emphatic 'z'"),
+    AL("غ", "gh", "ghayn", n="Like French 'r' — gargled"),
+    AL("ف", "f", "faa"), AL("ق", "q", "qaaf", n="Deep 'k' from the back of the throat"),
+    AL("ك", "k", "kaaf"),
+]
+_AR_LETTERS_5 = [
+    AL("ل", "l", "laam"), AL("م", "m", "miim"),
+    AL("ه", "h", "haa", n="Light 'h' — different from ح"),
+    AL("و", "w", "waaw"), AL("ة", "a", "taa marbuuta", n="Feminine ending — 't' when linked"),
+]
+
+_AR_WORDS_1 = [("باب", "door"), ("بنت", "girl"), ("بيت", "house")]
+_AR_WORDS_2 = [("جبل", "mountain"), ("درس", "lesson"), ("رجل", "man")]
+_AR_WORDS_3 = [("كتاب", "book"), ("قلم", "pen"), ("فيل", "elephant")]
+
+_ARABIC_TRACK = {
+    "script_type": "abjad",
+    "title": "Read Arabic",
+    "units": [
+        {"title": "Arabic Script Basics", "objective": "How Arabic script works", "lessons": [
+            {"title": "How Arabic Works", "type": "info",
+             "intro": "Arabic is written RIGHT TO LEFT in a connected (cursive) script. "
+                      "There are 28 letters, each representing a consonant. Short vowels "
+                      "(a, i, u) are usually NOT written — experienced readers infer them from "
+                      "context. Letters change shape depending on their position in a word "
+                      "(isolated, initial, medial, final), but the core shape is recognizable. "
+                      "Let's learn the letters by their isolated forms and sounds."},
+            {"title": "Letters ا ب ت ث ن ي", "type": "graphemes", "graphemes": _AR_LETTERS_1,
+             "intro": "The first group includes alif (the vowel carrier) and letters with dots below or above."},
+        ]},
+        {"title": "More Letters", "objective": "Building your Arabic letter inventory", "lessons": [
+            {"title": "Letters ج ح خ د ذ ر", "type": "graphemes", "graphemes": _AR_LETTERS_2,
+             "intro": "This group includes the throat sounds ح (deep h) and خ (kh), plus the 'th' sound ذ."},
+            {"title": "First Words", "type": "words", "words": _AR_WORDS_1},
+            {"title": "Letters س ش ص ض ز ع", "type": "graphemes", "graphemes": _AR_LETTERS_3,
+             "intro": "The emphatic letters (ص, ض) are pronounced with the tongue pressed to "
+                      "the roof of the mouth. ع (ayn) is a uniquely Arabic guttural sound."},
+            {"title": "More Words", "type": "words", "words": _AR_WORDS_2},
+        ]},
+        {"title": "Completing the Alphabet", "objective": "The remaining letters", "lessons": [
+            {"title": "Letters ط ظ غ ف ق ك", "type": "graphemes", "graphemes": _AR_LETTERS_4,
+             "intro": "More emphatic letters (ط, ظ) and sounds from the back of the throat (غ, ق)."},
+            {"title": "Letters ل م ه و ة", "type": "graphemes", "graphemes": _AR_LETTERS_5,
+             "intro": "The final group. ة (taa marbuuta) marks feminine nouns — it sounds like 'a' at the end of a word."},
+            {"title": "Reading Practice", "type": "words", "words": _AR_WORDS_3},
+        ]},
+    ],
+}
+
+FOUNDATIONS["ar"] = _ARABIC_TRACK
+
+
+# ── Urdu (ur) — Arabic script + extra letters ────────────────────────────────
+# Urdu uses a modified Arabic script (Nastaliq style) with additional letters
+# for sounds not in Arabic. The base letters are shared.
+_UR_LETTERS_1 = [
+    AL("ا", "a", "alif", n="Vowel carrier, like Arabic"),
+    AL("ب", "b", "be"), AL("پ", "p", "pe", n="Added for Urdu — 'p' (not in Arabic)"),
+    AL("ت", "t", "te"), AL("ٹ", "ṭ", "ṭe", n="Retroflex 't' — tongue curled back"),
+    AL("ن", "n", "nun"),
+]
+_UR_LETTERS_2 = [
+    AL("ج", "j", "jiim"), AL("چ", "ch", "che", n="Added for Urdu — 'ch'"),
+    AL("د", "d", "daal"), AL("ڈ", "ḍ", "ḍaal", n="Retroflex 'd'"),
+    AL("ر", "r", "re"), AL("ڑ", "ṛ", "ṛe", n="Retroflex flap 'r'"),
+]
+_UR_LETTERS_3 = [
+    AL("س", "s", "siin"), AL("ش", "sh", "shiin"),
+    AL("ک", "k", "kaaf"), AL("گ", "g", "gaaf", n="Added for Urdu — 'g'"),
+    AL("ل", "l", "laam"), AL("م", "m", "miim"),
+]
+_UR_LETTERS_4 = [
+    AL("ھ", "h", "do-chashmi he", n="Aspiration marker — makes consonants breathy"),
+    AL("و", "w/o", "waaw"), AL("ی", "y/i", "chhoṭi ye"),
+    AL("ے", "e", "baṛi ye", n="Final 'e' sound"),
+    AL("ہ", "h", "gol he"), AL("ں", "n", "nun ghunna", n="Nasal 'n'"),
+]
+
+_UR_WORDS_1 = [("باب", "chapter"), ("پانی", "water"), ("نام", "name")]
+_UR_WORDS_2 = [("کتاب", "book"), ("دن", "day"), ("رات", "night")]
+
+_URDU_TRACK = {
+    "script_type": "abjad",
+    "title": "Read Urdu",
+    "units": [
+        {"title": "Urdu Script Basics", "objective": "How Urdu script works", "lessons": [
+            {"title": "How Urdu Works", "type": "info",
+             "intro": "Urdu uses a modified Arabic script written RIGHT TO LEFT in the Nastaliq "
+                      "calligraphic style. It has all 28 Arabic letters plus extra letters for "
+                      "sounds specific to Urdu/Hindi (پ p, ٹ ṭ, چ ch, ڈ ḍ, ڑ ṛ, گ g). "
+                      "Like Arabic, short vowels are usually not written. "
+                      "Let's learn the letters by their sounds."},
+            {"title": "Letters ا ب پ ت ٹ ن", "type": "graphemes", "graphemes": _UR_LETTERS_1,
+             "intro": "Starting with the basics — note پ (pe) is unique to Urdu, not found in Arabic."},
+        ]},
+        {"title": "More Letters", "objective": "Building your Urdu letter inventory", "lessons": [
+            {"title": "Letters ج چ د ڈ ر ڑ", "type": "graphemes", "graphemes": _UR_LETTERS_2,
+             "intro": "This group includes retroflex sounds (ٹ, ڈ, ڑ) from the Indo-Aryan sound system."},
+            {"title": "First Words", "type": "words", "words": _UR_WORDS_1},
+            {"title": "Letters س ش ک گ ل م", "type": "graphemes", "graphemes": _UR_LETTERS_3},
+            {"title": "More Words", "type": "words", "words": _UR_WORDS_2},
+        ]},
+        {"title": "Special Letters", "objective": "The remaining Urdu letters", "lessons": [
+            {"title": "ھ و ی ے ہ ں", "type": "graphemes", "graphemes": _UR_LETTERS_4,
+             "intro": "These include the aspiration marker ھ (do-chashmi he), the nasal ں, "
+                      "and two forms of 'ye' — ی (chhoṭi ye) and ے (baṛi ye)."},
+        ]},
+    ],
+}
+
+FOUNDATIONS["ur"] = _URDU_TRACK
+
+
+# ── Farsi / Persian (fa) — Arabic script + extra letters ────────────────────
+# Farsi uses Arabic script with 4 extra letters (پ چ ژ گ) and different
+# pronunciation for some shared letters.
+_FA_LETTERS_1 = [
+    AL("ا", "a", "alef", n="Vowel carrier"),
+    AL("ب", "b", "be"), AL("پ", "p", "pe", n="Persian addition — 'p'"),
+    AL("ت", "t", "te"), AL("ث", "s", "se", n="Pronounced 's' in Persian (not 'th')"),
+    AL("ن", "n", "nun"),
+]
+_FA_LETTERS_2 = [
+    AL("ج", "j", "jim"), AL("چ", "ch", "che", n="Persian addition — 'ch'"),
+    AL("خ", "kh", "khe", n="Like 'ch' in 'loch'"),
+    AL("د", "d", "daal"), AL("ر", "r", "re"),
+    AL("ز", "z", "ze"),
+]
+_FA_LETTERS_3 = [
+    AL("س", "s", "sin"), AL("ش", "sh", "shin"),
+    AL("ف", "f", "fe"), AL("ق", "gh", "ghaaf", n="In Persian, ق is pronounced 'gh' (not 'q')"),
+    AL("ک", "k", "kaaf"), AL("گ", "g", "gaaf", n="Persian addition — 'g'"),
+]
+_FA_LETTERS_4 = [
+    AL("ل", "l", "laam"), AL("م", "m", "mim"),
+    AL("ه", "h", "he"), AL("و", "v/u", "vaav", n="'v' as a consonant, 'u/o' as a vowel"),
+    AL("ی", "y/i", "ye"), AL("ژ", "zh", "zhe", n="Persian addition — like 's' in 'pleasure'"),
+]
+
+_FA_WORDS_1 = [("نان", "bread"), ("آب", "water"), ("نام", "name")]
+_FA_WORDS_2 = [("کتاب", "book"), ("گل", "flower"), ("شب", "night")]
+
+_FARSI_TRACK = {
+    "script_type": "abjad",
+    "title": "Read Farsi",
+    "units": [
+        {"title": "Persian Script Basics", "objective": "How Persian script works", "lessons": [
+            {"title": "How Persian Script Works", "type": "info",
+             "intro": "Persian (Farsi) uses a modified Arabic script written RIGHT TO LEFT. "
+                      "It adds four letters not in Arabic: پ (p), چ (ch), ژ (zh), گ (g). "
+                      "Some Arabic letters are pronounced differently in Persian — for example, "
+                      "ث is 's' (not 'th') and ق is 'gh' (not 'q'). "
+                      "Like Arabic, short vowels are usually omitted in writing."},
+            {"title": "Letters ا ب پ ت ث ن", "type": "graphemes", "graphemes": _FA_LETTERS_1,
+             "intro": "The first group — note پ (pe) is unique to Persian, not found in Arabic."},
+        ]},
+        {"title": "More Letters", "objective": "Building your Persian letter inventory", "lessons": [
+            {"title": "Letters ج چ خ د ر ز", "type": "graphemes", "graphemes": _FA_LETTERS_2,
+             "intro": "This group includes چ (che, Persian addition) and the throat sound خ (khe)."},
+            {"title": "First Words", "type": "words", "words": _FA_WORDS_1},
+            {"title": "Letters س ش ف ق ک گ", "type": "graphemes", "graphemes": _FA_LETTERS_3,
+             "intro": "Note: ق is pronounced 'gh' in modern Persian, not 'q' as in Arabic."},
+            {"title": "More Words", "type": "words", "words": _FA_WORDS_2},
+        ]},
+        {"title": "Remaining Letters", "objective": "Complete the Persian alphabet", "lessons": [
+            {"title": "Letters ل م ه و ی ژ", "type": "graphemes", "graphemes": _FA_LETTERS_4,
+             "intro": "The final group. و (vaav) serves double duty as both 'v' (consonant) and "
+                      "'u'/'o' (vowel). ژ (zhe) is the rarest Persian addition."},
+        ]},
+    ],
+}
+
+FOUNDATIONS["fa"] = _FARSI_TRACK
