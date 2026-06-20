@@ -105,22 +105,34 @@
     .theirs .gl.gl-new { border-bottom: 1.5px solid var(--primary); background: var(--primary-soft); }
     .theirs .gl.gl-known { border-bottom: none; }
     .theirs .gl.gl-weak { border-bottom: 1px dotted var(--warn-accent); }
-    .new-words-badge { background: var(--primary); color: #fff; border-radius: 999px;
-      font-size: 0.66rem; font-weight: 700; min-width: 16px; height: 16px;
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: 0 4px; margin-left: 4px; vertical-align: middle; }
-    .new-words-panel { background: var(--surface-alt); border-radius: 10px;
-      margin-top: 4px; padding: 8px 10px; font-size: 0.82rem; }
-    .new-words-panel-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+
+    /* New-words collapsible (received messages — left-aligned, mirrors corr-wrap) */
+    .nw-wrap { align-self: flex-start; max-width: 86%; width: 100%; margin-top: 2px; }
+    .nw-xtra { display: flex; flex-direction: column; align-items: flex-start; }
+    .nw-xtra-head { width: auto; display: flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px; border: 1px solid var(--primary);
+      cursor: pointer; background: var(--primary-soft); color: var(--primary);
+      font-size: 0.76rem; font-weight: 600; }
+    .nw-xtra-head:hover { background: var(--primary); color: #fff; }
+    .nw-xtra-body { width: 100%; display: none; margin-top: 6px;
+      background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 13px; }
+    .nw-xtra.open .nw-xtra-body { display: block; }
+    .nw-vocab-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 6px;
       display: flex; align-items: center; justify-content: space-between; }
-    .new-words-list { display: flex; flex-wrap: wrap; gap: 5px; }
-    .new-word-chip { display: inline-flex; align-items: center; gap: 4px;
-      background: var(--primary-soft); border: 1px solid var(--primary); color: var(--primary);
-      border-radius: 8px; padding: 2px 8px; font-size: 0.78rem; font-weight: 500;
-      cursor: pointer; transition: background 0.12s; }
-    .new-word-chip:hover { background: var(--primary); color: #fff; }
-    .new-word-chip.added { background: var(--good-soft); color: var(--good-strong);
+    .nw-vocab-item { display: flex; align-items: center; gap: 8px; padding: 5px 0;
+      border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+    .nw-vocab-item:last-child { border-bottom: none; }
+    .nw-vocab-word { font-family: var(--script-font, inherit); font-size: 1rem;
+      font-weight: 600; flex-shrink: 0; line-height: 2; }
+    .nw-vocab-word ruby { line-height: 1; }
+    .nw-vocab-gloss { flex: 1; font-size: 0.82rem; color: var(--text-muted); min-width: 0; }
+    .nw-vocab-add { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary);
+      border-radius: 8px; padding: 3px 10px; font-size: 0.76rem; font-weight: 600;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: background 0.12s; }
+    .nw-vocab-add:hover { background: var(--primary); color: #fff; }
+    .nw-vocab-add.added { background: var(--good-soft); color: var(--good-strong);
       border-color: var(--good-soft); cursor: default; }
 
     /* Composer */
@@ -675,19 +687,21 @@
       else if (st === 'weak') el.classList.add('gl-weak');
       else el.classList.add('gl-new');
     });
-    _updateNewWordCounts();
+    _updateNewWordPills();
   }
 
-  function _updateNewWordCounts() {
+  function _updateNewWordPills() {
     document.querySelectorAll('.msg-bubble-wrap.theirs').forEach(bwrap => {
-      const badge = bwrap.querySelector('.new-words-badge');
-      if (!badge) return;
+      const head = bwrap.querySelector('.nw-xtra-head');
+      if (!head) return;
       const newCount = bwrap.querySelectorAll('.msg-bubble .gl.gl-new').length;
       if (newCount > 0) {
-        badge.textContent = newCount;
-        badge.style.display = '';
+        head.style.display = '';
+        head.querySelector('.nw-count').textContent = newCount;
       } else {
-        badge.style.display = 'none';
+        head.style.display = 'none';
+        const xtra = bwrap.querySelector('.nw-xtra');
+        if (xtra) xtra.classList.remove('open');
       }
     });
   }
@@ -1021,12 +1035,10 @@
 
     const willHaveTransPanel = mine && m.original_lang === 'en' && (hasDiff || !!(analysis.translation_failed));
     const showAa = hasAa && !willHaveTransPanel;
-    const wordsBtn = !mine ? `<button class="tool-btn words-btn" data-msg-id="${m.id}" title="New words">＋<span class="new-words-badge" style="display:none">0</span></button>` : '';
     const tools = isSending ? '' : `<div class="bubble-tools">
       <button class="tool-btn" data-speak="${esc(m.display_text || '')}" title="Listen">🔊</button>
       ${needsRuby(_targetLang) ? `<button class="tool-btn rb-toggle" title="Toggle romanization">あ</button>` : ''}
       ${showAa ? `<button class="tool-btn aa-btn" data-id="${m.id}" title="Translation">Aa</button>` : ''}
-      ${wordsBtn}
       <button class="tool-btn rx-open-btn" data-msg-id="${m.id}" title="Add reaction"><svg width="14" height="14" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="11" r="7"/><path d="M6 13.5s1 1.5 3 1.5 3-1.5 3-1.5"/><circle cx="7" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="11" cy="9.5" r="0.8" fill="currentColor" stroke="none"/><line x1="17" y1="4" x2="21" y2="4"/><line x1="19" y1="2" x2="19" y2="6"/></svg></button>
     </div>`;
 
@@ -1101,7 +1113,14 @@
         </button>`).join('')}
     </div>` : `<div class="msg-reactions" id="rx-${m.id}"></div>`;
 
-    const newWordsPanel = !mine ? `<div class="new-words-panel" id="nwpanel-${m.id}" style="display:none"></div>` : '';
+    const nwHtml = !mine && !isSending ? `<div class="nw-wrap">
+      <div class="nw-xtra" id="nwxtra-${m.id}">
+        <button class="nw-xtra-head" data-msg-id="${m.id}" style="display:none">
+          📚 New words · <span class="nw-count">0</span> <span>▾</span>
+        </button>
+        <div class="nw-xtra-body" id="nwbody-${m.id}"></div>
+      </div>
+    </div>` : '';
 
     return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
       ${nameHtml}
@@ -1109,7 +1128,7 @@
       ${tools}
       ${corrHtml}
       ${transHtml}
-      ${newWordsPanel}
+      ${nwHtml}
       ${aaHtml}
       ${isSending ? '' : rxHtml}
       <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Processing…</span>' : relTime(m.created_at)}</div>
@@ -1275,15 +1294,15 @@
     // Aa translation panel
     const aa = e.target.closest('.aa-btn[data-id]');
     if (aa) { toggleAa(aa.dataset.id); return; }
-    // New words button (received messages)
-    const wordsBtn = e.target.closest('.words-btn[data-msg-id]');
-    if (wordsBtn) { toggleNewWordsPanel(wordsBtn.dataset.msgId); return; }
-    // New words panel "Add all" button
+    // New words toggle (received messages)
+    const nwHead = e.target.closest('.nw-xtra-head[data-msg-id]');
+    if (nwHead) { toggleNewWords(nwHead.dataset.msgId); return; }
+    // New words "Add all" button
     const nwAddAll = e.target.closest('.nw-add-all[data-msg-id]');
     if (nwAddAll && !nwAddAll.classList.contains('added')) { addAllNewWords(nwAddAll); return; }
-    // New word chip add
-    const nwChip = e.target.closest('.new-word-chip[data-word]');
-    if (nwChip && !nwChip.classList.contains('added')) { addNewWordChip(nwChip); return; }
+    // New word individual add
+    const nwAdd = e.target.closest('.nw-vocab-add[data-target]');
+    if (nwAdd && !nwAdd.classList.contains('added')) { addNewWordItem(nwAdd); return; }
     // Corrections toggle
     const corr = e.target.closest('.corr-xtra-head[data-id]');
     if (corr) { document.getElementById(`cxtra-${corr.dataset.id}`)?.classList.toggle('open'); return; }
@@ -1372,22 +1391,35 @@
     showToast(parts.join(', '));
   }
 
-  async function toggleNewWordsPanel(msgId) {
-    const panel = document.getElementById(`nwpanel-${msgId}`);
-    if (!panel) return;
-    if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  const _nwLoaded = {};
+  const _nwPanelItems = {};
+
+  async function toggleNewWords(msgId) {
+    const xtra = document.getElementById(`nwxtra-${msgId}`);
+    if (!xtra) return;
+    if (xtra.classList.contains('open') && _nwLoaded[msgId]) {
+      xtra.classList.remove('open');
+      return;
+    }
+    xtra.classList.add('open');
+    if (_nwLoaded[msgId]) return;
+
+    const body = document.getElementById(`nwbody-${msgId}`);
     const bwrap = document.getElementById(`bwrap-${msgId}`);
-    if (!bwrap) return;
+    if (!body || !bwrap) return;
+
+    body.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:4px 0">Looking up words…</div>';
+
     const glEls = bwrap.querySelectorAll('.msg-bubble .gl.gl-new');
     const newWords = [...new Set([...glEls].map(el => el.dataset.word))].filter(Boolean);
     if (!newWords.length) {
-      panel.innerHTML = '<div class="new-words-panel-title">All words already in deck</div>';
-      panel.style.display = '';
+      body.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:4px 0">All words already in deck</div>';
+      _nwLoaded[msgId] = true;
       return;
     }
+    const context = bwrap.dataset.msgtext || '';
     const lookups = await Promise.all(newWords.slice(0, 20).map(async w => {
       try {
-        const context = bwrap.dataset.msgtext || '';
         const res = await fetch('/api/reader/translate-word', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ word: w, context, target_lang: _targetLang }),
@@ -1397,28 +1429,31 @@
       } catch { return null; }
     }));
     const items = lookups.filter(Boolean);
-    if (!items.length) { panel.style.display = 'none'; return; }
-    panel.innerHTML = `
-      <div class="new-words-panel-title">New words · ${items.length}
+    _nwPanelItems[msgId] = items;
+    _nwLoaded[msgId] = true;
+    if (!items.length) {
+      body.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:4px 0">Could not look up words</div>';
+      return;
+    }
+    body.innerHTML = `
+      <div class="nw-vocab-title">Words to learn
         <button class="trans-vocab-addall nw-add-all" data-msg-id="${msgId}">＋ Add all</button>
       </div>
-      <div class="new-words-list">${items.map(d =>
-        `<span class="new-word-chip" data-word="${escAttr(d.target_text)}"
-              data-english="${escAttr(d.source_text)}"
-              data-roman="${escAttr(d.romanization || '')}"
-              title="${esc(d.source_text)}">${esc(d.target_text)}</span>`
-      ).join('')}</div>`;
-    _nwPanelItems[msgId] = items;
-    panel.style.display = '';
+      ${items.map(d => `<div class="nw-vocab-item">
+        <button class="trans-vocab-speak" data-speak="${escAttr(d.target_text)}" title="Listen">🔊</button>
+        <span class="nw-vocab-word">${needsRuby(_targetLang) ? rbSpan(d.target_text) : esc(d.target_text)}</span>
+        <span class="nw-vocab-gloss">${esc(d.source_text)}</span>
+        <button class="nw-vocab-add" data-target="${escAttr(d.target_text)}" data-english="${escAttr(d.source_text)}" data-roman="${escAttr(d.romanization || '')}">＋ Add</button>
+      </div>`).join('')}`;
+    if (needsRuby(_targetLang)) paintRuby(body);
   }
-  const _nwPanelItems = {};
 
-  async function addNewWordChip(chip) {
-    const target = chip.dataset.word;
-    const english = chip.dataset.english;
-    const roman = chip.dataset.roman || '';
-    chip.classList.add('added');
-    chip.style.pointerEvents = 'none';
+  async function addNewWordItem(btn) {
+    const target = btn.dataset.target;
+    const english = btn.dataset.english;
+    const roman = btn.dataset.roman || '';
+    btn.disabled = true;
+    btn.textContent = '…';
     try {
       const res = await fetch('/api/cards', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1430,12 +1465,13 @@
       });
       if (!res.ok && res.status !== 409) throw new Error();
       _wordStatusCache[target] = 'weak';
-      chip.textContent = res.status === 409 ? `${target} ✓` : `${target} ✓`;
+      btn.textContent = res.status === 409 ? 'In deck' : '✓ Added';
+      btn.classList.add('added');
       showToast(res.status === 409 ? 'Already in deck' : 'Added to deck ✓');
       _applyWordHighlights();
     } catch {
-      chip.classList.remove('added');
-      chip.style.pointerEvents = '';
+      btn.disabled = false;
+      btn.textContent = '＋ Add';
       showToast('Could not add');
     }
   }
@@ -1446,13 +1482,13 @@
     if (!items || !items.length) return;
     btn.disabled = true;
     btn.textContent = 'Adding…';
-    const panel = document.getElementById(`nwpanel-${msgId}`);
-    const chips = panel ? panel.querySelectorAll('.new-word-chip') : [];
+    const body = document.getElementById(`nwbody-${msgId}`);
+    const itemBtns = body ? body.querySelectorAll('.nw-vocab-add') : [];
     let added = 0, dupes = 0, failed = 0;
     for (let i = 0; i < items.length; i++) {
       const d = items[i];
-      const chip = chips[i];
-      if (chip?.classList.contains('added')) { dupes++; continue; }
+      const itemBtn = itemBtns[i];
+      if (itemBtn?.classList.contains('added')) { dupes++; continue; }
       try {
         const res = await fetch('/api/cards', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1464,7 +1500,10 @@
         });
         if (!res.ok && res.status !== 409) { failed++; continue; }
         _wordStatusCache[d.target_text] = 'weak';
-        if (chip) { chip.classList.add('added'); chip.textContent = `${d.target_text} ✓`; }
+        if (itemBtn) {
+          itemBtn.textContent = res.status === 409 ? 'In deck' : '✓ Added';
+          itemBtn.classList.add('added');
+        }
         if (res.status === 409) dupes++; else added++;
       } catch { failed++; }
     }
