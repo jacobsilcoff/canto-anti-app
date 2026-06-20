@@ -493,14 +493,15 @@
 
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
-  const SENTENCES_PER_PAGE = 5;
   // Preload (translate + TTS) the current page plus this many ahead, so long
   // imports stream in lazily instead of firing one LLM/TTS call per sentence on
   // open. The rest stays on-demand (tap a sentence/word → single live call).
   const PRELOAD_AHEAD_PAGES = 1;
-  const PRELOAD_WINDOW = SENTENCES_PER_PAGE * (PRELOAD_AHEAD_PAGES + 1);
+  const PRELOAD_SENT_WINDOW = 10;
   let _preloadPromises = {};   // window-start sentence idx → in-flight/settled preload
   let _canPreload = false;     // false for community stories (not owned → no /preload)
+
+  let pageBreaks = [];         // [0, n1, n2, …] — sentence index where each page starts
 
   let selectedDifficulty = 'B1';
 
@@ -636,7 +637,7 @@
       } else {
         // Only preload the first window; the rest streams in as the reader pages.
         setStep('preload', 'active');
-        const preloaded = await fetch(`/api/reader/texts/${id}/preload?start=0&count=${PRELOAD_WINDOW}`, { method: 'POST' }).then(r => r.json());
+        const preloaded = await fetch(`/api/reader/texts/${id}/preload?start=0&count=${PRELOAD_SENT_WINDOW}`, { method: 'POST' }).then(r => r.json());
         setStep('preload', 'done');
         showReaderView({ ...data, sentences: preloaded.sentences });
       }
@@ -768,7 +769,7 @@
       loadSavedTexts();
 
       setStep('preload', 'active');
-      const preloaded = await fetch(`/api/reader/texts/${data.id}/preload?start=0&count=${PRELOAD_WINDOW}`, { method: 'POST' }).then(r => r.json());
+      const preloaded = await fetch(`/api/reader/texts/${data.id}/preload?start=0&count=${PRELOAD_SENT_WINDOW}`, { method: 'POST' }).then(r => r.json());
       setStep('preload', 'done');
 
       showReaderView({ ...data, sentences: preloaded.sentences });
@@ -804,21 +805,15 @@
 
   function showReaderView(data) {
     currentTextId = data.id;
-    // Capture ownership now — showReaderView resets _isCommunityStory at its end,
-    // so later page navigations need this snapshot to know if /preload is allowed.
     _canPreload = !_isCommunityStory;
     currentTargetLang = data.target_lang;
     currentTitle = data.title || '';
     currentSentenceIdx = null;
     currentPage = 0;
-    // Build sentence cache from preloaded data
     sentenceCache = {};
     (data.sentences || []).forEach(s => { sentenceCache[s.sentence_idx] = s; });
-    // The opener already preloaded window 0 (sentences are passed in here), so
-    // mark it done to avoid an immediate redundant re-fetch from renderPage(0).
     _preloadPromises = (data.sentences && data.sentences.length) ? { 0: Promise.resolve() } : {};
     document.getElementById('reader-title').textContent = data.title;
-    // Show image banner if story was generated from an image
     const imgBanner = document.getElementById('reader-image');
     if (data.image_url) {
       imgBanner.src = data.image_url;
@@ -828,19 +823,23 @@
     }
     const isLatin = scriptFamilyOf(data.target_lang) === 'latin';
     document.getElementById('reader-text').classList.toggle('latin', isLatin);
-    // Apply the writing-system font to the text body and the word tooltip.
     applyReaderScript(document.getElementById('reader-text'), data.target_lang);
     applyReaderScript(document.getElementById('word-tooltip'), data.target_lang);
     sentences = buildSentences(data.tokens);
-    // Must be set before renderPage so <rt> elements get their text on first render.
     romanizationOn = false;
     romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
-    renderPage(0);
-    resetPanel();
+
+    // Make the reader view visible BEFORE computing page breaks (needs layout).
     document.getElementById('loading-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('reader-view').style.display = 'block';
-    // Show vocab review button (label created lazily on first card add).
+    document.getElementById('reader-tabs').style.display = 'none';
+    document.getElementById('community-view').style.display = 'none';
+    if (!_isCommunityStory) {
+      document.getElementById('story-author').style.display = 'none';
+      document.getElementById('publish-row').style.display = 'none';
+    }
+
     document.getElementById('reader-vocab-btn').style.display = '';
     document.getElementById('reader-add-all-btn').style.display = data.all_vocab_added ? 'none' : '';
     document.getElementById('reader-quiz-btn').style.display = '';
@@ -849,14 +848,10 @@
     romBtn.classList.remove('active');
     romBtn.classList.add('rom-toggle-off');
     document.getElementById('reader-text').classList.remove('show-rom');
-    document.getElementById('reader-tabs').style.display = 'none';
-    document.getElementById('community-view').style.display = 'none';
-    // Own stories: sharing is now managed from the story list, so hide the
-    // in-reader publish row entirely. (Community stories still show ratings.)
-    if (!_isCommunityStory) {
-      document.getElementById('story-author').style.display = 'none';
-      document.getElementById('publish-row').style.display = 'none';
-    }
+
+    computePageBreaks();
+    renderPage(0);
+    resetPanel();
     _isCommunityStory = false;
   }
 
@@ -880,6 +875,7 @@
       if (textRes.ok) {
         const data = await textRes.json();
         sentences = buildSentences(data.tokens);
+        computePageBreaks();
         renderPage(currentPage);
       }
     } catch {
@@ -1171,20 +1167,95 @@
     }));
   }
 
+  function _buildSentenceEl(sent, si) {
+    const sentEl = document.createElement('span');
+    sentEl.className = 'sentence';
+    sentEl.dataset.si = si;
+    sent.tokens.forEach(tok => {
+      let el;
+      if (tok.is_word) {
+        el = document.createElement('ruby');
+        el.appendChild(document.createTextNode(tok.text));
+        const rt = document.createElement('rt');
+        rt.textContent = (romanizationMap && romanizationMap[tok.text]) || '';
+        el.appendChild(rt);
+      } else {
+        el = document.createElement('span');
+        el.textContent = tok.text;
+      }
+      el.className = 'token' + (tok.is_word ? ' word ' + (tok.status || 'new') : '');
+      if (tok.is_word) el.dataset.word = tok.text;
+      sentEl.appendChild(el);
+    });
+    return sentEl;
+  }
+
+  function computePageBreaks() {
+    if (!sentences.length) { pageBreaks = [0]; return; }
+    const container = document.getElementById('reader-text');
+    const nav = document.getElementById('page-nav');
+    const navH = nav ? nav.offsetHeight : 50;
+    const readerView = document.getElementById('reader-view');
+    const readerRect = readerView.getBoundingClientRect();
+    const textRect = container.getBoundingClientRect();
+    const chromeBefore = textRect.top - readerRect.top;
+    const availH = window.innerHeight - chromeBefore - navH - 24;
+
+    container.style.visibility = 'hidden';
+    container.innerHTML = '';
+    const heights = [];
+    for (let i = 0; i < sentences.length; i++) {
+      const el = _buildSentenceEl(sentences[i], i);
+      container.appendChild(el);
+    }
+    for (let i = 0; i < container.children.length; i++) {
+      heights.push(container.children[i].offsetHeight);
+    }
+    container.innerHTML = '';
+    container.style.visibility = '';
+
+    pageBreaks = [0];
+    let cumH = 0;
+    const minPerPage = 1;
+    let countOnPage = 0;
+    for (let i = 0; i < heights.length; i++) {
+      if (cumH + heights[i] > availH && countOnPage >= minPerPage) {
+        pageBreaks.push(i);
+        cumH = 0;
+        countOnPage = 0;
+      }
+      cumH += heights[i];
+      countOnPage++;
+    }
+  }
+
+  function _totalPages() { return pageBreaks.length; }
+  function _pageStart(p) { return pageBreaks[p] || 0; }
+  function _pageEnd(p) { return p + 1 < pageBreaks.length ? pageBreaks[p + 1] : sentences.length; }
+  function _pageForSentence(si) {
+    for (let p = pageBreaks.length - 1; p >= 0; p--) {
+      if (si >= pageBreaks[p]) return p;
+    }
+    return 0;
+  }
+
   function renderPage(pageIdx) {
+    if (pageIdx < 0) pageIdx = 0;
+    if (pageIdx >= _totalPages()) pageIdx = _totalPages() - 1;
     currentPage = pageIdx;
-    const totalPages = Math.ceil(sentences.length / SENTENCES_PER_PAGE);
-    const start = pageIdx * SENTENCES_PER_PAGE;
-    const pageSentences = sentences.slice(start, start + SENTENCES_PER_PAGE);
+    const tp = _totalPages();
+    const start = _pageStart(pageIdx);
+    const end = _pageEnd(pageIdx);
+    const pageSentences = sentences.slice(start, end);
 
     // Update paging controls
     const nav = document.getElementById('page-nav');
     nav.style.display = '';
     document.getElementById('page-prev').disabled = pageIdx === 0;
-    document.getElementById('page-prev').style.visibility = totalPages > 1 ? '' : 'hidden';
-    document.getElementById('page-next').disabled = pageIdx >= totalPages - 1;
-    document.getElementById('page-next').style.visibility = totalPages > 1 ? '' : 'hidden';
-    document.getElementById('page-indicator').textContent = totalPages > 1 ? `${pageIdx + 1} / ${totalPages}` : '';
+    document.getElementById('page-prev').style.visibility = tp > 1 ? '' : 'hidden';
+    document.getElementById('page-next').disabled = pageIdx >= tp - 1;
+    document.getElementById('page-next').style.visibility = tp > 1 ? '' : 'hidden';
+    document.getElementById('page-indicator').textContent = tp > 1 ? `${pageIdx + 1} / ${tp}` : '';
 
     // Reset panel and tooltip when changing page
     closeTooltip();
@@ -1202,10 +1273,11 @@
   // sentences are skipped server-side; community stories aren't owned so skip.
   function preloadAround(pageIdx) {
     if (!currentTextId || !_canPreload) return Promise.resolve();
-    const start = pageIdx * SENTENCES_PER_PAGE;
+    const start = _pageStart(pageIdx);
     if (start >= sentences.length) return Promise.resolve();
     if (_preloadPromises[start]) return _preloadPromises[start];
-    const url = `/api/reader/texts/${currentTextId}/preload?start=${start}&count=${PRELOAD_WINDOW}`;
+    const count = Math.max(PRELOAD_SENT_WINDOW, _pageEnd(Math.min(pageIdx + PRELOAD_AHEAD_PAGES, _totalPages() - 1)) - start);
+    const url = `/api/reader/texts/${currentTextId}/preload?start=${start}&count=${count}`;
     const p = (async () => {
       try {
         const res = await fetch(url, { method: 'POST' });
@@ -1225,7 +1297,7 @@
   }
 
   function goPage(delta) {
-    const totalPages = Math.ceil(sentences.length / SENTENCES_PER_PAGE);
+    const totalPages = _totalPages();
     const next = Math.max(0, Math.min(totalPages - 1, currentPage + delta));
     if (next !== currentPage) renderPage(next);
   }
@@ -1235,42 +1307,24 @@
     container.innerHTML = '';
     pageSentences.forEach((sent, localIdx) => {
       const si = globalOffset + localIdx;
-      const sentEl = document.createElement('span');
-      sentEl.className = 'sentence';
-      sentEl.dataset.si = si;
+      const sentEl = _buildSentenceEl(sent, si);
       sentEl.addEventListener('click', e => {
-        // Clicking blank space in sentence (not on a word) → select sentence
         if (!e.target.classList.contains('word')) selectSentence(si, sentEl);
       });
-      sent.tokens.forEach(tok => {
-        let el;
-        if (tok.is_word) {
-          el = document.createElement('ruby');
-          el.appendChild(document.createTextNode(tok.text));
-          const rt = document.createElement('rt');
-          rt.textContent = (romanizationMap && romanizationMap[tok.text]) || '';
-          el.appendChild(rt);
-        } else {
-          el = document.createElement('span');
-          el.textContent = tok.text;
-        }
-
-        el.className = 'token' + (tok.is_word ? ' word ' + (tok.status || 'new') : '');
-        if (tok.is_word) {
-          el.dataset.word = tok.text;
-          el.dataset.si = si;
-          el.addEventListener('click', e => {
-            e.stopPropagation();
-            onWordTap(el, tok.text, tok.status || 'new', si, sentEl);
-          });
-          let pressTimer;
-          el.addEventListener('pointerdown', () => {
-            pressTimer = setTimeout(() => onWordTap(el, tok.text, tok.status || 'new', si, sentEl), 300);
-          });
-          el.addEventListener('pointerup',    () => clearTimeout(pressTimer));
-          el.addEventListener('pointerleave', () => clearTimeout(pressTimer));
-        }
-        sentEl.appendChild(el);
+      sentEl.querySelectorAll('.word').forEach(el => {
+        const word = el.dataset.word || el.textContent;
+        const status = el.classList.contains('known') ? 'known' : el.classList.contains('weak') ? 'weak' : 'new';
+        el.dataset.si = si;
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          onWordTap(el, word, status, si, sentEl);
+        });
+        let pressTimer;
+        el.addEventListener('pointerdown', () => {
+          pressTimer = setTimeout(() => onWordTap(el, word, status, si, sentEl), 300);
+        });
+        el.addEventListener('pointerup',    () => clearTimeout(pressTimer));
+        el.addEventListener('pointerleave', () => clearTimeout(pressTimer));
       });
       container.appendChild(sentEl);
     });
@@ -1586,7 +1640,7 @@
     if (!audioMode) {
       // Start audio mode from current page
       audioMode = true;
-      audioSentenceIdx = currentPage * SENTENCES_PER_PAGE;
+      audioSentenceIdx = _pageStart(currentPage);
       _audioModeAbort = false;
       audioPlaying = true;
       setAudioPlayPauseUI(true);
@@ -1632,7 +1686,7 @@
       const si = audioSentenceIdx;
 
       // Make sure the right page is showing
-      const targetPage = Math.floor(si / SENTENCES_PER_PAGE);
+      const targetPage = _pageForSentence(si);
       if (targetPage !== currentPage) {
         renderPage(targetPage);
         await new Promise(r => setTimeout(r, 50));
@@ -1709,6 +1763,17 @@
   }
 
   init();
+
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    if (document.getElementById('reader-view').style.display === 'none') return;
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      const si = currentSentenceIdx ?? _pageStart(currentPage);
+      computePageBreaks();
+      renderPage(_pageForSentence(si));
+    }, 200);
+  });
 </script>
 </body>
 </html>
