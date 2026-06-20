@@ -89,6 +89,17 @@
       margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
     .dash-header h2 { margin: 0; }
 
+    /* Resource meters */
+    .res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .res-item { display: flex; flex-direction: column; gap: 4px; }
+    .res-head { display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 0.82rem; }
+    .res-label { color: var(--text-muted); font-weight: 500; }
+    .res-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .res-bar { height: 6px; background: var(--neutral-soft); border-radius: 3px; overflow: hidden; }
+    .res-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .res-sub { font-size: 0.7rem; color: var(--text-muted); }
+
     .loading-msg { text-align: center; color: var(--text-muted); padding: 40px 0;
       font-size: 0.9rem; }
   </style>
@@ -206,7 +217,8 @@
     html += kpi('Est. Cost (month)', `$${estCost}`, `Last month: $${estCostLast}`);
     html += kpi('Pro Revenue', `$${proRevenue.toFixed(2)}/mo`, `${t.pro_paid || 0} paid, ${t.pro_comped || 0} comped`);
     html += kpi('XP Today', fmtNum(d.totals.xp_today), `${fmtNum(d.totals.cards)} total cards`);
-    html += kpi('Server RSS', `${srv.rss_mb} MB`, `Up ${fmtDuration(srv.uptime_seconds)}`);
+    const ramSub = srv.total_ram_mb ? `${Math.round(srv.rss_mb / srv.total_ram_mb * 100)}% of ${Math.round(srv.total_ram_mb)} MB` : '';
+    html += kpi('Memory', `${srv.rss_mb} MB`, ramSub || `Up ${fmtDuration(srv.uptime_seconds)}`);
     html += kpi('Feedback Open',
       (fb.by_status.new || 0) + (fb.by_status.triaged || 0) + (fb.by_status.in_progress || 0),
       `${fb.by_status.resolved || 0} resolved`);
@@ -305,14 +317,15 @@
 
     // ── Server ──
     html += '<div class="dash-section">';
-    html += '<h3>Server</h3>';
-    html += `<div style="font-size:0.85rem;display:flex;flex-wrap:wrap;gap:16px">
-      <div><span style="color:var(--text-muted)">Memory (RSS):</span> <b>${srv.rss_mb} MB</b></div>
-      <div><span style="color:var(--text-muted)">Uptime:</span> <b>${fmtDuration(srv.uptime_seconds)}</b></div>
-      <div><span style="color:var(--text-muted)">PID:</span> ${srv.pid}</div>
-      <div><span style="color:var(--text-muted)">Total study-days:</span> ${fmtNum(d.totals.study_days)}</div>
+    html += '<h3>Server <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">(Oracle Cloud Free Tier)</span></h3>';
+    html += '<div class="res-grid">';
+    html += resMeter('Memory (RSS)', srv.rss_mb, srv.total_ram_mb, 'MB');
+    html += resMeter('Disk', srv.disk_used_gb, srv.disk_total_gb, 'GB');
+    html += `<div class="res-item">
+      <div class="res-head"><span class="res-label">CPUs</span><span class="res-val">${srv.cpu_count || '?'}</span></div>
+      <div class="res-sub">Uptime: ${fmtDuration(srv.uptime_seconds)} &middot; PID ${srv.pid}</div>
     </div>`;
-    html += '</div>';
+    html += '</div></div>';
 
     el.innerHTML = html;
   }
@@ -322,6 +335,21 @@
       <div class="kpi-label">${label}</div>
       <div class="kpi-val">${val}</div>
       ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}
+    </div>`;
+  }
+
+  function resMeter(label, used, total, unit) {
+    if (total == null) {
+      return `<div class="res-item">
+        <div class="res-head"><span class="res-label">${label}</span><span class="res-val">${used} ${unit}</span></div>
+      </div>`;
+    }
+    const pct = Math.min(100, Math.round((used / total) * 100));
+    const color = pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warn-accent)' : 'var(--primary)';
+    return `<div class="res-item">
+      <div class="res-head"><span class="res-label">${label}</span><span class="res-val">${used} / ${total} ${unit}</span></div>
+      <div class="res-bar"><div class="res-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="res-sub">${pct}% used</div>
     </div>`;
   }
 

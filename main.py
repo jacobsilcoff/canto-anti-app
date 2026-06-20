@@ -3438,10 +3438,11 @@ async def tts(request: Request, text: str, lang: str = "yue", user: dict = Depen
 
 @app.get("/api/admin/dashboard")
 async def admin_dashboard_stats(user: dict = Depends(current_admin)):
-    import resource
+    import resource, shutil
     stats = await db.get_admin_dashboard_stats()
     rusage = resource.getrusage(resource.RUSAGE_SELF)
-    rss_mb = rusage.ru_maxrss / 1024  # Linux reports in KB
+    rss_mb = rusage.ru_maxrss / 1024
+    total_ram_mb = None
     try:
         with open(f"/proc/{os.getpid()}/status") as f:
             for line in f:
@@ -3450,8 +3451,22 @@ async def admin_dashboard_stats(user: dict = Depends(current_admin)):
                     break
     except OSError:
         pass
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    total_ram_mb = int(line.split()[1]) / 1024
+                    break
+    except OSError:
+        pass
+    cpu_count = os.cpu_count()
+    disk = shutil.disk_usage("/")
     stats["server"] = {
         "rss_mb": round(rss_mb, 1),
+        "total_ram_mb": round(total_ram_mb, 0) if total_ram_mb else None,
+        "cpu_count": cpu_count,
+        "disk_used_gb": round(disk.used / (1024 ** 3), 1),
+        "disk_total_gb": round(disk.total / (1024 ** 3), 1),
         "uptime_seconds": int(time.time() - _SERVER_START),
         "pid": os.getpid(),
     }
