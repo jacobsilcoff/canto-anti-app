@@ -3433,6 +3433,13 @@ async def list_user_feedback(user_id: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_admin_user_ids() -> list[int]:
+    """Return IDs of all admin users."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        async with conn.execute("SELECT id FROM users WHERE is_admin=1") as cur:
+            return [row[0] for row in await cur.fetchall()]
+
+
 # ── Story sharing ────────────────────────────────────────────────────────────
 
 

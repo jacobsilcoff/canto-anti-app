@@ -3560,6 +3560,9 @@ async def submit_feedback(
         user["id"], fb_type, title, description, screenshot_media_id
     )
     background_tasks.add_task(_triage_feedback_bg, feedback_id, title, description)
+    background_tasks.add_task(
+        _notify_admins_feedback, user, fb_type, title, feedback_id,
+    )
     return {"id": feedback_id, "message": "Thank you for your feedback!"}
 
 
@@ -3583,6 +3586,49 @@ async def _triage_feedback_bg(feedback_id: int, title: str, description: str) ->
         )
     except Exception:
         pass
+
+
+async def _notify_admins_feedback(
+    submitter: dict, fb_type: str, title: str, feedback_id: int,
+) -> None:
+    """Push-notify all admins about a new feedback report."""
+    try:
+        admin_ids = await db.get_admin_user_ids()
+        label = "Bug report" if fb_type == "bug" else "Feature request"
+        username = submitter.get("username", "A user")
+        for aid in admin_ids:
+            if aid == submitter["id"]:
+                continue
+            await _send_push_to_user(
+                aid,
+                f"New {label.lower()}",
+                f"{username}: {title}",
+                url="/feedback",
+                tag=f"feedback-{feedback_id}",
+            )
+    except Exception:
+        logger.exception("_notify_admins_feedback failed")
+
+
+async def _notify_user_feedback_status(report: dict, new_status: str) -> None:
+    """Push-notify the submitter that their report's status changed."""
+    try:
+        labels = {
+            "triaged": "has been triaged",
+            "in_progress": "is being worked on",
+            "resolved": "has been resolved",
+            "closed": "has been closed",
+        }
+        label = labels.get(new_status, f"status → {new_status}")
+        await _send_push_to_user(
+            report["user_id"],
+            "Feedback update",
+            f'Your report "{report["title"]}" {label}.',
+            url="/feedback",
+            tag=f"feedback-{report['id']}",
+        )
+    except Exception:
+        logger.exception("_notify_user_feedback_status failed")
 
 
 @app.get("/api/feedback/mine")
@@ -3616,11 +3662,17 @@ class FeedbackStatusUpdate(BaseModel):
 async def admin_update_feedback_status(
     feedback_id: int,
     req: FeedbackStatusUpdate,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(current_admin),
 ):
     if req.status not in ("new", "triaged", "in_progress", "resolved", "closed"):
         raise HTTPException(400, "Invalid status")
+    report = await db.get_feedback(feedback_id)
     await db.update_feedback_status(feedback_id, req.status, req.admin_notes)
+    if report and report["user_id"] != user["id"]:
+        background_tasks.add_task(
+            _notify_user_feedback_status, report, req.status,
+        )
     return {"success": True}
 
 
