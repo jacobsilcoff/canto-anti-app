@@ -825,7 +825,14 @@
     document.getElementById('reader-text').classList.toggle('latin', isLatin);
     applyReaderScript(document.getElementById('reader-text'), data.target_lang);
     applyReaderScript(document.getElementById('word-tooltip'), data.target_lang);
-    sentences = buildSentences(data.tokens);
+    if (data.sentence_groups) {
+      sentences = data.sentence_groups.map(toks => ({
+        tokens: toks,
+        text: toks.map(t => t.text).join('')
+      }));
+    } else {
+      sentences = buildSentences(data.tokens);
+    }
     romanizationOn = false;
     romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
 
@@ -874,7 +881,13 @@
       const textRes = await fetch(`/api/reader/texts/${currentTextId}`);
       if (textRes.ok) {
         const data = await textRes.json();
-        sentences = buildSentences(data.tokens);
+        if (data.sentence_groups) {
+          sentences = data.sentence_groups.map(toks => ({
+            tokens: toks, text: toks.map(t => t.text).join('')
+          }));
+        } else {
+          sentences = buildSentences(data.tokens);
+        }
         computePageBreaks();
         renderPage(currentPage);
       }

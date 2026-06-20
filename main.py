@@ -3628,24 +3628,47 @@ def _annotate_tokens(tokens: list[dict], statuses: dict[str, str]) -> list[dict]
 
 async def _build_text_response(user_id: int, text: dict) -> dict:
     """Assemble the full response for a reader text: tokens + cached sentences."""
-    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
-    words = [t["text"] for t in tokens if t["is_word"]]
-    unique_words = list(dict.fromkeys(words))
-    statuses = await db.get_word_statuses(user_id, unique_words, text["target_lang"])
     sentences = await db.get_reader_sentences(user_id, text["id"])
+
+    # For texts with stored sentence boundaries (URL/PDF imports), tokenize
+    # each sentence individually so the frontend uses OUR boundaries instead
+    # of re-deriving them from punctuation (which always drifts).
+    has_stored = sentences and sentences[0].get("sentence_text")
+    if has_stored:
+        all_words: list[str] = []
+        groups: list[list[dict]] = []
+        for s in sentences:
+            s_toks = tokenizer.tokenize(s["sentence_text"], text["target_lang"])
+            all_words.extend(t["text"] for t in s_toks if t["is_word"])
+            groups.append(s_toks)
+        unique_words = list(dict.fromkeys(all_words))
+        statuses = await db.get_word_statuses(user_id, unique_words, text["target_lang"])
+        for g in groups:
+            _annotate_tokens(g, statuses)
+        tokens = [t for g in groups for t in g]
+        rom_map = tokenizer.romanize_words(all_words, text["target_lang"])
+    else:
+        tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+        words = [t["text"] for t in tokens if t["is_word"]]
+        unique_words = list(dict.fromkeys(words))
+        statuses = await db.get_word_statuses(user_id, unique_words, text["target_lang"])
+        _annotate_tokens(tokens, statuses)
+        rom_map = tokenizer.romanize_words(words, text["target_lang"])
+
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
-    rom_map = tokenizer.romanize_words(words, text["target_lang"])
     all_vocab_added = bool(unique_words) and all(w in statuses for w in unique_words)
     resp = {
         **text,
-        "tokens": _annotate_tokens(tokens, statuses),
+        "tokens": tokens,
         "sentences": sentences,
         "preload_complete": preload_complete,
         "romanization": rom_map,
         "all_vocab_added": all_vocab_added,
     }
+    if has_stored:
+        resp["sentence_groups"] = groups
     img_id = text.get("image_media_id")
     if img_id:
         resp["image_url"] = f"/api/media/{img_id}.jpg"
@@ -3770,41 +3793,19 @@ async def _reading_from_source(
             logger.exception("translate_article_to_reading failed")
             raise HTTPException(502, f"Couldn't translate the article: {exc}")
         segments = result["segments"]
-        # One source sentence = one line in content. No sub-splitting — if the
-        # translated text has internal punctuation the reader may split it into
-        # multiple display sentences, but they all map to the same source English.
         content = "\n".join(seg["target"] for seg in segments)
         final_title = (title or "").strip() or "Imported reading"
     text_id = await db.create_reader_text(
         user["id"], final_title[:120], stored_prompt, content, target_lang,
         difficulty=difficulty,
     )
-    # Pre-store the original English for every reader sentence.  The reader will
-    # re-tokenize and split_sentences on the stored content — which may produce
-    # more sentences than source segments (internal 。 etc).  Map each back to
-    # the source segment it came from by tracking cumulative character offsets.
+    # One reader_sentence per source sentence — simple 1:1. The server sends
+    # pre-grouped tokens so the frontend never re-derives sentence boundaries.
     if segments:
-        seg_boundaries: list[tuple[int, int, str]] = []   # (char_start, char_end, english)
-        pos = 0
-        for seg in segments:
-            end = pos + len(seg["target"])
-            seg_boundaries.append((pos, end, seg["english"]))
-            pos = end + 1          # +1 for the \n separator
-        reader_sents = tokenizer.split_sentences(
-            tokenizer.tokenize(content, target_lang)
-        )
-        sent_pos = 0
-        for i, sent_text in enumerate(reader_sents):
-            idx = content.find(sent_text, sent_pos)
-            if idx == -1:
-                idx = sent_pos
-            eng = ""
-            for s_start, s_end, s_eng in seg_boundaries:
-                if idx < s_end and idx + len(sent_text) > s_start:
-                    eng = s_eng
-                    break
-            await db.upsert_reader_sentence(text_id, i, sent_text, eng or None, None, None)
-            sent_pos = idx + len(sent_text)
+        for i, seg in enumerate(segments):
+            await db.upsert_reader_sentence(
+                text_id, i, seg["target"], seg["english"], None, None,
+            )
     saved = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], saved)
 
@@ -3948,10 +3949,16 @@ async def reader_preload(
         raise HTTPException(404, "Text not found")
     access = await _resolve_gemini(user)
 
-    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
-    sent_texts = tokenizer.split_sentences(tokens)
-    total = len(sent_texts)
     existing = {s["sentence_idx"]: s for s in await db.get_reader_sentences(user["id"], text_id)}
+    # Use stored sentence texts when available (URL/PDF imports store 1:1 with
+    # source sentences). Otherwise derive from tokenization (AI stories).
+    if existing and next(iter(existing.values())).get("sentence_text"):
+        total = max(existing.keys()) + 1
+        sent_texts = [existing[i]["sentence_text"] for i in range(total)]
+    else:
+        tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+        sent_texts = tokenizer.split_sentences(tokens)
+        total = len(sent_texts)
 
     # Select the window to process. `count=None` → everything (legacy behaviour).
     lo = max(0, start)
@@ -4353,20 +4360,36 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
     text = await db.get_story_public(text_id, user["id"])
     if not text:
         raise HTTPException(404, "Story not found or not accessible")
-    tokens = tokenizer.tokenize(text["content"], text["target_lang"])
-    words = [t["text"] for t in tokens if t["is_word"]]
-    unique_words = list(dict.fromkeys(words))
-    statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
     sentences = await db.get_reader_sentences_public(text_id)
+    has_stored = sentences and sentences[0].get("sentence_text")
+    if has_stored:
+        all_words: list[str] = []
+        groups: list[list[dict]] = []
+        for s in sentences:
+            s_toks = tokenizer.tokenize(s["sentence_text"], text["target_lang"])
+            all_words.extend(t["text"] for t in s_toks if t["is_word"])
+            groups.append(s_toks)
+        unique_words = list(dict.fromkeys(all_words))
+        statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
+        for g in groups:
+            _annotate_tokens(g, statuses)
+        tokens = [t for g in groups for t in g]
+        rom_map = tokenizer.romanize_words(all_words, text["target_lang"])
+    else:
+        tokens = tokenizer.tokenize(text["content"], text["target_lang"])
+        words = [t["text"] for t in tokens if t["is_word"]]
+        unique_words = list(dict.fromkeys(words))
+        statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
+        _annotate_tokens(tokens, statuses)
+        rom_map = tokenizer.romanize_words(words, text["target_lang"])
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
-    rom_map = tokenizer.romanize_words(words, text["target_lang"])
     rating_info = await db.get_story_rating(text_id)
     user_rating = await db.get_user_story_rating(user["id"], text_id)
     resp = {
         **text,
-        "tokens": _annotate_tokens(tokens, statuses),
+        "tokens": tokens,
         "sentences": sentences,
         "preload_complete": preload_complete,
         "romanization": rom_map,
@@ -4374,6 +4397,8 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
         "rating_count": rating_info["rating_count"],
         "user_rating": user_rating,
     }
+    if has_stored:
+        resp["sentence_groups"] = groups
     img_id = text.get("image_media_id")
     if img_id:
         resp["image_url"] = f"/api/media/{img_id}.jpg"
