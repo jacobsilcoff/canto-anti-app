@@ -1395,11 +1395,12 @@
 
   const _nwLoaded = {};
   const _nwPanelItems = {};
+  const _nwSpinner = '<span style="display:inline-block;width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0"></span>';
 
-  async function toggleNewWords(msgId) {
+  function toggleNewWords(msgId) {
     const xtra = document.getElementById(`nwxtra-${msgId}`);
     if (!xtra) return;
-    if (xtra.classList.contains('open') && _nwLoaded[msgId]) {
+    if (xtra.classList.contains('open')) {
       xtra.classList.remove('open');
       return;
     }
@@ -1410,8 +1411,6 @@
     const bwrap = document.getElementById(`bwrap-${msgId}`);
     if (!body || !bwrap) return;
 
-    body.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:4px 0">Looking up words…</div>';
-
     const glEls = bwrap.querySelectorAll('.msg-bubble .gl.gl-new');
     const newWords = [...new Set([...glEls].map(el => el.dataset.word))].filter(Boolean);
     if (!newWords.length) {
@@ -1419,39 +1418,54 @@
       _nwLoaded[msgId] = true;
       return;
     }
-    const context = bwrap.dataset.msgtext || '';
-    const lookups = await Promise.all(newWords.slice(0, 20).map(async w => {
-      try {
-        const res = await fetch('/api/reader/translate-word', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ word: w, context, target_lang: _targetLang }),
-        });
-        if (!res.ok) return null;
-        return await res.json();
-      } catch { return null; }
-    }));
-    const items = lookups.filter(Boolean);
-    _nwPanelItems[msgId] = items;
-    _nwLoaded[msgId] = true;
-    if (!items.length) {
-      body.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:4px 0">Could not look up words</div>';
-      return;
-    }
+
+    const words = newWords.slice(0, 20);
+    _nwPanelItems[msgId] = words.map(w => ({ target_text: w }));
     body.innerHTML = `
       <div class="nw-vocab-title">Words to learn
-        <button class="trans-vocab-addall nw-add-all" data-msg-id="${msgId}">＋ Add all</button>
+        <button class="trans-vocab-addall nw-add-all" data-msg-id="${msgId}" disabled>＋ Add all</button>
       </div>
-      ${items.map(d => {
-        const wordHtml = needsRuby(_targetLang) && d.romanization
-          ? `<span class="gl" tabindex="0" data-word="${escAttr(d.target_text)}"><ruby>${esc(d.target_text)}<rt>${esc(d.romanization)}</rt></ruby></span>`
-          : `<span class="gl" tabindex="0" data-word="${escAttr(d.target_text)}">${esc(d.target_text)}</span>`;
-        return `<div class="nw-vocab-item">
-        <button class="trans-vocab-speak" data-speak="${escAttr(d.target_text)}" title="Listen">${_playIcon}</button>
-        <span class="nw-vocab-word">${wordHtml}</span>
-        <span class="nw-vocab-gloss">${esc(d.source_text)}</span>
-        <button class="nw-vocab-add" data-target="${escAttr(d.target_text)}" data-english="${escAttr(d.source_text)}" data-roman="${escAttr(d.romanization || '')}">＋ Add</button>
-      </div>`;
-      }).join('')}`;
+      ${words.map((w, i) => `<div class="nw-vocab-item" id="nwi-${msgId}-${i}">
+        <button class="trans-vocab-speak" data-speak="${escAttr(w)}" title="Listen">${_playIcon}</button>
+        <span class="nw-vocab-word"><span class="gl" tabindex="0" data-word="${escAttr(w)}">${esc(w)}</span></span>
+        <span class="nw-vocab-gloss" id="nwg-${msgId}-${i}">${_nwSpinner}</span>
+        <button class="nw-vocab-add" data-target="${escAttr(w)}" data-english="" data-roman="" disabled>＋ Add</button>
+      </div>`).join('')}`;
+
+    const context = bwrap.dataset.msgtext || '';
+    let resolved = 0;
+    words.forEach((w, i) => {
+      fetch('/api/reader/translate-word', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: w, context, target_lang: _targetLang }),
+      }).then(r => r.ok ? r.json() : null).catch(() => null).then(d => {
+        resolved++;
+        const gloss = document.getElementById(`nwg-${msgId}-${i}`);
+        const row = document.getElementById(`nwi-${msgId}-${i}`);
+        if (!row) return;
+        const addBtn = row.querySelector('.nw-vocab-add');
+        if (d) {
+          _nwPanelItems[msgId][i] = d;
+          if (gloss) gloss.textContent = d.source_text;
+          if (addBtn) {
+            addBtn.dataset.english = d.source_text;
+            addBtn.dataset.roman = d.romanization || '';
+            addBtn.disabled = false;
+          }
+          if (needsRuby(_targetLang) && d.romanization) {
+            const wordSpan = row.querySelector('.nw-vocab-word .gl');
+            if (wordSpan) wordSpan.innerHTML = `<ruby>${esc(d.target_text)}<rt>${esc(d.romanization)}</rt></ruby>`;
+          }
+        } else {
+          if (gloss) gloss.innerHTML = '<span style="color:var(--text-muted);font-style:italic">—</span>';
+        }
+        if (resolved === words.length) {
+          _nwLoaded[msgId] = true;
+          const addAll = body.querySelector('.nw-add-all');
+          if (addAll && _nwPanelItems[msgId].some(it => it.source_text)) addAll.disabled = false;
+        }
+      });
+    });
   }
 
   async function addNewWordItem(btn) {
@@ -1493,6 +1507,7 @@
     let added = 0, dupes = 0, failed = 0;
     for (let i = 0; i < items.length; i++) {
       const d = items[i];
+      if (!d.source_text) continue;
       const itemBtn = itemBtns[i];
       if (itemBtn?.classList.contains('added')) { dupes++; continue; }
       try {
