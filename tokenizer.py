@@ -155,6 +155,38 @@ def romanize_text(text: str, lang: str) -> str:
     return " ".join(rmap.get(w, w) for w in words).strip()
 
 
+# ── Thai tonal romanization ─────────────────────────────────────────────────
+# ROYIN romanization + tone diacritics (à=low, â=falling, á=high, ǎ=rising).
+# Per-syllable tone detection via pythainlp so multi-syllable words are correct.
+import re as _re
+
+_TH_TONE_MARKS = {"l": "̀", "f": "̂", "h": "́", "r": "̌"}
+
+def _th_add_tone(rom: str, tone: str) -> str:
+    if tone == "m" or tone not in _TH_TONE_MARKS:
+        return rom
+    m = _re.search(r"[aeiou]", rom)
+    if not m:
+        return rom
+    p = m.end()
+    return rom[:p] + _TH_TONE_MARKS[tone] + rom[p:]
+
+def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
+    """ROYIN romanization with tone diacritics for a Thai word."""
+    syls = syl_fn(word) if syl_fn else None
+    if syls and len(syls) > 1:
+        parts = []
+        for s in syls:
+            rom = romanize_fn(s, engine="royin")
+            if rom:
+                parts.append(_th_add_tone(rom, tone_fn(s)))
+        return "".join(parts) if parts else None
+    rom = romanize_fn(word, engine="royin")
+    if not rom:
+        return None
+    return _th_add_tone(rom, tone_fn(word))
+
+
 def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     """Return a mapping of word text → romanization string for the given words.
 
@@ -244,9 +276,14 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     if lang == "th":
         try:
             from pythainlp.transliterate import romanize as th_romanize
+            from pythainlp.util import tone_detector as th_tone
+            try:
+                from pythainlp.tokenize import syllable_tokenize as th_syl
+            except Exception:
+                th_syl = None
             for word in words:
                 if word not in result:
-                    rom = th_romanize(word, engine="royin")
+                    rom = _th_tonal_romanize(word, th_romanize, th_tone, th_syl)
                     if rom:
                         result[word] = rom
         except Exception:
