@@ -2115,9 +2115,8 @@ async def delete_course(user_id: int, course_id: int) -> None:
 
 
 async def delete_ai_lessons(course_id: int) -> None:
-    """Delete all non-foundation units (and their lessons/concepts) from a course.
-    Foundation units (theme='foundations') are preserved. Resets active_plan and
-    clears concept mastery so the planner starts truly fresh."""
+    """Delete ALL units/lessons/concepts from a course and reset it fully.
+    Foundations are re-seeded from code so they pick up any fixes."""
     async with aiosqlite.connect(DB_PATH) as db:
         # Look up course owner + language for mastery cleanup.
         async with db.execute(
@@ -2128,26 +2127,21 @@ async def delete_ai_lessons(course_id: int) -> None:
             return
         user_id, lang = course_row[0], course_row[1]
 
-        async with db.execute(
-            "SELECT id FROM course_units WHERE course_id=? AND theme != 'foundations'",
-            (course_id,)
-        ) as cur:
-            unit_ids = [r[0] for r in await cur.fetchall()]
-        if unit_ids:
-            ph = ",".join("?" * len(unit_ids))
-            await db.execute(f"DELETE FROM course_lessons WHERE unit_id IN ({ph})", unit_ids)
-            await db.execute(f"DELETE FROM course_units WHERE id IN ({ph})", unit_ids)
-        # Also clear pending lessons (unit_id IS NULL = in-progress unit not yet closed)
-        await db.execute(
-            "DELETE FROM course_lessons WHERE course_id=? AND unit_id IS NULL", (course_id,)
-        )
+        await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
         await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
-        # Clear concept mastery so the planner doesn't carry over stale data.
         await db.execute(
             "DELETE FROM concept_mastery WHERE user_id=? AND lang=?", (user_id, lang)
         )
         await db.commit()
+
+    # Re-seed foundations from code so fixes are picked up.
+    from foundations import FOUNDATIONS, build_units
+    if lang in FOUNDATIONS:
+        units = build_units(lang)
+        if units:
+            await seed_foundation_units(course_id, units)
 
 
 async def get_active_plan(course_id: int) -> dict | None:
