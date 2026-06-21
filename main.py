@@ -2956,8 +2956,51 @@ class CompleteLessonRequest(BaseModel):
 _MAX_LESSON_XP = 300   # clamp client-reported XP so the ledger can't be inflated
 
 
+async def _auto_add_lesson_vocab(user_id: int, lang: str, lesson: dict) -> None:
+    """Background: auto-add vocab concepts from a completed lesson to the deck."""
+    try:
+        concepts = lesson.get("concepts") or []
+        vocab = [
+            c for c in concepts
+            if (c.get("kind") or "vocab") == "vocab"
+            and (c.get("label") or "").strip()
+            and (c.get("gloss") or "").strip()
+        ]
+        if not vocab:
+            return
+        labels = [c["label"].strip() for c in vocab]
+        existing = await db.get_word_statuses(user_id, labels, lang, exact_only=True)
+        title = lesson.get("title") or "Lesson"
+        for c in vocab:
+            label = c["label"].strip()
+            if label in existing:
+                continue
+            gloss = c["gloss"].strip()
+            rom = ""
+            if translation.LANG_INFO.get(lang, {}).get("romanization"):
+                rom = tokenizer.romanize_text(label, lang)
+            audio_data = await audio.generate(label, lang)
+            await db.create_card(
+                user_id=user_id,
+                source_text=gloss,
+                target_text=label,
+                romanization=rom,
+                target_lang=lang,
+                audio_data=audio_data,
+                notes=f"From lesson: {title}",
+                priority=3,
+            )
+    except Exception:
+        pass
+
+
 @app.post("/api/lessons/{lesson_id}/complete")
-async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict = Depends(current_user)):
+async def complete_lesson(
+    lesson_id: int,
+    req: CompleteLessonRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_user),
+):
     found, first, crown, leveled_up = await db.complete_lesson(user["id"], lesson_id, max(0, min(100, req.score)))
     if not found:
         raise HTTPException(404, "Lesson not found")
@@ -2972,11 +3015,17 @@ async def complete_lesson(lesson_id: int, req: CompleteLessonRequest, user: dict
         awarded = max(0, min(int(req.xp), _MAX_LESSON_XP))
         if awarded:
             await db.add_points(user["id"], lang, awarded, "lesson")
+    # Auto-add lesson vocab to the flashcard deck on first completion.
+    if first and lesson:
+        background_tasks.add_task(
+            _auto_add_lesson_vocab,
+            user["id"], lang, lesson,
+        )
     return {
         "success": True,
         "xp_awarded": awarded,
         "crown_level": crown,
-        "crown_leveled_up": leveled_up,   # this completion raised the crown (vs. already maxed)
+        "crown_leveled_up": leveled_up,
         "points_today": await db.get_points_today(user["id"], lang),
         "points_total": await db.get_points_total(user["id"], lang),
         "daily_goal": _DAILY_XP_GOAL,

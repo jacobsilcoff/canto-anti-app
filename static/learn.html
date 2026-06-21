@@ -348,6 +348,7 @@
     .rv-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
     .rv-add:disabled { opacity: 0.6; cursor: default; }
     .rv-in-deck { color: var(--good); font-size: 0.78rem; font-weight: 600; flex-shrink: 0; }
+    .rv-adding { color: var(--text-muted); }
     .rv-all { display: block; margin: 4px auto 0; background: none; border: none; color: var(--primary); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }
 
     /* ── Reinforcing animations ── */
@@ -2114,8 +2115,7 @@
 
     const panel = document.createElement('div');
     panel.className = 'rv-panel ' + scriptClassFor(player.lang);
-    panel.innerHTML = `<div class="rv-title">New words from this lesson</div>`;
-    const addable = [];
+    panel.innerHTML = `<div class="rv-title">Words added to your flashcards</div>`;
     vocab.forEach(v => {
       const row = document.createElement('div');
       row.className = 'rv-row';
@@ -2125,21 +2125,10 @@
       if (inDeck) {
         row.insertAdjacentHTML('beforeend', '<span class="rv-in-deck">✓ In your deck</span>');
       } else {
-        const btn = document.createElement('button');
-        btn.className = 'rv-add'; btn.type = 'button'; btn.textContent = '＋ Add';
-        btn.onclick = () => addWordToDeck(v, btn);
-        row.appendChild(btn);
-        addable.push([v, btn]);
+        row.insertAdjacentHTML('beforeend', '<span class="rv-in-deck rv-adding">Adding…</span>');
       }
       panel.appendChild(row);
     });
-    if (addable.length > 1) {
-      const all = document.createElement('button');
-      all.className = 'rv-all'; all.type = 'button';
-      all.textContent = `Add all ${addable.length} to flashcards`;
-      all.onclick = () => { all.disabled = true; addable.forEach(([v, b]) => addWordToDeck(v, b)); };
-      panel.appendChild(all);
-    }
     wrap.appendChild(panel);
     applyRuby(panel);   // inline ruby — no spoiler concern on the results screen
   }
