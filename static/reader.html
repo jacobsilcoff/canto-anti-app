@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
+    .reader-page { max-width: 720px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px 16px 60px; overflow: hidden; }
 
     /* ── Generate form ── */
     .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -64,7 +64,7 @@
     .saved-section { margin-bottom: 24px; }
     .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
     .saved-list { display: flex; flex-direction: column; gap: 6px; }
-    .saved-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .saved-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
     .saved-item:hover { border-color: var(--primary); }
     .saved-item-info { flex: 1; min-width: 0; }
     .saved-item-title { font-weight: 600; font-size: 0.95rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -243,7 +243,7 @@
 
     /* ── Community story card ── */
     .community-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+      padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .community-card:hover { border-color: var(--primary); }
     .community-card-title { font-weight: 600; font-size: 0.95rem; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

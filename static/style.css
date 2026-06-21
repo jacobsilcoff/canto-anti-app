@@ -246,6 +246,8 @@ button svg.icon, a svg.icon { pointer-events: none; }
   margin: 0 auto;
   padding: 16px;
   width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   flex: 1;
 }
 
@@ -442,6 +444,8 @@ textarea {
   margin: 0 auto;
   padding: 16px;
   width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   flex: 1;
   display: flex;
   flex-direction: column;
