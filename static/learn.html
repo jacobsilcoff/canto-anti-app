@@ -373,6 +373,11 @@
     .teach-target .opt-roman { font-size: 0.8rem; }
     .teach-gloss { color: var(--text); margin-top: 2px; }
     .teach-note { color: var(--text-muted); font-size: 0.84rem; margin-top: 3px; font-style: italic; }
+    .teach-keyword { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.9rem; }
+    .kw-label { color: var(--text-muted); font-size: 0.8rem; }
+    .kw-word { font-family: var(--script-font, inherit); font-size: 1.05rem; }
+    .kw-roman { color: var(--text-muted); font-size: 0.82rem; }
+    .kw-audio { font-size: 0.85rem; padding: 2px 6px; min-width: auto; }
     .teach-item.teach-grammar { display: block; }
     /* LLM-authored teach blocks */
     .tb-prose { color: var(--text); font-size: 0.97rem; line-height: 2.0; margin-top: 10px; white-space: pre-wrap; }
@@ -1912,6 +1917,17 @@
           btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
           btn.onclick = () => playTTS(speak, lang);
           row.appendChild(btn);
+        }
+        if (it.keyword) {
+          const kwLine = document.createElement('div');
+          kwLine.className = 'teach-keyword';
+          kwLine.innerHTML = `<span class="kw-label">Keyword:</span> <span class="kw-word">${esc(it.keyword)}</span>` +
+            (it.keyword_roman ? ` <span class="kw-roman">${esc(it.keyword_roman)}</span>` : '');
+          const kwBtn = document.createElement('button');
+          kwBtn.className = 'audio-play kw-audio'; kwBtn.type = 'button'; kwBtn.textContent = '🔊';
+          kwBtn.onclick = () => playTTS(it.keyword, lang);
+          kwLine.appendChild(kwBtn);
+          row.querySelector('.teach-text').appendChild(kwLine);
         }
       }
       wrap.appendChild(row);
