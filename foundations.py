@@ -1623,22 +1623,24 @@ _TH_TONE_DEFS = [
     TN(4, "rising (จัตวา)",   "315"),
 ]
 
-# Minimal pairs: กา (kaa, mid) vs ก่า (kàa, low) vs ก้า (kâa, falling) vs etc.
-# Thai tonal minimal pairs using real words where possible.
+# Thai tonal minimal pairs.  The ACTUAL tone depends on consonant class + mark:
+#   Mid class  + no mark = mid,  + ่ = low,     + ้ = falling
+#   High class + no mark = rising, + ่ = low,   + ้ = falling
+#   Low class  + no mark = mid,  + ่ = FALLING, + ้ = HIGH
+# Romanization accents: (none)=mid, à=low, â=falling, á=high, ǎ=rising.
 _TH_PAIRS_KAA = [
-    TP("กา",  "kaa",  "กา",  "crow",           0),
-    TP("ข่า",  "khàa", "ข่า",  "galangal",       1),
-    TP("ค้า",  "kháa", "ค้า",  "to trade",       2),
-    TP("ขา",  "khǎa", "ขา",  "leg",            3),
-    TP("คา",  "khaa", "คา",  "to be stuck",    4),
+    TP("กา",   "kaa",  "กา",   "crow",           0),  # ก mid + no mark → mid
+    TP("ข่า",  "khàa", "ข่า",  "galangal",       1),  # ข high + ่ → low
+    TP("ค่า",  "khâa", "ค่า",  "price",          2),  # ค low + ่ → falling
+    TP("ค้า",  "kháa", "ค้า",  "to trade",       3),  # ค low + ้ → high
+    TP("ขา",   "khǎa", "ขา",   "leg",            4),  # ข high + no mark → rising
 ]
 
 _TH_PAIRS_MAA = [
-    TP("มา",  "maa",  "มา",  "to come",        0),
-    TP("ม่า",  "màa",  "ม่า",  "(low tone)",     1),
-    TP("ม้า",  "máa",  "ม้า",  "horse",          2),
-    TP("หมา", "mǎa",  "หมา", "dog",            3),
-    TP("ม๋า",  "maa",  "ม๋า",  "(rising tone)",  4),
+    TP("มา",   "maa",  "มา",   "to come",        0),  # ม low + no mark → mid
+    TP("ม่า",  "mâa",  "ม่า",  "(falling tone)",  2),  # ม low + ่ → falling
+    TP("ม้า",  "máa",  "ม้า",  "horse",           3),  # ม low + ้ → high
+    TP("หมา",  "mǎa",  "หมา",  "dog",             4),  # ห+ม → high class + no mark → rising
 ]
 
 _TH_MID_CONSONANTS = [
@@ -1660,7 +1662,7 @@ _TH_HIGH_CONSONANTS = [
     TI("ห",  "ห",   "hɔɔ",  "ห",  "box (ห หีบ)",           "High class — also a silent leader"),
 ]
 _TH_LOW_CONSONANTS = [
-    TI("ค",  "ค",   "khɔɔ", "ค",  "buffalo (ค ควาย)",      "Low class — determines high tone"),
+    TI("ค",  "ค",   "khɔɔ", "ค",  "buffalo (ค ควาย)",      "Low class — mid tone by default"),
     TI("ง",  "ง",   "ngɔɔ", "ง",  "snake (ง งู)",          "Low class — 'ng' at start"),
     TI("ช",  "ช",   "chɔɔ", "ช",  "elephant (ช ช้าง)",     "Low class"),
     TI("ท",  "ท",   "thɔɔ", "ท",  "soldier (ท ทหาร)",      "Low class"),
@@ -1697,7 +1699,9 @@ _THAI_TRACK = {
              "intro": (
                  "Thai has 44 consonants, 28+ vowel forms, and 5 tones. Tones change meaning "
                  "entirely — the same syllable with a different pitch means a different word.\n\n"
-                 "The 5 tones are: mid (สามัญ), low (เอก), falling (โท), high (ตรี), and rising (จัตวา).\n\n"
+                 "The 5 tones are: mid (สามัญ saman), low (เอก ek), falling (โท tho), high (ตรี tri), and rising (จัตวา jattawa).\n\n"
+                 "Note: the tone mark NAMES (เอก, โท) don't always match the resulting tone — "
+                 "the actual tone depends on the consonant class + mark combination.\n\n"
                  "Thai consonants are divided into 3 classes (mid, high, low) which interact with "
                  "tone marks and vowel length to determine the spoken tone. Vowels are written "
                  "around consonants — above, below, before, or after. There are no spaces between "
@@ -1714,23 +1718,24 @@ _THAI_TRACK = {
                  "The first three tones:\n"
                  "• Mid (สามัญ): stays flat in the middle — กา 'kaa' (crow)\n"
                  "• Low (เอก): drops down — ข่า 'khàa' (galangal)\n"
-                 "• Falling (โท): starts high, falls — ค้า 'kháa' (to trade)"
+                 "• Falling (โท): starts high, falls — ค่า 'khâa' (price)"
              )},
             {"title": "High & Rising Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS[3:],
-             "pairs": _TH_PAIRS_KAA[3:] + [_TH_PAIRS_MAA[3], _TH_PAIRS_MAA[4]],
+             "pairs": _TH_PAIRS_KAA[3:] + _TH_PAIRS_MAA[2:],
              "intro": (
                  "The last two tones:\n"
-                 "• High (ตรี): pitched high — ขา 'khǎa' (leg)\n"
-                 "• Rising (จัตวา): rises from low to high — คา 'khaa' (to be stuck)"
+                 "• High (ตรี): pitched high — ค้า 'kháa' (to trade)\n"
+                 "• Rising (จัตวา): rises from low to high — ขา 'khǎa' (leg)"
              )},
             {"title": "All Five Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS,
-             "pairs": _TH_PAIRS_MAA,
+             "pairs": _TH_PAIRS_MAA + [_TH_PAIRS_KAA[1]],
              "intro": (
-                 "Practice all five tones on the ม (m) initial: "
-                 "มา (come) · ม่า · ม้า (horse) · หมา (dog) · ม๋า. "
-                 "Listen for the overall pitch contour — flat, falling, rising, high, or low."
+                 "Practice all five tones: "
+                 "มา 'maa' (come, mid) · ม่า 'mâa' (falling) · ม้า 'máa' (horse, high) · "
+                 "หมา 'mǎa' (dog, rising). "
+                 "Listen for the overall pitch contour — flat, falling, high, or rising."
              )},
          ]},
         {"title": "Consonant Classes",
