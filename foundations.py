@@ -1616,31 +1616,40 @@ FOUNDATIONS["uk"] = _UKRAINIAN_TRACK
 # consonant + tone mark — but for Foundations we teach the 5 tones by ear first.
 
 _TH_TONE_DEFS = [
-    TN(0, "mid (สามัญ)",     "33"),
-    TN(1, "low (เอก)",       "21"),
-    TN(2, "falling (โท)",    "51"),
-    TN(3, "high (ตรี)",      "45"),
-    TN(4, "rising (จัตวา)",   "315"),
+    TN(0, "mid",     "33"),
+    TN(1, "low",     "21"),
+    TN(2, "falling", "51"),
+    TN(3, "high",    "45"),
+    TN(4, "rising",  "315"),
 ]
 
-# Thai tonal minimal pairs.  The ACTUAL tone depends on consonant class + mark:
-#   Mid class  + no mark = mid,  + ่ = low,     + ้ = falling
-#   High class + no mark = rising, + ่ = low,   + ้ = falling
-#   Low class  + no mark = mid,  + ่ = FALLING, + ้ = HIGH
+# Real common words for tone exercises.  Using longer/real words so TTS
+# produces clear tonal contrast (single constructed syllables are unreliable).
 # Romanization accents: (none)=mid, à=low, â=falling, á=high, ǎ=rising.
-_TH_PAIRS_KAA = [
-    TP("กา",   "kaa",  "กา",   "crow",           0),  # ก mid + no mark → mid
-    TP("ข่า",  "khàa", "ข่า",  "galangal",       1),  # ข high + ่ → low
-    TP("ค่า",  "khâa", "ค่า",  "price",          2),  # ค low + ่ → falling
-    TP("ค้า",  "kháa", "ค้า",  "to trade",       3),  # ค low + ้ → high
-    TP("ขา",   "khǎa", "ขา",   "leg",            4),  # ข high + no mark → rising
+_TH_PAIRS_MID_LOW_FALL = [
+    TP("กิน",   "kin",   "กิน",   "to eat",       0),  # mid class + no mark → mid
+    TP("ไป",    "bpai",  "ไป",    "to go",        0),  # mid class + no mark → mid
+    TP("เก่า",  "kào",   "เก่า",  "old",          1),  # mid class + ่ → low
+    TP("ใหม่",  "mài",   "ใหม่",  "new",          1),  # high class (ห) + ่ → low
+    TP("ได้",   "dâi",   "ได้",   "can / got",    2),  # mid class + ้ → falling
+    TP("ก้าว",  "kâao",  "ก้าว",  "step",         2),  # mid class + ้ → falling
 ]
 
-_TH_PAIRS_MAA = [
-    TP("มา",   "maa",  "มา",   "to come",        0),  # ม low + no mark → mid
-    TP("ม่า",  "mâa",  "ม่า",  "(falling tone)",  2),  # ม low + ่ → falling
-    TP("ม้า",  "máa",  "ม้า",  "horse",           3),  # ม low + ้ → high
-    TP("หมา",  "mǎa",  "หมา",  "dog",             4),  # ห+ม → high class + no mark → rising
+_TH_PAIRS_HIGH_RISE = [
+    TP("ค้า",   "kháa",  "ค้า",   "to trade",     3),  # low class + ้ → high
+    TP("สวย",   "sǔai",  "สวย",   "beautiful",    4),  # high class + no mark → rising
+    TP("ม้า",   "máa",   "ม้า",   "horse",        3),  # low class + ้ → high
+    TP("ขา",    "khǎa",  "ขา",    "leg",          4),  # high class + no mark → rising
+    TP("ร้อน",  "rɔ́ɔn",  "ร้อน",  "hot",          3),  # low class + ้ → high
+    TP("สอง",   "sɔ̌ɔng", "สอง",   "two",          4),  # high class + no mark → rising
+]
+
+_TH_PAIRS_ALL = [
+    TP("กิน",   "kin",   "กิน",   "to eat",       0),  # mid
+    TP("เก่า",  "kào",   "เก่า",  "old",          1),  # low
+    TP("ได้",   "dâi",   "ได้",   "can / got",    2),  # falling
+    TP("น้ำ",   "náam",  "น้ำ",   "water",        3),  # high
+    TP("สวย",   "sǔai",  "สวย",   "beautiful",    4),  # rising
 ]
 
 _TH_MID_CONSONANTS = [
@@ -1699,13 +1708,17 @@ _THAI_TRACK = {
              "intro": (
                  "Thai has 44 consonants, 28+ vowel forms, and 5 tones. Tones change meaning "
                  "entirely — the same syllable with a different pitch means a different word.\n\n"
-                 "The 5 tones are: mid (สามัญ saman), low (เอก ek), falling (โท tho), high (ตรี tri), and rising (จัตวา jattawa).\n\n"
-                 "Note: the tone mark NAMES (เอก, โท) don't always match the resulting tone — "
-                 "the actual tone depends on the consonant class + mark combination.\n\n"
-                 "Thai consonants are divided into 3 classes (mid, high, low) which interact with "
-                 "tone marks and vowel length to determine the spoken tone. Vowels are written "
-                 "around consonants — above, below, before, or after. There are no spaces between "
-                 "words in Thai script."
+                 "The 5 tones:\n"
+                 "• Mid — flat, neutral pitch (like a statement)\n"
+                 "• Low — drops to a low pitch\n"
+                 "• Falling — starts high, drops sharply\n"
+                 "• High — stays at a high pitch\n"
+                 "• Rising — starts low, rises up (like a question)\n\n"
+                 "The tone of a word is determined by the consonant class (mid/high/low) combined "
+                 "with tone marks. This is complex, but don't worry — you'll absorb the patterns "
+                 "through practice. For now, focus on hearing the five pitch shapes.\n\n"
+                 "Thai vowels are written around consonants — above, below, before, or after. "
+                 "There are no spaces between words in Thai script."
              )},
          ]},
         {"title": "The Five Tones",
@@ -1713,29 +1726,31 @@ _THAI_TRACK = {
          "lessons": [
             {"title": "Mid, Low & Falling Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS[:3],
-             "pairs": _TH_PAIRS_KAA[:3],
+             "pairs": _TH_PAIRS_MID_LOW_FALL,
              "intro": (
-                 "The first three tones:\n"
-                 "• Mid (สามัญ): stays flat in the middle — กา 'kaa' (crow)\n"
-                 "• Low (เอก): drops down — ข่า 'khàa' (galangal)\n"
-                 "• Falling (โท): starts high, falls — ค่า 'khâa' (price)"
+                 "The first three tones with common words:\n"
+                 "• Mid: flat, neutral pitch — กิน 'kin' (to eat), ไป 'bpai' (to go)\n"
+                 "• Low: pitch drops down — เก่า 'kào' (old), ใหม่ 'mài' (new)\n"
+                 "• Falling: starts high, drops sharply — ได้ 'dâi' (can), ก้าว 'kâao' (step)"
              )},
             {"title": "High & Rising Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS[3:],
-             "pairs": _TH_PAIRS_KAA[3:] + _TH_PAIRS_MAA[2:],
+             "pairs": _TH_PAIRS_HIGH_RISE,
              "intro": (
                  "The last two tones:\n"
-                 "• High (ตรี): pitched high — ค้า 'kháa' (to trade)\n"
-                 "• Rising (จัตวา): rises from low to high — ขา 'khǎa' (leg)"
+                 "• High: pitched noticeably high — น้ำ 'náam' (water), ม้า 'máa' (horse)\n"
+                 "• Rising: starts low, rises up — สวย 'sǔai' (beautiful), ขา 'khǎa' (leg)"
              )},
             {"title": "All Five Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS,
-             "pairs": _TH_PAIRS_MAA + [_TH_PAIRS_KAA[1]],
+             "pairs": _TH_PAIRS_ALL,
              "intro": (
-                 "Practice all five tones: "
-                 "มา 'maa' (come, mid) · ม่า 'mâa' (falling) · ม้า 'máa' (horse, high) · "
-                 "หมา 'mǎa' (dog, rising). "
-                 "Listen for the overall pitch contour — flat, falling, high, or rising."
+                 "All five tones with common words:\n"
+                 "• Mid (flat): กิน 'kin' — to eat\n"
+                 "• Low (drops): เก่า 'kào' — old\n"
+                 "• Falling (high→low): ได้ 'dâi' — can\n"
+                 "• High (stays high): น้ำ 'náam' — water\n"
+                 "• Rising (low→high): สวย 'sǔai' — beautiful"
              )},
          ]},
         {"title": "Consonant Classes",
@@ -1744,24 +1759,28 @@ _THAI_TRACK = {
             {"title": "Mid Class Consonants", "type": "initials",
              "initials": _TH_MID_CONSONANTS,
              "intro": (
-                 "Thai consonants are divided into 3 classes that determine how tone marks "
-                 "affect the syllable's tone. MID class consonants (กจดตบปอ) produce a mid "
-                 "tone by default. Each consonant is traditionally taught with a keyword — "
-                 "e.g. ก ไก่ (chicken)."
+                 "Thai consonants are divided into 3 classes. The class determines what tone "
+                 "a syllable gets — you don't need to memorize the rules yet, just learn which "
+                 "consonants belong to which class.\n\n"
+                 "MID class (กจดตบปอ): these produce a mid (flat) tone with no tone mark. "
+                 "Each consonant has a traditional keyword — e.g. ก ไก่ (chicken)."
              )},
             {"title": "High Class Consonants", "type": "initials",
              "initials": _TH_HIGH_CONSONANTS,
              "intro": (
-                 "HIGH class consonants produce a rising tone by default (in live syllables). "
-                 "They include aspirated versions of mid-class sounds: ข (kh), ถ (th), ผ (ph). "
-                 "ห is also used as a silent leader to shift low-class consonants to high-class tone rules."
+                 "HIGH class consonants produce a rising tone with no tone mark. "
+                 "They include aspirated sounds: ข (kh), ถ (th), ผ (ph). "
+                 "ห can also be a silent prefix that shifts a low-class consonant to high-class "
+                 "tone rules — e.g. หมา (dog) uses ห to give ม a rising tone."
              )},
             {"title": "Low Class Consonants", "type": "initials",
              "initials": _TH_LOW_CONSONANTS,
              "intro": (
-                 "LOW class consonants produce a mid tone by default in live syllables. "
-                 "This is the largest class and includes common sounds like ค (kh), ง (ng), "
-                 "น (n), ม (m), ร (r), ล (l), ว (w). Note: ง (ng) can start a syllable in Thai."
+                 "LOW class is the largest class and produces a mid tone with no tone mark — "
+                 "same default as mid class! The difference shows up with tone marks: "
+                 "่ gives falling (not low), and ้ gives high (not falling).\n\n"
+                 "Common low-class consonants: ค (kh), ง (ng), น (n), ม (m), ร (r), ล (l), ว (w). "
+                 "Note: ง (ng) can start a syllable in Thai."
              )},
          ]},
         {"title": "Key Vowels",
