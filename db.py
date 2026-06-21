@@ -2116,8 +2116,18 @@ async def delete_course(user_id: int, course_id: int) -> None:
 
 async def delete_ai_lessons(course_id: int) -> None:
     """Delete all non-foundation units (and their lessons/concepts) from a course.
-    Foundation units (theme='foundations') are preserved. Resets active_plan."""
+    Foundation units (theme='foundations') are preserved. Resets active_plan and
+    clears concept mastery so the planner starts truly fresh."""
     async with aiosqlite.connect(DB_PATH) as db:
+        # Look up course owner + language for mastery cleanup.
+        async with db.execute(
+            "SELECT user_id, target_lang FROM courses WHERE id=?", (course_id,)
+        ) as cur:
+            course_row = await cur.fetchone()
+        if not course_row:
+            return
+        user_id, lang = course_row[0], course_row[1]
+
         async with db.execute(
             "SELECT id FROM course_units WHERE course_id=? AND theme != 'foundations'",
             (course_id,)
@@ -2133,6 +2143,10 @@ async def delete_ai_lessons(course_id: int) -> None:
         )
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
         await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
+        # Clear concept mastery so the planner doesn't carry over stale data.
+        await db.execute(
+            "DELETE FROM concept_mastery WHERE user_id=? AND lang=?", (user_id, lang)
+        )
         await db.commit()
 
 
