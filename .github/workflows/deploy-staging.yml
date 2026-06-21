@@ -50,6 +50,12 @@ jobs:
             echo "FACEBOOK_APP_ID=${{ secrets.FACEBOOK_APP_ID }}" >> ~/canto-anti-app-staging/.env
             sed -i '/^FACEBOOK_APP_SECRET=/d' ~/canto-anti-app-staging/.env
             echo "FACEBOOK_APP_SECRET=${{ secrets.FACEBOOK_APP_SECRET }}" >> ~/canto-anti-app-staging/.env
+            # Always overwrite Turnstile (signup CAPTCHA) config — same widget as prod
+            # (silcoff-labs.ca covers the dev subdomain).
+            sed -i '/^TURNSTILE_SITE_KEY=/d' ~/canto-anti-app-staging/.env
+            echo "TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}" >> ~/canto-anti-app-staging/.env
+            sed -i '/^TURNSTILE_SECRET_KEY=/d' ~/canto-anti-app-staging/.env
+            echo "TURNSTILE_SECRET_KEY=${{ secrets.TURNSTILE_SECRET_KEY }}" >> ~/canto-anti-app-staging/.env
             # Generate the at-rest encryption key once. NEVER regenerate it —
             # doing so would make every stored user API key undecryptable.
             grep -q '^API_KEY_ENC_KEY=' ~/canto-anti-app-staging/.env || \
