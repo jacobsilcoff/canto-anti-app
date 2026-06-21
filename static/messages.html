@@ -2130,14 +2130,15 @@
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
   }
 
+  // Escapes &<> AND quotes, so it's safe both in text nodes and in (double- or
+  // single-) quoted HTML attributes. NOTE: still NOT safe inside a JS context
+  // such as onclick="fn('...')" — for those, JSON.stringify the value first.
   function esc(s) {
-    const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML;
+    const d = document.createElement('div'); d.textContent = s ?? '';
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-  // esc() doesn't encode " (safe in text nodes but not in double-quoted attributes).
-  // Use escAttr() whenever a value is interpolated into an HTML attribute.
-  function escAttr(s) {
-    return esc(s).replace(/"/g, '&quot;');
-  }
+  // Retained for callers; esc() already covers attributes now.
+  function escAttr(s) { return esc(s); }
 
   // ── Input auto-grow + keyboard ────────────────────────────────────────────
   document.getElementById('msg-input').addEventListener('input', resizeInput);

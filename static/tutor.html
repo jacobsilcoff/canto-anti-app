@@ -245,7 +245,7 @@
   let activeDrill = null;       // { id, skill, panel, body } while a drill is in progress
   let rubyDefault = localStorage.getItem('tutor_ruby_inline') !== '0';   // default ON
 
-  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
   // ── Ruby helpers ─────────────────────────────────────────────────────────────
