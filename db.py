@@ -785,7 +785,17 @@ async def get_admin_dashboard_stats() -> dict:
             """SELECT u.id, u.username, u.plan, u.is_admin, u.created_at,
                       u.stripe_customer_id,
                       (SELECT COUNT(*) FROM cards c WHERE c.user_id=u.id) AS card_count,
-                      (SELECT MAX(study_date) FROM study_activity sa WHERE sa.user_id=u.id) AS last_active,
+                      (SELECT MAX(d) FROM (
+                         SELECT MAX(study_date) AS d FROM study_activity sa WHERE sa.user_id=u.id
+                         UNION ALL
+                         SELECT MAX(created_at) FROM cards c2 WHERE c2.user_id=u.id
+                         UNION ALL
+                         SELECT MAX(tm.created_at) FROM tutor_messages tm
+                           JOIN tutor_conversations tc ON tc.id=tm.conversation_id
+                           WHERE tc.user_id=u.id
+                         UNION ALL
+                         SELECT MAX(created_at) FROM points_ledger pl WHERE pl.user_id=u.id
+                       )) AS last_active,
                       (SELECT ai_calls FROM usage_counters uc
                        WHERE uc.user_id=u.id AND uc.period=strftime('%Y-%m','now')) AS ai_calls_month
                FROM users u ORDER BY u.id"""
