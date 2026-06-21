@@ -1642,82 +1642,83 @@ _TH_TONE_DEFS = [
 
 # True MINIMAL PAIRS — same syllable, different tones. The whole point is
 # hearing how the SAME sound changes meaning with a different pitch.
-# Romanization accents: (none)=mid, à=low, â=falling, á=high, ǎ=rising.
+# Romanization = ROYIN (matching ruby) + tone diacritics for teaching:
+# (none)=mid, à=low, â=falling, á=high, ǎ=rising.
 
-# Lesson 1 (mid, low, falling): ปา set (mid-class ป — all 5 tone marks work)
-# + เสือ set (high-class ส — 3 common words)
+# Lesson 1: เสือ set first (low/falling/rising = more distinct),
+# then ปา set (introduces the subtler mid tone)
 _TH_PAIRS_MID_LOW_FALL = [
-    TP("ปา",    "bpaa",  "ปา",    "to throw",     0),  # mid class + no mark → mid
-    TP("ป่า",   "bpàa",  "ป่า",   "forest",       1),  # mid class + ่ → low
-    TP("ป้า",   "bpâa",  "ป้า",   "aunt",         2),  # mid class + ้ → falling
-    TP("เสือ",  "sʉ̌a",   "เสือ",  "tiger",        4),  # high class + no mark → rising
-    TP("เสื่อ", "sʉ̀a",   "เสื่อ", "mat",          1),  # high class + ่ → low
-    TP("เสื้อ", "sʉ̂a",   "เสื้อ", "shirt",        2),  # high class + ้ → falling
+    TP("เสื่อ", "sùea",  "เสื่อ", "mat",          1),  # high class + ่ → low
+    TP("เสื้อ", "sûea",  "เสื้อ", "shirt",        2),  # high class + ้ → falling
+    TP("เสือ",  "sǔea",  "เสือ",  "tiger",        4),  # high class + no mark → rising
+    TP("ปา",    "pa",    "ปา",    "to throw",     0),  # mid class + no mark → mid
+    TP("ป่า",   "pà",    "ป่า",   "forest",       1),  # mid class + ่ → low
+    TP("ป้า",   "pâ",    "ป้า",   "aunt",         2),  # mid class + ้ → falling
 ]
 
-# Lesson 2 (high, rising): มา set + เขา set
+# Lesson 2 (high & rising): มา set + เขา set
 _TH_PAIRS_HIGH_RISE = [
-    TP("มา",    "maa",   "มา",    "to come",      0),  # low class + no mark → mid
-    TP("ม้า",   "máa",   "ม้า",   "horse",        3),  # low class + ้ → high
-    TP("หมา",   "mǎa",   "หมา",   "dog",          4),  # ห prefix → rising
+    TP("มา",    "ma",    "มา",    "to come",      0),  # low class + no mark → mid
+    TP("ม้า",   "má",    "ม้า",   "horse",        3),  # low class + ้ → high
+    TP("หมา",   "mǎ",    "หมา",   "dog",          4),  # ห prefix → rising
     TP("เขา",   "khǎo",  "เขา",   "he / she",     4),  # high class + no mark → rising
     TP("เข่า",  "khào",  "เข่า",  "knee",         1),  # high class + ่ → low
     TP("เข้า",  "khâo",  "เข้า",  "to enter",     2),  # high class + ้ → falling
 ]
 
-# Lesson 3 (all 5): คา/ขา set — same [khaa] sound, all 5 tones
+# Lesson 3 (all 5): คา/ขา set — same [kha] sound, all 5 tones
 # ข (high class) and ค (low class) produce the same aspirated [kh] sound
 _TH_PAIRS_ALL = [
-    TP("คา",    "khaa",  "คา",    "stuck",        0),  # low class + no mark → mid
-    TP("ข่า",   "khàa",  "ข่า",   "galangal",     1),  # high class + ่ → low
-    TP("ค่า",   "khâa",  "ค่า",   "price",        2),  # low class + ่ → falling
-    TP("ค้า",   "kháa",  "ค้า",   "to trade",     3),  # low class + ้ → high
-    TP("ขา",    "khǎa",  "ขา",    "leg",          4),  # high class + no mark → rising
+    TP("คา",    "kha",   "คา",    "stuck",        0),  # low class + no mark → mid
+    TP("ข่า",   "khà",   "ข่า",   "galangal",     1),  # high class + ่ → low
+    TP("ค่า",   "khâ",   "ค่า",   "price",        2),  # low class + ่ → falling
+    TP("ค้า",   "khá",   "ค้า",   "to trade",     3),  # low class + ้ → high
+    TP("ขา",    "khǎ",   "ขา",    "leg",          4),  # high class + no mark → rising
 ]
 
 _TH_MID_CONSONANTS = [
-    TI("ก",  "ก",   "gɔɔ",  "ก",  "chicken (ก ไก่)",       "Mid class — determines base mid tone",  keyword="ไก่",   keyword_roman="gài"),
-    TI("จ",  "จ",   "jɔɔ",  "จ",  "plate (จ จาน)",         "Mid class",                             keyword="จาน",   keyword_roman="jaan"),
-    TI("ด",  "ด",   "dɔɔ",  "ด",  "child (ด เด็ก)",        "Mid class",                             keyword="เด็ก",  keyword_roman="dèk"),
-    TI("ต",  "ต",   "dtɔɔ", "ต",  "turtle (ต เต่า)",       "Mid class",                             keyword="เต่า",  keyword_roman="dtào"),
-    TI("บ",  "บ",   "bɔɔ",  "บ",  "leaf (บ ใบไม้)",        "Mid class",                             keyword="ใบไม้", keyword_roman="bai-máai"),
-    TI("ป",  "ป",   "bpɔɔ", "ป",  "fish (ป ปลา)",          "Mid class",                             keyword="ปลา",   keyword_roman="bplaa"),
-    TI("อ",  "อ",   "ɔɔ",   "อ",  "basin (อ อ่าง)",        "Mid class — silent initial",            keyword="อ่าง",  keyword_roman="àang"),
+    TI("ก",  "ก",   "ko",   "ก",  "chicken (ก ไก่)",       "Mid class — determines base mid tone",  keyword="ไก่",   keyword_roman="kài"),
+    TI("จ",  "จ",   "cho",  "จ",  "plate (จ จาน)",         "Mid class",                             keyword="จาน",   keyword_roman="chan"),
+    TI("ด",  "ด",   "do",   "ด",  "child (ด เด็ก)",        "Mid class",                             keyword="เด็ก",  keyword_roman="dek"),
+    TI("ต",  "ต",   "to",   "ต",  "turtle (ต เต่า)",       "Mid class",                             keyword="เต่า",  keyword_roman="tào"),
+    TI("บ",  "บ",   "bo",   "บ",  "leaf (บ ใบไม้)",        "Mid class",                             keyword="ใบไม้", keyword_roman="bai mai"),
+    TI("ป",  "ป",   "po",   "ป",  "fish (ป ปลา)",          "Mid class",                             keyword="ปลา",   keyword_roman="pla"),
+    TI("อ",  "อ",   "o",    "อ",  "basin (อ อ่าง)",        "Mid class — silent initial",            keyword="อ่าง",  keyword_roman="àng"),
 ]
 _TH_HIGH_CONSONANTS = [
-    TI("ข",  "ข",   "khɔɔ", "ข",  "egg (ข ไข่)",           "High class — determines rising tone",   keyword="ไข่",   keyword_roman="khài"),
-    TI("ฉ",  "ฉ",   "chɔɔ", "ฉ",  "cymbals (ฉ ฉิ่ง)",      "High class",                            keyword="ฉิ่ง",  keyword_roman="chìng"),
-    TI("ถ",  "ถ",   "thɔɔ", "ถ",  "bag (ถ ถุง)",           "High class",                            keyword="ถุง",   keyword_roman="thǔng"),
-    TI("ผ",  "ผ",   "phɔɔ", "ผ",  "bee (ผ ผึ้ง)",          "High class",                            keyword="ผึ้ง",  keyword_roman="phʉ̂ng"),
-    TI("ฝ",  "ฝ",   "fɔɔ",  "ฝ",  "lid (ฝ ฝา)",           "High class",                            keyword="ฝา",    keyword_roman="fǎa"),
-    TI("ส",  "ส",   "sɔɔ",  "ส",  "tiger (ส เสือ)",        "High class",                            keyword="เสือ",  keyword_roman="sʉ̌a"),
-    TI("ห",  "ห",   "hɔɔ",  "ห",  "box (ห หีบ)",           "High class — also a silent leader",     keyword="หีบ",   keyword_roman="hìip"),
+    TI("ข",  "ข",   "kho",  "ข",  "egg (ข ไข่)",           "High class — determines rising tone",   keyword="ไข่",   keyword_roman="khài"),
+    TI("ฉ",  "ฉ",   "cho",  "ฉ",  "cymbals (ฉ ฉิ่ง)",      "High class",                            keyword="ฉิ่ง",  keyword_roman="chìng"),
+    TI("ถ",  "ถ",   "tho",  "ถ",  "bag (ถ ถุง)",           "High class",                            keyword="ถุง",   keyword_roman="thǔng"),
+    TI("ผ",  "ผ",   "pho",  "ผ",  "bee (ผ ผึ้ง)",          "High class",                            keyword="ผึ้ง",  keyword_roman="phûeng"),
+    TI("ฝ",  "ฝ",   "fo",   "ฝ",  "lid (ฝ ฝา)",           "High class",                            keyword="ฝา",    keyword_roman="fǎ"),
+    TI("ส",  "ส",   "so",   "ส",  "tiger (ส เสือ)",        "High class",                            keyword="เสือ",  keyword_roman="sǔea"),
+    TI("ห",  "ห",   "ho",   "ห",  "box (ห หีบ)",           "High class — also a silent leader",     keyword="หีบ",   keyword_roman="hìp"),
 ]
 _TH_LOW_CONSONANTS = [
-    TI("ค",  "ค",   "khɔɔ", "ค",  "buffalo (ค ควาย)",      "Low class — mid tone by default",       keyword="ควาย",  keyword_roman="khwaai"),
-    TI("ง",  "ง",   "ngɔɔ", "ง",  "snake (ง งู)",          "Low class — 'ng' at start",             keyword="งู",    keyword_roman="nguu"),
-    TI("ช",  "ช",   "chɔɔ", "ช",  "elephant (ช ช้าง)",     "Low class",                             keyword="ช้าง",  keyword_roman="cháang"),
-    TI("ท",  "ท",   "thɔɔ", "ท",  "soldier (ท ทหาร)",      "Low class",                             keyword="ทหาร",  keyword_roman="thá-hǎan"),
-    TI("น",  "น",   "nɔɔ",  "น",  "mouse (น หนู)",         "Low class",                             keyword="หนู",   keyword_roman="nǔu"),
-    TI("พ",  "พ",   "phɔɔ", "พ",  "tray (พ พาน)",          "Low class",                             keyword="พาน",   keyword_roman="phaan"),
-    TI("ม",  "ม",   "mɔɔ",  "ม",  "horse (ม ม้า)",         "Low class",                             keyword="ม้า",   keyword_roman="máa"),
-    TI("ย",  "ย",   "yɔɔ",  "ย",  "giant (ย ยักษ์)",       "Low class",                             keyword="ยักษ์", keyword_roman="yák"),
-    TI("ร",  "ร",   "rɔɔ",  "ร",  "boat (ร เรือ)",         "Low class",                             keyword="เรือ",  keyword_roman="rʉa"),
-    TI("ล",  "ล",   "lɔɔ",  "ล",  "monkey (ล ลิง)",        "Low class",                             keyword="ลิง",   keyword_roman="ling"),
-    TI("ว",  "ว",   "wɔɔ",  "ว",  "ring (ว แหวน)",         "Low class",                             keyword="แหวน",  keyword_roman="wǎen"),
+    TI("ค",  "ค",   "kho",  "ค",  "buffalo (ค ควาย)",      "Low class — mid tone by default",       keyword="ควาย",  keyword_roman="khwai"),
+    TI("ง",  "ง",   "ngo",  "ง",  "snake (ง งู)",          "Low class — 'ng' at start",             keyword="งู",    keyword_roman="ngu"),
+    TI("ช",  "ช",   "cho",  "ช",  "elephant (ช ช้าง)",     "Low class",                             keyword="ช้าง",  keyword_roman="cháng"),
+    TI("ท",  "ท",   "tho",  "ท",  "soldier (ท ทหาร)",      "Low class",                             keyword="ทหาร",  keyword_roman="thahǎn"),
+    TI("น",  "น",   "no",   "น",  "mouse (น หนู)",         "Low class",                             keyword="หนู",   keyword_roman="nǔ"),
+    TI("พ",  "พ",   "pho",  "พ",  "tray (พ พาน)",          "Low class",                             keyword="พาน",   keyword_roman="phan"),
+    TI("ม",  "ม",   "mo",   "ม",  "horse (ม ม้า)",         "Low class",                             keyword="ม้า",   keyword_roman="má"),
+    TI("ย",  "ย",   "yo",   "ย",  "giant (ย ยักษ์)",       "Low class",                             keyword="ยักษ์", keyword_roman="yák"),
+    TI("ร",  "ร",   "ro",   "ร",  "boat (ร เรือ)",         "Low class",                             keyword="เรือ",  keyword_roman="ruea"),
+    TI("ล",  "ล",   "lo",   "ล",  "monkey (ล ลิง)",        "Low class",                             keyword="ลิง",   keyword_roman="ling"),
+    TI("ว",  "ว",   "wo",   "ว",  "ring (ว แหวน)",         "Low class",                             keyword="แหวน",  keyword_roman="waen"),
 ]
 
 _TH_VOWELS = [
-    TF("กะ",   "a",    "กะ",   "short a",   "-ะ: short 'a' — open and brief"),
-    TF("กา",   "aa",   "กา",   "long a",    "-า: long 'aa' — like 'father'"),
-    TF("กิ",   "i",    "กิ",    "short i",   "-ิ: short 'i' — like 'bit'"),
-    TF("กี",   "ii",   "กี",    "long i",    "-ี: long 'ii' — like 'see'"),
-    TF("กุ",   "u",    "กุ",    "short u",   "-ุ: short 'u' — like 'put'"),
-    TF("กู",   "uu",   "กู",    "long u",    "-ู: long 'uu' — like 'food'"),
-    TF("เก",   "ee",   "เก",   "long e",    "เ-: long 'e' — like 'day'"),
-    TF("แก",   "ae",   "แก",   "long ae",   "แ-: long 'ae' — like 'bad'"),
-    TF("โก",   "oo",   "โก",   "long o",    "โ-: long 'o' — like 'go'"),
-    TF("กอ",   "aw",   "กอ",   "long aw",   "-อ: like 'aw' in 'law'"),
+    TF("กะ",   "ka",   "กะ",   "short a",   "-ะ: short 'a' — open and brief"),
+    TF("กา",   "ka",   "กา",   "long aa",   "-า: long 'aa' — like 'father'"),
+    TF("กิ",   "ki",   "กิ",    "short i",   "-ิ: short 'i' — like 'bit'"),
+    TF("กี",   "ki",   "กี",    "long ii",   "-ี: long 'ii' — like 'see'"),
+    TF("กุ",   "ku",   "กุ",    "short u",   "-ุ: short 'u' — like 'put'"),
+    TF("กู",   "ku",   "กู",    "long uu",   "-ู: long 'uu' — like 'food'"),
+    TF("เก",   "ke",   "เก",   "long e",    "เ-: long 'e' — like 'day'"),
+    TF("แก",   "kae",  "แก",   "long ae",   "แ-: long 'ae' — like 'bad'"),
+    TF("โก",   "ko",   "โก",   "long o",    "โ-: long 'o' — like 'go'"),
+    TF("กอ",   "ko",   "กอ",   "long aw",   "-อ: like 'aw' in 'law'"),
 ]
 
 _THAI_TRACK = {
@@ -1752,24 +1753,24 @@ _THAI_TRACK = {
              "pairs": _TH_PAIRS_MID_LOW_FALL,
              "intro": (
                  "Listen to MINIMAL PAIRS — same syllable, different tone, different meaning.\n\n"
-                 "ปา set (same 'bpaa' sound, 3 different tones):\n"
-                 "• ปา 'bpaa' (mid, flat) — to throw\n"
-                 "• ป่า 'bpàa' (low, drops) — forest\n"
-                 "• ป้า 'bpâa' (falling, high→low) — aunt\n\n"
-                 "เสือ set (same 'sʉa' sound):\n"
-                 "• เสื่อ 'sʉ̀a' (low) — mat\n"
-                 "• เสื้อ 'sʉ̂a' (falling) — shirt\n"
-                 "• เสือ 'sʉ̌a' (rising) — tiger"
+                 "เสือ set (same 'suea' sound, 3 different tones):\n"
+                 "• เสื่อ 'sùea' (low, drops) — mat\n"
+                 "• เสื้อ 'sûea' (falling, high→low) — shirt\n"
+                 "• เสือ 'sǔea' (rising, low→high) — tiger\n\n"
+                 "ปา set (same 'pa' sound):\n"
+                 "• ปา 'pa' (mid, flat) — to throw\n"
+                 "• ป่า 'pà' (low, drops) — forest\n"
+                 "• ป้า 'pâ' (falling, high→low) — aunt"
              )},
             {"title": "High & Rising Tones", "type": "tones",
              "tone_defs": _TH_TONE_DEFS,
              "pairs": _TH_PAIRS_HIGH_RISE,
              "intro": (
                  "More minimal pairs — hear how high and rising differ from mid.\n\n"
-                 "มา set (same 'maa' sound):\n"
-                 "• มา 'maa' (mid) — to come\n"
-                 "• ม้า 'máa' (high, stays high) — horse\n"
-                 "• หมา 'mǎa' (rising, low→high) — dog\n\n"
+                 "มา set (same 'ma' sound):\n"
+                 "• มา 'ma' (mid) — to come\n"
+                 "• ม้า 'má' (high, stays high) — horse\n"
+                 "• หมา 'mǎ' (rising, low→high) — dog\n\n"
                  "เขา set (same 'khao' sound):\n"
                  "• เข่า 'khào' (low) — knee\n"
                  "• เข้า 'khâo' (falling) — to enter\n"
@@ -1779,13 +1780,13 @@ _THAI_TRACK = {
              "tone_defs": _TH_TONE_DEFS,
              "pairs": _TH_PAIRS_ALL,
              "intro": (
-                 "All 5 tones on one syllable: 'khaa'. ข and ค produce the same [kh] sound "
+                 "All 5 tones on one syllable: 'kha'. ข and ค produce the same [kh] sound "
                  "but belong to different consonant classes, giving different tones.\n\n"
-                 "• คา 'khaa' (mid, flat) — stuck\n"
-                 "• ข่า 'khàa' (low, drops) — galangal\n"
-                 "• ค่า 'khâa' (falling, high→low) — price\n"
-                 "• ค้า 'kháa' (high, stays high) — to trade\n"
-                 "• ขา 'khǎa' (rising, low→high) — leg"
+                 "• คา 'kha' (mid, flat) — stuck\n"
+                 "• ข่า 'khà' (low, drops) — galangal\n"
+                 "• ค่า 'khâ' (falling, high→low) — price\n"
+                 "• ค้า 'khá' (high, stays high) — to trade\n"
+                 "• ขา 'khǎ' (rising, low→high) — leg"
              )},
          ]},
         {"title": "Consonant Classes",
@@ -1798,15 +1799,16 @@ _THAI_TRACK = {
                  "a syllable gets — you don't need to memorize the rules yet, just learn which "
                  "consonants belong to which class.\n\n"
                  "MID class (กจดตบปอ): these produce a mid (flat) tone with no tone mark. "
-                 "Each consonant has a traditional keyword — e.g. ก ไก่ (chicken)."
+                 "Each consonant has a traditional keyword — e.g. ก ไก่ 'ko kai' (chicken). "
+                 "Listen to both the consonant sound and its keyword word."
              )},
             {"title": "High Class Consonants", "type": "initials",
              "initials": _TH_HIGH_CONSONANTS,
              "intro": (
                  "HIGH class consonants produce a rising tone with no tone mark. "
-                 "They include aspirated sounds: ข (kh), ถ (th), ผ (ph). "
+                 "They include aspirated sounds: ข 'kho', ถ 'tho', ผ 'pho'. "
                  "ห can also be a silent prefix that shifts a low-class consonant to high-class "
-                 "tone rules — e.g. หมา (dog) uses ห to give ม a rising tone."
+                 "tone rules — e.g. หมา 'mǎ' (dog) uses ห to give ม a rising tone."
              )},
             {"title": "Low Class Consonants", "type": "initials",
              "initials": _TH_LOW_CONSONANTS,
@@ -1814,8 +1816,8 @@ _THAI_TRACK = {
                  "LOW class is the largest class and produces a mid tone with no tone mark — "
                  "same default as mid class! The difference shows up with tone marks: "
                  "่ gives falling (not low), and ้ gives high (not falling).\n\n"
-                 "Common low-class consonants: ค (kh), ง (ng), น (n), ม (m), ร (r), ล (l), ว (w). "
-                 "Note: ง (ng) can start a syllable in Thai."
+                 "Common low-class consonants: ค 'kho', ง 'ngo', น 'no', ม 'mo', ร 'ro', ล 'lo', ว 'wo'. "
+                 "Note: ง 'ngo' (ng) can start a syllable in Thai."
              )},
          ]},
         {"title": "Key Vowels",
@@ -1826,8 +1828,8 @@ _THAI_TRACK = {
              "intro": (
                  "Thai vowels wrap around the consonant — they can appear above (-ิ, -ี), "
                  "below (-ุ, -ู), before (เ-, แ-), after (-า), or a combination. "
-                 "Short and long vowels are distinct: กะ (short a) vs กา (long aa). "
-                 "The consonant ก (g) is used here as the base to demonstrate each vowel."
+                 "Short and long vowels are distinct: กะ 'ka' (short a) vs กา 'ka' (long aa). "
+                 "The consonant ก 'ko' (k) is used here as the base to demonstrate each vowel."
              )},
          ]},
     ],
