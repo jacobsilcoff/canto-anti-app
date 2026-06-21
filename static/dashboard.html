@@ -158,7 +158,8 @@
   function parseServerDate(s) {
     if (!s) return null;
     let iso = String(s).trim().replace(' ', 'T');
-    if (!/([zZ])|([+-]\d\d:?\d\d)$/.test(iso)) iso += 'Z';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) iso += 'T23:59:59Z';
+    else if (!/([zZ])|([+-]\d\d:?\d\d)$/.test(iso)) iso += 'Z';
     const d = new Date(iso);
     return isNaN(d) ? null : d;
   }
