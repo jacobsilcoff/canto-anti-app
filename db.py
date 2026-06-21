@@ -795,6 +795,11 @@ async def get_admin_dashboard_stats() -> dict:
                            WHERE tc.user_id=u.id
                          UNION ALL
                          SELECT MAX(created_at) FROM points_ledger pl WHERE pl.user_id=u.id
+                         UNION ALL
+                         -- AI usage is only month-precision (period = 'YYYY-MM'), but it
+                         -- guarantees an active user with cards/translations whose card
+                         -- rows predate created_at tracking still shows a date, not "never".
+                         SELECT MAX(uc2.period || '-01') FROM usage_counters uc2 WHERE uc2.user_id=u.id
                        )) AS last_active,
                       (SELECT ai_calls FROM usage_counters uc
                        WHERE uc.user_id=u.id AND uc.period=strftime('%Y-%m','now')) AS ai_calls_month
