@@ -9,6 +9,8 @@ import re
 import secrets
 import time
 import uuid as _uuid
+
+import httpx
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -137,10 +139,12 @@ _CSP = (
     "media-src 'self' blob: data:; "
     # Inline <script>/<style> blocks are used throughout the app; 'unsafe-inline'
     # is required until they're moved to nonces (tracked under the XSS hardening).
-    "script-src 'self' 'unsafe-inline'; "
+    # challenges.cloudflare.com: the Turnstile (CAPTCHA) script + its iframe.
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "connect-src 'self'; "
+    "frame-src https://challenges.cloudflare.com; "
     "frame-ancestors 'none'; "
     "base-uri 'self'"
 )
@@ -786,6 +790,7 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("{{NAV}}", _build_nav(active), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
+    content = content.replace("{{TURNSTILE_SITE_KEY}}", _TURNSTILE_SITE_KEY)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
@@ -1067,16 +1072,45 @@ _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_\-]{2,30}$")
 APP_NAME_DISPLAY = os.getenv("APP_NAME", APP_NAME)
 
 
+# Cloudflare Turnstile (signup CAPTCHA). Both keys unset = disabled: the widget
+# doesn't render and _verify_turnstile passes, so local/dev signup still works.
+_TURNSTILE_SITE_KEY = os.getenv("TURNSTILE_SITE_KEY", "")
+_TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY", "")
+_TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+
+async def _verify_turnstile(token: str, remoteip: str | None) -> bool:
+    """Validate a Turnstile token with Cloudflare. Returns True when CAPTCHA is
+    not configured (no secret); otherwise fails closed on a bad/empty token or
+    any network error."""
+    if not _TURNSTILE_SECRET_KEY:
+        return True
+    if not token:
+        return False
+    data = {"secret": _TURNSTILE_SECRET_KEY, "response": token}
+    if remoteip:
+        data["remoteip"] = remoteip
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(_TURNSTILE_VERIFY_URL, data=data)
+            return bool(resp.json().get("success"))
+    except Exception:
+        return False
+
+
 class RegisterRequest(BaseModel):
     email: str
     username: str
     display_name: str
     password: str
+    turnstile_token: str = ""
 
 
 @app.post("/api/register")
 @limiter.limit("5/minute;20/hour")
 async def register(request: Request, req: RegisterRequest):
+    if not await _verify_turnstile(req.turnstile_token, get_remote_address(request)):
+        raise HTTPException(400, "Captcha verification failed. Please try again.")
     email = req.email.strip().lower()
     username = req.username.strip()
     display_name = req.display_name.strip()

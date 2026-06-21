@@ -42,6 +42,39 @@ async def client(fresh_db):
         yield ac
 
 
+# ── Turnstile CAPTCHA ───────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_verify_turnstile_disabled_passes(monkeypatch):
+    """No secret configured → verification is a no-op (dev/local signup works)."""
+    monkeypatch.setattr(main, "_TURNSTILE_SECRET_KEY", "")
+    assert await main._verify_turnstile("", None) is True
+    assert await main._verify_turnstile("anything", "1.2.3.4") is True
+
+
+@pytest.mark.asyncio
+async def test_verify_turnstile_requires_token_when_enabled(monkeypatch):
+    """Secret configured but no token → fail closed (no network call needed)."""
+    monkeypatch.setattr(main, "_TURNSTILE_SECRET_KEY", "secret-xyz")
+    assert await main._verify_turnstile("", "1.2.3.4") is False
+
+
+@pytest.mark.asyncio
+async def test_register_rejects_bad_captcha(client, monkeypatch):
+    """When CAPTCHA is enabled, a registration missing a token is refused before
+    any account is created."""
+    monkeypatch.setattr(main, "_TURNSTILE_SECRET_KEY", "secret-xyz")
+    res = await client.post("/api/register", json={
+        "email": "bot@example.com",
+        "username": "bot",
+        "display_name": "Bot",
+        "password": "securepass1",
+    })
+    assert res.status_code == 400
+    assert "captcha" in res.json()["detail"].lower()
+    assert await db.get_user_by_email("bot@example.com") is None
+
+
 # ── Registration ──────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

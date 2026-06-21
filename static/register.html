@@ -6,6 +6,7 @@
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <meta name="theme-color" content="#f8f9fa">
   <script src="/static/theme.js" defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTSLoad&render=explicit" async defer></script>
   <title>{{APP_NAME}} — Create account</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
@@ -47,6 +48,7 @@
     <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
     <div class="input-label">Password <span style="color:var(--text-muted);font-size:0.75rem">(min 8 characters)</span></div>
     <input type="password" id="pw" placeholder="Password" autocomplete="new-password">
+    <div id="cf-turnstile-box" style="display:flex;justify-content:center"></div>
     <button class="translate-btn" type="submit" id="reg-btn">Create account</button>
     <div class="login-error" id="reg-error"></div>
     <div class="login-success" id="reg-success"></div>
@@ -54,6 +56,16 @@
   </form>
 </div>
 <script>
+  // Cloudflare Turnstile: rendered only when a site key is configured (else the
+  // box stays empty and the server skips verification, so dev signup still works).
+  const TS_KEY = "{{TURNSTILE_SITE_KEY}}";
+  let _tsWidget = null;
+  window.onTSLoad = function () {
+    if (TS_KEY && window.turnstile) {
+      _tsWidget = window.turnstile.render('#cf-turnstile-box', { sitekey: TS_KEY });
+    }
+  };
+
   async function doRegister(e) {
     e.preventDefault();
     const displayName = document.getElementById('display-name').value.trim();
@@ -68,12 +80,18 @@
     if (!displayName || !username || !email || !pw) { err.textContent = 'All fields are required.'; err.style.display = 'block'; return; }
     if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; err.style.display = 'block'; return; }
 
+    let tsToken = '';
+    if (TS_KEY) {
+      tsToken = (window.turnstile && _tsWidget !== null) ? window.turnstile.getResponse(_tsWidget) : '';
+      if (!tsToken) { err.textContent = 'Please complete the captcha.'; err.style.display = 'block'; return; }
+    }
+
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username, display_name: displayName, password: pw }),
+        body: JSON.stringify({ email, username, display_name: displayName, password: pw, turnstile_token: tsToken }),
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -89,12 +107,20 @@
         err.textContent = body.detail || 'Registration failed — please try again.';
         err.style.display = 'block';
         btn.disabled = false; btn.textContent = 'Create account';
+        resetCaptcha();
       }
     } catch {
       err.textContent = 'Network error — please try again.';
       err.style.display = 'block';
       btn.disabled = false; btn.textContent = 'Create account';
+      resetCaptcha();
     }
+  }
+
+  // Turnstile tokens are single-use — reset after a failed submit so the user
+  // can retry without reloading.
+  function resetCaptcha() {
+    if (TS_KEY && window.turnstile && _tsWidget !== null) window.turnstile.reset(_tsWidget);
   }
 </script>
 </body>
