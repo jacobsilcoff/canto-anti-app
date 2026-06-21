@@ -863,7 +863,7 @@
         text: toks.map(t => t.text).join('')
       }));
     } else {
-      sentences = buildSentences(data.tokens);
+      sentences = buildSentences(data.tokens, data.target_lang);
     }
     romanizationOn = false;
     romanizationMap = data.romanization && Object.keys(data.romanization).length ? data.romanization : null;
@@ -918,7 +918,7 @@
             tokens: toks, text: toks.map(t => t.text).join('')
           }));
         } else {
-          sentences = buildSentences(data.tokens);
+          sentences = buildSentences(data.tokens, data.target_lang);
         }
         computePageBreaks();
         renderPage(currentPage);
@@ -1182,13 +1182,16 @@
   }
 
   // Split flat token list into sentence groups, split on sentence-ending punctuation.
-  function buildSentences(tokens) {
+  // Thai writes no sentence punctuation and uses spaces as boundaries; Greek uses
+  // ';' (and U+037E) where other languages use '?'. Mirror tokenizer.split_sentences.
+  function buildSentences(tokens, lang) {
     const result = [];
     let buf = [];
     let quoteDepth = 0;
     const openQuotes = new Set(['“', '«', '「', '『']);
     const closeQuotes = new Set(['”', '»', '」', '』']);
-    const sentenceEnders = /[。！？.!?।॥\n]/;
+    const sentenceEnders = lang === 'el' ? /[。！？.!?।॥;;\n]/ : /[。！？.!?।॥\n]/;
+    const splitOnSpace = lang === 'th';
 
     tokens.forEach((tok, i) => {
       if (!tok.is_word) {
@@ -1198,7 +1201,9 @@
         }
       }
       buf.push(tok);
-      if (!tok.is_word && quoteDepth === 0 && sentenceEnders.test(tok.text)) {
+      let isEnder = !tok.is_word && quoteDepth === 0 && sentenceEnders.test(tok.text);
+      if (splitOnSpace && !tok.is_word && quoteDepth === 0 && tok.text.trim() === '') isEnder = true;
+      if (isEnder) {
         // Skip numeric periods like "1.5"
         if (tok.text.includes('.') && !tok.text.includes('。') && /\d\.\d/.test(tok.text)) return;
         result.push(buf);

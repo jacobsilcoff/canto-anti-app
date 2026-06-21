@@ -148,6 +148,12 @@ body {
 .script-arabic .tb-prose, .script-hebrew .tb-prose,
 .script-arabic .ex-prompt, .script-hebrew .ex-prompt { direction: rtl; text-align: right; }
 
+/* The reader body gets the script class directly, so the paragraph itself must
+   flow RTL — otherwise multiple sentences lay out left-to-right (each sentence
+   reads RTL internally but the sequence runs the wrong way, so audio playback
+   appears to march left→right instead of right→left). */
+.reader-text.script-arabic, .reader-text.script-hebrew { direction: rtl; text-align: right; }
+
 /* ── Header ────────────────────────────────────────────────────────────── */
 header {
   background: var(--surface);

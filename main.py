@@ -373,6 +373,8 @@ _LANG_WIDGET = """
     var currentCode = settingsRes.default_target_lang || 'yue';
     var current = langs.find(function (l) { return l.code === currentCode; }) || { name: currentCode, flag: '🌐' };
     if (langs.length < 2) return;  // nothing to switch to
+    // Alphabetize so options are easy to scan.
+    langs = langs.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
     var wrap = document.createElement('div');
     wrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;';
@@ -398,13 +400,14 @@ _LANG_WIDGET = """
     pill.appendChild(chevronSpan);
 
     var dd = document.createElement('div');
-    var multiCol = langs.length > 12;
-    dd.style.cssText = 'display:none;position:fixed;'
+    // Grid laid out column-by-column (fill a column top-to-bottom, then wrap to
+    // the next). Column/row counts are computed at show time from the viewport
+    // (layoutDropdown) so all options try to stay on screen, growing taller
+    // before wider and falling back to vertical scroll when they can't fit.
+    dd.style.cssText = 'display:none;position:fixed;box-sizing:border-box;'
       + 'background:var(--surface);border:1px solid var(--border);border-radius:10px;'
-      + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:70vh;overflow-y:auto;'
-      + (multiCol
-        ? 'width:min(440px, calc(100vw - 24px));columns:2;column-gap:0;'
-        : 'min-width:190px;');
+      + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:84vh;overflow-y:auto;'
+      + 'grid-auto-flow:column;';
 
     langs.forEach(function (l) {
       var opt = document.createElement('div');
@@ -456,19 +459,38 @@ _LANG_WIDGET = """
       dd.appendChild(opt);
     });
 
+    // Compute a column-first grid that fills vertical space first, adds columns
+    // only as needed, stays within the viewport width, and falls back to a
+    // vertical scroll when even the widest fit can't hold everything.
+    function layoutDropdown() {
+      var n = langs.length;
+      var rowH = 36, colW = 168;
+      var availH = window.innerHeight * 0.84 - 16;
+      var availW = window.innerWidth - 16;
+      var maxRows = Math.max(4, Math.floor(availH / rowH));
+      var maxCols = Math.max(1, Math.floor(availW / colW));
+      var cols = Math.max(1, Math.min(maxCols, Math.ceil(n / maxRows)));
+      var rows = Math.ceil(n / cols);
+      dd.style.gridTemplateRows = 'repeat(' + rows + ', auto)';
+      dd.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+      dd.style.width = Math.min(cols * colW, availW) + 'px';
+    }
+
     pill.addEventListener('click', function (e) {
       e.stopPropagation();
       var show = dd.style.display === 'none';
-      dd.style.display = show ? 'block' : 'none';
       if (show) {
+        layoutDropdown();
+        dd.style.display = 'grid';
         var pr = pill.getBoundingClientRect();
-        var top = pr.bottom + 6;
-        dd.style.top = top + 'px';
+        dd.style.top = (pr.bottom + 6) + 'px';
         dd.style.left = '0'; dd.style.right = 'auto';
         var dr = dd.getBoundingClientRect();
         var centerX = pr.left + pr.width / 2 - dr.width / 2;
         var clampedX = Math.max(8, Math.min(centerX, window.innerWidth - dr.width - 8));
         dd.style.left = clampedX + 'px';
+      } else {
+        dd.style.display = 'none';
       }
     });
     document.addEventListener('click', function () { dd.style.display = 'none'; });
@@ -4173,7 +4195,7 @@ async def reader_preload(
         sent_texts = [existing[i]["sentence_text"] for i in range(total)]
     else:
         tokens = tokenizer.tokenize(text["content"], text["target_lang"])
-        sent_texts = tokenizer.split_sentences(tokens)
+        sent_texts = tokenizer.split_sentences(tokens, text["target_lang"])
         total = len(sent_texts)
 
     # Select the window to process. `count=None` → everything (legacy behaviour).

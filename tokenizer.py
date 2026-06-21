@@ -81,14 +81,25 @@ def _hebrew_romanize(word: str) -> str:
     return ''.join(out)
 
 
-def split_sentences(tokens: list[Token]) -> list[str]:
+def split_sentences(tokens: list[Token], lang: str | None = None) -> list[str]:
     """Group tokens into sentence strings, split on sentence-ending punctuation.
 
     Does not split inside quoted speech — a sentence-ender found while inside
     quotes is absorbed into the current buffer rather than flushing it.
     For Latin scripts a period must be followed by whitespace or end-of-text
     (to avoid splitting on abbreviations or decimal numbers).
+
+    Some languages need extra enders: Thai writes no sentence-ending
+    punctuation and instead uses spaces to separate sentences/clauses, so for
+    `th` a run of whitespace also flushes the buffer. Greek uses ';' (and the
+    Greek question mark U+037E) where other languages use '?', so for `el`
+    those count as enders too.
     """
+    enders = _SENTENCE_ENDERS
+    split_on_space = lang == "th"
+    if lang == "el":
+        enders = re.compile(r'[。！？.!?।॥۔؟;;\n]')
+
     sentences = []
     buf: list[str] = []
     quote_depth = 0
@@ -105,15 +116,20 @@ def split_sentences(tokens: list[Token]) -> list[str]:
 
         buf.append(text)
 
-        if not tok["is_word"] and quote_depth == 0 and _SENTENCE_ENDERS.search(text):
-            # For a numeric period (e.g. "1.5"), don't split.
-            if '.' in text and '。' not in text:
-                if re.search(r'\d\.\d', text):
-                    continue
-            s = "".join(buf).strip()
-            if s:
-                sentences.append(s)
-            buf = []
+        if not tok["is_word"] and quote_depth == 0:
+            is_ender = bool(enders.search(text))
+            # Thai: a whitespace run separates sentences (no period/!/? is used).
+            if split_on_space and text.strip() == "":
+                is_ender = True
+            if is_ender:
+                # For a numeric period (e.g. "1.5"), don't split.
+                if '.' in text and '。' not in text:
+                    if re.search(r'\d\.\d', text):
+                        continue
+                s = "".join(buf).strip()
+                if s:
+                    sentences.append(s)
+                buf = []
 
     if buf:
         s = "".join(buf).strip()

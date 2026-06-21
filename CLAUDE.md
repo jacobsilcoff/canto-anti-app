@@ -48,7 +48,7 @@ venv/bin/pytest tests/test_srs.py::test_ease_floor -v
 | `translation.py` | Gemini prompt construction, JSON parsing, retry logic; `LANG_INFO` + `SCRIPT_BY_LANG` language registry |
 | `audio.py` | edge-tts wrapper; returns MP3 bytes; `VOICES` map |
 | `srs.py` | SM-2 with sub-day learning steps; pure/stateless — takes card state, returns new state |
-| `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai TBD, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby |
+| `tokenizer.py` | Reader word-segmentation (CJK via jieba/pycantonese, Thai via pythainlp, else alphabetic regex incl. Devanagari/Telugu/Hangul) + offline romanization for ruby. `split_sentences(tokens, lang)` splits on sentence-ending punctuation, with per-language extras: Thai splits on spaces (no sentence punctuation), Greek treats `;`/U+037E as the question mark |
 | `auth.py` | scrypt password hashing + timing-safe verification |
 | `learning.py` | AI Learning Path — just-in-time `plan_next_lesson` (picks the next skill + breadth from live state) + unified `author_lesson` (teach blocks + drills together) + deterministic drill assembly/validation. Both LLM calls route through `llm.call` (provider-pluggable) |
 | `llm.py` | Provider dispatcher for the lesson pipeline — `call(prompt, *, model, gemini_key, anthropic_key)` routes `claude-*` models to the Anthropic SDK (server-side shared key), everything else to `translation._call` (Gemini). Reuses `translation._parse_json`. The A/B switch for lesson-model quality |
