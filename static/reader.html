@@ -483,6 +483,7 @@
       <span class="page-indicator" id="page-indicator"></span>
       <button class="page-btn audio-mode-btn" id="audio-mode-btn" onclick="audioPlayPause()" title="Auto-play sentences">
         <svg id="audio-play-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg id="audio-pause-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
       </button>
       <button class="page-btn" id="rom-toggle-btn" onclick="toggleRomanization()" title="Toggle romanization" style="display:none; font-size:0.78rem; letter-spacing:0.02em">あ</button>
       <button class="page-btn" id="page-next" onclick="goPage(1)">Next →</button>
@@ -1735,12 +1736,12 @@
   }
 
   function setAudioPlayPauseUI(playing) {
-    const icon = document.getElementById('audio-play-icon');
-    if (playing) {
-      icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-    } else {
-      icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-    }
+    // Toggle visibility of two pre-rendered SVGs rather than rewriting an
+    // <svg>'s innerHTML — Safari/iOS creates innerHTML-injected SVG children in
+    // the HTML namespace, so they don't paint until a later reflow (the icon
+    // appeared "stuck" until you clicked something else).
+    document.getElementById('audio-play-icon').style.display = playing ? 'none' : '';
+    document.getElementById('audio-pause-icon').style.display = playing ? '' : 'none';
     document.getElementById('audio-mode-btn').classList.toggle('active', playing);
   }
 
