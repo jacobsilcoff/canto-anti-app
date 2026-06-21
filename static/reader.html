@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&family=Noto+Sans+Hebrew:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; }
+    .reader-page { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: hidden; }
 
     /* ── Generate form ── */
     .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -79,7 +79,7 @@
     .reader-view { display: none; }
     .reader-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .reader-title-row { display: flex; align-items: center; gap: 8px; }
-    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .reader-title { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
     .reader-close-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.2rem; padding: 2px 6px; line-height: 1; flex-shrink: 0; }
     .reader-close-btn:hover { color: var(--text); }
     .reader-header-actions { display: flex; gap: 6px; }
