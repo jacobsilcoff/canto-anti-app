@@ -1202,6 +1202,14 @@ _FB_WEBHOOK_VERIFY_TOKEN = os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", "canto_ver
 # of Gemini at current Flash-Lite rates.
 PLAN_LIMITS = {"free": 30, "pro": 600}
 
+# App-wide DAILY ceiling on shared-key AI calls — a circuit breaker protecting
+# the provider's free-tier quota (Gemini ~1,500 req/day) from aggregate load
+# across ALL users, independent of any single user's monthly plan cap. Set below
+# the hard ceiling because one user action can fan out into several upstream
+# calls (e.g. a lesson = planner + author). Admins bypass the block so the owner
+# can always test. Override via env in case the provider quota changes.
+SHARED_KEY_DAILY_CAP = int(os.getenv("SHARED_KEY_DAILY_CAP", "1200"))
+
 
 class _GeminiAccess:
     def __init__(self, api_key: str, model_translate: str, model_reader: str):
@@ -1251,6 +1259,10 @@ async def _resolve_gemini(user: dict, *, meter: bool = True) -> _GeminiAccess:
     if user.get("is_admin"):
         if not _SHARED_API_KEY:
             raise HTTPException(503, "Shared API key is not configured.")
+        # The owner is never blocked by the daily breaker, but still counts toward
+        # the shared-key tally so it reflects true provider load.
+        if meter:
+            await db.increment_global_usage_today()
         return _GeminiAccess(
             _SHARED_API_KEY,
             _valid_model(await db.get_setting(user["id"], "model_translate")),
@@ -1259,6 +1271,17 @@ async def _resolve_gemini(user: dict, *, meter: bool = True) -> _GeminiAccess:
 
     if not _SHARED_API_KEY:
         raise HTTPException(503, "Shared API key is not configured.")
+
+    # Global circuit breaker: refuse all non-admin shared-key calls once the
+    # app-wide daily ceiling is hit, so aggregate load can't exhaust the
+    # provider's free-tier quota and 503 everyone uncontrollably. Checked even
+    # for derived (meter=False) calls — at capacity the key is fully protected —
+    # but only metered calls add to the tally below.
+    if await db.get_global_usage_today() >= SHARED_KEY_DAILY_CAP:
+        raise HTTPException(503, (
+            "AI features are temporarily at capacity for today. Please try again "
+            "tomorrow, or add your own Gemini key in Settings for uninterrupted use."
+        ))
 
     # Everyone else spends the shared key, metered against their plan's monthly
     # allowance (free 30 / pro 600). Pro can be self-serve via Stripe or comped
@@ -1278,6 +1301,7 @@ async def _resolve_gemini(user: dict, *, meter: bool = True) -> _GeminiAccess:
         ))
     if meter:
         await db.increment_usage(user["id"])
+        await db.increment_global_usage_today()
 
     return _GeminiAccess(_SHARED_API_KEY, translation.DEFAULT_MODEL, translation.DEFAULT_MODEL)
 

@@ -51,6 +51,28 @@ async def test_usage_is_per_user(fresh_db, member):
 
 
 @pytest.mark.asyncio
+async def test_global_usage_starts_at_zero(fresh_db):
+    assert await db.get_global_usage_today() == 0
+
+
+@pytest.mark.asyncio
+async def test_global_usage_accumulates(fresh_db):
+    assert await db.increment_global_usage_today() == 1
+    assert await db.increment_global_usage_today() == 2
+    assert await db.get_global_usage_today() == 2
+
+
+@pytest.mark.asyncio
+async def test_global_usage_is_isolated_from_per_user(fresh_db, member):
+    # The app-wide daily tally and the per-user monthly counters share the
+    # usage_counters table but must never bleed into each other.
+    await db.increment_global_usage_today()
+    await db.increment_usage(member)
+    assert await db.get_global_usage_today() == 1
+    assert await db.get_usage(member) == 1
+
+
+@pytest.mark.asyncio
 async def test_set_stripe_customer_and_lookup(member):
     await db.set_stripe_customer(member, "cus_test_123")
     user = await db.get_user_by_stripe_customer("cus_test_123")

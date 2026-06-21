@@ -925,6 +925,44 @@ async def increment_usage(user_id: int) -> int:
         return row[0] if row else 1
 
 
+# Sentinel user_id for the app-wide (all-users) shared-key DAILY counter, stored
+# in usage_counters alongside the per-user rows. Its daily 'YYYY-MM-DD' period
+# key never collides with the per-user monthly 'YYYY-MM' rows, and no real user
+# has id 0 (AUTOINCREMENT starts at 1), so the row is fully isolated.
+_GLOBAL_USAGE_UID = 0
+
+
+async def get_global_usage_today() -> int:
+    """Total shared-key AI calls across ALL users so far today (UTC)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT ai_calls FROM usage_counters "
+            "WHERE user_id=? AND period=strftime('%Y-%m-%d','now')",
+            (_GLOBAL_USAGE_UID,),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+
+async def increment_global_usage_today() -> int:
+    """Add one shared-key AI call to today's app-wide counter; return new total."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO usage_counters (user_id, period, ai_calls)
+               VALUES (?, strftime('%Y-%m-%d','now'), 1)
+               ON CONFLICT(user_id, period) DO UPDATE SET ai_calls = ai_calls + 1""",
+            (_GLOBAL_USAGE_UID,),
+        )
+        async with db.execute(
+            "SELECT ai_calls FROM usage_counters "
+            "WHERE user_id=? AND period=strftime('%Y-%m-%d','now')",
+            (_GLOBAL_USAGE_UID,),
+        ) as cur:
+            row = await cur.fetchone()
+        await db.commit()
+        return row[0] if row else 1
+
+
 async def get_user_by_stripe_customer(customer_id: str) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
