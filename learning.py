@@ -481,6 +481,11 @@ def _build_lesson_prompt(
         f"{_review_block(review or [])}"
         f"── DRILLS ──\nAuthor {n_drills} drills for these concepts, in EASY → HARD order "
         f"(DO NOT shuffle — the order is intentional and the learner sees them in sequence).\n"
+        f"VARIETY IS CRITICAL: each drill must use DIFFERENT vocabulary and sentence context "
+        f"than every other drill. Never repeat the same word as the answer/prompt across "
+        f"drills — if you test 'manger' in a recognition drill, use a different verb in the "
+        f"next recognition drill. Vary subjects, objects, and scenarios across drills so the "
+        f"learner practises broadly, not the same phrase in different formats.\n"
         f"Suggested ordering: recognition (warm-up) → listening → production → cloze → "
         f"reorder (hardest — pure recall + construction). Include at least 2 reorder "
         f"drills for grammar concepts; reorder tiles expose word-order rules better than "
@@ -759,10 +764,23 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
             blocks.append(cleaned)
 
     exercises = []
+    seen_drills = set()
     for d in (authored.get("drills") or []):
         ex = _assemble_drill(d, target_lang, kinds, rom)
-        if ex:
-            exercises.append(ex)
+        if not ex:
+            continue
+        # Dedup: skip drills that test the same answer in the same drill type.
+        etype = ex.get("type", "")
+        if etype in ("choice", "listening"):
+            opts = ex.get("options") or []
+            ans_idx = ex.get("answer", 0)
+            ans_key = _norm(opts[ans_idx]) if 0 <= ans_idx < len(opts) else ""
+            dedup_key = (etype, ex.get("instruction", ""), ans_key)
+            if ans_key and dedup_key in seen_drills:
+                continue
+            if ans_key:
+                seen_drills.add(dedup_key)
+        exercises.append(ex)
 
     # Inline construction drill for each NEW grammar concept: an interactive,
     # LLM-graded "translate this phrase" practice (rendered by the lesson player,
