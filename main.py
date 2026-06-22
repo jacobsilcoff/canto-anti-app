@@ -4579,6 +4579,13 @@ async def reader_tts(request: Request, req: ReaderTTSRequest, user: dict = Depen
 async def reader_translate_word(request: Request, req: ReaderTranslateWordRequest, user: dict = Depends(current_user)):
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
+    # Romanization for the tap tooltip MUST match the reader ruby, which is the
+    # offline oracle (tokenizer.romanize_words). Compute it once and prefer it
+    # over the card's stored value or the LLM's (Gemini omits Thai tone marks
+    # and uses a different scheme), so the same word never shows two spellings.
+    oracle_rom = ""
+    if translation.LANG_INFO[req.target_lang].get("romanization"):
+        oracle_rom = tokenizer.romanize_text(req.word, req.target_lang)
     # Check if word is already in the user's deck.
     statuses = await db.get_word_statuses(user["id"], [req.word], req.target_lang)
     if req.word in statuses:
@@ -4615,7 +4622,7 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                 "card_id": row["id"],
                 "target_text": row["target_text"],
                 "source_text": row["source_text"],
-                "romanization": row["romanization"],
+                "romanization": oracle_rom or row["romanization"],
                 "notes": row["notes"],
                 "status": statuses[req.word],
             }
@@ -4633,7 +4640,7 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
                     # Surface the contextual meaning if it differs from what's stored.
                     if ctx_english and ctx_english.lower() != stored:
                         resp["context_source_text"] = ctx_english
-                        resp["context_romanization"] = ctx_candidate.get("romanization", "")
+                        resp["context_romanization"] = oracle_rom or ctx_candidate.get("romanization", "")
                         resp["context_notes"] = ctx_candidate.get("notes", "")
                 except Exception:
                     pass
@@ -4649,7 +4656,7 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
         "source": "gemini",
         "target_text": req.word,
         "source_text": candidate.get("english", ""),
-        "romanization": candidate.get("romanization", ""),
+        "romanization": oracle_rom or candidate.get("romanization", ""),
         "notes": candidate.get("notes", ""),
         "priority": result.get("priority", 3),
         "suggested_labels": result.get("suggested_labels", []),

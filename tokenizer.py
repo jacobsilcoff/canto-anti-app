@@ -217,6 +217,27 @@ def _th_base_len(s: str) -> int:
     return sum(1 for c in s if unicodedata.category(c) != "Mn")
 
 
+# Low-class sonorants after which a leading ห/อ is silent (ห นำ / อ นำ),
+# e.g. หมา→'ma', หนา→'na'. Before anything else (a vowel or a non-sonorant
+# consonant) the ห is a real /h/ initial — e.g. หาร, หาม, หก.
+_TH_SONORANTS = set("งญณนมยรลวฬ")
+
+
+def _th_fix_leading_h(syl: str, rom: str) -> str:
+    """Restore the /h/ that pythainlp's royin engine drops on ห-initial syllables.
+
+    royin systematically misreads ห as a silent leading consonant even when it
+    is the pronounced initial: หาร→'an', หาม→'am', หก→'ok' (but หา→'ha',
+    หาน→'han'). ห is only truly silent before a low sonorant (หมา→'ma'); in
+    every other ห-initial syllable it is /h/, so prepend it when royin omitted
+    it.
+    """
+    if syl.startswith("ห") and len(syl) > 1 and rom and not rom.startswith("h"):
+        if syl[1] not in _TH_SONORANTS:
+            return "h" + rom
+    return rom
+
+
 def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
     """ROYIN romanization with tone diacritics for a Thai word."""
     syls = None
@@ -233,6 +254,7 @@ def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
         for s in syls:
             rom = _th_clean_rom(romanize_fn(s, engine="royin"))
             if rom:
+                rom = _th_fix_leading_h(s, rom)
                 syl_parts.append(_th_add_tone(rom, tone_fn(s)))
         syl_result = "".join(syl_parts) if syl_parts else None
         whole_raw = romanize_fn(word, engine="royin") or ""
@@ -249,6 +271,7 @@ def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
     rom = _th_clean_rom(romanize_fn(word, engine="royin"))
     if not rom:
         return None
+    rom = _th_fix_leading_h(word, rom)
     return _th_add_tone(rom, tone_fn(word))
 
 
