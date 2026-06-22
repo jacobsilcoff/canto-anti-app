@@ -4011,25 +4011,31 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
         rom_map = tokenizer.romanize_words(words, text["target_lang"])
 
         # Stored translations may be indexed under old sentence boundaries
-        # (e.g. a tokenizer fix changed how sentences split). Re-index them
-        # by matching sentence_text so translations attach to the correct
-        # new sentences instead of appearing on the wrong one.
+        # (e.g. a tokenizer fix changed how sentences split). Heal the stored
+        # rows to the current boundaries so EVERY downstream reader (this
+        # response, the windowed /preload, page-turn preloads) sees correct
+        # indices — not just this in-memory response. Without persisting, the
+        # /preload call the frontend fires right after returns raw stale-index
+        # rows and re-pollutes the client cache, re-breaking alignment.
         if sentences:
             new_sents = tokenizer.split_sentences(tokens, text["target_lang"])
-            old_by_text: dict[str, dict] = {}
-            for s in sentences:
-                st = s.get("sentence_text", "")
-                if st and st not in old_by_text:
-                    old_by_text[st] = s
-            reindexed = []
-            for i, st in enumerate(new_sents):
-                old = old_by_text.get(st)
-                if old:
-                    reindexed.append({**old, "sentence_idx": i})
-                else:
-                    reindexed.append({"sentence_idx": i, "sentence_text": st,
-                                      "translation": None, "has_audio": False})
-            sentences = reindexed
+            # Stale = a cached row's text no longer matches the boundary at its
+            # own index (a tokenizer fix shifted things). Normal lazy partial
+            # caching is NOT stale, so we don't rewrite healthy readings.
+            stale = any(
+                s["sentence_idx"] >= len(new_sents)
+                or s["sentence_text"] != new_sents[s["sentence_idx"]]
+                for s in sentences
+            )
+            if stale:
+                await db.resync_reader_sentences(text["id"], new_sents)
+                sentences = await db.get_reader_sentences(user_id, text["id"])
+            by_idx = {s["sentence_idx"]: s for s in sentences}
+            sentences = [
+                by_idx.get(i, {"sentence_idx": i, "sentence_text": st,
+                               "translation": None, "has_audio": False})
+                for i, st in enumerate(new_sents)
+            ]
 
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
@@ -4358,18 +4364,20 @@ async def reader_preload(
         tokens = tokenizer.tokenize(text["content"], text["target_lang"])
         sent_texts = tokenizer.split_sentences(tokens, text["target_lang"])
         total = len(sent_texts)
-        # Re-index existing cache by sentence text so a tokenizer fix
-        # doesn't cause old translations to sit at wrong indices.
-        old_by_text = {}
-        for s in existing.values():
-            st = s.get("sentence_text", "")
-            if st and st not in old_by_text:
-                old_by_text[st] = s
-        existing = {}
-        for i, st in enumerate(sent_texts):
-            old = old_by_text.get(st)
-            if old:
-                existing[i] = old
+        # Heal stale cached rows to the current boundaries so the returned
+        # sentences (read straight from the DB below) carry correct indices —
+        # a tokenizer fix would otherwise leave old translations at wrong
+        # indices and the frontend keys its cache by sentence_idx. Only rewrite
+        # when actually stale (a cached row's text no longer matches its index);
+        # normal lazy partial caching is left alone.
+        stale = any(
+            i >= len(sent_texts) or s["sentence_text"] != sent_texts[i]
+            for i, s in existing.items()
+        )
+        if stale:
+            await db.resync_reader_sentences(text_id, sent_texts)
+            existing = {s["sentence_idx"]: s
+                        for s in await db.get_reader_sentences(user["id"], text_id)}
 
     # Select the window to process. `count=None` → everything (legacy behaviour).
     lo = max(0, start)

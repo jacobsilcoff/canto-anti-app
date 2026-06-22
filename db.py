@@ -2483,6 +2483,58 @@ async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def resync_reader_sentences(text_id: int, new_sents: list[str]) -> bool:
+    """Rewrite a text's cached sentence rows to match current tokenisation.
+
+    A tokenizer fix can change how a stored text splits into sentences (e.g.
+    the pykakasi Japanese newline bug inserted phantom '。' sentences and
+    mangled headings), leaving cached translations/audio at stale indices.
+    Re-key the cached content by matching `sentence_text` against the new
+    boundaries, drop rows that no longer correspond to any sentence, and
+    renumber to the new indices. Unmatched new sentences get no row (they are
+    fetched on demand). Idempotent: a no-op when already aligned.
+
+    Returns True if it rewrote anything.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT sentence_idx, sentence_text, translation, romanization, audio_data
+               FROM reader_sentences WHERE text_id=? ORDER BY sentence_idx""",
+            (text_id,),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+        if not rows:
+            return False
+        if [r["sentence_text"] for r in rows] == list(new_sents):
+            return False  # already aligned
+
+        old_by_text: dict[str, dict] = {}
+        for r in rows:
+            st = r["sentence_text"]
+            if st and st not in old_by_text:
+                old_by_text[st] = r
+        new_rows = []
+        for i, st in enumerate(new_sents):
+            old = old_by_text.get(st)
+            # Only carry rows that hold something worth keeping; empty
+            # placeholders are re-derived on demand.
+            if old and (old["translation"] or old["audio_data"] or old["romanization"]):
+                new_rows.append(
+                    (text_id, i, st, old["translation"], old["audio_data"], old["romanization"])
+                )
+        await db.execute("DELETE FROM reader_sentences WHERE text_id=?", (text_id,))
+        if new_rows:
+            await db.executemany(
+                """INSERT INTO reader_sentences
+                   (text_id, sentence_idx, sentence_text, translation, audio_data, romanization)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                new_rows,
+            )
+        await db.commit()
+        return True
+
+
 async def upsert_reader_sentence(
     text_id: int, idx: int, sentence_text: str,
     translation: str | None = None, audio_data: bytes | None = None,
