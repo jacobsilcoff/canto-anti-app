@@ -327,6 +327,47 @@
       border-color: var(--good, #2bb24c); }
     .results-badge.levelup { animation: bounceIn .6s ease both; }
 
+    /* ── Vocab review drawer ── */
+    .vocab-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: var(--overlay); display: none;
+      align-items: flex-end; justify-content: center;
+      padding: 0 12px calc(14px + env(safe-area-inset-bottom));
+    }
+    .vocab-overlay.open { display: flex; }
+    .vocab-sheet {
+      width: 100%; max-width: 520px; background: var(--surface);
+      border-radius: 20px; box-shadow: var(--shadow-pop);
+      display: flex; flex-direction: column;
+      max-height: min(80vh, 700px); overflow: hidden;
+      animation: ask-rise 0.18s ease;
+    }
+    @media (min-width: 600px) { .vocab-overlay { align-items: center; padding: 16px; } }
+    .vocab-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .vocab-head-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+    .vocab-head-count { font-size: 0.82rem; color: var(--text-muted); }
+    .vocab-body {
+      flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .vocab-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+    }
+    .vocab-word { font-weight: 600; font-size: 0.95rem; font-family: var(--script-font, inherit); }
+    .vocab-gloss { font-size: 0.84rem; color: var(--text-muted); flex: 1; min-width: 0; }
+    .vocab-lesson { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+    .vocab-deck-badge {
+      font-size: 0.7rem; font-weight: 600; border-radius: 6px; padding: 2px 7px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .vocab-deck-badge.in { background: var(--good-soft); color: var(--good-strong); }
+    .vocab-deck-badge.out { background: var(--warn-soft); color: var(--warn-strong); }
+    .vocab-empty { text-align: center; color: var(--text-muted); padding: 20px 10px; font-size: 0.9rem; }
+
     /* ── Daily-goal XP ring (course header) ── */
     .daily-ring { display: inline-flex; align-items: center; gap: 8px; }
     .daily-ring .dr-ringwrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
@@ -450,6 +491,7 @@
         <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" onclick="openVocabReview()" title="Review all vocab from your lessons">📚 Words</button>
         <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
       </div>
     </div>
@@ -457,6 +499,18 @@
     <div id="course-gen-area"></div>
     <div id="course-cta"></div>
     <div class="learn-note" id="course-note">Tap an available lesson to start.</div>
+  </div>
+
+  <!-- Vocab review overlay -->
+  <div class="vocab-overlay" id="vocab-overlay" onclick="if(event.target===this)closeVocabReview()">
+    <div class="vocab-sheet">
+      <div class="vocab-head">
+        <div class="vocab-head-title">Lesson Vocabulary</div>
+        <span class="vocab-head-count" id="vocab-count"></span>
+        <button style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="closeVocabReview()">×</button>
+      </div>
+      <div class="vocab-body" id="vocab-body"></div>
+    </div>
   </div>
 
   <!-- Lesson loading -->
@@ -662,6 +716,50 @@
     if (!id) return;
     await fetch('/api/courses/' + id + '/ai_lessons', { method: 'DELETE' }).catch(() => {});
     await refreshAndShowCourse();
+  }
+
+  async function openVocabReview() {
+    const id = document.getElementById('state-course').dataset.courseId;
+    if (!id) return;
+    const body = document.getElementById('vocab-body');
+    body.innerHTML = '<div class="vocab-empty"><span class="spinner"></span></div>';
+    document.getElementById('vocab-count').textContent = '';
+    document.getElementById('vocab-overlay').classList.add('open');
+    try {
+      const res = await fetch('/api/courses/' + id + '/vocab');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const vocab = data.vocab || [];
+      if (!vocab.length) {
+        body.innerHTML = '<div class="vocab-empty">No vocab taught yet. Complete some lessons first!</div>';
+        return;
+      }
+      document.getElementById('vocab-count').textContent = vocab.length + ' words';
+      const lang = currentCourse && currentCourse.target_lang;
+      body.innerHTML = '';
+      if (lang) applyScript(body, lang);
+      vocab.forEach(v => {
+        const row = document.createElement('div');
+        row.className = 'vocab-row';
+        const badge = v.in_deck
+          ? '<span class="vocab-deck-badge in">In deck</span>'
+          : '<span class="vocab-deck-badge out">Not in deck</span>';
+        row.innerHTML =
+          `<div style="flex:1;min-width:0">` +
+            `<div class="vocab-word">${esc(v.label)}</div>` +
+            `<div class="vocab-gloss">${esc(v.gloss)}</div>` +
+          `</div>` +
+          badge;
+        if (v.lesson_title) row.title = 'From: ' + v.lesson_title;
+        body.appendChild(row);
+      });
+    } catch {
+      body.innerHTML = '<div class="vocab-empty">Failed to load vocab.</div>';
+    }
+  }
+
+  function closeVocabReview() {
+    document.getElementById('vocab-overlay').classList.remove('open');
   }
 
   function toggleUnlockAll() {

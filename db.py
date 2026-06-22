@@ -2124,6 +2124,27 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
         return course
 
 
+async def get_course_vocab(user_id: int, course_id: int) -> list[dict]:
+    """All vocab concepts taught in a course, with deck status."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
+        ) as cur:
+            if not await cur.fetchone():
+                return []
+        async with conn.execute(
+            """SELECT cc.label, cc.gloss, cl.title AS lesson_title, cl.lesson_num
+               FROM course_concepts cc
+               LEFT JOIN course_lessons cl ON cl.id = cc.introduced_lesson_id
+               WHERE cc.course_id=? AND cc.kind='vocab' AND cc.label != ''
+               ORDER BY cl.lesson_num, cc.id""",
+            (course_id,),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+    return rows
+
+
 async def get_active_course(user_id: int, target_lang: str) -> dict | None:
     """The user's most recent active course for a language, or None."""
     async with aiosqlite.connect(DB_PATH) as db:

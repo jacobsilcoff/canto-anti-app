@@ -2650,6 +2650,22 @@ async def get_course(course_id: int, user: dict = Depends(current_user)):
     return course
 
 
+@app.get("/api/courses/{course_id}/vocab")
+async def get_course_vocab(course_id: int, user: dict = Depends(current_user)):
+    rows = await db.get_course_vocab(user["id"], course_id)
+    if not rows:
+        return {"vocab": []}
+    lang = None
+    course = await db.get_course(user["id"], course_id)
+    if course:
+        lang = course.get("target_lang")
+    labels = [r["label"] for r in rows]
+    statuses = await db.get_word_statuses(user["id"], labels, lang) if lang else {}
+    for r in rows:
+        r["in_deck"] = r["label"] in statuses
+    return {"vocab": rows}
+
+
 @app.delete("/api/courses/{course_id}")
 async def delete_course(course_id: int, user: dict = Depends(current_user)):
     await db.delete_course(user["id"], course_id)
@@ -3029,6 +3045,7 @@ async def _auto_add_lesson_vocab(user_id: int, lang: str, lesson: dict) -> None:
         labels = [c["label"].strip() for c in vocab]
         existing = await db.get_word_statuses(user_id, labels, lang, exact_only=True)
         title = lesson.get("title") or "Lesson"
+        added = 0
         for c in vocab:
             label = c["label"].strip()
             if label in existing:
@@ -3037,7 +3054,10 @@ async def _auto_add_lesson_vocab(user_id: int, lang: str, lesson: dict) -> None:
             rom = ""
             if translation.LANG_INFO.get(lang, {}).get("romanization"):
                 rom = tokenizer.romanize_text(label, lang)
-            audio_data = await audio.generate(label, lang)
+            try:
+                audio_data = await audio.generate(label, lang)
+            except Exception:
+                audio_data = None
             await db.create_card(
                 user_id=user_id,
                 source_text=gloss,
@@ -3048,8 +3068,12 @@ async def _auto_add_lesson_vocab(user_id: int, lang: str, lesson: dict) -> None:
                 notes=f"From lesson: {title}",
                 priority=3,
             )
+            added += 1
+        if added:
+            logger.info("Auto-added %d vocab cards from lesson '%s' user=%d lang=%s",
+                        added, title, user_id, lang)
     except Exception:
-        pass
+        logger.exception("_auto_add_lesson_vocab failed user=%d lang=%s", user_id, lang)
 
 
 @app.post("/api/lessons/{lesson_id}/complete")
@@ -3063,6 +3087,8 @@ async def complete_lesson(
     if not found:
         raise HTTPException(404, "Lesson not found")
     lesson = await db.get_lesson(user["id"], lesson_id) if (req.results or first) else None
+    if first and not lesson:
+        lesson = await db.get_lesson(user["id"], lesson_id)
     lang = (lesson or {}).get("target_lang") or await db.get_setting(user["id"], "default_target_lang") or "yue"
     if req.results and lesson:
         await db.record_concept_results(user["id"], lang, req.results)

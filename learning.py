@@ -115,10 +115,19 @@ def _lang_preamble(info: dict) -> str:
         if rom else
         "This language uses the Latin alphabet — no romanisation needed.\n"
     )
+    rules = info["rules"]
+    if rom:
+        filtered = []
+        for line in rules.split("\n"):
+            low = line.lower()
+            if "provide" in low and ("roman" in low or "transliter" in low):
+                continue
+            filtered.append(line)
+        rules = "\n".join(filtered)
     return (f"Target language: {info.get('full_name', info['name'])}\n"
             f"Writing system: {info['script']}\n"
             f"{rom_note}"
-            f"Language-specific notes:\n{info['rules']}\n\n")
+            f"Language-specific notes:\n{rules}\n\n")
 
 
 # ── Next-lesson planner (just-in-time, adaptive) ─────────────────────────────
