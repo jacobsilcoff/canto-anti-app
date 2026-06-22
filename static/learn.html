@@ -1195,15 +1195,21 @@
           } catch { return null; } finally { busy = false; sendEl.disabled = false; }
         }
 
+        // Normalize for "did the polished form differ from what they wrote?" — used to
+        // decide whether to surface the corrected spelling on an accepted-with-flaw answer.
+        const cdNorm = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.,!?;:]+$/, '');
+        const cdDiffers = (a, b) => !!a && !!b && cdNorm(a) !== cdNorm(b);
+
         function appendHistory(phrase, fb, yourAnswer) {
           if (!phrase) return;
           const ok = fb && fb.correct;
+          const yours = (yourAnswer || '').trim();
+          const flawed = ok && fb && cdDiffers(fb.corrected, yours);
           const item = document.createElement('div');
           item.className = `cd-hist-item ${ok ? 'ok' : 'miss'}`;
-          const yours = (yourAnswer || '').trim();
           let inner = `<div class="cd-hist-phrase">${esc(phrase)}</div>`;
           if (yours) inner += `<div class="cd-hist-you${ok ? '' : ' struck'}">${targetSpan(yours, lang)}</div>`;
-          if (!ok && fb && fb.corrected) {
+          if ((!ok || flawed) && fb && fb.corrected) {
             const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
             inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
           }
@@ -1235,17 +1241,19 @@
           const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
           const altRom = (fb.alternative_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.alternative_roman)}</span>` : '';
           const yours = (yourAnswer || '').trim();
+          // Accepted-with-flaw: correct, but the polished form differs from what they wrote
+          const flawed = fb.correct && cdDiffers(fb.corrected, yours);
           const youRow = yours
             ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext${fb.correct ? '' : ' cd-struck'}">${targetSpan(yours, lang)}</span></div>`
             : '';
-          const ansRow = !fb.correct
-            ? `<div class="cd-fb-ans"><span class="cd-fb-tag">Answer</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
+          const ansRow = (!fb.correct || flawed)
+            ? `<div class="cd-fb-ans"><span class="cd-fb-tag">${flawed ? 'Should be' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
             : '';
           const altRow = fb.alternative
             ? `<div class="cd-fb-alt"><span class="cd-fb-tag">Alt</span><span class="cd-fb-anstext">${targetSpan(fb.alternative, lang)}${altRom}</span>${fb.alt_note ? `<span class="cd-fb-altnote">${esc(fb.alt_note)}</span>` : ''}</div>`
             : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
-              <div class="cd-fb-head">${fb.correct ? '✓ Nice!' : '✗ Not quite'}</div>
+              <div class="cd-fb-head">${fb.correct ? (flawed ? '✓ Almost!' : '✓ Nice!') : '✗ Not quite'}</div>
               ${youRow}${ansRow}${altRow}
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
