@@ -1094,7 +1094,7 @@
   }
 
   // ── Reveal ────────────────────────────────────────────────────────────────
-  function revealCard() {
+  function revealCard(silent) {
     if (revealed) return;
     revealed = true;
     const item = queue[idx];
@@ -1178,10 +1178,16 @@
     document.getElementById('card-meta-actions').style.display = 'flex';
     updateMetaActions();
 
-    if (item.face !== 'pronunciation') {
+    if (!silent && item.face !== 'pronunciation') {
       const dummyBtn = { classList: { add: () => {}, remove: () => {} } };
       setTimeout(() => playCardAudio(item.card_id, dummyBtn), 300);
     }
+  }
+
+  function _refreshCardDisplay() {
+    const wasRevealed = revealed;
+    showCard();
+    if (wasRevealed) revealCard(true);
   }
 
   function updateMetaActions() {
@@ -2009,12 +2015,13 @@
       if (updates.source_text) _askCard.source_text = updates.source_text;
       if (updates.romanization) _askCard.romanization = updates.romanization;
       if (updates.notes !== undefined) _askCard.notes = updates.notes;
-      const item = queue[idx];
-      if (item && item.card_id === cardId) {
-        if (updates.source_text) item.source_text = updates.source_text;
-        if (updates.romanization) item.romanization = updates.romanization;
-        if (updates.notes !== undefined) item.notes = updates.notes;
+      for (const q of queue) {
+        if (q.card_id !== cardId) continue;
+        if (updates.source_text) q.source_text = updates.source_text;
+        if (updates.romanization) q.romanization = updates.romanization;
+        if (updates.notes !== undefined) q.notes = updates.notes;
       }
+      _refreshCardDisplay();
     } catch {
       btn.disabled = false; btn.textContent = 'Apply to card';
     }
