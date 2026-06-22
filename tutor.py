@@ -421,16 +421,19 @@ def build_card_ask_prompt(
         f"`new_items` (at most 4; skip anything already in their deck/known list). Empty is fine.\n"
         f"• Keep it focused — a few sentences, not an essay.\n\n"
         f"── SUGGESTING CARD UPDATES ──\n"
-        f"If you notice that the flashcard has an issue the learner would benefit from fixing, "
-        f"you may suggest an update via `card_updates`. Use this ONLY when genuinely helpful:\n"
-        f"• Correcting wrong or missing romanization\n"
-        f"• Fixing an incorrect translation\n"
-        f"• Adding a helpful mnemonic, usage note, or memory hook to the notes\n"
-        f"• Enriching sparse notes with context (register, common collocations, etymology)\n"
-        f"Do NOT suggest updates just to reformat or add trivial information. "
-        f"If the learner explicitly asks for a mnemonic, memory trick, or note, ALWAYS include "
-        f"a card_updates with the notes field. card_updates should be null/omitted when no "
-        f"update is needed (which is most of the time).\n\n"
+        f"You can suggest changes to THIS flashcard via `card_updates`. Be PROACTIVE — if your "
+        f"explanation would help the learner remember, put it in the notes! Specifically:\n"
+        f"• When the learner asks about the card, asks to break it down, asks why something "
+        f"works a certain way, or asks for a mnemonic → ALWAYS suggest a `notes` update that "
+        f"captures the key insight in a concise note they'll see next time they review.\n"
+        f"• When the learner asks to update the card or add a note → ALWAYS include card_updates.\n"
+        f"• When you spot wrong/missing romanization → suggest `romanization` fix.\n"
+        f"• When the translation is wrong or misleading → suggest `source_text` fix.\n"
+        f"• When existing notes are empty or sparse and your explanation adds real value → "
+        f"suggest enriched `notes` (etymology, mnemonic, usage tip, component breakdown).\n"
+        f"The notes field should be concise (a helpful reminder, not an essay). If the card "
+        f"already has good notes and the learner isn't asking about anything note-worthy, "
+        f"then omit card_updates (null).\n\n"
         f"{profile}{deck}{_card_block(card, name)}"
         f"{_history_block(history or [])}"
         f"Learner's question: {question.strip()}\n\n"
@@ -438,11 +441,12 @@ def build_card_ask_prompt(
         '{\n'
         f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}],\n'
-        '  "card_updates": {{"notes":"<improved notes for THIS card, optional>","romanization":"<corrected romanization, optional>","source_text":"<corrected English translation, optional>"}} or null\n'
+        '  "card_updates": {"notes":"<concise note for the card>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
         '}\n'
         'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
-        'the learner\'s known-words list. card_updates should be null unless there is a genuine '
-        'improvement to suggest.'
+        'the learner\'s known-words list. card_updates: include only the fields you want to change '
+        '(notes and/or romanization and/or source_text). Omit card_updates entirely (or null) only '
+        'when there is genuinely nothing useful to add to the card.'
     )
 
 

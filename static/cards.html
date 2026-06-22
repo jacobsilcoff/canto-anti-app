@@ -1868,6 +1868,7 @@
   let _askHistory = [];   // ephemeral, this pop-over only: [{role,text}]
   let _askSending = false;
   let _askCard = null;
+  let _askCardId = null;
 
   function _askStatus(item) {
     if (!item) return '';
@@ -1883,6 +1884,7 @@
     const item = queue[idx];
     if (!item) return;
     const langCode = item.target_lang || 'yue';
+    const sameCard = _askCardId === item.card_id;
     _askCard = {
       target_text: item.target_text || '',
       source_text: item.source_text || '',
@@ -1892,20 +1894,23 @@
       card_id: item.card_id,
     };
     _askCard._lang = langCode;
-    _askHistory = [];
+    _askCardId = item.card_id;
 
     const thread = document.getElementById('ask-thread');
     applyScript(thread, langCode);
     const head = document.getElementById('ask-head-card');
     head.textContent = item.target_text ? `· ${item.target_text}` : '';
 
-    const qs = ['Why this word here?', 'Use it in a sentence', 'Related words?', 'How do I remember this?'];
-    thread.innerHTML =
-      `<div class="ask-empty">Ask anything about <b>${escHtml(item.target_text || 'this card')}</b>` +
-      (item.source_text ? ` (${escHtml(item.source_text)})` : '') + `.` +
-      `<div class="ask-suggest">` +
-      qs.map(q => `<button class="ask-chip" onclick="_askPreset(this)">${escHtml(q)}</button>`).join('') +
-      `</div></div>`;
+    if (!sameCard) {
+      _askHistory = [];
+      const qs = ['Why this word here?', 'Use it in a sentence', 'Related words?', 'How do I remember this?'];
+      thread.innerHTML =
+        `<div class="ask-empty">Ask anything about <b>${escHtml(item.target_text || 'this card')}</b>` +
+        (item.source_text ? ` (${escHtml(item.source_text)})` : '') + `.` +
+        `<div class="ask-suggest">` +
+        qs.map(q => `<button class="ask-chip" onclick="_askPreset(this)">${escHtml(q)}</button>`).join('') +
+        `</div></div>`;
+    }
 
     document.getElementById('ask-overlay').classList.add('open');
     const inp = document.getElementById('ask-input');
