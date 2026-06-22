@@ -1503,9 +1503,13 @@ async def create_card(
 
     # Fill missing romanization from the offline oracle (lesson "Add to deck"
     # and tutor chips send none) — never ask the LLM for it.
+    # For Thai: always prefer the offline oracle — it adds tone diacritics
+    # (à â á ǎ) that the LLM omits from RTGS romanization.
     romanization = req.romanization.strip()
-    if not romanization and translation.LANG_INFO[req.target_lang].get("romanization"):
-        romanization = tokenizer.romanize_text(target_text, req.target_lang)
+    if translation.LANG_INFO[req.target_lang].get("romanization"):
+        oracle_rom = tokenizer.romanize_text(target_text, req.target_lang)
+        if oracle_rom:
+            romanization = oracle_rom
 
     # Collect extra label ids — story label if reader_text_id provided.
     extra_label_ids: list[int] = list(req.label_ids or [])
@@ -4006,6 +4010,27 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
         _annotate_tokens(tokens, statuses)
         rom_map = tokenizer.romanize_words(words, text["target_lang"])
 
+        # Stored translations may be indexed under old sentence boundaries
+        # (e.g. a tokenizer fix changed how sentences split). Re-index them
+        # by matching sentence_text so translations attach to the correct
+        # new sentences instead of appearing on the wrong one.
+        if sentences:
+            new_sents = tokenizer.split_sentences(tokens, text["target_lang"])
+            old_by_text: dict[str, dict] = {}
+            for s in sentences:
+                st = s.get("sentence_text", "")
+                if st and st not in old_by_text:
+                    old_by_text[st] = s
+            reindexed = []
+            for i, st in enumerate(new_sents):
+                old = old_by_text.get(st)
+                if old:
+                    reindexed.append({**old, "sentence_idx": i})
+                else:
+                    reindexed.append({"sentence_idx": i, "sentence_text": st,
+                                      "translation": None, "has_audio": False})
+            sentences = reindexed
+
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
@@ -4333,6 +4358,18 @@ async def reader_preload(
         tokens = tokenizer.tokenize(text["content"], text["target_lang"])
         sent_texts = tokenizer.split_sentences(tokens, text["target_lang"])
         total = len(sent_texts)
+        # Re-index existing cache by sentence text so a tokenizer fix
+        # doesn't cause old translations to sit at wrong indices.
+        old_by_text = {}
+        for s in existing.values():
+            st = s.get("sentence_text", "")
+            if st and st not in old_by_text:
+                old_by_text[st] = s
+        existing = {}
+        for i, st in enumerate(sent_texts):
+            old = old_by_text.get(st)
+            if old:
+                existing[i] = old
 
     # Select the window to process. `count=None` → everything (legacy behaviour).
     lo = max(0, start)
@@ -4759,6 +4796,24 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
         statuses = await db.get_word_statuses(user["id"], unique_words, text["target_lang"])
         _annotate_tokens(tokens, statuses)
         rom_map = tokenizer.romanize_words(words, text["target_lang"])
+
+        if sentences:
+            new_sents = tokenizer.split_sentences(tokens, text["target_lang"])
+            old_by_text: dict[str, dict] = {}
+            for s in sentences:
+                st = s.get("sentence_text", "")
+                if st and st not in old_by_text:
+                    old_by_text[st] = s
+            reindexed = []
+            for i, st in enumerate(new_sents):
+                old = old_by_text.get(st)
+                if old:
+                    reindexed.append({**old, "sentence_idx": i})
+                else:
+                    reindexed.append({"sentence_idx": i, "sentence_text": st,
+                                      "translation": None, "has_audio": False})
+            sentences = reindexed
+
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
     )
