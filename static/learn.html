@@ -1837,12 +1837,12 @@
   // and ruby-annotate only those containing target script, so each example gets
   // jyutping + a meaning tooltip (stored gloss, else live tap-to-translate) —
   // without disturbing surrounding English or the markdown (bold/italic) nodes.
-  const _HAS_TARGET = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}]/u;
+  const _HAS_TARGET = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}\p{Script=Thai}\p{Script=Bengali}\p{Script=Arabic}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Hebrew}\p{Script=Hiragana}\p{Script=Katakana}]/u;
   // A maximal run of target-script characters (optionally joined by middle dots,
   // 詩·史·試…). We ruby-ize only these runs and leave surrounding English alone —
   // tokenising a whole mixed "the syllable si: 詩·史" node merges the Latin and
   // the first character into one un-romanizable token.
-  const _TARGET_RUN = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}·・‧•]+/gu;
+  const _TARGET_RUN = /[\p{Script=Han}\p{Script=Hangul}\p{Script=Devanagari}\p{Script=Telugu}\p{Script=Thai}\p{Script=Bengali}\p{Script=Arabic}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Hebrew}\p{Script=Hiragana}\p{Script=Katakana}·・‧•]+/gu;
   async function applyProseRuby(container, glossary, liveLookup) {
     const lang = player && player.lang;
     if (!lang || !needsRuby(lang)) return;
@@ -1896,8 +1896,7 @@
       .trim();
     if (RUBY_LANGS.has(lang)) {
       // Trim trailing Latin/ASCII after the last non-Latin script character.
-      // Covers CJK, Hangul, Devanagari (hi), Telugu (te), and CJK punctuation.
-      const m = t.match(/^([\s\S]*[\u0900-\u0DFF\u0C00-\u0C7F\u3000-\u9FFF\uAC00-\uD7AF\u3400-\u4DBF。！？、，；：“”‘’「」【】〔〕《》·…—～]+)/);
+      const m = t.match(/^([\s\S]*[\u0900-\u0DFF\u0C00-\u0C7F\u3000-\u9FFF\uAC00-\uD7AF\u3400-\u4DBF\u0E01-\u0E7F\u0980-\u09FF\u0600-\u06FF\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u3040-\u309F\u30A0-\u30FF。！？、，；：“”‘’「」【】〔〕《》·…—～]+)/);
       if (m) t = m[1].trim();
     }
     return t;
