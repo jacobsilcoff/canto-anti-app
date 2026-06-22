@@ -333,18 +333,27 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
     if lang == "th":
         try:
             from pythainlp.transliterate import romanize as th_romanize
-            from pythainlp.util import tone_detector as th_tone
-            try:
-                from pythainlp.tokenize import syllable_tokenize as th_syl
-            except Exception:
-                th_syl = None
-            for word in words:
-                if word not in result:
-                    rom = _th_tonal_romanize(word, th_romanize, th_tone, th_syl)
-                    if rom:
-                        result[word] = rom
         except Exception:
-            pass
+            return result  # no romanizer available at all
+        # Tone detection + syllable tokenization are optional enhancements:
+        # if either is missing (older pythainlp), still emit base romanization
+        # so ruby never disappears entirely — just without tone diacritics.
+        try:
+            from pythainlp.util import tone_detector as th_tone
+        except Exception:
+            th_tone = lambda s: "m"  # mid tone = no diacritic
+        try:
+            from pythainlp.tokenize import syllable_tokenize as th_syl
+        except Exception:
+            th_syl = None
+        for word in words:
+            if word not in result:
+                try:
+                    rom = _th_tonal_romanize(word, th_romanize, th_tone, th_syl)
+                except Exception:
+                    rom = None
+                if rom:
+                    result[word] = rom
         return result
     if lang == "yue":
         try:
