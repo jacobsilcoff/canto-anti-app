@@ -107,7 +107,7 @@ Returns due review faces (next_review ≤ now) + new faces up to the daily cap (
 
 ### Translation flow
 
-`POST /api/translate` → `translation.translate()` builds a language-specific Gemini prompt → parses JSON response into up to 3 candidates (for ambiguous inputs) with target_text, romanization, notes, priority. `POST /api/cards` then generates audio via edge-tts and stores everything including the MP3 BLOB.
+`POST /api/translate` → `translation.translate()` builds a language-specific Gemini prompt → parses JSON response into up to 3 candidates (for ambiguous inputs) with target_text, romanization, notes, priority. `POST /api/cards` then generates audio via edge-tts and stores everything including the MP3 BLOB. Card romanization is always overridden by the offline oracle (`tokenizer.romanize_text`) when it produces output — this ensures tone diacritics (Thai), jyutping (Cantonese), pinyin (Mandarin), etc. are consistent with ruby annotations rather than trusting LLM-generated romanization.
 
 ### Reader generation (4 sources)
 
