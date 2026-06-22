@@ -737,7 +737,7 @@
       document.getElementById('vocab-count').textContent = vocab.length + ' words';
       const lang = currentCourse && currentCourse.target_lang;
       body.innerHTML = '';
-      if (lang) applyScript(body, lang);
+      if (lang) body.classList.add(scriptClassFor(lang));
       vocab.forEach(v => {
         const row = document.createElement('div');
         row.className = 'vocab-row';
