@@ -219,7 +219,15 @@ def _th_base_len(s: str) -> int:
 
 def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
     """ROYIN romanization with tone diacritics for a Thai word."""
-    syls = syl_fn(word) if syl_fn else None
+    syls = None
+    if syl_fn:
+        # Syllable splitting is best-effort: pythainlp's default engine needs
+        # python-crfsuite, which we don't ship. A failure here must degrade to
+        # whole-word romanization, not bubble up and blank the ruby.
+        try:
+            syls = syl_fn(word)
+        except Exception:
+            syls = None
     if syls and len(syls) > 1:
         syl_parts = []
         for s in syls:
@@ -343,7 +351,11 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
         except Exception:
             th_tone = lambda s: "m"  # mid tone = no diacritic
         try:
-            from pythainlp.tokenize import syllable_tokenize as th_syl
+            from pythainlp.tokenize import syllable_tokenize as _th_syl_raw
+            # The default ("han_solo") engine requires python-crfsuite, which we
+            # don't ship; "dict" splits syllables without that dependency.
+            def th_syl(w):
+                return _th_syl_raw(w, engine="dict")
         except Exception:
             th_syl = None
         for word in words:
