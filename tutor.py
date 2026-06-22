@@ -675,15 +675,19 @@ def build_lesson_drill_prompt(
     deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
             if known_words else "")
     convo = ""
+    last_phrase = ""
     if history:
         lines = []
         for h in history:
             who = "You posed" if h.get("role") == "tutor" else "Learner answered"
             lines.append(f"{who}: {(h.get('text') or '').strip()}")
+            if h.get("role") == "tutor":
+                last_phrase = (h.get("text") or "").strip()
         convo = "── DRILL SO FAR ──\n" + "\n".join(lines) + "\n\n"
     if answer is not None:
-        state = (f"The learner's answer to your last English phrase: \"{answer.strip()}\". "
-                 f"Judge it (this is attempt #{turn} of ~{max_turns}), then either pose the "
+        phrase_ref = f" for the phrase \"{last_phrase}\"" if last_phrase else ""
+        state = (f"The learner's answer{phrase_ref}: \"{answer.strip()}\". "
+                 f"Judge THIS answer (attempt #{turn} of ~{max_turns}), then either pose the "
                  f"NEXT English phrase or, if they've done ~{max_turns}, set done=true and "
                  f"pose nothing more.\n\n")
     else:
@@ -707,6 +711,9 @@ def build_lesson_drill_prompt(
         f"gently point out the proper accent (e.g. 'Correct! Note the cedilla: française'). "
         f"Similarly accept minor typos (one swapped/missing letter) as correct when the intent "
         f"is unambiguous, noting the proper spelling. "
+        f"HOWEVER, gender/number agreement errors are NOT minor — they are real grammar "
+        f"mistakes (e.g. 'Elle est content' must be 'contente'; 'les chat' must be 'les chats'). "
+        f"Mark these WRONG with `correct: false` and explain the agreement rule in `note`. "
         f"CRITICAL: base your `note` ONLY on characters and words the learner actually wrote "
         f"— never reference a particle, classifier, or word that does not appear in their "
         f"answer. For the `note`: when WRONG, (1) name the specific error category (e.g. "

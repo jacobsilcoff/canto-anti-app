@@ -1263,11 +1263,13 @@
           if (busy) return;
           const ans = inputEl.value.trim();
           if (!ans) return;
-          history.push({ role: 'user', text: ans });
           inputWrap.style.display = 'none';
           promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
           feedEl.innerHTML = '';
           const data = await call(ans);
+          // Push to history AFTER the call so the answer isn't duplicated
+          // (it's already sent as the separate `answer` field)
+          history.push({ role: 'user', text: ans });
           turn++; setProgress();
           showFeedback(data && data.feedback, ans);
           if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
