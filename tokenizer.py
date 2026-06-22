@@ -162,6 +162,41 @@ import re as _re
 
 _TH_TONE_MARKS = {"l": "̀", "f": "̂", "h": "́", "r": "̌"}
 
+# Thai characters that pythainlp's ROYIN engine sometimes fails to romanize,
+# leaving them as-is in the output.  Map to their Latin equivalent or empty.
+_TH_LEAKED_CHAR: dict[str, str] = {
+    "ะ": "",     # ะ sara a — already captured by surrounding romanization
+    "ั": "a",    # ั mai han akat → short a
+    "ิ": "i",    # ิ sara i
+    "ี": "i",    # ี sara ii
+    "ึ": "ue",   # ึ sara ue
+    "ื": "ue",   # ื sara uee
+    "ุ": "u",    # ุ sara u
+    "ู": "u",    # ู sara uu
+    "็": "o",    # ็ mai taikhu → inherent vowel (leaks in ก็ → ko)
+    "่": "",     # ่ mai ek (tone mark — handled by tone_detector)
+    "้": "",     # ้ mai tho
+    "๊": "",     # ๊ mai tri
+    "๋": "",     # ๋ mai chattawa
+    "์": "",     # ์ thanthakhat (silencer)
+    "ํ": "n",    # ํ nikhahit
+}
+
+
+def _th_clean_rom(rom: str) -> str | None:
+    """Replace any leaked Thai characters in romanization output."""
+    if not rom:
+        return None
+    out: list[str] = []
+    for ch in rom:
+        if "฀" <= ch <= "๿":
+            out.append(_TH_LEAKED_CHAR.get(ch, ""))
+        else:
+            out.append(ch)
+    cleaned = "".join(out)
+    return cleaned if cleaned else None
+
+
 def _th_add_tone(rom: str, tone: str) -> str:
     if tone == "m" or tone not in _TH_TONE_MARKS:
         return rom
@@ -171,17 +206,39 @@ def _th_add_tone(rom: str, tone: str) -> str:
     p = m.end()
     return rom[:p] + _TH_TONE_MARKS[tone] + rom[p:]
 
+
+def _th_has_thai(s: str) -> bool:
+    return any("฀" <= c <= "๿" for c in s)
+
+
+def _th_base_len(s: str) -> int:
+    """Character count ignoring combining diacritics (tone marks)."""
+    import unicodedata
+    return sum(1 for c in s if unicodedata.category(c) != "Mn")
+
+
 def _th_tonal_romanize(word, romanize_fn, tone_fn, syl_fn):
     """ROYIN romanization with tone diacritics for a Thai word."""
     syls = syl_fn(word) if syl_fn else None
     if syls and len(syls) > 1:
-        parts = []
+        syl_parts = []
         for s in syls:
-            rom = romanize_fn(s, engine="royin")
+            rom = _th_clean_rom(romanize_fn(s, engine="royin"))
             if rom:
-                parts.append(_th_add_tone(rom, tone_fn(s)))
-        return "".join(parts) if parts else None
-    rom = romanize_fn(word, engine="royin")
+                syl_parts.append(_th_add_tone(rom, tone_fn(s)))
+        syl_result = "".join(syl_parts) if syl_parts else None
+        whole_raw = romanize_fn(word, engine="royin") or ""
+        whole = _th_clean_rom(whole_raw)
+        if syl_result and whole and syl_result != whole:
+            # Per-syllable gives per-syllable tones (better), but can drop
+            # consonants (e.g. หาร→'an'). Whole-word is often more accurate
+            # but can drop vowels (e.g. ส้ม→'tm'). Heuristic: a notably
+            # shorter syllable result means lost consonants → use whole;
+            # otherwise keep syllable for its tones.
+            if not _th_has_thai(whole_raw) and _th_base_len(syl_result) < _th_base_len(whole):
+                return _th_add_tone(whole, tone_fn(word))
+        return syl_result
+    rom = _th_clean_rom(romanize_fn(word, engine="royin"))
     if not rom:
         return None
     return _th_add_tone(rom, tone_fn(word))
@@ -287,9 +344,7 @@ def romanize_words(words: list[str], lang: str) -> dict[str, str]:
                     if rom:
                         result[word] = rom
         except Exception:
-            for word in words:
-                if word not in result:
-                    result[word] = word
+            pass
         return result
     if lang == "yue":
         try:
