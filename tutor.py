@@ -287,9 +287,20 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
 
     drill = (parsed.get("drill") or "").strip()[:60] if isinstance(parsed.get("drill"), str) else ""
 
+    card_updates = None
+    raw_cu = parsed.get("card_updates")
+    if isinstance(raw_cu, dict):
+        cu: dict[str, str] = {}
+        for field in ("notes", "romanization", "source_text"):
+            val = (raw_cu.get(field) or "").strip()
+            if val:
+                cu[field] = val[:600]
+        if cu:
+            card_updates = cu
+
     return {"reply": reply, "reply_en": reply_en, "gloss": gloss,
             "corrections": corrections, "new_items": new_items, "points": points,
-            "drill": drill}
+            "drill": drill, "card_updates": card_updates}
 
 
 async def _run(prompt: str, target_lang: str, *, api_key: str, model: str,
@@ -409,16 +420,29 @@ def build_card_ask_prompt(
         f"• If you mention {name} words or phrases worth saving to their deck, list them in "
         f"`new_items` (at most 4; skip anything already in their deck/known list). Empty is fine.\n"
         f"• Keep it focused — a few sentences, not an essay.\n\n"
+        f"── SUGGESTING CARD UPDATES ──\n"
+        f"If you notice that the flashcard has an issue the learner would benefit from fixing, "
+        f"you may suggest an update via `card_updates`. Use this ONLY when genuinely helpful:\n"
+        f"• Correcting wrong or missing romanization\n"
+        f"• Fixing an incorrect translation\n"
+        f"• Adding a helpful mnemonic, usage note, or memory hook to the notes\n"
+        f"• Enriching sparse notes with context (register, common collocations, etymology)\n"
+        f"Do NOT suggest updates just to reformat or add trivial information. "
+        f"If the learner explicitly asks for a mnemonic, memory trick, or note, ALWAYS include "
+        f"a card_updates with the notes field. card_updates should be null/omitted when no "
+        f"update is needed (which is most of the time).\n\n"
         f"{profile}{deck}{_card_block(card, name)}"
         f"{_history_block(history or [])}"
         f"Learner's question: {question.strip()}\n\n"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
-        '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}]\n'
+        '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}],\n'
+        '  "card_updates": {{"notes":"<improved notes for THIS card, optional>","romanization":"<corrected romanization, optional>","source_text":"<corrected English translation, optional>"}} or null\n'
         '}\n'
         'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
-        'the learner\'s known-words list.'
+        'the learner\'s known-words list. card_updates should be null unless there is a genuine '
+        'improvement to suggest.'
     )
 
 

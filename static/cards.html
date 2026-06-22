@@ -183,6 +183,19 @@
       border: none; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
     }
     .ask-ni-add:disabled { opacity: 0.55; cursor: default; }
+    .ask-card-update {
+      margin-top: 10px; background: var(--primary-soft); border: 1px solid var(--primary);
+      border-radius: 10px; padding: 9px 12px; font-size: 0.88rem;
+    }
+    .ask-cu-title { font-weight: 600; font-size: 0.82rem; color: var(--primary); margin-bottom: 6px; }
+    .ask-cu-field { margin-bottom: 4px; }
+    .ask-cu-label { font-weight: 600; font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .ask-cu-val { font-family: var(--script-font, inherit); }
+    .ask-cu-apply {
+      margin-top: 8px; background: var(--primary); color: var(--on-primary, #fff);
+      border: none; border-radius: 8px; padding: 7px 14px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+    }
+    .ask-cu-apply:disabled { opacity: 0.55; cursor: default; }
     .ask-composer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; align-items: flex-end; }
     .ask-input {
       flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 16px;
@@ -1876,6 +1889,7 @@
       romanization: item.romanization || '',
       notes: item.notes || '',
       status: _askStatus(item),
+      card_id: item.card_id,
     };
     _askCard._lang = langCode;
     _askHistory = [];
@@ -1948,6 +1962,59 @@
     document.getElementById('ask-thread').scrollTop = 1e9;
   }
 
+  function _askRenderCardUpdate(container, updates) {
+    if (!updates || !Object.keys(updates).length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'ask-card-update';
+    wrap.innerHTML = '<div class="ask-cu-title">Suggested card update</div>';
+    const labels = { notes: 'Notes', romanization: 'Romanization', source_text: 'Translation' };
+    for (const [field, val] of Object.entries(updates)) {
+      if (!val) continue;
+      const row = document.createElement('div');
+      row.className = 'ask-cu-field';
+      row.innerHTML = `<span class="ask-cu-label">${escHtml(labels[field] || field)}:</span> <span class="ask-cu-val">${escHtml(val)}</span>`;
+      wrap.appendChild(row);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'ask-cu-apply';
+    btn.textContent = 'Apply to card';
+    btn.onclick = () => _askApplyUpdate(updates, btn);
+    wrap.appendChild(btn);
+    container.appendChild(wrap);
+    document.getElementById('ask-thread').scrollTop = 1e9;
+  }
+
+  async function _askApplyUpdate(updates, btn) {
+    const cardId = _askCard && _askCard.card_id;
+    if (!cardId) return;
+    btn.disabled = true; btn.textContent = 'Applying…';
+    const merged = {
+      source_text: updates.source_text || _askCard.source_text || '',
+      target_text: _askCard.target_text || '',
+      romanization: updates.romanization || _askCard.romanization || '',
+      notes: updates.notes !== undefined ? updates.notes : (_askCard.notes || ''),
+    };
+    try {
+      const res = await fetch(`/api/cards/${cardId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(merged),
+      });
+      if (!res.ok) throw new Error('update failed');
+      btn.textContent = '✓ Applied';
+      if (updates.source_text) _askCard.source_text = updates.source_text;
+      if (updates.romanization) _askCard.romanization = updates.romanization;
+      if (updates.notes !== undefined) _askCard.notes = updates.notes;
+      const item = queue[idx];
+      if (item && item.card_id === cardId) {
+        if (updates.source_text) item.source_text = updates.source_text;
+        if (updates.romanization) item.romanization = updates.romanization;
+        if (updates.notes !== undefined) item.notes = updates.notes;
+      }
+    } catch {
+      btn.disabled = false; btn.textContent = 'Apply to card';
+    }
+  }
+
   async function _askAddItem(it, btn) {
     btn.disabled = true; btn.textContent = '…';
     try {
@@ -2001,6 +2068,7 @@
       const msg = data.message || {};
       const b = _askBubble('tutor', msg.reply || '…');
       _askRenderNewItems(b, msg.new_items);
+      _askRenderCardUpdate(b, msg.card_updates);
       _askHistory.push({ role: 'user', text: q });
       _askHistory.push({ role: 'tutor', text: msg.reply || '' });
     } catch {

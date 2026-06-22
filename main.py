@@ -3112,6 +3112,7 @@ class CardAskCard(BaseModel):
     romanization: str = ""
     notes: str = ""
     status: str = ""
+    card_id: int | None = None
 
 
 class CardAskRequest(BaseModel):
@@ -3359,9 +3360,10 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
         raise HTTPException(502, "The tutor couldn't answer — please try again.")
 
     await db.record_study_activity(user["id"])   # asking about a card counts as study
-    return {"message": {"role": "tutor",
-                        "reply": out["reply"], "new_items": out["new_items"]},
-            "lang": lang}
+    msg: dict = {"role": "tutor", "reply": out["reply"], "new_items": out["new_items"]}
+    if out.get("card_updates"):
+        msg["card_updates"] = out["card_updates"]
+    return {"message": msg, "lang": lang}
 
 
 class TutorDrillRequest(BaseModel):
