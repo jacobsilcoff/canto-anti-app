@@ -3339,6 +3339,7 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
 
     card = req.card.model_dump() if req.card else None
     if card:
+        card_id = card.pop("card_id", None)
         card = {k: (v or "").strip()[:600] for k, v in card.items()}
 
     # Bounded, plain-text history for the prompt (last few turns of this pop-over).
