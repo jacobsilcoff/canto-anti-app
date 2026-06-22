@@ -424,9 +424,17 @@ def _tokenize_cjk(text: str, lang: str) -> list[Token]:
         try:
             import pykakasi
             kks = pykakasi.kakasi()
-            items = kks.convert(text)
-            words = [item["orig"] for item in items]
-            return _words_to_tokens(words)
+            # pykakasi duplicates/mangles tokens around \n characters.
+            # Avoid the bug by tokenizing each line separately.
+            all_tokens: list[Token] = []
+            for i, line in enumerate(text.split("\n")):
+                if i > 0:
+                    all_tokens.append({"text": "\n", "is_word": False})
+                if line:
+                    items = kks.convert(line)
+                    words = [item["orig"] for item in items]
+                    all_tokens.extend(_words_to_tokens(words))
+            return all_tokens
         except Exception:
             pass
     return _char_tokenize(text)
