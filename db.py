@@ -3526,6 +3526,46 @@ async def update_image_message(msg_id: int, description: str, analysis: dict) ->
         await db.commit()
 
 
+async def get_unprocessed_image_messages() -> list[dict]:
+    """Find image messages whose vision analysis produced no suggestions."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await conn.execute_fetchall(
+            """SELECT m.id, m.sender_user_id, m.conversation_id, m.analysis,
+                      c.user1_id, c.user2_id
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.analysis LIKE '%"type": "image"%'
+                  OR m.analysis LIKE '%"type":"image"%'
+               ORDER BY m.id""",
+        )
+    results = []
+    for r in rows:
+        analysis = json.loads(r["analysis"]) if r["analysis"] else {}
+        if analysis.get("type") != "image":
+            continue
+        sugg = analysis.get("suggestions") or {}
+        has_content = any(
+            (isinstance(v, dict) and (v.get("sender") or v.get("receiver")))
+            or (isinstance(v, list) and v)
+            for v in sugg.values()
+        )
+        if has_content:
+            continue
+        url = analysis.get("url", "")
+        media_id = url.rsplit("/", 1)[-1].replace(".jpg", "") if url else ""
+        results.append({
+            "msg_id": r["id"],
+            "sender_user_id": r["sender_user_id"],
+            "conversation_id": r["conversation_id"],
+            "user1_id": r["user1_id"],
+            "user2_id": r["user2_id"],
+            "media_id": media_id,
+            "analysis": analysis,
+        })
+    return results
+
+
 # ── Messenger account ──────────────────────────────────────────────────────────
 
 async def get_messenger_account(user_id: int) -> dict | None:

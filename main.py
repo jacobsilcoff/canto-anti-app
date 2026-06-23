@@ -3775,6 +3775,72 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
     return {"success": True}
 
 
+@app.post("/api/admin/reprocess-images")
+async def admin_reprocess_images(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_admin),
+):
+    """Re-run vision analysis on image messages that got empty suggestions."""
+    rows = await db.get_unprocessed_image_messages()
+    if not rows:
+        return {"queued": 0, "message": "No unprocessed image messages found"}
+    background_tasks.add_task(_reprocess_images_bg, rows)
+    return {"queued": len(rows), "message": f"Reprocessing {len(rows)} image(s) in background"}
+
+
+async def _reprocess_images_bg(rows: list[dict]) -> None:
+    api_key = _SHARED_API_KEY
+    if not api_key:
+        logger.warning("reprocess-images: GEMINI_API_KEY not set, aborting")
+        return
+    ok_count = 0
+    for row in rows:
+        media_path = MEDIA_DIR / f"{row['media_id']}.jpg"
+        if not media_path.exists():
+            logger.warning("reprocess-images: media file missing for msg %d", row["msg_id"])
+            continue
+        image_bytes = media_path.read_bytes()
+        langs: list[str] = []
+        sender_id = row["sender_user_id"]
+        other_id = row["user2_id"] if row["user1_id"] == sender_id else row["user1_id"]
+        sender_lang = await db.get_setting(sender_id, "default_target_lang") or "yue"
+        if sender_lang not in langs:
+            langs.append(sender_lang)
+        if other_id:
+            recipient_lang = await db.get_setting(other_id, "default_target_lang") or "yue"
+            if recipient_lang not in langs:
+                langs.append(recipient_lang)
+        try:
+            vision = await asyncio.get_event_loop().run_in_executor(
+                None, translation.analyze_image, image_bytes, langs, api_key
+            )
+        except Exception:
+            logger.exception("reprocess-images: vision failed for msg %d", row["msg_id"])
+            continue
+        sugg = vision.get("suggestions") or {}
+        has_content = any(
+            (isinstance(v, dict) and (v.get("sender") or v.get("receiver")))
+            or (isinstance(v, list) and v)
+            for v in sugg.values()
+        )
+        if not has_content:
+            logger.warning("reprocess-images: still no suggestions for msg %d", row["msg_id"])
+            continue
+        description = vision.get("description") or "Photo"
+        descriptions = vision.get("descriptions") or {}
+        analysis = {
+            "type": "image",
+            "url": row["analysis"].get("url", ""),
+            "description": description,
+            "descriptions": descriptions,
+            "suggestions": sugg,
+        }
+        await db.update_image_message(row["msg_id"], description, analysis)
+        ok_count += 1
+        logger.info("reprocess-images: updated msg %d (%d/%d)", row["msg_id"], ok_count, len(rows))
+    logger.info("reprocess-images: done — %d/%d updated", ok_count, len(rows))
+
+
 # ── Feedback / bug reports ───────────────────────────────────────────────────
 
 class FeedbackRequest(BaseModel):
