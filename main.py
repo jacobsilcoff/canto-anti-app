@@ -5595,6 +5595,21 @@ async def start_or_get_conv_with_friend(friend_user_id: int, user: dict = Depend
     return result
 
 
+@app.delete("/api/messages/{msg_id}")
+async def delete_message(msg_id: int, user: dict = Depends(current_user)):
+    """Delete/unsend a message. Only the sender can delete their own messages."""
+    analysis = await db.delete_message(msg_id, user["id"])
+    if analysis is None:
+        raise HTTPException(404, "Message not found or not yours")
+    if analysis.get("type") == "image":
+        url = analysis.get("url", "")
+        media_id = url.rsplit("/", 1)[-1].replace(".jpg", "") if url else ""
+        if media_id:
+            media_path = MEDIA_DIR / f"{media_id}.jpg"
+            media_path.unlink(missing_ok=True)
+    return {"ok": True}
+
+
 _ALLOWED_REACTIONS = {"❤️", "😂", "😮", "😢", "👍", "🔥"}
 
 

@@ -404,6 +404,18 @@
       border-radius: 50%; border: none; background: none; transition: transform 0.1s; }
     .rx-option:hover { transform: scale(1.3); }
 
+    /* ── Message context menu ── */
+    .msg-ctx-menu { display: none; position: fixed; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop);
+      padding: 4px; z-index: 1003; min-width: 160px; }
+    .msg-ctx-menu.open { display: block; }
+    .msg-ctx-item { display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 10px 14px; border: none; background: none; cursor: pointer;
+      font-size: 0.9rem; color: var(--text); border-radius: 8px; text-align: left; }
+    .msg-ctx-item:hover { background: var(--surface-alt); }
+    .msg-ctx-item.danger { color: var(--danger); }
+    .msg-ctx-item.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
     /* ── Word tooltip (reader-style) ── */
     .word-tooltip { display: none; position: fixed; background: var(--surface);
       border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop);
@@ -474,6 +486,11 @@
   <button class="rx-option" data-emoji="😢">😢</button>
   <button class="rx-option" data-emoji="👍">👍</button>
   <button class="rx-option" data-emoji="🔥">🔥</button>
+</div>
+
+<!-- Message context menu (long-press / right-click) -->
+<div class="msg-ctx-menu" id="msg-ctx-menu">
+  <button class="msg-ctx-item danger" id="ctx-delete">🗑 Unsend message</button>
 </div>
 
 <div class="msg-layout" id="msg-layout">
@@ -1638,7 +1655,79 @@
     ).join('');
   }
 
-  // Close tooltip and reaction picker when clicking outside
+  // ── Message context menu (long-press / right-click) ────────────────────────
+  let _ctxMsgId = null;
+  let _longPressTimer = null;
+
+  function openCtxMenu(x, y, msgId) {
+    closeCtxMenu();
+    _ctxMsgId = msgId;
+    const menu = document.getElementById('msg-ctx-menu');
+    menu.classList.add('open');
+    const mw = menu.offsetWidth || 160;
+    const mh = menu.offsetHeight || 44;
+    menu.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+  }
+
+  function closeCtxMenu() {
+    document.getElementById('msg-ctx-menu').classList.remove('open');
+    _ctxMsgId = null;
+  }
+
+  function _cancelLongPress() {
+    if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  }
+
+  const thread = document.getElementById('msg-thread');
+
+  thread.addEventListener('contextmenu', e => {
+    const bwrap = e.target.closest('.msg-bubble-wrap.mine');
+    if (!bwrap) return;
+    const msgId = bwrap.id.replace('bwrap-', '');
+    if (!msgId) return;
+    e.preventDefault();
+    openCtxMenu(e.clientX, e.clientY, msgId);
+  });
+
+  thread.addEventListener('touchstart', e => {
+    _cancelLongPress();
+    const bwrap = e.target.closest('.msg-bubble-wrap.mine');
+    if (!bwrap) return;
+    const msgId = bwrap.id.replace('bwrap-', '');
+    if (!msgId) return;
+    const touch = e.touches[0];
+    _longPressTimer = setTimeout(() => {
+      _longPressTimer = null;
+      openCtxMenu(touch.clientX, touch.clientY, msgId);
+    }, 500);
+  }, { passive: true });
+
+  thread.addEventListener('touchmove', _cancelLongPress, { passive: true });
+  thread.addEventListener('touchend', _cancelLongPress, { passive: true });
+  thread.addEventListener('touchcancel', _cancelLongPress, { passive: true });
+
+  document.getElementById('ctx-delete').addEventListener('click', async () => {
+    const msgId = _ctxMsgId;
+    closeCtxMenu();
+    if (!msgId) return;
+    if (!confirm('Unsend this message? It will be deleted for everyone.')) return;
+    try {
+      const res = await fetch(`/api/messages/${msgId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.detail || 'Could not delete message', 2500);
+        return;
+      }
+      const el = document.getElementById(`bwrap-${msgId}`);
+      if (el) el.remove();
+      showToast('Message unsent', 1500);
+    } catch {
+      showToast('Could not delete message', 2500);
+    }
+  });
+
+  // Close tooltip, reaction picker, and context menu when clicking outside
   document.addEventListener('click', e => {
     const tooltip = document.getElementById('word-tooltip');
     if (tooltip.style.display !== 'none' &&
@@ -1651,6 +1740,11 @@
         !picker.contains(e.target) &&
         !e.target.closest('.rx-open-btn')) {
       closeReactionPicker();
+    }
+    const ctxMenu = document.getElementById('msg-ctx-menu');
+    if (ctxMenu.classList.contains('open') &&
+        !ctxMenu.contains(e.target)) {
+      closeCtxMenu();
     }
   });
 

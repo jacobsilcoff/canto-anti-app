@@ -3526,6 +3526,26 @@ async def update_image_message(msg_id: int, description: str, analysis: dict) ->
         await db.commit()
 
 
+async def delete_message(msg_id: int, user_id: int) -> dict | None:
+    """Delete a message. Returns the analysis dict (for media cleanup) or None if not found/forbidden."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await conn.execute_fetchall(
+            """SELECT m.id, m.analysis
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.id = ? AND m.sender_user_id = ?
+                 AND (c.user1_id = ? OR c.user2_id = ? OR c.owner_user_id = ?)""",
+            (msg_id, user_id, user_id, user_id, user_id),
+        )
+        if not row:
+            return None
+        analysis = json.loads(row[0]["analysis"]) if row[0]["analysis"] else {}
+        await conn.execute("DELETE FROM messages WHERE id = ?", (msg_id,))
+        await conn.commit()
+    return analysis
+
+
 async def get_unprocessed_image_messages() -> list[dict]:
     """Find image messages whose vision analysis produced no suggestions."""
     async with aiosqlite.connect(DB_PATH) as conn:
