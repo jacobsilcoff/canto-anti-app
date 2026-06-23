@@ -405,16 +405,14 @@
     .rx-option:hover { transform: scale(1.3); }
 
     /* ── Swipe-to-delete ── */
-    .msg-swipe-row { position: relative; overflow: visible; display: flex;
-      flex-direction: column; align-items: flex-end; }
-    .msg-swipe-content { transition: transform 0.2s ease; will-change: transform; }
+    .msg-swipe-row { position: relative; overflow-x: clip; overflow-y: visible; }
+    .msg-swipe-content { position: relative; z-index: 1; background: var(--bg);
+      transition: transform 0.2s ease; will-change: transform; }
     .msg-swipe-content.swiping { transition: none; }
-    .msg-delete-action { position: absolute; right: -44px; top: 50%; transform: translateY(-50%);
-      width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--danger); color: #fff; display: flex; align-items: center;
-      justify-content: center; opacity: 0; transition: opacity 0.2s ease;
-      pointer-events: none; }
-    .msg-delete-action.visible { opacity: 1; pointer-events: auto; }
+    .msg-delete-action { position: absolute; right: 4px; top: 0; height: 100%;
+      width: 36px; border: none; cursor: pointer; z-index: 0;
+      background: transparent; color: var(--danger); display: flex;
+      align-items: center; justify-content: center; }
 
     /* ── Word tooltip (reader-style) ── */
     .word-tooltip { display: none; position: fixed; background: var(--surface);
@@ -1666,15 +1664,16 @@
 
   // ── Swipe-to-delete on own messages ────────────────────────────────────────
   {
-    const _SWIPE_THRESHOLD = 44;
+    const _SWIPE_MAX = 48;
+    const _SNAP_MIN = 20;
     let _swipeEl = null, _swipeStartX = 0, _swipeDx = 0;
 
     const thread = document.getElementById('msg-thread');
 
     thread.addEventListener('touchstart', e => {
-      _resetSwipe();
       const sc = e.target.closest('.msg-swipe-content');
-      if (!sc) return;
+      if (!sc) { _resetSwipe(); return; }
+      _resetSwipe(sc);
       _swipeEl = sc;
       _swipeStartX = e.touches[0].clientX;
       sc.classList.add('swiping');
@@ -1682,23 +1681,19 @@
 
     thread.addEventListener('touchmove', e => {
       if (!_swipeEl) return;
-      _swipeDx = Math.min(0, e.touches[0].clientX - _swipeStartX);
+      const raw = e.touches[0].clientX - _swipeStartX;
+      _swipeDx = Math.max(-_SWIPE_MAX, Math.min(0, raw));
       _swipeEl.style.transform = `translateX(${_swipeDx}px)`;
-      const btn = _swipeEl.parentElement.querySelector('.msg-delete-action');
-      if (btn) btn.classList.toggle('visible', _swipeDx < -_SWIPE_THRESHOLD / 2);
     }, { passive: true });
 
     thread.addEventListener('touchend', () => {
       if (!_swipeEl) return;
-      const btn = _swipeEl.parentElement.querySelector('.msg-delete-action');
-      if (_swipeDx < -_SWIPE_THRESHOLD) {
-        _swipeEl.style.transform = `translateX(-${_SWIPE_THRESHOLD}px)`;
-        if (btn) btn.classList.add('visible');
+      _swipeEl.classList.remove('swiping');
+      if (_swipeDx <= -_SNAP_MIN) {
+        _swipeEl.style.transform = `translateX(-${_SWIPE_MAX}px)`;
       } else {
         _swipeEl.style.transform = '';
-        if (btn) btn.classList.remove('visible');
       }
-      _swipeEl.classList.remove('swiping');
       _swipeEl = null;
     }, { passive: true });
 
@@ -1707,10 +1702,8 @@
     function _resetSwipe(except) {
       document.querySelectorAll('.msg-swipe-content').forEach(el => {
         if (el === except) return;
-        el.style.transform = '';
         el.classList.remove('swiping');
-        const btn = el.parentElement?.querySelector('.msg-delete-action');
-        if (btn) btn.classList.remove('visible');
+        el.style.transform = '';
       });
       _swipeEl = null;
       _swipeDx = 0;
