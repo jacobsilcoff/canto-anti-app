@@ -405,12 +405,11 @@
     .rx-option:hover { transform: scale(1.3); }
 
     /* ── Swipe-to-delete ── */
-    .msg-swipe-row { display: flex; align-items: center; justify-content: flex-end;
-      gap: 0; width: 100%; }
-    .msg-swipe-content { min-width: 0; display: flex; flex-direction: column;
-      align-items: flex-end; max-width: 100%; }
+    .msg-swipe-row { display: flex; align-items: center; width: 100%; }
+    .msg-swipe-content { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column;
+      align-items: flex-end; }
     .msg-delete-action { flex: 0 0 0px; overflow: hidden; white-space: nowrap;
-      transition: flex-basis 0.2s ease; border: none; cursor: pointer; padding: 0;
+      transition: flex-basis 0.15s ease; border: none; cursor: pointer; padding: 0;
       background: transparent; color: var(--danger); display: flex;
       align-items: center; justify-content: center; }
     .msg-delete-action.visible { flex-basis: 40px; }
