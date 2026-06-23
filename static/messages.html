@@ -72,8 +72,8 @@
     .msg-chat-sub { font-size: 0.78rem; color: var(--text-muted); }
 
     /* Thread */
-    .msg-thread { flex: 1; overflow-y: auto; padding: 16px; display: flex;
-      flex-direction: column; gap: 10px; overscroll-behavior: contain;
+    .msg-thread { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch; }
     .msg-bubble-wrap { display: flex; flex-direction: column; gap: 2px; }
     .msg-bubble-wrap.mine { align-items: flex-end; }
@@ -405,16 +405,15 @@
     .rx-option:hover { transform: scale(1.3); }
 
     /* ── Swipe-to-delete ── */
-    .msg-swipe-row { position: relative; display: flex; align-items: flex-start;
-      max-width: 100%; }
-    .msg-swipe-content { flex: 0 1 auto; min-width: 0; display: flex; flex-direction: column;
-      align-items: flex-end; transition: transform 0.2s ease; will-change: transform; }
-    .msg-swipe-content.swiping { transition: none; }
-    .msg-delete-action { flex: 0 0 auto; width: 0; overflow: hidden;
-      transition: width 0.2s ease; border: none; cursor: pointer; padding: 0;
+    .msg-swipe-row { display: flex; align-items: center; justify-content: flex-end;
+      gap: 0; width: 100%; }
+    .msg-swipe-content { min-width: 0; display: flex; flex-direction: column;
+      align-items: flex-end; max-width: 100%; }
+    .msg-delete-action { flex: 0 0 0px; overflow: hidden; white-space: nowrap;
+      transition: flex-basis 0.2s ease; border: none; cursor: pointer; padding: 0;
       background: transparent; color: var(--danger); display: flex;
       align-items: center; justify-content: center; }
-    .msg-delete-action.visible { width: 40px; }
+    .msg-delete-action.visible { flex-basis: 40px; }
 
     /* Deleted-message placeholder */
     .msg-deleted { font-size: 0.82rem; color: var(--text-muted); font-style: italic;

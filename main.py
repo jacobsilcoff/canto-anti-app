@@ -3571,6 +3571,10 @@ class RubyBatchRequest(BaseModel):
 _RUBY_LANGS = {"yue", "cmn", "ko", "hi", "te", "ja", "bn", "ur", "ar", "ru", "fa", "uk", "el", "th", "he"}
 
 
+_token_cache: dict[str, list[dict]] = {}
+_TOKEN_CACHE_MAX = 2000
+
+
 def _tokenize_map(texts: list[str], lang: str) -> dict:
     """Tokenise + romanise a set of texts → {original_text: [{text, roman, is_word}]}.
     Sync CPU work (jieba/pycantonese); call via asyncio.to_thread."""
@@ -3581,11 +3585,19 @@ def _tokenize_map(texts: list[str], lang: str) -> dict:
         text = (raw or "").strip()[:500]
         if not text or raw in out:
             continue
+        cache_key = f"{lang}:{raw}"
+        cached = _token_cache.get(cache_key)
+        if cached is not None:
+            out[raw] = cached
+            continue
         tokens = tokenizer.tokenize(text, lang)
         words = [t["text"] for t in tokens if t["is_word"]]
         rmap = tokenizer.romanize_words(words, lang) if words else {}
-        out[raw] = [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
+        result = [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
                      "is_word": t["is_word"]} for t in tokens]
+        out[raw] = result
+        if len(_token_cache) < _TOKEN_CACHE_MAX:
+            _token_cache[cache_key] = result
     return out
 
 
@@ -5286,7 +5298,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
         # (e.g. recipient changed their target language after the message was
         # sent, or the translation was never generated), translate now and
         # persist so future loads are instant.
-        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang:
+        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang and not analysis.get("deleted"):
             if api_key is None:
                 try:
                     access = await _resolve_gemini(user, meter=False)
@@ -5327,7 +5339,9 @@ async def get_messages(conv_id: int, before_id: int = 0,
     if lang in _RUBY_LANGS:
         texts: set[str] = set()
         for r in result:
-            if r["display_text"] and r["analysis"].get("type") != "image":
+            if r["analysis"].get("deleted") or r["analysis"].get("type") == "image":
+                continue
+            if r["display_text"]:
                 texts.add(r["display_text"])
             for c in r["analysis"].get("corrections", []):
                 if c.get("corrected"):
