@@ -22,6 +22,10 @@ def _get_client(api_key: str):
 
 
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
+# Image phrase analysis asks for a heavy nested per-language sender/receiver JSON
+# structure — the cheapest model produces it unreliably (empty/malformed
+# suggestions). Use the mid-tier model for this quality-sensitive vision task.
+VISION_MODEL = "gemini-2.5-flash"
 # Models users may pick when spending on their OWN key. Server validates against
 # this so an arbitrary/expensive model id can't be injected via the API.
 MODEL_ALLOWLIST = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
@@ -599,9 +603,21 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(
+            resp = _get_client(api_key).models.generate_content(
                 model=model, contents=[part_img, prompt]
-            ).text.strip()
+            )
+            # resp.text is None when the response carried no text part — e.g. the
+            # prompt feedback / a candidate was blocked by safety filters. Calling
+            # .strip() on None raises AttributeError, which callers would otherwise
+            # swallow into a generic fallback, hiding the real cause. Surface it.
+            text = resp.text
+            if text is None:
+                reason = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+                if reason is None:
+                    cands = getattr(resp, "candidates", None) or []
+                    reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
+                raise ValueError(f"Vision model returned no text (reason: {reason})")
+            return text.strip()
         except ServerError as e:
             if e.status_code == 503 and attempt < len(delays):
                 continue
@@ -662,7 +678,7 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "}"
     )
     try:
-        raw = _call_with_image(prompt, image_bytes, api_key)
+        raw = _call_with_image(prompt, image_bytes, api_key, model=VISION_MODEL)
         result = _parse_json(raw)
         description = str(result.get("description", "")).strip() or "Photo"
         descriptions: dict[str, str] = {}
@@ -698,9 +714,13 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
                 # Legacy flat list — assign to both perspectives
                 phrases = _clean_phrases(entry)
                 suggestions[code] = {"sender": phrases, "receiver": phrases}
+        if not suggestions:
+            logger.warning("analyze_image: parsed response but no usable suggestions "
+                           "(langs=%s); phrase menu will be empty", langs)
         return {"description": description, "descriptions": descriptions,
                 "suggestions": suggestions}
     except Exception:
+        logger.exception("analyze_image failed (langs=%s) — returning fallback", langs)
         return {"description": "Photo", "descriptions": {}, "suggestions": {}}
 
 

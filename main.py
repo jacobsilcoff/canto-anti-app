@@ -5466,8 +5466,10 @@ async def send_image_message(conv_id: int, request: Request,
             vision = await asyncio.get_event_loop().run_in_executor(
                 None, translation.analyze_image, out_bytes, langs_set, api_key
             )
+        else:
+            logger.warning("image vision skipped: GEMINI_API_KEY (shared key) not set")
     except Exception:
-        pass
+        logger.exception("image vision analysis failed conv=%s langs=%s", conv_id, langs_set)
 
     description = vision.get("description") or "Photo"
     descriptions = vision.get("descriptions") or {}
