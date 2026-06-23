@@ -4036,6 +4036,10 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
                                "translation": None, "has_audio": False})
                 for i, st in enumerate(new_sents)
             ]
+        # Authoritative sentence grouping: the client renders THESE groups
+        # instead of re-splitting tokens in JS, so client/server boundaries
+        # can't drift. Same splitter (and order/count) as `sentences` above.
+        groups = tokenizer.split_token_sentences(tokens, text["target_lang"])
 
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
@@ -4048,9 +4052,8 @@ async def _build_text_response(user_id: int, text: dict) -> dict:
         "preload_complete": preload_complete,
         "romanization": rom_map,
         "all_vocab_added": all_vocab_added,
+        "sentence_groups": groups,
     }
-    if has_stored:
-        resp["sentence_groups"] = groups
     img_id = text.get("image_media_id")
     if img_id:
         resp["image_url"] = f"/api/media/{img_id}.jpg"
@@ -4828,6 +4831,8 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
                     reindexed.append({"sentence_idx": i, "sentence_text": st,
                                       "translation": None, "has_audio": False})
             sentences = reindexed
+        # Authoritative grouping for the client (see _build_text_response).
+        groups = tokenizer.split_token_sentences(tokens, text["target_lang"])
 
     preload_complete = bool(sentences) and all(
         s["translation"] and s["has_audio"] for s in sentences
@@ -4843,9 +4848,8 @@ async def reader_community_text(text_id: int, user: dict = Depends(current_user)
         "avg_rating": rating_info["avg_rating"],
         "rating_count": rating_info["rating_count"],
         "user_rating": user_rating,
+        "sentence_groups": groups,
     }
-    if has_stored:
-        resp["sentence_groups"] = groups
     img_id = text.get("image_media_id")
     if img_id:
         resp["image_url"] = f"/api/media/{img_id}.jpg"

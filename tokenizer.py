@@ -12,9 +12,13 @@ _SENTENCE_ENDERS = re.compile(r'[。！？.!?।॥۔؟\n]')
 # individual syllables (詩·史·試·時·市·事) — splitting on them lets each character
 # become its own token and get its own romanization.
 _INLINE_PUNCT = re.compile(r'([。！？、，：；…⋯！？「」『』【】《》〈〉·・‧•۔؟،؛\n])')
-# Opening/closing quote characters — we avoid splitting mid-quote.
-_OPEN_QUOTES = set('"«「『')
-_CLOSE_QUOTES = set('"»」』')
+# Opening/closing quote characters — we avoid splitting mid-quote. Directional
+# pairs only: a straight " is the same code point for open and close, so
+# depth-tracking it only ever increments and sentence-splitting would stall
+# forever inside the first quote. Untracked straight quotes simply don't
+# suppress splitting (matching the reader frontend's prior behaviour).
+_OPEN_QUOTES = set('“«「『')
+_CLOSE_QUOTES = set('”»」』')
 
 # Word characters for alphabetic, space-delimited scripts. Includes Latin (with
 # accents + apostrophe), Devanagari and Telugu (consonants AND combining vowel
@@ -82,29 +86,65 @@ def _hebrew_romanize(word: str) -> str:
 
 
 def split_sentences(tokens: list[Token], lang: str | None = None) -> list[str]:
-    """Group tokens into sentence strings, split on sentence-ending punctuation.
+    """Sentence strings — a thin wrapper over :func:`split_token_sentences`."""
+    return ["".join(t["text"] for t in g) for g in split_token_sentences(tokens, lang)]
+
+
+def split_token_sentences(tokens: list[Token], lang: str | None = None) -> list[list[Token]]:
+    """Group tokens into sentences (a list of token groups).
+
+    THE single source of truth for sentence boundaries. ``split_sentences``
+    (strings) is a thin wrapper over this, and the reader frontend renders the
+    token groups it produces (``sentence_groups``) instead of re-deriving
+    boundaries in JS — so client and server can never drift (a past class of
+    off-by-N bugs where the two splitters disagreed on empty newline sentences,
+    Arabic enders, or quote characters).
 
     Does not split inside quoted speech — a sentence-ender found while inside
-    quotes is absorbed into the current buffer rather than flushing it.
-    For Latin scripts a period must be followed by whitespace or end-of-text
-    (to avoid splitting on abbreviations or decimal numbers).
+    quotes is absorbed into the current buffer rather than flushing it. Each
+    sentence is edge-trimmed of whitespace-only tokens and whitespace-only
+    groups are dropped, so a newline paragraph break is never its own sentence.
 
-    Some languages need extra enders: Thai writes no sentence-ending
-    punctuation and instead uses spaces to separate sentences/clauses, so for
-    `th` a run of whitespace also flushes the buffer. Greek uses ';' (and the
-    Greek question mark U+037E) where other languages use '?', so for `el`
-    those count as enders too.
+    Thai writes no sentence-ending punctuation and uses spaces, so for ``th`` a
+    whitespace run also flushes; Greek uses ';'/U+037E where others use '?'.
     """
     enders = _SENTENCE_ENDERS
     split_on_space = lang == "th"
     if lang == "el":
         enders = re.compile(r'[。！？.!?।॥۔؟;;\n]')
 
-    sentences = []
-    buf: list[str] = []
+    groups: list[list[Token]] = []
+    buf: list[Token] = []
     quote_depth = 0
 
-    for i, tok in enumerate(tokens):
+    def flush() -> None:
+        nonlocal buf
+        a, b = 0, len(buf)
+        while a < b and not buf[a]["is_word"] and buf[a]["text"].strip() == "":
+            a += 1
+        while b > a and not buf[b - 1]["is_word"] and buf[b - 1]["text"].strip() == "":
+            b -= 1
+        trimmed = buf[a:b]
+        if not trimmed:
+            buf = []
+            return
+        # Strip whitespace at the very edges (a token like '। ' or '. ' carries
+        # the ender plus a trailing space) so the joined group text equals the
+        # stripped sentence string — keeping split_sentences identical to before
+        # and matching the cached/stored sentence_text. Copy the edge token so
+        # the shared flat token list is untouched.
+        if not trimmed[0]["is_word"]:
+            ls = trimmed[0]["text"].lstrip()
+            if ls != trimmed[0]["text"]:
+                trimmed[0] = {**trimmed[0], "text": ls}
+        if not trimmed[-1]["is_word"]:
+            rs = trimmed[-1]["text"].rstrip()
+            if rs != trimmed[-1]["text"]:
+                trimmed[-1] = {**trimmed[-1], "text": rs}
+        groups.append(trimmed)
+        buf = []
+
+    for tok in tokens:
         text = tok["text"]
         # Track quote depth from non-word tokens (punctuation)
         if not tok["is_word"]:
@@ -114,7 +154,7 @@ def split_sentences(tokens: list[Token], lang: str | None = None) -> list[str]:
                 elif ch in _CLOSE_QUOTES:
                     quote_depth = max(0, quote_depth - 1)
 
-        buf.append(text)
+        buf.append(tok)
 
         if not tok["is_word"] and quote_depth == 0:
             is_ender = bool(enders.search(text))
@@ -126,16 +166,10 @@ def split_sentences(tokens: list[Token], lang: str | None = None) -> list[str]:
                 if '.' in text and '。' not in text:
                     if re.search(r'\d\.\d', text):
                         continue
-                s = "".join(buf).strip()
-                if s:
-                    sentences.append(s)
-                buf = []
+                flush()
 
-    if buf:
-        s = "".join(buf).strip()
-        if s:
-            sentences.append(s)
-    return sentences
+    flush()
+    return groups
 
 
 def romanize_text(text: str, lang: str) -> str:
