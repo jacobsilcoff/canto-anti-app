@@ -1194,6 +1194,21 @@
     const sentenceEnders = lang === 'el' ? /[。！？.!?।॥;;\n]/ : /[。！？.!?।॥\n]/;
     const splitOnSpace = lang === 'th';
 
+    // Mirror tokenizer.split_sentences EXACTLY: it strips each sentence and
+    // drops whitespace-only ones, so a '\n' paragraph break is NOT a sentence.
+    // The translation cache is keyed by the server's sentence_idx; if the
+    // client kept these empty groups, every sentence after a paragraph break
+    // would show a later sentence's translation (off-by-N). Trim edge-
+    // whitespace tokens and drop empty groups to stay index-aligned.
+    const flush = () => {
+      let a = 0, b = buf.length;
+      while (a < b && !buf[a].is_word && buf[a].text.trim() === '') a++;
+      while (b > a && !buf[b - 1].is_word && buf[b - 1].text.trim() === '') b--;
+      const trimmed = buf.slice(a, b);
+      if (trimmed.length) result.push(trimmed);
+      buf = [];
+    };
+
     tokens.forEach((tok, i) => {
       if (!tok.is_word) {
         for (const ch of tok.text) {
@@ -1207,11 +1222,10 @@
       if (isEnder) {
         // Skip numeric periods like "1.5"
         if (tok.text.includes('.') && !tok.text.includes('。') && /\d\.\d/.test(tok.text)) return;
-        result.push(buf);
-        buf = [];
+        flush();
       }
     });
-    if (buf.length) result.push(buf);
+    flush();
     return result.map(toks => ({
       tokens: toks,
       text: toks.map(t => t.text).join(''),
