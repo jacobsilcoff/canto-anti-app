@@ -3527,7 +3527,7 @@ async def update_image_message(msg_id: int, description: str, analysis: dict) ->
 
 
 async def delete_message(msg_id: int, user_id: int) -> dict | None:
-    """Delete a message. Returns the analysis dict (for media cleanup) or None if not found/forbidden."""
+    """Soft-delete a message (clear content, mark deleted). Returns old analysis for media cleanup."""
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
         row = await conn.execute_fetchall(
@@ -3541,7 +3541,12 @@ async def delete_message(msg_id: int, user_id: int) -> dict | None:
         if not row:
             return None
         analysis = json.loads(row[0]["analysis"]) if row[0]["analysis"] else {}
-        await conn.execute("DELETE FROM messages WHERE id = ?", (msg_id,))
+        deleted_analysis = json.dumps({"deleted": True}, ensure_ascii=False)
+        await conn.execute(
+            "UPDATE messages SET original_text='', translations=NULL, analysis=?, sent_text=NULL WHERE id=?",
+            (deleted_analysis, msg_id),
+        )
+        await conn.execute("DELETE FROM message_reactions WHERE message_id=?", (msg_id,))
         await conn.commit()
     return analysis
 
