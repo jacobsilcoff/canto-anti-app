@@ -980,15 +980,18 @@
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
-    const drillsBtn = (st === 'done' || st === 'available')
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},true)" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
+    const showBtns = st === 'done' || st === 'available';
+    const drillsBtn = showBtns
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'skip')" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
+    const llmBtn = showBtns
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'llm')" title="Skip to LLM construction drills only">🎯 Drill</button>` : '';
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
       <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
         ${glyph}${crowns}
       </div>
       <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
-      ${drillsBtn}
+      ${drillsBtn}${llmBtn}
       ${dbg}
     </div>`;
   }
@@ -2077,7 +2080,8 @@
     }
   }
 
-  async function openLesson(lessonId, drillsOnly = false) {
+  async function openLesson(lessonId, mode = '') {
+    // mode: '' = full lesson, 'skip' = skip teach, 'llm' = LLM drills only
     show('lesson-loading');
     try {
       const res = await fetch('/api/lessons/' + lessonId);
@@ -2106,8 +2110,8 @@
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
         theme: lesson.theme || '',         // 'foundations' → no live word lookup
-        skipTeach: drillsOnly,             // skip teach screen, jump straight to exercises
-        drillsOnly: false,                 // practice games: filter to self-managed exercises only
+        skipTeach: mode === 'skip' || mode === 'llm',
+        drillsOnly: mode === 'llm',       // LLM drills only: filter to self-managed exercises
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
