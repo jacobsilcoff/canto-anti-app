@@ -270,21 +270,25 @@ def _audio_blitz(items: list[dict], pool: list[dict]) -> dict | None:
     return {"type": "audio_blitz", "round_time": 4, "items": rounds, "hide_roman": True}
 
 
-def _memory_match(items: list[dict]) -> dict | None:
+def _memory_match(items: list[dict], *, count: int = 6,
+                   audio_mode: bool = False) -> dict | None:
     """Classic concentration — flip cards to match characters with sounds/meanings."""
-    if len(items) < 3:
+    eligible = [g for g in items if g.get("meaning") or g.get("roman")]
+    if audio_mode:
+        eligible = [g for g in eligible if g.get("audio")]
+    if len(eligible) < 3:
         return None
-    selected = items[:6]
+    random.shuffle(eligible)
+    count = min(count, len(eligible))
+    count = max(count, 3)
+    selected = eligible[:count]
     pairs = []
     for g in selected:
         label = g.get("meaning") or g.get("roman", "")
-        if not label:
-            continue
         pairs.append({"symbol": g["symbol"], "label": label,
                        "audio": g.get("audio", g["symbol"])})
-    if len(pairs) < 3:
-        return None
-    return {"type": "memory_match", "pairs": pairs, "hide_roman": True}
+    return {"type": "memory_match", "pairs": pairs, "hide_roman": True,
+            "audio_mode": audio_mode}
 
 
 def _pick_minigame(current: list[dict], pool: list[dict], ltype: str) -> dict | None:
@@ -590,33 +594,37 @@ def build_units(lang: str) -> list[dict]:
     return units
 
 
-def build_practice_game(lang: str, game_type: str) -> dict | None:
-    """Build a standalone mini-game exercise using ALL items from the foundations
-    track. Returns a lesson-like dict the player can open, or None."""
+def practice_game_pool(lang: str) -> list[dict]:
+    """Return deduplicated items from the entire foundations track."""
     track = FOUNDATIONS.get(lang)
     if not track:
-        return None
-
+        return []
     all_items: list[dict] = []
     for u in track["units"]:
         for lsn in u["lessons"]:
             all_items += _lesson_items_common(lsn, lang)
-
-    # Deduplicate by symbol
     seen: set[str] = set()
     pool: list[dict] = []
     for it in all_items:
         if it["symbol"] not in seen and (it.get("roman") or it.get("meaning")):
             seen.add(it["symbol"])
             pool.append(it)
+    return pool
 
+
+def build_practice_game(lang: str, game_type: str, *,
+                        count: int = 6, audio_mode: bool = False) -> dict | None:
+    """Build a standalone mini-game exercise using ALL items from the foundations
+    track. Returns a lesson-like dict the player can open, or None."""
+    pool = practice_game_pool(lang)
     if len(pool) < 4:
         return None
 
     builders = {
         "speed_round": lambda: _speed_round(pool, pool),
         "audio_blitz": lambda: _audio_blitz(pool, pool),
-        "memory_match": lambda: _memory_match(pool),
+        "memory_match": lambda: _memory_match(pool, count=count,
+                                               audio_mode=audio_mode),
     }
     builder = builders.get(game_type)
     if not builder:

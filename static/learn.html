@@ -451,6 +451,16 @@
     .fp-btn:active { transform: scale(0.97); }
     .fp-icon { font-size: 1.1rem; }
 
+    /* memory match settings modal */
+    .mm-settings-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .mm-settings-card { background: var(--surface); border-radius: 16px; padding: 24px; max-width: 340px; width: 100%; box-shadow: var(--shadow-pop); }
+    .mm-settings-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
+    .mm-settings-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
+    .mm-settings-toggle { flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }
+    .mm-settings-toggle input { width: 18px; height: 18px; accent-color: var(--primary); }
+    .mm-settings-hint { font-size: 0.78rem; color: var(--text-muted); margin: -8px 0 16px 26px; }
+    .mm-settings-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
     /* teach screen */
     .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; white-space: pre-line; }
     .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
@@ -1092,7 +1102,7 @@
             <span class="fp-icon">⚡</span><span>Speed Round</span></button>
           <button class="fp-btn" onclick="openPracticeGame(${course.id},'audio_blitz')">
             <span class="fp-icon">🔊</span><span>Audio Blitz</span></button>
-          <button class="fp-btn" onclick="openPracticeGame(${course.id},'memory_match')">
+          <button class="fp-btn" onclick="showMemoryMatchSettings(${course.id})">
             <span class="fp-icon">🃏</span><span>Memory Match</span></button>
         </div>`;
       body.appendChild(practiceDiv);
@@ -1823,18 +1833,30 @@
     memory_match: {
       render(ex, root, lang, onDone) {
         const totalPairs = ex.pairs.length;
+        const audioMode = !!ex.audio_mode;
         let matched = 0, flips = 0, first = null, locked = false;
         const startTime = performance.now();
         let iv = null;
 
         const cards = [];
         ex.pairs.forEach((p, i) => {
-          cards.push({ type: 'symbol', text: p.symbol, pairId: i, audio: p.audio, matched: false });
-          cards.push({ type: 'label', text: p.label || p.roman, pairId: i, audio: p.audio, matched: false });
+          cards.push({ type: 'symbol', text: p.symbol, pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          if (audioMode) {
+            cards.push({ type: 'audio', text: '🔊', pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          } else {
+            cards.push({ type: 'label', text: p.label || p.roman, pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          }
         });
         for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
 
         const cols = cards.length <= 6 ? 3 : 4;
+
+        function cardFace(c, flipped) {
+          if (!flipped) return '?';
+          if (c.type === 'audio') return '🔊';
+          if (c.matched && c.type === 'audio') return c.label;
+          return c.text;
+        }
 
         function render() {
           const elapsed = Math.floor((performance.now() - startTime) / 1000);
@@ -1846,7 +1868,11 @@
           cards.forEach((c, ci) => {
             const b = document.createElement('button');
             b.className = 'mm-card' + (c.matched ? ' matched flipped' : '');
-            b.textContent = c.matched ? c.text : '?';
+            if (c.matched) {
+              b.textContent = (c.type === 'audio') ? c.label : c.text;
+            } else {
+              b.textContent = '?';
+            }
             b.onclick = () => flip(ci, b);
             grid.appendChild(b);
           });
@@ -1856,7 +1882,14 @@
           if (locked || cards[ci].matched) return;
           if (first !== null && first === ci) return;
           flips++; sfx.tap();
-          btn.classList.add('flipped'); btn.textContent = cards[ci].text;
+          const c = cards[ci];
+          btn.classList.add('flipped');
+          if (c.type === 'audio') {
+            btn.textContent = '🔊';
+            playTTS(c.audio, lang);
+          } else {
+            btn.textContent = c.text;
+          }
 
           if (first === null) { first = ci; return; }
           locked = true;
@@ -1866,6 +1899,9 @@
           if (cards[fi].pairId === cards[ci].pairId) {
             cards[fi].matched = true; cards[ci].matched = true; matched++;
             allBtns[fi].classList.add('matched'); allBtns[ci].classList.add('matched');
+            // Reveal romanization on matched audio cards
+            if (cards[fi].type === 'audio') allBtns[fi].textContent = cards[fi].label;
+            if (cards[ci].type === 'audio') allBtns[ci].textContent = cards[ci].label;
             player.combo++; player.maxCombo = Math.max(player.maxCombo, player.combo);
             const g = comboXp(player.combo); player.xp += g; bumpCombo(g);
             sfx.correct(); playTTS(cards[ci].audio, lang);
@@ -1948,10 +1984,50 @@
     document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
   }
 
-  async function openPracticeGame(courseId, gameType) {
+  function showMemoryMatchSettings(courseId) {
+    // Fetch pool size to set max grid, then show settings overlay
+    fetch('/api/courses/' + courseId + '/foundations-practice?game=memory_match&count=3')
+      .then(r => r.json()).then(data => {
+        const maxPairs = Math.min(data.pool_size || 12, 12);
+        const ov = document.createElement('div');
+        ov.className = 'mm-settings-overlay';
+        const sizeOpts = [];
+        for (let n = 3; n <= maxPairs; n++) {
+          const total = n * 2;
+          sizeOpts.push(`<option value="${n}"${n === 6 ? ' selected' : ''}>${total} cards (${n} pairs)</option>`);
+        }
+        ov.innerHTML = `<div class="mm-settings-card">
+          <div class="mm-settings-title">Memory Match</div>
+          <label class="mm-settings-label">Grid size
+            <select class="settings-select" id="mm-size">${sizeOpts.join('')}</select></label>
+          <label class="mm-settings-label mm-settings-toggle">
+            <input type="checkbox" id="mm-audio-mode">
+            <span>Audio-only mode</span></label>
+          <div class="mm-settings-hint">Match characters to sounds instead of text</div>
+          <div class="mm-settings-actions">
+            <button class="cta-btn secondary mm-settings-cancel">Cancel</button>
+            <button class="cta-btn mm-settings-start">Play</button></div></div>`;
+        document.body.appendChild(ov);
+        ov.querySelector('.mm-settings-cancel').onclick = () => ov.remove();
+        ov.onclick = e => { if (e.target === ov) ov.remove(); };
+        ov.querySelector('.mm-settings-start').onclick = () => {
+          const count = parseInt(ov.querySelector('#mm-size').value, 10) || 6;
+          const audio = ov.querySelector('#mm-audio-mode').checked;
+          ov.remove();
+          openPracticeGame(courseId, 'memory_match', { count, audio_mode: audio });
+        };
+      }).catch(() => openPracticeGame(courseId, 'memory_match'));
+  }
+
+  async function openPracticeGame(courseId, gameType, opts) {
     show('lesson-loading');
     try {
-      const res = await fetch('/api/courses/' + courseId + '/foundations-practice?game=' + gameType);
+      let url = '/api/courses/' + courseId + '/foundations-practice?game=' + gameType;
+      if (opts) {
+        if (opts.count) url += '&count=' + opts.count;
+        if (opts.audio_mode) url += '&audio_mode=true';
+      }
+      const res = await fetch(url);
       if (!res.ok) throw new Error();
       const lesson = await res.json();
       const content = lesson.content || {};
@@ -1968,7 +2044,7 @@
         controller: null, graded: false,
         conceptResults: {}, vocabGlossary: {},
         concepts: [], theme: 'foundations', drillsOnly: false,
-        practiceGame: gameType, practiceCourseId: courseId,
+        practiceGame: gameType, practiceCourseId: courseId, practiceOpts: opts || null,
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -2640,7 +2716,7 @@
   }
   function retryLesson() {
     if (!player) return;
-    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame);
+    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
     else openLesson(player.lessonId);
   }
   function backToMap() { player = null; refreshAndShowCourse(); }

@@ -3030,13 +3030,19 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
 async def foundations_practice(
     request: Request, course_id: int,
     game: str = "speed_round",
+    count: int = 6,
+    audio_mode: bool = False,
     user: dict = Depends(current_user),
 ):
     """Return a standalone foundations mini-game using all taught items."""
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
-    content = foundations.build_practice_game(course["target_lang"], game)
+    lang = course["target_lang"]
+    count = max(3, min(count, 12))
+    pool_size = len(foundations.practice_game_pool(lang))
+    content = foundations.build_practice_game(lang, game, count=count,
+                                              audio_mode=audio_mode)
     if not content:
         raise HTTPException(404, "No practice game available for this language")
     return {
@@ -3044,12 +3050,13 @@ async def foundations_practice(
         "title": {"speed_round": "Speed Round", "audio_blitz": "Audio Blitz",
                    "memory_match": "Memory Match"}.get(game, "Practice"),
         "objective": "",
-        "target_lang": course["target_lang"],
+        "target_lang": lang,
         "completed": False,
         "score": None,
         "theme": "foundations",
         "concepts": [],
         "content": content,
+        "pool_size": pool_size,
     }
 
 
