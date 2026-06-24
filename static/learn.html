@@ -257,6 +257,7 @@
     .cd-hist-you.struck { text-decoration: line-through; text-decoration-color: var(--again); }
     .cd-hist-ans { font-family: var(--script-font, inherit); font-weight: 600; color: var(--good-strong); line-height: 2; }
     .cd-hist-ans ruby { line-height: 1; }
+    .cd-hist-note { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin-top: 2px; }
     /* Current-turn prompt + feedback */
     .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: break-word; }
     .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
@@ -1369,6 +1370,7 @@
             const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
             inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
           }
+          if (fb && fb.note) inner += `<div class="cd-hist-note">${esc(fb.note)}</div>`;
           item.innerHTML = inner;
           histEl.appendChild(item);
           if (needsRuby(lang)) applyRuby(item, null, false);
@@ -1383,10 +1385,10 @@
           currentPhrase = data.phrase;
           history.push({ role: 'tutor', text: data.phrase });
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
-          feedEl.innerHTML = '';
+          // Keep feedEl visible — the previous feedback stays on screen so the learner
+          // can read it while composing the next answer; cleared on next submit().
           inputWrap.style.display = ''; inputEl.value = '';
           scrollEl.scrollTop = scrollEl.scrollHeight;
-          // Focus, then re-scroll after iOS keyboard settles (~300 ms).
           inputEl.focus();
           setTimeout(() => scrollEl.scrollTop = scrollEl.scrollHeight, 350);
         }
@@ -1441,14 +1443,22 @@
         }
 
         function finish() {
+          const hadFeedback = lastFeedback && lastAnswer;
           // Archive the last exchange before showing the done state
           appendHistory(currentPhrase, lastFeedback, lastAnswer);
           currentPhrase = null; lastFeedback = null; lastAnswer = null;
-          // Restore the player to normal document flow — keyboard is dismissed and we
-          // no longer need the fixed overlay or visualViewport listeners.
           if (_cdDrillCleanup) _cdDrillCleanup();
           inputWrap.style.display = 'none'; promptEl.innerHTML = '';
-          feedEl.innerHTML = `<div class="cd-done">Drill complete! 🎉</div>`;
+          if (!hadFeedback) {
+            feedEl.innerHTML = `<div class="cd-done">Drill complete! 🎉</div>`;
+          } else {
+            // Keep the last feedback visible so the user can read it;
+            // append "Drill complete" below instead of replacing.
+            const done = document.createElement('div');
+            done.className = 'cd-done';
+            done.textContent = 'Drill complete! 🎉';
+            feedEl.appendChild(done);
+          }
           contEl.style.display = ''; contEl.onclick = () => onDone();
           scrollEl.scrollTop = scrollEl.scrollHeight;
           try { sfx.complete(); } catch {}
