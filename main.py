@@ -3025,6 +3025,34 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
     return _lesson_response(lesson, lesson["content"])
 
 
+@app.get("/api/courses/{course_id}/foundations-practice")
+@limiter.limit("30/minute")
+async def foundations_practice(
+    request: Request, course_id: int,
+    game: str = "speed_round",
+    user: dict = Depends(current_user),
+):
+    """Return a standalone foundations mini-game using all taught items."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    content = foundations.build_practice_game(course["target_lang"], game)
+    if not content:
+        raise HTTPException(404, "No practice game available for this language")
+    return {
+        "id": 0,
+        "title": {"speed_round": "Speed Round", "audio_blitz": "Audio Blitz",
+                   "memory_match": "Memory Match"}.get(game, "Practice"),
+        "objective": "",
+        "target_lang": course["target_lang"],
+        "completed": False,
+        "score": None,
+        "theme": "foundations",
+        "concepts": [],
+        "content": content,
+    }
+
+
 class CompleteLessonRequest(BaseModel):
     score: int = 0
     results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes

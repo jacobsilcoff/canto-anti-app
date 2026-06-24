@@ -441,6 +441,15 @@
     @keyframes pulse-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     @keyframes xp-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-18px); } }
 
+    /* foundations practice games */
+    .fp-section { margin-top: 18px; padding: 14px 0 0; border-top: 1px solid var(--neutral-border); }
+    .fp-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .fp-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .fp-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px solid var(--neutral-border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+    .fp-btn:hover { background: var(--primary-soft); border-color: var(--primary); box-shadow: var(--shadow); }
+    .fp-btn:active { transform: scale(0.97); }
+    .fp-icon { font-size: 1.1rem; }
+
     /* teach screen */
     .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; white-space: pre-line; }
     .teach-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
@@ -1072,6 +1081,20 @@
         unitDiv.innerHTML = html;
         body.appendChild(unitDiv);
       });
+
+      // Practice games — standalone mini-games using all learned items
+      const practiceDiv = document.createElement('div');
+      practiceDiv.className = 'fp-section';
+      practiceDiv.innerHTML = `<div class="fp-label">Practice Games</div>
+        <div class="fp-buttons">
+          <button class="fp-btn" onclick="openPracticeGame(${course.id},'speed_round')">
+            <span class="fp-icon">⚡</span><span>Speed Round</span></button>
+          <button class="fp-btn" onclick="openPracticeGame(${course.id},'audio_blitz')">
+            <span class="fp-icon">🔊</span><span>Audio Blitz</span></button>
+          <button class="fp-btn" onclick="openPracticeGame(${course.id},'memory_match')">
+            <span class="fp-icon">🃏</span><span>Memory Match</span></button>
+        </div>`;
+      body.appendChild(practiceDiv);
       wrap.appendChild(section);
     }
 
@@ -1915,6 +1938,39 @@
     document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
   }
 
+  async function openPracticeGame(courseId, gameType) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/courses/' + courseId + '/foundations-practice?game=' + gameType);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      let segments = content.segments;
+      if (!segments) segments = [{ teach: null, exercises: content.exercises || [] }];
+      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      if (!total) throw new Error('empty');
+      _prefetchLesson(content, lesson.target_lang);
+      player = {
+        lessonId: 0, lang: lesson.target_lang, title: lesson.title || 'Practice',
+        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0,
+        controller: null, graded: false,
+        conceptResults: {}, vocabGlossary: {},
+        concepts: [], theme: 'foundations', drillsOnly: true,
+        practiceGame: gameType, practiceCourseId: courseId,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch {
+      alert('Could not load practice game — please try again.');
+      show('course');
+    }
+  }
+
   async function openLesson(lessonId, drillsOnly = false) {
     show('lesson-loading');
     try {
@@ -2453,16 +2509,18 @@
     const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
     document.getElementById('combo-chip').classList.remove('on');
     let serverInfo = null;
-    try {
-      const results = Object.entries(player.conceptResults).map(([k, v]) => ({
-        concept_key: k, correct: v.correct, total: v.total,
-      }));
-      const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, results, xp: xpEarned }),
-      });
-      serverInfo = await res.json();
-    } catch {}
+    if (player.lessonId) {
+      try {
+        const results = Object.entries(player.conceptResults).map(([k, v]) => ({
+          concept_key: k, correct: v.correct, total: v.total,
+        }));
+        const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score, results, xp: xpEarned }),
+        });
+        serverInfo = await res.json();
+      } catch {}
+    }
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
     emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
@@ -2569,7 +2627,11 @@
       player = null; refreshAndShowCourse();
     }
   }
-  function retryLesson() { if (player) openLesson(player.lessonId); }
+  function retryLesson() {
+    if (!player) return;
+    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame);
+    else openLesson(player.lessonId);
+  }
   function backToMap() { player = null; refreshAndShowCourse(); }
 
   async function refreshAndShowCourse() {

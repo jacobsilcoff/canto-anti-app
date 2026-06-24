@@ -588,6 +588,48 @@ def build_units(lang: str) -> list[dict]:
     return units
 
 
+def build_practice_game(lang: str, game_type: str) -> dict | None:
+    """Build a standalone mini-game exercise using ALL items from the foundations
+    track. Returns a lesson-like dict the player can open, or None."""
+    track = FOUNDATIONS.get(lang)
+    if not track:
+        return None
+
+    all_items: list[dict] = []
+    for u in track["units"]:
+        for lsn in u["lessons"]:
+            all_items += _lesson_items_common(lsn, lang)
+
+    # Deduplicate by symbol
+    seen: set[str] = set()
+    pool: list[dict] = []
+    for it in all_items:
+        if it["symbol"] not in seen and (it.get("roman") or it.get("meaning")):
+            seen.add(it["symbol"])
+            pool.append(it)
+
+    if len(pool) < 4:
+        return None
+
+    builders = {
+        "speed_round": lambda: _speed_round(pool, pool),
+        "audio_blitz": lambda: _audio_blitz(pool, pool),
+        "memory_match": lambda: _memory_match(pool),
+    }
+    builder = builders.get(game_type)
+    if not builder:
+        return None
+
+    game = builder()
+    if not game:
+        return None
+
+    # Wrap as a single-exercise lesson so the player can open it directly
+    return {
+        "segments": [{"teach": None, "exercises": [game]}],
+    }
+
+
 # ── Hindi / Devanagari track (abugida) ────────────────────────────────────────
 _HI_VOWELS = [IV("अ", "a"), IV("आ", "aa"), IV("इ", "i"), IV("ई", "ii"),
               IV("उ", "u"), IV("ऊ", "uu"), IV("ए", "e"), IV("ओ", "o")]
