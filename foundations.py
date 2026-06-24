@@ -1181,7 +1181,7 @@ def _build_simple_alphabet_lesson_content(lesson: dict, taught: list[dict], lang
 
 # ── Russian / Cyrillic track ─────────────────────────────────────────────────
 _RU_VOWELS = [
-    SL("А", "a"), SL("О", "o"), SL("У", "u"), SL("Э", "e"), SL("И", "i"), SL("Ы", "y", n="No English equivalent — say 'i' with your tongue pulled back"),
+    SL("А", "a", "аа"), SL("О", "o", "оо"), SL("У", "u", "уу"), SL("Э", "e", "ээ"), SL("И", "i", "ии"), SL("Ы", "y", "ыы", n="No English equivalent — say 'i' with your tongue pulled back"),
 ]
 _RU_CONS_1 = [
     SL("М", "m"), SL("Н", "n"), SL("К", "k"), SL("Т", "t"), SL("Д", "d"), SL("С", "s"),
@@ -1195,8 +1195,8 @@ _RU_CONS_3 = [
     SL("Ц", "ts"), SL("Ч", "ch"),
 ]
 _RU_SPECIAL = [
-    SL("Й", "y", n="Short 'y' — only after vowels"),
-    SL("Я", "ya"), SL("Ё", "yo"), SL("Ю", "yu"), SL("Е", "ye"),
+    SL("Й", "y", "йй", n="Short 'y' — only after vowels"),
+    SL("Я", "ya", "яя"), SL("Ё", "yo", "ёё"), SL("Ю", "yu", "юю"), SL("Е", "ye", "ее"),
     SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
     SL("Ь", "'", n="Soft sign — softens the previous consonant"),
     SL("Ъ", "", n="Hard sign — prevents softening (rare)"),
@@ -1735,12 +1735,12 @@ FOUNDATIONS["el"] = _GREEK_TRACK
 # missing Ё/ё, Ъ/ъ, Ы/ы, Э/э. Some shared letters have different sounds.
 
 _UK_VOWELS = [
-    SL("А", "a"), SL("Е", "e"), SL("Є", "ye", n="Like 'ye' in 'yes' — unique to Ukrainian"),
-    SL("И", "y", n="Like 'i' in 'bit' — different from Russian И"),
-    SL("І", "i", n="Like 'ee' in 'see' — replaces Russian И for this sound"),
-    SL("Ї", "yi", n="Always 'yi' — unique to Ukrainian"),
-    SL("О", "o"), SL("У", "u"),
-    SL("Ю", "yu"), SL("Я", "ya"),
+    SL("А", "a", "аа"), SL("Е", "e", "ее"), SL("Є", "ye", "єє", n="Like 'ye' in 'yes' — unique to Ukrainian"),
+    SL("И", "y", "ии", n="Like 'i' in 'bit' — different from Russian И"),
+    SL("І", "i", "іі", n="Like 'ee' in 'see' — replaces Russian И for this sound"),
+    SL("Ї", "yi", "її", n="Always 'yi' — unique to Ukrainian"),
+    SL("О", "o", "оо"), SL("У", "u", "уу"),
+    SL("Ю", "yu", "юю"), SL("Я", "ya", "яя"),
 ]
 _UK_CONS_1 = [
     SL("Б", "b"), SL("В", "v"), SL("Г", "h", n="Sounds like 'h' in Ukrainian (not 'g')"),

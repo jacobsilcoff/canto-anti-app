@@ -1957,7 +1957,7 @@
         combo: 0, maxCombo: 0, xp: 0,
         controller: null, graded: false,
         conceptResults: {}, vocabGlossary: {},
-        concepts: [], theme: 'foundations', drillsOnly: true,
+        concepts: [], theme: 'foundations', drillsOnly: false,
         practiceGame: gameType, practiceCourseId: courseId,
       };
       const sc = scriptClassFor(player.lang);
@@ -2395,8 +2395,9 @@
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
     let exs = (seg.exercises || []).map(e => ({ ...e }));
-    // drillsOnly: only the LLM-graded construction drills (skip recognition/word-bank/etc.)
-    if (player.drillsOnly) exs = exs.filter(e => e.type === 'construction_drill');
+    // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
+    const _selfManaged = new Set(['construction_drill', 'speed_round', 'audio_blitz', 'memory_match']);
+    if (player.drillsOnly) exs = exs.filter(e => _selfManaged.has(e.type));
     player.queue = exs;
     player.idx = 0;
     if (!player.queue.length) { afterSegment(); return; }
