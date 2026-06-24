@@ -1294,7 +1294,8 @@
     construction_drill: {
       render(ex, root, lang, onDone) {
         const construction = (ex.construction || ex.skill || '').trim();
-        const maxTurns = 4;
+        let maxTurns = 4;
+        let allPhrases = [];     // the drill plan, generated on the opener (see below)
         const history = [];      // [{role:'tutor'|'user', text}]
         let turn = 0, busy = false;
         let currentPhrase = null, lastFeedback = null, lastAnswer = null;
@@ -1356,7 +1357,7 @@
           try {
             const res = await fetch('/api/lesson/drill', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ construction, history, answer, turn: turn + 1, lang }),
+              body: JSON.stringify({ construction, phrases: allPhrases, answer, turn: turn + 1, lang }),
             });
             if (!res.ok) throw new Error();
             return await res.json();
@@ -1431,7 +1432,11 @@
 
         async function start() {
           const data = await call(null);
-          if (!data) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          if (!data || !data.phrase) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          // The opener returns the whole phrase plan; carry it forward so each judge
+          // call advances deterministically (the server never re-poses a phrase).
+          allPhrases = Array.isArray(data.phrases) ? data.phrases : [];
+          if (allPhrases.length) maxTurns = allPhrases.length;
           showPrompt(data);
         }
 

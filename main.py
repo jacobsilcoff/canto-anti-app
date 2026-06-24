@@ -3538,7 +3538,8 @@ async def tutor_end_drill(conv_id: int, user: dict = Depends(current_user)):
 
 class LessonDrillRequest(BaseModel):
     construction: str
-    history: list[dict] = []
+    history: list[dict] = []      # legacy; unused by the plan/judge drill
+    phrases: list[str] = []       # the drill plan, generated on the opener + carried forward
     answer: str | None = None
     turn: int = 1
     lang: str | None = None
@@ -3564,8 +3565,8 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
 
     try:
         out = await tutor.run_lesson_drill(
-            lang, construction, req.history[-2 * tutor.LESSON_DRILL_TURNS:], answer,
-            # Fast/cheap model: posing a short phrase + judging a translation is a
+            lang, construction, answer=answer, phrases=req.phrases,
+            # Fast/cheap model: generating short phrases + judging a translation is a
             # simple task, and the drill is formative (doesn't skew the score), so we
             # favour responsiveness — the whole point is a snappy in-lesson drill.
             api_key=access.api_key, model=translation.DEFAULT_MODEL,
