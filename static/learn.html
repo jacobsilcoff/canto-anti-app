@@ -279,6 +279,7 @@
     .cd-fb-anstext { flex: 1; min-width: 0; overflow-wrap: break-word; font-family: var(--script-font, inherit); font-weight: 600; }
     .cd-rom { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-left: 6px; }
     .cd-fb-note { color: var(--text-muted); font-size: 0.85rem; margin-top: 6px; line-height: 1.45; overflow-wrap: break-word; }
+    .cd-fb-next { display: block; width: 100%; margin-top: 12px; padding: 10px; background: var(--primary); color: var(--on-primary); border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
     .cd-fb-alt { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; font-size: 0.95rem; line-height: 2; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px; }
     .cd-fb-alt ruby { line-height: 1; }
     .cd-fb-altnote { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 1px; line-height: 1.4; overflow-wrap: break-word; }
@@ -1395,8 +1396,7 @@
           currentPhrase = data.phrase;
           history.push({ role: 'tutor', text: data.phrase });
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
-          // Keep feedEl visible — the previous feedback stays on screen so the learner
-          // can read it while composing the next answer; cleared on next submit().
+          feedEl.innerHTML = '';
           inputWrap.style.display = ''; inputEl.value = '';
           scrollEl.scrollTop = scrollEl.scrollHeight;
           inputEl.focus();
@@ -1443,13 +1443,28 @@
           promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
           feedEl.innerHTML = '';
           const data = await call(ans);
-          // Push to history AFTER the call so the answer isn't duplicated
-          // (it's already sent as the separate `answer` field)
           history.push({ role: 'user', text: ans });
           turn++; setProgress();
+          // Restore the phrase above the feedback so the user sees what they answered
+          promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
           showFeedback(data && data.feedback, ans);
-          if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
-          showPrompt(data);
+          const isDone = !data || turn >= maxTurns || data.done || !data.phrase;
+          if (isDone) return finish();
+          const fb = data && data.feedback;
+          const needsPause = fb && (!fb.correct || cdDiffers(fb.corrected, ans.trim()));
+          if (needsPause) {
+            // Wrong or accepted-with-flaw: let the learner read the feedback,
+            // then tap "Next" to advance (don't auto-show the next prompt).
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'cd-fb-next';
+            nextBtn.textContent = 'Next →';
+            nextBtn.onclick = () => showPrompt(data);
+            feedEl.querySelector('.cd-fb').appendChild(nextBtn);
+            scrollEl.scrollTop = scrollEl.scrollHeight;
+          } else {
+            // Perfect — brief pause then auto-advance
+            setTimeout(() => showPrompt(data), 600);
+          }
         }
 
         function finish() {
