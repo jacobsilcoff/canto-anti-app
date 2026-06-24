@@ -178,67 +178,104 @@ def test_normalize_drops_new_items_user_already_used_or_knows():
 # showing a correct form. These guard the two failure modes that ended drills early:
 # (1) the LLM call itself raising, and (2) a response with no usable `corrected`.
 
-def test_drill_feedback_accepts_when_no_correction(monkeypatch):
-    # Model returned valid JSON but no `corrected` (or an empty one): we can't show
-    # a correct form, so we must NOT mark it wrong — degrade to accepted.
-    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
-    for parsed in ({}, {"correct": False, "note": "wrong"}, {"corrected": "  "}):
-        fb = tutor._normalize_drill_feedback(parsed, "fr", learner_answer="c'est un livre")
-        assert fb is not None
-        assert fb["correct"] is True
-        assert fb["corrected"] == "c'est un livre"   # echoes the learner's own answer
-        assert fb["note"] == ""
+def test_deterministic_judge_exact_match():
+    assert tutor._deterministic_judge("c'est un livre", "c'est un livre") is True
 
 
-def test_drill_feedback_case_punctuation_override(monkeypatch):
-    # The exact hallucination: "wrong" with a corrected form differing ONLY by case
-    # and a trailing period → overridden to correct, note cleared.
-    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
-    fb = tutor._normalize_drill_feedback(
-        {"correct": False, "corrected": "C'est un livre.",
-         "note": "Error: missing apostrophe."},
-        "fr", learner_answer="c'est un livre")
-    assert fb["correct"] is True
-    assert fb["note"] == ""
+def test_deterministic_judge_case_insensitive():
+    assert tutor._deterministic_judge("C'est un livre.", "c'est un livre") is True
 
 
-def test_drill_feedback_keeps_real_errors(monkeypatch):
-    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
-    fb = tutor._normalize_drill_feedback(
-        {"correct": False, "corrected": "elle est contente",
-         "note": "Wrong gender agreement."},
-        "fr", learner_answer="elle est content")
-    assert fb["correct"] is False
-    assert fb["corrected"] == "elle est contente"
-    assert "gender" in fb["note"].lower()
+def test_deterministic_judge_apostrophe_variants():
+    assert tutor._deterministic_judge("c’est bon", "c'est bon") is True
+
+
+def test_deterministic_judge_different_answer():
+    assert tutor._deterministic_judge("elle est content", "elle est contente") is None
+
+
+def test_drill_plan_normalization():
+    # New format
+    parsed = {"items": [
+        {"english": "It is a house.", "expected": "c'est une maison"},
+        {"english": "They are books.", "expected": "ce sont des livres"},
+    ]}
+    plan = tutor._normalize_drill_plan(parsed, 4)
+    assert len(plan) == 2
+    assert plan[0]["english"] == "It is a house."
+    assert plan[0]["expected"] == "c'est une maison"
+
+    # Fallback old format
+    parsed_old = {"phrases": ["It is a house.", "They are books."]}
+    plan_old = tutor._normalize_drill_plan(parsed_old, 4)
+    assert len(plan_old) == 2
+    assert plan_old[0]["english"] == "It is a house."
+    assert plan_old[0]["expected"] == ""
 
 
 @pytest.mark.asyncio
-async def test_drill_judge_never_hard_fails_when_llm_raises(monkeypatch):
-    # The root cause of drills ending early: a raising `_call` (e.g. empty response
-    # → `.text` is None → AttributeError) propagating into a 502. It must now be
-    # caught and degrade to an accepted fallback so the drill continues.
+async def test_drill_deterministic_correct_no_llm(monkeypatch):
+    """When the answer matches the expected translation, no LLM call is needed."""
+    call_count = 0
+    def counting_call(prompt, api_key, model=None):
+        nonlocal call_count
+        call_count += 1
+        return '{"items": [{"english": "a", "expected": "x"}]}'
+    monkeypatch.setattr(tutor, "_call", counting_call)
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    items = [{"english": "It is a house.", "expected": "c'est une maison"},
+             {"english": "They are books.", "expected": "ce sont des livres"}]
+    call_count = 0
+    out = await tutor.run_lesson_drill(
+        "fr", "C'est", answer="c'est une maison", plan_items=items,
+        turn=1, api_key="fake", model="m", known_words=[])
+    assert call_count == 0  # deterministic match, no LLM call
+    assert out["feedback"]["correct"] is True
+    assert out["done"] is False
+
+
+@pytest.mark.asyncio
+async def test_drill_llm_failure_returns_null_feedback(monkeypatch):
+    """When the LLM fails, feedback is None (client shows 'couldn't check')."""
     def boom(prompt, api_key, model=None):
         raise AttributeError("'NoneType' object has no attribute 'strip'")
     monkeypatch.setattr(tutor, "_call", boom)
     monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    items = [{"english": "a", "expected": "x"}, {"english": "b", "expected": "y"}]
     out = await tutor.run_lesson_drill(
-        "fr", "C'est / Ce sont", answer="ce sont des livres",
-        phrases=["It is a house.", "They are books.", "It is a car.", "They are dogs."],
-        turn=2, api_key="fake", model="m", level="A1", known_words=[])
-    assert out["feedback"] is not None
-    assert out["feedback"]["correct"] is True
-    assert out["done"] is False          # drill continues
-    assert out["phrase"] == "It is a car."   # advances to the next planned phrase
+        "fr", "X", answer="z", plan_items=items,
+        turn=1, api_key="fake", model="m", known_words=[])
+    assert out["feedback"] is None  # not falsely accepted or falsely rejected
+    assert out["done"] is False
+    assert out["phrase"] == "b"
 
 
 @pytest.mark.asyncio
-async def test_drill_judge_continues_on_unparseable_response(monkeypatch):
-    monkeypatch.setattr(tutor, "_call", lambda *a, **k: "Sorry, I can't do that.")
+async def test_drill_llm_judges_alternative(monkeypatch):
+    """When the answer doesn't match expected, LLM decides if it's acceptable."""
+    def fake_call(prompt, api_key, model=None):
+        return '{"acceptable": true, "corrected": "ce sont des bouquins", "note": ""}'
+    monkeypatch.setattr(tutor, "_call", fake_call)
     monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    items = [{"english": "They are books.", "expected": "ce sont des livres"},
+             {"english": "b", "expected": "y"}]
     out = await tutor.run_lesson_drill(
-        "fr", "X", answer="bonjour", phrases=["a", "b", "c", "d"],
+        "fr", "C'est", answer="ce sont des bouquins", plan_items=items,
         turn=1, api_key="fake", model="m", known_words=[])
     assert out["feedback"]["correct"] is True
-    assert out["done"] is False
-    assert out["phrase"] == "b"
+
+
+@pytest.mark.asyncio
+async def test_drill_llm_rejects_wrong_answer(monkeypatch):
+    """LLM correctly identifies a wrong answer."""
+    def fake_call(prompt, api_key, model=None):
+        return '{"acceptable": false, "corrected": "elle est contente", "note": "Gender agreement."}'
+    monkeypatch.setattr(tutor, "_call", fake_call)
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    items = [{"english": "She is happy.", "expected": "elle est contente"},
+             {"english": "b", "expected": "y"}]
+    out = await tutor.run_lesson_drill(
+        "fr", "adj agreement", answer="elle est content", plan_items=items,
+        turn=1, api_key="fake", model="m", known_words=[])
+    assert out["feedback"]["correct"] is False
+    assert out["feedback"]["corrected"] == "elle est contente"

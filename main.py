@@ -3538,8 +3538,7 @@ async def tutor_end_drill(conv_id: int, user: dict = Depends(current_user)):
 
 class LessonDrillRequest(BaseModel):
     construction: str
-    history: list[dict] = []      # legacy; unused by the plan/judge drill
-    phrases: list[str] = []       # the drill plan, generated on the opener + carried forward
+    plan_items: list[dict] = []   # [{english, expected}] — the drill plan with answers
     answer: str | None = None
     turn: int = 1
     lang: str | None = None
@@ -3549,14 +3548,14 @@ class LessonDrillRequest(BaseModel):
 @limiter.limit("60/minute;800/day")
 async def lesson_drill(request: Request, req: LessonDrillRequest,
                        user: dict = Depends(current_user)):
-    """One turn of an inline lesson construction-drill (LLM-graded). Stateless —
-    the lesson player passes the construction + the turns so far + the latest
-    answer; we pose the first phrase, or judge and advance. 1 metered call/turn."""
+    """One turn of an inline lesson construction-drill. Deterministic-first
+    judging: exact match against the plan's expected answer = instant correct;
+    LLM only called when the answer differs. 1 metered call/turn."""
     construction = (req.construction or "").strip()[:80]
     if not construction:
         raise HTTPException(400, "construction required")
     lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
-    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+    access = await _resolve_gemini(user)
 
     known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
     course = await db.get_active_course(user["id"], lang)
@@ -3565,10 +3564,7 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
 
     try:
         out = await tutor.run_lesson_drill(
-            lang, construction, answer=answer, phrases=req.phrases,
-            # Fast/cheap model: generating short phrases + judging a translation is a
-            # simple task, and the drill is formative (doesn't skew the score), so we
-            # favour responsiveness — the whole point is a snappy in-lesson drill.
+            lang, construction, answer=answer, plan_items=req.plan_items,
             api_key=access.api_key, model=translation.DEFAULT_MODEL,
             level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
         )
@@ -3577,7 +3573,7 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
         raise HTTPException(502, "The drill couldn't continue — please try again.")
 
     if answer is not None:
-        await db.record_study_activity(user["id"])   # answering a drill counts as study
+        await db.record_study_activity(user["id"])
     return out
 
 
