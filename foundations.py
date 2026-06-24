@@ -1195,7 +1195,7 @@ _RU_CONS_3 = [
     SL("Ц", "ts"), SL("Ч", "ch"),
 ]
 _RU_SPECIAL = [
-    SL("Й", "y", "йй", n="Short 'y' — only after vowels"),
+    SL("Й", "y", n="Short 'y' — only after vowels"),
     SL("Я", "ya", "яя"), SL("Ё", "yo", "ёё"), SL("Ю", "yu", "юю"), SL("Е", "ye", "ее"),
     SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
     SL("Ь", "'", n="Soft sign — softens the previous consonant"),
