@@ -218,6 +218,131 @@ def _listen_word(word: str, word_pool: list[str], lang: str = "ko") -> dict:
     }
 
 
+# ── Mini-game exercise builders ─────────────────────────────────────────────
+
+def _speed_round(items: list[dict], pool: list[dict]) -> dict | None:
+    """Rapid character→sound recognition against the clock."""
+    roman_pool = list({g["roman"] for g in pool if g.get("roman")})
+    if len(roman_pool) < 3:
+        return None
+    candidates = list(items) * 2
+    extras = [g for g in pool if g not in items]
+    random.shuffle(extras)
+    candidates += extras[:4]
+    random.shuffle(candidates)
+    rounds = []
+    for g in candidates[:12]:
+        distractors = [r for r in roman_pool if r != g["roman"]]
+        random.shuffle(distractors)
+        if len(distractors) < 2:
+            continue
+        rounds.append({"symbol": g["symbol"], "roman": g["roman"],
+                        "audio": g.get("audio", g["symbol"]),
+                        "distractors": distractors[:3]})
+    if len(rounds) < 6:
+        return None
+    return {"type": "speed_round", "time_limit": 30, "items": rounds, "hide_roman": True}
+
+
+def _audio_blitz(items: list[dict], pool: list[dict]) -> dict | None:
+    """Hear audio, quickly tap the matching character."""
+    if len(pool) < 4:
+        return None
+    candidates = list(items) * 2
+    extras = [g for g in pool if g not in items]
+    random.shuffle(extras)
+    candidates += extras[:3]
+    random.shuffle(candidates)
+    rounds = []
+    for g in candidates[:10]:
+        others = [o["symbol"] for o in pool if o["symbol"] != g["symbol"]]
+        random.shuffle(others)
+        if len(others) < 3:
+            continue
+        opts = [g["symbol"]] + others[:5]
+        random.shuffle(opts)
+        rounds.append({"audio": g.get("audio", g["symbol"]), "correct": g["symbol"],
+                        "options": opts, "roman": g.get("roman", "")})
+    if len(rounds) < 4:
+        return None
+    return {"type": "audio_blitz", "round_time": 4, "items": rounds, "hide_roman": True}
+
+
+def _memory_match(items: list[dict]) -> dict | None:
+    """Classic concentration — flip cards to match characters with sounds/meanings."""
+    if len(items) < 3:
+        return None
+    selected = items[:6]
+    pairs = []
+    for g in selected:
+        label = g.get("meaning") or g.get("roman", "")
+        if not label:
+            continue
+        pairs.append({"symbol": g["symbol"], "label": label,
+                       "audio": g.get("audio", g["symbol"])})
+    if len(pairs) < 3:
+        return None
+    return {"type": "memory_match", "pairs": pairs, "hide_roman": True}
+
+
+def _pick_minigame(current: list[dict], pool: list[dict], ltype: str) -> dict | None:
+    """Pick the best mini-game for this lesson, or None."""
+    if ltype in ("info", "blocks_info"):
+        return None
+    if ltype in ("tones", "compound_vowels"):
+        return _audio_blitz(current, pool)
+    if ltype == "words":
+        return _memory_match(current)
+    if len(pool) >= 6:
+        return _speed_round(current, pool)
+    if len(current) >= 3:
+        return _memory_match(current)
+    return None
+
+
+def _lesson_items_common(lesson: dict, lang: str) -> list[dict]:
+    """Convert lesson-specific data to common {symbol, roman, audio, meaning} format."""
+    ltype = lesson["type"]
+    if ltype in ("graphemes", "matras"):
+        return [{"symbol": g["symbol"], "roman": g["roman"],
+                 "audio": g.get("audio", g["symbol"])} for g in lesson.get("graphemes", [])]
+    if ltype == "compound_vowels":
+        return [{"symbol": g["symbol"], "roman": g["roman"],
+                 "audio": g.get("audio", g["symbol"])} for g in lesson.get("vowels", [])]
+    if ltype == "words":
+        return [{"symbol": w, "roman": _romanize(w, lang), "audio": w, "meaning": m}
+                for w, m in lesson.get("words", [])]
+    if ltype == "tones":
+        return [{"symbol": p["char"], "roman": p["roman"], "audio": p["audio"],
+                 "meaning": p.get("meaning", "")} for p in lesson.get("pairs", [])]
+    if ltype == "initials":
+        return [{"symbol": i["char"], "roman": i["roman"], "audio": i["audio"],
+                 "meaning": i.get("meaning", "")} for i in lesson.get("initials", [])]
+    if ltype == "finals":
+        return [{"symbol": f["char"], "roman": f["roman"], "audio": f["audio"],
+                 "meaning": f.get("meaning", "")} for f in lesson.get("finals", [])]
+    return []
+
+
+def _maybe_append_minigame(content: dict, lesson: dict, taught: list[dict], lang: str):
+    """Conditionally append a mini-game exercise to the lesson's last segment."""
+    current = _lesson_items_common(lesson, lang)
+    if not current:
+        return
+    ltype = lesson["type"]
+    if ltype in ("tones", "initials", "finals"):
+        pool = current
+    else:
+        taught_common = [{"symbol": g["symbol"], "roman": g["roman"],
+                          "audio": g.get("audio", g["symbol"])} for g in taught]
+        pool = current + taught_common
+    game = _pick_minigame(current, pool, ltype)
+    if game:
+        segments = content.get("segments", [])
+        if segments and "exercises" in segments[-1]:
+            segments[-1]["exercises"].append(game)
+
+
 # ── Lesson/segment assembly ───────────────────────────────────────────────────
 
 def _teach_item_grapheme(g: dict) -> dict:
@@ -430,14 +555,17 @@ def _lesson_taught_graphemes(lesson: dict) -> list[dict]:
 
 def _build_lesson_content(lesson: dict, taught: list[dict], script_type: str, lang: str) -> dict:
     if script_type == "abugida":
-        return _build_abugida_lesson_content(lesson, taught, lang)
-    if script_type == "tonal":
-        return _build_tonal_lesson_content(lesson, lang)
-    if script_type == "simple_alphabet":
-        return _build_simple_alphabet_lesson_content(lesson, taught, lang)
-    if script_type == "abjad":
-        return _build_abjad_lesson_content(lesson, taught, lang)
-    return _build_hangul_lesson_content(lesson, taught)
+        content = _build_abugida_lesson_content(lesson, taught, lang)
+    elif script_type == "tonal":
+        content = _build_tonal_lesson_content(lesson, lang)
+    elif script_type == "simple_alphabet":
+        content = _build_simple_alphabet_lesson_content(lesson, taught, lang)
+    elif script_type == "abjad":
+        content = _build_abjad_lesson_content(lesson, taught, lang)
+    else:
+        content = _build_hangul_lesson_content(lesson, taught)
+    _maybe_append_minigame(content, lesson, taught, lang)
+    return content
 
 
 def build_units(lang: str) -> list[dict]:

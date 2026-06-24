@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 11;
+  var TOUR_VERSION = 12;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -33,6 +33,8 @@
       body: 'New optional reading foundations for Japanese (hiragana & katakana), Russian (Cyrillic), Bengali, Arabic, Urdu, and Farsi. Learn to read the script before diving into vocabulary — available in the Learn tab.', v: 10 },
     { icon: '🌐', title: '10 more languages',
       body: 'Now supporting Turkish, Dutch, Polish, Swedish, Norwegian, Romanian, Ukrainian, Greek, Thai, and Hebrew — with native fonts, audio, romanization, and optional script reading tracks for non-Latin scripts.', v: 11 },
+    { icon: '🎮', title: 'Mini-games in reading lessons',
+      body: 'Script reading lessons now end with a bonus mini-game: speed rounds with a countdown timer, audio blitz challenges, or memory match. Build combos and earn XP while mastering characters!', v: 12 },
   ];
 
   var steps, stepIdx;
