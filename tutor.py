@@ -18,11 +18,14 @@ plain-text reply rather than an error bubble.
 """
 import asyncio
 import json
+import logging
 
 import embeddings
 import tokenizer
 from learning import _lang_preamble, _registry_block, _word_list_block
 from translation import LANG_INFO, _call, _parse_json
+
+logger = logging.getLogger(__name__)
 
 TUTOR_MODEL = "gemini-2.5-flash"   # better conversational quality than -lite, still cheap
 
@@ -820,16 +823,32 @@ def _norm_for_compare(s: str) -> str:
 
 def _normalize_drill_feedback(
     parsed: dict, target_lang: str, *, learner_answer: str = "",
-) -> dict | None:
+) -> dict:
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
 
     def rom(s: str) -> str:
         return tokenizer.romanize_text(s, target_lang) if (has_rom and s) else ""
 
     corrected = (parsed.get("corrected") or "").strip()
-    if not corrected:
-        return None
     correct = bool(parsed.get("correct"))
+
+    # No usable correction from the model (empty {} on an LLM/parse failure, or a
+    # response missing `corrected`). We must NEVER mark an answer wrong without
+    # showing a correct form — so degrade to an ACCEPTED fallback that echoes the
+    # learner's own answer with a soft note. The drill is formative (doesn't skew
+    # the score), so accepting-on-uncertainty is the right, non-misleading UX and
+    # keeps the drill flowing instead of dead-ending on "wrong, no explanation".
+    if not corrected:
+        ans = (learner_answer or "").strip()
+        return {
+            "correct":           True,
+            "corrected":         ans,
+            "corrected_roman":   rom(ans),
+            "note":              "",
+            "alternative":       "",
+            "alternative_roman": "",
+            "alt_note":          "",
+        }
 
     # Server-side override: if the learner's answer matches the corrected form
     # after normalizing case, trailing punctuation, and apostrophe variants,
@@ -870,15 +889,22 @@ def _normalize_drill_plan(parsed: dict, n: int) -> list[str]:
 
 
 async def _drill_call(prompt: str, api_key: str, model: str) -> dict:
-    """Call + parse-with-one-retry; returns {} on failure (never hard-fails)."""
-    for _ in range(2):
-        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+    """Call + parse-with-one-retry; returns {} on ANY failure (never hard-fails).
+
+    Catches the API call too — not just parse errors — so a transient hiccup
+    (empty/safety-filtered response → `.text` is None → AttributeError, a 429/500,
+    a quota error) degrades to {} instead of propagating into a 502 that kills the
+    whole drill. The caller turns {} into a graceful "accepted" fallback so the
+    drill always continues.
+    """
+    for attempt in range(2):
         try:
+            raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
             parsed = _parse_json(raw)
             if isinstance(parsed, dict):
                 return parsed
-        except (ValueError, TypeError):
-            pass
+        except Exception as e:
+            logger.warning("drill LLM call/parse failed (attempt %d): %s", attempt + 1, e)
     return {}
 
 

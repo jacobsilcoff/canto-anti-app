@@ -171,3 +171,74 @@ def test_normalize_drops_new_items_user_already_used_or_knows():
     out = tutor._normalize(parsed, "yue", raw="",
                            user_msg="我想食嘢", known_texts={"飯", "水"})
     assert [it["target_text"] for it in out["new_items"]] == ["麵"]
+
+
+# ── Inline lesson construction-drill: resilience + verdict normalization ──────
+# The drill is formative and must NEVER hard-fail or mark an answer wrong without
+# showing a correct form. These guard the two failure modes that ended drills early:
+# (1) the LLM call itself raising, and (2) a response with no usable `corrected`.
+
+def test_drill_feedback_accepts_when_no_correction(monkeypatch):
+    # Model returned valid JSON but no `corrected` (or an empty one): we can't show
+    # a correct form, so we must NOT mark it wrong — degrade to accepted.
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    for parsed in ({}, {"correct": False, "note": "wrong"}, {"corrected": "  "}):
+        fb = tutor._normalize_drill_feedback(parsed, "fr", learner_answer="c'est un livre")
+        assert fb is not None
+        assert fb["correct"] is True
+        assert fb["corrected"] == "c'est un livre"   # echoes the learner's own answer
+        assert fb["note"] == ""
+
+
+def test_drill_feedback_case_punctuation_override(monkeypatch):
+    # The exact hallucination: "wrong" with a corrected form differing ONLY by case
+    # and a trailing period → overridden to correct, note cleared.
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    fb = tutor._normalize_drill_feedback(
+        {"correct": False, "corrected": "C'est un livre.",
+         "note": "Error: missing apostrophe."},
+        "fr", learner_answer="c'est un livre")
+    assert fb["correct"] is True
+    assert fb["note"] == ""
+
+
+def test_drill_feedback_keeps_real_errors(monkeypatch):
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    fb = tutor._normalize_drill_feedback(
+        {"correct": False, "corrected": "elle est contente",
+         "note": "Wrong gender agreement."},
+        "fr", learner_answer="elle est content")
+    assert fb["correct"] is False
+    assert fb["corrected"] == "elle est contente"
+    assert "gender" in fb["note"].lower()
+
+
+@pytest.mark.asyncio
+async def test_drill_judge_never_hard_fails_when_llm_raises(monkeypatch):
+    # The root cause of drills ending early: a raising `_call` (e.g. empty response
+    # → `.text` is None → AttributeError) propagating into a 502. It must now be
+    # caught and degrade to an accepted fallback so the drill continues.
+    def boom(prompt, api_key, model=None):
+        raise AttributeError("'NoneType' object has no attribute 'strip'")
+    monkeypatch.setattr(tutor, "_call", boom)
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    out = await tutor.run_lesson_drill(
+        "fr", "C'est / Ce sont", answer="ce sont des livres",
+        phrases=["It is a house.", "They are books.", "It is a car.", "They are dogs."],
+        turn=2, api_key="fake", model="m", level="A1", known_words=[])
+    assert out["feedback"] is not None
+    assert out["feedback"]["correct"] is True
+    assert out["done"] is False          # drill continues
+    assert out["phrase"] == "It is a car."   # advances to the next planned phrase
+
+
+@pytest.mark.asyncio
+async def test_drill_judge_continues_on_unparseable_response(monkeypatch):
+    monkeypatch.setattr(tutor, "_call", lambda *a, **k: "Sorry, I can't do that.")
+    monkeypatch.setattr(tutor.tokenizer, "romanize_text", lambda s, lang: "")
+    out = await tutor.run_lesson_drill(
+        "fr", "X", answer="bonjour", phrases=["a", "b", "c", "d"],
+        turn=1, api_key="fake", model="m", known_words=[])
+    assert out["feedback"]["correct"] is True
+    assert out["done"] is False
+    assert out["phrase"] == "b"
