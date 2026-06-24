@@ -246,6 +246,8 @@ def _speed_round(items: list[dict], pool: list[dict]) -> dict | None:
 
 def _audio_blitz(items: list[dict], pool: list[dict]) -> dict | None:
     """Hear audio, quickly tap the matching character."""
+    items = [g for g in items if g.get("audio")]
+    pool = [g for g in pool if g.get("audio")]
     if len(pool) < 4:
         return None
     candidates = list(items) * 2
@@ -1141,7 +1143,7 @@ def decompose_simple(text: str) -> set[str]:
     return {ch for ch in text if not ch.isspace()}
 
 
-SL = lambda s, r, a=None, n="": {"symbol": s, "roman": r, "audio": a or s, "note": n, "kind": "letter"}
+SL = lambda s, r, a=None, n="": {"symbol": s, "roman": r, "audio": s if a is None else a, "note": n, "kind": "letter"}
 
 
 def _build_simple_alphabet_lesson_content(lesson: dict, taught: list[dict], lang: str) -> dict:
@@ -1198,8 +1200,8 @@ _RU_SPECIAL = [
     SL("Й", "y", n="Short 'y' — only after vowels"),
     SL("Я", "ya", "яя"), SL("Ё", "yo", "ёё"), SL("Ю", "yu", "юю"), SL("Е", "ye", "ее"),
     SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
-    SL("Ь", "'", n="Soft sign — softens the previous consonant"),
-    SL("Ъ", "", n="Hard sign — prevents softening (rare)"),
+    SL("Ь", "(soft)", "", n="Soft sign — softens the previous consonant"),
+    SL("Ъ", "(hard)", "", n="Hard sign — prevents softening (rare)"),
 ]
 
 _RU_WORDS_1 = [("мама", "mom"), ("дом", "house"), ("кот", "cat"),
@@ -1754,7 +1756,7 @@ _UK_CONS_2 = [
     SL("З", "z"), SL("Х", "kh", n="Like 'ch' in Scottish 'loch'"),
     SL("Ц", "ts"), SL("Ч", "ch"),
     SL("Ш", "sh"), SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
-    SL("Ф", "f"), SL("Ь", "'", n="Soft sign — softens the previous consonant"),
+    SL("Ф", "f"), SL("Ь", "(soft)", "", n="Soft sign — softens the previous consonant"),
 ]
 
 _UK_WORDS_1 = [("мама", "mom"), ("тато", "dad"), ("дім", "house"),
