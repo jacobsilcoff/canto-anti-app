@@ -982,9 +982,9 @@
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
     const showBtns = st === 'done' || st === 'available';
     const drillsBtn = showBtns
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'skip')" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'skip')" title="Skip teach, go straight to exercises">⚡ Practice</button>` : '';
     const llmBtn = showBtns
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'llm')" title="Skip to LLM construction drills only">🎯 Drill</button>` : '';
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'llm')" title="Skip to LLM construction drills only">🎯 AI Drills</button>` : '';
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
       <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
@@ -1408,8 +1408,8 @@
         }
 
         function showFeedback(fb, yourAnswer) {
+          if (!fb) fb = { correct: true, corrected: yourAnswer || '', note: '' };
           lastFeedback = fb; lastAnswer = yourAnswer;
-          if (!fb) { feedEl.innerHTML = ''; return; }
           const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
           const altRom = (fb.alternative_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.alternative_roman)}</span>` : '';
           const yours = (yourAnswer || '').trim();
@@ -1451,14 +1451,32 @@
           promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
           feedEl.innerHTML = '';
           const data = await call(ans);
+          // If the call failed entirely, show an error and let the user retry
+          // instead of silently ending the drill.
+          if (!data) {
+            promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
+            feedEl.innerHTML = `<div class="cd-fb cd-wrong"><div class="cd-fb-head">Couldn't check your answer</div><div class="cd-fb-note">Tap retry to try again.</div></div>`;
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'cd-fb-next';
+            retryBtn.textContent = 'Retry →';
+            retryBtn.onclick = () => {
+              inputEl.value = ans;
+              inputWrap.style.display = '';
+              feedEl.innerHTML = '';
+              promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
+            };
+            feedEl.querySelector('.cd-fb').appendChild(retryBtn);
+            scrollEl.scrollTop = scrollEl.scrollHeight;
+            return;
+          }
           history.push({ role: 'user', text: ans });
           turn++; setProgress();
           // Restore the phrase above the feedback so the user sees what they answered
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
-          showFeedback(data && data.feedback, ans);
-          const isDone = !data || turn >= maxTurns || data.done || !data.phrase;
+          showFeedback(data.feedback, ans);
+          const isDone = turn >= maxTurns || data.done || !data.phrase;
           if (isDone) return finish();
-          const fb = data && data.feedback;
+          const fb = data.feedback;
           const needsPause = fb && (!fb.correct || cdDiffers(fb.corrected, ans.trim()));
           if (needsPause) {
             // Wrong or accepted-with-flaw: let the learner read the feedback,
