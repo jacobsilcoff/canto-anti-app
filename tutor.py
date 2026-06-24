@@ -754,9 +754,11 @@ def build_lesson_drill_prompt(
         f"one sentence (e.g. 'mettre → je mets (not met) — first-person singular adds -s').\n"
         f"CRITICAL: base your `note` ONLY on characters and words the learner actually wrote "
         f"— never reference a particle, classifier, or word that does not appear in their "
-        f"answer. If there is another equally natural form (e.g. 我本書 vs 我嘅書), put it in "
-        f"`alternative` with a one-sentence `alt_note` on when to prefer each; omit when there "
-        f"is no meaningful variant. Be encouraging but concise.\n\n"
+        f"answer. `alternative` = another equally natural {name} translation OF THE SAME "
+        f"English phrase you posed this turn (e.g. 我本書 vs 我嘅書 for 'my book'). It must "
+        f"be a valid answer to the CURRENT phrase — NEVER leak or preview the answer to the "
+        f"NEXT phrase. Omit `alternative` entirely when there is no meaningful variant or "
+        f"when the answer is wrong (the correction is enough). Be encouraging but concise.\n\n"
         f"{deck}{convo}{state}"
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
@@ -764,8 +766,8 @@ def build_lesson_drill_prompt(
         '    "correct": true,\n'
         '    "corrected": "<perfect: verbatim; flaw/wrong: the polished/correct form; empty first turn>",\n'
         '    "note": "<wrong: \'Error: [specific]. Rule: [one sentence]\'; minor flaw: name the fix (REQUIRED); perfect: confirm what they used; empty first turn>",\n'
-        '    "alternative": "<another equally natural correct form, omit if none>",\n'
-        '    "alt_note": "<one sentence: when to prefer corrected vs alternative; omit if no alternative>"\n'
+        '    "alternative": "<another natural translation of THE SAME phrase; omit if none or if wrong>",\n'
+        '    "alt_note": "<when to prefer corrected vs alternative; omit if no alternative>"\n'
         '  },\n'
         f'  "phrase": "<the next English phrase to translate, or empty when done>",\n'
         '  "done": false\n'
