@@ -980,7 +980,7 @@
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
-    const drillsBtn = st === 'done'
+    const drillsBtn = (st === 'done' || st === 'available')
       ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},true)" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
@@ -2063,7 +2063,7 @@
         combo: 0, maxCombo: 0, xp: 0,
         controller: null, graded: false,
         conceptResults: {}, vocabGlossary: {},
-        concepts: [], theme: 'foundations', drillsOnly: false,
+        concepts: [], theme: 'foundations', skipTeach: false, drillsOnly: false,
         practiceGame: gameType, practiceCourseId: courseId, practiceOpts: opts || null,
       };
       const sc = scriptClassFor(player.lang);
@@ -2106,7 +2106,8 @@
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
         theme: lesson.theme || '',         // 'foundations' → no live word lookup
-        drillsOnly,                        // skip teach screen, jump straight to exercises
+        skipTeach: drillsOnly,             // skip teach screen, jump straight to exercises
+        drillsOnly: false,                 // practice games: filter to self-managed exercises only
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -2124,7 +2125,7 @@
     const seg = player.segments[i];
     const teach = seg.teach;
     const hasTeach = teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length);
-    if (hasTeach && !player.drillsOnly) {
+    if (hasTeach && !player.skipTeach) {
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;

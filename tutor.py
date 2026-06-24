@@ -722,6 +722,11 @@ _DRILL_VERDICT_RUBRIC = (
     "wrote). `note` = (1) name the specific error category (e.g. 'Incorrect conjugation "
     "of verb mettre', 'Wrong gender agreement'), (2) state the rule in one sentence (e.g. "
     "'mettre → je mets (not met) — first-person singular adds -s').\n"
+    "IMPORTANT: Capitalization and trailing punctuation (period, ! , ?) are NEVER errors — "
+    "IGNORE differences in initial caps and trailing sentence punctuation entirely. "
+    "Different apostrophe styles (' ' ʼ `) are NEVER errors — they are all equivalent. "
+    "If the ONLY differences are casing, trailing punctuation, or apostrophe style, "
+    "the answer is PERFECT.\n"
     "CRITICAL: base your `note` ONLY on characters and words the learner actually wrote — "
     "never reference a particle, classifier, or word that does not appear in their answer.\n"
 )
@@ -798,7 +803,24 @@ def build_lesson_drill_judge_prompt(
     )
 
 
-def _normalize_drill_feedback(parsed: dict, target_lang: str) -> dict | None:
+def _norm_for_compare(s: str) -> str:
+    """Normalize a string for mechanical same-answer comparison: casefold,
+    strip trailing/leading punctuation, collapse whitespace, and unify
+    apostrophe/quote variants to ASCII '."""
+    import unicodedata
+    s = unicodedata.normalize("NFC", s).casefold().strip()
+    s = s.rstrip(".!?。！？،؟…")
+    _APOSTROPHES = str.maketrans({
+        "’": "'", "‘": "'", "ʼ": "'",
+        "`": "'", "´": "'", "′": "'",
+    })
+    s = s.translate(_APOSTROPHES)
+    return " ".join(s.split())
+
+
+def _normalize_drill_feedback(
+    parsed: dict, target_lang: str, *, learner_answer: str = "",
+) -> dict | None:
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
 
     def rom(s: str) -> str:
@@ -808,6 +830,18 @@ def _normalize_drill_feedback(parsed: dict, target_lang: str) -> dict | None:
     if not corrected:
         return None
     correct = bool(parsed.get("correct"))
+
+    # Server-side override: if the learner's answer matches the corrected form
+    # after normalizing case, trailing punctuation, and apostrophe variants,
+    # the answer is substantively correct regardless of what the LLM decided.
+    # This prevents hallucinated errors like "missing apostrophe" when the only
+    # differences are capitalization and a trailing period.
+    if not correct and learner_answer:
+        if _norm_for_compare(learner_answer) == _norm_for_compare(corrected):
+            correct = True
+            corrected = learner_answer.strip()
+            parsed["note"] = ""
+
     # Defense in depth: an `alternative` is only meaningful for an accepted answer.
     # Drop it on a wrong verdict (it adds nothing and was the historical leak vector).
     alternative = (parsed.get("alternative") or "").strip() if correct else ""
@@ -890,7 +924,10 @@ async def run_lesson_drill(
         target_lang, construction, judged, answer,
         level=level, known_words=known_words,
     )
-    feedback = _normalize_drill_feedback(await _drill_call(prompt, api_key, model), target_lang)
+    feedback = _normalize_drill_feedback(
+        await _drill_call(prompt, api_key, model), target_lang,
+        learner_answer=answer,
+    )
     # Next phrase comes straight from the plan — deterministic, no LLM generation.
     if plan and turn < len(plan) and turn < max_turns:
         return {"feedback": feedback, "phrase": plan[turn], "done": False}
