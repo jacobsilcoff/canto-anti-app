@@ -708,31 +708,35 @@ def build_lesson_drill_plan_prompt(
     known_words: list[dict] | None,
     n: int,
 ) -> str:
-    """PLAN call: generate English phrases WITH their expected translations."""
+    """PLAN call: invent target-language sentences that USE the construction, then
+    back-translate each to English. The target is a reference example (it uses the
+    construction) — NOT a strict answer key; judging is done from the English."""
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
     deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
             if known_words else "")
     return (
-        f"You are designing a tight PRACTICE DRILL embedded in a {name} lesson "
-        f"(learner level {level}). The skill being drilled is the CONSTRUCTION/form: "
+        f"You are designing a tight PRACTICE DRILL inside a {name} lesson "
+        f"(learner level {level}). The skill being practised is the construction/form: "
         f"\"{construction}\".\n\n"
-        f"Produce EXACTLY {n} short, concrete ENGLISH phrases for the learner to translate "
-        f"into {name}, each one exercising \"{construction}\". For each phrase, also provide "
-        f"the expected {name} translation. Requirements:\n"
-        f"• Every phrase must be translatable using words the learner already KNOWS "
-        f"(use the list below); introduce a new word only if the construction truly needs it.\n"
-        f"• VARY the vocabulary across the {n} phrases — don't reuse the same nouns/verbs.\n"
-        f"• Keep each phrase short and level-appropriate ({level}). Order them easiest first.\n"
-        f"• The expected translation should be the most natural, standard rendering.\n\n"
+        f"Write EXACTLY {n} short, natural {name} sentences that each USE "
+        f"\"{construction}\", then give the English translation of each. Requirements:\n"
+        f"• Build each sentence from words the learner already KNOWS (list below); "
+        f"introduce a new word only if the construction truly needs it.\n"
+        f"• Each {name} sentence must be ONE natural, standard rendering — no slashes, "
+        f"no parenthetical optional letters, no listed alternatives.\n"
+        f"• VARY the vocabulary across the {n} sentences — don't reuse the same nouns/verbs.\n"
+        f"• Keep each sentence short and level-appropriate ({level}); order them easiest first.\n"
+        f"• The English is what the learner will see and translate back into {name}.\n\n"
         f"{deck}"
-        f"Return ONLY valid JSON, no other text:\n"
-        '{{\n'
-        f'  "items": [\n'
-        f'    {{"english": "<English phrase>", "expected": "<{name} translation>"}},\n'
-        f'    ...\n'
-        f'  ]\n'
-        '}}\n'
+        "Return ONLY valid JSON, no other text:\n"
+        '{\n'
+        '  "items": [\n'
+        '    {"target": "<' + name + ' sentence using the construction>", '
+        '"english": "<its English translation>"},\n'
+        '    ...\n'
+        '  ]\n'
+        '}\n'
     )
 
 
@@ -741,33 +745,43 @@ def build_lesson_drill_judge_prompt(
     construction: str,
     phrase: str,
     answer: str,
-    expected: str,
+    reference: str,
     *,
     level: str,
 ) -> str:
-    """JUDGE call: the learner's answer didn't match the expected translation, so
-    ask the LLM whether it's an acceptable alternative or genuinely wrong. Kept
-    simple and focused — no complex rubric, just one clear question."""
+    """JUDGE call: decide whether the learner's translation of `phrase` is
+    acceptable. Graded from the English meaning — NOT by matching `reference`
+    (which is just one example that happens to use the construction). Liberal:
+    any correct, natural translation passes, even if it doesn't use the
+    construction; in that case we still surface a construction-using version."""
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
+    ref = (f"One {name} sentence that uses this construction is: \"{reference.strip()}\". "
+           f"This is only an example — the learner does NOT need to match it.\n\n"
+           if reference.strip() else "")
     return (
-        f"You are a {name} tutor. A learner (level {level}) was asked to translate "
-        f"this English phrase into {name}:\n"
-        f"  \"{phrase.strip()}\"\n\n"
-        f"The expected answer is:\n"
-        f"  \"{expected.strip()}\"\n\n"
-        f"The learner wrote:\n"
-        f"  \"{answer.strip()}\"\n\n"
-        f"Is the learner's answer an acceptable {name} translation of the English phrase? "
-        f"Ignore differences in capitalization, trailing punctuation (.!?), and apostrophe "
-        f"style. Minor typos (one swapped/missing letter) where the intent is clear should "
-        f"be accepted but noted.\n\n"
+        f"You are a {name} tutor. A learner (level {level}) translated this English "
+        f"phrase into {name}:\n"
+        f"  English: \"{phrase.strip()}\"\n"
+        f"  Learner wrote: \"{answer.strip()}\"\n\n"
+        f"The lesson is practising the construction \"{construction}\". "
+        f"{ref}"
+        f"Judge ONLY whether the learner's sentence is a correct, natural {name} "
+        f"translation of the English. Be liberal: accept ANY valid translation, even if "
+        f"it does not use the construction or differs from the example. Ignore "
+        f"capitalization, trailing punctuation (.!?), and apostrophe style. Accept a minor "
+        f"typo (one swapped/missing letter) when the intent is clear, but note it. Do NOT "
+        f"require optional gender/number/formality variants — one valid form is enough.\n\n"
         f"Return ONLY valid JSON:\n"
-        '{{\n'
-        '  "acceptable": true or false,\n'
-        f'  "corrected": "<if acceptable: the learner\'s text with any typos fixed; if wrong: the correct {name} translation>",\n'
-        '  "note": "<if wrong: name the error and state the rule in one sentence; if acceptable with a minor issue: name the fix; if perfect: empty string>"\n'
-        '}}\n'
+        '{\n'
+        '  "correct": true or false,\n'
+        '  "corrected": "<empty if the answer is correct and clean; the answer with typos '
+        'fixed if correct but slightly off; the correct translation if wrong>",\n'
+        f'  "alt": "<empty UNLESS the answer is correct but does not use the construction; '
+        f'then one natural {name} sentence that does>",\n'
+        '  "note": "<one short sentence: the error and rule if wrong; the construction tip '
+        'if you filled alt; empty otherwise>"\n'
+        '}\n'
     )
 
 
@@ -792,49 +806,44 @@ def _rom(s: str, target_lang: str) -> str:
 
 
 def _build_feedback(correct: bool, corrected: str, note: str,
-                    target_lang: str) -> dict:
+                    target_lang: str, alt: str = "") -> dict:
     return {
         "correct":         correct,
         "corrected":       corrected,
         "corrected_roman": _rom(corrected, target_lang),
+        "alt":             alt,
+        "alt_roman":       _rom(alt, target_lang),
         "note":            note,
     }
 
 
-def _deterministic_judge(answer: str, expected: str) -> bool | None:
-    """Compare learner answer to expected translation. Returns True if they
-    match (after normalization), None if they don't (needs LLM arbitration)."""
-    if _norm_for_compare(answer) == _norm_for_compare(expected):
-        return True
-    return None
-
-
 def _normalize_drill_plan(parsed: dict, n: int) -> list[dict]:
-    """Extract items from the plan response. Returns list of
-    {"english": ..., "expected": ...} dicts. Falls back to old
-    phrases-only format for compatibility."""
+    """Extract items from the plan response as {"english", "target"} dicts.
+    `target` is a reference rendering that uses the construction (for feedback,
+    not strict matching). Tolerates the old `expected` key and a bare `phrases`
+    list (English-only)."""
     if not isinstance(parsed, dict):
         return []
-    # New format: {"items": [{"english": ..., "expected": ...}]}
+    # New format: {"items": [{"target": ..., "english": ...}]}
     raw = parsed.get("items")
     if isinstance(raw, list):
         out: list[dict] = []
         for item in raw:
             if isinstance(item, dict):
                 eng = (item.get("english") or "").strip()[:200]
-                exp = (item.get("expected") or "").strip()[:200]
-                if eng and exp:
-                    out.append({"english": eng, "expected": exp})
+                tgt = (item.get("target") or item.get("expected") or "").strip()[:200]
+                if eng:
+                    out.append({"english": eng, "target": tgt})
             if len(out) >= n:
                 break
         return out
-    # Fallback: old {"phrases": [...]} format (no expected answers)
+    # Fallback: old {"phrases": [...]} format (English-only, no reference)
     raw = parsed.get("phrases")
     if isinstance(raw, list):
         out = []
         for p in raw:
             if isinstance(p, str) and p.strip():
-                out.append({"english": p.strip()[:200], "expected": ""})
+                out.append({"english": p.strip()[:200], "target": ""})
             if len(out) >= n:
                 break
         return out
@@ -876,13 +885,14 @@ async def run_lesson_drill(
 ) -> dict:
     """One turn of an inline lesson construction-drill.
 
-    PLAN  (answer=None): generate phrases + expected translations; return the
-      first phrase + the full plan so the client can carry it forward.
-    JUDGE (answer given): deterministic check first (normalized string match
-      against the expected translation). Only calls the LLM if the answer
-      doesn't match — to decide if it's an acceptable alternative. If the
-      LLM call fails, returns feedback=None so the client can show "couldn't
-      check" and let the user skip or retry.
+    PLAN  (answer=None): generate target-lang sentences that use the
+      construction + their English translations; return the first phrase +
+      the full plan so the client can carry it forward.
+    JUDGE (answer given): one LLM call grades the learner's translation from
+      the English alone. The plan's reference `target` is passed as context
+      (an example that uses the construction) but is NOT a match-oracle.
+      If the LLM call fails, returns feedback=None so the client can show
+      "couldn't check" and let the user skip.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -907,55 +917,27 @@ async def run_lesson_drill(
     items = plan_items or []
     item = items[turn - 1] if 0 < turn <= len(items) else {}
     phrase = item.get("english", "")
-    expected = item.get("expected", "")
+    reference = item.get("target", item.get("expected", ""))
 
-    # Step 1: deterministic check
-    det = _deterministic_judge(answer, expected) if expected else None
-
-    if det is True:
-        # Exact match (after normalization) — correct, no LLM needed
-        feedback = _build_feedback(True, answer.strip(), "", target_lang)
-    elif not expected:
-        # No expected answer (old-format plan or empty) — must use LLM
-        llm_result = await _drill_call(
-            build_lesson_drill_judge_prompt(
-                target_lang, construction, phrase, answer, expected or answer,
-                level=level,
-            ), api_key, model,
-        )
-        if not llm_result or not (llm_result.get("corrected") or "").strip():
-            feedback = None  # LLM failed — client will show "couldn't check"
-        else:
-            acceptable = bool(llm_result.get("acceptable"))
-            corrected = (llm_result.get("corrected") or "").strip()
-            note = (llm_result.get("note") or "").strip()
-            # Same-answer override: if LLM says wrong but corrected matches the answer
-            if not acceptable and _norm_for_compare(answer) == _norm_for_compare(corrected):
-                acceptable = True
-                note = ""
-            feedback = _build_feedback(acceptable, corrected, note, target_lang)
+    llm_result = await _drill_call(
+        build_lesson_drill_judge_prompt(
+            target_lang, construction, phrase, answer, reference,
+            level=level,
+        ), api_key, model,
+    )
+    if not llm_result:
+        feedback = None
     else:
-        # Didn't match expected — ask LLM if it's an acceptable alternative
-        llm_result = await _drill_call(
-            build_lesson_drill_judge_prompt(
-                target_lang, construction, phrase, answer, expected,
-                level=level,
-            ), api_key, model,
-        )
-        if not llm_result or not (llm_result.get("corrected") or "").strip():
-            # LLM failed — return None so client shows "couldn't check"
-            feedback = None
-        else:
-            acceptable = bool(llm_result.get("acceptable"))
-            corrected = (llm_result.get("corrected") or "").strip()
-            note = (llm_result.get("note") or "").strip()
-            # Same-answer override
-            if not acceptable and _norm_for_compare(answer) == _norm_for_compare(corrected):
-                acceptable = True
-                note = ""
-            if not acceptable and not corrected:
-                corrected = expected
-            feedback = _build_feedback(acceptable, corrected, note, target_lang)
+        correct = bool(llm_result.get("correct", llm_result.get("acceptable")))
+        corrected = (llm_result.get("corrected") or "").strip()
+        alt = (llm_result.get("alt") or "").strip()
+        note = (llm_result.get("note") or "").strip()
+        if not correct and _norm_for_compare(answer) == _norm_for_compare(corrected):
+            correct = True
+            note = ""
+        if not correct and not corrected:
+            corrected = reference
+        feedback = _build_feedback(correct, corrected, note, target_lang, alt)
 
     # Next phrase from the plan
     next_phrase = ""

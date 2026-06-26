@@ -258,6 +258,7 @@
     .cd-hist-you.struck { text-decoration: line-through; text-decoration-color: var(--again); }
     .cd-hist-ans { font-family: var(--script-font, inherit); font-weight: 600; color: var(--good-strong); line-height: 2; }
     .cd-hist-ans ruby { line-height: 1; }
+    .cd-hist-alt { font-size: 0.88rem; font-weight: 500; color: var(--text-secondary); }
     .cd-hist-note { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin-top: 2px; }
     /* Current-turn prompt + feedback */
     .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: break-word; }
@@ -1300,7 +1301,7 @@
       render(ex, root, lang, onDone) {
         const construction = (ex.construction || ex.skill || '').trim();
         let maxTurns = 4;
-        let planItems = [];      // [{english, expected}] — the drill plan with answers
+        let planItems = [];      // [{english, target}] — drill plan with reference translations
         let turn = 0, busy = false;
         let currentPhrase = null, lastFeedback = null, lastAnswer = null;
         root.innerHTML = `<div class="cd-wrap">
@@ -1384,6 +1385,10 @@
               const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
               inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
             }
+            if (fb && fb.alt && ok) {
+              const altRom = (fb.alt_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.alt_roman)}</span>` : '';
+              inner += `<div class="cd-hist-ans cd-hist-alt">${targetSpan(fb.alt, lang)}${altRom}</div>`;
+            }
             if (fb && fb.note) inner += `<div class="cd-hist-note">${esc(fb.note)}</div>`;
           }
           item.innerHTML = inner;
@@ -1423,9 +1428,13 @@
           const ansRow = (!fb.correct || flawed)
             ? `<div class="cd-fb-ans"><span class="cd-fb-tag">${flawed ? 'Should be' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
             : '';
+          const altRom = (fb.alt_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.alt_roman)}</span>` : '';
+          const altRow = (fb.alt && fb.correct)
+            ? `<div class="cd-fb-ans cd-fb-alt"><span class="cd-fb-tag">Using ${esc(construction)}</span><span class="cd-fb-anstext">${targetSpan(fb.alt, lang)}${altRom}</span></div>`
+            : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
               <div class="cd-fb-head">${fb.correct ? (flawed ? 'Almost!' : 'Correct!') : 'Not quite'}</div>
-              ${youRow}${ansRow}
+              ${youRow}${ansRow}${altRow}
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
           scrollEl.scrollTop = scrollEl.scrollHeight;

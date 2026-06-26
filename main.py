@@ -3538,7 +3538,7 @@ async def tutor_end_drill(conv_id: int, user: dict = Depends(current_user)):
 
 class LessonDrillRequest(BaseModel):
     construction: str
-    plan_items: list[dict] = []   # [{english, expected}] — the drill plan with answers
+    plan_items: list[dict] = []   # [{english, target}] — the drill plan with reference translations
     answer: str | None = None
     turn: int = 1
     lang: str | None = None
@@ -3565,7 +3565,7 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
     try:
         out = await tutor.run_lesson_drill(
             lang, construction, answer=answer, plan_items=req.plan_items,
-            api_key=access.api_key, model=translation.DEFAULT_MODEL,
+            api_key=access.api_key,
             level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
         )
     except Exception as e:
