@@ -581,13 +581,25 @@ SCRIPT_BY_LANG = {
 }
 
 
-def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
+def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
+          *, thinking_budget: int | None = None) -> str:
+    """Single Gemini text call with 503 backoff. Pass `thinking_budget=0` to turn
+    OFF the 2.5 models' built-in 'thinking' pass — a big latency win for focused,
+    low-reasoning calls (e.g. the flashcard Q&A pop-over) where it adds seconds
+    without improving the answer."""
+    config = None
+    if thinking_budget is not None:
+        from google.genai import types as _types
+        config = _types.GenerateContentConfig(
+            thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
+        )
     delays = [1, 3]
     for attempt, delay in enumerate([0] + delays):
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(model=model, contents=prompt).text.strip()
+            return _get_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config).text.strip()
         except ServerError as e:
             if e.status_code == 503 and attempt < len(delays):
                 continue
@@ -1623,6 +1635,47 @@ async def translate(
     prompt = _build_prompt(text, target_lang, source_is_target, context)
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     return _parse_response(raw, text, source_is_target)
+
+
+async def regenerate_card_fields(
+    target_text: str, source_text: str, target_lang: str, *,
+    api_key: str, model: str = DEFAULT_MODEL,
+) -> dict:
+    """Re-author the AI-generated fields for an EXISTING card (the 🔄 refresh
+    button on the flashcard editor). Returns {notes, romanization}. The note is a
+    fresh learner-insight note from the model; romanization is always recomputed by
+    the offline oracle (never the model) so it stays consistent with the ruby."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    rules = info.get("rules", "")
+    rules_block = f"Language notes:\n{rules}\n" if rules else ""
+
+    prompt = (
+        f"You are helping a learner of {name}. Write a fresh, concise learner's NOTE for "
+        f"this flashcard.\n"
+        f"{rules_block}"
+        f'{name} word/phrase: {target_text}\n'
+        f'English meaning: {source_text}\n\n'
+        f"NOTES guidance: 1–2 sentences of genuine insight. Do NOT restate what the meaning "
+        f"already makes obvious. Focus on register/formality, common collocations, pitfalls for "
+        f"English speakers, cultural context, or a genuine etymology/mnemonic hook. Use an empty "
+        f"string if there is truly nothing non-obvious to add.\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{ "notes": "<your note, or empty string>" }'
+    )
+    notes = ""
+    try:
+        raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        if isinstance(raw, dict):
+            notes = (raw.get("notes") or "").strip()
+    except (ValueError, TypeError):
+        notes = ""
+
+    import tokenizer
+    romanization = tokenizer.romanize_text(target_text, target_lang) or ""
+    return {"notes": notes, "romanization": romanization}
 
 
 async def translate_message(text: str, source_lang: str, target_lang: str, *, api_key: str) -> dict:

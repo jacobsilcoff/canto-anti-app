@@ -2102,6 +2102,28 @@ async def delete_card(card_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+@app.post("/api/cards/{card_id}/regenerate")
+@limiter.limit("60/minute;1000/day")
+async def regenerate_card(request: Request, card_id: int, user: dict = Depends(current_user)):
+    """Re-author the AI fields (notes + romanization) for an existing card. Returns
+    the fresh values WITHOUT persisting — the editor fills them in so the learner
+    can review and Save. 1 metered call."""
+    card = await db.get_card(user["id"], card_id)
+    if not card:
+        raise HTTPException(404, "Card not found")
+    access = await _resolve_gemini(user)
+    try:
+        out = await translation.regenerate_card_fields(
+            card["target_text"], card.get("source_text", ""),
+            card.get("target_lang", "yue"),
+            api_key=access.api_key, model=access.model_translate,
+        )
+    except Exception as e:
+        logger.error("Card regenerate failed card=%s: %s", card_id, e, exc_info=True)
+        raise HTTPException(502, "Couldn't regenerate — please try again.")
+    return out
+
+
 class PriorityRequest(BaseModel):
     priority: int
 

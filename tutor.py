@@ -294,10 +294,14 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
     raw_cu = parsed.get("card_updates")
     if isinstance(raw_cu, dict):
         cu: dict[str, str] = {}
-        for field in ("notes", "romanization", "source_text"):
+        for field in ("notes_append", "notes", "romanization", "source_text"):
             val = (raw_cu.get(field) or "").strip()
             if val:
                 cu[field] = val[:600]
+        # `notes_append` (additive) wins over `notes` (replace) if the model sent
+        # both — never wipe the learner's existing notes when an append was offered.
+        if "notes_append" in cu:
+            cu.pop("notes", None)
         if cu:
             card_updates = cu
 
@@ -307,13 +311,16 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
 
 
 async def _run(prompt: str, target_lang: str, *, api_key: str, model: str,
-               user_msg: str = "", known_texts: set[str] | None = None) -> dict:
+               user_msg: str = "", known_texts: set[str] | None = None,
+               thinking_budget: int | None = None) -> dict:
     """Call the model, parse JSON (one retry), normalize. Never hard-fails: a
-    malformed side-channel degrades to a plain-text reply."""
+    malformed side-channel degrades to a plain-text reply. Pass `thinking_budget=0`
+    to disable the model's thinking pass (faster, for low-reasoning Q&A)."""
     raw = ""
     parsed = None
     for _ in range(2):                       # one retry on malformed JSON
-        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+        raw = await asyncio.to_thread(
+            lambda: _call(prompt, api_key, model, thinking_budget=thinking_budget))
         try:
             parsed = _parse_json(raw)
             break
@@ -411,10 +418,12 @@ def build_card_ask_prompt(
         f"{_lang_preamble(info)}"
         f"── HOW TO ANSWER ──\n"
         f"• ANSWER THE QUESTION the learner actually asked — directly, clearly, concisely. "
-        f"Write your EXPLANATION in ENGLISH (this is study help, NOT conversation practice — "
-        f"the learner is decoding a card and needs to understand). Write only the actual "
-        f"{name} words and example sentences in {name} script, each followed by its "
-        f"romanization and a short English gloss in parentheses.\n"
+        f"This is study help, NOT conversation practice — the learner is decoding a card and "
+        f"needs to UNDERSTAND, so do NOT reply in {name}. Write your EXPLANATION in the SAME "
+        f"language the learner asked their question in (English by default; if they wrote their "
+        f"question in another language, answer in that language). The ONLY {name} that appears "
+        f"in your reply is the actual {name} words and example sentences, each followed by its "
+        f"romanization and a short gloss in parentheses.\n"
         f"• Be concrete and useful: explain the underlying RULE or pattern (not just this one "
         f"instance), give 1–2 SHORT example sentences in {name}, and mention a closely related "
         f"word, contrast, or memory/etymology hook when it genuinely helps.\n"
@@ -425,18 +434,22 @@ def build_card_ask_prompt(
         f"• Keep it focused — a few sentences, not an essay.\n\n"
         f"── SUGGESTING CARD UPDATES ──\n"
         f"You can suggest changes to THIS flashcard via `card_updates`. Be PROACTIVE — if your "
-        f"explanation would help the learner remember, put it in the notes! Specifically:\n"
+        f"explanation would help the learner remember, offer to save it to the card. Notes are "
+        f"ADDITIVE by default — prefer `notes_append` (a short snippet ADDED to the existing "
+        f"notes) over `notes` (which REPLACES them entirely). Specifically:\n"
         f"• When the learner asks about the card, asks to break it down, asks why something "
-        f"works a certain way, or asks for a mnemonic → ALWAYS suggest a `notes` update that "
-        f"captures the key insight in a concise note they'll see next time they review.\n"
-        f"• When the learner asks to update the card or add a note → ALWAYS include card_updates.\n"
+        f"works a certain way, or asks for a mnemonic → suggest a `notes_append` snippet that "
+        f"captures the key insight, so it's added to whatever notes are already there.\n"
+        f"• When the learner asks to update the card or add a note → ALWAYS include card_updates "
+        f"(use `notes_append` unless they explicitly want to rewrite/replace the note).\n"
+        f"• Use `notes` (full replacement) ONLY when the existing notes contain an actual ERROR "
+        f"worth removing, or the learner explicitly asks to rewrite them. Otherwise NEVER send "
+        f"`notes` — append instead, so you don't wipe what's already there.\n"
         f"• When you spot wrong/missing romanization → suggest `romanization` fix.\n"
         f"• When the translation is wrong or misleading → suggest `source_text` fix.\n"
-        f"• When existing notes are empty or sparse and your explanation adds real value → "
-        f"suggest enriched `notes` (etymology, mnemonic, usage tip, component breakdown).\n"
-        f"The notes field should be concise (a helpful reminder, not an essay). If the card "
-        f"already has good notes and the learner isn't asking about anything note-worthy, "
-        f"then omit card_updates (null).\n\n"
+        f"Keep the note snippet concise (a helpful reminder, not an essay). If the card already "
+        f"covers everything and the learner isn't asking about anything note-worthy, omit "
+        f"card_updates (null).\n\n"
         f"{profile}{deck}{_card_block(card, name)}"
         f"{_history_block(history or [])}"
         f"Learner's question: {question.strip()}\n\n"
@@ -444,12 +457,12 @@ def build_card_ask_prompt(
         '{\n'
         f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}],\n'
-        '  "card_updates": {"notes":"<concise note for the card>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
+        '  "card_updates": {"notes_append":"<short note to ADD to existing notes>","notes":"<full replacement, ONLY to fix an error>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
         '}\n'
         'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
-        'the learner\'s known-words list. card_updates: include only the fields you want to change '
-        '(notes and/or romanization and/or source_text). Omit card_updates entirely (or null) only '
-        'when there is genuinely nothing useful to add to the card.'
+        'the learner\'s known-words list. card_updates: include only the fields you want to change. '
+        'Prefer `notes_append` over `notes`; send at most ONE of them (never both). Omit '
+        'card_updates entirely (or null) when there is genuinely nothing useful to add to the card.'
     )
 
 
@@ -475,8 +488,10 @@ async def ask_about_card(
         level=level, learner_profile=learner_profile, known_words=known_words,
     )
     known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+    # Study Q&A is factual/low-reasoning — disable the thinking pass so the
+    # pop-over answers in ~1–2s instead of stalling for several seconds.
     return await _run(prompt, target_lang, api_key=api_key, model=model,
-                      user_msg=question, known_texts=known_texts)
+                      user_msg=question, known_texts=known_texts, thinking_budget=0)
 
 
 def build_drill_prompt(

@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 12;
+  var TOUR_VERSION = 13;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -35,6 +35,8 @@
       body: 'Now supporting Turkish, Dutch, Polish, Swedish, Norwegian, Romanian, Ukrainian, Greek, Thai, and Hebrew — with native fonts, audio, romanization, and optional script reading tracks for non-Latin scripts.', v: 11 },
     { icon: '🎮', title: 'Mini-games in reading lessons',
       body: 'Script reading lessons now end with a bonus mini-game: speed rounds with a countdown timer, audio blitz challenges, or memory match. Build combos and earn XP while mastering characters!', v: 12 },
+    { icon: '🃏', title: 'Edit cards & ask the tutor',
+      body: 'Editing a flashcard now has a Delete button and a 🔄 Regenerate AI note button. The 💬 Ask tutor pop-over is faster and answers in English (or whatever language you ask in), and its note suggestions add to your existing notes instead of replacing them.', v: 13 },
   ];
 
   var steps, stepIdx;

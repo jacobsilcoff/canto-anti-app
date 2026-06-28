@@ -220,6 +220,28 @@
       padding-top: 4px;
     }
     .card-inline-edit .edit-input { font-size: 1rem; }
+    .edit-regen-btn {
+      align-self: flex-start;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px; margin-top: -4px;
+      border-radius: 6px; border: 1px solid var(--border);
+      background: var(--surface-alt); color: var(--text-muted);
+      font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .edit-regen-btn:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+    .edit-regen-btn:disabled { opacity: 0.55; cursor: default; }
+    .edit-regen-btn.spin svg { animation: edit-regen-spin 0.8s linear infinite; }
+    @keyframes edit-regen-spin { to { transform: rotate(360deg); } }
+    .edit-delete-btn {
+      margin-left: auto;
+      padding: 5px 14px; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--danger); background: transparent; color: var(--danger);
+      transition: background 0.15s;
+    }
+    .edit-delete-btn:hover { background: var(--danger-soft); }
+    .edit-delete-btn:disabled { opacity: 0.55; cursor: default; }
 
     .lang-tag {
       display: inline-block;
@@ -521,6 +543,10 @@
         <input class="edit-input" id="inline-target" placeholder="Target" style="font-size:1.1rem">
         <input class="edit-input" id="inline-roman" placeholder="Romanization">
         <textarea class="edit-input" id="inline-notes" placeholder="Notes (optional)" rows="2"></textarea>
+        <button class="edit-regen-btn" id="inline-regen-btn" onclick="regenerateAiFields()" title="Regenerate the AI-written note (and romanization) for this card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <span>Regenerate AI note</span>
+        </button>
         <div class="inline-labels-section">
           <div class="inline-labels-title">Labels</div>
           <div id="inline-label-picker"></div>
@@ -528,6 +554,7 @@
         <div class="edit-actions">
           <button class="edit-save-btn" onclick="saveInlineEdit()">Save</button>
           <button class="edit-cancel-btn" onclick="cancelInlineEdit()">Cancel</button>
+          <button class="edit-delete-btn" onclick="deleteInlineCard()" title="Delete this card from your deck">Delete</button>
         </div>
       </div>
       <button class="ask-fab" id="ask-tutor-btn" onclick="openAskTutor()" title="Ask the tutor about this card">
@@ -1848,6 +1875,71 @@
     finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
 
+  async function regenerateAiFields() {
+    const item = queue[idx];
+    if (!item) return;
+    const btn = document.getElementById('inline-regen-btn');
+    const label = btn.querySelector('span');
+    btn.disabled = true; btn.classList.add('spin'); label.textContent = 'Regenerating…';
+    try {
+      const res = await fetch(`/api/cards/${item.card_id}/regenerate`, { method: 'POST' });
+      if (res.status === 402 || res.status === 429) {
+        showToast(res.status === 402
+          ? "You've hit your AI usage limit — add your own API key in Settings."
+          : 'Too many requests — try again shortly.');
+        label.textContent = 'Regenerate AI note';
+        return;
+      }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (typeof data.notes === 'string') document.getElementById('inline-notes').value = data.notes;
+      const romanEl = document.getElementById('inline-roman');
+      if (data.romanization && romanEl.style.display !== 'none') romanEl.value = data.romanization;
+      label.textContent = '✓ Regenerated · review & Save';
+      setTimeout(() => { label.textContent = 'Regenerate AI note'; }, 2600);
+    } catch {
+      showToast("Couldn't regenerate — try again.");
+      label.textContent = 'Regenerate AI note';
+    } finally {
+      btn.disabled = false; btn.classList.remove('spin');
+    }
+  }
+
+  async function deleteInlineCard() {
+    const item = queue[idx];
+    if (!item) return;
+    if (!confirm('Delete this card from your deck? This removes all its review faces and cannot be undone.')) return;
+    const btn = document.querySelector('#card-inline-edit .edit-delete-btn');
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    try {
+      const res = await fetch(`/api/cards/${item.card_id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      const delId = item.card_id;
+      // A card can sit in the queue multiple times (one entry per face / requeue).
+      // Drop them all; decrement idx for each removed entry BEFORE the cursor so it
+      // lands on the next card (the current entry at idx is removed but not counted,
+      // which makes the following card slide into idx).
+      let removedBefore = 0;
+      for (let i = queue.length - 1; i >= 0; i--) {
+        if (queue[i].card_id === delId) {
+          queue.splice(i, 1);
+          if (i < idx) removedBefore++;
+        }
+      }
+      idx -= removedBefore;
+      total = queue.length;
+      inlinePicker = null;
+      document.getElementById('card-inline-edit').style.display = 'none';
+      document.getElementById('prompt-text').style.display = '';
+      showToast('Card deleted.');
+      loadLabels();
+      showCard();
+    } catch {
+      showToast('Failed to delete.');
+      btn.disabled = false; btn.textContent = 'Delete';
+    }
+  }
+
   function cancelInlineEdit() {
     inlinePicker = null;
     document.getElementById('card-inline-edit').style.display  = 'none';
@@ -1978,7 +2070,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'ask-card-update';
     wrap.innerHTML = '<div class="ask-cu-title">Suggested card update</div>';
-    const labels = { notes: 'Notes', romanization: 'Romanization', source_text: 'Translation' };
+    const labels = { notes_append: 'Add to notes', notes: 'Replace notes', romanization: 'Romanization', source_text: 'Translation' };
     for (const [field, val] of Object.entries(updates)) {
       if (!val) continue;
       const row = document.createElement('div');
@@ -1999,11 +2091,21 @@
     const cardId = _askCard && _askCard.card_id;
     if (!cardId) return;
     btn.disabled = true; btn.textContent = 'Applying…';
+    // Notes are additive by default: `notes_append` is concatenated to whatever's
+    // already on the card; `notes` (replace) is only sent to fix an actual error.
+    const existingNotes = _askCard.notes || '';
+    let newNotes = existingNotes;
+    if (updates.notes_append) {
+      newNotes = existingNotes ? `${existingNotes}\n${updates.notes_append}` : updates.notes_append;
+    } else if (updates.notes !== undefined) {
+      newNotes = updates.notes;
+    }
+    const notesChanged = newNotes !== existingNotes;
     const merged = {
       source_text: updates.source_text || _askCard.source_text || '',
       target_text: _askCard.target_text || '',
       romanization: updates.romanization || _askCard.romanization || '',
-      notes: updates.notes !== undefined ? updates.notes : (_askCard.notes || ''),
+      notes: newNotes,
     };
     try {
       const res = await fetch(`/api/cards/${cardId}`, {
@@ -2014,12 +2116,12 @@
       btn.textContent = '✓ Applied';
       if (updates.source_text) _askCard.source_text = updates.source_text;
       if (updates.romanization) _askCard.romanization = updates.romanization;
-      if (updates.notes !== undefined) _askCard.notes = updates.notes;
+      if (notesChanged) _askCard.notes = newNotes;
       for (const q of queue) {
         if (q.card_id !== cardId) continue;
         if (updates.source_text) q.source_text = updates.source_text;
         if (updates.romanization) q.romanization = updates.romanization;
-        if (updates.notes !== undefined) q.notes = updates.notes;
+        if (notesChanged) q.notes = newNotes;
       }
       _refreshCardDisplay();
     } catch {
