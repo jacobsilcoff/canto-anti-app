@@ -3419,7 +3419,9 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
 
     access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
 
-    known_words = await db.get_known_words(user["id"], lang)
+    # A focused card Q&A doesn't need the whole deck for context — a smaller
+    # sample keeps the prompt (and so the latency) down.
+    known_words = await db.get_known_words(user["id"], lang, limit=40)
     learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
     course = await db.get_active_course(user["id"], lang)
     level = (course.get("level") or "A1") if course else "A1"
@@ -3440,7 +3442,10 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
     try:
         out = await tutor.ask_about_card(
             lang, question, card, history,
-            api_key=access.api_key, model=tutor.TUTOR_MODEL,
+            # Use the fast reader model (flash-lite), not the heavier chat model —
+            # a card explanation is low-reasoning, so the cheaper/faster model is
+            # plenty and shaves another chunk off the response time.
+            api_key=access.api_key, model=access.model_reader,
             level=level, learner_profile=learner_profile, known_words=known_words,
         )
     except Exception as e:
