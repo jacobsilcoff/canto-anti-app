@@ -23,7 +23,7 @@ import logging
 import embeddings
 import tokenizer
 from learning import _lang_preamble, _registry_block, _word_list_block
-from translation import LANG_INFO, _call, _parse_json
+from translation import LANG_INFO, _call, _call_stream, _parse_json
 
 logger = logging.getLogger(__name__)
 
