@@ -462,6 +462,72 @@
     .add-fab-menu a:hover { background: var(--bg); }
     .add-fab-menu a + a { border-top: 1px solid var(--border); }
     .add-fab-menu svg { flex-shrink: 0; }
+
+    /* ── Translate / Community panels ── */
+    .panel-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg);
+      display: none; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-overlay.open { display: flex; }
+    .panel-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--surface);
+    }
+    .panel-bar-title { font-weight: 600; font-size: 1rem; flex: 1; }
+    .panel-back {
+      background: none; border: none; cursor: pointer; padding: 4px;
+      color: var(--text); display: flex; align-items: center;
+    }
+    .panel-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+
+    /* Translate panel */
+    .tr-input-wrap { position: relative; margin-bottom: 10px; }
+    .tr-input-wrap textarea { width: 100%; box-sizing: border-box; resize: none;
+      border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+      font-size: 0.95rem; background: var(--surface); color: var(--text);
+      font-family: inherit; min-height: 80px; }
+    .tr-input-wrap textarea:focus { outline: none; border-color: var(--primary); }
+    .tr-char { position: absolute; bottom: 8px; right: 12px; font-size: 0.75rem; color: var(--text-muted); }
+    .tr-btn { width: 100%; padding: 11px; border: none; border-radius: 10px;
+      background: var(--primary); color: #fff; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; margin-bottom: 12px; }
+    .tr-btn:disabled { opacity: 0.5; cursor: default; }
+    .tr-result { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+    .tr-target { font-size: 1.15rem; font-weight: 500; font-family: var(--script-font, inherit); }
+    .tr-roman { font-size: 0.88rem; color: var(--text-muted); font-style: italic; margin-top: 2px; }
+    .tr-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4;
+      border-left: 3px solid var(--primary); padding-left: 10px; }
+    .tr-saved { color: var(--good-strong); font-size: 0.85rem; font-weight: 600; margin-top: 8px; }
+    .tr-cand { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; cursor: pointer; margin-bottom: 8px; transition: border-color 0.15s; }
+    .tr-cand:hover { border-color: var(--primary); }
+    .tr-cand-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600; }
+    .tr-audio-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; cursor: pointer; color: var(--text); font-size: 0.85rem;
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
+
+    /* Community decks panel */
+    .cd-search { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: 10px; font-size: 0.92rem; background: var(--surface); color: var(--text);
+      margin-bottom: 12px; font-family: inherit; }
+    .cd-search:focus { outline: none; border-color: var(--primary); }
+    .cd-deck { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; margin-bottom: 10px; }
+    .cd-deck-name { font-weight: 600; font-size: 0.95rem; }
+    .cd-deck-meta { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+    .cd-deck-desc { font-size: 0.85rem; color: var(--text); margin-top: 6px; line-height: 1.4; }
+    .cd-import-btn { margin-top: 8px; padding: 7px 16px; border: none; border-radius: 8px;
+      background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; }
+    .cd-import-btn:disabled { opacity: 0.5; cursor: default; }
+    .cd-imported { color: var(--good-strong); font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .cd-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.92rem; }
+    .cd-rating { display: inline-flex; gap: 1px; color: var(--warn-accent); font-size: 0.82rem; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -497,7 +563,7 @@
     <div class="icon">📚</div>
     <h2 id="empty-title">No flashcards yet</h2>
     <p id="empty-msg">Translate a word on the home tab — it becomes a flashcard here automatically.</p>
-    <a href="/translate" class="cta-btn">Add your first word</a>
+    <a href="#" class="cta-btn" onclick="event.preventDefault();openTranslatePanel()">Add your first word</a>
     <p id="empty-how" style="font-size:0.82rem;color:var(--text-muted);margin-top:12px;max-width:280px;line-height:1.5">
       Each card has three faces: you'll see it from English, from the target language, and as a pronunciation challenge. Spaced repetition handles when each face comes back.
     </p>
@@ -520,7 +586,7 @@
     <h2>Session complete!</h2>
     <p id="done-msg"></p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:4px">
-      <a href="/translate" class="cta-btn">Translate More</a>
+      <a href="#" class="cta-btn" onclick="event.preventDefault();openTranslatePanel()">Translate More</a>
       <button class="cta-btn secondary" onclick="loadSession('all')">Practice More</button>
     </div>
     <div class="cefr-dist" id="cefr-dist-done"></div>
@@ -2277,6 +2343,14 @@
   })();
 
   document.addEventListener('keydown', e => {
+    if (document.getElementById('translate-panel').classList.contains('open')) {
+      if (e.key === 'Escape') closeTranslatePanel();
+      return;
+    }
+    if (document.getElementById('community-panel').classList.contains('open')) {
+      if (e.key === 'Escape') closeCommunityPanel();
+      return;
+    }
     if (document.getElementById('ask-overlay').classList.contains('open')) {
       if (e.key === 'Escape') closeAskTutor();
       return;
@@ -2320,22 +2394,60 @@
 
   document.addEventListener('langchange', function () {
     loadSession('due');
+    fetch('/api/settings').then(r => r.json()).then(s => { _trLang = s.default_target_lang || 'yue'; }).catch(() => {});
   });
 </script>
 <div class="xp-pop" id="xp-pop"></div>
 
-<button class="add-fab" id="add-fab" onclick="toggleAddMenu()" aria-label="Add vocabulary">+</button>
+<button class="add-fab" id="add-fab" onclick="toggleAddMenu()" aria-label="Add vocabulary">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
 <div class="add-fab-menu" id="add-fab-menu">
-  <a href="/translate">
+  <a href="#" onclick="event.preventDefault();openTranslatePanel()">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
     Translate
   </a>
-  <a href="/browse?tab=community">
+  <a href="#" onclick="event.preventDefault();openCommunityPanel()">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     Community Decks
   </a>
 </div>
+
+<!-- ── Translate panel ── -->
+<div class="panel-overlay" id="translate-panel">
+  <div class="panel-bar">
+    <button class="panel-back" onclick="closeTranslatePanel()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="panel-bar-title">Translate</span>
+  </div>
+  <div class="panel-body" id="tr-body">
+    <div class="tr-input-wrap">
+      <textarea id="tr-input" placeholder="Enter text…" rows="3" oninput="trOnInput()"></textarea>
+      <span class="tr-char" id="tr-char">0</span>
+    </div>
+    <button class="tr-btn" id="tr-btn" onclick="trDoTranslate()">Translate</button>
+    <div id="tr-candidates" style="display:none"></div>
+    <div id="tr-result" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── Community decks panel ── -->
+<div class="panel-overlay" id="community-panel">
+  <div class="panel-bar">
+    <button class="panel-back" onclick="closeCommunityPanel()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="panel-bar-title">Community Decks</span>
+  </div>
+  <div class="panel-body" id="cd-body">
+    <input class="cd-search" id="cd-search" placeholder="Search decks…" oninput="cdSearch()">
+    <div id="cd-list"></div>
+  </div>
+</div>
+
 <script>
+  // ── FAB menu ──
   function toggleAddMenu() {
     document.getElementById('add-fab-menu').classList.toggle('open');
   }
@@ -2343,6 +2455,220 @@
     if (!e.target.closest('.add-fab') && !e.target.closest('.add-fab-menu'))
       document.getElementById('add-fab-menu').classList.remove('open');
   });
+
+  // ── Translate panel ──
+  let _trLang = null;
+  let _trLastResult = null;
+  let _trCardId = null;
+  let _trAudioEl = null;
+
+  function _trLangInfo() {
+    if (!window._trLanguages) return null;
+    return window._trLanguages.find(l => l.code === _trLang) || null;
+  }
+
+  function openTranslatePanel() {
+    document.getElementById('add-fab-menu').classList.remove('open');
+    document.getElementById('add-fab').style.display = 'none';
+    const p = document.getElementById('translate-panel');
+    p.classList.add('open');
+    document.getElementById('tr-input').focus();
+    if (!window._trLanguages) {
+      fetch('/api/languages').then(r => r.json()).then(d => { window._trLanguages = d.languages || []; });
+    }
+    if (!_trLang) {
+      fetch('/api/settings').then(r => r.json()).then(s => { _trLang = s.default_target_lang || 'yue'; })
+        .catch(() => { _trLang = 'yue'; });
+    }
+  }
+
+  function closeTranslatePanel() {
+    document.getElementById('translate-panel').classList.remove('open');
+    document.getElementById('add-fab').style.display = '';
+    document.getElementById('tr-input').value = '';
+    document.getElementById('tr-char').textContent = '0';
+    document.getElementById('tr-candidates').style.display = 'none';
+    document.getElementById('tr-result').style.display = 'none';
+    _trLastResult = null; _trCardId = null;
+    if (_trAudioEl) { _trAudioEl.pause(); _trAudioEl = null; }
+  }
+
+  function trOnInput() {
+    document.getElementById('tr-char').textContent = document.getElementById('tr-input').value.length;
+  }
+
+  async function trDoTranslate() {
+    const text = document.getElementById('tr-input').value.trim();
+    if (!text) return;
+    const btn = document.getElementById('tr-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    document.getElementById('tr-candidates').style.display = 'none';
+    document.getElementById('tr-result').style.display = 'none';
+    _trLastResult = null; _trCardId = null;
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, target_lang: _trLang || 'yue' }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Translation failed'); }
+      _trLastResult = await res.json();
+      if ((_trLastResult.candidates || []).length > 1) {
+        _trRenderCandidates(_trLastResult.candidates);
+      } else if (_trLastResult.candidates && _trLastResult.candidates.length === 1) {
+        await _trChoose(0);
+      }
+    } catch (e) {
+      _trShowMsg(e.message || 'Translation failed — try again.');
+    } finally { btn.disabled = false; btn.textContent = 'Translate'; }
+  }
+
+  function _trRenderCandidates(cands) {
+    const wrap = document.getElementById('tr-candidates');
+    const li = _trLangInfo();
+    wrap.innerHTML = '<div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:6px">Did you mean…</div>';
+    cands.forEach((c, i) => {
+      const d = document.createElement('div');
+      d.className = 'tr-cand';
+      d.onclick = () => _trChoose(i);
+      if (c.label) d.innerHTML += `<div class="tr-cand-label">${_trEsc(c.label)}</div>`;
+      d.innerHTML += `<div class="tr-target">${_trEsc(c.target_text)}</div>`;
+      if (c.romanization && li && li.logographic) d.innerHTML += `<div class="tr-roman">${_trEsc(c.romanization)}</div>`;
+      d.innerHTML += `<div style="font-size:0.92rem">${_trEsc(c.english)}</div>`;
+      wrap.appendChild(d);
+    });
+    wrap.style.display = '';
+  }
+
+  async function _trChoose(idx) {
+    if (!_trLastResult) return;
+    const c = _trLastResult.candidates[idx];
+    const btn = document.getElementById('tr-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    document.getElementById('tr-candidates').style.display = 'none';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: c.english, target_text: c.target_text,
+          romanization: c.romanization || '', target_lang: _trLang || 'yue',
+          notes: c.notes || null, priority: _trLastResult.priority || 3,
+          suggested_labels: _trLastResult.suggested_labels || [],
+          classifier: _trLastResult.classifier || '',
+          cefr_level: _trLastResult.cefr_level || null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      _trCardId = data.card_id;
+      _trRenderResult(c);
+    } catch { _trShowMsg('Could not save card — try again.'); }
+    finally { btn.disabled = false; btn.textContent = 'Translate'; }
+  }
+
+  function _trRenderResult(c) {
+    const li = _trLangInfo();
+    const wrap = document.getElementById('tr-result');
+    let h = `<div class="tr-result"><div class="tr-target">${_trEsc(c.target_text)}</div>`;
+    if (c.romanization && li && li.logographic) h += `<div class="tr-roman">${_trEsc(c.romanization)}</div>`;
+    if (c.notes) h += `<div class="tr-note">${_trEsc(c.notes)}</div>`;
+    h += `<div class="tr-saved">✓ Added to flashcards</div>`;
+    if (_trCardId) h += `<button class="tr-audio-btn" onclick="trPlayAudio()"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Play</button>`;
+    h += '</div>';
+    wrap.innerHTML = h;
+    wrap.style.display = '';
+  }
+
+  function trPlayAudio() {
+    if (!_trCardId) return;
+    if (_trAudioEl && !_trAudioEl.paused) { _trAudioEl.pause(); return; }
+    _trAudioEl = new Audio('/api/audio/' + _trCardId);
+    _trAudioEl.play();
+  }
+
+  function _trShowMsg(msg) {
+    const wrap = document.getElementById('tr-result');
+    wrap.innerHTML = `<div style="color:var(--danger);font-size:0.9rem">${_trEsc(msg)}</div>`;
+    wrap.style.display = '';
+  }
+
+  function _trEsc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  document.getElementById('tr-input').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); trDoTranslate(); }
+  });
+
+  // ── Community decks panel ──
+  let _cdDebounce = null;
+  let _cdImported = new Set();
+
+  function openCommunityPanel() {
+    document.getElementById('add-fab-menu').classList.remove('open');
+    document.getElementById('add-fab').style.display = 'none';
+    document.getElementById('community-panel').classList.add('open');
+    _cdLoadDecks();
+  }
+
+  function closeCommunityPanel() {
+    document.getElementById('community-panel').classList.remove('open');
+    document.getElementById('add-fab').style.display = '';
+  }
+
+  function cdSearch() {
+    clearTimeout(_cdDebounce);
+    _cdDebounce = setTimeout(_cdLoadDecks, 300);
+  }
+
+  async function _cdLoadDecks() {
+    const q = (document.getElementById('cd-search').value || '').trim();
+    const list = document.getElementById('cd-list');
+    list.innerHTML = '<div class="cd-empty">Loading…</div>';
+    try {
+      let lang = '';
+      try { const s = await fetch('/api/settings').then(r => r.json()); lang = s.default_target_lang || ''; } catch {}
+      const params = new URLSearchParams();
+      if (q) params.set('search', q);
+      if (lang) params.set('lang', lang);
+      const res = await fetch('/api/decks/community' + (params.toString() ? '?' + params : ''));
+      const data = await res.json();
+      const decks = data.decks || [];
+      if (decks.length === 0) { list.innerHTML = '<div class="cd-empty">No community decks found.</div>'; return; }
+      list.innerHTML = '';
+      decks.forEach(d => {
+        const el = document.createElement('div');
+        el.className = 'cd-deck';
+        let meta = (d.creator_name || 'Unknown') + ' · ' + (d.item_count || 0) + ' cards';
+        if (d.target_lang) {
+          const li = (window._trLanguages || []).find(l => l.code === d.target_lang);
+          if (li) meta += ' · ' + (li.flag || '') + ' ' + li.name;
+        }
+        let rating = '';
+        if (d.avg_rating) rating = `<span class="cd-rating">${'★'.repeat(Math.round(d.avg_rating))}${'☆'.repeat(5 - Math.round(d.avg_rating))}</span>`;
+        el.innerHTML = `<div class="cd-deck-name">${_trEsc(d.name)}${rating}</div>
+          <div class="cd-deck-meta">${_trEsc(meta)}</div>
+          ${d.description ? '<div class="cd-deck-desc">' + _trEsc(d.description) + '</div>' : ''}`;
+        if (d.already_imported || _cdImported.has(d.id)) {
+          el.innerHTML += '<div class="cd-imported">✓ Already imported</div>';
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'cd-import-btn';
+          btn.textContent = 'Import Deck';
+          btn.onclick = async () => {
+            btn.disabled = true; btn.textContent = 'Importing…';
+            try {
+              const r = await fetch('/api/decks/' + d.id + '/import', { method: 'POST' });
+              if (!r.ok) throw new Error();
+              _cdImported.add(d.id);
+              btn.replaceWith(Object.assign(document.createElement('div'), { className: 'cd-imported', textContent: '✓ Imported!' }));
+            } catch { btn.disabled = false; btn.textContent = 'Import Deck'; }
+          };
+          el.appendChild(btn);
+        }
+        list.appendChild(el);
+      });
+    } catch {
+      list.innerHTML = '<div class="cd-empty">Failed to load decks.</div>';
+    }
+  }
 </script>
 </body>
 </html>

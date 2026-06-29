@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 14;
+  var TOUR_VERSION = 13;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -33,12 +33,8 @@
       body: 'New optional reading foundations for Japanese (hiragana & katakana), Russian (Cyrillic), Bengali, Arabic, Urdu, and Farsi. Learn to read the script before diving into vocabulary — available in the Learn tab.', v: 10 },
     { icon: '🌐', title: '10 more languages',
       body: 'Now supporting Turkish, Dutch, Polish, Swedish, Norwegian, Romanian, Ukrainian, Greek, Thai, and Hebrew — with native fonts, audio, romanization, and optional script reading tracks for non-Latin scripts.', v: 11 },
-    { icon: '🎮', title: 'Mini-games in reading lessons',
-      body: 'Script reading lessons now end with a bonus mini-game: speed rounds with a countdown timer, audio blitz challenges, or memory match. Build combos and earn XP while mastering characters!', v: 12 },
-    { icon: '🃏', title: 'Edit cards & ask the tutor',
-      body: 'Editing a flashcard now has a Delete button and a 🔄 Regenerate AI note button. The 💬 Ask tutor pop-over is faster and answers in English (or whatever language you ask in), and its note suggestions add to your existing notes instead of replacing them.', v: 13 },
     { icon: '🏠', title: 'Flashcards are now home',
-      body: 'Your flashcard deck is now the home page. To add new words, tap the + button (bottom-right) — choose Translate or browse Community Decks.', v: 14 },
+      body: 'Your deck is the home page now. Tap the + button to translate words or browse community decks — no page reload. Lessons have bonus mini-games, and the flashcard tutor is smarter.', v: 13 },
   ];
 
   var steps, stepIdx;

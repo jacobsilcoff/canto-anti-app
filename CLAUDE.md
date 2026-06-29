@@ -95,7 +95,7 @@ Admin-only page showing KPI tiles + drill-down sections. `GET /api/admin/dashboa
 
 ### Page routing
 
-`/` (home) = flashcards study page (`cards.html`). The translate page lives at `/translate` (`index.html`). `/cards` is kept as an alias (serves the same `cards.html`). The nav has no "Add Vocab" link — instead the flashcards page has a **+** FAB (bottom-right) with a dropdown: "Translate" → `/translate`, "Community Decks" → `/browse?tab=community`. The `browse.html` init reads `?tab=` from the URL to open the right tab.
+`/` (home) = flashcards study page (`cards.html`). The translate page lives at `/translate` (`index.html`). `/cards` is kept as an alias (serves the same `cards.html`). The nav has no "Add Vocab" link — instead the flashcards page has a **+** FAB (bottom-right) with a dropdown: "Translate" and "Community Decks", both opening as **inline full-screen panels** (no page navigation). The translate panel (`.panel-overlay#translate-panel`) embeds a simplified translate flow (input → translate → save card → play audio) using the same `/api/translate` and `/api/cards` endpoints. The community decks panel (`#community-panel`) lists decks from `/api/decks/community` with one-tap import. Both panels hide the FAB and close with a back button or Escape. The `browse.html` init also reads `?tab=` from the URL to open the right tab (for deep links from elsewhere).
 
 ### Auth & sessions
 
@@ -226,7 +226,7 @@ Ideas and backlog live in [`IDEAS.md`](IDEAS.md). These are **standing rules** �
 - **New ideas that come up** (even incidentally) → add to `IDEAS.md` with a complexity/cost estimate.
 - **Whenever a feature ships** → move it to the `## ✅ Shipped` section at the top of `IDEAS.md` with a one-line summary. Do this every time, as part of finishing the work.
 - **Keep this file (`CLAUDE.md`) current** → when a change alters the architecture, schema, language registry, or a documented convention here, update the relevant section in the same change so this file never drifts from the code.
-- **Keep the onboarding tour current** → when a user-facing feature is added or significantly changed, add a step to the `STEPS` array in `static/tour.js` with `v` set to the current `TOUR_VERSION`, then bump `TOUR_VERSION`. Each step has `{icon, title, body, v}`. The tour auto-shows on every page; returning users see only the new steps (headed "What's new"), new users see all steps.
+- **Keep the onboarding tour current** → when a user-facing feature is added or significantly changed, add a step to the `STEPS` array in `static/tour.js` with `v` set to the current `TOUR_VERSION`, then bump `TOUR_VERSION`. Each step has `{icon, title, body, v}`. The tour auto-shows on every page; returning users see only the new steps (headed "What's new"), new users see all steps. **Keep steps lean**: consolidate related changes into a single step rather than adding one per small tweak — users care about what they can do, not implementation details. Before merging to main, consider folding recent dev-branch steps into fewer, punchier entries.
 
 ## Code Conventions
 
