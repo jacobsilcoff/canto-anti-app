@@ -628,7 +628,13 @@ async def _call_stream(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
             stream = _get_client(api_key).models.generate_content_stream(
                 model=model, contents=prompt, config=config)
             for chunk in stream:
-                text = getattr(chunk, "text", None)
+                # `.text` can RAISE (not just return None) on some SDK versions
+                # for non-text/thought/empty chunks — guard it so one odd chunk
+                # (often the trailing usage-metadata one) can't abort the stream.
+                try:
+                    text = chunk.text
+                except Exception:
+                    text = None
                 if text:
                     loop.call_soon_threadsafe(queue.put_nowait, text)
         except Exception as exc:                    # surfaced to the consumer

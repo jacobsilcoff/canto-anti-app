@@ -619,73 +619,92 @@ async def stream_card_ask(
     in_meta = False
     hold = max(len(t) for t in stop_tokens) - 1
 
-    async for chunk in _call_stream(prompt, api_key, model, thinking_budget=0):
-        if mode == "json":
-            json_buf += chunk
-            continue
-        if in_meta:
-            meta_buf += chunk
-            continue
-        pending += chunk
-        if mode is None:                       # decide prose vs JSON-fallback
-            stripped = pending.lstrip()
-            if not stripped:
+    stream_err = None
+    try:
+        async for chunk in _call_stream(prompt, api_key, model, thinking_budget=0):
+            if mode == "json":
+                json_buf += chunk
                 continue
-            if stripped[0] == "{":
-                mode = "json"
-                json_buf = pending
+            if in_meta:
+                meta_buf += chunk
+                continue
+            pending += chunk
+            if mode is None:                       # decide prose vs JSON-fallback
+                stripped = pending.lstrip()
+                if not stripped:
+                    continue
+                if stripped[0] == "{":
+                    mode = "json"
+                    json_buf = pending
+                    pending = ""
+                    continue
+                mode = "prose"
+            # prose: stop at the earliest boundary token; emit everything ahead of it
+            i = _earliest_stop(pending)
+            if i != -1:
+                emit = pending[:i]
+                if emit:
+                    full_reply += emit
+                    yield _delta(emit)
+                meta_buf = pending[i:]             # keep the token; the extractor strips it
+                in_meta = True
                 pending = ""
                 continue
-            mode = "prose"
-        # prose: stop at the earliest boundary token; emit everything ahead of it
-        i = _earliest_stop(pending)
-        if i != -1:
-            emit = pending[:i]
-            if emit:
-                full_reply += emit
-                yield _delta(emit)
-            meta_buf = pending[i:]             # keep the token; the extractor strips it
-            in_meta = True
-            pending = ""
-            continue
-        if len(pending) > hold:                # hold back chars that could start a token
-            cut = len(pending) - hold
-            emit, pending = pending[:cut], pending[cut:]
-            if emit:
-                full_reply += emit
-                yield _delta(emit)
+            if len(pending) > hold:                # hold back chars that could start a token
+                cut = len(pending) - hold
+                emit, pending = pending[:cut], pending[cut:]
+                if emit:
+                    full_reply += emit
+                    yield _delta(emit)
+    except Exception as e:
+        # A mid/late stream failure must NOT discard an answer the learner already
+        # saw — capture it and finalize with whatever prose we have. Only re-raise
+        # (→ route emits an error event) if nothing usable streamed.
+        stream_err = e
+        logger.warning("card-ask stream interrupted: %s", e)
 
     # Stream ended — flush remaining prose (no boundary ever arrived).
     if mode != "json" and not in_meta and pending:
         full_reply += pending
         yield _delta(pending)
 
+    if stream_err is not None and not full_reply.strip() and not (mode == "json" and json_buf.strip()):
+        raise stream_err                            # genuine failure, no content
+
     # Parse the structured extras and normalize via the shared oracle path.
     extras = {}
-    if mode == "json":
-        try:
-            parsed = _parse_json(json_buf)
-        except (ValueError, TypeError):
+    try:
+        if mode == "json":
             parsed = None
-        if isinstance(parsed, dict):
-            reply = (parsed.get("reply") or "").strip()
-            if reply:
-                full_reply = reply
-                yield _delta(reply)
-            extras = parsed
-    else:
-        extras = _extract_card_ask_extras(meta_buf)
+            try:
+                parsed = _parse_json(json_buf)
+            except (ValueError, TypeError):
+                parsed = None
+            if isinstance(parsed, dict):
+                reply = (parsed.get("reply") or "").strip()
+                if reply:
+                    full_reply = reply
+                    yield _delta(reply)
+                extras = parsed
+        else:
+            extras = _extract_card_ask_extras(meta_buf)
+    except Exception as e:
+        logger.warning("card-ask extras parse failed: %s", e)
+        extras = {}
 
     full_reply = full_reply.strip()
-    norm = _normalize(
-        {"reply": full_reply, "new_items": extras.get("new_items"),
-         "card_updates": extras.get("card_updates")},
-        target_lang, raw=full_reply, user_msg=question, known_texts=known_texts,
-    )
-    yield json.dumps(
-        {"type": "final", "reply": norm["reply"],
-         "new_items": norm["new_items"], "card_updates": norm["card_updates"]},
-        ensure_ascii=False) + "\n"
+    try:
+        norm = _normalize(
+            {"reply": full_reply, "new_items": extras.get("new_items"),
+             "card_updates": extras.get("card_updates")},
+            target_lang, raw=full_reply, user_msg=question, known_texts=known_texts,
+        )
+        final = {"type": "final", "reply": norm["reply"],
+                 "new_items": norm["new_items"], "card_updates": norm["card_updates"]}
+    except Exception as e:                           # never fail the answer over extras
+        logger.warning("card-ask normalize failed: %s", e)
+        final = {"type": "final", "reply": full_reply, "new_items": [], "card_updates": None}
+    yield json.dumps(final, ensure_ascii=False) + "\n"
 
 
 def build_drill_prompt(
