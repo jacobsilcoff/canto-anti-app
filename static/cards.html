@@ -2213,6 +2213,12 @@
           }
         }
       }
+      if (finalMsg && finalMsg.reply) {
+        // The server sends the cleaned reply (any stray field labels stripped) —
+        // replace the streamed text so the bubble never shows meta junk.
+        replyText = finalMsg.reply;
+        span.textContent = replyText;
+      }
       if (!replyText && !errored) span.textContent = '…';
       if (finalMsg) {
         _askRenderNewItems(b, finalMsg.new_items);

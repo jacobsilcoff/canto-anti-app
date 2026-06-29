@@ -472,16 +472,19 @@ def build_card_ask_prompt(
         # token-by-token), THEN a sentinel, THEN a single JSON object with the
         # structured extras only (parsed server-side after the stream finishes).
         return base + (
-            f"FORMAT — follow EXACTLY:\n"
-            f"1. First, write your answer to the learner as plain prose (no JSON, no markdown "
-            f"headings). English explanation, {name} examples in {name} script with romanization "
-            f"+ gloss in parentheses.\n"
-            f"2. Then, on its OWN line, output this exact marker: {STREAM_META}\n"
-            f"3. Then a SINGLE JSON object with the extras (use {{}} if there are none):\n"
+            f"OUTPUT FORMAT — follow it EXACTLY, in this order:\n"
+            f"1. Your answer to the learner as plain prose ONLY (no JSON, no markdown headings, "
+            f"no field labels). English explanation, {name} examples in {name} script with "
+            f"romanization + gloss in parentheses. This is the ONLY part the learner reads.\n"
+            f"2. Then the marker on its own line — exactly: {STREAM_META}\n"
+            f"3. Then ONE JSON object and nothing after it (use {STREAM_META} followed by {{}} if "
+            f"there are no extras):\n"
             '   {"new_items": [{"target_text":"<native>","english":"<gloss>","notes":"<usage, optional>"}],'
             ' "card_updates": {"notes_append":"<short note to ADD>","notes":"<replacement, ONLY to fix an error>",'
             '"romanization":"<fixed>","source_text":"<fixed translation>"}}\n'
-            f"Nothing after the JSON. {extras_note}"
+            f"CRITICAL: never write the words \"new_items\" or \"card_updates\" in the prose part — "
+            f"they appear ONLY inside the JSON after {STREAM_META}. Do not label or announce the "
+            f"JSON; just output the marker then the object. {extras_note}"
         )
 
     return base + (
@@ -523,6 +526,42 @@ async def ask_about_card(
                       user_msg=question, known_texts=known_texts, thinking_budget=0)
 
 
+def _extract_card_ask_extras(text: str) -> dict:
+    """Tolerantly pull `new_items` / `card_updates` out of the streamed tail,
+    whatever shape the model used: the `<<<META>>>` + JSON contract, a bare JSON
+    object, or labelled `new_items: [...]` / `card_updates: {...}` blocks (the
+    common drift on weak models). Returns {} on anything unparseable."""
+    if not text:
+        return {}
+    t = text.replace(STREAM_META, " ").strip()
+    if not t:
+        return {}
+    # Best case: a single JSON object carrying the keys.
+    try:
+        parsed = _parse_json(t)
+        if isinstance(parsed, dict) and ("new_items" in parsed or "card_updates" in parsed):
+            return parsed
+    except (ValueError, TypeError):
+        pass
+    # Fallback: labelled blocks. Strip markdown emphasis/backticks first.
+    import re
+    cleaned = t.replace("*", "").replace("`", "")
+    out: dict = {}
+    m = re.search(r"new_items\s*[:=]?\s*(\[.*?\])", cleaned, re.S)
+    if m:
+        try:
+            out["new_items"] = json.loads(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    m = re.search(r"card_updates\s*[:=]?\s*(\{.*\})", cleaned, re.S)
+    if m:
+        try:
+            out["card_updates"] = json.loads(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    return out
+
+
 async def stream_card_ask(
     target_lang: str,
     question: str,
@@ -537,13 +576,16 @@ async def stream_card_ask(
 ):
     """Streaming variant of `ask_about_card`. Yields NDJSON event strings (each
     newline-terminated): `{"type":"delta","text":...}` for prose as it's generated,
-    then one `{"type":"final","new_items":[...],"card_updates":{...}}` once the
-    trailing JSON extras (after the STREAM_META marker) are parsed & normalized.
+    then one `{"type":"final","reply":...,"new_items":[...],"card_updates":{...}}`
+    with the cleaned reply + parsed/normalized extras.
 
-    The model is told to emit the prose answer first, then `STREAM_META`, then a
-    JSON object. We forward prose tokens live and buffer the JSON tail. If the
-    model ignores the format and returns a JSON object instead (leading `{`), we
-    fall back to buffering it whole, then emit its `reply` as one delta."""
+    The model is told to emit the prose answer first, then `STREAM_META`, then the
+    JSON extras. Weak models don't always emit the marker — they may instead print
+    the structured part as visible `new_items:` / `card_updates:` labels — so the
+    boundary detector ALSO stops at those bare label tokens, and the extractor
+    (`_extract_card_ask_extras`) tolerates marker / labelled / raw-JSON shapes.
+    The `final` event carries the cleaned `reply` so the client can replace any
+    stray label text that slipped through before the boundary was recognised."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = build_card_ask_prompt(
@@ -556,13 +598,26 @@ async def stream_card_ask(
     def _delta(text: str) -> str:
         return json.dumps({"type": "delta", "text": text}, ensure_ascii=False) + "\n"
 
+    # Tokens that mark the start of the structured tail. `new_items`/`card_updates`
+    # are extremely unlikely in a genuine prose answer about a flashcard, so we
+    # treat the earliest of them (or the real marker) as the prose/meta boundary.
+    stop_tokens = (STREAM_META, "new_items", "card_updates")
+
+    def _earliest_stop(s: str) -> int:
+        best = -1
+        for tok in stop_tokens:
+            i = s.find(tok)
+            if i != -1 and (best == -1 or i < best):
+                best = i
+        return best
+
     mode = None            # None=undecided, "prose", "json"
-    pending = ""           # un-emitted prose tail (may hold a partial marker)
+    pending = ""           # un-emitted prose tail (may hold a partial stop token)
     full_reply = ""
-    meta_buf = ""          # text after the marker (the JSON extras)
+    meta_buf = ""          # everything from the boundary onward (the extras)
     json_buf = ""          # whole-output buffer in the JSON fallback path
     in_meta = False
-    hold = len(STREAM_META) - 1
+    hold = max(len(t) for t in stop_tokens) - 1
 
     async for chunk in _call_stream(prompt, api_key, model, thinking_budget=0):
         if mode == "json":
@@ -582,25 +637,25 @@ async def stream_card_ask(
                 pending = ""
                 continue
             mode = "prose"
-        # prose: look for the marker; emit everything safely ahead of it
-        i = pending.find(STREAM_META)
+        # prose: stop at the earliest boundary token; emit everything ahead of it
+        i = _earliest_stop(pending)
         if i != -1:
             emit = pending[:i]
             if emit:
                 full_reply += emit
                 yield _delta(emit)
-            meta_buf = pending[i + len(STREAM_META):]
+            meta_buf = pending[i:]             # keep the token; the extractor strips it
             in_meta = True
             pending = ""
             continue
-        if len(pending) > hold:                # hold back chars that could start the marker
+        if len(pending) > hold:                # hold back chars that could start a token
             cut = len(pending) - hold
             emit, pending = pending[:cut], pending[cut:]
             if emit:
                 full_reply += emit
                 yield _delta(emit)
 
-    # Stream ended — flush remaining prose (no marker ever arrived).
+    # Stream ended — flush remaining prose (no boundary ever arrived).
     if mode != "json" and not in_meta and pending:
         full_reply += pending
         yield _delta(pending)
@@ -618,22 +673,18 @@ async def stream_card_ask(
                 full_reply = reply
                 yield _delta(reply)
             extras = parsed
-    elif meta_buf.strip():
-        try:
-            parsed = _parse_json(meta_buf)
-        except (ValueError, TypeError):
-            parsed = None
-        if isinstance(parsed, dict):
-            extras = parsed
+    else:
+        extras = _extract_card_ask_extras(meta_buf)
 
+    full_reply = full_reply.strip()
     norm = _normalize(
         {"reply": full_reply, "new_items": extras.get("new_items"),
          "card_updates": extras.get("card_updates")},
         target_lang, raw=full_reply, user_msg=question, known_texts=known_texts,
     )
     yield json.dumps(
-        {"type": "final", "new_items": norm["new_items"],
-         "card_updates": norm["card_updates"]},
+        {"type": "final", "reply": norm["reply"],
+         "new_items": norm["new_items"], "card_updates": norm["card_updates"]},
         ensure_ascii=False) + "\n"
 
 
