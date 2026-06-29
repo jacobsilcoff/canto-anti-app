@@ -212,6 +212,8 @@
     .ask-typing span:nth-child(2) { animation-delay: 0.2s; }
     .ask-typing span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes ask-blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
+    .ask-cursor { display: inline-block; width: 2px; height: 1em; background: var(--text-muted); margin-left: 1px; vertical-align: text-bottom; animation: ask-cursor-blink 0.6s steps(1) infinite; }
+    @keyframes ask-cursor-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     .card-inline-edit {
       display: none;
       flex-direction: column;
@@ -2180,10 +2182,9 @@
       }
       if (!res.ok || !res.body) throw new Error('ask failed');
 
-      // Swap the typing indicator for a live bubble; append prose as it streams.
-      typing.remove();
-      const b = _askBubble('tutor', '');
-      const span = b.querySelector('.ask-tgt');
+      // Keep the typing indicator until the first delta arrives, then swap to
+      // a live bubble with a blinking cursor so the user sees text streaming in.
+      let b = null, span = null, cursor = null;
       let replyText = '';
       let finalMsg = null;
       let errored = false;
@@ -2202,6 +2203,14 @@
           let evt;
           try { evt = JSON.parse(line); } catch { continue; }
           if (evt.type === 'delta') {
+            if (!b) {
+              typing.remove();
+              b = _askBubble('tutor', '');
+              span = b.querySelector('.ask-tgt');
+              cursor = document.createElement('span');
+              cursor.className = 'ask-cursor';
+              span.after(cursor);
+            }
             replyText += evt.text;
             span.textContent = replyText;
             thread.scrollTop = thread.scrollHeight;
@@ -2209,13 +2218,14 @@
             finalMsg = evt;
           } else if (evt.type === 'error') {
             errored = true;
+            if (!b) { typing.remove(); b = _askBubble('tutor', ''); span = b.querySelector('.ask-tgt'); }
             span.textContent = evt.message || "Sorry — I couldn't answer that. Please try again.";
           }
         }
       }
+      if (cursor) cursor.remove();
+      if (!b) { typing.remove(); b = _askBubble('tutor', ''); span = b.querySelector('.ask-tgt'); }
       if (finalMsg && finalMsg.reply) {
-        // The server sends the cleaned reply (any stray field labels stripped) —
-        // replace the streamed text so the bubble never shows meta junk.
         replyText = finalMsg.reply;
         span.textContent = replyText;
       }
@@ -2227,7 +2237,7 @@
       _askHistory.push({ role: 'user', text: q });
       _askHistory.push({ role: 'tutor', text: replyText });
     } catch {
-      typing.remove();
+      if (typing.parentNode) typing.remove();
       _askBubble('tutor', "Sorry — I couldn't answer that. Please try again.");
     } finally {
       _askSending = false;
