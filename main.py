@@ -312,8 +312,7 @@ def _build_nav(active: str = "") -> str:
                 f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
 
     nav_links = [
-        link("/",         "Add Vocab",  "translate"),
-        link("/cards",    "Flashcards", "cards",    badge=True),
+        link("/",         "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
@@ -835,7 +834,7 @@ async def manifest():
             "name": "廣東卡 DEV",
             "short_name": "卡 DEV",
             "description": "HK Cantonese translation and flashcards (dev)",
-            "start_url": "/cards",
+            "start_url": "/",
             "display": "standalone",
             "background_color": "#fff7ed",   # warm orange tint
             "theme_color": "#ea580c",        # orange-600
@@ -981,12 +980,17 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return _html("index.html", active="/")
+    return _html("cards.html", active="/")
 
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/cards")
+    return _html("cards.html", active="/")
+
+
+@app.get("/translate", response_class=HTMLResponse)
+async def translate_page():
+    return _html("index.html", active="/translate")
 
 
 @app.get("/reader", response_class=HTMLResponse)
@@ -3459,7 +3463,7 @@ async def tutor_ask_stream(request: Request, req: CardAskRequest, user: dict = D
         try:
             async for evt in tutor.stream_card_ask(
                 ctx["lang"], ctx["question"], ctx["card"], ctx["history"],
-                api_key=ctx["access"].api_key, model=ctx["access"].model_reader,
+                api_key=ctx["access"].api_key, model=tutor.TUTOR_MODEL,
                 level=ctx["level"], learner_profile=ctx["learner_profile"],
                 known_words=ctx["known_words"],
             ):
@@ -3488,10 +3492,7 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
     try:
         out = await tutor.ask_about_card(
             lang, question, card, history,
-            # Use the fast reader model (flash-lite), not the heavier chat model —
-            # a card explanation is low-reasoning, so the cheaper/faster model is
-            # plenty and shaves another chunk off the response time.
-            api_key=access.api_key, model=access.model_reader,
+            api_key=access.api_key, model=tutor.TUTOR_MODEL,
             level=level, learner_profile=learner_profile, known_words=known_words,
         )
     except Exception as e:
