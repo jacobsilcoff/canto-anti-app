@@ -464,8 +464,10 @@
     .add-fab-menu svg { flex-shrink: 0; }
 
     /* ── Translate / Community panels ── */
+    /* Panels sit BELOW the sticky header (top set via JS to header height) so
+       the nav/menu bar stays visible. z-index under the header's 10. */
     .panel-overlay {
-      position: fixed; inset: 0; z-index: 100;
+      position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 9;
       background: var(--bg);
       display: none; flex-direction: column;
       overflow: hidden;
@@ -482,34 +484,30 @@
       color: var(--text); display: flex; align-items: center;
     }
     .panel-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+    .panel-body .translate-container,
+    .panel-body .lang-direction,
+    .panel-body .labels-bar { max-width: 600px; margin-left: auto; margin-right: auto; }
+    .panel-body .lang-direction { margin-bottom: 6px; }
+    .panel-body .labels-bar { margin-bottom: 10px; }
 
-    /* Translate panel */
-    .tr-input-wrap { position: relative; margin-bottom: 10px; }
-    .tr-input-wrap textarea { width: 100%; box-sizing: border-box; resize: none;
-      border: 1px solid var(--border); border-radius: 10px; padding: 12px;
-      font-size: 0.95rem; background: var(--surface); color: var(--text);
-      font-family: inherit; min-height: 80px; }
-    .tr-input-wrap textarea:focus { outline: none; border-color: var(--primary); }
-    .tr-char { position: absolute; bottom: 8px; right: 12px; font-size: 0.75rem; color: var(--text-muted); }
-    .tr-btn { width: 100%; padding: 11px; border: none; border-radius: 10px;
-      background: var(--primary); color: #fff; font-size: 0.95rem; font-weight: 600;
-      cursor: pointer; margin-bottom: 12px; }
-    .tr-btn:disabled { opacity: 0.5; cursor: default; }
-    .tr-result { background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 14px; margin-bottom: 10px; }
-    .tr-target { font-size: 1.15rem; font-weight: 500; font-family: var(--script-font, inherit); }
-    .tr-roman { font-size: 0.88rem; color: var(--text-muted); font-style: italic; margin-top: 2px; }
-    .tr-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4;
-      border-left: 3px solid var(--primary); padding-left: 10px; }
-    .tr-saved { color: var(--good-strong); font-size: 0.85rem; font-weight: 600; margin-top: 8px; }
-    .tr-cand { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px 14px; cursor: pointer; margin-bottom: 8px; transition: border-color 0.15s; }
-    .tr-cand:hover { border-color: var(--primary); }
-    .tr-cand-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
+    /* Translate panel — ported from the translate page */
+    .lang-direction { display: flex; align-items: center; gap: 8px; }
+    .lang-dir-label { font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+    .lang-dir-label.active { color: var(--text); background: var(--surface); border: 1px solid var(--border); }
+    .candidate-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .candidate-option { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.15s; }
+    .candidate-option:hover { border-color: var(--primary); }
+    .candidate-roman { font-size: 0.88rem; color: var(--text-muted); font-style: italic; }
+    .candidate-english { font-size: 0.92rem; }
+    .candidate-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
       letter-spacing: 0.05em; font-weight: 600; }
-    .tr-audio-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
-      padding: 6px 12px; cursor: pointer; color: var(--text); font-size: 0.85rem;
-      display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
+    .ai-notes-block { background: var(--surface-alt); border-left: 3px solid var(--primary);
+      padding: 8px 12px; border-radius: 6px; font-size: 0.88rem; color: var(--text);
+      margin-bottom: 6px; line-height: 1.4; }
+    .ai-notes-label { font-size: 0.7rem; color: var(--primary); text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 700; margin-bottom: 2px; }
 
     /* Community decks panel */
     .cd-search { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border);
@@ -2394,7 +2392,17 @@
 
   document.addEventListener('langchange', function () {
     loadSession('due');
-    fetch('/api/settings').then(r => r.json()).then(s => { _trLang = s.default_target_lang || 'yue'; }).catch(() => {});
+    fetch('/api/settings').then(r => r.json()).then(s => {
+      settings = s;
+      _trTargetLang = s.default_target_lang || 'yue';
+      _trSourceIsTarget = false;
+      if (document.getElementById('translate-panel').classList.contains('open')) {
+        trResetOutput();
+        document.getElementById('tr-input').value = '';
+        document.getElementById('tr-char-count').textContent = '0';
+        trUpdateDirectionButtons();
+      }
+    }).catch(() => {});
   });
 </script>
 <div class="xp-pop" id="xp-pop"></div>
@@ -2422,13 +2430,83 @@
     <span class="panel-bar-title">Translate</span>
   </div>
   <div class="panel-body" id="tr-body">
-    <div class="tr-input-wrap">
-      <textarea id="tr-input" placeholder="Enter text…" rows="3" oninput="trOnInput()"></textarea>
-      <span class="tr-char" id="tr-char">0</span>
+    <div class="lang-direction">
+      <span class="lang-dir-label active" id="tr-btn-source" onclick="trSetDirection(false)">English</span>
+      <button class="swap-btn" onclick="trSwapLang()" title="Swap direction" aria-label="Swap direction">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </button>
+      <span class="lang-dir-label" id="tr-btn-target" onclick="trSetDirection(true)"></span>
     </div>
-    <button class="tr-btn" id="tr-btn" onclick="trDoTranslate()">Translate</button>
-    <div id="tr-candidates" style="display:none"></div>
-    <div id="tr-result" style="display:none"></div>
+
+    <div class="labels-bar">
+      <div class="labels-bar-header">
+        <span class="labels-bar-title">Labels for next translation</span>
+      </div>
+      <div id="tr-label-picker"></div>
+    </div>
+
+    <div class="translate-container">
+      <div class="input-panel">
+        <textarea id="tr-input" placeholder="Enter text…" oninput="trOnInput()" rows="4"></textarea>
+        <div class="input-controls">
+          <span class="char-count" id="tr-char-count">0</span>
+          <button class="clear-btn" onclick="trClearInput()" title="Clear">✕</button>
+        </div>
+      </div>
+
+      <details class="context-details" id="tr-context-details">
+        <summary>
+          <span class="context-summary-label">+ Add context for translator</span>
+          <span class="context-summary-set" id="tr-context-summary-set" style="display:none">Context set</span>
+        </summary>
+        <textarea id="tr-context-input" placeholder="e.g. as in charging a phone, not financial" rows="2"
+                  oninput="trOnContextInput()"></textarea>
+      </details>
+
+      <button class="translate-btn" id="tr-translate-btn" onclick="trDoTranslate()">Translate</button>
+
+      <!-- Candidate picker (shown when AI returns multiple translations) -->
+      <div class="output-panel" id="tr-candidate-panel" style="display:none">
+        <div class="ai-notes-label" style="margin-bottom:6px">Did you mean…</div>
+        <div class="candidate-list" id="tr-candidate-list"></div>
+      </div>
+
+      <!-- Final card output -->
+      <div class="output-panel" id="tr-output-panel" style="display:none">
+        <div class="output-chinese" id="tr-out-target"></div>
+        <div class="output-jyutping" id="tr-out-romanization"></div>
+        <div class="output-classifier" id="tr-out-classifier" style="display:none"></div>
+        <div class="output-english" id="tr-out-english" style="display:none"></div>
+
+        <div class="output-labels" id="tr-output-labels" style="display:none"></div>
+
+        <div class="ai-notes-block" id="tr-ai-notes-block" style="display:none">
+          <div class="ai-notes-label">AI note</div>
+          <div id="tr-ai-notes-text"></div>
+        </div>
+
+        <details class="output-notes-details" id="tr-output-notes-details">
+          <summary>
+            <span id="tr-notes-summary-empty">+ Add your own note</span>
+            <span id="tr-notes-summary-full" style="display:none">Note saved</span>
+          </summary>
+          <textarea id="tr-notes-input" placeholder="Optional note for this card…" rows="2"
+                    oninput="trOnNotesInput()"></textarea>
+          <div class="notes-actions">
+            <button class="edit-save-btn" id="tr-notes-save-btn" onclick="trSaveNotes()" disabled>Save note</button>
+            <span class="notes-saved-msg" id="tr-notes-saved-msg"></span>
+          </div>
+        </details>
+
+        <div class="output-controls">
+          <button class="audio-btn" id="tr-audio-btn" onclick="trPlayAudio()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            Play
+          </button>
+          <span class="saved-indicator" id="tr-saved-indicator">✓ Saved to flashcards</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2456,102 +2534,279 @@
       document.getElementById('add-fab-menu').classList.remove('open');
   });
 
-  // ── Translate panel ──
-  let _trLang = null;
+  // ── Translate panel (full port of the translate page) ──
+  let _trTargetLang = null;
+  let _trSourceIsTarget = false;   // false: en → target, true: target → en
   let _trLastResult = null;
   let _trCardId = null;
   let _trAudioEl = null;
+  let _trStickyPicker = null;
+  let _trSavedNotes = '';
+  let _trAiNotes = '';
 
-  function _trLangInfo() {
-    if (!window._trLanguages) return null;
-    return window._trLanguages.find(l => l.code === _trLang) || null;
+  function _trEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  function _trLi() { return langByCode[_trTargetLang] || null; }
+
+  // Keep the panel below the sticky header so the menu bar stays visible.
+  function _trPositionPanels() {
+    const h = document.querySelector('header');
+    const top = h ? Math.max(0, Math.round(h.getBoundingClientRect().bottom)) : 0;
+    document.getElementById('translate-panel').style.top = top + 'px';
+    document.getElementById('community-panel').style.top = top + 'px';
   }
+  window.addEventListener('resize', _trPositionPanels);
 
   function openTranslatePanel() {
     document.getElementById('add-fab-menu').classList.remove('open');
     document.getElementById('add-fab').style.display = 'none';
-    const p = document.getElementById('translate-panel');
-    p.classList.add('open');
+    if (!_trTargetLang) _trTargetLang = (settings && settings.default_target_lang) || 'yue';
+    _trEnsureLabelPicker();
+    if (_trStickyPicker) _trStickyPicker.setLabels(allLabels);
+    trUpdateDirectionButtons();
+    _trPositionPanels();
+    document.getElementById('translate-panel').classList.add('open');
     document.getElementById('tr-input').focus();
-    if (!window._trLanguages) {
-      fetch('/api/languages').then(r => r.json()).then(d => { window._trLanguages = d.languages || []; });
-    }
-    if (!_trLang) {
-      fetch('/api/settings').then(r => r.json()).then(s => { _trLang = s.default_target_lang || 'yue'; })
-        .catch(() => { _trLang = 'yue'; });
-    }
   }
 
   function closeTranslatePanel() {
     document.getElementById('translate-panel').classList.remove('open');
     document.getElementById('add-fab').style.display = '';
     document.getElementById('tr-input').value = '';
-    document.getElementById('tr-char').textContent = '0';
-    document.getElementById('tr-candidates').style.display = 'none';
-    document.getElementById('tr-result').style.display = 'none';
-    _trLastResult = null; _trCardId = null;
-    if (_trAudioEl) { _trAudioEl.pause(); _trAudioEl = null; }
+    document.getElementById('tr-char-count').textContent = '0';
+    trResetOutput();
   }
 
+  // ── Direction ──
+  function trSetDirection(isTarget) {
+    _trSourceIsTarget = isTarget;
+    trUpdateDirectionButtons();
+    trResetOutput();
+  }
+  function trSwapLang() { trSetDirection(!_trSourceIsTarget); }
+
+  function trUpdateDirectionButtons() {
+    applyScript(document.getElementById('translate-panel'), _trTargetLang);
+    const lang = _trLi();
+    const langName = lang ? lang.name : _trTargetLang;
+    const langLabel = (lang && lang.flag ? lang.flag + ' ' : '') + langName;
+    const src = document.getElementById('tr-btn-source');
+    const tgt = document.getElementById('tr-btn-target');
+    if (src) src.classList.toggle('active', !_trSourceIsTarget);
+    if (tgt) { tgt.classList.toggle('active', _trSourceIsTarget); tgt.textContent = langLabel; }
+    document.getElementById('tr-input').placeholder = _trSourceIsTarget
+      ? `Enter ${langName} text…` : 'Enter English text…';
+  }
+
+  // ── Input ──
   function trOnInput() {
-    document.getElementById('tr-char').textContent = document.getElementById('tr-input').value.length;
+    document.getElementById('tr-char-count').textContent = document.getElementById('tr-input').value.length;
+  }
+  function trOnContextInput() {
+    const has = document.getElementById('tr-context-input').value.trim().length > 0;
+    document.getElementById('tr-context-summary-set').style.display = has ? '' : 'none';
+    document.querySelector('#tr-context-details .context-summary-label').textContent =
+      has ? 'Context for translator' : '+ Add context for translator';
+  }
+  function trOnNotesInput() {
+    document.getElementById('tr-notes-save-btn').disabled =
+      (document.getElementById('tr-notes-input').value === _trSavedNotes);
+    document.getElementById('tr-notes-saved-msg').textContent = '';
+  }
+  function trClearInput() {
+    document.getElementById('tr-input').value = '';
+    document.getElementById('tr-char-count').textContent = '0';
+    trResetOutput();
   }
 
+  function trResetOutput() {
+    document.getElementById('tr-candidate-panel').style.display = 'none';
+    document.getElementById('tr-output-panel').style.display = 'none';
+    document.getElementById('tr-saved-indicator').classList.remove('show');
+    document.getElementById('tr-notes-input').value = '';
+    document.getElementById('tr-notes-save-btn').disabled = true;
+    document.getElementById('tr-notes-saved-msg').textContent = '';
+    document.getElementById('tr-output-notes-details').open = false;
+    document.getElementById('tr-notes-summary-empty').style.display = '';
+    document.getElementById('tr-notes-summary-full').style.display = 'none';
+    document.getElementById('tr-ai-notes-block').style.display = 'none';
+    _trSavedNotes = ''; _trAiNotes = ''; _trCardId = null; _trLastResult = null;
+    if (_trAudioEl) { _trAudioEl.pause(); _trAudioEl = null; }
+    document.getElementById('tr-audio-btn').classList.remove('playing');
+  }
+
+  // ── Labels ──
+  function _trEnsureLabelPicker() {
+    if (_trStickyPicker) { _trStickyPicker.setLabels(allLabels); return; }
+    _trStickyPicker = new LabelPicker(
+      document.getElementById('tr-label-picker'),
+      {
+        allLabels, initialIds: [], allowCreate: true, mode: 'multi',
+        placeholder: 'Search or create a label…',
+        onChange: () => { if (_trCardId) trSyncCardLabels(); },
+        onLabelsRefreshed: labels => {
+          allLabels = labels;
+          if (filterPicker) filterPicker.setLabels(_filterPickerLabels());
+        },
+      }
+    );
+  }
+
+  function trRenderOutputLabels(autoLabels) {
+    const el = document.getElementById('tr-output-labels');
+    el.innerHTML = '';
+    const parts = [];
+    if (_trStickyPicker) {
+      const sel = _trStickyPicker.getSelected();
+      allLabels.filter(l => sel.has(l.id)).forEach(lbl => parts.push(lbl.name));
+    }
+    (autoLabels || []).forEach(name => { if (!parts.includes(name)) parts.push(name); });
+    if (parts.length === 0) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    parts.forEach(name => {
+      const chip = document.createElement('span');
+      chip.className = 'label-chip-static';
+      chip.textContent = name;
+      el.appendChild(chip);
+    });
+  }
+
+  async function trSyncCardLabels() {
+    if (!_trCardId || !_trStickyPicker) return;
+    await trPersistCard();
+    trRenderOutputLabels();
+  }
+
+  // ── Notes ──
+  async function trSaveNotes() {
+    if (!_trCardId) return;
+    const notes = document.getElementById('tr-notes-input').value;
+    const btn = document.getElementById('tr-notes-save-btn');
+    btn.disabled = true;
+    try {
+      _trSavedNotes = notes;
+      await trPersistCard();
+      document.getElementById('tr-notes-saved-msg').textContent = 'Saved';
+      setTimeout(() => { document.getElementById('tr-notes-saved-msg').textContent = ''; }, 2000);
+      trUpdateNotesSummary();
+    } catch {
+      showToast('Could not save note.');
+      btn.disabled = false;
+    }
+  }
+  function trUpdateNotesSummary() {
+    const has = _trSavedNotes.trim().length > 0;
+    document.getElementById('tr-notes-summary-empty').style.display = has ? 'none' : '';
+    document.getElementById('tr-notes-summary-full').style.display = has ? '' : 'none';
+  }
+  function trCombinedNotes() {
+    const parts = [];
+    if (_trAiNotes.trim()) parts.push(_trAiNotes.trim());
+    if (_trSavedNotes.trim()) parts.push(_trSavedNotes.trim());
+    return parts.join('\n\n');
+  }
+
+  // ── Persist (update card on backend) ──
+  async function trPersistCard() {
+    if (!_trCardId) return;
+    const target = document.getElementById('tr-out-target').textContent;
+    const roman  = document.getElementById('tr-out-romanization').textContent;
+    const english = _trSourceIsTarget
+      ? document.getElementById('tr-out-english').textContent
+      : document.getElementById('tr-input').value.trim();
+    const res = await fetch(`/api/cards/${_trCardId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_text: english, target_text: target, romanization: roman,
+        notes: trCombinedNotes(),
+        label_ids: _trStickyPicker ? [..._trStickyPicker.getSelected()] : [],
+      }),
+    });
+    if (!res.ok) throw new Error('persist failed');
+  }
+
+  // ── Translate ──
   async function trDoTranslate() {
     const text = document.getElementById('tr-input').value.trim();
     if (!text) return;
-    const btn = document.getElementById('tr-btn');
+    const context = document.getElementById('tr-context-input').value.trim();
+    const btn = document.getElementById('tr-translate-btn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-    document.getElementById('tr-candidates').style.display = 'none';
-    document.getElementById('tr-result').style.display = 'none';
-    _trLastResult = null; _trCardId = null;
+    trResetOutput();
     try {
       const res = await fetch('/api/translate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, target_lang: _trLang || 'yue' }),
+        body: JSON.stringify({
+          text, target_lang: _trTargetLang,
+          source_is_target: _trSourceIsTarget, context: context || null,
+        }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Translation failed'); }
-      _trLastResult = await res.json();
-      if ((_trLastResult.candidates || []).length > 1) {
-        _trRenderCandidates(_trLastResult.candidates);
-      } else if (_trLastResult.candidates && _trLastResult.candidates.length === 1) {
-        await _trChoose(0);
+      if (!res.ok) {
+        let msg = 'Translation failed — please try again.';
+        try { msg = (await res.json()).detail || msg; } catch {}
+        throw new Error(msg);
       }
+      _trLastResult = await res.json();
+      const cands = _trLastResult.candidates || [];
+      if (cands.length > 1) trRenderCandidates(cands);
+      else if (cands.length === 1) await trChoose(0);
+      else showToast('No translation returned.');
     } catch (e) {
-      _trShowMsg(e.message || 'Translation failed — try again.');
-    } finally { btn.disabled = false; btn.textContent = 'Translate'; }
+      showToast(e.message || 'Translation failed — please try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Translate';
+    }
   }
 
-  function _trRenderCandidates(cands) {
-    const wrap = document.getElementById('tr-candidates');
-    const li = _trLangInfo();
-    wrap.innerHTML = '<div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:6px">Did you mean…</div>';
-    cands.forEach((c, i) => {
-      const d = document.createElement('div');
-      d.className = 'tr-cand';
-      d.onclick = () => _trChoose(i);
-      if (c.label) d.innerHTML += `<div class="tr-cand-label">${_trEsc(c.label)}</div>`;
-      d.innerHTML += `<div class="tr-target">${_trEsc(c.target_text)}</div>`;
-      if (c.romanization && li && li.logographic) d.innerHTML += `<div class="tr-roman">${_trEsc(c.romanization)}</div>`;
-      d.innerHTML += `<div style="font-size:0.92rem">${_trEsc(c.english)}</div>`;
-      wrap.appendChild(d);
+  function trRenderCandidates(candidates) {
+    const panel = document.getElementById('tr-candidate-panel');
+    const list = document.getElementById('tr-candidate-list');
+    const lang = _trLi();
+    list.innerHTML = '';
+    candidates.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'candidate-option';
+      row.onclick = () => trChoose(i);
+      if (c.label) {
+        const lbl = document.createElement('div');
+        lbl.className = 'candidate-label';
+        lbl.textContent = c.label;
+        row.appendChild(lbl);
+      }
+      const tgt = document.createElement('div');
+      tgt.className = 'candidate-target';
+      tgt.textContent = c.target_text;
+      row.appendChild(tgt);
+      if (c.romanization && lang && lang.logographic) {
+        const r = document.createElement('div');
+        r.className = 'candidate-roman';
+        r.textContent = c.romanization;
+        row.appendChild(r);
+      }
+      const en = document.createElement('div');
+      en.className = 'candidate-english';
+      en.textContent = c.english;
+      row.appendChild(en);
+      list.appendChild(row);
     });
-    wrap.style.display = '';
+    panel.style.display = 'block';
   }
 
-  async function _trChoose(idx) {
+  async function trChoose(index) {
     if (!_trLastResult) return;
-    const c = _trLastResult.candidates[idx];
-    const btn = document.getElementById('tr-btn');
+    const c = _trLastResult.candidates[index];
+    _trAiNotes = c.notes || '';
+    _trSavedNotes = '';
+    document.getElementById('tr-candidate-panel').style.display = 'none';
+    const btn = document.getElementById('tr-translate-btn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-    document.getElementById('tr-candidates').style.display = 'none';
     try {
       const res = await fetch('/api/cards', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source_text: c.english, target_text: c.target_text,
-          romanization: c.romanization || '', target_lang: _trLang || 'yue',
-          notes: c.notes || null, priority: _trLastResult.priority || 3,
+          romanization: c.romanization || '', target_lang: _trTargetLang,
+          notes: _trAiNotes || null, priority: _trLastResult.priority || 3,
+          label_ids: _trStickyPicker ? [..._trStickyPicker.getSelected()] : [],
           suggested_labels: _trLastResult.suggested_labels || [],
           classifier: _trLastResult.classifier || '',
           cefr_level: _trLastResult.cefr_level || null,
@@ -2560,38 +2815,60 @@
       if (!res.ok) throw new Error();
       const data = await res.json();
       _trCardId = data.card_id;
-      _trRenderResult(c);
-    } catch { _trShowMsg('Could not save card — try again.'); }
-    finally { btn.disabled = false; btn.textContent = 'Translate'; }
+      trRenderResult(c, _trLastResult.suggested_labels || []);
+    } catch {
+      showToast('Could not save card — try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Translate';
+    }
   }
 
-  function _trRenderResult(c) {
-    const li = _trLangInfo();
-    const wrap = document.getElementById('tr-result');
-    let h = `<div class="tr-result"><div class="tr-target">${_trEsc(c.target_text)}</div>`;
-    if (c.romanization && li && li.logographic) h += `<div class="tr-roman">${_trEsc(c.romanization)}</div>`;
-    if (c.notes) h += `<div class="tr-note">${_trEsc(c.notes)}</div>`;
-    h += `<div class="tr-saved">✓ Added to flashcards</div>`;
-    if (_trCardId) h += `<button class="tr-audio-btn" onclick="trPlayAudio()"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Play</button>`;
-    h += '</div>';
-    wrap.innerHTML = h;
-    wrap.style.display = '';
+  function trRenderResult(c, autoLabels) {
+    const lang = _trLi();
+    document.getElementById('tr-out-target').textContent = c.target_text;
+    const romanEl = document.getElementById('tr-out-romanization');
+    romanEl.textContent = (lang && lang.logographic) ? (c.romanization || '') : '';
+    romanEl.style.display = (lang && lang.logographic && c.romanization) ? '' : 'none';
+
+    const classifierEl = document.getElementById('tr-out-classifier');
+    const classifier = _trLastResult ? (_trLastResult.classifier || '') : '';
+    if (classifier) { classifierEl.textContent = classifier; classifierEl.style.display = ''; }
+    else classifierEl.style.display = 'none';
+
+    const englishEl = document.getElementById('tr-out-english');
+    if (_trSourceIsTarget) { englishEl.textContent = c.english; englishEl.style.display = 'block'; }
+    else { englishEl.textContent = ''; englishEl.style.display = 'none'; }
+
+    if (_trAiNotes && _trAiNotes.trim()) {
+      document.getElementById('tr-ai-notes-text').textContent = _trAiNotes.trim();
+      document.getElementById('tr-ai-notes-block').style.display = '';
+    } else {
+      document.getElementById('tr-ai-notes-block').style.display = 'none';
+    }
+
+    trRenderOutputLabels(autoLabels || []);
+    document.getElementById('tr-output-panel').style.display = 'block';
+
+    const ind = document.getElementById('tr-saved-indicator');
+    ind.classList.add('show');
+    setTimeout(() => ind.classList.remove('show'), 3000);
+
+    if (_trAudioEl) { _trAudioEl.pause(); _trAudioEl = null; }
+    document.getElementById('tr-audio-btn').classList.remove('playing');
   }
 
   function trPlayAudio() {
     if (!_trCardId) return;
-    if (_trAudioEl && !_trAudioEl.paused) { _trAudioEl.pause(); return; }
+    if (_trAudioEl && !_trAudioEl.paused) {
+      _trAudioEl.pause();
+      document.getElementById('tr-audio-btn').classList.remove('playing');
+      return;
+    }
     _trAudioEl = new Audio('/api/audio/' + _trCardId);
     _trAudioEl.play();
+    document.getElementById('tr-audio-btn').classList.add('playing');
+    _trAudioEl.onended = () => document.getElementById('tr-audio-btn').classList.remove('playing');
   }
-
-  function _trShowMsg(msg) {
-    const wrap = document.getElementById('tr-result');
-    wrap.innerHTML = `<div style="color:var(--danger);font-size:0.9rem">${_trEsc(msg)}</div>`;
-    wrap.style.display = '';
-  }
-
-  function _trEsc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   document.getElementById('tr-input').addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); trDoTranslate(); }
@@ -2604,6 +2881,7 @@
   function openCommunityPanel() {
     document.getElementById('add-fab-menu').classList.remove('open');
     document.getElementById('add-fab').style.display = 'none';
+    _trPositionPanels();
     document.getElementById('community-panel').classList.add('open');
     _cdLoadDecks();
   }
@@ -2623,8 +2901,7 @@
     const list = document.getElementById('cd-list');
     list.innerHTML = '<div class="cd-empty">Loading…</div>';
     try {
-      let lang = '';
-      try { const s = await fetch('/api/settings').then(r => r.json()); lang = s.default_target_lang || ''; } catch {}
+      const lang = (settings && settings.default_target_lang) || '';
       const params = new URLSearchParams();
       if (q) params.set('search', q);
       if (lang) params.set('lang', lang);
@@ -2638,7 +2915,7 @@
         el.className = 'cd-deck';
         let meta = (d.creator_name || 'Unknown') + ' · ' + (d.item_count || 0) + ' cards';
         if (d.target_lang) {
-          const li = (window._trLanguages || []).find(l => l.code === d.target_lang);
+          const li = langByCode[d.target_lang];
           if (li) meta += ' · ' + (li.flag || '') + ' ' + li.name;
         }
         let rating = '';
