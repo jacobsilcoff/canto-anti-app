@@ -606,6 +606,49 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
             raise
 
 
+async def _call_stream(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
+                       *, thinking_budget: int | None = None):
+    """Async generator yielding text chunks from a streaming Gemini call.
+
+    The SDK's streaming iterator is blocking, so a worker thread drives it and
+    pushes chunks onto an asyncio.Queue the event loop drains — letting the route
+    forward tokens to the client the moment the model emits them."""
+    config = None
+    if thinking_budget is not None:
+        from google.genai import types as _types
+        config = _types.GenerateContentConfig(
+            thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
+        )
+    loop = asyncio.get_event_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    def _produce():
+        try:
+            stream = _get_client(api_key).models.generate_content_stream(
+                model=model, contents=prompt, config=config)
+            for chunk in stream:
+                text = getattr(chunk, "text", None)
+                if text:
+                    loop.call_soon_threadsafe(queue.put_nowait, text)
+        except Exception as exc:                    # surfaced to the consumer
+            loop.call_soon_threadsafe(queue.put_nowait, exc)
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+    fut = loop.run_in_executor(None, _produce)
+    try:
+        while True:
+            item = await queue.get()
+            if item is _DONE:
+                break
+            if isinstance(item, Exception):
+                raise item
+            yield item
+    finally:
+        await fut
+
+
 def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                      model: str = DEFAULT_MODEL) -> str:
     from google.genai import types as _types

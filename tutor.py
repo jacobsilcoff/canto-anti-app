@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 TUTOR_MODEL = "gemini-2.5-flash"   # better conversational quality than -lite, still cheap
 
+# Sentinel separating the streamed prose answer from the trailing JSON extras in
+# the card-ask streaming format (see build_card_ask_prompt(streaming=True)).
+STREAM_META = "<<<META>>>"
+
 HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
 MAX_NEW_ITEMS = 4       # a little headroom for multiple ways to say an asked-for phrase
@@ -401,6 +405,7 @@ def build_card_ask_prompt(
     level: str = "A1",
     learner_profile: str = "",
     known_words: list[dict] | None = None,
+    streaming: bool = False,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -412,7 +417,7 @@ def build_card_ask_prompt(
                 f"{_word_list_block(known_words)}\n"
                 f"Prefer these in your example sentences; don't re-teach them as new_items.\n\n")
 
-    return (
+    base = (
         f"You are a warm, expert {name} tutor helping an English-speaking learner "
         f"(level {level}) who is reviewing a flashcard and has a question about it.\n\n"
         f"{_lang_preamble(info)}"
@@ -453,16 +458,40 @@ def build_card_ask_prompt(
         f"{profile}{deck}{_card_block(card, name)}"
         f"{_history_block(history or [])}"
         f"Learner's question: {question.strip()}\n\n"
+    )
+
+    extras_note = (
+        'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
+        'the learner\'s known-words list. card_updates: include only the fields you want to change. '
+        'Prefer `notes_append` over `notes`; send at most ONE of them (never both). Omit '
+        'card_updates entirely (or {}) when there is genuinely nothing useful to add to the card.'
+    )
+
+    if streaming:
+        # Streamed format: the prose answer comes FIRST (forwarded to the learner
+        # token-by-token), THEN a sentinel, THEN a single JSON object with the
+        # structured extras only (parsed server-side after the stream finishes).
+        return base + (
+            f"FORMAT — follow EXACTLY:\n"
+            f"1. First, write your answer to the learner as plain prose (no JSON, no markdown "
+            f"headings). English explanation, {name} examples in {name} script with romanization "
+            f"+ gloss in parentheses.\n"
+            f"2. Then, on its OWN line, output this exact marker: {STREAM_META}\n"
+            f"3. Then a SINGLE JSON object with the extras (use {{}} if there are none):\n"
+            '   {"new_items": [{"target_text":"<native>","english":"<gloss>","notes":"<usage, optional>"}],'
+            ' "card_updates": {"notes_append":"<short note to ADD>","notes":"<replacement, ONLY to fix an error>",'
+            '"romanization":"<fixed>","source_text":"<fixed translation>"}}\n'
+            f"Nothing after the JSON. {extras_note}"
+        )
+
+    return base + (
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}],\n'
         '  "card_updates": {"notes_append":"<short note to ADD to existing notes>","notes":"<full replacement, ONLY to fix an error>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
         '}\n'
-        'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
-        'the learner\'s known-words list. card_updates: include only the fields you want to change. '
-        'Prefer `notes_append` over `notes`; send at most ONE of them (never both). Omit '
-        'card_updates entirely (or null) when there is genuinely nothing useful to add to the card.'
+        + extras_note
     )
 
 
@@ -492,6 +521,120 @@ async def ask_about_card(
     # pop-over answers in ~1–2s instead of stalling for several seconds.
     return await _run(prompt, target_lang, api_key=api_key, model=model,
                       user_msg=question, known_texts=known_texts, thinking_budget=0)
+
+
+async def stream_card_ask(
+    target_lang: str,
+    question: str,
+    card: dict | None = None,
+    history: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+):
+    """Streaming variant of `ask_about_card`. Yields NDJSON event strings (each
+    newline-terminated): `{"type":"delta","text":...}` for prose as it's generated,
+    then one `{"type":"final","new_items":[...],"card_updates":{...}}` once the
+    trailing JSON extras (after the STREAM_META marker) are parsed & normalized.
+
+    The model is told to emit the prose answer first, then `STREAM_META`, then a
+    JSON object. We forward prose tokens live and buffer the JSON tail. If the
+    model ignores the format and returns a JSON object instead (leading `{`), we
+    fall back to buffering it whole, then emit its `reply` as one delta."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = build_card_ask_prompt(
+        target_lang, question, card, history,
+        level=level, learner_profile=learner_profile, known_words=known_words,
+        streaming=True,
+    )
+    known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+
+    def _delta(text: str) -> str:
+        return json.dumps({"type": "delta", "text": text}, ensure_ascii=False) + "\n"
+
+    mode = None            # None=undecided, "prose", "json"
+    pending = ""           # un-emitted prose tail (may hold a partial marker)
+    full_reply = ""
+    meta_buf = ""          # text after the marker (the JSON extras)
+    json_buf = ""          # whole-output buffer in the JSON fallback path
+    in_meta = False
+    hold = len(STREAM_META) - 1
+
+    async for chunk in _call_stream(prompt, api_key, model, thinking_budget=0):
+        if mode == "json":
+            json_buf += chunk
+            continue
+        if in_meta:
+            meta_buf += chunk
+            continue
+        pending += chunk
+        if mode is None:                       # decide prose vs JSON-fallback
+            stripped = pending.lstrip()
+            if not stripped:
+                continue
+            if stripped[0] == "{":
+                mode = "json"
+                json_buf = pending
+                pending = ""
+                continue
+            mode = "prose"
+        # prose: look for the marker; emit everything safely ahead of it
+        i = pending.find(STREAM_META)
+        if i != -1:
+            emit = pending[:i]
+            if emit:
+                full_reply += emit
+                yield _delta(emit)
+            meta_buf = pending[i + len(STREAM_META):]
+            in_meta = True
+            pending = ""
+            continue
+        if len(pending) > hold:                # hold back chars that could start the marker
+            cut = len(pending) - hold
+            emit, pending = pending[:cut], pending[cut:]
+            if emit:
+                full_reply += emit
+                yield _delta(emit)
+
+    # Stream ended — flush remaining prose (no marker ever arrived).
+    if mode != "json" and not in_meta and pending:
+        full_reply += pending
+        yield _delta(pending)
+
+    # Parse the structured extras and normalize via the shared oracle path.
+    extras = {}
+    if mode == "json":
+        try:
+            parsed = _parse_json(json_buf)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            reply = (parsed.get("reply") or "").strip()
+            if reply:
+                full_reply = reply
+                yield _delta(reply)
+            extras = parsed
+    elif meta_buf.strip():
+        try:
+            parsed = _parse_json(meta_buf)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            extras = parsed
+
+    norm = _normalize(
+        {"reply": full_reply, "new_items": extras.get("new_items"),
+         "card_updates": extras.get("card_updates")},
+        target_lang, raw=full_reply, user_msg=question, known_texts=known_texts,
+    )
+    yield json.dumps(
+        {"type": "final", "new_items": norm["new_items"],
+         "card_updates": norm["card_updates"]},
+        ensure_ascii=False) + "\n"
 
 
 def build_drill_prompt(

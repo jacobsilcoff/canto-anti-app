@@ -2163,28 +2163,63 @@
     thread.appendChild(typing); thread.scrollTop = thread.scrollHeight;
 
     try {
-      const res = await fetch('/api/tutor/ask', {
+      const res = await fetch('/api/tutor/ask/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: q, card: _askCard, history: _askHistory,
           lang: (_askCard && _askCard._lang) || undefined,
         }),
       });
-      typing.remove();
+      // Errors (limits, auth) come back as a normal status BEFORE the stream body.
       if (res.status === 402 || res.status === 429) {
+        typing.remove();
         _askBubble('tutor', res.status === 402
           ? "You've hit your AI usage limit — add your own API key in Settings to keep going."
           : 'Slow down a moment — too many questions in a row. Try again shortly.');
         return;
       }
-      if (!res.ok) throw new Error('ask failed');
-      const data = await res.json();
-      const msg = data.message || {};
-      const b = _askBubble('tutor', msg.reply || '…');
-      _askRenderNewItems(b, msg.new_items);
-      _askRenderCardUpdate(b, msg.card_updates);
+      if (!res.ok || !res.body) throw new Error('ask failed');
+
+      // Swap the typing indicator for a live bubble; append prose as it streams.
+      typing.remove();
+      const b = _askBubble('tutor', '');
+      const span = b.querySelector('.ask-tgt');
+      let replyText = '';
+      let finalMsg = null;
+      let errored = false;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          let evt;
+          try { evt = JSON.parse(line); } catch { continue; }
+          if (evt.type === 'delta') {
+            replyText += evt.text;
+            span.textContent = replyText;
+            thread.scrollTop = thread.scrollHeight;
+          } else if (evt.type === 'final') {
+            finalMsg = evt;
+          } else if (evt.type === 'error') {
+            errored = true;
+            span.textContent = evt.message || "Sorry — I couldn't answer that. Please try again.";
+          }
+        }
+      }
+      if (!replyText && !errored) span.textContent = '…';
+      if (finalMsg) {
+        _askRenderNewItems(b, finalMsg.new_items);
+        _askRenderCardUpdate(b, finalMsg.card_updates);
+      }
       _askHistory.push({ role: 'user', text: q });
-      _askHistory.push({ role: 'tutor', text: msg.reply || '' });
+      _askHistory.push({ role: 'tutor', text: replyText });
     } catch {
       typing.remove();
       _askBubble('tutor', "Sorry — I couldn't answer that. Please try again.");

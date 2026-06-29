@@ -21,7 +21,7 @@ try:
 except ImportError:
     _PIL_OK = False
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -3406,12 +3406,10 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
     return {"message": msg, "points_total": await db.get_points_total(user["id"], lang)}
 
 
-@app.post("/api/tutor/ask")
-@limiter.limit("20/minute;400/day")
-async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
-    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
-    Nothing is stored — short follow-up history (if any) lives client-side and is
-    passed back in. Powers the 'Ask the tutor' pop-over on the study page."""
+async def _prepare_card_ask(req: "CardAskRequest", user: dict):
+    """Shared setup for the card-ask routes (blocking + streaming): validate the
+    question, resolve lang + metered Gemini access, and assemble the prompt
+    context (known words, profile, level, card, bounded history)."""
     question = (req.question or "").strip()[:1000]
     if not question:
         raise HTTPException(400, "question required")
@@ -3428,7 +3426,7 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
 
     card = req.card.model_dump() if req.card else None
     if card:
-        card_id = card.pop("card_id", None)
+        card.pop("card_id", None)
         card = {k: (v or "").strip()[:600] for k, v in card.items()}
 
     # Bounded, plain-text history for the prompt (last few turns of this pop-over).
@@ -3438,6 +3436,54 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
         txt = (m.get("text") or "").strip()[:1000]
         if txt:
             history.append({"role": role, "text": txt})
+
+    return {
+        "question": question, "lang": lang, "access": access,
+        "known_words": known_words, "learner_profile": learner_profile,
+        "level": level, "card": card, "history": history,
+    }
+
+
+@app.post("/api/tutor/ask/stream")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask_stream(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Streaming version of the card Q&A — forwards the tutor's prose answer
+    token-by-token (NDJSON `delta` events), then a single `final` event with the
+    parsed/normalized new_items + card_updates. Big perceived-latency win: the
+    learner reads the answer as it's written instead of waiting for the whole
+    JSON. Same metering/limits as the blocking route (1 unit, charged up front)."""
+    ctx = await _prepare_card_ask(req, user)
+    await db.record_study_activity(user["id"])   # asking about a card counts as study
+
+    async def _gen():
+        try:
+            async for evt in tutor.stream_card_ask(
+                ctx["lang"], ctx["question"], ctx["card"], ctx["history"],
+                api_key=ctx["access"].api_key, model=ctx["access"].model_reader,
+                level=ctx["level"], learner_profile=ctx["learner_profile"],
+                known_words=ctx["known_words"],
+            ):
+                yield evt
+        except Exception as e:
+            logger.error("Tutor card-ask stream failed lang=%s: %s", ctx["lang"], e, exc_info=True)
+            yield json.dumps({"type": "error",
+                              "message": "The tutor couldn't answer — please try again."}) + "\n"
+
+    return StreamingResponse(_gen(), media_type="application/x-ndjson",
+                             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.post("/api/tutor/ask")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
+    Nothing is stored — short follow-up history (if any) lives client-side and is
+    passed back in. Powers the 'Ask the tutor' pop-over on the study page.
+    (Kept as a non-streaming fallback; the pop-over uses /ask/stream.)"""
+    ctx = await _prepare_card_ask(req, user)
+    question, lang, access = ctx["question"], ctx["lang"], ctx["access"]
+    known_words, learner_profile = ctx["known_words"], ctx["learner_profile"]
+    level, card, history = ctx["level"], ctx["card"], ctx["history"]
 
     try:
         out = await tutor.ask_about_card(
