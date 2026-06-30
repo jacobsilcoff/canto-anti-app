@@ -2877,8 +2877,11 @@ async def get_streak(user_id: int) -> int:
     if not rows:
         return 0
 
-    from datetime import date, timedelta
-    today = date.today()
+    from datetime import date, datetime, timedelta, timezone
+    # Use UTC to match how activity is RECORDED (SQLite `date('now')` is UTC).
+    # Using local `date.today()` here would disagree with the stored dates on
+    # any non-UTC server, miscounting (or zeroing) the streak near midnight.
+    today = datetime.now(timezone.utc).date()
     # Allow streak if most-recent activity is today or yesterday.
     most_recent = date.fromisoformat(rows[0])
     if most_recent < today - timedelta(days=1):
@@ -3044,6 +3047,14 @@ async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> 
             "INSERT INTO points_ledger (user_id, lang, points, reason) VALUES (?, ?, ?, ?)",
             (user_id, lang, int(points), (reason or "").strip()[:200]),
         )
+        # Earning XP is, by definition, study — record the active day in the SAME
+        # transaction so the 🔥 streak can NEVER lag behind XP, no matter which
+        # feature awarded it (review, lesson, tutor, reader comprehension, …).
+        # UTC `date('now')` matches how the streak reads "today" (get_streak).
+        await db.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
         await db.commit()
 
 
@@ -3057,12 +3068,14 @@ async def get_points_total(user_id: int, lang: str) -> int:
 
 
 async def get_points_today(user_id: int, lang: str) -> int:
-    """XP earned today (all languages) — drives the daily-goal ring. Uses local
-    time so the goal resets at the learner's midnight, matching the streak."""
+    """XP earned today (all languages) — drives the daily-goal ring. Uses UTC
+    (`date('now')`) to reset on the SAME day boundary as the 🔥 streak and the
+    rest of the app (study_activity, DAU, first_seen_date), so the daily-goal
+    ring and the streak always roll over together."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
-            "WHERE user_id=? AND date(created_at, 'localtime') = date('now', 'localtime')",
+            "WHERE user_id=? AND date(created_at) = date('now')",
             (user_id,),
         ) as cur:
             return (await cur.fetchone())[0]
