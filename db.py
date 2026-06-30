@@ -4292,6 +4292,13 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
                            VALUES (?, ?)""",
                         (card_id, face),
                     )
+                # Remember exactly which cards this import created so un-import
+                # can delete only these (never the user's pre-existing cards).
+                await db.execute(
+                    """INSERT OR IGNORE INTO deck_import_cards (user_id, deck_id, card_id)
+                       VALUES (?, ?, ?)""",
+                    (user_id, deck_id, card_id),
+                )
                 created += 1
             await db.execute(
                 "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
@@ -4304,6 +4311,83 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
         await db.commit()
         return {"ok": True, "created": created, "total": len(items),
                 "label_id": label_id, "label_name": label_name}
+
+
+async def unimport_deck(user_id: int, deck_id: int) -> dict:
+    """Reverse an import: delete the cards this import CREATED (tracked in
+    deck_import_cards), drop the "📦 {deck_name}" label, and remove the
+    deck_imports row. Cards that pre-existed the import (it merely tagged them)
+    are never deleted — they just lose the deck label. For legacy imports with no
+    tracking rows, falls back to deleting cards tagged ONLY with the deck label."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return {"ok": False, "error": "Not imported"}
+        async with db.execute(
+            "SELECT name FROM shared_decks WHERE id=?", (deck_id,),
+        ) as cur:
+            deck_row = await cur.fetchone()
+
+        # The cards this import created (precise) — delete these outright.
+        async with db.execute(
+            "SELECT card_id FROM deck_import_cards WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        ) as cur:
+            created_ids = [r["card_id"] for r in await cur.fetchall()]
+        removed = 0
+        for cid in created_ids:
+            await db.execute("DELETE FROM card_faces WHERE card_id=?", (cid,))
+            await db.execute("DELETE FROM card_labels WHERE card_id=?", (cid,))
+            await db.execute(
+                "DELETE FROM cards WHERE id=? AND user_id=?", (cid, user_id),
+            )
+            removed += 1
+        await db.execute(
+            "DELETE FROM deck_import_cards WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        )
+
+        # Remove the "📦 deck" label (and untag any survivors). For legacy imports
+        # (no tracking rows), delete cards left tagged ONLY with the deck label.
+        if deck_row:
+            label_name = f"📦 {deck_row['name']}"
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, label_name),
+            ) as cur:
+                lbl = await cur.fetchone()
+            if lbl:
+                label_id = lbl["id"]
+                if not created_ids:
+                    async with db.execute(
+                        "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,),
+                    ) as cur:
+                        tagged = [r["card_id"] for r in await cur.fetchall()]
+                    for cid in tagged:
+                        async with db.execute(
+                            "SELECT COUNT(*) AS n FROM card_labels WHERE card_id=?", (cid,),
+                        ) as cur:
+                            n = (await cur.fetchone())["n"]
+                        if n <= 1:
+                            await db.execute("DELETE FROM card_faces WHERE card_id=?", (cid,))
+                            await db.execute("DELETE FROM card_labels WHERE card_id=?", (cid,))
+                            await db.execute(
+                                "DELETE FROM cards WHERE id=? AND user_id=?", (cid, user_id),
+                            )
+                            removed += 1
+                await db.execute(
+                    "DELETE FROM labels WHERE id=? AND user_id=?", (label_id, user_id),
+                )
+        await db.execute(
+            "DELETE FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        )
+        await db.commit()
+        return {"ok": True, "removed": removed}
 
 
 async def label_cards_for_deck(user_id: int, deck_name: str, card_ids: list[int]) -> int | None:

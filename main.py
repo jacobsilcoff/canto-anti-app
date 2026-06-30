@@ -5152,6 +5152,17 @@ async def import_deck(deck_id: int, user: dict = Depends(current_user)):
     return result
 
 
+@app.delete("/api/decks/{deck_id}/import")
+async def unimport_deck(deck_id: int, user: dict = Depends(current_user)):
+    """Undo an import: removes the import + its "📦 deck" label, and deletes the
+    cards that came solely from this deck (cards also under other labels are kept,
+    just untagged). Idempotent-ish: 400 if the user never imported the deck."""
+    result = await db.unimport_deck(user["id"], deck_id)
+    if not result["ok"]:
+        raise HTTPException(400, result.get("error", "Not imported"))
+    return result
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Friends + Messaging
 # ══════════════════════════════════════════════════════════════════════════════

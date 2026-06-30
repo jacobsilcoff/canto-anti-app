@@ -523,7 +523,16 @@
       background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 600;
       cursor: pointer; }
     .cd-import-btn:disabled { opacity: 0.5; cursor: default; }
-    .cd-imported { color: var(--good-strong); font-weight: 600; font-size: 0.85rem; margin-top: 8px; }
+    .cd-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .cd-imported { color: var(--good-strong); font-weight: 600; font-size: 0.85rem;
+      display: inline-flex; align-items: center; gap: 5px; }
+    .cd-study-btn { padding: 7px 14px; border: 1px solid var(--primary); border-radius: 8px;
+      background: var(--primary-soft); color: var(--primary); font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; }
+    .cd-remove-btn { padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: none; color: var(--danger); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .cd-remove-btn:hover { border-color: var(--danger); background: var(--danger-soft); }
+    .cd-remove-btn:disabled { opacity: 0.5; cursor: default; }
     .cd-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.92rem; }
     .cd-rating { display: inline-flex; gap: 1px; color: var(--warn-accent); font-size: 0.82rem; margin-left: 8px; }
   </style>
@@ -2913,7 +2922,7 @@
       decks.forEach(d => {
         const el = document.createElement('div');
         el.className = 'cd-deck';
-        let meta = (d.creator_name || 'Unknown') + ' · ' + (d.item_count || 0) + ' cards';
+        let meta = (d.creator || 'Unknown') + ' · ' + (d.card_count || 0) + ' cards';
         if (d.target_lang) {
           const li = langByCode[d.target_lang];
           if (li) meta += ' · ' + (li.flag || '') + ' ' + li.name;
@@ -2923,27 +2932,86 @@
         el.innerHTML = `<div class="cd-deck-name">${_trEsc(d.name)}${rating}</div>
           <div class="cd-deck-meta">${_trEsc(meta)}</div>
           ${d.description ? '<div class="cd-deck-desc">' + _trEsc(d.description) + '</div>' : ''}`;
-        if (d.already_imported || _cdImported.has(d.id)) {
-          el.innerHTML += '<div class="cd-imported">✓ Already imported</div>';
-        } else {
-          const btn = document.createElement('button');
-          btn.className = 'cd-import-btn';
-          btn.textContent = 'Import Deck';
-          btn.onclick = async () => {
-            btn.disabled = true; btn.textContent = 'Importing…';
-            try {
-              const r = await fetch('/api/decks/' + d.id + '/import', { method: 'POST' });
-              if (!r.ok) throw new Error();
-              _cdImported.add(d.id);
-              btn.replaceWith(Object.assign(document.createElement('div'), { className: 'cd-imported', textContent: '✓ Imported!' }));
-            } catch { btn.disabled = false; btn.textContent = 'Import Deck'; }
-          };
-          el.appendChild(btn);
-        }
+        const actions = document.createElement('div');
+        actions.className = 'cd-actions';
+        el.appendChild(actions);
+        _cdRenderActions(actions, d, (d.imported || _cdImported.has(d.id)));
         list.appendChild(el);
       });
     } catch {
       list.innerHTML = '<div class="cd-empty">Failed to load decks.</div>';
+    }
+  }
+
+  // Render the import / imported+study+remove controls for one deck row.
+  function _cdRenderActions(actions, d, isImported) {
+    actions.innerHTML = '';
+    if (isImported) {
+      const tag = document.createElement('span');
+      tag.className = 'cd-imported';
+      tag.textContent = '✓ Imported';
+      actions.appendChild(tag);
+
+      const study = document.createElement('button');
+      study.className = 'cd-study-btn';
+      study.textContent = 'Study';
+      study.onclick = () => _cdStudyDeck(d);
+      actions.appendChild(study);
+
+      const remove = document.createElement('button');
+      remove.className = 'cd-remove-btn';
+      remove.textContent = 'Remove';
+      remove.onclick = async () => {
+        if (!confirm(`Remove "${d.name}" from your decks? Cards added only by this deck will be deleted.`)) return;
+        remove.disabled = true; remove.textContent = 'Removing…';
+        try {
+          const r = await fetch('/api/decks/' + d.id + '/import', { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          const out = await r.json().catch(() => ({}));
+          _cdImported.delete(d.id);
+          d.imported = false;
+          _cdRenderActions(actions, d, false);
+          showToast(out.removed ? `Removed deck — ${out.removed} card${out.removed === 1 ? '' : 's'} deleted` : 'Deck removed');
+        } catch { remove.disabled = false; remove.textContent = 'Remove'; showToast('Could not remove deck.'); }
+      };
+      actions.appendChild(remove);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'cd-import-btn';
+      btn.textContent = 'Import Deck';
+      btn.onclick = async () => {
+        btn.disabled = true; btn.textContent = 'Importing…';
+        try {
+          const r = await fetch('/api/decks/' + d.id + '/import', { method: 'POST' });
+          if (!r.ok) throw new Error();
+          const out = await r.json().catch(() => ({}));
+          _cdImported.add(d.id);
+          d.imported = true;
+          d.import_label_id = out.label_id || null;
+          _cdRenderActions(actions, d, true);
+          const n = out.created || 0;
+          showToast(n ? `Imported — ${n} new card${n === 1 ? '' : 's'} added to your deck` : 'Imported — cards already in your deck');
+        } catch { btn.disabled = false; btn.textContent = 'Import Deck'; showToast('Could not import deck.'); }
+      };
+      actions.appendChild(btn);
+    }
+  }
+
+  // Close the panel and filter the flashcards to the imported deck's label.
+  async function _cdStudyDeck(d) {
+    let labelId = d.import_label_id;
+    if (!labelId) {
+      // The community list doesn't carry the label id — fetch the deck detail.
+      try {
+        const deck = await fetch('/api/decks/' + d.id).then(r => r.json());
+        labelId = deck && deck.import_label_id;
+      } catch {}
+    }
+    if (labelId) {
+      closeCommunityPanel();
+      window.location.href = '/?study=1&label_id=' + labelId;
+    } else {
+      window.location.href = '/browse?tab=decks';
     }
   }
 </script>
