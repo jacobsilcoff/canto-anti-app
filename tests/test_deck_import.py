@@ -108,6 +108,22 @@ async def test_import_large_deck_bulk_path(two_users):
 
 
 @pytest.mark.asyncio
+async def test_import_item_without_romanization(two_users):
+    """A deck item with no romanization (None) must import — cards.romanization
+    is NOT NULL DEFAULT '', so the bulk insert must coalesce None to ''."""
+    creator, importer = two_users
+    deck_id = await db.create_shared_deck(
+        creator, "NoRoman", "", "yue", "public",
+        items=[{"source_text": "hi", "target_text": "你好"}],  # no romanization key
+    )
+    res = await db.import_deck(importer, deck_id)
+    assert res["ok"] and res["created"] == 1
+    cards = await db.get_all_cards(importer)
+    assert [c["target_text"] for c in cards] == ["你好"]
+    assert cards[0]["romanization"] == ""
+
+
+@pytest.mark.asyncio
 async def test_import_dedupes_repeated_targets(two_users):
     """Duplicate target+lang within a deck collapses to one card."""
     creator, importer = two_users

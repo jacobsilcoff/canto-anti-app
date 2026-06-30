@@ -4302,7 +4302,9 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             seen_new.add(key)
             new_rows.append((
                 user_id, it["source_text"], it["target_text"],
-                it.get("romanization"), key[1], it.get("notes"),
+                # cards.romanization is NOT NULL DEFAULT '' — a deck item with
+                # no romanization (None) would otherwise fail the bulk insert.
+                it.get("romanization") or "", key[1], it.get("notes"),
             ))
 
         created_ids: list[int] = []
