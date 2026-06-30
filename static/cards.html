@@ -1917,6 +1917,11 @@
       onLabelsRefreshed: lbls => { allLabels = lbls; if (filterPicker) filterPicker.setLabels(_filterPickerLabels()); },
     });
 
+    // The editor (and its Delete button) is reused for every card — reset the
+    // Delete button so a prior deletion doesn't leave it stuck on "Deleting…".
+    const delBtn = document.querySelector('#card-inline-edit .edit-delete-btn');
+    if (delBtn) { delBtn.disabled = false; delBtn.textContent = 'Delete'; }
+
     document.getElementById('prompt-text').style.display    = 'none';
     document.getElementById('card-answer').style.display    = 'none';
     document.getElementById('pre-reveal').style.display     = 'none';
