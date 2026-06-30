@@ -2877,8 +2877,11 @@ async def get_streak(user_id: int) -> int:
     if not rows:
         return 0
 
-    from datetime import date, timedelta
-    today = date.today()
+    from datetime import date, datetime, timedelta, timezone
+    # Use UTC to match how activity is RECORDED (SQLite `date('now')` is UTC).
+    # Using local `date.today()` here would disagree with the stored dates on
+    # any non-UTC server, miscounting (or zeroing) the streak near midnight.
+    today = datetime.now(timezone.utc).date()
     # Allow streak if most-recent activity is today or yesterday.
     most_recent = date.fromisoformat(rows[0])
     if most_recent < today - timedelta(days=1):
