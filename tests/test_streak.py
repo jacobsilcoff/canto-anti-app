@@ -69,6 +69,37 @@ async def test_streak_stops_at_first_gap(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_add_points_records_study_activity(fresh_db):
+    # Earning XP from ANY feature must count toward the streak. add_points is the
+    # single chokepoint for all XP (review / lesson / tutor / comprehension), so
+    # it records the active day itself — no caller can award XP without the streak.
+    assert await db.get_streak(fresh_db) == 0
+    await db.add_points(fresh_db, "yue", 5, "review")
+    assert await db.get_streak(fresh_db) == 1
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT study_date FROM study_activity WHERE user_id=?", (fresh_db,)
+        ) as cur:
+            rows = [r[0] async for r in cur]
+    assert rows == [_utc_today().isoformat()]
+
+
+@pytest.mark.asyncio
+async def test_add_points_noop_does_not_record_activity(fresh_db):
+    # Non-positive XP is a no-op and must not fabricate a study day.
+    await db.add_points(fresh_db, "yue", 0, "ignored")
+    assert await db.get_streak(fresh_db) == 0
+
+
+@pytest.mark.asyncio
+async def test_add_points_extends_streak_across_days(fresh_db):
+    # Yesterday earned via XP, today earned via XP -> streak of 2.
+    await _mark_days(fresh_db, [1])
+    await db.add_points(fresh_db, "yue", 7, "lesson")
+    assert await db.get_streak(fresh_db) == 2
+
+
+@pytest.mark.asyncio
 async def test_record_study_activity_uses_utc_today(fresh_db):
     await db.record_study_activity(fresh_db)
     # A single record today -> streak of 1, and it matches the UTC date.
