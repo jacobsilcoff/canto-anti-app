@@ -1743,17 +1743,19 @@
     btn.disabled = true;
     btn.textContent = 'Importing…';
     try {
-      const res = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' }).then(r => r.json());
+      const resp = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' });
+      const res = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(res.detail || 'Import failed');
       showToast(`Imported ${res.created} new cards (${res.total} total)`);
       if (res.label_id) {
         btn.outerHTML = `<a class="deck-import-btn" href="/cards?label_id=${res.label_id}&study=1" style="text-decoration:none;display:inline-block">Study now</a>`;
       } else {
         btn.textContent = 'Imported!';
       }
-    } catch {
+    } catch (e) {
       btn.disabled = false;
       btn.textContent = 'Import failed — try again';
-      showToast('Import failed');
+      showToast(e.message || 'Import failed');
     }
   }
 

@@ -4265,50 +4265,83 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             (deck_id,),
         ) as cur:
             items = [dict(r) for r in await cur.fetchall()]
-        created = 0
-        for item in items:
-            item_lang = item.get("target_lang") or target_lang
-            async with db.execute(
-                """SELECT id FROM cards
-                   WHERE user_id=? AND target_text=? AND target_lang=?""",
-                (user_id, item["target_text"], item_lang),
-            ) as cur:
-                existing = await cur.fetchone()
-            if existing:
-                card_id = existing[0]
-            else:
-                c = await db.execute(
-                    """INSERT INTO cards
-                       (user_id, source_text, target_text, romanization,
-                        target_lang, notes, priority)
-                       VALUES (?, ?, ?, ?, ?, ?, 3)""",
-                    (user_id, item["source_text"], item["target_text"],
-                     item.get("romanization"), item_lang, item.get("notes")),
-                )
-                card_id = c.lastrowid
-                for face in ("source", "target", "pronunciation"):
-                    await db.execute(
-                        """INSERT OR IGNORE INTO card_faces (card_id, face)
-                           VALUES (?, ?)""",
-                        (card_id, face),
-                    )
-                # Remember exactly which cards this import created so un-import
-                # can delete only these (never the user's pre-existing cards).
-                await db.execute(
-                    """INSERT OR IGNORE INTO deck_import_cards (user_id, deck_id, card_id)
-                       VALUES (?, ?, ?)""",
-                    (user_id, deck_id, card_id),
-                )
-                created += 1
-            await db.execute(
-                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
-                (card_id, label_id),
+
+        # Set-based import: do a handful of bulk queries instead of ~6 per card.
+        # A 2000-card deck previously fired ~12k awaited round-trips inside one
+        # long write transaction, which timed out. Now it's a few executemany's.
+        langs = {(it.get("target_lang") or target_lang) for it in items}
+        existing: dict[tuple, int] = {}
+        if langs:
+            q = ("SELECT id, target_text, target_lang FROM cards "
+                 "WHERE user_id=? AND target_lang IN (%s)"
+                 % ",".join("?" * len(langs)))
+            async with db.execute(q, (user_id, *langs)) as cur:
+                for r in await cur.fetchall():
+                    existing.setdefault((r["target_text"], r["target_lang"]), r["id"])
+
+        # Figure out which items are genuinely new (deduped by target+lang).
+        new_rows: list[tuple] = []
+        seen_new: set[tuple] = set()
+        for it in items:
+            key = (it["target_text"], it.get("target_lang") or target_lang)
+            if key in existing or key in seen_new:
+                continue
+            seen_new.add(key)
+            new_rows.append((
+                user_id, it["source_text"], it["target_text"],
+                it.get("romanization"), key[1], it.get("notes"),
+            ))
+
+        created_ids: list[int] = []
+        if new_rows:
+            async with db.execute("SELECT COALESCE(MAX(id), 0) AS m FROM cards") as cur:
+                before_max = (await cur.fetchone())["m"]
+            await db.executemany(
+                """INSERT INTO cards
+                   (user_id, source_text, target_text, romanization,
+                    target_lang, notes, priority)
+                   VALUES (?, ?, ?, ?, ?, ?, 3)""",
+                new_rows,
             )
+            # No other writer can interleave inside our held write transaction,
+            # so every row we just inserted has id > before_max. Re-read them to
+            # map (target_text, lang) -> new id (robust, no rowid-order assumption).
+            async with db.execute(
+                "SELECT id, target_text, target_lang FROM cards WHERE user_id=? AND id>?",
+                (user_id, before_max),
+            ) as cur:
+                for r in await cur.fetchall():
+                    existing[(r["target_text"], r["target_lang"])] = r["id"]
+                    created_ids.append(r["id"])
+
+            await db.executemany(
+                "INSERT OR IGNORE INTO card_faces (card_id, face) VALUES (?, ?)",
+                [(cid, face) for cid in created_ids
+                 for face in ("source", "target", "pronunciation")],
+            )
+            # Remember exactly which cards this import created so un-import can
+            # delete only these (never the user's pre-existing cards).
+            await db.executemany(
+                "INSERT OR IGNORE INTO deck_import_cards (user_id, deck_id, card_id) VALUES (?, ?, ?)",
+                [(user_id, deck_id, cid) for cid in created_ids],
+            )
+
+        # Tag every deck card (new + pre-existing match) with the deck label.
+        label_card_ids = {
+            existing[(it["target_text"], it.get("target_lang") or target_lang)]
+            for it in items
+            if (it["target_text"], it.get("target_lang") or target_lang) in existing
+        }
+        await db.executemany(
+            "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+            [(cid, label_id) for cid in label_card_ids],
+        )
         await db.execute(
             "INSERT OR IGNORE INTO deck_imports (user_id, deck_id) VALUES (?, ?)",
             (user_id, deck_id),
         )
         await db.commit()
+        created = len(created_ids)
         return {"ok": True, "created": created, "total": len(items),
                 "label_id": label_id, "label_name": label_name}
 
@@ -4332,20 +4365,24 @@ async def unimport_deck(user_id: int, deck_id: int) -> dict:
         ) as cur:
             deck_row = await cur.fetchone()
 
-        # The cards this import created (precise) — delete these outright.
+        # The cards this import created (precise) — delete these outright, in
+        # chunked bulk deletes (a 2000-card un-import is a few queries, not ~6k).
         async with db.execute(
             "SELECT card_id FROM deck_import_cards WHERE user_id=? AND deck_id=?",
             (user_id, deck_id),
         ) as cur:
             created_ids = [r["card_id"] for r in await cur.fetchall()]
         removed = 0
-        for cid in created_ids:
-            await db.execute("DELETE FROM card_faces WHERE card_id=?", (cid,))
-            await db.execute("DELETE FROM card_labels WHERE card_id=?", (cid,))
-            await db.execute(
-                "DELETE FROM cards WHERE id=? AND user_id=?", (cid, user_id),
+        for i in range(0, len(created_ids), 500):
+            chunk = created_ids[i:i + 500]
+            ph = ",".join("?" * len(chunk))
+            await db.execute(f"DELETE FROM card_faces WHERE card_id IN ({ph})", chunk)
+            await db.execute(f"DELETE FROM card_labels WHERE card_id IN ({ph})", chunk)
+            cur = await db.execute(
+                f"DELETE FROM cards WHERE user_id=? AND id IN ({ph})",
+                (user_id, *chunk),
             )
-            removed += 1
+            removed += cur.rowcount if cur.rowcount and cur.rowcount > 0 else len(chunk)
         await db.execute(
             "DELETE FROM deck_import_cards WHERE user_id=? AND deck_id=?",
             (user_id, deck_id),

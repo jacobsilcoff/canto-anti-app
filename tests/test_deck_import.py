@@ -78,3 +78,45 @@ async def test_unimport_not_imported_errors(two_users):
     deck_id = await _make_deck(creator)
     out = await db.unimport_deck(importer, deck_id)
     assert not out["ok"]
+
+
+@pytest.mark.asyncio
+async def test_import_large_deck_bulk_path(two_users):
+    """A 2000-card deck must import via the set-based bulk path (not time out)."""
+    creator, importer = two_users
+    items = [
+        {"source_text": f"word {i}", "target_text": f"字{i}",
+         "romanization": f"zi{i}"}
+        for i in range(2000)
+    ]
+    deck_id = await db.create_shared_deck(
+        creator, "Big", "many words", "yue", "public", items=items)
+
+    res = await db.import_deck(importer, deck_id)
+    assert res["ok"] and res["created"] == 2000 and res["total"] == 2000
+
+    cards = await db.get_all_cards(importer)
+    assert len(cards) == 2000
+    # Every imported card got its three SRS faces.
+    faces = await db.get_due_faces(importer)
+    assert len(faces) == 2000 * len(db.FACES)
+
+    # Un-import cleanly removes all 2000.
+    out = await db.unimport_deck(importer, deck_id)
+    assert out["removed"] == 2000
+    assert await db.get_all_cards(importer) == []
+
+
+@pytest.mark.asyncio
+async def test_import_dedupes_repeated_targets(two_users):
+    """Duplicate target+lang within a deck collapses to one card."""
+    creator, importer = two_users
+    items = [
+        {"source_text": "hi", "target_text": "你好", "romanization": "nei5 hou2"},
+        {"source_text": "hello", "target_text": "你好", "romanization": "nei5 hou2"},
+    ]
+    deck_id = await db.create_shared_deck(
+        creator, "Dup", "", "yue", "public", items=items)
+    res = await db.import_deck(importer, deck_id)
+    assert res["created"] == 1
+    assert len(await db.get_all_cards(importer)) == 1

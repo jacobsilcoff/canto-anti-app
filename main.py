@@ -5146,7 +5146,12 @@ async def import_deck(deck_id: int, user: dict = Depends(current_user)):
     deck = await db.get_shared_deck(deck_id, user["id"])
     if not deck:
         raise HTTPException(404, "Deck not found or not accessible")
-    result = await db.import_deck(user["id"], deck_id)
+    try:
+        result = await db.import_deck(user["id"], deck_id)
+    except Exception as e:
+        logger.error("Deck import failed deck=%s user=%s: %s",
+                     deck_id, user["id"], e, exc_info=True)
+        raise HTTPException(500, "Import failed — please try again.")
     if not result["ok"]:
         raise HTTPException(400, result.get("error", "Import failed"))
     return result
