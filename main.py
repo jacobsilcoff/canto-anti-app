@@ -3823,6 +3823,24 @@ async def admin_set_plan(user_id: int, req: PlanUpdate, user: dict = Depends(cur
     return {"success": True}
 
 
+class StreakUpdate(BaseModel):
+    days: int
+
+
+@app.put("/api/admin/users/{user_id}/streak")
+async def admin_set_streak(user_id: int, req: StreakUpdate, user: dict = Depends(current_admin)):
+    """Admin override for a user's 🔥 streak. Streaks are derived from study
+    activity (not a stored number), so this reshapes their activity history to
+    yield exactly `days` — used to restore a streak lost to a bug."""
+    if not 0 <= req.days <= 3650:
+        raise HTTPException(400, "days must be between 0 and 3650")
+    target = await db.get_user(user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+    streak = await db.set_streak(user_id, req.days)
+    return {"success": True, "streak": streak}
+
+
 class CreateUserRequest(BaseModel):
     username: str
     password: str

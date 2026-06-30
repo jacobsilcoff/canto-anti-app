@@ -100,6 +100,39 @@ async def test_add_points_extends_streak_across_days(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_set_streak_from_zero(fresh_db):
+    assert await db.set_streak(fresh_db, 15) == 15
+    assert await db.get_streak(fresh_db) == 15
+
+
+@pytest.mark.asyncio
+async def test_set_streak_is_idempotent(fresh_db):
+    await db.set_streak(fresh_db, 15)
+    assert await db.set_streak(fresh_db, 15) == 15
+
+
+@pytest.mark.asyncio
+async def test_set_streak_can_shorten_existing(fresh_db):
+    # A long real streak, then admin trims it to 3 — the boundary day is cleared
+    # so the count stops at exactly 3.
+    await _mark_days(fresh_db, list(range(10)))
+    assert await db.get_streak(fresh_db) == 10
+    assert await db.set_streak(fresh_db, 3) == 3
+
+
+@pytest.mark.asyncio
+async def test_set_streak_zero_clears_streak(fresh_db):
+    await _mark_days(fresh_db, [0, 1, 2])
+    assert await db.set_streak(fresh_db, 0) == 0
+
+
+@pytest.mark.asyncio
+async def test_set_streak_extends_existing(fresh_db):
+    await _mark_days(fresh_db, [0, 1])
+    assert await db.set_streak(fresh_db, 30) == 30
+
+
+@pytest.mark.asyncio
 async def test_record_study_activity_uses_utc_today(fresh_db):
     await db.record_study_activity(fresh_db)
     # A single record today -> streak of 1, and it matches the UTC date.

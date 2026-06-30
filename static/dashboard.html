@@ -41,6 +41,10 @@
       color: var(--text); vertical-align: middle; }
     .dash-table tr:last-child td { border-bottom: none; }
     .dash-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .streak-edit { background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 8px; font-size: 0.78rem; cursor: pointer;
+      color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .streak-edit:hover { border-color: var(--primary); }
 
     /* Tags */
     .tag { display: inline-block; font-size: 0.68rem; font-weight: 600; padding: 1px 7px;
@@ -309,18 +313,20 @@
     html += '<div id="users-table" style="margin-top:12px">';
     html += '<div class="table-scroll">';
     html += '<table class="dash-table">';
-    html += '<thead><tr><th>User</th><th>Tier</th><th>Cards</th><th class="num">AI (mo)</th><th>Last Active</th><th>Joined</th></tr></thead>';
+    html += '<thead><tr><th>User</th><th>Tier</th><th>Cards</th><th class="num">AI (mo)</th><th class="num">Streak</th><th>Last Active</th><th>Joined</th></tr></thead>';
     html += '<tbody>';
     d.users.forEach(u => {
       const limit = u.is_admin ? '&infin;' : (d.plan_limits[u.plan] || d.plan_limits.free);
       const calls = u.ai_calls_month || 0;
       const pct = u.is_admin ? 0 : Math.round((calls / (d.plan_limits[u.plan] || d.plan_limits.free)) * 100);
       const usageColor = pct >= 90 ? 'color:var(--danger)' : (pct >= 70 ? 'color:var(--warn-accent)' : '');
+      const streak = u.streak || 0;
       html += `<tr>
         <td><b>${escHtml(u.username)}</b></td>
         <td>${tierTag(u)}</td>
         <td class="num">${fmtNum(u.card_count || 0)}</td>
         <td class="num" style="${usageColor}">${calls}/${limit}</td>
+        <td class="num"><button class="streak-edit" onclick="editStreak(${u.id}, ${streak}, '${escHtml(u.username).replace(/'/g, "\\'")}')" title="Edit streak">🔥 ${streak} ✏️</button></td>
         <td>${fmtAgo(u.last_active)}</td>
         <td>${(parseServerDate(u.created_at) || {toLocaleDateString:()=>''}).toLocaleDateString()}</td>
       </tr>`;
@@ -369,6 +375,28 @@
     const el = document.getElementById(id);
     const collapsed = toggle.classList.toggle('collapsed');
     el.style.display = collapsed ? 'none' : '';
+  }
+
+  async function editStreak(userId, current, username) {
+    const input = prompt(`Set ${username}'s 🔥 streak (current: ${current} days):`, current);
+    if (input === null) return;                       // cancelled
+    const days = parseInt(input, 10);
+    if (!Number.isInteger(days) || days < 0 || days > 3650) {
+      alert('Enter a whole number of days between 0 and 3650.');
+      return;
+    }
+    if (days === current) return;
+    try {
+      const r = await fetch(`/api/admin/users/${userId}/streak`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days }),
+      });
+      if (!r.ok) { alert('Failed: ' + (await r.text())); return; }
+      await loadDashboard();                           // refresh the table
+    } catch (e) {
+      alert('Failed: ' + e);
+    }
   }
 
   async function loadStreak() {
