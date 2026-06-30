@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import pytest
 import pytest_asyncio
 
@@ -105,6 +106,66 @@ async def test_import_large_deck_bulk_path(two_users):
     out = await db.unimport_deck(importer, deck_id)
     assert out["removed"] == 2000
     assert await db.get_all_cards(importer) == []
+
+
+@pytest.mark.asyncio
+async def test_import_on_legacy_global_unique_labels(tmp_path):
+    """Legacy single-user DBs had a GLOBAL UNIQUE(name) on labels. The creator
+    owns the "📦 Deck" label, so an importer's INSERT used to be silently ignored
+    and the per-user lookup returned None → 'NoneType is not subscriptable'.
+    init() must rebuild the table to per-user uniqueness, and import must succeed."""
+    path = str(tmp_path / "legacy.db")
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_text TEXT NOT NULL, target_text TEXT NOT NULL,
+            romanization TEXT NOT NULL DEFAULT '', audio_data BLOB, notes TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE labels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE card_labels (
+            card_id INTEGER NOT NULL, label_id INTEGER NOT NULL,
+            PRIMARY KEY (card_id, label_id),
+            FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+            FOREIGN KEY (label_id) REFERENCES labels(id) ON DELETE CASCADE
+        );
+        INSERT INTO cards (id, source_text, target_text, romanization) VALUES (1,'old','舊','gau6');
+        INSERT INTO labels (id, name) VALUES (7,'verbs');
+        INSERT INTO card_labels (card_id, label_id) VALUES (1,7);
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    db.DB_PATH = path
+    await db.init()  # must rebuild labels, dropping the global UNIQUE(name)
+
+    # Legacy label + its card link survive the rebuild, now owned by admin (1).
+    conn = sqlite3.connect(path)
+    assert conn.execute("SELECT user_id FROM labels WHERE id=7").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM card_labels").fetchone()[0] == 1
+    conn.close()
+
+    creator = await db.bootstrap_admin("creator", auth.hash_password("pw"))
+    importer = await db.create_user("importer", auth.hash_password("pw"))
+    cid = await db.create_card(creator, "hello", "你好", "nei5 hou2", target_lang="yue")
+    deck_id = await db.create_shared_deck(
+        creator, "Greetings", "", "yue", "public",
+        items=[{"source_text": "hello", "target_text": "你好", "romanization": "nei5 hou2"}],
+    )
+    await db.label_cards_for_deck(creator, "Greetings", [cid])
+
+    res = await db.import_deck(importer, deck_id)
+    assert res["ok"] and res["created"] == 1
+    # Both users now own their own per-user "📦 Greetings" label.
+    cards = await db.get_all_cards(importer)
+    assert [c["target_text"] for c in cards] == ["你好"]
 
 
 @pytest.mark.asyncio

@@ -5151,9 +5151,7 @@ async def import_deck(deck_id: int, user: dict = Depends(current_user)):
     except Exception as e:
         logger.error("Deck import failed deck=%s user=%s: %s",
                      deck_id, user["id"], e, exc_info=True)
-        # Self-hosted single-tenant app: surface the actual error so import
-        # failures are diagnosable from the UI toast, not just server logs.
-        raise HTTPException(500, f"Import failed: {type(e).__name__}: {e}")
+        raise HTTPException(500, "Import failed — please try again.")
     if not result["ok"]:
         raise HTTPException(400, result.get("error", "Import failed"))
     return result
