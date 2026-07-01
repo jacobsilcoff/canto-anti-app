@@ -1,0 +1,1098 @@
+{
+  "lang": "el",
+  "name": "Top 100 Greek Words",
+  "description": "The 100 most common words in Greek — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (masc. nom. sg.)",
+      "target_text": "ο",
+      "romanization": "o",
+      "notes": "This is the masculine singular nominative definite article; it changes form based on gender, number, and case, e.g., 'η' (fem.), 'το' (neut.).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "και",
+      "romanization": "kai",
+      "notes": "This is a simple conjunction used to link words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I am",
+      "target_text": "είμαι",
+      "romanization": "eimai",
+      "notes": "This is the first person singular form of the verb 'to be'; it is fundamental for forming sentences.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "a/an/one (masc.)",
+      "target_text": "ένας",
+      "romanization": "enas",
+      "notes": "This is the masculine singular nominative indefinite article, also meaning 'one'; it changes for feminine ('μία/μια') and neuter ('ένα').",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "δεν",
+      "romanization": "den",
+      "notes": "This particle is placed directly before the verb to negate it.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "that/which/who",
+      "target_text": "που",
+      "romanization": "poy",
+      "notes": "This word functions as a relative pronoun or conjunction, linking clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to/that (subjunctive particle)",
+      "target_text": "να",
+      "romanization": "na",
+      "notes": "This particle precedes a verb in the subjunctive mood, expressing wishes, commands, or purpose, similar to 'to' in English infinitives.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "in/at/to",
+      "target_text": "σε",
+      "romanization": "se",
+      "notes": "This is a common preposition indicating location or direction.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "με",
+      "romanization": "me",
+      "notes": "This is a common preposition indicating accompaniment or means.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "for",
+      "target_text": "για",
+      "romanization": "gia",
+      "notes": "This is a common preposition indicating purpose, reason, or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "from/by",
+      "target_text": "από",
+      "romanization": "apo",
+      "notes": "This is a common preposition indicating origin, source, or agent.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "τι",
+      "romanization": "ti",
+      "notes": "This interrogative pronoun asks 'what' and is invariable.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "πώς",
+      "romanization": "pos",
+      "notes": "This interrogative adverb asks 'how' and can also mean 'what do you mean?' in certain contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "very/much",
+      "target_text": "πολύ",
+      "romanization": "poly",
+      "notes": "This adverb means 'very' when modifying adjectives/adverbs or 'much/a lot' when modifying verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ναι",
+      "romanization": "nai",
+      "notes": "A simple affirmative response, widely used.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "basic"
+      ]
+    },
+    {
+      "source_text": "no",
+      "target_text": "όχι",
+      "romanization": "ochi",
+      "notes": "A simple negative response, widely used.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "basic"
+      ]
+    },
+    {
+      "source_text": "I",
+      "target_text": "εγώ",
+      "romanization": "ego",
+      "notes": "This is the first person singular personal pronoun, often omitted when the verb conjugation makes the subject clear.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "εσύ",
+      "romanization": "esy",
+      "notes": "This is the second person singular personal pronoun, used when addressing one person informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he/this (masc.)",
+      "target_text": "αυτός",
+      "romanization": "aytos",
+      "notes": "This demonstrative pronoun refers to 'this' or 'that' person/thing, and can also mean 'he'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "she/this (fem.)",
+      "target_text": "αυτή",
+      "romanization": "ayti",
+      "notes": "This demonstrative pronoun refers to 'this' or 'that' person/thing, and can also mean 'she'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "it/this (neut.)",
+      "target_text": "αυτό",
+      "romanization": "ayto",
+      "notes": "This demonstrative pronoun refers to 'this' or 'that' thing, and can also mean 'it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "I have",
+      "target_text": "έχω",
+      "romanization": "echo",
+      "notes": "This is the first person singular form of the verb 'to have', essential for possession and forming perfect tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I want",
+      "target_text": "θέλω",
+      "romanization": "thelo",
+      "notes": "This is the first person singular form of the verb 'to want', commonly followed by 'να' + subjunctive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "I can/am able",
+      "target_text": "μπορώ",
+      "romanization": "mporo",
+      "notes": "This is the first person singular form of the verb 'to be able', commonly followed by 'να' + subjunctive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "I go",
+      "target_text": "πάω",
+      "romanization": "pao",
+      "notes": "This is a common first person singular form of the verb 'to go', often interchangeable with 'πηγαίνω'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "I do/make",
+      "target_text": "κάνω",
+      "romanization": "kano",
+      "notes": "This is the first person singular form of the verb 'to do' or 'to make', used for various actions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "I say/tell",
+      "target_text": "λέω",
+      "romanization": "leo",
+      "notes": "This is the first person singular form of the verb 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "I see",
+      "target_text": "βλέπω",
+      "romanization": "vlepo",
+      "notes": "This is the first person singular form of the verb 'to see'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "I know (a fact)",
+      "target_text": "ξέρω",
+      "romanization": "xero",
+      "notes": "This is the first person singular form of the verb 'to know' a fact or information, distinct from 'γνωρίζω' (to know a person/place).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "τώρα",
+      "romanization": "tora",
+      "notes": "This adverb indicates the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before",
+      "target_text": "πριν",
+      "romanization": "prin",
+      "notes": "This adverb or preposition indicates an earlier time or position.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "after/then",
+      "target_text": "μετά",
+      "romanization": "meta",
+      "notes": "This adverb or preposition indicates a later time or sequence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "πάντα",
+      "romanization": "panta",
+      "notes": "This adverb indicates something that occurs at all times or on every occasion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "ποτέ",
+      "romanization": "pote",
+      "notes": "This adverb indicates at no time or on no occasion; it usually requires a double negative in Greek, e.g., 'δεν πάω ποτέ'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "εδώ",
+      "romanization": "edo",
+      "notes": "This adverb indicates a location close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "εκεί",
+      "romanization": "ekei",
+      "notes": "This adverb indicates a location away from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "σήμερα",
+      "romanization": "simera",
+      "notes": "This adverb refers to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "αύριο",
+      "romanization": "ayrio",
+      "notes": "This adverb refers to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "χθες",
+      "romanization": "chthes",
+      "notes": "This adverb refers to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "where (interrogative)",
+      "target_text": "πού",
+      "romanization": "poy",
+      "notes": "This interrogative adverb asks about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "when (interrogative)",
+      "target_text": "πότε",
+      "romanization": "pote",
+      "notes": "This interrogative adverb asks about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "why/because",
+      "target_text": "γιατί",
+      "romanization": "giati",
+      "notes": "This word functions as an interrogative adverb asking 'why' or as a conjunction meaning 'because'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction",
+        "question"
+      ]
+    },
+    {
+      "source_text": "who/which (masc.)",
+      "target_text": "ποιος",
+      "romanization": "poios",
+      "notes": "This interrogative pronoun asks 'who' or 'which', changing form for feminine ('ποια') and neuter ('ποιο').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "something/anything",
+      "target_text": "κάτι",
+      "romanization": "kati",
+      "notes": "This indefinite pronoun refers to an unspecified thing; it is invariable.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "indefinite"
+      ]
+    },
+    {
+      "source_text": "nothing/anything",
+      "target_text": "τίποτα",
+      "romanization": "tipota",
+      "notes": "This indefinite pronoun means 'nothing' when used with a negative particle ('δεν ... τίποτα') or 'anything' in questions/conditional clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "indefinite"
+      ]
+    },
+    {
+      "source_text": "all/whole (masc.)",
+      "target_text": "όλος",
+      "romanization": "olos",
+      "notes": "This adjective means 'all' or 'whole', and declines according to gender, number, and case, e.g., 'όλη' (fem.), 'όλο' (neut.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "a little/few",
+      "target_text": "λίγο",
+      "romanization": "ligo",
+      "notes": "This can be an adverb meaning 'a little' or an adjective meaning 'little/few' when it declines.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "good (masc.)",
+      "target_text": "καλός",
+      "romanization": "kalos",
+      "notes": "This adjective means 'good'; it declines for feminine ('καλή') and neuter ('καλό').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "bad (masc.)",
+      "target_text": "κακός",
+      "romanization": "kakos",
+      "notes": "This adjective means 'bad'; it declines for feminine ('κακή') and neuter ('κακό').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "big/large (masc.)",
+      "target_text": "μεγάλος",
+      "romanization": "megalos",
+      "notes": "This adjective means 'big' or 'large'; it declines for feminine ('μεγάλη') and neuter ('μεγάλο').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small/little (masc.)",
+      "target_text": "μικρός",
+      "romanization": "mikros",
+      "notes": "This adjective means 'small' or 'little'; it declines for feminine ('μικρή') and neuter ('μικρό').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new/young (masc.)",
+      "target_text": "νέος",
+      "romanization": "neos",
+      "notes": "This adjective means 'new' or 'young'; it declines for feminine ('νέα') and neuter ('νέο').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "old (masc.)",
+      "target_text": "παλιός",
+      "romanization": "palios",
+      "notes": "This adjective means 'old'; it declines for feminine ('παλιά') and neuter ('παλιό').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "one (neuter numeral)",
+      "target_text": "ένα",
+      "romanization": "ena",
+      "notes": "This is the neuter form of the cardinal number 'one', also used as the neuter indefinite article.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "δύο",
+      "romanization": "dyo",
+      "notes": "This is the invariable cardinal number 'two'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three (neuter numeral)",
+      "target_text": "τρία",
+      "romanization": "tria",
+      "notes": "This is the neuter form of the cardinal number 'three', also having masculine ('τρεις') and feminine ('τρεις') forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four (neuter numeral)",
+      "target_text": "τέσσερα",
+      "romanization": "tessera",
+      "notes": "This is the neuter form of the cardinal number 'four', also having masculine ('τέσσερις') and feminine ('τέσσερις') forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "πέντε",
+      "romanization": "pente",
+      "notes": "This is the invariable cardinal number 'five'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "έξι",
+      "romanization": "exi",
+      "notes": "This is the invariable cardinal number 'six'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "επτά",
+      "romanization": "epta",
+      "notes": "This is the invariable cardinal number 'seven'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "οκτώ",
+      "romanization": "okto",
+      "notes": "This is the invariable cardinal number 'eight'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "εννέα",
+      "romanization": "ennea",
+      "notes": "This is the invariable cardinal number 'nine'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "δέκα",
+      "romanization": "deka",
+      "notes": "This is the invariable cardinal number 'ten'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "please/you're welcome",
+      "target_text": "παρακαλώ",
+      "romanization": "parakalo",
+      "notes": "This polite expression serves both to request something and to respond to 'thank you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "ευχαριστώ",
+      "romanization": "eycharisto",
+      "notes": "This common expression means 'thank you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "good morning",
+      "target_text": "καλημέρα",
+      "romanization": "kalimera",
+      "notes": "A standard greeting used in the morning until noon.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "time"
+      ]
+    },
+    {
+      "source_text": "good afternoon/evening",
+      "target_text": "καλησπέρα",
+      "romanization": "kalispera",
+      "notes": "A standard greeting used from noon onwards until late evening.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hello/bye",
+      "target_text": "γεια",
+      "romanization": "geia",
+      "notes": "This is an informal greeting and farewell, widely used in various contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "farewell"
+      ]
+    },
+    {
+      "source_text": "our/us",
+      "target_text": "μας",
+      "romanization": "mas",
+      "notes": "This is the weak form of the first person plural genitive/accusative pronoun, indicating possession or object.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "your/you (pl/formal)",
+      "target_text": "σας",
+      "romanization": "sas",
+      "notes": "This is the weak form of the second person plural/formal genitive/accusative pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "their/them",
+      "target_text": "τους",
+      "romanization": "toys",
+      "notes": "This is the weak form of the third person plural genitive/accusative pronoun, indicating possession or object.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "how much/many",
+      "target_text": "πόσο",
+      "romanization": "poso",
+      "notes": "This interrogative adverb asks about quantity or extent; it can also function as an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "μέρα",
+      "romanization": "mera",
+      "notes": "This feminine noun refers to a 'day'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "νύχτα",
+      "romanization": "nychta",
+      "notes": "This feminine noun refers to 'night'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "πρωί",
+      "romanization": "proi",
+      "notes": "This neuter noun refers to the 'morning' and can also be used as an adverb 'in the morning'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "βράδυ",
+      "romanization": "vrady",
+      "notes": "This neuter noun refers to the 'evening' and can also be used as an adverb 'in the evening'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "hour/time",
+      "target_text": "ώρα",
+      "romanization": "ora",
+      "notes": "This feminine noun can mean 'hour' or 'time' in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time/year",
+      "target_text": "χρόνος",
+      "romanization": "chronos",
+      "notes": "This masculine noun broadly means 'time' (e.g., passage of time) or 'year'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person/man",
+      "target_text": "άνθρωπος",
+      "romanization": "anthropos",
+      "notes": "This masculine noun refers to a 'person' or 'human being', and can also mean 'man'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "γυναίκα",
+      "romanization": "gynaika",
+      "notes": "This feminine noun refers to a 'woman'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "παιδί",
+      "romanization": "paidi",
+      "notes": "This neuter noun refers to a 'child'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "νερό",
+      "romanization": "nero",
+      "notes": "This neuter noun refers to 'water'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "φαγητό",
+      "romanization": "fagito",
+      "notes": "This neuter noun refers to 'food' in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "house/home",
+      "target_text": "σπίτι",
+      "romanization": "spiti",
+      "notes": "This neuter noun refers to a 'house' or 'home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "city",
+      "target_text": "πόλη",
+      "romanization": "poli",
+      "notes": "This feminine noun refers to a 'city' or 'town'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "χώρα",
+      "romanization": "chora",
+      "notes": "This feminine noun refers to a 'country'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "χρήματα",
+      "romanization": "chrimata",
+      "notes": "This neuter plural noun refers to 'money'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "money"
+      ]
+    },
+    {
+      "source_text": "work/job",
+      "target_text": "δουλειά",
+      "romanization": "doyleia",
+      "notes": "This feminine noun refers to 'work' or a 'job'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "life",
+      "target_text": "ζωή",
+      "romanization": "zoi",
+      "notes": "This feminine noun refers to 'life'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "world/people",
+      "target_text": "κόσμος",
+      "romanization": "kosmos",
+      "notes": "This masculine noun can mean 'world' or 'people/crowd'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract",
+        "people"
+      ]
+    },
+    {
+      "source_text": "road/street",
+      "target_text": "δρόμος",
+      "romanization": "dromos",
+      "notes": "This masculine noun refers to a 'road' or 'street'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "hand",
+      "target_text": "χέρι",
+      "romanization": "cheri",
+      "notes": "This neuter noun refers to a 'hand'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "eye",
+      "target_text": "μάτι",
+      "romanization": "mati",
+      "notes": "This neuter noun refers to an 'eye'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "head",
+      "target_text": "κεφάλι",
+      "romanization": "kefali",
+      "notes": "This neuter noun refers to the 'head'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "heart",
+      "target_text": "καρδιά",
+      "romanization": "kardia",
+      "notes": "This feminine noun refers to the 'heart'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "friend (masc.)",
+      "target_text": "φίλος",
+      "romanization": "filos",
+      "notes": "This masculine noun refers to a 'friend'; the feminine form is 'φίλη'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "οικογένεια",
+      "romanization": "oikogeneia",
+      "notes": "This feminine noun refers to 'family'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "δωμάτιο",
+      "romanization": "domatio",
+      "notes": "This neuter noun refers to a 'room'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "house"
+      ]
+    },
+    {
+      "source_text": "table",
+      "target_text": "τραπέζι",
+      "romanization": "trapezi",
+      "notes": "This neuter noun refers to a 'table'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "furniture"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "βιβλίο",
+      "romanization": "vivlio",
+      "notes": "This neuter noun refers to a 'book'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    }
+  ]
+}

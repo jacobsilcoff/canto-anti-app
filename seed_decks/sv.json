@@ -1,0 +1,1095 @@
+{
+  "lang": "sv",
+  "name": "Top 100 Swedish Words",
+  "description": "The 100 most common words in Swedish — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "och",
+      "romanization": "",
+      "notes": "This common conjunction is used to link words, phrases, and clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to / that",
+      "target_text": "att",
+      "romanization": "",
+      "notes": "Functions as an infinitive marker (att läsa = to read) and a subordinating conjunction (Jag vet att du kommer = I know that you are coming).",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "en",
+      "romanization": "",
+      "notes": "The indefinite article for common gender nouns, also the number one.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
+    },
+    {
+      "source_text": "is / are",
+      "target_text": "är",
+      "romanization": "",
+      "notes": "The present tense form of the verb \"att vara\" (to be).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "jag",
+      "romanization": "",
+      "notes": "The first-person singular subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "it / that",
+      "target_text": "det",
+      "romanization": "",
+      "notes": "A neuter pronoun (often existential or referring to neuter nouns) or a definite article for neuter nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "article"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "inte",
+      "romanization": "",
+      "notes": "This adverb of negation typically follows the verb in declarative sentences.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "have / has",
+      "target_text": "har",
+      "romanization": "",
+      "notes": "The present tense form of the verb \"att ha\" (to have).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "on / at",
+      "target_text": "på",
+      "romanization": "",
+      "notes": "A versatile preposition indicating location (on, at), direction (to), or time.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "till",
+      "romanization": "",
+      "notes": "A common preposition indicating direction, purpose, or recipient.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "med",
+      "romanization": "",
+      "notes": "This preposition expresses accompaniment, means, or manner.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "for / too",
+      "target_text": "för",
+      "romanization": "",
+      "notes": "Can be a preposition (for) or an adverb (too, as in 'för mycket' = too much).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "who / which / as",
+      "target_text": "som",
+      "romanization": "",
+      "notes": "Functions as a relative pronoun (who, which) or a conjunction (as, like).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "of / by",
+      "target_text": "av",
+      "romanization": "",
+      "notes": "A preposition expressing possession (of), origin (from), or agent (by).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "men",
+      "romanization": "",
+      "notes": "This coordinating conjunction introduces a contrast or exception.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "ett",
+      "romanization": "",
+      "notes": "The indefinite article for neuter gender nouns, also the number one.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
+    },
+    {
+      "source_text": "so / such",
+      "target_text": "så",
+      "romanization": "",
+      "notes": "An adverb used for intensity (so good), result (so, therefore), or comparison (as).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "can / be able to",
+      "target_text": "kan",
+      "romanization": "",
+      "notes": "A modal auxiliary verb indicating ability or permission.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "one / you",
+      "target_text": "man",
+      "romanization": "",
+      "notes": "An impersonal pronoun used for general statements, equivalent to 'one' or 'they' in English.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "impersonal"
+      ]
+    },
+    {
+      "source_text": "from",
+      "target_text": "från",
+      "romanization": "",
+      "notes": "This preposition indicates origin, source, or starting point.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "the / it",
+      "target_text": "den",
+      "romanization": "",
+      "notes": "The definite article for common gender singular nouns, or a common gender singular pronoun (it, that).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "The third-person plural pronoun, referring to people or things.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "shall / will / going to",
+      "target_text": "ska",
+      "romanization": "",
+      "notes": "A modal auxiliary verb indicating future tense, intention, or obligation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "be",
+      "target_text": "vara",
+      "romanization": "",
+      "notes": "The infinitive form of the verb \"to be,\" often used with modal verbs or in compound tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "han",
+      "romanization": "",
+      "notes": "The third-person singular masculine subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "här",
+      "romanization": "",
+      "notes": "An adverb of place, indicating proximity to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "me",
+      "target_text": "mig",
+      "romanization": "",
+      "notes": "The object form of the first-person singular pronoun \"jag.\"",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (singular, informal)",
+      "target_text": "du",
+      "romanization": "",
+      "notes": "The second-person singular subject pronoun, used for informal address.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she / her",
+      "target_text": "hon",
+      "romanization": "",
+      "notes": "The third-person singular feminine subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "about / if",
+      "target_text": "om",
+      "romanization": "",
+      "notes": "Can be a preposition (about) or a conjunction (if, whether).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "hur",
+      "romanization": "",
+      "notes": "An interrogative adverb used to ask about manner or degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "up",
+      "target_text": "upp",
+      "romanization": "",
+      "notes": "An adverb of direction, indicating movement upwards.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "out",
+      "target_text": "ut",
+      "romanization": "",
+      "notes": "An adverb of direction, indicating movement outwards.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "in",
+      "target_text": "in",
+      "romanization": "",
+      "notes": "An adverb of direction, indicating movement inwards.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "more",
+      "target_text": "mer",
+      "romanization": "",
+      "notes": "An adverb of quantity or degree, often used for comparison.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "bara",
+      "romanization": "",
+      "notes": "An adverb used to indicate restriction or emphasis.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "också",
+      "romanization": "",
+      "notes": "An adverb used to indicate addition or similarity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "everything / all",
+      "target_text": "allt",
+      "romanization": "",
+      "notes": "A neuter pronoun meaning 'everything' or an adjective meaning 'all'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "nu",
+      "romanization": "",
+      "notes": "An adverb of time, indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "then / when",
+      "target_text": "då",
+      "romanization": "",
+      "notes": "Can be an adverb of time (then) or a subordinating conjunction (when).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "vi",
+      "romanization": "",
+      "notes": "The first-person plural subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "down",
+      "target_text": "ner",
+      "romanization": "",
+      "notes": "An adverb of direction, indicating movement downwards.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "someone / anyone",
+      "target_text": "någon",
+      "romanization": "",
+      "notes": "An indefinite pronoun referring to an unspecified person or thing (common gender).",
+      "cefr_level": "A2",
+      "labels": [
+        "pronoun",
+        "indefinite"
+      ]
+    },
+    {
+      "source_text": "much / a lot",
+      "target_text": "mycket",
+      "romanization": "",
+      "notes": "An adverb of quantity, used with uncountable nouns or verbs to mean 'a lot'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "go / walk",
+      "target_text": "gå",
+      "romanization": "",
+      "notes": "A common verb meaning to move from one place to another, by walking or otherwise.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "do / make",
+      "target_text": "göra",
+      "romanization": "",
+      "notes": "A versatile verb used for actions, creating things, or performing tasks.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "say / tell",
+      "target_text": "säga",
+      "romanization": "",
+      "notes": "A common verb for speaking or communicating information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "come",
+      "target_text": "komma",
+      "romanization": "",
+      "notes": "A verb indicating movement towards the speaker or a specified place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "see / look",
+      "target_text": "se",
+      "romanization": "",
+      "notes": "A verb for perceiving with the eyes or understanding.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "take",
+      "target_text": "ta",
+      "romanization": "",
+      "notes": "A very common and versatile verb with many phrasal verb combinations.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "give",
+      "target_text": "ge",
+      "romanization": "",
+      "notes": "A verb meaning to transfer possession or provide something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "know (facts)",
+      "target_text": "veta",
+      "romanization": "",
+      "notes": "This verb is used for knowing facts, information, or how to do something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "believe / think",
+      "target_text": "tro",
+      "romanization": "",
+      "notes": "A verb expressing conviction or opinion, similar to 'think' in some contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "want / wish",
+      "target_text": "vilja",
+      "romanization": "",
+      "notes": "A modal auxiliary verb expressing desire or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "must / have to",
+      "target_text": "måste",
+      "romanization": "",
+      "notes": "An unchanging modal auxiliary verb indicating strong obligation or necessity.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "self / oneself",
+      "target_text": "själv",
+      "romanization": "",
+      "notes": "A reflexive pronoun (e.g., jag själv = myself) or an adverb meaning 'by oneself'.",
+      "cefr_level": "A2",
+      "labels": [
+        "pronoun",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "there / where",
+      "target_text": "där",
+      "romanization": "",
+      "notes": "An adverb of place, indicating distance, or a relative adverb introducing a clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "när",
+      "romanization": "",
+      "notes": "An interrogative adverb of time or a subordinating conjunction.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "vad",
+      "romanization": "",
+      "notes": "An interrogative pronoun used to ask about things or actions.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "where / was",
+      "target_text": "var",
+      "romanization": "",
+      "notes": "Can be an interrogative adverb of place (where) or the past tense of 'vara' (was).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "verb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "vem",
+      "romanization": "",
+      "notes": "An interrogative pronoun used to ask about people (subject form).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "varför",
+      "romanization": "",
+      "notes": "An interrogative adverb used to ask about reasons.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "eller",
+      "romanization": "",
+      "notes": "A coordinating conjunction offering an alternative.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "under / during",
+      "target_text": "under",
+      "romanization": "",
+      "notes": "A preposition indicating position beneath something or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time",
+        "place"
+      ]
+    },
+    {
+      "source_text": "over / about",
+      "target_text": "över",
+      "romanization": "",
+      "notes": "A preposition indicating position above, movement across, or referring to a topic.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time",
+        "place"
+      ]
+    },
+    {
+      "source_text": "between",
+      "target_text": "mellan",
+      "romanization": "",
+      "notes": "A preposition indicating a position or relationship in the space separating two points.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "efter",
+      "romanization": "",
+      "notes": "A preposition indicating sequence in time or space, or seeking something.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before",
+      "target_text": "innan",
+      "romanization": "",
+      "notes": "A subordinating conjunction introducing a clause that specifies a time prior to the main clause's event.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "idag",
+      "romanization": "",
+      "notes": "An adverb of time referring to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "igår",
+      "romanization": "",
+      "notes": "An adverb of time referring to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "imorgon",
+      "romanization": "",
+      "notes": "An adverb of time referring to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "alltid",
+      "romanization": "",
+      "notes": "An adverb of frequency, indicating something happens at all times.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "aldrig",
+      "romanization": "",
+      "notes": "An adverb of frequency, indicating something does not happen at any time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "often",
+      "target_text": "ofta",
+      "romanization": "",
+      "notes": "An adverb of frequency, indicating something happens many times.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "seldom / rarely",
+      "target_text": "sällan",
+      "romanization": "",
+      "notes": "An adverb of frequency, indicating something happens infrequently.",
+      "cefr_level": "B1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "again",
+      "target_text": "igen",
+      "romanization": "",
+      "notes": "An adverb indicating repetition of an action or state.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "tid",
+      "romanization": "",
+      "notes": "A common gender noun (en tid) referring to duration or a specific moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "år",
+      "romanization": "",
+      "notes": "A neuter gender noun (ett år) that is irregular in plural, remaining unchanged.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "dag",
+      "romanization": "",
+      "notes": "A common gender noun (en dag) referring to a 24-hour period or daylight hours.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "vecka",
+      "romanization": "",
+      "notes": "A common gender noun (en vecka) referring to a period of seven days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "månad",
+      "romanization": "",
+      "notes": "A common gender noun (en månad) referring to a calendar month.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "people / folk",
+      "target_text": "folk",
+      "romanization": "",
+      "notes": "A neuter collective noun (ett folk) meaning 'people' in general or a nation.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "kvinna",
+      "romanization": "",
+      "notes": "A common gender noun (en kvinna) referring to an adult female human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "barn",
+      "romanization": "",
+      "notes": "A neuter gender noun (ett barn) referring to a young human, irregular in plural (samma form).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "house",
+      "target_text": "hus",
+      "romanization": "",
+      "notes": "A neuter gender noun (ett hus) referring to a building for living in, irregular in plural (samma form).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "home",
+      "target_text": "hem",
+      "romanization": "",
+      "notes": "Can be a neuter noun (ett hem) or an adverb of direction (gå hem = go home).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "adverb",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "bok",
+      "romanization": "",
+      "notes": "A common gender noun (en bok) referring to a written or printed work.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "vatten",
+      "romanization": "",
+      "notes": "A neuter gender noun (ett vatten) that is uncountable.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "mat",
+      "romanization": "",
+      "notes": "A common gender noun (en mat) that is uncountable.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "tack",
+      "romanization": "",
+      "notes": "An interjection used to express gratitude, can also be a noun (ett tack).",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "hi / hello",
+      "target_text": "hej",
+      "romanization": "",
+      "notes": "A common greeting used upon meeting or leaving.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ja",
+      "romanization": "",
+      "notes": "An interjection used to express affirmation or agreement.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "response"
+      ]
+    },
+    {
+      "source_text": "no",
+      "target_text": "nej",
+      "romanization": "",
+      "notes": "An interjection used to express negation or disagreement.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "response"
+      ]
+    },
+    {
+      "source_text": "sorry / excuse me",
+      "target_text": "förlåt",
+      "romanization": "",
+      "notes": "An interjection used to apologize or get attention.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "excuse me",
+      "target_text": "ursäkta",
+      "romanization": "",
+      "notes": "An interjection or imperative verb used to get attention or apologize.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "bra",
+      "romanization": "",
+      "notes": "An adjective (ett bra hus) and an adverb (mår bra = feel well) that does not inflect.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "stor",
+      "romanization": "",
+      "notes": "An adjective that inflects by gender (stor, stort, stora) and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "liten",
+      "romanization": "",
+      "notes": "An adjective that inflects irregularly (liten, litet, små) and by number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "ny",
+      "romanization": "",
+      "notes": "An adjective that inflects by gender (ny, nytt, nya) and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "gammal",
+      "romanization": "",
+      "notes": "An adjective that inflects by gender (gammal, gammalt, gamla) and number, used for age or age of things.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "age"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1106 @@
+{
+  "lang": "ru",
+  "name": "Top 100 Russian Words",
+  "description": "The 100 most common words in Russian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "и",
+      "romanization": "i",
+      "notes": "Connects words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "in, into, at",
+      "target_text": "в",
+      "romanization": "v",
+      "notes": "Takes Prepositional (location) or Accusative (direction) case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "не",
+      "romanization": "ne",
+      "notes": "Used to negate verbs, adjectives, or adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "on, at",
+      "target_text": "на",
+      "romanization": "na",
+      "notes": "Takes Prepositional (surface) or Accusative (motion onto) case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "я",
+      "romanization": "ja",
+      "notes": "The first-person singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "быть",
+      "romanization": "byt'",
+      "notes": "The present tense form 'есть' is usually omitted in simple statements.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "he / it",
+      "target_text": "он",
+      "romanization": "on",
+      "notes": "The third-person masculine singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "with, from",
+      "target_text": "с",
+      "romanization": "s",
+      "notes": "Takes Instrumental (with) or Genitive (from/since) case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "but, and",
+      "target_text": "а",
+      "romanization": "a",
+      "notes": "Often implies a contrast or 'whereas'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "contrast"
+      ]
+    },
+    {
+      "source_text": "along, by, for",
+      "target_text": "по",
+      "romanization": "po",
+      "notes": "Common with Dative case for 'along', 'according to', or 'for'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "how, as, like",
+      "target_text": "как",
+      "romanization": "kak",
+      "notes": "Used for questions, comparisons, or as a conjunction 'as'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "this, it, that",
+      "target_text": "э́то",
+      "romanization": "e to",
+      "notes": "A versatile demonstrative, often meaning 'this is' or 'it is'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "what, that",
+      "target_text": "что",
+      "romanization": "chto",
+      "notes": "Used as an interrogative pronoun or a conjunction 'that'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to, towards",
+      "target_text": "к",
+      "romanization": "k",
+      "notes": "Takes Dative case, indicating direction or approach.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "мы",
+      "romanization": "my",
+      "notes": "The first-person plural pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "from, out of",
+      "target_text": "из",
+      "romanization": "iz",
+      "notes": "Takes Genitive case, indicating origin or material.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "about, concerning",
+      "target_text": "о",
+      "romanization": "o",
+      "notes": "Takes Prepositional case when meaning 'about'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "for",
+      "target_text": "для",
+      "romanization": "dlja",
+      "notes": "Takes Genitive case, indicating purpose or recipient.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "from, away from",
+      "target_text": "от",
+      "romanization": "ot",
+      "notes": "Takes Genitive case, indicating separation, origin, or cause.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "she / it",
+      "target_text": "она́",
+      "romanization": "ona",
+      "notes": "The third-person feminine singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "год",
+      "romanization": "god",
+      "notes": "Masculine noun, often used with numbers (e.g., один год, два года).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "you (informal)",
+      "target_text": "ты",
+      "romanization": "ty",
+      "notes": "Informal second-person singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (formal/plural)",
+      "target_text": "вы",
+      "romanization": "vy",
+      "notes": "Formal singular or plural second-person pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "сказа́ть",
+      "romanization": "skaza t'",
+      "notes": "Perfective verb, often used for a single, completed utterance.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication",
+        "perfective"
+      ]
+    },
+    {
+      "source_text": "all, whole",
+      "target_text": "весь",
+      "romanization": "ves'",
+      "notes": "Declines like an adjective, agreeing in gender and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "person, man",
+      "target_text": "челове́к",
+      "romanization": "chelove k",
+      "notes": "The plural form is люди (people), which is a different word.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "но",
+      "romanization": "no",
+      "notes": "Expresses a direct contrast or opposition.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "contrast"
+      ]
+    },
+    {
+      "source_text": "can, to be able",
+      "target_text": "мочь",
+      "romanization": "moch'",
+      "notes": "Irregular verb, often used with an infinitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "говори́ть",
+      "romanization": "govori t'",
+      "notes": "Imperfective verb for ongoing or habitual speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "знать",
+      "romanization": "znat'",
+      "notes": "Used for knowing facts, people, or skills.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "oneself",
+      "target_text": "себя́",
+      "romanization": "sebja",
+      "notes": "Reflexive pronoun, refers back to the subject of the sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "only, just",
+      "target_text": "то́лько",
+      "romanization": "to l'ko",
+      "notes": "Limits or restricts the meaning of a word or phrase.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "limiter"
+      ]
+    },
+    {
+      "source_text": "his, its, him",
+      "target_text": "его́",
+      "romanization": "ego",
+      "notes": "Genitive/Accusative of 'он', also the possessive for masculine/neuter.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to me, for me",
+      "target_text": "мне",
+      "romanization": "mne",
+      "notes": "Dative case of 'я', common with impersonal constructions (e.g., Мне холодно).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "да",
+      "romanization": "da",
+      "notes": "The primary affirmative particle.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "here is, there is",
+      "target_text": "вот",
+      "romanization": "vot",
+      "notes": "Used to point out something or draw attention to it.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "still, yet, more",
+      "target_text": "ещё",
+      "romanization": "esche",
+      "notes": "Indicates continuation, addition, or 'another'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "понима́ть",
+      "romanization": "ponima t'",
+      "notes": "Imperfective verb for the process or state of understanding.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "it",
+      "target_text": "оно́",
+      "romanization": "ono",
+      "notes": "The third-person neuter singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "very, much",
+      "target_text": "о́чень",
+      "romanization": "o chen'",
+      "notes": "Intensifies adjectives, adverbs, or verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "де́лать",
+      "romanization": "de lat'",
+      "notes": "Imperfective verb for general action or creation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "must, need to",
+      "target_text": "на́до",
+      "romanization": "na do",
+      "notes": "Impersonal word indicating necessity or obligation.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal",
+        "necessity"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "вре́мя",
+      "romanization": "vre mja",
+      "notes": "Neuter noun, declines with 'времени' in oblique cases.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "well, so",
+      "target_text": "ну",
+      "romanization": "nu",
+      "notes": "A common interjection to begin a thought or express mild emotion.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "день",
+      "romanization": "den'",
+      "notes": "Masculine noun, often used with time expressions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "their, them",
+      "target_text": "их",
+      "romanization": "ih",
+      "notes": "Genitive/Accusative of 'они', also the possessive for plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "this, these",
+      "target_text": "э́тот",
+      "romanization": "e tot",
+      "notes": "Demonstrative pronoun, agrees in gender and number with the noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "или",
+      "romanization": "ili",
+      "notes": "Connects alternatives or choices.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "then, at that time",
+      "target_text": "тогда́",
+      "romanization": "togda",
+      "notes": "Indicates a sequence of events or a consequence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "even",
+      "target_text": "да́же",
+      "romanization": "da zhe",
+      "notes": "Emphasizes something unexpected or surprising.",
+      "cefr_level": "A2",
+      "labels": [
+        "particle",
+        "emphasis"
+      ]
+    },
+    {
+      "source_text": "indeed, as for",
+      "target_text": "же",
+      "romanization": "zhe",
+      "notes": "Adds emphasis, contrast, or asks for clarification.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "emphasis"
+      ]
+    },
+    {
+      "source_text": "already",
+      "target_text": "уже́",
+      "romanization": "uzhe",
+      "notes": "Indicates that an action or state has occurred.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "где",
+      "romanization": "gde",
+      "notes": "Interrogative adverb asking for a location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "location"
+      ]
+    },
+    {
+      "source_text": "then, afterwards",
+      "target_text": "пото́м",
+      "romanization": "poto m",
+      "notes": "Indicates a sequence of events in time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "без",
+      "romanization": "bez",
+      "notes": "Takes Genitive case, indicating absence or lack.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "again",
+      "target_text": "опя́ть",
+      "romanization": "opja t'",
+      "notes": "Indicates the repetition of an action.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "никогда́",
+      "romanization": "nikogda",
+      "notes": "Indicates the absolute absence of an action or event.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "most, very",
+      "target_text": "са́мый",
+      "romanization": "sa myj",
+      "notes": "Used to form superlative adjectives (e.g., самый лучший).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "когда́",
+      "romanization": "kogda",
+      "notes": "Interrogative adverb for time, also a temporal conjunction.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "time",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "по́сле",
+      "romanization": "po sle",
+      "notes": "Takes Genitive case, indicating succession in time or space.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "но́вый",
+      "romanization": "no vyj",
+      "notes": "Describes something recently made or acquired.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "one, alone",
+      "target_text": "оди́н",
+      "romanization": "odi n",
+      "notes": "The numeral 'one', also means 'alone' or 'some'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "what kind of, which",
+      "target_text": "како́й",
+      "romanization": "kako j",
+      "notes": "Interrogative adjective, asks about quality or type.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "good, well",
+      "target_text": "хорошо́",
+      "romanization": "horosho",
+      "notes": "Can be an adverb 'well' or an impersonal predicate 'it is good'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "our",
+      "target_text": "наш",
+      "romanization": "nash",
+      "notes": "Possessive pronoun, agrees in gender, number, and case with the noun it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "сде́лать",
+      "romanization": "sde lat'",
+      "notes": "Perfective verb, for a completed action or result.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action",
+        "perfective"
+      ]
+    },
+    {
+      "source_text": "to her, for her",
+      "target_text": "ей",
+      "romanization": "ej",
+      "notes": "Dative case of 'она́', often used with impersonal verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to them, for them, by him/it",
+      "target_text": "им",
+      "romanization": "im",
+      "notes": "Dative case of 'они' or instrumental case of 'он/оно', often used for 'to them' or 'by him/it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "my, mine",
+      "target_text": "мой",
+      "romanization": "moj",
+      "notes": "Possessive pronoun, agrees in gender, number, and case with the noun it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to remember",
+      "target_text": "по́мнить",
+      "romanization": "po mnit'",
+      "notes": "Imperfective verb for the state or process of remembering.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "cognition",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "to look, to watch",
+      "target_text": "смотре́ть",
+      "romanization": "smotre t'",
+      "notes": "Imperfective verb, implies an ongoing action of observing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "ви́деть",
+      "romanization": "vi det'",
+      "notes": "Imperfective verb, refers to the ability or act of seeing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception",
+        "imperfective"
+      ]
+    },
+    {
+      "source_text": "life",
+      "target_text": "жизнь",
+      "romanization": "zhizn'",
+      "notes": "Feminine noun, often used in abstract contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "that, those",
+      "target_text": "тот",
+      "romanization": "tot",
+      "notes": "Demonstrative pronoun, contrasts with 'этот' (this).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "to remain, to stay",
+      "target_text": "оста́ться",
+      "romanization": "osta t'sja",
+      "notes": "Perfective verb for a completed action of staying or remaining.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "motion",
+        "perfective"
+      ]
+    },
+    {
+      "source_text": "to go, to leave",
+      "target_text": "пойти́",
+      "romanization": "pojti",
+      "notes": "Perfective verb for beginning an undirected movement or leaving.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion",
+        "perfective"
+      ]
+    },
+    {
+      "source_text": "almost, nearly",
+      "target_text": "почти́",
+      "romanization": "pochti",
+      "notes": "Indicates proximity to a certain state or quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "degree"
+      ]
+    },
+    {
+      "source_text": "more, bigger",
+      "target_text": "бо́льше",
+      "romanization": "bo l'she",
+      "notes": "Comparative form of 'много' (much) or 'большой' (big).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "хоро́ший",
+      "romanization": "horo shij",
+      "notes": "Describes quality, agrees in gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "it is possible, one can",
+      "target_text": "мо́жно",
+      "romanization": "mo zhno",
+      "notes": "Impersonal word indicating permission or possibility.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal",
+        "possibility"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "здесь",
+      "romanization": "zdes'",
+      "notes": "Indicates location at the speaker's position.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "два",
+      "romanization": "dva",
+      "notes": "The numeral 'two', has masculine/neuter and feminine forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "три",
+      "romanization": "tri",
+      "notes": "The numeral 'three', declines for case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "четы́ре",
+      "romanization": "chety re",
+      "notes": "The numeral 'four', declines for case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "пять",
+      "romanization": "pjat'",
+      "notes": "The numeral 'five', declines for case, ends in a soft sign.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "де́сять",
+      "romanization": "de sjat'",
+      "notes": "The numeral 'ten', declines for case, ends in a soft sign.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "сто",
+      "romanization": "sto",
+      "notes": "The numeral 'hundred'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "thousand",
+      "target_text": "ты́сяча",
+      "romanization": "ty sjacha",
+      "notes": "Feminine noun, means 'thousand'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "number"
+      ]
+    },
+    {
+      "source_text": "in order to, so that",
+      "target_text": "что́бы",
+      "romanization": "chto by",
+      "notes": "Introduces a purpose clause, meaning 'in order to' or 'so that'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "purpose"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "хоте́ть",
+      "romanization": "hote t'",
+      "notes": "Irregular verb, expresses desire.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "world, peace",
+      "target_text": "мир",
+      "romanization": "mir",
+      "notes": "Masculine noun, has two main meanings: 'world' and 'peace'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "hand, arm",
+      "target_text": "рука́",
+      "romanization": "ruka",
+      "notes": "Feminine noun with an irregular plural form: руки.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "work, job",
+      "target_text": "рабо́та",
+      "romanization": "rabo ta",
+      "notes": "Feminine noun, common for describing occupation or activity.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "city, town",
+      "target_text": "го́род",
+      "romanization": "go rod",
+      "notes": "Masculine noun, refers to an urban area.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "страна́",
+      "romanization": "strana",
+      "notes": "Feminine noun, means 'country' or 'nation'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "ночь",
+      "romanization": "noch'",
+      "notes": "Feminine noun ending in a soft sign, refers to the time after sunset.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "side, direction",
+      "target_text": "сторона́",
+      "romanization": "storona",
+      "notes": "Feminine noun, used for 'side' or 'direction'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "word",
+      "target_text": "сло́во",
+      "romanization": "slo vo",
+      "notes": "Neuter noun, refers to a unit of language.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "place, seat",
+      "target_text": "ме́сто",
+      "romanization": "me sto",
+      "notes": "Neuter noun, means 'place' or 'space'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "location"
+      ]
+    },
+    {
+      "source_text": "time, instance",
+      "target_text": "раз",
+      "romanization": "raz",
+      "notes": "Masculine noun, used to count occurrences (e.g., один раз - once).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    }
+  ]
+}

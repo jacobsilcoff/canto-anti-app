@@ -1,0 +1,1101 @@
+{
+  "lang": "ko",
+  "name": "Top 100 Korean Words",
+  "description": "The 100 most common words in Korean — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to do",
+      "target_text": "하다",
+      "romanization": "hada",
+      "notes": "This extremely versatile verb can combine with many nouns to form new verbs, like 공부하다 (to study).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to exist, have",
+      "target_text": "있다",
+      "romanization": "itda",
+      "notes": "This fundamental word can mean 'to exist' (there is/are) or 'to have' (possession).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to not exist, not have",
+      "target_text": "없다",
+      "romanization": "eopda",
+      "notes": "The negative counterpart to 있다, also covering non-existence and lack of possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to be (copula)",
+      "target_text": "이다",
+      "romanization": "ida",
+      "notes": "The Korean copula, always attached directly to a noun, stating identity or equivalence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "가다",
+      "romanization": "gada",
+      "notes": "A basic verb of motion, often used with location particles like -에 or -으로.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "오다",
+      "romanization": "oda",
+      "notes": "A basic verb of motion, implying movement towards the speaker's location.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "먹다",
+      "romanization": "meokda",
+      "notes": "An essential verb for consuming food or meals.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "자다",
+      "romanization": "jada",
+      "notes": "A fundamental verb related to rest and daily activities.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily"
+      ]
+    },
+    {
+      "source_text": "to see, watch",
+      "target_text": "보다",
+      "romanization": "boda",
+      "notes": "Has broad usage for visual perception, watching movies, or trying something out (e.g., 해 보다).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to hear, listen",
+      "target_text": "듣다",
+      "romanization": "deutda",
+      "notes": "A common verb for auditory perception; it is an irregular verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to speak, say",
+      "target_text": "말하다",
+      "romanization": "malhada",
+      "notes": "Refers to the act of speaking or conveying information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "알다",
+      "romanization": "alda",
+      "notes": "Used for knowing facts, people, or how to do something; it is an irregular verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to not know",
+      "target_text": "모르다",
+      "romanization": "moreuda",
+      "notes": "The negative of 알다, expressing a lack of knowledge; also an irregular verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to be good, like",
+      "target_text": "좋다",
+      "romanization": "jota",
+      "notes": "As an adjective it means 'to be good,' but also expresses liking when used as 좋아하다 (to like).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "to dislike",
+      "target_text": "싫어하다",
+      "romanization": "sireohada",
+      "notes": "The most common way to express dislike for someone or something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "I / me (informal)",
+      "target_text": "나",
+      "romanization": "na",
+      "notes": "An informal pronoun for 'I' or 'me,' used among close friends, family, or inferiors.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "I / me (formal)",
+      "target_text": "저",
+      "romanization": "jeo",
+      "notes": "A formal and humble pronoun for 'I' or 'me,' used when speaking to superiors or strangers.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "우리",
+      "romanization": "uri",
+      "notes": "Meaning 'we' or 'us,' it is also commonly used in Korean to mean 'my' when referring to shared or communal items.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this thing",
+      "target_text": "이것",
+      "romanization": "igeot",
+      "notes": "A demonstrative pronoun for an object near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that thing",
+      "target_text": "그것",
+      "romanization": "geugeot",
+      "notes": "A demonstrative pronoun for an object near the listener or something previously mentioned.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that thing over there",
+      "target_text": "저것",
+      "romanization": "jeogeot",
+      "notes": "A demonstrative pronoun for an object far from both the speaker and the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "무엇",
+      "romanization": "mueot",
+      "notes": "An interrogative pronoun; it is very commonly shortened to `뭐` in casual speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "누구",
+      "romanization": "nugu",
+      "notes": "An interrogative pronoun for asking about a person's identity.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "person"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "어디",
+      "romanization": "eodi",
+      "notes": "An interrogative adverb used for asking about a location.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "place"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "언제",
+      "romanization": "eonje",
+      "notes": "An interrogative adverb used for asking about a specific time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "time"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "어떻게",
+      "romanization": "eotteoke",
+      "notes": "An interrogative adverb used for asking about manner or method, or 'how about...'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "왜",
+      "romanization": "wae",
+      "notes": "An interrogative adverb used for asking about a reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "reason"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "네",
+      "romanization": "ne",
+      "notes": "A common affirmative response, also used to acknowledge or agree.",
+      "cefr_level": "A1",
+      "labels": [
+        "response",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "no",
+      "target_text": "아니요",
+      "romanization": "aniyo",
+      "notes": "A common negative response, used to disagree or decline.",
+      "cefr_level": "A1",
+      "labels": [
+        "response",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "person",
+      "target_text": "사람",
+      "romanization": "saram",
+      "notes": "A generic noun for a human being.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "이름",
+      "romanization": "ireum",
+      "notes": "A fundamental noun used in self-introductions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "self-intro"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "시간",
+      "romanization": "sigan",
+      "notes": "Refers to time in general, or a specific duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "오늘",
+      "romanization": "oneul",
+      "notes": "Can function as both an adverb and a noun referring to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "내일",
+      "romanization": "naeil",
+      "notes": "Can function as both an adverb and a noun referring to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "어제",
+      "romanization": "eoje",
+      "notes": "Can function as both an adverb and a noun referring to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "지금",
+      "romanization": "jigeum",
+      "notes": "An adverb indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "집",
+      "romanization": "jip",
+      "notes": "A common noun for a dwelling place.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "학교",
+      "romanization": "hakgyo",
+      "notes": "A common noun for a place of education.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "company",
+      "target_text": "회사",
+      "romanization": "hoesa",
+      "notes": "A common noun for a place of work or a business.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "Korea",
+      "target_text": "한국",
+      "romanization": "hanguk",
+      "notes": "Refers to the country South Korea.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "country"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "돈",
+      "romanization": "don",
+      "notes": "An essential noun for commerce and transactions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "친구",
+      "romanization": "chingu",
+      "notes": "A common noun for a companion or friend.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "가족",
+      "romanization": "gajok",
+      "notes": "Refers to one's relatives or household.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "student",
+      "target_text": "학생",
+      "romanization": "haksaeng",
+      "notes": "A noun for a person who studies or is enrolled in school.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "선생님",
+      "romanization": "seonsaengnim",
+      "notes": "A respectful term for a teacher, doctor, or any professional.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "음식",
+      "romanization": "eumsik",
+      "notes": "A general term for anything edible.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "물",
+      "romanization": "mul",
+      "notes": "An essential liquid for drinking.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "rice, meal",
+      "target_text": "밥",
+      "romanization": "bap",
+      "notes": "Can mean cooked rice or a general meal, central to Korean dining.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "책",
+      "romanization": "chaek",
+      "notes": "A common noun for an object for reading.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "car, tea",
+      "target_text": "차",
+      "romanization": "cha",
+      "notes": "This word has two distinct meanings: car (automobile) and tea (beverage).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "bus",
+      "target_text": "버스",
+      "romanization": "beoseu",
+      "notes": "A common noun for public transportation.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "subway",
+      "target_text": "지하철",
+      "romanization": "jihacheol",
+      "notes": "A common noun for the underground train system.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "taxi",
+      "target_text": "택시",
+      "romanization": "taeksi",
+      "notes": "A common noun for a hired car for transportation.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "store, shop",
+      "target_text": "가게",
+      "romanization": "gage",
+      "notes": "A general term for a shop or store.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "market",
+      "target_text": "시장",
+      "romanization": "sijang",
+      "notes": "A place where goods are bought and sold, especially traditional ones.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "hospital",
+      "target_text": "병원",
+      "romanization": "byeongwon",
+      "notes": "A noun for a place for medical treatment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "restroom",
+      "target_text": "화장실",
+      "romanization": "hwajangsil",
+      "notes": "An essential public facility.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "station",
+      "target_text": "역",
+      "romanization": "yeok",
+      "notes": "A common noun for a train, subway, or bus station.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "road, way",
+      "target_text": "길",
+      "romanization": "gil",
+      "notes": "Refers to a path, road, or method/way of doing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "방",
+      "romanization": "bang",
+      "notes": "A common noun for a space within a building.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "door",
+      "target_text": "문",
+      "romanization": "mun",
+      "notes": "A common noun for an entry or exit point.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "앉다",
+      "romanization": "anda",
+      "notes": "A basic verb for taking a seated position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "서다",
+      "romanization": "seoda",
+      "notes": "A basic verb for taking a standing position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "주다",
+      "romanization": "juda",
+      "notes": "A common verb for transferring possession to someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to receive",
+      "target_text": "받다",
+      "romanization": "batda",
+      "notes": "A common verb for acquiring something from someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "사다",
+      "romanization": "sada",
+      "notes": "A common verb for purchasing goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "팔다",
+      "romanization": "palda",
+      "notes": "A common verb for offering goods for money.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "to wear (clothes)",
+      "target_text": "입다",
+      "romanization": "ipda",
+      "notes": "Used specifically for wearing clothes, jackets, pants, skirts, etc., but not shoes or accessories.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "clothing"
+      ]
+    },
+    {
+      "source_text": "to wear (shoes)",
+      "target_text": "신다",
+      "romanization": "sinda",
+      "notes": "Used specifically for wearing footwear like shoes, socks, boots, etc.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "clothing"
+      ]
+    },
+    {
+      "source_text": "to take off (clothes)",
+      "target_text": "벗다",
+      "romanization": "beotda",
+      "notes": "A general verb for removing clothes, shoes, or accessories.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "clothing"
+      ]
+    },
+    {
+      "source_text": "to study",
+      "target_text": "공부하다",
+      "romanization": "gongbuhada",
+      "notes": "A verb for engaging in learning activities, often combines with nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to learn",
+      "target_text": "배우다",
+      "romanization": "baeuda",
+      "notes": "A verb for acquiring knowledge or skills.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "읽다",
+      "romanization": "ikda",
+      "notes": "A common verb for interpreting written text.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to write, use",
+      "target_text": "쓰다",
+      "romanization": "sseuda",
+      "notes": "A versatile verb with multiple meanings, most commonly 'to write' or 'to use' (something).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "multiple"
+      ]
+    },
+    {
+      "source_text": "to make",
+      "target_text": "만들다",
+      "romanization": "mandeulda",
+      "notes": "A common verb for creating or producing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "creation"
+      ]
+    },
+    {
+      "source_text": "to be pretty",
+      "target_text": "예쁘다",
+      "romanization": "yeppeuda",
+      "notes": "An adjective describing aesthetic beauty, often for people, animals, or small objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "to be delicious",
+      "target_text": "맛있다",
+      "romanization": "masitda",
+      "notes": "An adjective for describing tasty food or drinks.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "taste"
+      ]
+    },
+    {
+      "source_text": "to be interesting/fun",
+      "target_text": "재미있다",
+      "romanization": "jaemiitda",
+      "notes": "An adjective for describing something engaging, entertaining, or enjoyable.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "to be big",
+      "target_text": "크다",
+      "romanization": "keuda",
+      "notes": "An adjective for describing large size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "to be small",
+      "target_text": "작다",
+      "romanization": "jakda",
+      "notes": "An adjective for describing small size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "to be many/much",
+      "target_text": "많다",
+      "romanization": "manta",
+      "notes": "An adjective for describing a large quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "to be few/little",
+      "target_text": "적다",
+      "romanization": "jeokda",
+      "notes": "An adjective for describing a small quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "to be expensive",
+      "target_text": "비싸다",
+      "romanization": "bissada",
+      "notes": "An adjective for describing something with a high cost.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "cost"
+      ]
+    },
+    {
+      "source_text": "to be cheap",
+      "target_text": "싸다",
+      "romanization": "ssada",
+      "notes": "An adjective for describing something with a low cost; it also has other meanings.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "cost"
+      ]
+    },
+    {
+      "source_text": "to be difficult",
+      "target_text": "어렵다",
+      "romanization": "eoryeopda",
+      "notes": "An adjective for describing something hard to do or understand.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "difficulty"
+      ]
+    },
+    {
+      "source_text": "to be easy",
+      "target_text": "쉽다",
+      "romanization": "swipda",
+      "notes": "An adjective for describing something simple to do or understand.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "difficulty"
+      ]
+    },
+    {
+      "source_text": "to be busy",
+      "target_text": "바쁘다",
+      "romanization": "bappeuda",
+      "notes": "An adjective for describing a state of having many tasks or engagements.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to be tired",
+      "target_text": "피곤하다",
+      "romanization": "pigonhada",
+      "notes": "An adjective for describing physical or mental exhaustion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to be happy",
+      "target_text": "행복하다",
+      "romanization": "haengbokhada",
+      "notes": "An adjective for describing a state of joy or contentment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to be hot (weather)",
+      "target_text": "덥다",
+      "romanization": "deopda",
+      "notes": "An adjective specifically for describing hot weather.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "to be cold (weather)",
+      "target_text": "춥다",
+      "romanization": "chupda",
+      "notes": "An adjective specifically for describing cold weather.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "to be hot (object)",
+      "target_text": "뜨겁다",
+      "romanization": "tteugeopda",
+      "notes": "An adjective for describing the temperature of an object or liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "to be cold (object)",
+      "target_text": "차갑다",
+      "romanization": "chagapda",
+      "notes": "An adjective for describing the temperature of an object or liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "and, then",
+      "target_text": "그리고",
+      "romanization": "geurigo",
+      "notes": "A conjunction used to connect sentences or list items.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "so, therefore",
+      "target_text": "그래서",
+      "romanization": "geuraeseo",
+      "notes": "A conjunction indicating a result or consequence.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "but, however",
+      "target_text": "하지만",
+      "romanization": "hajiman",
+      "notes": "A conjunction used to introduce a contrast or contradiction.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "really, truly",
+      "target_text": "정말",
+      "romanization": "jeongmal",
+      "notes": "An adverb used to intensify statements or express genuine feeling.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "아주",
+      "romanization": "aju",
+      "notes": "An adverb used to intensify adjectives and adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "too, very",
+      "target_text": "너무",
+      "romanization": "neomu",
+      "notes": "An adverb meaning 'too much' or 'very,' often used with positive or negative connotations.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "a little, please",
+      "target_text": "좀",
+      "romanization": "jom",
+      "notes": "An adverb meaning 'a little' or 'a bit,' also used to soften requests (e.g., 좀 주세요).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "request"
+      ]
+    }
+  ]
+}

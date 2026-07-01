@@ -1,0 +1,1102 @@
+{
+  "lang": "fa",
+  "name": "Top 100 Farsi Words",
+  "description": "The 100 most common words in Farsi — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "و",
+      "romanization": "w",
+      "notes": "A very common conjunction, often pronounced 'o' after a word ending in a vowel.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to, at, for",
+      "target_text": "به",
+      "romanization": "bh",
+      "notes": "A versatile preposition indicating direction, recipient, or purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "in, at",
+      "target_text": "در",
+      "romanization": "dr",
+      "notes": "Used to indicate location or a time period.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "is",
+      "target_text": "است",
+      "romanization": "ast",
+      "notes": "The third-person singular present form of 'to be', commonly used as a copula.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "I, me",
+      "target_text": "من",
+      "romanization": "mn",
+      "notes": "The first-person singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (singular, informal)",
+      "target_text": "تو",
+      "romanization": "tw",
+      "notes": "Used when addressing friends, family, or younger people.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he, she, it",
+      "target_text": "او",
+      "romanization": "aw",
+      "notes": "A gender-neutral third-person singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "one, a/an",
+      "target_text": "یک",
+      "romanization": "yk",
+      "notes": "Can function as the number 'one' or as an indefinite article.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "that, which, who",
+      "target_text": "که",
+      "romanization": "kh",
+      "notes": "Connects clauses or introduces relative clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "from, than, by",
+      "target_text": "از",
+      "romanization": "az",
+      "notes": "Indicates origin, comparison, or agency.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "با",
+      "romanization": "ba",
+      "notes": "Indicates accompaniment, means, or manner.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "بودن",
+      "romanization": "bwdn",
+      "notes": "The infinitive form of the verb 'to be', from which 'است' and 'هست' are conjugated.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to have",
+      "target_text": "داشتن",
+      "romanization": "dashtn",
+      "notes": "The infinitive form of the verb 'to have'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "کردن",
+      "romanization": "krdn",
+      "notes": "A very common 'light verb' used to form many compound verbs (e.g., 'telefon kardan' = to call).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "رفتن",
+      "romanization": "rftn",
+      "notes": "The infinitive form of the verb 'to go'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "آمدن",
+      "romanization": "aamdn",
+      "notes": "The infinitive form of the verb 'to come'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "گفتن",
+      "romanization": "gftn",
+      "notes": "The infinitive form of the verb 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "good, well",
+      "target_text": "خوب",
+      "romanization": "khwb",
+      "notes": "A versatile adjective and adverb meaning 'good' or 'well'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "very, a lot",
+      "target_text": "خیلی",
+      "romanization": "khyly",
+      "notes": "Used to intensify adjectives or adverbs, or to mean 'much'/'many' when used as an adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "we, us",
+      "target_text": "ما",
+      "romanization": "ma",
+      "notes": "The first-person plural pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (formal, plural)",
+      "target_text": "شما",
+      "romanization": "shma",
+      "notes": "Used for politeness (singular formal) or addressing multiple people.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they, them",
+      "target_text": "آنها",
+      "romanization": "aanha",
+      "notes": "The third-person plural pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this",
+      "target_text": "این",
+      "romanization": "ayn",
+      "notes": "A demonstrative pronoun used to refer to something near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that",
+      "target_text": "آن",
+      "romanization": "aan",
+      "notes": "A demonstrative pronoun used to refer to something further away from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "also, too",
+      "target_text": "هم",
+      "romanization": "hm",
+      "notes": "Adds emphasis or indicates inclusion, usually placed after the word it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "بله",
+      "romanization": "blh",
+      "notes": "The most common word for 'yes'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "no, not",
+      "target_text": "نه",
+      "romanization": "nh",
+      "notes": "Used to negate verbs or to respond 'no'.",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "hello",
+      "target_text": "سلام",
+      "romanization": "slam",
+      "notes": "The universal greeting in Persian, derived from the Arabic word for 'peace'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "روز",
+      "romanization": "rwz",
+      "notes": "Refers to a single day or the daytime period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "شب",
+      "romanization": "shb",
+      "notes": "Refers to a single night or the nighttime period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "اسم",
+      "romanization": "asm",
+      "notes": "A fundamental word used to ask and state names.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "کجا",
+      "romanization": "kja",
+      "notes": "A question word used to ask about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "place"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "چی",
+      "romanization": "chy",
+      "notes": "A question word used to ask about things or actions.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "general"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "چطور",
+      "romanization": "chṭwr",
+      "notes": "A question word used to ask about the manner or state of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "how many, how much",
+      "target_text": "چند",
+      "romanization": "chnd",
+      "notes": "A question word used to ask about quantity or number.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "چرا",
+      "romanization": "chra",
+      "notes": "A question word used to ask about the reason for something.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "reason"
+      ]
+    },
+    {
+      "source_text": "when, who",
+      "target_text": "کی",
+      "romanization": "ky",
+      "notes": "Can ask about time ('when') or, less commonly, person ('who').",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "time",
+        "person"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "پول",
+      "romanization": "pwl",
+      "notes": "Essential for transactions and daily life.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "work, job",
+      "target_text": "کار",
+      "romanization": "kar",
+      "notes": "Refers to labor, tasks, or employment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "خانه",
+      "romanization": "khanh",
+      "notes": "Refers to a dwelling or one's residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "آب",
+      "romanization": "aab",
+      "notes": "A fundamental liquid for drinking.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "bread",
+      "target_text": "نان",
+      "romanization": "nan",
+      "notes": "A staple food in Persian culture, often eaten with most meals.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "food, meal",
+      "target_text": "غذا",
+      "romanization": "ghdha",
+      "notes": "General term for meals or sustenance.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "please",
+      "target_text": "لطفا",
+      "romanization": "lṭfa",
+      "notes": "Used to make requests polite.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "thankful, thank you",
+      "target_text": "ممنون",
+      "romanization": "mmnwn",
+      "notes": "A common and informal way to express gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "gratitude"
+      ]
+    },
+    {
+      "source_text": "excuse me, sorry",
+      "target_text": "ببخشید",
+      "romanization": "bbkhshyd",
+      "notes": "Used to apologize, get attention, or pass through.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "to read, to sing",
+      "target_text": "خواندن",
+      "romanization": "khwandn",
+      "notes": "This verb has two main meanings: to read and to sing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "نوشتن",
+      "romanization": "nwshtn",
+      "notes": "The infinitive form of the verb 'to write'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to know (a fact)",
+      "target_text": "دانستن",
+      "romanization": "danstn",
+      "notes": "The infinitive form of the verb 'to know' facts, information, or people.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "دیدن",
+      "romanization": "dydn",
+      "notes": "The infinitive form of the verb 'to see'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to want, to ask",
+      "target_text": "خواستن",
+      "romanization": "khwastn",
+      "notes": "Can mean 'to want' or 'to ask for something'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "دادن",
+      "romanization": "dadn",
+      "notes": "The infinitive form of the verb 'to give'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take, to get",
+      "target_text": "گرفتن",
+      "romanization": "grftn",
+      "notes": "A versatile verb meaning 'to take', 'to get', or 'to catch'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to become",
+      "target_text": "شدن",
+      "romanization": "shdn",
+      "notes": "The infinitive form of the verb 'to become'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "change"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "سال",
+      "romanization": "sal",
+      "notes": "Refers to a calendar year.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month, moon",
+      "target_text": "ماه",
+      "romanization": "mah",
+      "notes": "Can mean 'month' or 'moon'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "celestial"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "هفته",
+      "romanization": "hfth",
+      "notes": "Refers to a period of seven days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour, clock, watch",
+      "target_text": "ساعت",
+      "romanization": "sa't",
+      "notes": "Can refer to an hour (time duration) or a timepiece (object).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "object"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "وقت",
+      "romanization": "wqt",
+      "notes": "General term for time or a specific period of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "امروز",
+      "romanization": "amrwz",
+      "notes": "Refers to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "دیروز",
+      "romanization": "dyrwz",
+      "notes": "Refers to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "فردا",
+      "romanization": "frda",
+      "notes": "Refers to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "big, large",
+      "target_text": "بزرگ",
+      "romanization": "bzrg",
+      "notes": "Describes the size of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small, little",
+      "target_text": "کوچک",
+      "romanization": "kwchk",
+      "notes": "Describes the smallness of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "جدید",
+      "romanization": "jdyd",
+      "notes": "Describes something recently made or acquired.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old (not living)",
+      "target_text": "قدیمی",
+      "romanization": "qdymy",
+      "notes": "Describes something that has existed for a long time, not typically used for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "زیبا",
+      "romanization": "zyba",
+      "notes": "Describes aesthetic appeal.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "ugly",
+      "target_text": "زشت",
+      "romanization": "zsht",
+      "notes": "Describes a lack of aesthetic appeal.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "a lot, much, many",
+      "target_text": "زیاد",
+      "romanization": "zyad",
+      "notes": "Indicates a large quantity or high degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "little, few, less",
+      "target_text": "کم",
+      "romanization": "km",
+      "notes": "Indicates a small quantity or low degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "الان",
+      "romanization": "alan",
+      "notes": "Refers to the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "همیشه",
+      "romanization": "hmyshh",
+      "notes": "Indicates something happening at all times or on every occasion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "every, each",
+      "target_text": "هر",
+      "romanization": "hr",
+      "notes": "A determiner used to indicate every single item or person in a group.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "اینجا",
+      "romanization": "aynja",
+      "notes": "Refers to the location of the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "آنجا",
+      "romanization": "aanja",
+      "notes": "Refers to a location away from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "after, then",
+      "target_text": "بعد",
+      "romanization": "b'd",
+      "notes": "Indicates sequence in time or space.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before",
+      "target_text": "قبل",
+      "romanization": "qbl",
+      "notes": "Indicates prior in time or space.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "all, everyone",
+      "target_text": "همه",
+      "romanization": "hmh",
+      "notes": "Refers to the entirety of a group or everything.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "pronoun",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "no, none, any",
+      "target_text": "هیچ",
+      "romanization": "hych",
+      "notes": "Used with a negative verb to mean 'no' or 'not any' (e.g., 'hich kas nist' = no one is here).",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "must, should",
+      "target_text": "باید",
+      "romanization": "bayd",
+      "notes": "A modal verb expressing necessity or obligation, always followed by a subjunctive verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "obligation"
+      ]
+    },
+    {
+      "source_text": "to be able to, can",
+      "target_text": "توانستن",
+      "romanization": "twanstn",
+      "notes": "The infinitive form of the verb 'to be able to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "ability"
+      ]
+    },
+    {
+      "source_text": "education, training",
+      "target_text": "آموزش",
+      "romanization": "aamwzsh",
+      "notes": "Refers to the process of teaching or learning.",
+      "cefr_level": "B1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "university",
+      "target_text": "دانشگاه",
+      "romanization": "danshgah",
+      "notes": "A higher education institution (Persian word, preferred over Arabic 'جامعه').",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "معلم",
+      "romanization": "m'lm",
+      "notes": "A person who teaches, usually in a school or university.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "profession",
+        "education"
+      ]
+    },
+    {
+      "source_text": "student, pupil",
+      "target_text": "شاگرد",
+      "romanization": "shagrd",
+      "notes": "Refers to a student, especially in school, often younger than 'دانشجو' (dāneshju - university student).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "education",
+        "person"
+      ]
+    },
+    {
+      "source_text": "lesson, study",
+      "target_text": "درس",
+      "romanization": "drs",
+      "notes": "Refers to a class, a lesson, or the act of studying.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "کتاب",
+      "romanization": "ktab",
+      "notes": "A collection of written pages bound together.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "reading"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "دوست",
+      "romanization": "dwst",
+      "notes": "A person with whom one has a bond of mutual affection.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "مادر",
+      "romanization": "madr",
+      "notes": "A female parent.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "پدر",
+      "romanization": "pdr",
+      "notes": "A male parent.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "child, baby",
+      "target_text": "بچه",
+      "romanization": "bchh",
+      "notes": "A young human, plural is 'bachchehā'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "Mr., sir, gentleman",
+      "target_text": "آقا",
+      "romanization": "aaqa",
+      "notes": "A polite address for men or a general term for 'gentleman'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title",
+        "person"
+      ]
+    },
+    {
+      "source_text": "Mrs., Ms., lady",
+      "target_text": "خانم",
+      "romanization": "khanm",
+      "notes": "A polite address for women or a general term for 'lady'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title",
+        "person"
+      ]
+    },
+    {
+      "source_text": "city, town",
+      "target_text": "شهر",
+      "romanization": "shhr",
+      "notes": "A large or important human settlement.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country, nation",
+      "target_text": "کشور",
+      "romanization": "kshwr",
+      "notes": "Refers to a nation or a state.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "language, tongue",
+      "target_text": "زبان",
+      "romanization": "zban",
+      "notes": "Can mean a spoken language or the anatomical tongue.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication",
+        "body"
+      ]
+    },
+    {
+      "source_text": "car, machine",
+      "target_text": "ماشین",
+      "romanization": "mashyn",
+      "notes": "Refers to an automobile or any general machine.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport",
+        "object"
+      ]
+    },
+    {
+      "source_text": "world",
+      "target_text": "دنیا",
+      "romanization": "dnya",
+      "notes": "Refers to the Earth or all of existence.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "goodbye",
+      "target_text": "خداحافظ",
+      "romanization": "khdaḥafẓ",
+      "notes": "A common farewell, literally 'may God protect you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "یا",
+      "romanization": "ya",
+      "notes": "A conjunction used to connect alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    }
+  ]
+}

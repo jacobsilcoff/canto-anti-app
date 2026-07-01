@@ -534,6 +534,7 @@ textarea {
 .card-answer {
   border-top: 1px solid var(--border);
   padding-top: 16px;
+  padding-bottom: 52px; /* clear the absolute-positioned ask-fab button */
   display: flex;
   flex-direction: column;
   gap: 12px;

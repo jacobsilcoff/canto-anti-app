@@ -1,0 +1,1072 @@
+{
+  "lang": "cmn",
+  "name": "Top 100 Mandarin Words",
+  "description": "The 100 most common words in Mandarin — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "我",
+      "romanization": "wǒ",
+      "notes": "Often used before a verb as the subject of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "你",
+      "romanization": "nǐ",
+      "notes": "Use this for addressing one person informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "他",
+      "romanization": "tā",
+      "notes": "Used for a male person or general third person singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she / her",
+      "target_text": "她",
+      "romanization": "tā",
+      "notes": "Used for a female person; sounds identical to '他'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be (is, am, are)",
+      "target_text": "是",
+      "romanization": "shì",
+      "notes": "Used to link two nouns, like 'A 是 B'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to have / there is",
+      "target_text": "有",
+      "romanization": "yǒu",
+      "notes": "Also used to indicate existence, meaning 'there is/are'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "not / no",
+      "target_text": "不",
+      "romanization": "bù",
+      "notes": "Used to negate verbs and adjectives, typically placed before them.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "very / quite",
+      "target_text": "很",
+      "romanization": "hěn",
+      "notes": "Often used before adjectives, even when not emphasizing 'very', to make sentences sound more natural.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "degree"
+      ]
+    },
+    {
+      "source_text": "possessive / attributive particle",
+      "target_text": "的",
+      "romanization": "de",
+      "notes": "Connects a possessor to what is possessed (我的书), or an adjective to a noun (漂亮的衣服).",
+      "cefr_level": "A1",
+      "labels": [
+        "particle"
+      ]
+    },
+    {
+      "source_text": "question particle",
+      "target_text": "吗",
+      "romanization": "ma",
+      "notes": "Placed at the end of a declarative sentence to turn it into a yes/no question.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle"
+      ]
+    },
+    {
+      "source_text": "past / change of state particle",
+      "target_text": "了",
+      "romanization": "le",
+      "notes": "Indicates completion of an action or a change in situation; often placed after a verb or at the end of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle"
+      ]
+    },
+    {
+      "source_text": "question particle (how about?)",
+      "target_text": "呢",
+      "romanization": "ne",
+      "notes": "Used to ask 'how about...?' or to return a question, and can also indicate a continued state.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle"
+      ]
+    },
+    {
+      "source_text": "good / fine",
+      "target_text": "好",
+      "romanization": "hǎo",
+      "notes": "A versatile adjective, also used in greetings and expressions of approval.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "hello",
+      "target_text": "你好",
+      "romanization": "nǐ hǎo",
+      "notes": "The most common greeting, literally 'you good'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "thanks",
+      "target_text": "谢谢",
+      "romanization": "xiè xiè",
+      "notes": "A polite expression of gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "you're welcome",
+      "target_text": "不客气",
+      "romanization": "bù kè qì",
+      "notes": "The standard reply to '谢谢'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "sorry",
+      "target_text": "对不起",
+      "romanization": "duì bù qǐ",
+      "notes": "Used to apologize for an inconvenience or mistake.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "it's okay / never mind",
+      "target_text": "没关系",
+      "romanization": "méi guān xì",
+      "notes": "The standard reply to '对不起' or to dismiss a small issue.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "goodbye",
+      "target_text": "再见",
+      "romanization": "zài jiàn",
+      "notes": "Literally 'again see', used when parting ways.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "人",
+      "romanization": "rén",
+      "notes": "Can refer to a single person or people in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "老师",
+      "romanization": "lǎo shī",
+      "notes": "A respectful term for a teacher or a knowledgeable person.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "student",
+      "target_text": "学生",
+      "romanization": "xué shēng",
+      "notes": "Refers to a student at any level of education.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "朋友",
+      "romanization": "péng yǒu",
+      "notes": "A common word to describe a friend or acquaintance.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "China",
+      "target_text": "中国",
+      "romanization": "zhōng guó",
+      "notes": "The name for China, literally 'middle kingdom'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "country"
+      ]
+    },
+    {
+      "source_text": "Chinese language",
+      "target_text": "汉语",
+      "romanization": "hàn yǔ",
+      "notes": "The most common term for the Chinese language (Mandarin).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "to study / learn",
+      "target_text": "学习",
+      "romanization": "xué xí",
+      "notes": "Can be used for formal study or informal learning.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to speak / say",
+      "target_text": "说",
+      "romanization": "shuō",
+      "notes": "Used for speaking languages (说汉语) or saying words.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to be called / to call",
+      "target_text": "叫",
+      "romanization": "jiào",
+      "notes": "Used to ask or state someone's name (你叫什么名字?).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "名字",
+      "romanization": "míng zì",
+      "notes": "Refers to a person's given name or full name.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "什么",
+      "romanization": "shén me",
+      "notes": "A common interrogative pronoun, used directly before a noun or at the end of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "谁",
+      "romanization": "shuí",
+      "notes": "Used to ask 'who' or 'whom'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "which",
+      "target_text": "哪",
+      "romanization": "nǎ",
+      "notes": "Always followed by a measure word or a noun when asking 'which one(s)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "哪里",
+      "romanization": "nǎ lǐ",
+      "notes": "Used to ask about location, also commonly used as 哪儿 (nǎr).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question",
+        "place"
+      ]
+    },
+    {
+      "source_text": "how many / how much",
+      "target_text": "多少",
+      "romanization": "duō shǎo",
+      "notes": "Used for asking about quantity, often for numbers greater than 10.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question",
+        "number"
+      ]
+    },
+    {
+      "source_text": "how / why",
+      "target_text": "怎么",
+      "romanization": "zěn me",
+      "notes": "Used to ask about manner (how to do something) or cause (why did something happen).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "how is it? / how about?",
+      "target_text": "怎么样",
+      "romanization": "zěn me yàng",
+      "notes": "Used to ask for opinions or suggestions.",
+      "cefr_level": "A1",
+      "labels": [
+        "question"
+      ]
+    },
+    {
+      "source_text": "to want / need / will",
+      "target_text": "要",
+      "romanization": "yào",
+      "notes": "Indicates desire, necessity, or future intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to want / to think / to miss",
+      "target_text": "想",
+      "romanization": "xiǎng",
+      "notes": "Softer than '要' for desire, also means 'to think' or 'to miss (someone)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "吃",
+      "romanization": "chī",
+      "notes": "A fundamental verb for consuming food.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "喝",
+      "romanization": "hē",
+      "notes": "A fundamental verb for consuming liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "去",
+      "romanization": "qù",
+      "notes": "Indicates movement towards a destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "来",
+      "romanization": "lái",
+      "notes": "Indicates movement towards the speaker's location.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to look / watch / read",
+      "target_text": "看",
+      "romanization": "kàn",
+      "notes": "Versatile verb used for visual actions like '看电视' (watch TV) or '看书' (read a book).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to listen",
+      "target_text": "听",
+      "romanization": "tīng",
+      "notes": "Used for auditory actions, like '听音乐' (listen to music).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "买",
+      "romanization": "mǎi",
+      "notes": "Used for purchasing goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "卖",
+      "romanization": "mài",
+      "notes": "The opposite of '买', used for selling goods.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "to like",
+      "target_text": "喜欢",
+      "romanization": "xǐ huān",
+      "notes": "Indicates preference or enjoyment for something or someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to love",
+      "target_text": "爱",
+      "romanization": "ài",
+      "notes": "Stronger than '喜欢', indicating deep affection or passion.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "大",
+      "romanization": "dà",
+      "notes": "A common adjective for size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "小",
+      "romanization": "xiǎo",
+      "notes": "The opposite of '大', a common adjective for size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "many / much / more",
+      "target_text": "多",
+      "romanization": "duō",
+      "notes": "Used to indicate a large quantity or degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "few / little / less",
+      "target_text": "少",
+      "romanization": "shǎo",
+      "notes": "The opposite of '多', used to indicate a small quantity or degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "冷",
+      "romanization": "lěng",
+      "notes": "Describes temperature of weather or objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "hot",
+      "target_text": "热",
+      "romanization": "rè",
+      "notes": "Describes temperature of weather or objects, often used for 'busy' when talking about business.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "beautiful / pretty",
+      "target_text": "漂亮",
+      "romanization": "piào liàng",
+      "notes": "Used to describe people, objects, or scenery as visually appealing.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "happy / glad",
+      "target_text": "高兴",
+      "romanization": "gāo xìng",
+      "notes": "A common adjective to express happiness or pleasure.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "busy",
+      "target_text": "忙",
+      "romanization": "máng",
+      "notes": "Describes someone who has a lot to do.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "tired",
+      "target_text": "累",
+      "romanization": "lèi",
+      "notes": "Describes physical or mental exhaustion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "body / health",
+      "target_text": "身体",
+      "romanization": "shēn tǐ",
+      "notes": "Often used when asking about someone's health (身体好吗?).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "health"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "钱",
+      "romanization": "qián",
+      "notes": "A fundamental noun for financial transactions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "rice / meal",
+      "target_text": "饭",
+      "romanization": "fàn",
+      "notes": "Can refer to cooked rice or a general meal.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "水",
+      "romanization": "shuǐ",
+      "notes": "A basic necessity, often used in phrases like '喝水' (drink water).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "apple",
+      "target_text": "苹果",
+      "romanization": "píng guǒ",
+      "notes": "A common fruit.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "tea",
+      "target_text": "茶",
+      "romanization": "chá",
+      "notes": "A popular beverage in China.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "coffee",
+      "target_text": "咖啡",
+      "romanization": "kā fēi",
+      "notes": "A widely consumed beverage.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "thing / stuff",
+      "target_text": "东西",
+      "romanization": "dōng xī",
+      "notes": "A general term for objects or items.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun"
+      ]
+    },
+    {
+      "source_text": "shop / store",
+      "target_text": "商店",
+      "romanization": "shāng diàn",
+      "notes": "A place for buying goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "hospital",
+      "target_text": "医院",
+      "romanization": "yī yuàn",
+      "notes": "A place for medical treatment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "health"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "学校",
+      "romanization": "xué xiào",
+      "notes": "A place for learning.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "education"
+      ]
+    },
+    {
+      "source_text": "home / family",
+      "target_text": "家",
+      "romanization": "jiā",
+      "notes": "Can refer to a physical home or the concept of family.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "family"
+      ]
+    },
+    {
+      "source_text": "to sit / to take (a bus, etc.)",
+      "target_text": "坐",
+      "romanization": "zuò",
+      "notes": "Also used for taking public transport, e.g., '坐车' (take a car).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to stand / station",
+      "target_text": "站",
+      "romanization": "zhàn",
+      "notes": "As a noun, refers to a stop or station (e.g., 火车站, train station).",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "noun",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to walk / to leave",
+      "target_text": "走",
+      "romanization": "zǒu",
+      "notes": "Can mean to walk or to depart.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to open / to drive / to start",
+      "target_text": "开",
+      "romanization": "kāi",
+      "notes": "Versatile verb with meanings related to starting, operating, or opening.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to close / to turn off",
+      "target_text": "关",
+      "romanization": "guān",
+      "notes": "The opposite of '开', used for closing or turning off.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to do / make",
+      "target_text": "做",
+      "romanization": "zuò",
+      "notes": "A general verb for performing actions or creating things.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "work / job / to work",
+      "target_text": "工作",
+      "romanization": "gōng zuò",
+      "notes": "Can be a noun (work, job) or a verb (to work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "verb",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "to know (a fact)",
+      "target_text": "知道",
+      "romanization": "zhī dào",
+      "notes": "Used for knowing facts, information, or skills.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to know (a person) / recognize",
+      "target_text": "认识",
+      "romanization": "rèn shí",
+      "notes": "Used for knowing people or being familiar with something through experience.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to feel / to think",
+      "target_text": "觉得",
+      "romanization": "jué de",
+      "notes": "Expresses a personal opinion or feeling.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "opinion"
+      ]
+    },
+    {
+      "source_text": "to tell",
+      "target_text": "告诉",
+      "romanization": "gào sù",
+      "notes": "Used for conveying information to someone.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "问",
+      "romanization": "wèn",
+      "notes": "Used for asking questions.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to return / to reply",
+      "target_text": "回",
+      "romanization": "huí",
+      "notes": "Can mean to go back (回家) or to answer (回答).",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to give / to (prep)",
+      "target_text": "给",
+      "romanization": "gěi",
+      "notes": "Can function as a verb 'to give' or a preposition meaning 'to/for'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "and / with",
+      "target_text": "和",
+      "romanization": "hé",
+      "notes": "Connects nouns or pronouns; less commonly connects verbs or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "in / at / on / to be present",
+      "target_text": "在",
+      "romanization": "zài",
+      "notes": "Indicates location, or an ongoing action when placed before a verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "verb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "也",
+      "romanization": "yě",
+      "notes": "Placed before a verb or adjective to indicate 'also' or 'too'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "all / both",
+      "target_text": "都",
+      "romanization": "dōu",
+      "notes": "Indicates that 'all' or 'both' subjects share the same attribute or action.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "still / also / in addition",
+      "target_text": "还",
+      "romanization": "hái",
+      "notes": "Has multiple meanings depending on context, including 'still', 'also', or 'even more'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "from",
+      "target_text": "从",
+      "romanization": "cóng",
+      "notes": "Indicates origin in time or space.",
+      "cefr_level": "A2",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "right / correct / towards",
+      "target_text": "对",
+      "romanization": "duì",
+      "notes": "Can be an adjective meaning 'correct' or a preposition meaning 'towards'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with / and / to follow",
+      "target_text": "跟",
+      "romanization": "gēn",
+      "notes": "Similar to '和' for connecting nouns, also means 'with' (accompany) or 'to follow'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "但是",
+      "romanization": "dàn shì",
+      "notes": "Used to introduce a contrasting or qualifying statement.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "because",
+      "target_text": "因为",
+      "romanization": "yīn wèi",
+      "notes": "Used to introduce a reason or cause.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "so / therefore",
+      "target_text": "所以",
+      "romanization": "suǒ yǐ",
+      "notes": "Used to introduce a result or consequence, often following 因为.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "一",
+      "romanization": "yī",
+      "notes": "The first cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "二",
+      "romanization": "èr",
+      "notes": "The number two; 俩 (liǎ) is often used for two people, and 两 (liǎng) with measure words.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "三",
+      "romanization": "sān",
+      "notes": "The number three.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "四",
+      "romanization": "sì",
+      "notes": "The number four; often sounds like 'death' in some dialects, so sometimes avoided.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "五",
+      "romanization": "wǔ",
+      "notes": "The number five.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    }
+  ]
+}

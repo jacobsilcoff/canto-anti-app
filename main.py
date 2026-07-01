@@ -21,7 +21,7 @@ try:
 except ImportError:
     _PIL_OK = False
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -33,6 +33,7 @@ load_dotenv()
 import audio
 import auth
 import billing
+import common_decks
 import crypto
 import db
 import email_utils
@@ -76,6 +77,20 @@ async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
         await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
+    # Owner of official community decks (Top-100 word decks). Never logs in —
+    # seeded with an unusable random password. Then deterministically SYNC the
+    # committed seed_decks/*.json into this DB: create missing decks and refresh
+    # any whose seed file changed since last boot (content-fingerprinted, so
+    # unchanged decks aren't rewritten). Keeps deployed decks matching the
+    # committed files on every deploy — no manual step. Best-effort.
+    try:
+        _system_id = await db.get_or_create_system_user(auth.hash_password(secrets.token_urlsafe(32)))
+        _seed_results = await common_decks.seed_all(_system_id, sync=True)
+        _new = [r for r in _seed_results if r["status"] in ("created", "updated")]
+        if _new:
+            logging.info("Synced %d official Top-100 decks", len(_new))
+    except Exception:
+        logging.exception("Failed to seed official decks at startup")
     if _TEST_USERS:
         # "new" — email verified, no cards, no onboarding; use to test first-time UX
         existing = await db.get_user_by_username("new")
@@ -312,8 +327,7 @@ def _build_nav(active: str = "") -> str:
                 f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
 
     nav_links = [
-        link("/",         "Add Vocab",  "translate"),
-        link("/cards",    "Flashcards", "cards",    badge=True),
+        link("/",         "Flashcards", "cards",    badge=True),
         link("/reader",   "Reader",     "reader"),
         link("/learn",    "Learn",      "learn"),
         link("/tutor",    "Tutor",      "tutor"),
@@ -413,6 +427,37 @@ _LANG_WIDGET = """
       + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:84vh;overflow-y:auto;'
       + 'grid-auto-flow:column;';
 
+    // Apply a language switch: persist it, update the pill + dropdown, and let
+    // every page react via the 'langchange' event. Shared by the dropdown and
+    // window.setAppLanguage (called when e.g. importing a deck in another lang).
+    function applyLang(l) {
+      return fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_target_lang: l.code }),
+      }).then(function () {
+        flagSpan.textContent = l.flag || '🌐';
+        nameSpan.textContent = l.name;
+        dd.style.display = 'none';
+        var opts = dd.querySelectorAll('[data-code]');
+        for (var i = 0; i < opts.length; i++) {
+          var oc = opts[i].dataset.code;
+          opts[i].querySelector('span').textContent = (oc === l.code ? '✓' : '');
+          opts[i].style.color = (oc === l.code ? 'var(--primary)' : 'var(--text)');
+        }
+        currentCode = l.code;
+        document.dispatchEvent(new CustomEvent('langchange', { detail: { code: l.code, lang: l } }));
+      });
+    }
+    // Public helper so other UI (deck import, etc.) can switch the learning
+    // language without a full page reload. Returns a promise<boolean> (did switch).
+    window.setAppLanguage = function (code) {
+      if (!code || code === currentCode) return Promise.resolve(false);
+      var l = langs.find(function (x) { return x.code === code; });
+      if (!l) return Promise.resolve(false);
+      return applyLang(l).then(function () { return true; }).catch(function () { return false; });
+    };
+
     langs.forEach(function (l) {
       var opt = document.createElement('div');
       opt.dataset.code = l.code;
@@ -434,29 +479,9 @@ _LANG_WIDGET = """
         opt.style.opacity = '0.5';
         opt.style.pointerEvents = 'none';
         pill.style.pointerEvents = 'none';
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ default_target_lang: l.code }),
-        }).then(function () {
-          flagSpan.textContent = l.flag || '🌐';
-          nameSpan.textContent = l.name;
-          dd.style.display = 'none';
-          // Update checkmarks and highlight
-          var opts = dd.querySelectorAll('[data-code]');
-          for (var i = 0; i < opts.length; i++) {
-            opts[i].querySelector('span').textContent = '';
-            opts[i].style.color = 'var(--text)';
-          }
-          check.textContent = '✓';
-          opt.style.color = 'var(--primary)';
+        applyLang(l).catch(function () {}).then(function () {
           opt.style.opacity = '';
           opt.style.pointerEvents = '';
-          pill.style.pointerEvents = '';
-          currentCode = l.code;
-          document.dispatchEvent(new CustomEvent('langchange', { detail: { code: l.code, lang: l } }));
-        }).catch(function () {
-          opt.style.opacity = ''; opt.style.pointerEvents = '';
           pill.style.pointerEvents = '';
         });
       });
@@ -835,7 +860,7 @@ async def manifest():
             "name": "廣東卡 DEV",
             "short_name": "卡 DEV",
             "description": "HK Cantonese translation and flashcards (dev)",
-            "start_url": "/cards",
+            "start_url": "/",
             "display": "standalone",
             "background_color": "#fff7ed",   # warm orange tint
             "theme_color": "#ea580c",        # orange-600
@@ -981,12 +1006,17 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return _html("index.html", active="/")
+    return _html("cards.html", active="/")
 
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/cards")
+    return _html("cards.html", active="/")
+
+
+@app.get("/translate", response_class=HTMLResponse)
+async def translate_page():
+    return _html("index.html", active="/translate")
 
 
 @app.get("/reader", response_class=HTMLResponse)
@@ -2102,6 +2132,28 @@ async def delete_card(card_id: int, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+@app.post("/api/cards/{card_id}/regenerate")
+@limiter.limit("60/minute;1000/day")
+async def regenerate_card(request: Request, card_id: int, user: dict = Depends(current_user)):
+    """Re-author the AI fields (notes + romanization) for an existing card. Returns
+    the fresh values WITHOUT persisting — the editor fills them in so the learner
+    can review and Save. 1 metered call."""
+    card = await db.get_card(user["id"], card_id)
+    if not card:
+        raise HTTPException(404, "Card not found")
+    access = await _resolve_gemini(user)
+    try:
+        out = await translation.regenerate_card_fields(
+            card["target_text"], card.get("source_text", ""),
+            card.get("target_lang", "yue"),
+            api_key=access.api_key, model=access.model_translate,
+        )
+    except Exception as e:
+        logger.error("Card regenerate failed card=%s: %s", card_id, e, exc_info=True)
+        raise HTTPException(502, "Couldn't regenerate — please try again.")
+    return out
+
+
 class PriorityRequest(BaseModel):
     priority: int
 
@@ -3025,6 +3077,41 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
     return _lesson_response(lesson, lesson["content"])
 
 
+@app.get("/api/courses/{course_id}/foundations-practice")
+@limiter.limit("30/minute")
+async def foundations_practice(
+    request: Request, course_id: int,
+    game: str = "speed_round",
+    count: int = 6,
+    audio_mode: bool = False,
+    user: dict = Depends(current_user),
+):
+    """Return a standalone foundations mini-game using all taught items."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    lang = course["target_lang"]
+    count = max(3, min(count, 12))
+    pool_size = len(foundations.practice_game_pool(lang))
+    content = foundations.build_practice_game(lang, game, count=count,
+                                              audio_mode=audio_mode)
+    if not content:
+        raise HTTPException(404, "No practice game available for this language")
+    return {
+        "id": 0,
+        "title": {"speed_round": "Speed Round", "audio_blitz": "Audio Blitz",
+                   "memory_match": "Memory Match"}.get(game, "Practice"),
+        "objective": "",
+        "target_lang": lang,
+        "completed": False,
+        "score": None,
+        "theme": "foundations",
+        "concepts": [],
+        "content": content,
+        "pool_size": pool_size,
+    }
+
+
 class CompleteLessonRequest(BaseModel):
     score: int = 0
     results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes
@@ -3349,12 +3436,10 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
     return {"message": msg, "points_total": await db.get_points_total(user["id"], lang)}
 
 
-@app.post("/api/tutor/ask")
-@limiter.limit("20/minute;400/day")
-async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
-    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
-    Nothing is stored — short follow-up history (if any) lives client-side and is
-    passed back in. Powers the 'Ask the tutor' pop-over on the study page."""
+async def _prepare_card_ask(req: "CardAskRequest", user: dict):
+    """Shared setup for the card-ask routes (blocking + streaming): validate the
+    question, resolve lang + metered Gemini access, and assemble the prompt
+    context (known words, profile, level, card, bounded history)."""
     question = (req.question or "").strip()[:1000]
     if not question:
         raise HTTPException(400, "question required")
@@ -3362,14 +3447,16 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
 
     access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
 
-    known_words = await db.get_known_words(user["id"], lang)
+    # A focused card Q&A doesn't need the whole deck for context — a smaller
+    # sample keeps the prompt (and so the latency) down.
+    known_words = await db.get_known_words(user["id"], lang, limit=40)
     learner_profile = await db.get_setting(user["id"], "learner_profile") or ""
     course = await db.get_active_course(user["id"], lang)
     level = (course.get("level") or "A1") if course else "A1"
 
     card = req.card.model_dump() if req.card else None
     if card:
-        card_id = card.pop("card_id", None)
+        card.pop("card_id", None)
         card = {k: (v or "").strip()[:600] for k, v in card.items()}
 
     # Bounded, plain-text history for the prompt (last few turns of this pop-over).
@@ -3379,6 +3466,54 @@ async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(
         txt = (m.get("text") or "").strip()[:1000]
         if txt:
             history.append({"role": role, "text": txt})
+
+    return {
+        "question": question, "lang": lang, "access": access,
+        "known_words": known_words, "learner_profile": learner_profile,
+        "level": level, "card": card, "history": history,
+    }
+
+
+@app.post("/api/tutor/ask/stream")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask_stream(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Streaming version of the card Q&A — forwards the tutor's prose answer
+    token-by-token (NDJSON `delta` events), then a single `final` event with the
+    parsed/normalized new_items + card_updates. Big perceived-latency win: the
+    learner reads the answer as it's written instead of waiting for the whole
+    JSON. Same metering/limits as the blocking route (1 unit, charged up front)."""
+    ctx = await _prepare_card_ask(req, user)
+    await db.record_study_activity(user["id"])   # asking about a card counts as study
+
+    async def _gen():
+        try:
+            async for evt in tutor.stream_card_ask(
+                ctx["lang"], ctx["question"], ctx["card"], ctx["history"],
+                api_key=ctx["access"].api_key, model=tutor.TUTOR_MODEL,
+                level=ctx["level"], learner_profile=ctx["learner_profile"],
+                known_words=ctx["known_words"],
+            ):
+                yield evt
+        except Exception as e:
+            logger.error("Tutor card-ask stream failed lang=%s: %s", ctx["lang"], e, exc_info=True)
+            yield json.dumps({"type": "error",
+                              "message": "The tutor couldn't answer — please try again."}) + "\n"
+
+    return StreamingResponse(_gen(), media_type="application/x-ndjson",
+                             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.post("/api/tutor/ask")
+@limiter.limit("20/minute;400/day")
+async def tutor_ask(request: Request, req: CardAskRequest, user: dict = Depends(current_user)):
+    """Contextual, EPHEMERAL study Q&A about a specific flashcard (1 metered call).
+    Nothing is stored — short follow-up history (if any) lives client-side and is
+    passed back in. Powers the 'Ask the tutor' pop-over on the study page.
+    (Kept as a non-streaming fallback; the pop-over uses /ask/stream.)"""
+    ctx = await _prepare_card_ask(req, user)
+    question, lang, access = ctx["question"], ctx["lang"], ctx["access"]
+    known_words, learner_profile = ctx["known_words"], ctx["learner_profile"]
+    level, card, history = ctx["level"], ctx["card"], ctx["history"]
 
     try:
         out = await tutor.ask_about_card(
@@ -3503,7 +3638,7 @@ async def tutor_end_drill(conv_id: int, user: dict = Depends(current_user)):
 
 class LessonDrillRequest(BaseModel):
     construction: str
-    history: list[dict] = []
+    plan_items: list[dict] = []   # [{english, target}] — the drill plan with reference translations
     answer: str | None = None
     turn: int = 1
     lang: str | None = None
@@ -3513,14 +3648,14 @@ class LessonDrillRequest(BaseModel):
 @limiter.limit("60/minute;800/day")
 async def lesson_drill(request: Request, req: LessonDrillRequest,
                        user: dict = Depends(current_user)):
-    """One turn of an inline lesson construction-drill (LLM-graded). Stateless —
-    the lesson player passes the construction + the turns so far + the latest
-    answer; we pose the first phrase, or judge and advance. 1 metered call/turn."""
+    """One turn of an inline lesson construction-drill. Deterministic-first
+    judging: exact match against the plan's expected answer = instant correct;
+    LLM only called when the answer differs. 1 metered call/turn."""
     construction = (req.construction or "").strip()[:80]
     if not construction:
         raise HTTPException(400, "construction required")
     lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
-    access = await _resolve_gemini(user)            # meters 1 unit (shared-key users)
+    access = await _resolve_gemini(user)
 
     known_words = await db.get_known_words(user["id"], lang, limit=tutor.SMALL_DECK_MAX)
     course = await db.get_active_course(user["id"], lang)
@@ -3529,11 +3664,8 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
 
     try:
         out = await tutor.run_lesson_drill(
-            lang, construction, req.history[-2 * tutor.LESSON_DRILL_TURNS:], answer,
-            # Fast/cheap model: posing a short phrase + judging a translation is a
-            # simple task, and the drill is formative (doesn't skew the score), so we
-            # favour responsiveness — the whole point is a snappy in-lesson drill.
-            api_key=access.api_key, model=translation.DEFAULT_MODEL,
+            lang, construction, answer=answer, plan_items=req.plan_items,
+            api_key=access.api_key,
             level=level, known_words=known_words, turn=max(1, int(req.turn or 1)),
         )
     except Exception as e:
@@ -3541,7 +3673,7 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
         raise HTTPException(502, "The drill couldn't continue — please try again.")
 
     if answer is not None:
-        await db.record_study_activity(user["id"])   # answering a drill counts as study
+        await db.record_study_activity(user["id"])
     return out
 
 
@@ -3571,6 +3703,10 @@ class RubyBatchRequest(BaseModel):
 _RUBY_LANGS = {"yue", "cmn", "ko", "hi", "te", "ja", "bn", "ur", "ar", "ru", "fa", "uk", "el", "th", "he"}
 
 
+_token_cache: dict[str, list[dict]] = {}
+_TOKEN_CACHE_MAX = 2000
+
+
 def _tokenize_map(texts: list[str], lang: str) -> dict:
     """Tokenise + romanise a set of texts → {original_text: [{text, roman, is_word}]}.
     Sync CPU work (jieba/pycantonese); call via asyncio.to_thread."""
@@ -3581,11 +3717,19 @@ def _tokenize_map(texts: list[str], lang: str) -> dict:
         text = (raw or "").strip()[:500]
         if not text or raw in out:
             continue
+        cache_key = f"{lang}:{raw}"
+        cached = _token_cache.get(cache_key)
+        if cached is not None:
+            out[raw] = cached
+            continue
         tokens = tokenizer.tokenize(text, lang)
         words = [t["text"] for t in tokens if t["is_word"]]
         rmap = tokenizer.romanize_words(words, lang) if words else {}
-        out[raw] = [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
+        result = [{"text": t["text"], "roman": rmap.get(t["text"], "") if t["is_word"] else "",
                      "is_word": t["is_word"]} for t in tokens]
+        out[raw] = result
+        if len(_token_cache) < _TOKEN_CACHE_MAX:
+            _token_cache[cache_key] = result
     return out
 
 
@@ -3682,6 +3826,36 @@ async def admin_list_users(user: dict = Depends(current_admin)):
     return {"users": await db.list_users()}
 
 
+@app.post("/api/admin/seed-common-decks")
+async def admin_seed_common_decks(
+    langs: str | None = None,
+    force: bool = False,
+    user: dict = Depends(current_admin),
+):
+    """Seed the official per-language "Top 100 Words" decks from the committed
+    `seed_decks/*.json` files into this environment's DB — DETERMINISTIC, no LLM
+    (so dev and prod get the identical reviewed cards). Startup already seeds
+    missing decks; call this to force-refresh after editing/adding seed files.
+
+    `langs` = comma-separated codes (e.g. `fr,es`); omit for ALL committed files.
+    `force=true` refreshes existing decks in place (preserving deck_id, so
+    importers' imports/ratings survive). Generation of the seed files themselves
+    is a dev step: `python scripts/generate_common_decks.py`.
+    """
+    system_id = await db.get_system_user_id()
+    if not system_id:
+        system_id = await db.get_or_create_system_user(
+            auth.hash_password(secrets.token_urlsafe(32))
+        )
+    codes = [c.strip() for c in langs.split(",") if c.strip()] if langs else None
+    results = await common_decks.seed_all(system_id, langs=codes, force=force)
+    summary = {
+        s: sum(1 for r in results if r["status"] == s)
+        for s in ("created", "updated", "skipped", "missing", "error")
+    }
+    return {"summary": summary, "results": results}
+
+
 class PlanUpdate(BaseModel):
     plan: str
 
@@ -3773,6 +3947,72 @@ async def admin_delete_user(user_id: int, user: dict = Depends(current_admin)):
     # Invalidate all sessions for that user.
     await db.delete_user_sessions(user_id)
     return {"success": True}
+
+
+@app.post("/api/admin/reprocess-images")
+async def admin_reprocess_images(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(current_admin),
+):
+    """Re-run vision analysis on image messages that got empty suggestions."""
+    rows = await db.get_unprocessed_image_messages()
+    if not rows:
+        return {"queued": 0, "message": "No unprocessed image messages found"}
+    background_tasks.add_task(_reprocess_images_bg, rows)
+    return {"queued": len(rows), "message": f"Reprocessing {len(rows)} image(s) in background"}
+
+
+async def _reprocess_images_bg(rows: list[dict]) -> None:
+    api_key = _SHARED_API_KEY
+    if not api_key:
+        logger.warning("reprocess-images: GEMINI_API_KEY not set, aborting")
+        return
+    ok_count = 0
+    for row in rows:
+        media_path = MEDIA_DIR / f"{row['media_id']}.jpg"
+        if not media_path.exists():
+            logger.warning("reprocess-images: media file missing for msg %d", row["msg_id"])
+            continue
+        image_bytes = media_path.read_bytes()
+        langs: list[str] = []
+        sender_id = row["sender_user_id"]
+        other_id = row["user2_id"] if row["user1_id"] == sender_id else row["user1_id"]
+        sender_lang = await db.get_setting(sender_id, "default_target_lang") or "yue"
+        if sender_lang not in langs:
+            langs.append(sender_lang)
+        if other_id:
+            recipient_lang = await db.get_setting(other_id, "default_target_lang") or "yue"
+            if recipient_lang not in langs:
+                langs.append(recipient_lang)
+        try:
+            vision = await asyncio.get_event_loop().run_in_executor(
+                None, translation.analyze_image, image_bytes, langs, api_key
+            )
+        except Exception:
+            logger.exception("reprocess-images: vision failed for msg %d", row["msg_id"])
+            continue
+        sugg = vision.get("suggestions") or {}
+        has_content = any(
+            (isinstance(v, dict) and (v.get("sender") or v.get("receiver")))
+            or (isinstance(v, list) and v)
+            for v in sugg.values()
+        )
+        if not has_content:
+            logger.warning("reprocess-images: still no suggestions for msg %d", row["msg_id"])
+            continue
+        description = vision.get("description") or "Photo"
+        descriptions = vision.get("descriptions") or {}
+        analysis = {
+            "type": "image",
+            "url": row["analysis"].get("url", ""),
+            "description": description,
+            "descriptions": descriptions,
+            "suggestions": sugg,
+        }
+        await db.update_image_message(row["msg_id"], description, analysis)
+        ok_count += 1
+        logger.info("reprocess-images: updated msg %d (%d/%d)", row["msg_id"], ok_count, len(rows))
+    logger.info("reprocess-images: done — %d/%d updated", ok_count, len(rows))
 
 
 # ── Feedback / bug reports ───────────────────────────────────────────────────
@@ -4938,6 +5178,11 @@ async def community_decks(
 ):
     return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search, sort=sort)}
 
+@app.get("/api/decks/featured")
+async def featured_decks(lang: str | None = None, user: dict = Depends(current_user)):
+    """Official system-owned decks (e.g. per-language Top-100). Suggested at onboarding."""
+    return {"decks": await db.list_featured_decks(target_lang=lang)}
+
 @app.get("/api/decks/{deck_id}")
 async def get_deck(deck_id: int, user: dict = Depends(current_user)):
     deck = await db.get_shared_deck(deck_id, user["id"])
@@ -4962,9 +5207,25 @@ async def import_deck(deck_id: int, user: dict = Depends(current_user)):
     deck = await db.get_shared_deck(deck_id, user["id"])
     if not deck:
         raise HTTPException(404, "Deck not found or not accessible")
-    result = await db.import_deck(user["id"], deck_id)
+    try:
+        result = await db.import_deck(user["id"], deck_id)
+    except Exception as e:
+        logger.error("Deck import failed deck=%s user=%s: %s",
+                     deck_id, user["id"], e, exc_info=True)
+        raise HTTPException(500, "Import failed — please try again.")
     if not result["ok"]:
         raise HTTPException(400, result.get("error", "Import failed"))
+    return result
+
+
+@app.delete("/api/decks/{deck_id}/import")
+async def unimport_deck(deck_id: int, user: dict = Depends(current_user)):
+    """Undo an import: removes the import + its "📦 deck" label, and deletes the
+    cards that came solely from this deck (cards also under other labels are kept,
+    just untagged). Idempotent-ish: 400 if the user never imported the deck."""
+    result = await db.unimport_deck(user["id"], deck_id)
+    if not result["ok"]:
+        raise HTTPException(400, result.get("error", "Not imported"))
     return result
 
 
@@ -5220,7 +5481,7 @@ async def get_messages(conv_id: int, before_id: int = 0,
         # (e.g. recipient changed their target language after the message was
         # sent, or the translation was never generated), translate now and
         # persist so future loads are instant.
-        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang:
+        if not display and not is_mine and m["original_text"] and m["original_lang"] != lang and not analysis.get("deleted"):
             if api_key is None:
                 try:
                     access = await _resolve_gemini(user, meter=False)
@@ -5261,7 +5522,9 @@ async def get_messages(conv_id: int, before_id: int = 0,
     if lang in _RUBY_LANGS:
         texts: set[str] = set()
         for r in result:
-            if r["display_text"] and r["analysis"].get("type") != "image":
+            if r["analysis"].get("deleted") or r["analysis"].get("type") == "image":
+                continue
+            if r["display_text"]:
                 texts.add(r["display_text"])
             for c in r["analysis"].get("corrections", []):
                 if c.get("corrected"):
@@ -5466,8 +5729,10 @@ async def send_image_message(conv_id: int, request: Request,
             vision = await asyncio.get_event_loop().run_in_executor(
                 None, translation.analyze_image, out_bytes, langs_set, api_key
             )
+        else:
+            logger.warning("image vision skipped: GEMINI_API_KEY (shared key) not set")
     except Exception:
-        pass
+        logger.exception("image vision analysis failed conv=%s langs=%s", conv_id, langs_set)
 
     description = vision.get("description") or "Photo"
     descriptions = vision.get("descriptions") or {}
@@ -5525,6 +5790,21 @@ async def start_or_get_conv_with_friend(friend_user_id: int, user: dict = Depend
     """Get or create an in-app conversation with a friend."""
     result = await db.get_or_create_conversation(user["id"], friend_user_id)
     return result
+
+
+@app.delete("/api/messages/{msg_id}")
+async def delete_message(msg_id: int, user: dict = Depends(current_user)):
+    """Delete/unsend a message. Only the sender can delete their own messages."""
+    analysis = await db.delete_message(msg_id, user["id"])
+    if analysis is None:
+        raise HTTPException(404, "Message not found or not yours")
+    if analysis.get("type") == "image":
+        url = analysis.get("url", "")
+        media_id = url.rsplit("/", 1)[-1].replace(".jpg", "") if url else ""
+        if media_id:
+            media_path = MEDIA_DIR / f"{media_id}.jpg"
+            media_path.unlink(missing_ok=True)
+    return {"ok": True}
 
 
 _ALLOWED_REACTIONS = {"❤️", "😂", "😮", "😢", "👍", "🔥"}

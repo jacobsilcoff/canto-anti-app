@@ -1,0 +1,1077 @@
+{
+  "lang": "yue",
+  "name": "Top 100 Cantonese Words",
+  "description": "The 100 most common words in Cantonese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "我",
+      "romanization": "ngo5",
+      "notes": "A very common pronoun; often combined with 哋 (dei6) to form 我哋 (ngo5 dei6) 'we'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you",
+      "target_text": "你",
+      "romanization": "nei5",
+      "notes": "The singular informal second-person pronoun; combine with 哋 (dei6) for 你哋 (nei5 dei6) 'you all'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "佢",
+      "romanization": "keoi5",
+      "notes": "The third-person singular pronoun, gender-neutral; use 佢哋 (keoi5 dei6) for 'they'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be / is / am / are",
+      "target_text": "係",
+      "romanization": "hai6",
+      "notes": "A common copula verb. Use 係唔係 (hai6 m4 hai6) for 'is it or not?' (yes/no question).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "not / no",
+      "target_text": "唔",
+      "romanization": "m4",
+      "notes": "A negative particle used before verbs or adjectives, fundamental for the A-唔-A question pattern.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "to have / there is",
+      "target_text": "有",
+      "romanization": "jau5",
+      "notes": "A fundamental verb for possession or existence; its negative is 冇 (mou5).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "good / very",
+      "target_text": "好",
+      "romanization": "hou2",
+      "notes": "An adjective meaning 'good' or an adverb meaning 'very' when placed before another adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "食",
+      "romanization": "sik6",
+      "notes": "The standard Cantonese verb for 'to eat', unlike Mandarin's 吃 (chi1).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "飲",
+      "romanization": "jam2",
+      "notes": "The standard Cantonese verb for 'to drink'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "去",
+      "romanization": "heoi3",
+      "notes": "A common verb for movement; also used as a modal verb to express intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "嚟",
+      "romanization": "lai4",
+      "notes": "A common verb for movement towards the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "人",
+      "romanization": "jan4",
+      "notes": "A fundamental noun for 'person' or 'people'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "thing / stuff",
+      "target_text": "嘢",
+      "romanization": "je5",
+      "notes": "A very versatile and common noun for 'thing' or 'stuff'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "乜",
+      "romanization": "mat1",
+      "notes": "An informal but very common Cantonese interrogative for 'what', often used in 乜嘢 (mat1 je5).",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "how / what kind",
+      "target_text": "點樣",
+      "romanization": "dim2joeng2",
+      "notes": "A common phrase for 'how' or 'what kind'; often shortened to 點 (dim2).",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "this / here",
+      "target_text": "呢",
+      "romanization": "ne1",
+      "notes": "A demonstrative pronoun 'this'; also a question particle or indicating proximity.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "that / there",
+      "target_text": "嗰",
+      "romanization": "go2",
+      "notes": "A demonstrative pronoun 'that', for something further away.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "時間",
+      "romanization": "si4gaan3",
+      "notes": "A common noun for 'time'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "錢",
+      "romanization": "cin2",
+      "notes": "A fundamental noun for 'money'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "to want / to think",
+      "target_text": "想",
+      "romanization": "soeng2",
+      "notes": "To want (verb) or to think (mental process); indicates desire or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to want / to need",
+      "target_text": "要",
+      "romanization": "jiu3",
+      "notes": "To want (strongly) or to need; can also mean 'will' or 'should'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to know (fact)",
+      "target_text": "知",
+      "romanization": "zi1",
+      "notes": "To know a fact or piece of information; often paired with 道 to form 知道 (zi1 dou6).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to know (skill/person)",
+      "target_text": "識",
+      "romanization": "sik1",
+      "notes": "To know a skill, a language, or a person; also 'to be able to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to speak / to say",
+      "target_text": "講",
+      "romanization": "gong2",
+      "notes": "The primary verb for 'to speak' or 'to say'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "問",
+      "romanization": "man6",
+      "notes": "A common verb for posing questions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to see / to watch / to read",
+      "target_text": "睇",
+      "romanization": "tai2",
+      "notes": "A versatile verb for visual actions like seeing, watching, or reading.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "聽",
+      "romanization": "ting3",
+      "notes": "A common verb for auditory actions like hearing or listening.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "做",
+      "romanization": "zou6",
+      "notes": "A general verb for performing actions or creating something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "買",
+      "romanization": "maai5",
+      "notes": "A common verb for purchasing goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "賣",
+      "romanization": "maai6",
+      "notes": "A common verb for selling goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "to live / to reside",
+      "target_text": "住",
+      "romanization": "zyu6",
+      "notes": "To live somewhere or to stay in a place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "residence"
+      ]
+    },
+    {
+      "source_text": "to return / to go back",
+      "target_text": "返",
+      "romanization": "faan2",
+      "notes": "A common verb meaning 'to return' or 'to go back', as in 返屋企 (faan1 uk1 kei2) 'go home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "工",
+      "romanization": "gung1",
+      "notes": "A noun meaning 'work' or 'job'; often used in 返工 (faan1 gung1) 'to go to work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to read / to study",
+      "target_text": "讀",
+      "romanization": "duk6",
+      "notes": "To read text or to study formally, as in 讀書 (duk6 syu1) 'to study'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to learn / to study",
+      "target_text": "學",
+      "romanization": "hok6",
+      "notes": "To learn a skill, language, or subject.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "畀",
+      "romanization": "bei2",
+      "notes": "The common Cantonese verb for 'to give'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to take / to get",
+      "target_text": "攞",
+      "romanization": "lo2",
+      "notes": "To take or to get something with one's hands.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "瞓",
+      "romanization": "fan3",
+      "notes": "The common Cantonese verb for 'to sleep'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily routine"
+      ]
+    },
+    {
+      "source_text": "to get up",
+      "target_text": "起身",
+      "romanization": "hei2san1",
+      "notes": "A common compound verb meaning 'to get up' or 'to stand up'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily routine"
+      ]
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "坐",
+      "romanization": "co5",
+      "notes": "A basic verb for sitting down.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "企",
+      "romanization": "kei5",
+      "notes": "A basic verb for standing up.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "also / all",
+      "target_text": "都",
+      "romanization": "dou1",
+      "notes": "An adverb meaning 'also' or 'all', placed before the verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "and / with / same",
+      "target_text": "同",
+      "romanization": "tung4",
+      "notes": "A conjunction meaning 'and' or 'with', or an adjective 'same'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "或者",
+      "romanization": "waak6ze2",
+      "notes": "A common conjunction for 'or', used for choices.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "但係",
+      "romanization": "daan6hai6",
+      "notes": "A common conjunction for 'but' or 'however'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "so / therefore",
+      "target_text": "所以",
+      "romanization": "so2ji5",
+      "notes": "A common conjunction for 'so' or 'therefore', indicating consequence.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "because",
+      "target_text": "因為",
+      "romanization": "jan1wai6",
+      "notes": "A common conjunction for 'because', indicating reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "if",
+      "target_text": "如果",
+      "romanization": "jyu4gwo2",
+      "notes": "A common conjunction for 'if', introducing a conditional clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "before",
+      "target_text": "之前",
+      "romanization": "zi1cin4",
+      "notes": "A common word for 'before' (time or sequence).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "之後",
+      "romanization": "zi1hau6",
+      "notes": "A common word for 'after' (time or sequence).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "而家",
+      "romanization": "ji4gaa1",
+      "notes": "The common word for 'now' or 'at present'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "will / can / to meet",
+      "target_text": "會",
+      "romanization": "wui6",
+      "notes": "A modal verb for future tense ('will') or ability ('can'), or 'to meet'.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "future"
+      ]
+    },
+    {
+      "source_text": "thank you / excuse me",
+      "target_text": "唔該",
+      "romanization": "m4goi1",
+      "notes": "A versatile phrase used to thank someone for a service, ask for a favor, or excuse oneself.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "polite"
+      ]
+    },
+    {
+      "source_text": "thank you (for gift/compliment)",
+      "target_text": "多謝",
+      "romanization": "do1ze6",
+      "notes": "Used to express thanks for a gift, compliment, or significant favor.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "polite"
+      ]
+    },
+    {
+      "source_text": "good morning",
+      "target_text": "早晨",
+      "romanization": "zou2san4",
+      "notes": "A common greeting used in the morning.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hello",
+      "target_text": "你好",
+      "romanization": "nei5 hou2",
+      "notes": "A general greeting, directly translated as 'you good'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "goodbye",
+      "target_text": "再見",
+      "romanization": "zoi3gin3",
+      "notes": "A common farewell, meaning 'see you again'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "softening particle",
+      "target_text": "呀",
+      "romanization": "aa4",
+      "notes": "A common sentence-final particle used to soften a statement, ask a question, or indicate surprise.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "语气助词"
+      ]
+    },
+    {
+      "source_text": "changed state particle",
+      "target_text": "喇",
+      "romanization": "laa3",
+      "notes": "A sentence-final particle indicating a new situation or changed state, similar to Mandarin's '了'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "语气助词"
+      ]
+    },
+    {
+      "source_text": "obviousness particle",
+      "target_text": "囉",
+      "romanization": "lo1",
+      "notes": "A sentence-final particle expressing obviousness, casual suggestion, or resignation.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "语气助词"
+      ]
+    },
+    {
+      "source_text": "hearsay particle",
+      "target_text": "喎",
+      "romanization": "wo3",
+      "notes": "A sentence-final particle indicating hearsay or mild surprise.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "语气助词"
+      ]
+    },
+    {
+      "source_text": "assertion particle",
+      "target_text": "㗎",
+      "romanization": "ga3",
+      "notes": "A sentence-final particle for emphasis or assertion, often confirming a fact.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "语气助词"
+      ]
+    },
+    {
+      "source_text": "possessive / modifying particle",
+      "target_text": "嘅",
+      "romanization": "ge3",
+      "notes": "A very common structural particle similar to English 'of' or '-s', or for forming adjectival phrases.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "structural"
+      ]
+    },
+    {
+      "source_text": "at / in / on",
+      "target_text": "喺",
+      "romanization": "hai2",
+      "notes": "A common preposition and verb for location, meaning 'at', 'in', or 'on'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to not have / there isn't",
+      "target_text": "冇",
+      "romanization": "mou5",
+      "notes": "The negative form of 有 (yau5), meaning 'to not have' or 'there isn't'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "do you have / is there",
+      "target_text": "有冇",
+      "romanization": "jau5mou5",
+      "notes": "A common A-唔-A question contraction from 有唔有 (yau5 m4 yau5) meaning 'do you have' or 'is there'.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "which / where",
+      "target_text": "邊",
+      "romanization": "bin1",
+      "notes": "An interrogative pronoun for 'which' or 'where', often combined (e.g., 邊個 'who', 邊度 'where').",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "some / a little / plural marker",
+      "target_text": "啲",
+      "romanization": "di1",
+      "notes": "A quantifier for 'some' or 'a little', or a plural marker for nouns or adjectives.",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "measure word (general)",
+      "target_text": "個",
+      "romanization": "go3",
+      "notes": "The most common measure word, used for people and many inanimate objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "measure word"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "一",
+      "romanization": "jat1",
+      "notes": "The number one; also a general indefinite article when used with a measure word.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "二",
+      "romanization": "ji6",
+      "notes": "The number two, used in counting; 兩 (loeng5) is used before measure words.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "三",
+      "romanization": "saam1",
+      "notes": "The number three.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "四",
+      "romanization": "sei3",
+      "notes": "The number four.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "五",
+      "romanization": "ng5",
+      "notes": "The number five.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "六",
+      "romanization": "luk6",
+      "notes": "The number six.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "七",
+      "romanization": "cat1",
+      "notes": "The number seven.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "八",
+      "romanization": "baat3",
+      "notes": "The number eight.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "九",
+      "romanization": "gau2",
+      "notes": "The number nine.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "十",
+      "romanization": "sap6",
+      "notes": "The number ten.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "大",
+      "romanization": "daai6",
+      "notes": "An adjective meaning 'big' or 'large'; also can mean 'old' for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "small / young",
+      "target_text": "細",
+      "romanization": "sai3",
+      "notes": "An adjective meaning 'small' or 'young'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "多",
+      "romanization": "do1",
+      "notes": "An adjective for 'many' or 'much'; also an adverb for 'more'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "少",
+      "romanization": "siu2",
+      "notes": "An adjective for 'few' or 'little'; the opposite of 多 (do1).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "day / sun",
+      "target_text": "日",
+      "romanization": "jat6",
+      "notes": "A noun for 'day' or 'sun'; used in dates and expressions of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month / moon",
+      "target_text": "月",
+      "romanization": "jyut6",
+      "notes": "A noun for 'month' or 'moon'; used in dates and expressions of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "年",
+      "romanization": "nin4",
+      "notes": "A noun for 'year'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "今日",
+      "romanization": "gam1jat6",
+      "notes": "The common word for 'today'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "尋日",
+      "romanization": "cam4jat6",
+      "notes": "The common word for 'yesterday'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "聽日",
+      "romanization": "ting1jat6",
+      "notes": "The common word for 'tomorrow'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "MTR / subway",
+      "target_text": "地鐵",
+      "romanization": "dei6tit3",
+      "notes": "The common word for 'MTR' or 'subway' in Hong Kong.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "bus",
+      "target_text": "巴士",
+      "romanization": "baa1si2",
+      "notes": "A common loanword for 'bus'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "car",
+      "target_text": "車",
+      "romanization": "ce1",
+      "notes": "A general noun for 'car' or 'vehicle'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "telephone / phone",
+      "target_text": "電話",
+      "romanization": "din6waa2",
+      "notes": "A common word for 'telephone' or 'phone'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "technology"
+      ]
+    },
+    {
+      "source_text": "home / family",
+      "target_text": "屋企",
+      "romanization": "uk1kei2",
+      "notes": "A common word for 'home' or 'family'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "學校",
+      "romanization": "hok6haau6",
+      "notes": "A common noun for 'school'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "shop / store",
+      "target_text": "舖頭",
+      "romanization": "pou3tau2",
+      "notes": "A common noun for 'shop' or 'store'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "水",
+      "romanization": "seoi2",
+      "notes": "A fundamental noun for 'water'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "tea",
+      "target_text": "茶",
+      "romanization": "caa4",
+      "notes": "A fundamental noun for 'tea'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "coffee",
+      "target_text": "咖啡",
+      "romanization": "gaa3fe1",
+      "notes": "A common loanword for 'coffee'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "cooked rice / meal",
+      "target_text": "飯",
+      "romanization": "faan6",
+      "notes": "A noun for 'cooked rice' or a general term for 'meal'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    }
+  ]
+}

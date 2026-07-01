@@ -1,0 +1,1049 @@
+{
+  "lang": "te",
+  "name": "Top 100 Telugu Words",
+  "description": "The 100 most common words in Telugu — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "నేను",
+      "romanization": "nenu",
+      "notes": "Used as a singular first-person pronoun. Often omitted when the context is clear.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (sg. informal)",
+      "target_text": "నువ్వు",
+      "romanization": "nuvvu",
+      "notes": "Used for 'you' singular in informal contexts, typically with friends, family, or younger people.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (pl./sg. formal)",
+      "target_text": "మీరు",
+      "romanization": "mīru",
+      "notes": "Used for 'you' plural or as a formal/polite singular 'you' for elders, superiors, or strangers.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "అవును",
+      "romanization": "avunu",
+      "notes": "Standard word for 'yes' or affirmation.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "no / is not (identity)",
+      "target_text": "కాదు",
+      "romanization": "kādu",
+      "notes": "Used to negate identity or classification, e.g., 'It is not a book.'",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "no / is not / don't have (existence)",
+      "target_text": "లేదు",
+      "romanization": "ledu",
+      "notes": "Used to negate existence or possession for non-human singular nouns, e.g., 'There isn't water,' or 'I don't have it.'",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "is / exists / has (non-human, sg.)",
+      "target_text": "ఉంది",
+      "romanization": "uṃdi",
+      "notes": "Used for singular non-human nouns to indicate existence or possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "are / exist / have (human, pl./hon. sg.)",
+      "target_text": "ఉన్నారు",
+      "romanization": "unnāru",
+      "notes": "Used for human plural or honorific singular nouns to indicate existence or possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to be / to exist",
+      "target_text": "ఉండటం",
+      "romanization": "uṃḍaṭaṃ",
+      "notes": "The infinitive form of the verb 'to be,' which conjugates into 'undi,' 'unnāru,' etc.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "what?",
+      "target_text": "ఏమిటి",
+      "romanization": "emiṭi",
+      "notes": "A common question word used for inquiring about things or facts.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "where?",
+      "target_text": "ఎక్కడ",
+      "romanization": "èkkaḍa",
+      "notes": "A common question word used for inquiring about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "who?",
+      "target_text": "ఎవరు",
+      "romanization": "èvaru",
+      "notes": "A common question word used for inquiring about people.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "how?",
+      "target_text": "ఎలా",
+      "romanization": "èlā",
+      "notes": "A common question word used for inquiring about manner or method.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "this (neuter/animal)",
+      "target_text": "ఇది",
+      "romanization": "idi",
+      "notes": "A demonstrative pronoun referring to a singular non-human noun close by.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that (neuter/animal)",
+      "target_text": "అది",
+      "romanization": "adi",
+      "notes": "A demonstrative pronoun referring to a singular non-human noun further away.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "this (demonstrative adj.)",
+      "target_text": "ఈ",
+      "romanization": "ī",
+      "notes": "A demonstrative adjective used before a noun, meaning 'this' (e.g., 'ఈ పుస్తకం' - this book).",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that (demonstrative adj.)",
+      "target_text": "ఆ",
+      "romanization": "ā",
+      "notes": "A demonstrative adjective used before a noun, meaning 'that' (e.g., 'ఆ ఇల్లు' - that house).",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "మంచి",
+      "romanization": "maṃci",
+      "notes": "A common adjective describing quality, often used before a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "చాలా",
+      "romanization": "cālā",
+      "notes": "An adverb meaning 'very' (e.g., 'చాలా మంచి' - very good) or a quantifier for 'much/many'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "ధన్యవాదాలు",
+      "romanization": "dhanyavādālu",
+      "notes": "The standard way to say 'thank you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "please",
+      "target_text": "దయచేసి",
+      "romanization": "dayacesi",
+      "notes": "Used to make a request polite; can come at the beginning or end of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "politeness marker"
+      ]
+    },
+    {
+      "source_text": "hello / greetings",
+      "target_text": "నమస్కారం",
+      "romanization": "namaskāraṃ",
+      "notes": "A formal and respectful greeting, suitable for most situations and can also mean 'goodbye'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "చేయడం",
+      "romanization": "ceyaḍaṃ",
+      "notes": "The infinitive form of a very common verb, used to express 'to do' or 'to make'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "want / need",
+      "target_text": "కావాలి",
+      "romanization": "kāvāli",
+      "notes": "An impersonal verb meaning 'is wanted' or 'is needed'; requires the dative case for the subject (e.g., 'నాకు కావాలి' - I want/need).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "don't want / don't need",
+      "target_text": "వద్దు",
+      "romanization": "vaddu",
+      "notes": "The negation of 'kāvāli', meaning 'do not want' or 'do not need'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "ఇప్పుడు",
+      "romanization": "ippuḍu",
+      "notes": "A common adverb indicating the current time.",
+      "cefr_level": "A1",
+      "labels": [
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "నేడు",
+      "romanization": "neḍu",
+      "notes": "Indicates the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "నిన్న",
+      "romanization": "ninna",
+      "notes": "Indicates the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "రేపు",
+      "romanization": "repu",
+      "notes": "Indicates the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "ఇక్కడ",
+      "romanization": "ikkaḍa",
+      "notes": "An adverb indicating a location close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "అక్కడ",
+      "romanization": "akkaḍa",
+      "notes": "An adverb indicating a location further away from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "రావడం",
+      "romanization": "rāvaḍaṃ",
+      "notes": "The infinitive form of the verb 'to come'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "పోవడం",
+      "romanization": "povaḍaṃ",
+      "notes": "The infinitive form of the verb 'to go'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "చెప్పడం",
+      "romanization": "cèppaḍaṃ",
+      "notes": "The infinitive form of the verb 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "know (impersonal)",
+      "target_text": "తెలుసు",
+      "romanization": "tèlusu",
+      "notes": "An impersonal verb meaning 'is known'; requires the dative case for the subject (e.g., 'నాకు తెలుసు' - I know).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "don't know (impersonal)",
+      "target_text": "తెలియదు",
+      "romanization": "tèliyadu",
+      "notes": "The negation of 'telusu', meaning 'is not known' (e.g., 'నాకు తెలియదు' - I don't know).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "ఒకటి",
+      "romanization": "òkaṭi",
+      "notes": "The cardinal number 'one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "రెండు",
+      "romanization": "rèṃḍu",
+      "notes": "The cardinal number 'two'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "మూడు",
+      "romanization": "mūḍu",
+      "notes": "The cardinal number 'three'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "నాలుగు",
+      "romanization": "nālugu",
+      "notes": "The cardinal number 'four'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "ఐదు",
+      "romanization": "aidu",
+      "notes": "The cardinal number 'five'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "పది",
+      "romanization": "padi",
+      "notes": "The cardinal number 'ten'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "వంద",
+      "romanization": "vaṃda",
+      "notes": "The cardinal number 'hundred'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "he",
+      "target_text": "అతను",
+      "romanization": "atanu",
+      "notes": "A masculine singular pronoun, referring to 'he' or 'him'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she",
+      "target_text": "ఆమె",
+      "romanization": "āmè",
+      "notes": "A feminine singular pronoun, referring to 'she' or 'her'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they (human, pl./hon. sg.)",
+      "target_text": "వారు",
+      "romanization": "vāru",
+      "notes": "A plural pronoun for humans, also used as an honorific singular for 'he' or 'she'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they (non-human, pl.)",
+      "target_text": "అవి",
+      "romanization": "avi",
+      "notes": "A plural pronoun for non-human nouns (things or animals).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we (inclusive)",
+      "target_text": "మనం",
+      "romanization": "manaṃ",
+      "notes": "Refers to 'we' including the person being spoken to.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we (exclusive)",
+      "target_text": "మేము",
+      "romanization": "memu",
+      "notes": "Refers to 'we' excluding the person being spoken to.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "small / young",
+      "target_text": "చిన్న",
+      "romanization": "cinna",
+      "notes": "An adjective meaning 'small' for objects or 'young' for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "big / large / old (person)",
+      "target_text": "పెద్ద",
+      "romanization": "pèdda",
+      "notes": "An adjective meaning 'big' for objects or 'old' for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "కొత్త",
+      "romanization": "kòtta",
+      "notes": "An adjective describing something as recently made or acquired.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "old (thing)",
+      "target_text": "పాత",
+      "romanization": "pāta",
+      "notes": "An adjective describing something as not new, typically for objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "నీళ్ళు",
+      "romanization": "nīḻḻu",
+      "notes": "A common noun for 'water'. Telugu uses the plural form for 'water'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "ఆహారం",
+      "romanization": "āhāraṃ",
+      "notes": "A general term for 'food' or 'meal'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "ఇల్లు",
+      "romanization": "illu",
+      "notes": "A basic noun for a dwelling.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "in / at",
+      "target_text": "లో",
+      "romanization": "lo",
+      "notes": "A postposition indicating location, meaning 'in' or 'at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "with / by",
+      "target_text": "తో",
+      "romanization": "to",
+      "notes": "A postposition indicating accompaniment or instrument, meaning 'with' or 'by means of'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "కి",
+      "romanization": "ki",
+      "notes": "A dative postposition indicating direction or purpose, meaning 'to' or 'for'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "from",
+      "target_text": "నుంచి",
+      "romanization": "nuṃci",
+      "notes": "A postposition indicating origin or starting point, meaning 'from'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "on / above",
+      "target_text": "మీద",
+      "romanization": "mīda",
+      "notes": "A postposition indicating position 'on' or 'above' something.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "when?",
+      "target_text": "ఎప్పుడు",
+      "romanization": "èppuḍu",
+      "notes": "A common question word used for inquiring about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "time"
+      ]
+    },
+    {
+      "source_text": "why?",
+      "target_text": "ఎందుకు",
+      "romanization": "èṃduku",
+      "notes": "A common question word used for inquiring about reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "మరియు",
+      "romanization": "mariyu",
+      "notes": "A conjunction used to connect words or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "కానీ",
+      "romanization": "kānī",
+      "notes": "A conjunction used to indicate contrast or exception.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "లేదా",
+      "romanization": "ledā",
+      "notes": "A conjunction used to present alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "రోజు",
+      "romanization": "roju",
+      "notes": "A noun meaning 'day', often used to count days or refer to a specific day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "రాత్రి",
+      "romanization": "rātri",
+      "notes": "A noun meaning 'night' or 'evening'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "ఉదయం",
+      "romanization": "udayaṃ",
+      "notes": "A noun referring to the 'morning' time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "సాయంత్రం",
+      "romanization": "sāyaṃtraṃ",
+      "notes": "A noun referring to the 'evening' time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "afternoon",
+      "target_text": "మధ్యాహ్నం",
+      "romanization": "madhyāhnaṃ",
+      "notes": "A noun referring to the 'afternoon' time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "సమయం",
+      "romanization": "samayaṃ",
+      "notes": "A general noun for 'time' or 'duration'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "వారం",
+      "romanization": "vāraṃ",
+      "notes": "A noun meaning 'week'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "నెల",
+      "romanization": "nèla",
+      "notes": "A noun meaning 'month'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "సంవత్సరం",
+      "romanization": "saṃvatsaraṃ",
+      "notes": "A noun meaning 'year'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "మనిషి",
+      "romanization": "maniṣi",
+      "notes": "A noun referring to a 'person' or 'human being'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "పని",
+      "romanization": "pani",
+      "notes": "A noun meaning 'work', 'task', or 'job'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "daily life"
+      ]
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "మాట్లాడటం",
+      "romanization": "māṭlāḍaṭaṃ",
+      "notes": "The infinitive form of the verb 'to speak' or 'to talk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "తినడం",
+      "romanization": "tinaḍaṃ",
+      "notes": "The infinitive form of the verb 'to eat'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "త్రాగడం",
+      "romanization": "trāgaḍaṃ",
+      "notes": "The infinitive form of the verb 'to drink'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to see / to look",
+      "target_text": "చూడటం",
+      "romanization": "cūḍaṭaṃ",
+      "notes": "The infinitive form of the verb 'to see' or 'to look'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "వినడం",
+      "romanization": "vinaḍaṃ",
+      "notes": "The infinitive form of the verb 'to hear' or 'to listen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to learn",
+      "target_text": "నేర్చుకోవడం",
+      "romanization": "nercukovaḍaṃ",
+      "notes": "The infinitive form of the verb 'to learn'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "meaning / understanding",
+      "target_text": "అర్థం",
+      "romanization": "arthaṃ",
+      "notes": "A noun meaning 'meaning' or 'understanding' (e.g., 'నాకు అర్థం కాలేదు' - I didn't understand).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "liking / favorite",
+      "target_text": "ఇష్టం",
+      "romanization": "iṣṭaṃ",
+      "notes": "An impersonal noun/adjective indicating 'liking' or 'favorite' (e.g., 'నాకు ఇష్టం' - I like it).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "need / necessity",
+      "target_text": "అవసరం",
+      "romanization": "avasaraṃ",
+      "notes": "A noun meaning 'need' or 'necessity'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "price",
+      "target_text": "ధర",
+      "romanization": "dhara",
+      "notes": "A noun meaning the 'price' or 'cost' of something.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "డబ్బు",
+      "romanization": "ḍabbu",
+      "notes": "A common noun for 'money'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "near / at (location)",
+      "target_text": "దగ్గర",
+      "romanization": "daggara",
+      "notes": "A postposition or adverb meaning 'near' or 'at' a person's place.",
+      "cefr_level": "A2",
+      "labels": [
+        "postposition",
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "far",
+      "target_text": "దూరం",
+      "romanization": "dūraṃ",
+      "notes": "An adverb or adjective indicating 'far' distance.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "a little / a few",
+      "target_text": "కొద్దిగా",
+      "romanization": "kòddigā",
+      "notes": "A quantifier or adverb meaning 'a little' or 'a few'.",
+      "cefr_level": "A2",
+      "labels": [
+        "quantifier",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "more / much / excessive",
+      "target_text": "ఎక్కువ",
+      "romanization": "èkkuva",
+      "notes": "A quantifier or adverb meaning 'more', 'much', or 'excessive'.",
+      "cefr_level": "A2",
+      "labels": [
+        "quantifier",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "less / little / insufficient",
+      "target_text": "తక్కువ",
+      "romanization": "takkuva",
+      "notes": "A quantifier or adverb meaning 'less', 'little', or 'insufficient'.",
+      "cefr_level": "A2",
+      "labels": [
+        "quantifier",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "are not / do not have (human, pl./hon. sg.)",
+      "target_text": "లేరు",
+      "romanization": "leru",
+      "notes": "The negation of 'unnāru', used for human plural or honorific singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "ఇవ్వడం",
+      "romanization": "ivvaḍaṃ",
+      "notes": "The infinitive form of the verb 'to give'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "తీసుకోవడం",
+      "romanization": "tīsukovaḍaṃ",
+      "notes": "The infinitive form of the verb 'to take'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "everyone",
+      "target_text": "అందరూ",
+      "romanization": "aṃdarū",
+      "notes": "A pronoun meaning 'everyone' or 'all people'.",
+      "cefr_level": "A2",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "every / each",
+      "target_text": "ప్రతి",
+      "romanization": "prati",
+      "notes": "A determiner meaning 'every' or 'each', always precedes a noun.",
+      "cefr_level": "A2",
+      "labels": [
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "all (things)",
+      "target_text": "అన్ని",
+      "romanization": "anni",
+      "notes": "A quantifier meaning 'all' for non-human nouns or things.",
+      "cefr_level": "A2",
+      "labels": [
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "some (things)",
+      "target_text": "కొన్ని",
+      "romanization": "kònni",
+      "notes": "A quantifier meaning 'some' for non-human nouns or things.",
+      "cefr_level": "A2",
+      "labels": [
+        "quantifier"
+      ]
+    }
+  ]
+}

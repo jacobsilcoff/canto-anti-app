@@ -251,12 +251,15 @@
     .cd-hist-item { border-radius: 10px; padding: 8px 11px; font-size: 0.85rem; border-left: 3px solid; overflow-wrap: break-word; word-break: break-word; }
     .cd-hist-item.ok  { border-color: var(--good);  background: var(--good-soft); }
     .cd-hist-item.miss{ border-color: var(--again); background: var(--danger-soft); }
+    .cd-hist-item.skip{ border-color: var(--text-muted); background: var(--surface-alt, #f5f5f5); }
     .cd-hist-phrase { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
     .cd-hist-you { opacity: 0.8; font-family: var(--script-font, inherit); line-height: 2; }
     .cd-hist-you ruby { line-height: 1; }
     .cd-hist-you.struck { text-decoration: line-through; text-decoration-color: var(--again); }
     .cd-hist-ans { font-family: var(--script-font, inherit); font-weight: 600; color: var(--good-strong); line-height: 2; }
     .cd-hist-ans ruby { line-height: 1; }
+    .cd-hist-alt { font-size: 0.88rem; font-weight: 500; color: var(--text-secondary); }
+    .cd-hist-note { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin-top: 2px; }
     /* Current-turn prompt + feedback */
     .cd-task { font-size: 1.3rem; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: break-word; }
     .cd-task-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
@@ -264,6 +267,7 @@
     .cd-fb { border-radius: 12px; padding: 12px 14px; overflow: hidden; overflow-wrap: break-word; word-break: break-word; }
     .cd-fb.cd-correct { background: var(--good-soft); }
     .cd-fb.cd-wrong { background: var(--warn-soft, #fffbeb); }
+    .cd-fb.cd-skip { background: var(--surface-alt, #f5f5f5); }
     .cd-fb-head { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
     .cd-fb.cd-correct .cd-fb-head { color: var(--good-strong); }
     .cd-fb.cd-wrong .cd-fb-head { color: var(--warn-strong, #b45309); }
@@ -278,6 +282,7 @@
     .cd-fb-anstext { flex: 1; min-width: 0; overflow-wrap: break-word; font-family: var(--script-font, inherit); font-weight: 600; }
     .cd-rom { color: var(--text-muted); font-size: 0.78rem; font-style: italic; margin-left: 6px; }
     .cd-fb-note { color: var(--text-muted); font-size: 0.85rem; margin-top: 6px; line-height: 1.45; overflow-wrap: break-word; }
+    .cd-fb-next { display: block; width: 100%; margin-top: 12px; padding: 10px; background: var(--primary); color: var(--on-primary); border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
     .cd-fb-alt { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; font-size: 0.95rem; line-height: 2; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px; }
     .cd-fb-alt ruby { line-height: 1; }
     .cd-fb-altnote { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 1px; line-height: 1.4; overflow-wrap: break-word; }
@@ -405,6 +410,60 @@
     @keyframes nodepop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
     .audio-play:active, .tile:active, .opt:active { transform: scale(.96); }
     .confetti-piece { position: fixed; top: -14px; width: 9px; height: 14px; z-index: 9999; pointer-events: none; border-radius: 2px; }
+
+    /* ── Mini-games ── */
+    .minigame { text-align: center; padding: 4px 0; }
+    .mg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 600; font-size: 0.95rem; }
+    .mg-timer { font-variant-numeric: tabular-nums; }
+    .mg-timer.urgent { color: var(--danger); animation: pulse-text 0.5s infinite; }
+    .mg-score { color: var(--primary); font-size: 1.05rem; }
+    .mg-timer-bar { height: 6px; background: var(--surface-alt); border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+    .mg-timer-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.1s linear; }
+    .mg-timer-fill.urgent { background: var(--danger); }
+    .mg-prompt { font-size: 3rem; margin: 16px 0; font-family: var(--script-font, inherit); }
+    .mg-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 320px; margin: 0 auto; }
+    .mg-opt { padding: 14px; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer; font-size: 1.1rem; font-weight: 500; transition: border-color 0.15s, background 0.15s; touch-action: manipulation; }
+    .mg-opt:active { transform: scale(0.96); }
+    .mg-opt.correct { background: var(--good-soft); border-color: var(--good-strong); color: var(--good-strong); }
+    .mg-opt.wrong { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+    .mg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 320px; margin: 0 auto; }
+    .mg-cell { padding: 16px 8px; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer; font-size: 1.4rem; font-family: var(--script-font, inherit); transition: border-color 0.15s, background 0.15s; touch-action: manipulation; }
+    .mg-cell:active { transform: scale(0.96); }
+    .mg-cell.correct { background: var(--good-soft); border-color: var(--good-strong); }
+    .mg-cell.wrong { background: var(--danger-soft); border-color: var(--danger); }
+    .mg-play-btn { font-size: 2rem; background: var(--primary-soft); border: 2px solid var(--primary); border-radius: 50%; width: 64px; height: 64px; cursor: pointer; margin: 12px auto; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+    .mm-grid { display: grid; gap: 8px; max-width: 340px; margin: 0 auto; }
+    .mm-card { aspect-ratio: 1; border: 2px solid var(--border); border-radius: 10px; background: var(--primary-soft); cursor: pointer; font-size: 1.15rem; display: flex; align-items: center; justify-content: center; transition: background 0.2s, border-color 0.2s, color 0.2s; font-family: var(--script-font, inherit); color: var(--primary); font-weight: 700; user-select: none; touch-action: manipulation; }
+    .mm-card.flipped { background: var(--surface); color: var(--text); border-color: var(--primary); font-weight: 500; }
+    .mm-card.matched { background: var(--good-soft); color: var(--good-strong); border-color: var(--good-strong); cursor: default; }
+    .mm-card.wrong-flash { background: var(--danger-soft); border-color: var(--danger); }
+    .mg-results { text-align: center; padding: 20px 0; }
+    .mg-results-score { font-size: 2rem; font-weight: 700; margin: 8px 0; }
+    .mg-results-detail { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 4px; }
+    .mg-continue { margin-top: 16px; padding: 12px 32px; background: var(--primary); color: var(--on-primary); border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .mg-continue:active { transform: scale(0.97); }
+    .mg-bonus { position: absolute; right: 8px; top: -2px; font-size: 0.75rem; color: var(--good-strong); font-weight: 600; animation: xp-up 0.8s ease forwards; pointer-events: none; }
+    @keyframes pulse-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes xp-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-18px); } }
+
+    /* foundations practice games */
+    .fp-section { margin-top: 18px; padding: 14px 0 0; border-top: 1px solid var(--neutral-border); }
+    .fp-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .fp-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .fp-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px solid var(--neutral-border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+    .fp-btn:hover { background: var(--primary-soft); border-color: var(--primary); box-shadow: var(--shadow); }
+    .fp-btn:active { transform: scale(0.97); }
+    .fp-icon { font-size: 1.1rem; }
+
+    /* memory match settings modal */
+    .mm-settings-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .mm-settings-card { background: var(--surface); border-radius: 16px; padding: 24px; max-width: 340px; width: 100%; box-shadow: var(--shadow-pop); }
+    .mm-settings-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
+    .mm-settings-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
+    .mm-settings-toggle { flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }
+    .mm-settings-toggle input { width: 18px; height: 18px; accent-color: var(--primary); }
+    .mm-settings-hint { font-size: 0.78rem; color: var(--text-muted); margin: -8px 0 16px 26px; }
+    .mm-settings-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
     /* teach screen */
     .teach-intro { font-size: 1rem; line-height: 1.55; color: var(--text); margin-bottom: 20px; white-space: pre-line; }
@@ -924,15 +983,18 @@
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
-    const drillsBtn = st === 'done'
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},true)" title="Skip teach, go straight to drills">⚡ Drills</button>` : '';
+    const showBtns = st === 'done' || st === 'available';
+    const drillsBtn = showBtns
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'skip')" title="Skip teach, go straight to exercises">⚡ Practice</button>` : '';
+    const llmBtn = showBtns
+      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'llm')" title="Skip to LLM construction drills only">🎯 AI Drills</button>` : '';
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
       <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
         ${glyph}${crowns}
       </div>
       <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
-      ${drillsBtn}
+      ${drillsBtn}${llmBtn}
       ${dbg}
     </div>`;
   }
@@ -1037,6 +1099,20 @@
         unitDiv.innerHTML = html;
         body.appendChild(unitDiv);
       });
+
+      // Practice games — standalone mini-games using all learned items
+      const practiceDiv = document.createElement('div');
+      practiceDiv.className = 'fp-section';
+      practiceDiv.innerHTML = `<div class="fp-label">Practice Games</div>
+        <div class="fp-buttons">
+          <button class="fp-btn" onclick="openPracticeGame(${course.id},'speed_round')">
+            <span class="fp-icon">⚡</span><span>Speed Round</span></button>
+          <button class="fp-btn" onclick="openPracticeGame(${course.id},'audio_blitz')">
+            <span class="fp-icon">🔊</span><span>Audio Blitz</span></button>
+          <button class="fp-btn" onclick="showMemoryMatchSettings(${course.id})">
+            <span class="fp-icon">🃏</span><span>Memory Match</span></button>
+        </div>`;
+      body.appendChild(practiceDiv);
       wrap.appendChild(section);
     }
 
@@ -1224,13 +1300,13 @@
     construction_drill: {
       render(ex, root, lang, onDone) {
         const construction = (ex.construction || ex.skill || '').trim();
-        const maxTurns = 4;
-        const history = [];      // [{role:'tutor'|'user', text}]
+        let maxTurns = 4;
+        let planItems = [];      // [{english, target}] — drill plan with reference translations
         let turn = 0, busy = false;
         let currentPhrase = null, lastFeedback = null, lastAnswer = null;
         root.innerHTML = `<div class="cd-wrap">
             <div class="cd-topbar">
-              <div class="cd-construction">🎯 Practice: <b>${esc(construction)}</b></div>
+              <div class="cd-construction">${esc(construction)}</div>
               <div class="cd-progress" id="cd-progress"></div>
             </div>
             <div class="cd-scroll" id="cd-scroll">
@@ -1256,10 +1332,6 @@
         const setProgress = () => { progEl.textContent = `${Math.min(turn, maxTurns)} / ${maxTurns}`; };
         setProgress();
 
-        // Make #state-player a fixed overlay (same pattern as tutor.html's body) so the
-        // iOS keyboard compresses the player — not the page — when the input is focused.
-        // Without this, iOS scrolls the page to reveal the input, pushing the X/progress bar
-        // off screen and causing the player-top to jump/resize.
         const playerEl = document.getElementById('state-player');
         const vv = window.visualViewport;
         const fitKb = () => {
@@ -1286,30 +1358,38 @@
           try {
             const res = await fetch('/api/lesson/drill', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ construction, history, answer, turn: turn + 1, lang }),
+              body: JSON.stringify({ construction, plan_items: planItems, answer, turn: turn + 1, lang }),
             });
             if (!res.ok) throw new Error();
             return await res.json();
           } catch { return null; } finally { busy = false; sendEl.disabled = false; }
         }
 
-        // Normalize for "did the polished form differ from what they wrote?" — used to
-        // decide whether to surface the corrected spelling on an accepted-with-flaw answer.
         const cdNorm = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.,!?;:]+$/, '');
         const cdDiffers = (a, b) => !!a && !!b && cdNorm(a) !== cdNorm(b);
 
         function appendHistory(phrase, fb, yourAnswer) {
           if (!phrase) return;
           const ok = fb && fb.correct;
+          const skipped = !fb;
           const yours = (yourAnswer || '').trim();
           const flawed = ok && fb && cdDiffers(fb.corrected, yours);
           const item = document.createElement('div');
-          item.className = `cd-hist-item ${ok ? 'ok' : 'miss'}`;
+          item.className = `cd-hist-item ${skipped ? 'skip' : (ok ? 'ok' : 'miss')}`;
           let inner = `<div class="cd-hist-phrase">${esc(phrase)}</div>`;
-          if (yours) inner += `<div class="cd-hist-you${ok ? '' : ' struck'}">${targetSpan(yours, lang)}</div>`;
-          if ((!ok || flawed) && fb && fb.corrected) {
-            const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
-            inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
+          if (yours) inner += `<div class="cd-hist-you${ok || skipped ? '' : ' struck'}">${targetSpan(yours, lang)}</div>`;
+          if (skipped) {
+            inner += `<div class="cd-hist-note">Skipped — couldn't check</div>`;
+          } else {
+            if ((!ok || flawed) && fb && fb.corrected) {
+              const rom = (fb.corrected_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
+              inner += `<div class="cd-hist-ans">${targetSpan(fb.corrected, lang)}${rom}</div>`;
+            }
+            if (fb && fb.alt && ok) {
+              const altRom = (fb.alt_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.alt_roman)}</span>` : '';
+              inner += `<div class="cd-hist-ans cd-hist-alt">${targetSpan(fb.alt, lang)}${altRom}</div>`;
+            }
+            if (fb && fb.note) inner += `<div class="cd-hist-note">${esc(fb.note)}</div>`;
           }
           item.innerHTML = inner;
           histEl.appendChild(item);
@@ -1319,27 +1399,28 @@
 
         function showPrompt(data) {
           if (!data || data.done || !data.phrase) return finish();
-          // Archive the previous exchange into the scrollable history
           appendHistory(currentPhrase, lastFeedback, lastAnswer);
           lastFeedback = null; lastAnswer = null;
           currentPhrase = data.phrase;
-          history.push({ role: 'tutor', text: data.phrase });
           promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(data.phrase)}</b></div>`;
           feedEl.innerHTML = '';
           inputWrap.style.display = ''; inputEl.value = '';
           scrollEl.scrollTop = scrollEl.scrollHeight;
-          // Focus, then re-scroll after iOS keyboard settles (~300 ms).
           inputEl.focus();
           setTimeout(() => scrollEl.scrollTop = scrollEl.scrollHeight, 350);
         }
 
         function showFeedback(fb, yourAnswer) {
           lastFeedback = fb; lastAnswer = yourAnswer;
-          if (!fb) { feedEl.innerHTML = ''; return; }
-          const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
-          const altRom = (fb.alternative_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.alternative_roman)}</span>` : '';
           const yours = (yourAnswer || '').trim();
-          // Accepted-with-flaw: correct, but the polished form differs from what they wrote
+          if (!fb) {
+            feedEl.innerHTML = `<div class="cd-fb cd-skip">
+              <div class="cd-fb-head">Couldn't check this one</div>
+              <div class="cd-fb-note">Your answer has been recorded. Moving on.</div></div>`;
+            scrollEl.scrollTop = scrollEl.scrollHeight;
+            return;
+          }
+          const rom = (fb.corrected_roman && !needsRuby(lang)) ? `<span class="cd-rom">${esc(fb.corrected_roman)}</span>` : '';
           const flawed = fb.correct && cdDiffers(fb.corrected, yours);
           const youRow = yours
             ? `<div class="cd-fb-you"><span class="cd-fb-tag">You wrote</span><span class="cd-fb-yourtext${fb.correct ? '' : ' cd-struck'}">${targetSpan(yours, lang)}</span></div>`
@@ -1347,11 +1428,12 @@
           const ansRow = (!fb.correct || flawed)
             ? `<div class="cd-fb-ans"><span class="cd-fb-tag">${flawed ? 'Should be' : 'Answer'}</span><span class="cd-fb-anstext">${targetSpan(fb.corrected, lang)}${rom}</span></div>`
             : '';
-          const altRow = fb.alternative
-            ? `<div class="cd-fb-alt"><span class="cd-fb-tag">Alt</span><span class="cd-fb-anstext">${targetSpan(fb.alternative, lang)}${altRom}</span>${fb.alt_note ? `<span class="cd-fb-altnote">${esc(fb.alt_note)}</span>` : ''}</div>`
+          const altRom = (fb.alt_roman && !needsRuby(lang)) ? ` <span class="cd-rom">${esc(fb.alt_roman)}</span>` : '';
+          const altRow = (fb.alt && fb.correct)
+            ? `<div class="cd-fb-ans cd-fb-alt"><span class="cd-fb-tag">Using ${esc(construction)}</span><span class="cd-fb-anstext">${targetSpan(fb.alt, lang)}${altRom}</span></div>`
             : '';
           feedEl.innerHTML = `<div class="cd-fb ${fb.correct ? 'cd-correct' : 'cd-wrong'}">
-              <div class="cd-fb-head">${fb.correct ? (flawed ? '✓ Almost!' : '✓ Nice!') : '✗ Not quite'}</div>
+              <div class="cd-fb-head">${fb.correct ? (flawed ? 'Almost!' : 'Correct!') : 'Not quite'}</div>
               ${youRow}${ansRow}${altRow}
               ${fb.note ? `<div class="cd-fb-note">${esc(fb.note)}</div>` : ''}</div>`;
           if (needsRuby(lang)) applyRuby(feedEl, null, false);
@@ -1361,7 +1443,9 @@
 
         async function start() {
           const data = await call(null);
-          if (!data) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          if (!data || !data.phrase) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          planItems = Array.isArray(data.plan_items) ? data.plan_items : [];
+          if (planItems.length) maxTurns = planItems.length;
           showPrompt(data);
         }
 
@@ -1373,24 +1457,53 @@
           promptEl.innerHTML = `<div class="cd-loading"><span class="cd-dots"><span></span><span></span><span></span></span> Checking…</div>`;
           feedEl.innerHTML = '';
           const data = await call(ans);
-          // Push to history AFTER the call so the answer isn't duplicated
-          // (it's already sent as the separate `answer` field)
-          history.push({ role: 'user', text: ans });
+          if (!data) {
+            promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
+            feedEl.innerHTML = `<div class="cd-fb cd-wrong"><div class="cd-fb-head">Connection error</div><div class="cd-fb-note">Tap retry to try again.</div></div>`;
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'cd-fb-next';
+            retryBtn.textContent = 'Retry';
+            retryBtn.onclick = () => {
+              inputEl.value = ans;
+              inputWrap.style.display = '';
+              feedEl.innerHTML = '';
+              promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
+            };
+            feedEl.querySelector('.cd-fb').appendChild(retryBtn);
+            scrollEl.scrollTop = scrollEl.scrollHeight;
+            return;
+          }
           turn++; setProgress();
-          showFeedback(data && data.feedback, ans);
-          if (!data || turn >= maxTurns || data.done || !data.phrase) return finish();
-          showPrompt(data);
+          promptEl.innerHTML = `<div class="cd-task"><span class="cd-task-label">Translate</span><b>${esc(currentPhrase)}</b></div>`;
+          showFeedback(data.feedback, ans);
+          const isDone = turn >= maxTurns || data.done || !data.phrase;
+          if (isDone) return finish();
+          // Always show a Next button — never auto-advance. The user reads
+          // the feedback at their own pace and taps to continue.
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'cd-fb-next';
+          nextBtn.textContent = 'Next';
+          nextBtn.onclick = () => showPrompt(data);
+          const fbBox = feedEl.querySelector('.cd-fb');
+          if (fbBox) fbBox.appendChild(nextBtn);
+          else showPrompt(data);
+          scrollEl.scrollTop = scrollEl.scrollHeight;
         }
 
         function finish() {
-          // Archive the last exchange before showing the done state
+          const hadFeedback = lastFeedback || lastAnswer;
           appendHistory(currentPhrase, lastFeedback, lastAnswer);
           currentPhrase = null; lastFeedback = null; lastAnswer = null;
-          // Restore the player to normal document flow — keyboard is dismissed and we
-          // no longer need the fixed overlay or visualViewport listeners.
           if (_cdDrillCleanup) _cdDrillCleanup();
           inputWrap.style.display = 'none'; promptEl.innerHTML = '';
-          feedEl.innerHTML = `<div class="cd-done">Drill complete! 🎉</div>`;
+          if (!hadFeedback) {
+            feedEl.innerHTML = `<div class="cd-done">Drill complete!</div>`;
+          } else {
+            const done = document.createElement('div');
+            done.className = 'cd-done';
+            done.textContent = 'Drill complete!';
+            feedEl.appendChild(done);
+          }
           contEl.style.display = ''; contEl.onclick = () => onDone();
           scrollEl.scrollTop = scrollEl.scrollHeight;
           try { sfx.complete(); } catch {}
@@ -1599,6 +1712,275 @@
         };
       },
     },
+
+    // ── Mini-games (self-managed, like construction_drill) ──
+
+    speed_round: {
+      render(ex, root, lang, onDone) {
+        let timeLeft = ex.time_limit * 1000, idx = 0, score = 0;
+        const total = ex.items.length;
+        let locked = false, iv = null;
+
+        function fmt(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return '0:' + String(s).padStart(2, '0'); }
+
+        function renderRound() {
+          if (idx >= total || timeLeft <= 0) { finish(); return; }
+          const item = ex.items[idx];
+          const opts = [item.roman, ...item.distractors];
+          for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+          root.innerHTML = '<div class="minigame speed-round">' +
+            '<div class="mg-header"><span class="mg-timer" id="sr-timer">⏱ ' + fmt(timeLeft) + '</span>' +
+            '<span class="mg-score" id="sr-score">' + score + '/' + total + '</span></div>' +
+            '<div class="mg-timer-bar"><div class="mg-timer-fill" id="sr-bar" style="width:' +
+              Math.max(0, timeLeft / (ex.time_limit * 1000) * 100) + '%"></div></div>' +
+            '<div class="mg-prompt">' + esc(item.symbol) + '</div>' +
+            '<div class="mg-options" id="sr-opts"></div></div>';
+          const wrap = document.getElementById('sr-opts');
+          opts.forEach(o => {
+            const b = document.createElement('button'); b.className = 'mg-opt'; b.textContent = o;
+            b.onclick = () => pick(o === item.roman, b);
+            wrap.appendChild(b);
+          });
+          if (needsRuby(lang)) applyRuby(root, null, true);
+        }
+
+        function pick(ok, btn) {
+          if (locked) return; locked = true;
+          btn.classList.add(ok ? 'correct' : 'wrong');
+          if (ok) {
+            score++; timeLeft += 1500;
+            player.combo++; player.maxCombo = Math.max(player.maxCombo, player.combo);
+            const g = comboXp(player.combo); player.xp += g; bumpCombo(g); sfx.correct();
+          } else {
+            timeLeft = Math.max(0, timeLeft - 1000); player.combo = 0; updateComboChip(); sfx.wrong();
+            root.querySelectorAll('.mg-opt').forEach(b => { if (b.textContent === ex.items[idx].roman) b.classList.add('correct'); });
+          }
+          setTimeout(() => { idx++; locked = false; renderRound(); }, ok ? 350 : 700);
+        }
+
+        function tick() {
+          timeLeft -= 100;
+          const el = document.getElementById('sr-timer'), bar = document.getElementById('sr-bar');
+          if (el) { el.textContent = '⏱ ' + fmt(timeLeft); if (timeLeft <= 5000) el.classList.add('urgent'); }
+          if (bar) { bar.style.width = Math.max(0, timeLeft / (ex.time_limit * 1000) * 100) + '%'; if (timeLeft <= 5000) bar.classList.add('urgent'); }
+          if (timeLeft <= 0) finish();
+        }
+
+        function finish() {
+          if (iv) { clearInterval(iv); iv = null; }
+          player._mgCleanup = null;
+          const pct = total ? Math.round(score / total * 100) : 0;
+          root.innerHTML = '<div class="mg-results">' +
+            '<div style="font-size:2.5rem">' + (pct >= 80 ? '🏆' : pct >= 50 ? '🎉' : '💪') + '</div>' +
+            '<div class="mg-results-score">' + score + ' / ' + total + '</div>' +
+            '<div class="mg-results-detail">Speed round complete!</div>' +
+            '<button class="mg-continue" id="sr-done">Continue</button></div>';
+          if (pct >= 60) sfx.complete();
+          if (pct >= 100) confetti();
+          document.getElementById('sr-done').onclick = onDone;
+        }
+
+        renderRound();
+        iv = setInterval(tick, 100);
+        player._mgCleanup = () => { if (iv) { clearInterval(iv); iv = null; } };
+        return { isReady: () => false, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
+
+    audio_blitz: {
+      render(ex, root, lang, onDone) {
+        let idx = 0, score = 0;
+        const total = ex.items.length;
+        let locked = false, iv = null;
+
+        function renderRound() {
+          if (idx >= total) { finish(); return; }
+          const item = ex.items[idx];
+          root.innerHTML = '<div class="minigame audio-blitz">' +
+            '<div class="mg-header"><span>Round ' + (idx + 1) + '/' + total + '</span>' +
+            '<span class="mg-score" id="ab-score">' + score + '</span></div>' +
+            '<div class="mg-timer-bar"><div class="mg-timer-fill" id="ab-bar" style="width:100%"></div></div>' +
+            '<button class="mg-play-btn" id="ab-play">🔊</button>' +
+            '<div class="mg-grid" id="ab-grid"></div></div>';
+          const grid = document.getElementById('ab-grid');
+          const cols = item.options.length <= 4 ? 2 : 3;
+          grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+          item.options.forEach(sym => {
+            const b = document.createElement('button'); b.className = 'mg-cell'; b.textContent = sym;
+            b.onclick = () => pick(sym === item.correct, b, item.correct);
+            grid.appendChild(b);
+          });
+          if (needsRuby(lang)) applyRuby(root, null, true);
+          document.getElementById('ab-play').onclick = () => playTTS(item.audio, lang);
+          playTTS(item.audio, lang);
+          let elapsed = 0; const ms = ex.round_time * 1000;
+          if (iv) clearInterval(iv);
+          iv = setInterval(() => {
+            elapsed += 50;
+            const bar = document.getElementById('ab-bar');
+            if (bar) { const pct = Math.max(0, (1 - elapsed / ms) * 100); bar.style.width = pct + '%'; if (pct < 25) bar.classList.add('urgent'); }
+            if (elapsed >= ms) { clearInterval(iv); iv = null; timeout(ex.items[idx].correct); }
+          }, 50);
+        }
+
+        function pick(ok, btn, correct) {
+          if (locked) return; locked = true;
+          if (iv) { clearInterval(iv); iv = null; }
+          btn.classList.add(ok ? 'correct' : 'wrong');
+          if (ok) {
+            score++;
+            player.combo++; player.maxCombo = Math.max(player.maxCombo, player.combo);
+            const g = comboXp(player.combo); player.xp += g; bumpCombo(g); sfx.correct();
+          } else {
+            player.combo = 0; updateComboChip(); sfx.wrong();
+            root.querySelectorAll('.mg-cell').forEach(b => { if (b.textContent === correct) b.classList.add('correct'); });
+          }
+          setTimeout(() => { idx++; locked = false; renderRound(); }, ok ? 400 : 900);
+        }
+
+        function timeout(correct) {
+          if (locked) return; locked = true;
+          player.combo = 0; updateComboChip(); sfx.wrong();
+          root.querySelectorAll('.mg-cell').forEach(b => { if (b.textContent === correct) b.classList.add('correct'); });
+          setTimeout(() => { idx++; locked = false; renderRound(); }, 900);
+        }
+
+        function finish() {
+          if (iv) { clearInterval(iv); iv = null; }
+          player._mgCleanup = null;
+          const pct = total ? Math.round(score / total * 100) : 0;
+          root.innerHTML = '<div class="mg-results">' +
+            '<div style="font-size:2.5rem">' + (pct >= 80 ? '🏆' : pct >= 50 ? '🎉' : '💪') + '</div>' +
+            '<div class="mg-results-score">' + score + ' / ' + total + '</div>' +
+            '<div class="mg-results-detail">Audio blitz complete!</div>' +
+            '<button class="mg-continue" id="ab-done">Continue</button></div>';
+          if (pct >= 60) sfx.complete();
+          if (pct >= 100) confetti();
+          document.getElementById('ab-done').onclick = onDone;
+        }
+
+        renderRound();
+        player._mgCleanup = () => { if (iv) { clearInterval(iv); iv = null; } };
+        return { isReady: () => false, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
+
+    memory_match: {
+      render(ex, root, lang, onDone) {
+        const totalPairs = ex.pairs.length;
+        const audioMode = !!ex.audio_mode;
+        let matched = 0, flips = 0, first = null, locked = false;
+        const startTime = performance.now();
+        let iv = null;
+
+        const cards = [];
+        ex.pairs.forEach((p, i) => {
+          cards.push({ type: 'symbol', text: p.symbol, pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          if (audioMode) {
+            cards.push({ type: 'audio', text: '🔊', pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          } else {
+            cards.push({ type: 'label', text: p.label || p.roman, pairId: i, audio: p.audio, label: p.label || p.roman, matched: false });
+          }
+        });
+        for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+
+        const cols = cards.length <= 6 ? 3 : 4;
+
+        function cardFace(c, flipped) {
+          if (!flipped) return '?';
+          if (c.type === 'audio') return '🔊';
+          if (c.matched && c.type === 'audio') return c.label;
+          return c.text;
+        }
+
+        function render() {
+          const elapsed = Math.floor((performance.now() - startTime) / 1000);
+          root.innerHTML = '<div class="minigame memory-match">' +
+            '<div class="mg-header"><span>' + matched + '/' + totalPairs + ' matched</span>' +
+            '<span class="mg-timer" id="mm-timer">⏱ ' + Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0') + '</span></div>' +
+            '<div class="mm-grid" id="mm-grid" style="grid-template-columns:repeat(' + cols + ',1fr)"></div></div>';
+          const grid = document.getElementById('mm-grid');
+          cards.forEach((c, ci) => {
+            const b = document.createElement('button');
+            b.className = 'mm-card' + (c.matched ? ' matched flipped' : '');
+            if (c.matched) {
+              b.textContent = (c.type === 'audio') ? c.label : c.text;
+            } else {
+              b.textContent = '?';
+            }
+            b.onclick = () => flip(ci, b);
+            grid.appendChild(b);
+          });
+        }
+
+        function flip(ci, btn) {
+          if (locked || cards[ci].matched) return;
+          if (first !== null && first === ci) return;
+          flips++; sfx.tap();
+          const c = cards[ci];
+          btn.classList.add('flipped');
+          if (c.type === 'audio') {
+            btn.textContent = '🔊';
+            playTTS(c.audio, lang);
+          } else {
+            btn.textContent = c.text;
+          }
+
+          if (first === null) { first = ci; return; }
+          locked = true;
+          const fi = first; first = null;
+          const allBtns = root.querySelectorAll('.mm-card');
+
+          if (cards[fi].pairId === cards[ci].pairId) {
+            cards[fi].matched = true; cards[ci].matched = true; matched++;
+            allBtns[fi].classList.add('matched'); allBtns[ci].classList.add('matched');
+            // Reveal romanization on matched audio cards
+            if (cards[fi].type === 'audio') allBtns[fi].textContent = cards[fi].label;
+            if (cards[ci].type === 'audio') allBtns[ci].textContent = cards[ci].label;
+            player.combo++; player.maxCombo = Math.max(player.maxCombo, player.combo);
+            const g = comboXp(player.combo); player.xp += g; bumpCombo(g);
+            sfx.correct(); playTTS(cards[ci].audio, lang);
+            root.querySelector('.mg-header span').textContent = matched + '/' + totalPairs + ' matched';
+            locked = false;
+            if (matched >= totalPairs) finish();
+          } else {
+            player.combo = 0; updateComboChip();
+            allBtns[fi].classList.add('wrong-flash'); allBtns[ci].classList.add('wrong-flash');
+            setTimeout(() => {
+              allBtns[fi].classList.remove('flipped', 'wrong-flash'); allBtns[fi].textContent = '?';
+              allBtns[ci].classList.remove('flipped', 'wrong-flash'); allBtns[ci].textContent = '?';
+              locked = false;
+            }, 800);
+          }
+        }
+
+        function updateTimer() {
+          const el = document.getElementById('mm-timer');
+          if (!el) return;
+          const s = Math.floor((performance.now() - startTime) / 1000);
+          el.textContent = '⏱ ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+        }
+
+        function finish() {
+          if (iv) { clearInterval(iv); iv = null; }
+          player._mgCleanup = null;
+          const elapsed = Math.floor((performance.now() - startTime) / 1000);
+          const perfect = flips === totalPairs * 2;
+          root.innerHTML = '<div class="mg-results">' +
+            '<div style="font-size:2.5rem">' + (perfect ? '🏆' : elapsed < 30 ? '🎉' : '👍') + '</div>' +
+            '<div class="mg-results-score">' + elapsed + 's · ' + flips + ' flips</div>' +
+            '<div class="mg-results-detail">' + (perfect ? 'Perfect memory!' : 'All pairs matched!') + '</div>' +
+            '<button class="mg-continue" id="mm-done">Continue</button></div>';
+          sfx.complete(); if (perfect) confetti();
+          document.getElementById('mm-done').onclick = onDone;
+        }
+
+        render();
+        iv = setInterval(updateTimer, 1000);
+        player._mgCleanup = () => { if (iv) { clearInterval(iv); iv = null; } };
+        return { isReady: () => false, grade: () => true, answerText: () => '', lock: () => {} };
+      },
+    },
   };
 
   function updateBar() {
@@ -1637,7 +2019,81 @@
     document.getElementById('player-action').disabled = !(player.controller && player.controller.isReady());
   }
 
-  async function openLesson(lessonId, drillsOnly = false) {
+  function showMemoryMatchSettings(courseId) {
+    // Fetch pool size to set max grid, then show settings overlay
+    fetch('/api/courses/' + courseId + '/foundations-practice?game=memory_match&count=3')
+      .then(r => r.json()).then(data => {
+        const maxPairs = Math.min(data.pool_size || 12, 12);
+        const ov = document.createElement('div');
+        ov.className = 'mm-settings-overlay';
+        const sizeOpts = [];
+        for (let n = 3; n <= maxPairs; n++) {
+          const total = n * 2;
+          sizeOpts.push(`<option value="${n}"${n === 6 ? ' selected' : ''}>${total} cards (${n} pairs)</option>`);
+        }
+        ov.innerHTML = `<div class="mm-settings-card">
+          <div class="mm-settings-title">Memory Match</div>
+          <label class="mm-settings-label">Grid size
+            <select class="settings-select" id="mm-size">${sizeOpts.join('')}</select></label>
+          <label class="mm-settings-label mm-settings-toggle">
+            <input type="checkbox" id="mm-audio-mode">
+            <span>Audio-only mode</span></label>
+          <div class="mm-settings-hint">Match characters to sounds instead of text</div>
+          <div class="mm-settings-actions">
+            <button class="cta-btn secondary mm-settings-cancel">Cancel</button>
+            <button class="cta-btn mm-settings-start">Play</button></div></div>`;
+        document.body.appendChild(ov);
+        ov.querySelector('.mm-settings-cancel').onclick = () => ov.remove();
+        ov.onclick = e => { if (e.target === ov) ov.remove(); };
+        ov.querySelector('.mm-settings-start').onclick = () => {
+          const count = parseInt(ov.querySelector('#mm-size').value, 10) || 6;
+          const audio = ov.querySelector('#mm-audio-mode').checked;
+          ov.remove();
+          openPracticeGame(courseId, 'memory_match', { count, audio_mode: audio });
+        };
+      }).catch(() => openPracticeGame(courseId, 'memory_match'));
+  }
+
+  async function openPracticeGame(courseId, gameType, opts) {
+    show('lesson-loading');
+    try {
+      let url = '/api/courses/' + courseId + '/foundations-practice?game=' + gameType;
+      if (opts) {
+        if (opts.count) url += '&count=' + opts.count;
+        if (opts.audio_mode) url += '&audio_mode=true';
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      let segments = content.segments;
+      if (!segments) segments = [{ teach: null, exercises: content.exercises || [] }];
+      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      if (!total) throw new Error('empty');
+      _prefetchLesson(content, lesson.target_lang);
+      player = {
+        lessonId: 0, lang: lesson.target_lang, title: lesson.title || 'Practice',
+        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0,
+        controller: null, graded: false,
+        conceptResults: {}, vocabGlossary: {},
+        concepts: [], theme: 'foundations', skipTeach: false, drillsOnly: false,
+        practiceGame: gameType, practiceCourseId: courseId, practiceOpts: opts || null,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch {
+      alert('Could not load practice game — please try again.');
+      show('course');
+    }
+  }
+
+  async function openLesson(lessonId, mode = '') {
+    // mode: '' = full lesson, 'skip' = skip teach, 'llm' = LLM drills only
     show('lesson-loading');
     try {
       const res = await fetch('/api/lessons/' + lessonId);
@@ -1666,7 +2122,8 @@
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
         theme: lesson.theme || '',         // 'foundations' → no live word lookup
-        drillsOnly,                        // skip teach screen, jump straight to exercises
+        skipTeach: mode === 'skip' || mode === 'llm',
+        drillsOnly: mode === 'llm',       // LLM drills only: filter to self-managed exercises
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -1684,7 +2141,7 @@
     const seg = player.segments[i];
     const teach = seg.teach;
     const hasTeach = teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length);
-    if (hasTeach && !player.drillsOnly) {
+    if (hasTeach && !player.skipTeach) {
       const n = player.segments.length;
       document.getElementById('teach-title').textContent =
         n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
@@ -1767,12 +2224,20 @@
         // when prompt_lang is 'english' and optsTarget is true)
         for (const opt of (ex.options || []))
           if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
-        // Match exercise target column
-        for (const pair of (ex.pairs || []))
+        // Match exercise target column + memory_match pairs
+        for (const pair of (ex.pairs || [])) {
           if (pair.target && needsRuby(lang) && !_isLatin(pair.target)) _fetchTokens(pair.target, lang);
+          if (pair.symbol && needsRuby(lang) && !_isLatin(pair.symbol)) _fetchTokens(pair.symbol, lang);
+          if (pair.audio) _prewarmTTS(pair.audio, lang);
+        }
         // Word-bank / reorder tiles
         for (const tok of [...(ex.answer_tokens || []), ...(ex.distractor_tokens || [])])
           if (tok && needsRuby(lang) && !_isLatin(tok)) _fetchTokens(tok, lang);
+        // Mini-game items (speed_round, audio_blitz)
+        for (const item of (ex.items || [])) {
+          if (item.audio) _prewarmTTS(item.audio, lang);
+          if (item.symbol && needsRuby(lang) && !_isLatin(item.symbol)) _fetchTokens(item.symbol, lang);
+        }
       }
     }
   }
@@ -2053,8 +2518,9 @@
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
     let exs = (seg.exercises || []).map(e => ({ ...e }));
-    // drillsOnly: only the LLM-graded construction drills (skip recognition/word-bank/etc.)
-    if (player.drillsOnly) exs = exs.filter(e => e.type === 'construction_drill');
+    // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
+    const _selfManaged = new Set(['construction_drill', 'speed_round', 'audio_blitz', 'memory_match']);
+    if (player.drillsOnly) exs = exs.filter(e => _selfManaged.has(e.type));
     player.queue = exs;
     player.idx = 0;
     if (!player.queue.length) { afterSegment(); return; }
@@ -2073,10 +2539,11 @@
     const action = document.getElementById('player-action');
     // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
     // hide the standard Check/Continue button and let it advance via onDone.
-    if (ex.type === 'construction_drill') {
+    if (player._mgCleanup) { player._mgCleanup(); player._mgCleanup = null; }
+    if (ex.type === 'construction_drill' || ex.type === 'speed_round' || ex.type === 'audio_blitz' || ex.type === 'memory_match') {
       action.style.display = 'none';
-      player.controller = EXERCISE_TYPES.construction_drill.render(ex, root, player.lang, () => {
-        if (!ex._review) player.firstPassCorrect++;   // formative — keep the score neutral
+      player.controller = EXERCISE_TYPES[ex.type].render(ex, root, player.lang, () => {
+        if (!ex._review) player.firstPassCorrect++;
         advanceExercise();
       });
       updateBar();
@@ -2166,16 +2633,18 @@
     const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
     document.getElementById('combo-chip').classList.remove('on');
     let serverInfo = null;
-    try {
-      const results = Object.entries(player.conceptResults).map(([k, v]) => ({
-        concept_key: k, correct: v.correct, total: v.total,
-      }));
-      const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, results, xp: xpEarned }),
-      });
-      serverInfo = await res.json();
-    } catch {}
+    if (player.lessonId) {
+      try {
+        const results = Object.entries(player.conceptResults).map(([k, v]) => ({
+          concept_key: k, correct: v.correct, total: v.total,
+        }));
+        const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score, results, xp: xpEarned }),
+        });
+        serverInfo = await res.json();
+      } catch {}
+    }
     document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
     emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
@@ -2282,7 +2751,11 @@
       player = null; refreshAndShowCourse();
     }
   }
-  function retryLesson() { if (player) openLesson(player.lessonId); }
+  function retryLesson() {
+    if (!player) return;
+    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
+    else openLesson(player.lessonId);
+  }
   function backToMap() { player = null; refreshAndShowCourse(); }
 
   async function refreshAndShowCourse() {

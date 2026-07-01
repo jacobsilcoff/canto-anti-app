@@ -1,0 +1,1139 @@
+{
+  "lang": "vi",
+  "name": "Top 100 Vietnamese Words",
+  "description": "The 100 most common words in Vietnamese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "tôi",
+      "romanization": "",
+      "notes": "Most common first-person pronoun, often used formally or when addressing groups.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "to be / is / am / are",
+      "target_text": "là",
+      "romanization": "",
+      "notes": "This is the copula, used for identity, classification, or definition.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "to have / there is / yes",
+      "target_text": "có",
+      "romanization": "",
+      "notes": "Extremely versatile word for possession, existence, or affirmation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "no / not / isn't",
+      "target_text": "không",
+      "romanization": "",
+      "notes": "Used for negation and to form yes/no questions at the end of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "older brother / you (m.)",
+      "target_text": "anh",
+      "romanization": "",
+      "notes": "Used to address an older male, a male peer, or as a familiar second-person pronoun for a male.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "kinship",
+        "address"
+      ]
+    },
+    {
+      "source_text": "older sister / you (f.)",
+      "target_text": "chị",
+      "romanization": "",
+      "notes": "Used to address an older female, a female peer, or as a familiar second-person pronoun for a female.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "kinship",
+        "address"
+      ]
+    },
+    {
+      "source_text": "younger sibling / you (gender-neutral)",
+      "target_text": "em",
+      "romanization": "",
+      "notes": "Used to address a younger person, or as a familiar first-person pronoun when speaking to an older person.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "kinship",
+        "address"
+      ]
+    },
+    {
+      "source_text": "yes / I agree",
+      "target_text": "vâng",
+      "romanization": "",
+      "notes": "A polite affirmation, typically used to acknowledge or agree.",
+      "cefr_level": "A1",
+      "labels": [
+        "affirmation",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "politeness particle",
+      "target_text": "ạ",
+      "romanization": "",
+      "notes": "A common final particle added to show respect or politeness, especially when addressing elders or superiors.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "grandfather / mister",
+      "target_text": "ông",
+      "romanization": "",
+      "notes": "Used to address an older man, a respected male, or as a formal second-person pronoun for a man.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "kinship",
+        "address"
+      ]
+    },
+    {
+      "source_text": "grandmother / madam",
+      "target_text": "bà",
+      "romanization": "",
+      "notes": "Used to address an older woman, a respected female, or as a formal second-person pronoun for a woman.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "kinship",
+        "address"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "gì",
+      "romanization": "",
+      "notes": "Always placed directly after the verb or noun it queries.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to go / to walk / let's",
+      "target_text": "đi",
+      "romanization": "",
+      "notes": "Can be a verb of motion or an imperative particle encouraging action.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "ăn",
+      "romanization": "",
+      "notes": "A basic verb essential for daily life.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "uống",
+      "romanization": "",
+      "notes": "A fundamental verb related to beverages.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "nhà",
+      "romanization": "",
+      "notes": "Can refer to a physical dwelling or the concept of 'home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "người",
+      "romanization": "",
+      "notes": "A common noun, also used as a classifier for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person",
+        "classifier"
+      ]
+    },
+    {
+      "source_text": "water / country",
+      "target_text": "nước",
+      "romanization": "",
+      "notes": "Has two distinct but common meanings: liquid and nation.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "liquid",
+        "country"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "tiền",
+      "romanization": "",
+      "notes": "Essential for transactions and daily life.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "ngày",
+      "romanization": "",
+      "notes": "Refers to a single day or sometimes 'today' when used contextually.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour / time",
+      "target_text": "giờ",
+      "romanization": "",
+      "notes": "Can mean 'hour' (duration) or 'o'clock' (point in time).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "tên",
+      "romanization": "",
+      "notes": "Used to ask or state one's personal name.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "classifier (general)",
+      "target_text": "cái",
+      "romanization": "",
+      "notes": "The most general measure word, used for inanimate objects or when unsure of the specific classifier.",
+      "cefr_level": "A1",
+      "labels": [
+        "measure word",
+        "classifier"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "đây",
+      "romanization": "",
+      "notes": "Indicates a location close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "there / that",
+      "target_text": "đó",
+      "romanization": "",
+      "notes": "Indicates a location or object slightly further from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "over there",
+      "target_text": "kia",
+      "romanization": "",
+      "notes": "Indicates a location or object distant from both speaker and listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "và",
+      "romanization": "",
+      "notes": "Connects nouns, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "connector"
+      ]
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "nhưng",
+      "romanization": "",
+      "notes": "Introduces a contrasting idea or statement.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "contrast"
+      ]
+    },
+    {
+      "source_text": "beautiful / pretty",
+      "target_text": "đẹp",
+      "romanization": "",
+      "notes": "A common adjective for people, objects, or scenery.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "tốt",
+      "romanization": "",
+      "notes": "Describes quality, condition, or a positive outcome.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "delicious",
+      "target_text": "ngon",
+      "romanization": "",
+      "notes": "Specifically used to describe the taste of food or drink.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "food"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "to",
+      "romanization": "",
+      "notes": "Describes the physical size of an object.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "nhỏ",
+      "romanization": "",
+      "notes": "Describes the physical size of an object, or a small quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "hot",
+      "target_text": "nóng",
+      "romanization": "",
+      "notes": "Refers to temperature for weather, food, or objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "lạnh",
+      "romanization": "",
+      "notes": "Refers to temperature for weather, food, or objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "to speak / to say",
+      "target_text": "nói",
+      "romanization": "",
+      "notes": "A fundamental verb for communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to do / to make / to work",
+      "target_text": "làm",
+      "romanization": "",
+      "notes": "A very versatile verb for actions, creation, or employment.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to study / to learn",
+      "target_text": "học",
+      "romanization": "",
+      "notes": "Essential verb for educational contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "biết",
+      "romanization": "",
+      "notes": "Refers to knowing facts, skills, or people.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "muốn",
+      "romanization": "",
+      "notes": "Expresses desire or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to like",
+      "target_text": "thích",
+      "romanization": "",
+      "notes": "Expresses preference or enjoyment.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "preference"
+      ]
+    },
+    {
+      "source_text": "to love",
+      "target_text": "yêu",
+      "romanization": "",
+      "notes": "Expresses strong affection or love.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to exit / to come out",
+      "target_text": "ra",
+      "romanization": "",
+      "notes": "Indicates movement outwards or appearance.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "to enter / to go in",
+      "target_text": "vào",
+      "romanization": "",
+      "notes": "Indicates movement inwards or beginning an activity.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "up / to go up",
+      "target_text": "lên",
+      "romanization": "",
+      "notes": "Indicates upward movement or increase.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "down / to go down",
+      "target_text": "xuống",
+      "romanization": "",
+      "notes": "Indicates downward movement or decrease.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "direction",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "trong",
+      "romanization": "",
+      "notes": "A common preposition indicating containment or within a period.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location",
+        "time"
+      ]
+    },
+    {
+      "source_text": "out / outside",
+      "target_text": "ngoài",
+      "romanization": "",
+      "notes": "A common preposition indicating exclusion or external location.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "on / above",
+      "target_text": "trên",
+      "romanization": "",
+      "notes": "A common preposition indicating a position higher than something else.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "under / below",
+      "target_text": "dưới",
+      "romanization": "",
+      "notes": "A common preposition indicating a position lower than something else.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "near / close",
+      "target_text": "gần",
+      "romanization": "",
+      "notes": "Describes proximity in location or time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "location",
+        "time"
+      ]
+    },
+    {
+      "source_text": "far",
+      "target_text": "xa",
+      "romanization": "",
+      "notes": "Describes distance in location or time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "location",
+        "time"
+      ]
+    },
+    {
+      "source_text": "which / any",
+      "target_text": "nào",
+      "romanization": "",
+      "notes": "Used to ask for a specific choice from a group.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "ai",
+      "romanization": "",
+      "notes": "Used to ask about a person or people.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "why / how",
+      "target_text": "sao",
+      "romanization": "",
+      "notes": "Versatile interrogative, used for both 'why' and 'how'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "hello / to greet",
+      "target_text": "chào",
+      "romanization": "",
+      "notes": "A basic greeting, often combined with a pronoun to show respect.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "very / extremely",
+      "target_text": "rất",
+      "romanization": "",
+      "notes": "An intensifier placed before adjectives or adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensity"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "cũng",
+      "romanization": "",
+      "notes": "Indicates similarity or inclusion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "addition"
+      ]
+    },
+    {
+      "source_text": "already / past marker",
+      "target_text": "đã",
+      "romanization": "",
+      "notes": "A pre-verb particle indicating completed action or past tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "tense"
+      ]
+    },
+    {
+      "source_text": "will / future marker",
+      "target_text": "sẽ",
+      "romanization": "",
+      "notes": "A pre-verb particle indicating future tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "tense"
+      ]
+    },
+    {
+      "source_text": "currently / ongoing marker",
+      "target_text": "đang",
+      "romanization": "",
+      "notes": "A pre-verb particle indicating continuous or progressive action.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "aspect"
+      ]
+    },
+    {
+      "source_text": "new / just",
+      "target_text": "mới",
+      "romanization": "",
+      "notes": "Can be an adjective for 'new' or a particle for 'just recently'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "particle",
+        "time"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "cũ",
+      "romanization": "",
+      "notes": "Describes the age of inanimate objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "nhiều",
+      "romanization": "",
+      "notes": "Indicates a large quantity or amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "ít",
+      "romanization": "",
+      "notes": "Indicates a small quantity or amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "một",
+      "romanization": "",
+      "notes": "The first cardinal number, also used as an indefinite article.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "hai",
+      "romanization": "",
+      "notes": "The second cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "ba",
+      "romanization": "",
+      "notes": "The third cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "bốn",
+      "romanization": "",
+      "notes": "The fourth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "five / year",
+      "target_text": "năm",
+      "romanization": "",
+      "notes": "Can refer to the number five or a calendar year.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "time"
+      ]
+    },
+    {
+      "source_text": "must / right / correct",
+      "target_text": "phải",
+      "romanization": "",
+      "notes": "Extremely versatile, expressing obligation, correctness, or direction (right).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "adjective",
+        "obligation"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "hỏi",
+      "romanization": "",
+      "notes": "A basic verb for requesting information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "nghe",
+      "romanization": "",
+      "notes": "Fundamental verb related to auditory perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to see / to feel",
+      "target_text": "thấy",
+      "romanization": "",
+      "notes": "Versatile verb for visual perception and expressing feelings or opinions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "đọc",
+      "romanization": "",
+      "notes": "A basic verb for literacy.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "viết",
+      "romanization": "",
+      "notes": "A basic verb for literacy and communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to arrive / to come to",
+      "target_text": "đến",
+      "romanization": "",
+      "notes": "Indicates arrival at a destination or reaching a point in time.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion",
+        "time"
+      ]
+    },
+    {
+      "source_text": "about / concerning / to return",
+      "target_text": "về",
+      "romanization": "",
+      "notes": "Can be a preposition indicating topic or a verb meaning 'to return'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to give / for / to allow",
+      "target_text": "cho",
+      "romanization": "",
+      "notes": "Extremely versatile, meaning 'to give', a benefactive preposition 'for', or 'to allow'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "preposition",
+        "transaction"
+      ]
+    },
+    {
+      "source_text": "with / to",
+      "target_text": "với",
+      "romanization": "",
+      "notes": "A common preposition indicating accompaniment, means, or an interaction.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "connection"
+      ]
+    },
+    {
+      "source_text": "because / for",
+      "target_text": "vì",
+      "romanization": "",
+      "notes": "Introduces a reason or cause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "cause"
+      ]
+    },
+    {
+      "source_text": "in order to / for",
+      "target_text": "để",
+      "romanization": "",
+      "notes": "Expresses purpose or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "purpose"
+      ]
+    },
+    {
+      "source_text": "of / 's",
+      "target_text": "của",
+      "romanization": "",
+      "notes": "A common particle indicating possession or attribution.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "which / that / but",
+      "target_text": "mà",
+      "romanization": "",
+      "notes": "A versatile relative pronoun or conjunction, often indicating contrast or emphasis.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "just / only / that's all",
+      "target_text": "thôi",
+      "romanization": "",
+      "notes": "A final particle expressing limitation, finality, or resignation.",
+      "cefr_level": "A2",
+      "labels": [
+        "particle",
+        "limitation"
+      ]
+    },
+    {
+      "source_text": "only / merely",
+      "target_text": "chỉ",
+      "romanization": "",
+      "notes": "An adverb limiting something to a single instance or amount.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "limitation"
+      ]
+    },
+    {
+      "source_text": "still / remaining",
+      "target_text": "còn",
+      "romanization": "",
+      "notes": "Indicates continuation, remaining quantity, or contrast.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "time",
+        "contrast"
+      ]
+    },
+    {
+      "source_text": "more than / better than",
+      "target_text": "hơn",
+      "romanization": "",
+      "notes": "Used in comparisons to indicate superiority or a greater degree.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "less than / worse than",
+      "target_text": "kém",
+      "romanization": "",
+      "notes": "Used in comparisons to indicate inferiority or a lesser degree.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "already / finished / then",
+      "target_text": "rồi",
+      "romanization": "",
+      "notes": "A versatile particle indicating completion, sequence, or affirmation.",
+      "cefr_level": "A2",
+      "labels": [
+        "particle",
+        "time",
+        "sequence"
+      ]
+    },
+    {
+      "source_text": "not yet / haven't",
+      "target_text": "chưa",
+      "romanization": "",
+      "notes": "Indicates something has not happened yet; often used for questions or negative statements.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "time",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "always / continuously / right away",
+      "target_text": "luôn",
+      "romanization": "",
+      "notes": "Indicates frequency, continuity, or immediacy.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "time",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "or / often / good",
+      "target_text": "hay",
+      "romanization": "",
+      "notes": "Has multiple meanings: 'or', 'often', and 'good/interesting'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "adverb",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "each / every",
+      "target_text": "mỗi",
+      "romanization": "",
+      "notes": "Indicates distribution or individuality.",
+      "cefr_level": "A2",
+      "labels": [
+        "determiner",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "finished / all gone",
+      "target_text": "hết",
+      "romanization": "",
+      "notes": "Indicates completion, exhaustion, or that something is entirely consumed.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "adverb",
+        "completion"
+      ]
+    },
+    {
+      "source_text": "side / aspect",
+      "target_text": "bên",
+      "romanization": "",
+      "notes": "Refers to a side or direction, often used with location words like 'bên trái' (left side).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "direction / side",
+      "target_text": "phía",
+      "romanization": "",
+      "notes": "Similar to 'bên', indicating a general direction or area.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "place / spot",
+      "target_text": "chỗ",
+      "romanization": "",
+      "notes": "Refers to a specific location or position.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "location"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "phòng",
+      "romanization": "",
+      "notes": "A common noun for a space within a building.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "table / desk",
+      "target_text": "bàn",
+      "romanization": "",
+      "notes": "A common noun for furniture.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "furniture"
+      ]
+    }
+  ]
+}

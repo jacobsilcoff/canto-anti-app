@@ -64,6 +64,13 @@
 
     .step { display:none; flex-direction:column; gap:20px; }
     .step.active { display:flex; }
+
+    /* ── suggested deck card ── */
+    .deck-suggest-card { background:var(--surface); border:2px solid var(--primary); border-radius:var(--radius);
+      padding:20px; display:flex; flex-direction:column; gap:6px; }
+    .deck-suggest-title { font-size:1.05rem; font-weight:700; color:var(--text); }
+    .deck-suggest-desc { font-size:0.9rem; color:var(--text-muted); line-height:1.4; }
+    .deck-suggest-meta { font-size:0.82rem; color:var(--text-muted); margin-top:4px; }
   </style>
 </head>
 <body>
@@ -84,7 +91,18 @@
       <h2>What are you learning?</h2>
       <p class="welcome-sub">You can change this any time in Settings.</p>
       <div class="lang-cards" id="lang-cards"></div>
-      <button class="welcome-btn primary" id="lang-next-btn" onclick="goToStep2()" disabled>Continue →</button>
+      <button class="welcome-btn primary" id="lang-next-btn" onclick="goToDeckStep()" disabled>Continue →</button>
+    </div>
+
+    <!-- Step 1.5: suggested starter deck (only if one exists for the language) -->
+    <div class="step" id="step-deck">
+      <h2>Jump-start your deck</h2>
+      <p class="welcome-sub">Add a ready-made deck of the most common words so you can start studying right away.</p>
+      <div class="deck-suggest-card" id="deck-suggest-card"></div>
+      <div class="welcome-btn-row">
+        <button class="welcome-btn" onclick="skipDeck()">Skip</button>
+        <button class="welcome-btn primary" id="deck-add-btn" onclick="addSuggestedDeck()">Add these words</button>
+      </div>
     </div>
 
     <!-- Step 2: plan (only rendered if billing is live) -->
@@ -189,13 +207,54 @@
     }
   })();
 
+  let _suggestedDeck = null;
+
+  function _showStep(id) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // After picking a language, offer the official "Top 100" deck for it (if one
+  // has been generated). Skips straight to the plan/finish step if none exists.
+  async function goToDeckStep() {
+    const btn = document.getElementById('lang-next-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/decks/featured?lang=' + encodeURIComponent(selectedLang)).then(r => r.json());
+      _suggestedDeck = (res.decks || [])[0] || null;
+    } catch { _suggestedDeck = null; }
+    btn.disabled = false;
+    if (!_suggestedDeck) { goToStep2(); return; }
+    document.getElementById('deck-suggest-card').innerHTML = `
+      <div class="deck-suggest-title">${esc(_suggestedDeck.name)}</div>
+      ${_suggestedDeck.description ? `<div class="deck-suggest-desc">${esc(_suggestedDeck.description)}</div>` : ''}
+      <div class="deck-suggest-meta">${_suggestedDeck.card_count} cards · free to add</div>`;
+    document.getElementById('deck-add-btn').disabled = false;
+    document.getElementById('deck-add-btn').textContent = `Add these ${_suggestedDeck.card_count} words`;
+    _showStep('step-deck');
+  }
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function addSuggestedDeck() {
+    if (!_suggestedDeck) { goToStep2(); return; }
+    const btn = document.getElementById('deck-add-btn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      await fetch(`/api/decks/${_suggestedDeck.id}/import`, { method: 'POST' });
+    } catch {}
+    goToStep2();
+  }
+
+  function skipDeck() { goToStep2(); }
+
   function goToStep2() {
     if (!billingEnabled) {
       finish(false);
       return;
     }
-    document.getElementById('step-lang').classList.remove('active');
-    document.getElementById('step-plan').classList.add('active');
+    _showStep('step-plan');
     document.getElementById('dot-0').classList.remove('active');
     document.getElementById('dot-1').classList.add('active');
   }

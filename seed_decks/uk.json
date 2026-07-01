@@ -1,0 +1,1096 @@
+{
+  "lang": "uk",
+  "name": "Top 100 Ukrainian Words",
+  "description": "The 100 most common words in Ukrainian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "я",
+      "romanization": "ja",
+      "notes": "Pronoun for the first person singular, used in nominative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "бути",
+      "romanization": "buty",
+      "notes": "The most fundamental verb in Ukrainian; often omitted in present tense sentences.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "in / at",
+      "target_text": "в",
+      "romanization": "v",
+      "notes": "A very common preposition indicating location ('in the house') or time ('in the evening').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "і",
+      "romanization": "i",
+      "notes": "A primary conjunction connecting words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "не",
+      "romanization": "ne",
+      "notes": "The most common negative particle, placed before the word it negates.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "what / that",
+      "target_text": "що",
+      "romanization": "shcho",
+      "notes": "Can be an interrogative pronoun ('What is it?') or a conjunction ('I know that...').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "on / at",
+      "target_text": "на",
+      "romanization": "na",
+      "notes": "Common preposition indicating a surface ('on the table') or general location ('at work').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "he / it",
+      "target_text": "він",
+      "romanization": "vin",
+      "notes": "Masculine singular pronoun, refers to a male person or a masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this / it is",
+      "target_text": "це",
+      "romanization": "tse",
+      "notes": "Used for 'this is' or 'it is' and as a demonstrative pronoun, usually indeclinable.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "to / until",
+      "target_text": "до",
+      "romanization": "do",
+      "notes": "Indicates direction towards a place or a deadline in time.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "ми",
+      "romanization": "my",
+      "notes": "Pronoun for the first person plural, used in nominative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "from / with",
+      "target_text": "з",
+      "romanization": "z",
+      "notes": "Indicates origin ('from Kyiv'), accompaniment ('with a friend'), or material ('made of wood').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
+    },
+    {
+      "source_text": "how / as",
+      "target_text": "як",
+      "romanization": "jak",
+      "notes": "An interrogative adverb ('How are you?') or a conjunction ('as if').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "you, sing. informal",
+      "target_text": "ти",
+      "romanization": "ty",
+      "notes": "Informal singular pronoun for addressing one person, typically friends or family.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she / it",
+      "target_text": "вона",
+      "romanization": "vona",
+      "notes": "Feminine singular pronoun, refers to a female person or a feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to have",
+      "target_text": "мати",
+      "romanization": "maty",
+      "notes": "Fundamental verb of possession; also means 'mother' as a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "about / for",
+      "target_text": "про",
+      "romanization": "pro",
+      "notes": "Indicates the topic of discussion ('about Ukraine') or sometimes purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "but / and",
+      "target_text": "а",
+      "romanization": "a",
+      "notes": "A conjunction indicating contrast ('but') or continuation ('and then').",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "when / if",
+      "target_text": "коли",
+      "romanization": "koly",
+      "notes": "An interrogative adverb for time ('When?') or a temporal conjunction ('When I eat...').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "for / in order to",
+      "target_text": "для",
+      "romanization": "dlja",
+      "notes": "Indicates purpose ('for studying') or recipient ('for you').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "purpose"
+      ]
+    },
+    {
+      "source_text": "you, plur. / formal",
+      "target_text": "ви",
+      "romanization": "vy",
+      "notes": "Plural pronoun for addressing multiple people, or formal singular 'you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "вони",
+      "romanization": "vony",
+      "notes": "Plural pronoun for all genders, refers to multiple people or things.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "his / its / him",
+      "target_text": "його",
+      "romanization": "joho",
+      "notes": "Possessive pronoun for masculine/neuter singular or accusative form for 'him/it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "her / its / her",
+      "target_text": "її",
+      "romanization": "yiyi",
+      "notes": "Possessive pronoun for feminine singular or accusative form for 'her/it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "один",
+      "romanization": "odyn",
+      "notes": "The first cardinal number, also an indefinite pronoun 'a certain one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "all / everything",
+      "target_text": "все",
+      "romanization": "vse",
+      "notes": "Neuter form of 'all', frequently used as 'everything' or 'all is well'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "знати",
+      "romanization": "znaty",
+      "notes": "Common imperfective verb for factual knowledge or acquaintance with someone/something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to say / to tell (perf.)",
+      "target_text": "сказати",
+      "romanization": "skazaty",
+      "notes": "Perfective verb for a single, completed act of speaking or communicating information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "робити",
+      "romanization": "robyty",
+      "notes": "General imperfective verb for performing actions or creating something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "говорити",
+      "romanization": "hovoryty",
+      "notes": "Imperfective verb for the ongoing act of conversing or speaking a language.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to go (by foot)",
+      "target_text": "йти",
+      "romanization": "jty",
+      "notes": "Imperfective verb for unidirectional movement on foot.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to live",
+      "target_text": "жити",
+      "romanization": "zhyty",
+      "notes": "Fundamental imperfective verb describing existence or residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "час",
+      "romanization": "chas",
+      "notes": "Essential masculine noun for temporal concepts or a specific moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "день",
+      "romanization": "den'",
+      "notes": "Common masculine noun for a period of 24 hours or daytime.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person",
+      "target_text": "людина",
+      "romanization": "ljudyna",
+      "notes": "Common feminine noun for a human being, plural is 'люди'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "well / good",
+      "target_text": "добре",
+      "romanization": "dobre",
+      "notes": "Adverb meaning 'well' or neuter adjective 'good' (e.g., 'Це добре' - 'It is good').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "yes / so",
+      "target_text": "так",
+      "romanization": "tak",
+      "notes": "Common particle for affirmation ('yes'), or adverb 'so' ('It's so good').",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "no / neither",
+      "target_text": "ні",
+      "romanization": "ni",
+      "notes": "Particle for negation ('no'), also used in negative conjunctions ('ні...ні' - 'neither...nor').",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "дуже",
+      "romanization": "duzhe",
+      "notes": "Adverb used to intensify adjectives ('very good') or other adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensity"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "зараз",
+      "romanization": "zaraz",
+      "notes": "Adverb indicating the present moment or immediately.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "багато",
+      "romanization": "bahato",
+      "notes": "Quantifier used for large amounts of countable or uncountable nouns, takes genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "to be able to / can",
+      "target_text": "могти",
+      "romanization": "mohty",
+      "notes": "Auxiliary imperfective verb expressing capability or permission.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "хотіти",
+      "romanization": "khotity",
+      "notes": "Common imperfective verb expressing desire or a wish.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to look / to watch",
+      "target_text": "дивитися",
+      "romanization": "dyvytysja",
+      "notes": "Imperfective verb for directing visual attention towards something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "visual"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "бачити",
+      "romanization": "bachyty",
+      "notes": "Imperfective verb for the general perception of things with the eyes.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to hear",
+      "target_text": "чути",
+      "romanization": "chuty",
+      "notes": "Imperfective verb for auditory perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "давати",
+      "romanization": "davaty",
+      "notes": "Imperfective verb for transferring possession or bestowing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "брати",
+      "romanization": "braty",
+      "notes": "Imperfective verb for acquiring, receiving, or seizing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "працювати",
+      "romanization": "pratsjuvaty",
+      "notes": "Imperfective verb for performing labor or being employed.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to go (by vehicle)",
+      "target_text": "їхати",
+      "romanization": "yikhaty",
+      "notes": "Imperfective verb for unidirectional movement using any form of transport.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "їсти",
+      "romanization": "yisty",
+      "notes": "Imperfective verb for consuming food, often followed by accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "пити",
+      "romanization": "pyty",
+      "notes": "Imperfective verb for consuming liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "спати",
+      "romanization": "spaty",
+      "notes": "Imperfective verb for being in a state of rest.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "rest"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "читати",
+      "romanization": "chytaty",
+      "notes": "Imperfective verb for interpreting written text.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "study"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "писати",
+      "romanization": "pysaty",
+      "notes": "Imperfective verb for forming letters or words, often followed by accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "розуміти",
+      "romanization": "rozumity",
+      "notes": "Imperfective verb for comprehending information or a situation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to wait",
+      "target_text": "чекати",
+      "romanization": "chekaty",
+      "notes": "Imperfective verb for staying in expectation of something or someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to love / to like",
+      "target_text": "любити",
+      "romanization": "ljubyty",
+      "notes": "Imperfective verb for expressing strong affection or general preference.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "новий",
+      "romanization": "novyj",
+      "notes": "Masculine adjective describing something recently made, acquired, or unfamiliar.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "старий",
+      "romanization": "staryj",
+      "notes": "Masculine adjective describing something of advanced age or long existence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "великий",
+      "romanization": "velykyj",
+      "notes": "Masculine adjective for substantial size or importance.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "малий",
+      "romanization": "malyj",
+      "notes": "Masculine adjective for diminutive size or quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "beautiful / good",
+      "target_text": "гарний",
+      "romanization": "harnyj",
+      "notes": "Masculine adjective for aesthetic appeal, pleasantness, or good quality.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "bad",
+      "target_text": "поганий",
+      "romanization": "pohanyj",
+      "notes": "Masculine adjective for low quality, negative condition, or undesirable attributes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "Ukrainian",
+      "target_text": "український",
+      "romanization": "ukrayins'kyj",
+      "notes": "Masculine adjective relating to Ukraine, its people, or its language.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "nationality"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "місто",
+      "romanization": "misto",
+      "notes": "Common neuter noun for an urban area.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "дім",
+      "romanization": "dim",
+      "notes": "Masculine noun for a dwelling place, also used to mean 'at home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "вода",
+      "romanization": "voda",
+      "notes": "Feminine noun for the essential liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "nature"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "робота",
+      "romanization": "robota",
+      "notes": "Feminine noun for employment, a task, or the act of working.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "гроші",
+      "romanization": "hroshi",
+      "notes": "Plural noun for currency, takes plural verb forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "друг",
+      "romanization": "druh",
+      "notes": "Masculine noun for a companion, 'подруга' for a female friend.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman / wife",
+      "target_text": "жінка",
+      "romanization": "zhinka",
+      "notes": "Feminine noun for an adult female or a spouse.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man / husband",
+      "target_text": "чоловік",
+      "romanization": "cholovik",
+      "notes": "Masculine noun for an adult male or a spouse.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "дитина",
+      "romanization": "dytyna",
+      "notes": "Feminine noun for a young human being, regardless of gender.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "ім'я",
+      "romanization": "im'ja",
+      "notes": "Neuter noun for a personal identifier; note the apostrophe indicating iotated 'я'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "word",
+      "target_text": "слово",
+      "romanization": "slovo",
+      "notes": "Neuter noun for a unit of language.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "книга",
+      "romanization": "knyha",
+      "notes": "Feminine noun for a written work or publication.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "language / tongue",
+      "target_text": "мова",
+      "romanization": "mova",
+      "notes": "Feminine noun for a system of communication or the anatomical organ.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "країна",
+      "romanization": "krayina",
+      "notes": "Feminine noun for a nation or state.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "hand / arm",
+      "target_text": "рука",
+      "romanization": "ruka",
+      "notes": "Feminine noun for the upper limb from the shoulder to the hand.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "head",
+      "target_text": "голова",
+      "romanization": "holova",
+      "notes": "Feminine noun for the upper part of the human body.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "heart",
+      "target_text": "серце",
+      "romanization": "sertse",
+      "notes": "Neuter noun for the organ that pumps blood or a symbol of emotion.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "sun",
+      "target_text": "сонце",
+      "romanization": "sontse",
+      "notes": "Neuter noun for the star at the center of our solar system.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "nature"
+      ]
+    },
+    {
+      "source_text": "earth / land",
+      "target_text": "земля",
+      "romanization": "zemlja",
+      "notes": "Feminine noun for the planet or the ground/soil.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "nature"
+      ]
+    },
+    {
+      "source_text": "sky / heaven",
+      "target_text": "небо",
+      "romanization": "nebo",
+      "notes": "Neuter noun for the expanse above the Earth, or a religious concept.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "nature"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "ніч",
+      "romanization": "nich",
+      "notes": "Feminine noun for the dark period from sunset to sunrise.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "ранок",
+      "romanization": "ranok",
+      "notes": "Masculine noun for the early part of the day, from sunrise to noon.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "вечір",
+      "romanization": "vechir",
+      "notes": "Masculine noun for the latter part of the day, from late afternoon to night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "після",
+      "romanization": "pislja",
+      "notes": "Preposition indicating sequence in time ('after work') or position.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before / in front of",
+      "target_text": "перед",
+      "romanization": "pered",
+      "notes": "Preposition for preceding in time ('before dinner') or location ('in front of the house').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time",
+        "location"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "без",
+      "romanization": "bez",
+      "notes": "Preposition indicating the absence of something, takes genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "behind / for",
+      "target_text": "за",
+      "romanization": "za",
+      "notes": "Preposition with multiple meanings: 'behind' (accusative/instrumental), 'for' (purpose, accusative).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "under",
+      "target_text": "під",
+      "romanization": "pid",
+      "notes": "Preposition indicating a lower position ('under the table') or a period of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "from / away from",
+      "target_text": "від",
+      "romanization": "vid",
+      "notes": "Preposition indicating separation, origin, or cause, takes genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "завжди",
+      "romanization": "zavzhdy",
+      "notes": "Adverb indicating at all times or on every occasion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "ніколи",
+      "romanization": "nikoly",
+      "notes": "Adverb indicating at no time or not ever.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "often",
+      "target_text": "часто",
+      "romanization": "chasto",
+      "notes": "Adverb indicating many times or on numerous occasions.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "only",
+      "target_text": "тільки",
+      "romanization": "til'ky",
+      "notes": "Particle limiting something to a single instance or type.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "limitation"
+      ]
+    },
+    {
+      "source_text": "still / yet",
+      "target_text": "ще",
+      "romanization": "shche",
+      "notes": "Adverb or particle indicating continuation ('still waiting') or addition ('one more').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "already",
+      "target_text": "вже",
+      "romanization": "vzhe",
+      "notes": "Adverb indicating something has happened prior to the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    }
+  ]
+}

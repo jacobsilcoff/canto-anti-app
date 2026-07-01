@@ -1,0 +1,1085 @@
+{
+  "lang": "ms",
+  "name": "Top 100 Malay Words",
+  "description": "The 100 most common words in Malay — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "which / that",
+      "target_text": "yang",
+      "romanization": "",
+      "notes": "This relative pronoun connects a noun to a descriptive clause, similar to 'who', 'which', or 'that' in English.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "dan",
+      "romanization": "",
+      "notes": "A common conjunction used to connect words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "at / in / on (location)",
+      "target_text": "di",
+      "romanization": "",
+      "notes": "A preposition indicating a static location or position; contrast with 'ke' for direction.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "not / no",
+      "target_text": "tidak",
+      "romanization": "",
+      "notes": "Used to negate verbs and adjectives. Use 'bukan' to negate nouns or pronouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "that / the",
+      "target_text": "itu",
+      "romanization": "",
+      "notes": "A demonstrative pronoun referring to something far, or indicating a definite noun previously mentioned.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "this / the",
+      "target_text": "ini",
+      "romanization": "",
+      "notes": "A demonstrative pronoun referring to something near, or indicating a definite noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "for / to",
+      "target_text": "untuk",
+      "romanization": "",
+      "notes": "A preposition primarily indicating purpose or recipient.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with / by",
+      "target_text": "dengan",
+      "romanization": "",
+      "notes": "A preposition expressing accompaniment, means, or manner.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "saya",
+      "romanization": "",
+      "notes": "The standard and polite first-person singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "there is / have",
+      "target_text": "ada",
+      "romanization": "",
+      "notes": "Expresses existence ('there is') or possession ('have'), and can also mean 'present' or 'available'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to",
+      "target_text": "ke",
+      "romanization": "",
+      "notes": "A preposition indicating direction or destination; often used before place names.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "from",
+      "target_text": "dari",
+      "romanization": "",
+      "notes": "A preposition indicating origin, source, or starting point.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
+    },
+    {
+      "source_text": "will / shall",
+      "target_text": "akan",
+      "romanization": "",
+      "notes": "An auxiliary verb indicating future tense or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "auxiliary verb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "for / to",
+      "target_text": "bagi",
+      "romanization": "",
+      "notes": "Similar to 'untuk', often used to indicate benefit, allocation, or 'on behalf of'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "dalam",
+      "romanization": "",
+      "notes": "A preposition indicating being contained within something, or a period of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "we / us (inclusive)",
+      "target_text": "kita",
+      "romanization": "",
+      "notes": "A first-person plural pronoun that includes both the speaker and the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "mereka",
+      "romanization": "",
+      "notes": "The third-person plural pronoun for people or things.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she / him / her",
+      "target_text": "dia",
+      "romanization": "",
+      "notes": "The gender-neutral third-person singular pronoun for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "can / may",
+      "target_text": "boleh",
+      "romanization": "",
+      "notes": "An auxiliary verb expressing ability, permission, or possibility.",
+      "cefr_level": "A1",
+      "labels": [
+        "auxiliary verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "already / finished",
+      "target_text": "sudah",
+      "romanization": "",
+      "notes": "An adverb indicating an action is completed or something has occurred.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "not yet",
+      "target_text": "belum",
+      "romanization": "",
+      "notes": "An adverb indicating an action is not yet completed or an event has not yet happened.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "more",
+      "target_text": "lebih",
+      "romanization": "",
+      "notes": "An adverb used for comparisons, meaning 'more' or 'greater'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "semua",
+      "romanization": "",
+      "notes": "A determiner or pronoun referring to the entire quantity or group.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "apa",
+      "romanization": "",
+      "notes": "An interrogative pronoun used to ask about things or general information.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "question"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "bagaimana",
+      "romanization": "",
+      "notes": "An interrogative adverb used to ask about manner or method.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "question"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "bila",
+      "romanization": "",
+      "notes": "An interrogative adverb used to ask about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "time"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "siapa",
+      "romanization": "",
+      "notes": "An interrogative pronoun used to ask about people.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "question"
+      ]
+    },
+    {
+      "source_text": "where / which",
+      "target_text": "mana",
+      "romanization": "",
+      "notes": "An interrogative pronoun or adverb used to ask about location or choice.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "question"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "atau",
+      "romanization": "",
+      "notes": "A conjunction connecting alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "juga",
+      "romanization": "",
+      "notes": "An adverb that adds emphasis or indicates similarity, meaning 'also' or 'too'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "if",
+      "target_text": "jika",
+      "romanization": "",
+      "notes": "A conjunction introducing a conditional clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "condition"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "tetapi",
+      "romanization": "",
+      "notes": "A conjunction introducing a contrasting idea.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "same / similar",
+      "target_text": "sama",
+      "romanization": "",
+      "notes": "An adjective describing identity or resemblance; often followed by 'dengan'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "sekarang",
+      "romanization": "",
+      "notes": "An adverb referring to the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time / period",
+      "target_text": "masa",
+      "romanization": "",
+      "notes": "A general noun for time, period, or era.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "hari",
+      "romanization": "",
+      "notes": "A noun referring to a single day, or the daytime period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "tahun",
+      "romanization": "",
+      "notes": "A noun denoting a period of twelve months.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "orang",
+      "romanization": "",
+      "notes": "A noun meaning 'person' or 'people', and also a common classifier for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "rumah",
+      "romanization": "",
+      "notes": "A noun referring to a place of residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "housing"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "air",
+      "romanization": "",
+      "notes": "A noun for the essential liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "eat / food",
+      "target_text": "makan",
+      "romanization": "",
+      "notes": "A verb meaning 'to eat', and can also function as a noun for 'food'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "drink",
+      "target_text": "minum",
+      "romanization": "",
+      "notes": "A verb meaning 'to consume a liquid'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "go / went",
+      "target_text": "pergi",
+      "romanization": "",
+      "notes": "A verb meaning 'to move from one place to another', for both present and past tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "come / arrived",
+      "target_text": "datang",
+      "romanization": "",
+      "notes": "A verb meaning 'to move towards the speaker or a designated place'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "do / make",
+      "target_text": "buat",
+      "romanization": "",
+      "notes": "A versatile verb meaning 'to perform an action' or 'to create something'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "see / look",
+      "target_text": "lihat",
+      "romanization": "",
+      "notes": "A verb meaning 'to perceive with the eyes' or 'to look at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "hear / listen",
+      "target_text": "dengar",
+      "romanization": "",
+      "notes": "A verb meaning 'to perceive with the ears' or 'to listen to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "know",
+      "target_text": "tahu",
+      "romanization": "",
+      "notes": "A verb meaning 'to have knowledge or information about something'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "want",
+      "target_text": "mahu",
+      "romanization": "",
+      "notes": "A verb meaning 'to desire or wish for something'; often shortened to 'nak' in informal speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "like / enjoy",
+      "target_text": "suka",
+      "romanization": "",
+      "notes": "A verb meaning 'to have a preference for' or 'to derive pleasure from something'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "baik",
+      "romanization": "",
+      "notes": "An adjective describing quality or state of being, can also be an adverb for 'well'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "besar",
+      "romanization": "",
+      "notes": "An adjective describing size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "kecil",
+      "romanization": "",
+      "notes": "An adjective describing lack of size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new / just",
+      "target_text": "baru",
+      "romanization": "",
+      "notes": "An adjective meaning 'new', or an adverb meaning 'just' or 'recently'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "old / long (time)",
+      "target_text": "lama",
+      "romanization": "",
+      "notes": "An adjective describing age ('old') or duration ('long time').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "time"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "satu",
+      "romanization": "",
+      "notes": "The first cardinal number, also used as a general classifier.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "dua",
+      "romanization": "",
+      "notes": "The second cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "tiga",
+      "romanization": "",
+      "notes": "The third cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "empat",
+      "romanization": "",
+      "notes": "The fourth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "lima",
+      "romanization": "",
+      "notes": "The fifth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "enam",
+      "romanization": "",
+      "notes": "The sixth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "tujuh",
+      "romanization": "",
+      "notes": "The seventh cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "lapan",
+      "romanization": "",
+      "notes": "The eighth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "sembilan",
+      "romanization": "",
+      "notes": "The ninth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "sepuluh",
+      "romanization": "",
+      "notes": "The tenth cardinal number.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "not / no",
+      "target_text": "bukan",
+      "romanization": "",
+      "notes": "Used to negate nouns, pronouns, and prepositional phrases. Contrast with 'tidak'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ya",
+      "romanization": "",
+      "notes": "An affirmative response, commonly used in everyday speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "is / are",
+      "target_text": "adalah",
+      "romanization": "",
+      "notes": "Used as an equative copula for definitions or descriptions, less formal than 'ialah'.",
+      "cefr_level": "A1",
+      "labels": [
+        "copula",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "receive / accept",
+      "target_text": "terima",
+      "romanization": "",
+      "notes": "A verb meaning 'to receive' or 'to accept'; crucial part of 'terima kasih' (thank you).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "love / thanks",
+      "target_text": "kasih",
+      "romanization": "",
+      "notes": "A noun meaning 'love', 'affection', or 'thanks'; used in 'terima kasih' (thank you).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "pagi",
+      "romanization": "",
+      "notes": "The early part of the day; used in greetings like 'Selamat pagi'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "afternoon",
+      "target_text": "petang",
+      "romanization": "",
+      "notes": "The period between noon and evening; used in greetings like 'Selamat petang'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "malam",
+      "romanization": "",
+      "notes": "The period of darkness; used in greetings like 'Selamat malam'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "return / go back",
+      "target_text": "balik",
+      "romanization": "",
+      "notes": "A common verb meaning 'to return' or 'to go back', more informal than 'pulang'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "read",
+      "target_text": "baca",
+      "romanization": "",
+      "notes": "A verb meaning 'to interpret written words'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "write",
+      "target_text": "tulis",
+      "romanization": "",
+      "notes": "A verb meaning 'to form letters or words on a surface'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "speak / talk",
+      "target_text": "cakap",
+      "romanization": "",
+      "notes": "A common verb meaning 'to communicate verbally', often used informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "say / word",
+      "target_text": "kata",
+      "romanization": "",
+      "notes": "A verb meaning 'to utter words' or a noun meaning 'word'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "noun"
+      ]
+    },
+    {
+      "source_text": "help / please",
+      "target_text": "tolong",
+      "romanization": "",
+      "notes": "A verb meaning 'to assist', also used as 'please' when making a polite request.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "request"
+      ]
+    },
+    {
+      "source_text": "give",
+      "target_text": "beri",
+      "romanization": "",
+      "notes": "A verb meaning 'to hand over something' or 'to provide'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "take",
+      "target_text": "ambil",
+      "romanization": "",
+      "notes": "A verb meaning 'to grasp' or 'to acquire something'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "bring / carry",
+      "target_text": "bawa",
+      "romanization": "",
+      "notes": "A verb meaning 'to transport something' or 'to carry'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "buy",
+      "target_text": "beli",
+      "romanization": "",
+      "notes": "A verb meaning 'to acquire something in exchange for money'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "sell",
+      "target_text": "jual",
+      "romanization": "",
+      "notes": "A verb meaning 'to exchange something for money'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "duit",
+      "romanization": "",
+      "notes": "A common noun for currency, frequently used in spoken Malay.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "kerja",
+      "romanization": "",
+      "notes": "A noun meaning 'work' or 'job', and also a verb meaning 'to work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "verb",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "sekolah",
+      "romanization": "",
+      "notes": "A noun referring to an institution for education.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "buku",
+      "romanization": "",
+      "notes": "A noun for a written or printed work.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "pen",
+      "target_text": "pen",
+      "romanization": "",
+      "notes": "A noun for an instrument used for writing with ink.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "stationery"
+      ]
+    },
+    {
+      "source_text": "table",
+      "target_text": "meja",
+      "romanization": "",
+      "notes": "A noun for a piece of furniture with a flat top and one or more legs.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "furniture"
+      ]
+    },
+    {
+      "source_text": "chair",
+      "target_text": "kerusi",
+      "romanization": "",
+      "notes": "A noun for a piece of furniture designed for sitting.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "furniture"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "bilik",
+      "romanization": "",
+      "notes": "A noun for a space within a building, often designated for a specific purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "housing"
+      ]
+    },
+    {
+      "source_text": "car",
+      "target_text": "kereta",
+      "romanization": "",
+      "notes": "A noun for a motor vehicle, common for personal transport.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "bus",
+      "target_text": "bas",
+      "romanization": "",
+      "notes": "A noun for a large motor vehicle used for public transport.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "nama",
+      "romanization": "",
+      "notes": "A noun referring to a word by which someone or something is known.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "age",
+      "target_text": "umur",
+      "romanization": "",
+      "notes": "A noun for the length of time that a person or thing has existed.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "live / stay",
+      "target_text": "tinggal",
+      "romanization": "",
+      "notes": "A verb meaning 'to reside' or 'to remain in a place'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "tall / high",
+      "target_text": "tinggi",
+      "romanization": "",
+      "notes": "An adjective describing height or elevation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "short / low",
+      "target_text": "rendah",
+      "romanization": "",
+      "notes": "An adjective describing lack of height or elevation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "long",
+      "target_text": "panjang",
+      "romanization": "",
+      "notes": "An adjective describing extent in space or time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    }
+  ]
+}

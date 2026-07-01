@@ -1,0 +1,1080 @@
+{
+  "lang": "nl",
+  "name": "Top 100 Dutch Words",
+  "description": "The 100 most common words in Dutch — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "Use for masculine, feminine, and plural nouns (de-words); it is often pronounced as 'd' in rapid speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
+    },
+    {
+      "source_text": "the",
+      "target_text": "het",
+      "romanization": "",
+      "notes": "Use for neuter singular nouns (het-words); it can also function as the pronoun 'it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "ik",
+      "romanization": "",
+      "notes": "Always refers to the speaker and is the subject pronoun; 'mij' is the formal object form.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "zijn",
+      "romanization": "",
+      "notes": "One of the most essential verbs; also used as an auxiliary for perfect tenses with verbs of movement or change.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "een",
+      "romanization": "",
+      "notes": "Functions as an indefinite article ('a/an') or as the number 'one'; pronunciation varies depending on stress.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "en",
+      "romanization": "",
+      "notes": "A very common conjunction used to connect words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "of / from",
+      "target_text": "van",
+      "romanization": "",
+      "notes": "Indicates possession ('the book of the man') or origin ('from the Netherlands').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to have",
+      "target_text": "hebben",
+      "romanization": "",
+      "notes": "Essential verb, also used as an auxiliary verb for perfect tenses with most transitive verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "that / which / that (conj.)",
+      "target_text": "dat",
+      "romanization": "",
+      "notes": "Can be a demonstrative pronoun ('that'), a relative pronoun ('which'), or a subordinating conjunction ('that').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "niet",
+      "romanization": "",
+      "notes": "The most common way to negate verbs or sentences; typically placed after the conjugated verb or object.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "met",
+      "romanization": "",
+      "notes": "Indicates accompaniment ('with someone') or means ('with a knife').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "for / before",
+      "target_text": "voor",
+      "romanization": "",
+      "notes": "Indicates purpose ('for you'), time ('before noon'), or spatial relation ('in front of').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "you / your (informal)",
+      "target_text": "je",
+      "romanization": "",
+      "notes": "An informal pronoun that can be both subject ('you') and object ('you'), or a possessive ('your').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "on / at / up",
+      "target_text": "op",
+      "romanization": "",
+      "notes": "Indicates position on a surface ('on the table'), time ('at 8 o'clock'), or direction ('up').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "but / only",
+      "target_text": "maar",
+      "romanization": "",
+      "notes": "Functions as a conjunction ('but') or an adverb ('only', 'just'); adds a slight nuance or restriction.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "ook",
+      "romanization": "",
+      "notes": "Indicates addition or similarity; typically placed before the word it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "at / to / on",
+      "target_text": "aan",
+      "romanization": "",
+      "notes": "Indicates proximity ('at the wall'), direction ('to her'), or activation ('on' for a device).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "through / by",
+      "target_text": "door",
+      "romanization": "",
+      "notes": "Indicates movement through something ('through the park') or the agent in a passive sentence ('by the man').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "hij",
+      "romanization": "",
+      "notes": "The singular masculine subject pronoun; always refers to a male person or a masculine de-word.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "as / if / when",
+      "target_text": "als",
+      "romanization": "",
+      "notes": "Can introduce a comparison ('as big as'), a condition ('if you go'), or a temporal clause ('when I was young').",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "there / it / them",
+      "target_text": "er",
+      "romanization": "",
+      "notes": "A versatile word used to refer to places, quantities, or as a dummy pronoun; its meaning depends heavily on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she / her / they / them",
+      "target_text": "zij",
+      "romanization": "",
+      "notes": "Can be the singular feminine subject pronoun ('she') or the plural subject pronoun ('they'); 'ze' is a common unstressed variant.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "out / from",
+      "target_text": "uit",
+      "romanization": "",
+      "notes": "Indicates movement out of something ('out of the house') or origin ('from the city').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "can / to be able",
+      "target_text": "kunnen",
+      "romanization": "",
+      "notes": "A modal verb expressing ability or possibility; it conjugates irregularly.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "gaan",
+      "romanization": "",
+      "notes": "A fundamental verb of movement; also used as an auxiliary to form the direct future tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "over / about / in (time)",
+      "target_text": "over",
+      "romanization": "",
+      "notes": "Indicates position above ('over the bridge'), topic ('about that'), or future time ('in two days').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "to / towards",
+      "target_text": "naar",
+      "romanization": "",
+      "notes": "Indicates direction towards a destination ('to Amsterdam') or a recipient ('to me').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "so / thus / like this",
+      "target_text": "zo",
+      "romanization": "",
+      "notes": "Indicates manner ('like this'), degree ('so big'), or consequence ('thus').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "nu",
+      "romanization": "",
+      "notes": "Refers to the present moment; can also be used to emphasize or introduce a topic.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "then / than",
+      "target_text": "dan",
+      "romanization": "",
+      "notes": "Used for comparison ('bigger than'), to indicate sequence ('then I go'), or as a filler word.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "wat",
+      "romanization": "",
+      "notes": "An interrogative pronoun ('What is it?'), or an indefinite pronoun ('a bit of something').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "to do",
+      "target_text": "doen",
+      "romanization": "",
+      "notes": "A common verb for actions; often used in expressions where English uses 'make'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "hier",
+      "romanization": "",
+      "notes": "Indicates location near the speaker; often paired with 'daar' (there).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "willen",
+      "romanization": "",
+      "notes": "A modal verb expressing desire; it conjugates irregularly.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb"
+      ]
+    },
+    {
+      "source_text": "still / yet / more",
+      "target_text": "nog",
+      "romanization": "",
+      "notes": "Indicates continuation ('still sleeping'), something pending ('not yet'), or an additional quantity ('more coffee').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "must / to have to",
+      "target_text": "moeten",
+      "romanization": "",
+      "notes": "A modal verb expressing obligation or necessity; it conjugates irregularly.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "komen",
+      "romanization": "",
+      "notes": "A fundamental verb of movement towards the speaker; often used with 'zijn' as an auxiliary in the perfect tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "under / below",
+      "target_text": "onder",
+      "romanization": "",
+      "notes": "Indicates a position beneath something; can also mean 'among' in some contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "well / indeed / quite",
+      "target_text": "wel",
+      "romanization": "",
+      "notes": "A versatile adverb used to confirm, emphasize, or soften a statement, or as a response to a negative question.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "filler"
+      ]
+    },
+    {
+      "source_text": "this",
+      "target_text": "dit",
+      "romanization": "",
+      "notes": "A demonstrative determiner or pronoun for singular neuter nouns or concepts; often paired with 'dat'.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "so / therefore",
+      "target_text": "dus",
+      "romanization": "",
+      "notes": "A conjunction indicating a consequence or conclusion; often starts a sentence or clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "all",
+      "target_text": "alle",
+      "romanization": "",
+      "notes": "Used before plural nouns (or sometimes singular collective nouns) to mean 'all of them' or 'every'.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "altijd",
+      "romanization": "",
+      "notes": "Indicates something happens at all times or on every occasion.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "nooit",
+      "romanization": "",
+      "notes": "Indicates that something does not happen at any time; the opposite of 'altijd'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "often",
+      "target_text": "vaak",
+      "romanization": "",
+      "notes": "Indicates something happens many times or frequently; the opposite of 'zelden' (rarely).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "sometimes",
+      "target_text": "soms",
+      "romanization": "",
+      "notes": "Indicates something happens occasionally, but not always or never.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "to know (a fact)",
+      "target_text": "weten",
+      "romanization": "",
+      "notes": "Refers to knowing facts, information, or how to do something; distinguishes from 'kennen' (to know a person/place).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "mental"
+      ]
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "zeggen",
+      "romanization": "",
+      "notes": "Refers to speaking words or conveying information; similar to 'spreken' but often implies conveying a message.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "zien",
+      "romanization": "",
+      "notes": "Refers to the act of perceiving with the eyes; used literally and figuratively.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to make / to do",
+      "target_text": "maken",
+      "romanization": "",
+      "notes": "Means 'to create' or 'to produce'; sometimes translates to 'to do' when producing a result (e.g., 'make a decision').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "geven",
+      "romanization": "",
+      "notes": "Means to hand over or provide something to someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "nemen",
+      "romanization": "",
+      "notes": "Means to acquire or pick up something; also used in many idiomatic expressions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to think",
+      "target_text": "denken",
+      "romanization": "",
+      "notes": "Refers to the mental process of considering, believing, or having an opinion.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "mental"
+      ]
+    },
+    {
+      "source_text": "to find / to think (opinion)",
+      "target_text": "vinden",
+      "romanization": "",
+      "notes": "Means 'to locate' something or 'to have an opinion' about something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "mental"
+      ]
+    },
+    {
+      "source_text": "to look for / to search",
+      "target_text": "zoeken",
+      "romanization": "",
+      "notes": "Refers to the act of trying to find something or someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to ask / question",
+      "target_text": "vragen",
+      "romanization": "",
+      "notes": "As a verb, means 'to ask'; as a noun (de vraag), it means 'the question'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "noun"
+      ]
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "staan",
+      "romanization": "",
+      "notes": "Means to be in an upright position; also used to describe the fixed location of objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "zitten",
+      "romanization": "",
+      "notes": "Means to be in a seated position; also used to describe the location of smaller objects or people.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "to lie (down)",
+      "target_text": "liggen",
+      "romanization": "",
+      "notes": "Means to be in a horizontal position; used for objects that are naturally lying down or persons resting.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "goed",
+      "romanization": "",
+      "notes": "An adjective ('good') or an adverb ('well'); very versatile for expressing quality or agreement.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "nieuw",
+      "romanization": "",
+      "notes": "An adjective describing something recently made, acquired, or experienced; contrasts with 'oud' (old).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "oud",
+      "romanization": "",
+      "notes": "An adjective describing something that has existed for a long time or is no longer new; contrasts with 'nieuw'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "groot",
+      "romanization": "",
+      "notes": "An adjective describing size; contrasts with 'klein' (small).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "klein",
+      "romanization": "",
+      "notes": "An adjective describing size; contrasts with 'groot' (big).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "beautiful / nice",
+      "target_text": "mooi",
+      "romanization": "",
+      "notes": "An adjective describing attractiveness or pleasantness; very commonly used for compliments.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "tasty / nice / pleasant",
+      "target_text": "lekker",
+      "romanization": "",
+      "notes": "A versatile adjective meaning 'tasty' for food, 'nice/pleasant' for feelings or weather, or 'comfortable'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "food"
+      ]
+    },
+    {
+      "source_text": "everything",
+      "target_text": "alles",
+      "romanization": "",
+      "notes": "An indefinite pronoun referring to all things or the whole quantity; opposite of 'niets'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "something",
+      "target_text": "iets",
+      "romanization": "",
+      "notes": "An indefinite pronoun referring to an unspecified thing; opposite of 'niets'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "nothing",
+      "target_text": "niets",
+      "romanization": "",
+      "notes": "An indefinite pronoun meaning 'not anything'; opposite of 'alles' and 'iets'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "much / many",
+      "target_text": "veel",
+      "romanization": "",
+      "notes": "Indicates a large quantity or amount; can be used as a determiner or an adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "more",
+      "target_text": "meer",
+      "romanization": "",
+      "notes": "The comparative form of 'veel'; indicates a larger quantity or additional items.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "less / fewer",
+      "target_text": "minder",
+      "romanization": "",
+      "notes": "The comparative form of 'weinig'; indicates a smaller quantity or fewer items.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "little / few",
+      "target_text": "weinig",
+      "romanization": "",
+      "notes": "Indicates a small quantity or amount; can be used as a determiner or an adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "each / every",
+      "target_text": "elke",
+      "romanization": "",
+      "notes": "Used before singular nouns to mean 'every single one'; can be replaced by 'ieder' for neuter nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "wie",
+      "romanization": "",
+      "notes": "An interrogative pronoun for asking about people; can be subject or object.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "waar",
+      "romanization": "",
+      "notes": "An interrogative adverb for asking about location; also used as a relative adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "hoe",
+      "romanization": "",
+      "notes": "An interrogative adverb for asking about manner, degree, or condition.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "waarom",
+      "romanization": "",
+      "notes": "An interrogative adverb for asking about reason or cause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "wanneer",
+      "romanization": "",
+      "notes": "An interrogative adverb for asking about time; also used as a subordinating conjunction.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "day / goodbye (informal)",
+      "target_text": "dag",
+      "romanization": "",
+      "notes": "Means 'day' (de dag); also a common informal greeting for 'hello' or 'goodbye'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "week",
+      "romanization": "",
+      "notes": "A de-word noun (de week) referring to a period of seven days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "maand",
+      "romanization": "",
+      "notes": "A de-word noun (de maand) referring to a period of about four weeks.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "jaar",
+      "romanization": "",
+      "notes": "A het-word noun (het jaar) referring to a period of 365 or 366 days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "tijd",
+      "romanization": "",
+      "notes": "A de-word noun (de tijd) referring to the progression of existence and events.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "hour",
+      "target_text": "uur",
+      "romanization": "",
+      "notes": "A het-word noun (het uur) referring to a period of sixty minutes.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "gisteren",
+      "romanization": "",
+      "notes": "An adverb referring to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "vandaag",
+      "romanization": "",
+      "notes": "An adverb referring to the current day; a combination of 'van' and 'dag'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow / morning",
+      "target_text": "morgen",
+      "romanization": "",
+      "notes": "Can mean 'tomorrow' (as an adverb) or 'morning' (as a de-word noun: de morgen).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "avond",
+      "romanization": "",
+      "notes": "A de-word noun (de avond) referring to the part of the day between afternoon and night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "nacht",
+      "romanization": "",
+      "notes": "A de-word noun (de nacht) referring to the period of darkness between sunset and sunrise.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "mens",
+      "romanization": "",
+      "notes": "A de-word noun (de mens) for a human being; 'mensen' is the plural for 'people'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "kind",
+      "romanization": "",
+      "notes": "A het-word noun (het kind); the plural is 'kinderen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "man / husband",
+      "target_text": "man",
+      "romanization": "",
+      "notes": "A de-word noun (de man) referring to an adult male or a husband; plural is 'mannen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people",
+        "family"
+      ]
+    },
+    {
+      "source_text": "woman / wife",
+      "target_text": "vrouw",
+      "romanization": "",
+      "notes": "A de-word noun (de vrouw) referring to an adult female or a wife; plural is 'vrouwen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people",
+        "family"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "naam",
+      "romanization": "",
+      "notes": "A de-word noun (de naam) for a word or term by which someone or something is known.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun"
+      ]
+    },
+    {
+      "source_text": "country / land",
+      "target_text": "land",
+      "romanization": "",
+      "notes": "A het-word noun (het land) referring to a nation or a territory.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "stad",
+      "romanization": "",
+      "notes": "A de-word noun (de stad) referring to a large populated area; plural is 'steden'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "huis",
+      "romanization": "",
+      "notes": "A het-word noun (het huis) for a dwelling; often used interchangeably with 'thuis' (at home) as an adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "werk",
+      "romanization": "",
+      "notes": "A het-word noun (het werk) for labor or a profession; also functions as a verb 'werken' (to work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "job"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "geld",
+      "romanization": "",
+      "notes": "A het-word noun (het geld); it is an uncountable noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    }
+  ]
+}

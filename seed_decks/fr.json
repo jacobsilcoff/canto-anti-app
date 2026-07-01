@@ -1,0 +1,1127 @@
+{
+  "lang": "fr",
+  "name": "Top 100 French Words",
+  "description": "The 100 most common words in French — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be",
+      "target_text": "être",
+      "romanization": "",
+      "notes": "This is the most fundamental verb, used for identity, state, and as an auxiliary for many compound tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "to have",
+      "target_text": "avoir",
+      "romanization": "",
+      "notes": "Essential for possession, age, and as an auxiliary for most compound tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "of, from",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "A highly versatile preposition, often indicating possession, origin, or a part of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "the (masc. sing.)",
+      "target_text": "le",
+      "romanization": "",
+      "notes": "The definite article for masculine singular nouns, often contracts with 'à' and 'de'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "the (fem. sing.)",
+      "target_text": "la",
+      "romanization": "",
+      "notes": "The definite article for feminine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "to, at, in",
+      "target_text": "à",
+      "romanization": "",
+      "notes": "A crucial preposition, used for location, destination, time, and indirect objects; contracts with 'le' and 'les'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "et",
+      "romanization": "",
+      "notes": "A simple conjunction used to connect words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "a, an (masc.), one",
+      "target_text": "un",
+      "romanization": "",
+      "notes": "The indefinite article for masculine singular nouns, also means 'one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner",
+        "number"
+      ]
+    },
+    {
+      "source_text": "a, an (fem.), one",
+      "target_text": "une",
+      "romanization": "",
+      "notes": "The indefinite article for feminine singular nouns, also means 'one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner",
+        "number"
+      ]
+    },
+    {
+      "source_text": "the (plural)",
+      "target_text": "les",
+      "romanization": "",
+      "notes": "The definite article for all plural nouns, regardless of gender, often contracts with 'à' and 'de'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "he, it (masc. sing.)",
+      "target_text": "il",
+      "romanization": "",
+      "notes": "A third-person singular subject pronoun for masculine persons or objects, also used impersonally (il faut).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
+    },
+    {
+      "source_text": "for, in order to",
+      "target_text": "pour",
+      "romanization": "",
+      "notes": "Used to express purpose, destination, or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "pas",
+      "romanization": "",
+      "notes": "The essential negative adverb, always paired with 'ne' (ne...pas) for negation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "ne",
+      "romanization": "",
+      "notes": "The first part of a negative construction (ne...pas, ne...jamais, etc.), often omitted in informal speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "more, most, no more",
+      "target_text": "plus",
+      "romanization": "",
+      "notes": "Used for comparisons (plus...que) or to indicate 'no more' (ne...plus).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "on, upon, about",
+      "target_text": "sur",
+      "romanization": "",
+      "notes": "A versatile preposition indicating position, topic, or reliability.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "we, us",
+      "target_text": "nous",
+      "romanization": "",
+      "notes": "The first-person plural subject and object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject",
+        "object"
+      ]
+    },
+    {
+      "source_text": "you (formal/plural)",
+      "target_text": "vous",
+      "romanization": "",
+      "notes": "The second-person plural or formal singular subject and object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject",
+        "object"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "avec",
+      "romanization": "",
+      "notes": "Indicates accompaniment, means, or manner.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "faire",
+      "romanization": "",
+      "notes": "A highly common and versatile verb, used for actions, activities, and causing something to happen.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "that, which, whom",
+      "target_text": "que",
+      "romanization": "",
+      "notes": "A versatile word, serving as a relative pronoun (object), conjunction, or part of interrogative phrases.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "who, which (subject)",
+      "target_text": "qui",
+      "romanization": "",
+      "notes": "A relative pronoun for people or things, always acting as the subject of the clause it introduces.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "relative"
+      ]
+    },
+    {
+      "source_text": "in, into",
+      "target_text": "dans",
+      "romanization": "",
+      "notes": "Indicates location inside something, or a period of time in the future.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location",
+        "time"
+      ]
+    },
+    {
+      "source_text": "this, that (masc. sing.)",
+      "target_text": "ce",
+      "romanization": "",
+      "notes": "A demonstrative adjective (before a noun) or pronoun (e.g., c'est, ce sont).",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "oneself, himself/herself",
+      "target_text": "se",
+      "romanization": "",
+      "notes": "A reflexive pronoun used with reflexive verbs, indicating the action reflects back on the subject.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "one, we (impersonal)",
+      "target_text": "on",
+      "romanization": "",
+      "notes": "An impersonal pronoun, often used informally to mean 'we' or 'people in general'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "impersonal"
+      ]
+    },
+    {
+      "source_text": "all, every, whole, very",
+      "target_text": "tout",
+      "romanization": "",
+      "notes": "A versatile word meaning 'all' (determiner/pronoun) or 'very' (adverb, before adjectives/adverbs).",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "pronoun",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "dire",
+      "romanization": "",
+      "notes": "A common verb for communication, often followed by a direct or indirect object.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "she, it (fem. sing.)",
+      "target_text": "elle",
+      "romanization": "",
+      "notes": "A third-person singular subject pronoun for feminine persons or objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
+    },
+    {
+      "source_text": "there, to it/them",
+      "target_text": "y",
+      "romanization": "",
+      "notes": "An adverbial pronoun replacing places or things introduced by 'à' or other prepositions of place.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "adverbial",
+        "place"
+      ]
+    },
+    {
+      "source_text": "some, any, of it/them",
+      "target_text": "en",
+      "romanization": "",
+      "notes": "An adverbial pronoun replacing quantities, things introduced by 'de', or places of origin.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "adverbial",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "me, myself (obj./refl.)",
+      "target_text": "me",
+      "romanization": "",
+      "notes": "A first-person singular direct or indirect object pronoun, also reflexive.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "as, like, how",
+      "target_text": "comme",
+      "romanization": "",
+      "notes": "A conjunction for comparison or cause, or an interrogative adverb for manner.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "if, whether, yes (to neg. question)",
+      "target_text": "si",
+      "romanization": "",
+      "notes": "Used for conditional clauses or to contradict a negative statement.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "conditional",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "well, good",
+      "target_text": "bien",
+      "romanization": "",
+      "notes": "An adverb meaning 'well'; can also be an adjective 'good' in some contexts (e.g., c'est bien).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "my (masc. sing.)",
+      "target_text": "mon",
+      "romanization": "",
+      "notes": "A possessive adjective for masculine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "my (fem. sing.)",
+      "target_text": "ma",
+      "romanization": "",
+      "notes": "A possessive adjective for feminine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "my (plural)",
+      "target_text": "mes",
+      "romanization": "",
+      "notes": "A possessive adjective for all plural nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "mais",
+      "romanization": "",
+      "notes": "A common conjunction used to introduce a contrast or exception.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "sans",
+      "romanization": "",
+      "notes": "A preposition indicating absence or lack of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "ou",
+      "romanization": "",
+      "notes": "A conjunction used to present alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "some, any (plural)",
+      "target_text": "des",
+      "romanization": "",
+      "notes": "The indefinite article for plural nouns, also functions as a partitive article for unspecified plural quantities.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "you, yourself (informal sing.)",
+      "target_text": "te",
+      "romanization": "",
+      "notes": "A second-person singular direct or indirect object pronoun, also reflexive.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "you (informal stressed)",
+      "target_text": "toi",
+      "romanization": "",
+      "notes": "A stressed pronoun used after prepositions, for emphasis, or in isolated phrases.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "stressed"
+      ]
+    },
+    {
+      "source_text": "me (stressed)",
+      "target_text": "moi",
+      "romanization": "",
+      "notes": "A stressed pronoun used after prepositions, for emphasis, or in isolated phrases.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "stressed"
+      ]
+    },
+    {
+      "source_text": "also, too, as",
+      "target_text": "aussi",
+      "romanization": "",
+      "notes": "An adverb meaning 'also' or 'too'; used in comparisons with 'que' (aussi...que).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "so, then",
+      "target_text": "alors",
+      "romanization": "",
+      "notes": "An adverb expressing consequence, sequence, or emphasis.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "consequence"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "ici",
+      "romanization": "",
+      "notes": "An adverb indicating the immediate location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there, here",
+      "target_text": "là",
+      "romanization": "",
+      "notes": "An adverb indicating a location, often less specific than 'ici', or used for emphasis with 'ci'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "quand",
+      "romanization": "",
+      "notes": "An interrogative adverb for time, or a conjunction introducing a temporal clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "très",
+      "romanization": "",
+      "notes": "An intensifier, always placed before an adjective or adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensity"
+      ]
+    },
+    {
+      "source_text": "same, even",
+      "target_text": "même",
+      "romanization": "",
+      "notes": "An adjective (le même) meaning 'same' or an adverb meaning 'even' (même si).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "what (interrogative)",
+      "target_text": "quoi",
+      "romanization": "",
+      "notes": "An interrogative pronoun, often used after prepositions or at the end of a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "their, to them",
+      "target_text": "leur",
+      "romanization": "",
+      "notes": "A possessive adjective ('their') or an indirect object pronoun ('to them').",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "où",
+      "romanization": "",
+      "notes": "An adverb indicating place, used for questions or as a relative adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "relative"
+      ]
+    },
+    {
+      "source_text": "his, her, its (fem. sing.)",
+      "target_text": "sa",
+      "romanization": "",
+      "notes": "A possessive adjective for feminine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "his, her, its (masc. sing.)",
+      "target_text": "son",
+      "romanization": "",
+      "notes": "A possessive adjective for masculine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "his, her, its (plural)",
+      "target_text": "ses",
+      "romanization": "",
+      "notes": "A possessive adjective for all plural nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "jamais",
+      "romanization": "",
+      "notes": "A negative adverb, always paired with 'ne' (ne...jamais).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "always, still",
+      "target_text": "toujours",
+      "romanization": "",
+      "notes": "An adverb indicating continuity or frequency.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "before",
+      "target_text": "avant",
+      "romanization": "",
+      "notes": "A preposition or adverb indicating a preceding time or position.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "après",
+      "romanization": "",
+      "notes": "A preposition or adverb indicating a subsequent time or position.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "then, next",
+      "target_text": "puis",
+      "romanization": "",
+      "notes": "An adverb indicating a sequence of events.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "sequence"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "comment",
+      "romanization": "",
+      "notes": "An interrogative adverb used to ask about manner or means.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "little, few",
+      "target_text": "peu",
+      "romanization": "",
+      "notes": "A determiner or adverb indicating a small quantity or degree.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "much, many, a lot",
+      "target_text": "beaucoup",
+      "romanization": "",
+      "notes": "An adverb indicating a large quantity or degree, often followed by 'de'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "voir",
+      "romanization": "",
+      "notes": "A common verb for perception with the eyes or understanding.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "by, through",
+      "target_text": "par",
+      "romanization": "",
+      "notes": "A preposition indicating means, agent, or movement.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "aller",
+      "romanization": "",
+      "notes": "A very common verb of movement, also used as an auxiliary for the near future (aller + infinitive).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "can, to be able to",
+      "target_text": "pouvoir",
+      "romanization": "",
+      "notes": "A modal verb expressing ability, possibility, or permission.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "vouloir",
+      "romanization": "",
+      "notes": "A modal verb expressing desire or will, often followed by an infinitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to know (facts, how to)",
+      "target_text": "savoir",
+      "romanization": "",
+      "notes": "Used for knowing facts, information, or how to do something (savoir faire).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "to be necessary",
+      "target_text": "falloir",
+      "romanization": "",
+      "notes": "An impersonal verb always used with 'il' (il faut, il fallait), meaning 'it is necessary'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "impersonal"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "jour",
+      "romanization": "",
+      "notes": "A common masculine noun for a period of 24 hours.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "man",
+      "target_text": "homme",
+      "romanization": "",
+      "notes": "A masculine noun for an adult male human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "femme",
+      "romanization": "",
+      "notes": "A feminine noun for an adult female human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "enfant",
+      "romanization": "",
+      "notes": "A noun that can be masculine or feminine, referring to a young person.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "time, weather",
+      "target_text": "temps",
+      "romanization": "",
+      "notes": "A masculine noun with multiple meanings: 'time' (duration), 'weather', or 'tense' (grammar).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "hand",
+      "target_text": "main",
+      "romanization": "",
+      "notes": "A feminine noun, used for the body part and in many expressions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "life",
+      "target_text": "vie",
+      "romanization": "",
+      "notes": "A feminine noun referring to existence or one's personal life.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "sir, Mr.",
+      "target_text": "monsieur",
+      "romanization": "",
+      "notes": "A polite title for a man, often abbreviated to 'M.'",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person",
+        "title"
+      ]
+    },
+    {
+      "source_text": "madam, Mrs.",
+      "target_text": "madame",
+      "romanization": "",
+      "notes": "A polite title for a woman, often abbreviated to 'Mme'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person",
+        "title"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "année",
+      "romanization": "",
+      "notes": "A feminine noun for a period of 12 months, often used with determiners (l'année dernière).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour, time",
+      "target_text": "heure",
+      "romanization": "",
+      "notes": "A feminine noun for a unit of time or the current time of day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "world, people",
+      "target_text": "monde",
+      "romanization": "",
+      "notes": "A masculine noun meaning 'world' or, informally, 'people' (tout le monde).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "general"
+      ]
+    },
+    {
+      "source_text": "thing",
+      "target_text": "chose",
+      "romanization": "",
+      "notes": "A feminine noun, very common for referring to an object or concept.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "general"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "travailler",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to perform labor or to function.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to leave",
+      "target_text": "partir",
+      "romanization": "",
+      "notes": "An irregular verb of movement meaning to depart or leave a place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to arrive, to happen",
+      "target_text": "arriver",
+      "romanization": "",
+      "notes": "An irregular verb of movement, also means 'to happen' (Qu'est-ce qui arrive?).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement",
+        "event"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "donner",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to transfer something to someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "prendre",
+      "romanization": "",
+      "notes": "An irregular verb with many meanings, including to take, to eat/drink, to catch.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to wait for",
+      "target_text": "attendre",
+      "romanization": "",
+      "notes": "A regular -re verb that means 'to wait for', it does not require 'pour'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "parler",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to communicate orally.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to find",
+      "target_text": "trouver",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to discover or locate something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to stay, to remain",
+      "target_text": "rester",
+      "romanization": "",
+      "notes": "A regular -er verb, often conjugated with 'être' in compound tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to like, to love",
+      "target_text": "aimer",
+      "romanization": "",
+      "notes": "A regular -er verb for expressing affection or preference.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "to believe",
+      "target_text": "croire",
+      "romanization": "",
+      "notes": "An irregular verb meaning to accept as true or to have faith.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "demander",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to request something or to ask a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to pass, to spend (time)",
+      "target_text": "passer",
+      "romanization": "",
+      "notes": "A versatile regular -er verb meaning to pass by or to spend time.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement",
+        "time"
+      ]
+    },
+    {
+      "source_text": "to begin",
+      "target_text": "commencer",
+      "romanization": "",
+      "notes": "A regular -er verb meaning to start, with a spelling change for 'nous' (nous commençons).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    }
+  ]
+}

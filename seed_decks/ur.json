@@ -1,0 +1,1128 @@
+{
+  "lang": "ur",
+  "name": "Top 100 Urdu Words",
+  "description": "The 100 most common words in Urdu — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "is",
+      "target_text": "ہے",
+      "romanization": "he",
+      "notes": "This is the singular present tense copula, essential for 'is' in statements like 'This is a book'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "میں",
+      "romanization": "myn",
+      "notes": "This is the first-person singular pronoun and remains the same for both masculine and feminine subjects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she / it / that / those",
+      "target_text": "وہ",
+      "romanization": "wh",
+      "notes": "This versatile pronoun refers to a distant third person (he/she/it) or a distant object (that), and also serves as plural (they/those).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "this / it / he / she",
+      "target_text": "یہ",
+      "romanization": "yh",
+      "notes": "This pronoun refers to a near object (this) or a near third person (he/she/it).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "of / possessive (masc. sg.)",
+      "target_text": "کا",
+      "romanization": "ka",
+      "notes": "This postposition indicates possession and agrees in gender and number with the *possessed* item, here masculine singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "of / possessive (masc. pl. / oblique)",
+      "target_text": "کے",
+      "romanization": "ke",
+      "notes": "This postposition indicates possession for masculine plural nouns or when the following noun is in the oblique case.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "of / possessive (fem.)",
+      "target_text": "کی",
+      "romanization": "ky",
+      "notes": "This postposition indicates possession for all feminine nouns, regardless of singular or plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "am",
+      "target_text": "ہوں",
+      "romanization": "hwn",
+      "notes": "This is the first-person singular present tense copula, used with 'I' (میں).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "are",
+      "target_text": "ہیں",
+      "romanization": "hyn",
+      "notes": "This is the plural or formal singular present tense copula, used with 'we' (ہم) or 'you' (آپ).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "and / more / else",
+      "target_text": "اور",
+      "romanization": "awr",
+      "notes": "This versatile word functions primarily as 'and' but can also mean 'more' or 'else' depending on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "نہیں",
+      "romanization": "nhyn",
+      "notes": "This is the most common word for negation in Urdu, used before verbs or adjectives.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "to / for / object marker",
+      "target_text": "کو",
+      "romanization": "kw",
+      "notes": "This postposition marks the indirect object of a verb or a definite direct object.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "on / at / upon",
+      "target_text": "پر",
+      "romanization": "pr",
+      "notes": "This postposition indicates position on a surface or a general location.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "from / by / with",
+      "target_text": "سے",
+      "romanization": "se",
+      "notes": "This versatile postposition indicates origin, means, comparison, or accompaniment.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "what / (question particle)",
+      "target_text": "کیا",
+      "romanization": "kya",
+      "notes": "This word functions as 'what' or can precede a sentence to form a yes/no question.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "one / a / an",
+      "target_text": "ایک",
+      "romanization": "ayk",
+      "notes": "This word functions as both the number 'one' and an indefinite article 'a' or 'an'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "article"
+      ]
+    },
+    {
+      "source_text": "you (formal / plural)",
+      "target_text": "آپ",
+      "romanization": "aap",
+      "notes": "This is the polite second-person pronoun, used for elders, strangers, or plural 'you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "you (informal / plural)",
+      "target_text": "تم",
+      "romanization": "tm",
+      "notes": "This is the informal second-person pronoun, typically used with friends, family, or children, and can be plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "informal"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "ہم",
+      "romanization": "hm",
+      "notes": "This is the first-person plural pronoun, equivalent to 'we' or 'us'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "was (masc. sg.)",
+      "target_text": "تھا",
+      "romanization": "tha",
+      "notes": "This is the masculine singular past tense copula, used for 'was' for male subjects or masculine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula",
+        "past"
+      ]
+    },
+    {
+      "source_text": "was (fem. sg.)",
+      "target_text": "تھی",
+      "romanization": "thy",
+      "notes": "This is the feminine singular past tense copula, used for 'was' for female subjects or feminine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula",
+        "past"
+      ]
+    },
+    {
+      "source_text": "were (masc. pl. / formal sg.)",
+      "target_text": "تھے",
+      "romanization": "the",
+      "notes": "This is the masculine plural or formal singular past tense copula.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula",
+        "past"
+      ]
+    },
+    {
+      "source_text": "are (informal sg.)",
+      "target_text": "ہو",
+      "romanization": "hw",
+      "notes": "This is the informal singular present tense copula, typically used with 'tum' (you informal).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "بہت",
+      "romanization": "bht",
+      "notes": "This adverb and adjective means 'very' (with adjectives/adverbs) or 'much/many' (with nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "to be / to happen",
+      "target_text": "ہونا",
+      "romanization": "hwna",
+      "notes": "This is the infinitive form of the verb 'to be' or 'to happen', foundational for existence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "کرنا",
+      "romanization": "krna",
+      "notes": "This is a highly versatile infinitive verb, forming many compound verbs with nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "جانا",
+      "romanization": "jana",
+      "notes": "This is the infinitive form of the verb 'to go', indicating movement away from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "آنا",
+      "romanization": "aana",
+      "notes": "This is the infinitive form of the verb 'to come', indicating movement towards the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "دینا",
+      "romanization": "dyna",
+      "notes": "This is the infinitive verb 'to give', often used in compound verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "لینا",
+      "romanization": "lyna",
+      "notes": "This is the infinitive verb 'to take', also frequently used in compound verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "good / fine / okay",
+      "target_text": "اچھا",
+      "romanization": "achha",
+      "notes": "This versatile word means 'good', 'fine', or 'okay' and is frequently used as an interjection.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "نام",
+      "romanization": "nam",
+      "notes": "This common noun refers to a person's name or the name of a thing.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "وقت",
+      "romanization": "wqt",
+      "notes": "This common masculine noun refers to time in general or a specific period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "آج",
+      "romanization": "aaj",
+      "notes": "This adverb refers to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow / yesterday",
+      "target_text": "کل",
+      "romanization": "kl",
+      "notes": "This single word can mean both 'yesterday' and 'tomorrow'; context or verb tense indicates the specific meaning.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "اب",
+      "romanization": "ab",
+      "notes": "This adverb indicates the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "یہاں",
+      "romanization": "yhan",
+      "notes": "This adverb indicates a location near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "وہاں",
+      "romanization": "whan",
+      "notes": "This adverb indicates a location distant from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "who?",
+      "target_text": "کون",
+      "romanization": "kwn",
+      "notes": "This interrogative pronoun is used for 'who' or 'which person' and changes form when used with postpositions.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "where?",
+      "target_text": "کہاں",
+      "romanization": "khan",
+      "notes": "This interrogative adverb asks about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "place"
+      ]
+    },
+    {
+      "source_text": "when?",
+      "target_text": "کب",
+      "romanization": "kb",
+      "notes": "This interrogative adverb asks about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "time"
+      ]
+    },
+    {
+      "source_text": "how? / in what way?",
+      "target_text": "کیسے",
+      "romanization": "kyse",
+      "notes": "This interrogative adverb asks about manner or method.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "why?",
+      "target_text": "کیوں",
+      "romanization": "kywn",
+      "notes": "This interrogative adverb asks for a reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "reason"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "گھر",
+      "romanization": "ghr",
+      "notes": "This masculine noun refers to a house or one's home.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "پانی",
+      "romanization": "pany",
+      "notes": "This masculine noun refers to water.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "food / to eat",
+      "target_text": "کھانا",
+      "romanization": "khana",
+      "notes": "This word serves as both the infinitive verb 'to eat' and the common masculine noun 'food'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "دن",
+      "romanization": "dn",
+      "notes": "This masculine noun refers to a day or daytime.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "رات",
+      "romanization": "rat",
+      "notes": "This feminine noun refers to the night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "کام",
+      "romanization": "kam",
+      "notes": "This masculine noun refers to work, a job, or a task.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "talk / matter / thing",
+      "target_text": "بات",
+      "romanization": "bat",
+      "notes": "This feminine noun refers to a conversation, a matter, or a general thing.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "people",
+      "target_text": "لوگ",
+      "romanization": "lwg",
+      "notes": "This masculine plural noun refers to people in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "big / old (elder)",
+      "target_text": "بڑا",
+      "romanization": "ba",
+      "notes": "This adjective means 'big' for objects or 'elder' for people; it changes form for gender and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size",
+        "age"
+      ]
+    },
+    {
+      "source_text": "small / young",
+      "target_text": "چھوٹا",
+      "romanization": "chhwa",
+      "notes": "This adjective means 'small' for objects or 'young' for people; it changes form for gender and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size",
+        "age"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "نیا",
+      "romanization": "nya",
+      "notes": "This adjective describes something as new; it changes form for gender and number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old (thing)",
+      "target_text": "پرانا",
+      "romanization": "prana",
+      "notes": "This adjective describes objects as old; for people, 'buddha' (بوڑھا) is used.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "بولنا",
+      "romanization": "bwlna",
+      "notes": "This is the infinitive verb 'to speak' or 'to talk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to see / to look",
+      "target_text": "دیکھنا",
+      "romanization": "dykhna",
+      "notes": "This is the infinitive verb 'to see' or 'to look'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "سننا",
+      "romanization": "snna",
+      "notes": "This is the infinitive verb 'to hear' or 'to listen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "پینا",
+      "romanization": "pyna",
+      "notes": "This is the infinitive verb 'to drink'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to read / to study",
+      "target_text": "پڑھنا",
+      "romanization": "phna",
+      "notes": "This is the infinitive verb 'to read' or 'to study'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "لکھنا",
+      "romanization": "lkhna",
+      "notes": "This is the infinitive verb 'to write'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "کہنا",
+      "romanization": "khna",
+      "notes": "This is the infinitive verb 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "pardon / forgiveness",
+      "target_text": "معاف",
+      "romanization": "m'af",
+      "notes": "This noun is commonly used in phrases like 'maaf karna' (to forgive) or 'maaf kijiye' (excuse me/pardon me).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "etiquette"
+      ]
+    },
+    {
+      "source_text": "thanks",
+      "target_text": "شکریہ",
+      "romanization": "shkryh",
+      "notes": "This common noun is used as a formal or informal expression of gratitude, meaning 'thank you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "greeting",
+        "etiquette"
+      ]
+    },
+    {
+      "source_text": "yes / polite particle",
+      "target_text": "جی",
+      "romanization": "jy",
+      "notes": "A highly versatile polite particle used for 'yes', to show deference, or as a general affirmative response.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "interjection",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "only",
+      "target_text": "صرف",
+      "romanization": "ṣrf",
+      "notes": "This adverb means 'only' or 'just'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "سب",
+      "romanization": "sb",
+      "notes": "This word functions as an adjective meaning 'all' or 'every', or as a pronoun meaning 'everyone/everything'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "some / any / a little",
+      "target_text": "کچھ",
+      "romanization": "kchh",
+      "notes": "This versatile word can mean 'some', 'any', or 'a little', often implying an indefinite amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "more / much",
+      "target_text": "زیادہ",
+      "romanization": "zyadh",
+      "notes": "This adverb and adjective means 'more' or 'much' and is used for comparison or quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "less / little",
+      "target_text": "کم",
+      "romanization": "km",
+      "notes": "This adverb and adjective means 'less' or 'little' and is used for comparison or quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "delay / late",
+      "target_text": "دیر",
+      "romanization": "dyr",
+      "notes": "This feminine noun refers to a delay or period of time, often used to mean 'late'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "quickly / soon",
+      "target_text": "جلدی",
+      "romanization": "jldy",
+      "notes": "This adverb means 'quickly' or 'soon'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "with / together",
+      "target_text": "ساتھ",
+      "romanization": "sath",
+      "notes": "This adverb and postposition means 'with' or 'together', indicating accompaniment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "لیکن",
+      "romanization": "lykn",
+      "notes": "This conjunction is used to introduce a contrasting idea.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "یا",
+      "romanization": "ya",
+      "notes": "This conjunction offers an alternative.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "if",
+      "target_text": "اگر",
+      "romanization": "agr",
+      "notes": "This conjunction introduces a conditional clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "when (conjunction)",
+      "target_text": "جب",
+      "romanization": "jb",
+      "notes": "This conjunction introduces a temporal clause, meaning 'when'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "time"
+      ]
+    },
+    {
+      "source_text": "then",
+      "target_text": "تب",
+      "romanization": "tb",
+      "notes": "This adverb indicates a consequence or subsequent event, meaning 'then'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before / first",
+      "target_text": "پہلے",
+      "romanization": "phle",
+      "notes": "This adverb and postposition means 'before' in time or 'first' in order.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "postposition",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after",
+      "target_text": "بعد",
+      "romanization": "b'd",
+      "notes": "This noun and postposition means 'after' in time or 'later'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "postposition",
+        "time"
+      ]
+    },
+    {
+      "source_text": "to live / to stay",
+      "target_text": "رہنا",
+      "romanization": "rhna",
+      "notes": "This is the infinitive verb 'to live' (reside) or 'to stay'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "پوچھنا",
+      "romanization": "pwchhna",
+      "notes": "This is the infinitive verb 'to ask' (a question).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to tell",
+      "target_text": "بتانا",
+      "romanization": "btana",
+      "notes": "This is the infinitive verb 'to tell' (information to someone).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "boy",
+      "target_text": "لڑکا",
+      "romanization": "lka",
+      "notes": "This masculine noun refers to a boy.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "girl",
+      "target_text": "لڑکی",
+      "romanization": "lky",
+      "notes": "This feminine noun refers to a girl.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "man / person",
+      "target_text": "آدمی",
+      "romanization": "aadmy",
+      "notes": "This masculine noun refers to a man or a person in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "عورت",
+      "romanization": "'wrt",
+      "notes": "This feminine noun refers to a woman.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "بچہ",
+      "romanization": "bchh",
+      "notes": "This masculine noun refers to a child.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "ماں",
+      "romanization": "man",
+      "notes": "This feminine noun refers to one's mother.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "باپ",
+      "romanization": "bap",
+      "notes": "This masculine noun refers to one's father.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "brother",
+      "target_text": "بھائی",
+      "romanization": "bha'y",
+      "notes": "This masculine noun refers to a brother.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "sister",
+      "target_text": "بہن",
+      "romanization": "bhn",
+      "notes": "This feminine noun refers to a sister.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "دوست",
+      "romanization": "dwst",
+      "notes": "This noun refers to a friend and can be used for both masculine and feminine individuals.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "کتاب",
+      "romanization": "ktab",
+      "notes": "This feminine noun refers to a book.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object",
+        "education"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "پیسہ",
+      "romanization": "pysh",
+      "notes": "This masculine noun refers to money or a coin.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "economy"
+      ]
+    },
+    {
+      "source_text": "city",
+      "target_text": "شہر",
+      "romanization": "shhr",
+      "notes": "This masculine noun refers to a city or town.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "ملک",
+      "romanization": "mlk",
+      "notes": "This masculine noun refers to a country.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "سال",
+      "romanization": "sal",
+      "notes": "This masculine noun refers to a year.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "ہفتہ",
+      "romanization": "hfth",
+      "notes": "This masculine noun refers to a week.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "مہینہ",
+      "romanization": "mhynh",
+      "notes": "This masculine noun refers to a month.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    }
+  ]
+}

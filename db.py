@@ -499,6 +499,44 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
         return admin_id
 
 
+# The account that owns official / auto-generated community decks (e.g. the
+# per-language "Top 100 Words" decks). It never logs in (unusable password) and
+# is not a real learner — decks are "official" purely by having this creator_id.
+SYSTEM_USERNAME = "__system__"
+SYSTEM_DISPLAY_NAME = "Silcoff Labs"
+
+
+async def get_or_create_system_user(password_hash: str) -> int:
+    """Ensure the system deck-owner account exists. Returns its user_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+            (SYSTEM_USERNAME,),
+        ) as cur:
+            row = await cur.fetchone()
+            if row:
+                return row["id"]
+        cur = await db.execute(
+            """INSERT INTO users
+               (username, password_hash, is_admin, display_name, email_verified)
+               VALUES (?, ?, 0, ?, 1)""",
+            (SYSTEM_USERNAME, password_hash, SYSTEM_DISPLAY_NAME),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def get_system_user_id() -> int | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+            (SYSTEM_USERNAME,),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 _USER_COLS = (
@@ -776,7 +814,8 @@ async def get_admin_dashboard_stats() -> dict:
                  COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NOT NULL THEN 1 ELSE 0 END),0) AS pro_paid,
                  COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NULL AND NOT is_admin THEN 1 ELSE 0 END),0) AS pro_comped,
                  COALESCE(SUM(CASE WHEN plan='free' AND NOT is_admin THEN 1 ELSE 0 END),0) AS free
-               FROM users"""
+               FROM users WHERE username != ?""",
+            (SYSTEM_USERNAME,),
         ) as cur:
             tier_row = dict(await cur.fetchone())
 
@@ -803,7 +842,8 @@ async def get_admin_dashboard_stats() -> dict:
                        )) AS last_active,
                       (SELECT ai_calls FROM usage_counters uc
                        WHERE uc.user_id=u.id AND uc.period=strftime('%Y-%m','now')) AS ai_calls_month
-               FROM users u ORDER BY u.id"""
+               FROM users u WHERE u.username != ? ORDER BY u.id""",
+            (SYSTEM_USERNAME,),
         ) as cur:
             users = [dict(r) for r in await cur.fetchall()]
 
@@ -819,8 +859,9 @@ async def get_admin_dashboard_stats() -> dict:
         # ── Signups this week / month ──
         async with db.execute(
             """SELECT
-                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-7 days')) AS signups_week,
-                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-30 days')) AS signups_month"""
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-7 days') AND username != ?) AS signups_week,
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-30 days') AND username != ?) AS signups_month""",
+            (SYSTEM_USERNAME, SYSTEM_USERNAME),
         ) as cur:
             signups = dict(await cur.fetchone())
 
@@ -2877,8 +2918,11 @@ async def get_streak(user_id: int) -> int:
     if not rows:
         return 0
 
-    from datetime import date, timedelta
-    today = date.today()
+    from datetime import date, datetime, timedelta, timezone
+    # Use UTC to match how activity is RECORDED (SQLite `date('now')` is UTC).
+    # Using local `date.today()` here would disagree with the stored dates on
+    # any non-UTC server, miscounting (or zeroing) the streak near midnight.
+    today = datetime.now(timezone.utc).date()
     # Allow streak if most-recent activity is today or yesterday.
     most_recent = date.fromisoformat(rows[0])
     if most_recent < today - timedelta(days=1):
@@ -3044,6 +3088,14 @@ async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> 
             "INSERT INTO points_ledger (user_id, lang, points, reason) VALUES (?, ?, ?, ?)",
             (user_id, lang, int(points), (reason or "").strip()[:200]),
         )
+        # Earning XP is, by definition, study — record the active day in the SAME
+        # transaction so the 🔥 streak can NEVER lag behind XP, no matter which
+        # feature awarded it (review, lesson, tutor, reader comprehension, …).
+        # UTC `date('now')` matches how the streak reads "today" (get_streak).
+        await db.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
         await db.commit()
 
 
@@ -3057,12 +3109,14 @@ async def get_points_total(user_id: int, lang: str) -> int:
 
 
 async def get_points_today(user_id: int, lang: str) -> int:
-    """XP earned today (all languages) — drives the daily-goal ring. Uses local
-    time so the goal resets at the learner's midnight, matching the streak."""
+    """XP earned today (all languages) — drives the daily-goal ring. Uses UTC
+    (`date('now')`) to reset on the SAME day boundary as the 🔥 streak and the
+    rest of the app (study_activity, DAU, first_seen_date), so the daily-goal
+    ring and the streak always roll over together."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
-            "WHERE user_id=? AND date(created_at, 'localtime') = date('now', 'localtime')",
+            "WHERE user_id=? AND date(created_at) = date('now')",
             (user_id,),
         ) as cur:
             return (await cur.fetchone())[0]
@@ -3526,6 +3580,71 @@ async def update_image_message(msg_id: int, description: str, analysis: dict) ->
         await db.commit()
 
 
+async def delete_message(msg_id: int, user_id: int) -> dict | None:
+    """Soft-delete a message (clear content, mark deleted). Returns old analysis for media cleanup."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await conn.execute_fetchall(
+            """SELECT m.id, m.analysis
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.id = ? AND m.sender_user_id = ?
+                 AND (c.user1_id = ? OR c.user2_id = ? OR c.owner_user_id = ?)""",
+            (msg_id, user_id, user_id, user_id, user_id),
+        )
+        if not row:
+            return None
+        analysis = json.loads(row[0]["analysis"]) if row[0]["analysis"] else {}
+        deleted_analysis = json.dumps({"deleted": True}, ensure_ascii=False)
+        await conn.execute(
+            "UPDATE messages SET original_text='', translations=NULL, analysis=?, sent_text=NULL WHERE id=?",
+            (deleted_analysis, msg_id),
+        )
+        await conn.execute("DELETE FROM message_reactions WHERE message_id=?", (msg_id,))
+        await conn.commit()
+    return analysis
+
+
+async def get_unprocessed_image_messages() -> list[dict]:
+    """Find image messages whose vision analysis produced no suggestions."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await conn.execute_fetchall(
+            """SELECT m.id, m.sender_user_id, m.conversation_id, m.analysis,
+                      c.user1_id, c.user2_id
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE m.analysis LIKE '%"type": "image"%'
+                  OR m.analysis LIKE '%"type":"image"%'
+               ORDER BY m.id""",
+        )
+    results = []
+    for r in rows:
+        analysis = json.loads(r["analysis"]) if r["analysis"] else {}
+        if analysis.get("type") != "image":
+            continue
+        sugg = analysis.get("suggestions") or {}
+        has_content = any(
+            (isinstance(v, dict) and (v.get("sender") or v.get("receiver")))
+            or (isinstance(v, list) and v)
+            for v in sugg.values()
+        )
+        if has_content:
+            continue
+        url = analysis.get("url", "")
+        media_id = url.rsplit("/", 1)[-1].replace(".jpg", "") if url else ""
+        results.append({
+            "msg_id": r["id"],
+            "sender_user_id": r["sender_user_id"],
+            "conversation_id": r["conversation_id"],
+            "user1_id": r["user1_id"],
+            "user2_id": r["user2_id"],
+            "media_id": media_id,
+            "analysis": analysis,
+        })
+    return results
+
+
 # ── Messenger account ──────────────────────────────────────────────────────────
 
 async def get_messenger_account(user_id: int) -> dict | None:
@@ -3912,14 +4031,70 @@ async def create_shared_deck(
         for i, item in enumerate(items):
             await db.execute(
                 """INSERT INTO shared_deck_items
-                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang, cefr_level, labels)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (deck_id, item["source_text"], item["target_text"],
                  item.get("romanization"), item.get("notes"), i,
-                 item.get("target_lang") or target_lang),
+                 item.get("target_lang") or target_lang,
+                 item.get("cefr_level"), _labels_json(item.get("labels"))),
             )
         await db.commit()
         return deck_id
+
+
+def _labels_json(labels) -> str | None:
+    """Normalize a deck item's labels to a JSON array string (or None)."""
+    if not labels:
+        return None
+    if isinstance(labels, str):
+        return labels  # already serialized
+    clean = [str(x).strip() for x in labels if str(x).strip()]
+    return json.dumps(clean) if clean else None
+
+
+async def upsert_featured_deck(
+    creator_id: int, name: str, description: str,
+    target_lang: str, items: list[dict],
+) -> tuple[int, str]:
+    """Create or update an official (system-owned) deck for a language IN PLACE.
+
+    Matches an existing deck by (creator_id, target_lang) so re-seeding preserves
+    the deck_id — importers' `deck_imports` and `deck_ratings` rows stay valid.
+    Items are a content snapshot (importers already copied them to their own
+    cards), so replacing them never affects existing importers. Returns
+    (deck_id, "created"|"updated")."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM shared_decks WHERE creator_id=? AND target_lang=? AND name=?",
+            (creator_id, target_lang, name),
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            deck_id, action = row[0], "updated"
+            await db.execute(
+                "UPDATE shared_decks SET description=?, visibility='public' WHERE id=?",
+                (description, deck_id),
+            )
+            await db.execute("DELETE FROM shared_deck_items WHERE deck_id=?", (deck_id,))
+        else:
+            cur = await db.execute(
+                """INSERT INTO shared_decks (creator_id, name, description, target_lang, visibility)
+                   VALUES (?, ?, ?, ?, 'public')""",
+                (creator_id, name, description, target_lang),
+            )
+            deck_id, action = cur.lastrowid, "created"
+        for i, item in enumerate(items):
+            await db.execute(
+                """INSERT INTO shared_deck_items
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang, cefr_level, labels)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (deck_id, item["source_text"], item["target_text"],
+                 item.get("romanization"), item.get("notes"), i,
+                 item.get("target_lang") or target_lang,
+                 item.get("cefr_level"), _labels_json(item.get("labels"))),
+            )
+        await db.commit()
+        return deck_id, action
 
 
 async def update_shared_deck(
@@ -3979,12 +4154,14 @@ async def list_my_decks(user_id: int) -> list[dict]:
         async with db.execute(
             """SELECT sd.id, sd.name, sd.description, sd.target_lang,
                       sd.visibility, sd.created_at,
-                      u.username as creator,
+                      COALESCE(NULLIF(u.display_name,''), u.username) as creator,
                       sd.creator_id,
                       COUNT(sdi.id) as card_count,
                       (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
                       COALESCE(dr.avg_r, 0) as avg_rating,
-                      COALESCE(dr.cnt, 0) as rating_count
+                      COALESCE(dr.cnt, 0) as rating_count,
+                      (SELECT rating FROM deck_ratings mr
+                       WHERE mr.deck_id = sd.id AND mr.user_id = ?) as user_rating
                FROM shared_decks sd
                JOIN users u ON sd.creator_id = u.id
                LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
@@ -3994,7 +4171,7 @@ async def list_my_decks(user_id: int) -> list[dict]:
                   OR EXISTS(SELECT 1 FROM deck_imports di2
                             WHERE di2.deck_id=sd.id AND di2.user_id=?)
                GROUP BY sd.id ORDER BY sd.created_at DESC""",
-            (user_id, user_id),
+            (user_id, user_id, user_id),
         ) as cur:
             rows = [dict(r) for r in await cur.fetchall()]
         for r in rows:
@@ -4020,7 +4197,7 @@ async def list_community_decks(
         sql = """
             SELECT sd.id, sd.name, sd.description, sd.target_lang,
                    sd.visibility, sd.created_at,
-                   u.username as creator,
+                   COALESCE(NULLIF(u.display_name,''), u.username) as creator,
                    COUNT(sdi.id) as card_count,
                    (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
                    EXISTS(SELECT 1 FROM deck_imports di2
@@ -4056,11 +4233,40 @@ async def list_community_decks(
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def list_featured_decks(target_lang: str | None = None) -> list[dict]:
+    """Public decks owned by the system user (official Top-100 word decks etc.).
+    Surfaced as onboarding suggestions. Returns [] if the system user or no
+    matching deck exists."""
+    sys_id = await get_system_user_id()
+    if not sys_id:
+        return []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        params: list = [sys_id]
+        sql = """
+            SELECT sd.id, sd.name, sd.description, sd.target_lang,
+                   COUNT(sdi.id) as card_count,
+                   COALESCE(dr.avg_r, 0) as avg_rating,
+                   COALESCE(dr.cnt, 0) as rating_count
+            FROM shared_decks sd
+            LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+            LEFT JOIN (SELECT deck_id, AVG(rating) as avg_r, COUNT(*) as cnt
+                       FROM deck_ratings GROUP BY deck_id) dr ON dr.deck_id = sd.id
+            WHERE sd.creator_id = ? AND sd.visibility = 'public'
+        """
+        if target_lang:
+            sql += " AND sd.target_lang = ?"
+            params.append(target_lang)
+        sql += " GROUP BY sd.id ORDER BY sd.created_at DESC"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT sd.*, u.username as creator
+            """SELECT sd.*, COALESCE(NULLIF(u.display_name,''), u.username) as creator
                FROM shared_decks sd JOIN users u ON sd.creator_id = u.id
                WHERE sd.id=?""",
             (deck_id,),
@@ -4093,7 +4299,7 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             else:
                 return None
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes, target_lang
+            """SELECT source_text, target_text, romanization, notes, target_lang, cefr_level
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
@@ -4195,50 +4401,219 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             ) as cur2:
                 label_id = (await cur2.fetchone())[0]
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes, target_lang
+            """SELECT source_text, target_text, romanization, notes, target_lang, cefr_level, labels
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
             items = [dict(r) for r in await cur.fetchall()]
-        created = 0
-        for item in items:
-            item_lang = item.get("target_lang") or target_lang
-            async with db.execute(
-                """SELECT id FROM cards
-                   WHERE user_id=? AND target_text=? AND target_lang=?""",
-                (user_id, item["target_text"], item_lang),
-            ) as cur:
-                existing = await cur.fetchone()
-            if existing:
-                card_id = existing[0]
-            else:
-                c = await db.execute(
-                    """INSERT INTO cards
-                       (user_id, source_text, target_text, romanization,
-                        target_lang, notes, priority)
-                       VALUES (?, ?, ?, ?, ?, ?, 3)""",
-                    (user_id, item["source_text"], item["target_text"],
-                     item.get("romanization"), item_lang, item.get("notes")),
-                )
-                card_id = c.lastrowid
-                for face in ("source", "target", "pronunciation"):
-                    await db.execute(
-                        """INSERT OR IGNORE INTO card_faces (card_id, face)
-                           VALUES (?, ?)""",
-                        (card_id, face),
-                    )
-                created += 1
-            await db.execute(
-                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
-                (card_id, label_id),
+
+        # Set-based import: do a handful of bulk queries instead of ~6 per card.
+        # A 2000-card deck previously fired ~12k awaited round-trips inside one
+        # long write transaction, which timed out. Now it's a few executemany's.
+        langs = {(it.get("target_lang") or target_lang) for it in items}
+        existing: dict[tuple, int] = {}
+        if langs:
+            q = ("SELECT id, target_text, target_lang FROM cards "
+                 "WHERE user_id=? AND target_lang IN (%s)"
+                 % ",".join("?" * len(langs)))
+            async with db.execute(q, (user_id, *langs)) as cur:
+                for r in await cur.fetchall():
+                    existing.setdefault((r["target_text"], r["target_lang"]), r["id"])
+
+        # Figure out which items are genuinely new (deduped by target+lang).
+        new_rows: list[tuple] = []
+        seen_new: set[tuple] = set()
+        for it in items:
+            key = (it["target_text"], it.get("target_lang") or target_lang)
+            if key in existing or key in seen_new:
+                continue
+            seen_new.add(key)
+            cefr = it.get("cefr_level")
+            if cefr not in ("A1", "A2", "B1", "B2", "C1", "C2"):
+                cefr = None
+            new_rows.append((
+                user_id, it["source_text"], it["target_text"],
+                it.get("romanization"), key[1], it.get("notes"), cefr,
+            ))
+
+        created_ids: list[int] = []
+        if new_rows:
+            async with db.execute("SELECT COALESCE(MAX(id), 0) AS m FROM cards") as cur:
+                before_max = (await cur.fetchone())["m"]
+            await db.executemany(
+                """INSERT INTO cards
+                   (user_id, source_text, target_text, romanization,
+                    target_lang, notes, cefr_level, priority)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 3)""",
+                new_rows,
             )
+            # No other writer can interleave inside our held write transaction,
+            # so every row we just inserted has id > before_max. Re-read them to
+            # map (target_text, lang) -> new id (robust, no rowid-order assumption).
+            async with db.execute(
+                "SELECT id, target_text, target_lang FROM cards WHERE user_id=? AND id>?",
+                (user_id, before_max),
+            ) as cur:
+                for r in await cur.fetchall():
+                    existing[(r["target_text"], r["target_lang"])] = r["id"]
+                    created_ids.append(r["id"])
+
+            await db.executemany(
+                "INSERT OR IGNORE INTO card_faces (card_id, face) VALUES (?, ?)",
+                [(cid, face) for cid in created_ids
+                 for face in ("source", "target", "pronunciation")],
+            )
+            # Remember exactly which cards this import created so un-import can
+            # delete only these (never the user's pre-existing cards).
+            await db.executemany(
+                "INSERT OR IGNORE INTO deck_import_cards (user_id, deck_id, card_id) VALUES (?, ?, ?)",
+                [(user_id, deck_id, cid) for cid in created_ids],
+            )
+
+        # Tag every deck card (new + pre-existing match) with the deck label.
+        label_card_ids = {
+            existing[(it["target_text"], it.get("target_lang") or target_lang)]
+            for it in items
+            if (it["target_text"], it.get("target_lang") or target_lang) in existing
+        }
+        await db.executemany(
+            "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+            [(cid, label_id) for cid in label_card_ids],
+        )
+
+        # Attach the deck's baked-in category labels (e.g. "pronoun", "food") so
+        # imported cards arrive organised like translate-flow cards. Bulk: create
+        # the distinct label set once, then map each card to its item's labels.
+        # Only newly-created cards get category labels (pre-existing cards keep
+        # their own organisation); the deck label above still tags everything.
+        item_by_key = {
+            (it["target_text"], it.get("target_lang") or target_lang): it
+            for it in items
+        }
+        all_names: set[str] = set()
+        card_label_names: list[tuple[int, str]] = []
+        created_set = set(created_ids)
+        for key, cid in existing.items():
+            if cid not in created_set:
+                continue
+            it = item_by_key.get(key)
+            if not it or not it.get("labels"):
+                continue
+            try:
+                names = json.loads(it["labels"]) if isinstance(it["labels"], str) else it["labels"]
+            except (json.JSONDecodeError, TypeError):
+                names = []
+            for nm in names:
+                nm = str(nm).strip()
+                if nm:
+                    all_names.add(nm)
+                    card_label_names.append((cid, nm))
+        if all_names:
+            await db.executemany(
+                "INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)",
+                [(user_id, nm) for nm in all_names],
+            )
+            name_to_id: dict[str, int] = {}
+            async with db.execute(
+                "SELECT id, name FROM labels WHERE user_id=?", (user_id,),
+            ) as cur:
+                for r in await cur.fetchall():
+                    name_to_id[str(r["name"]).casefold()] = r["id"]
+            await db.executemany(
+                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+                [(cid, name_to_id[nm.casefold()]) for cid, nm in card_label_names
+                 if nm.casefold() in name_to_id],
+            )
+
         await db.execute(
             "INSERT OR IGNORE INTO deck_imports (user_id, deck_id) VALUES (?, ?)",
             (user_id, deck_id),
         )
         await db.commit()
+        created = len(created_ids)
         return {"ok": True, "created": created, "total": len(items),
                 "label_id": label_id, "label_name": label_name}
+
+
+async def unimport_deck(user_id: int, deck_id: int) -> dict:
+    """Reverse an import: delete the cards this import CREATED (tracked in
+    deck_import_cards), drop the "📦 {deck_name}" label, and remove the
+    deck_imports row. Cards that pre-existed the import (it merely tagged them)
+    are never deleted — they just lose the deck label. For legacy imports with no
+    tracking rows, falls back to deleting cards tagged ONLY with the deck label."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return {"ok": False, "error": "Not imported"}
+        async with db.execute(
+            "SELECT name FROM shared_decks WHERE id=?", (deck_id,),
+        ) as cur:
+            deck_row = await cur.fetchone()
+
+        # The cards this import created (precise) — delete these outright, in
+        # chunked bulk deletes (a 2000-card un-import is a few queries, not ~6k).
+        async with db.execute(
+            "SELECT card_id FROM deck_import_cards WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        ) as cur:
+            created_ids = [r["card_id"] for r in await cur.fetchall()]
+        removed = 0
+        for i in range(0, len(created_ids), 500):
+            chunk = created_ids[i:i + 500]
+            ph = ",".join("?" * len(chunk))
+            await db.execute(f"DELETE FROM card_faces WHERE card_id IN ({ph})", chunk)
+            await db.execute(f"DELETE FROM card_labels WHERE card_id IN ({ph})", chunk)
+            cur = await db.execute(
+                f"DELETE FROM cards WHERE user_id=? AND id IN ({ph})",
+                (user_id, *chunk),
+            )
+            removed += cur.rowcount if cur.rowcount and cur.rowcount > 0 else len(chunk)
+        await db.execute(
+            "DELETE FROM deck_import_cards WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        )
+
+        # Remove the "📦 deck" label (and untag any survivors). For legacy imports
+        # (no tracking rows), delete cards left tagged ONLY with the deck label.
+        if deck_row:
+            label_name = f"📦 {deck_row['name']}"
+            async with db.execute(
+                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+                (user_id, label_name),
+            ) as cur:
+                lbl = await cur.fetchone()
+            if lbl:
+                label_id = lbl["id"]
+                if not created_ids:
+                    async with db.execute(
+                        "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,),
+                    ) as cur:
+                        tagged = [r["card_id"] for r in await cur.fetchall()]
+                    for cid in tagged:
+                        async with db.execute(
+                            "SELECT COUNT(*) AS n FROM card_labels WHERE card_id=?", (cid,),
+                        ) as cur:
+                            n = (await cur.fetchone())["n"]
+                        if n <= 1:
+                            await db.execute("DELETE FROM card_faces WHERE card_id=?", (cid,))
+                            await db.execute("DELETE FROM card_labels WHERE card_id=?", (cid,))
+                            await db.execute(
+                                "DELETE FROM cards WHERE id=? AND user_id=?", (cid, user_id),
+                            )
+                            removed += 1
+                await db.execute(
+                    "DELETE FROM labels WHERE id=? AND user_id=?", (label_id, user_id),
+                )
+        await db.execute(
+            "DELETE FROM deck_imports WHERE user_id=? AND deck_id=?",
+            (user_id, deck_id),
+        )
+        await db.commit()
+        return {"ok": True, "removed": removed}
 
 
 async def label_cards_for_deck(user_id: int, deck_name: str, card_ids: list[int]) -> int | None:

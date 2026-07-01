@@ -1,0 +1,1091 @@
+{
+  "lang": "he",
+  "name": "Top 100 Hebrew Words",
+  "description": "The 100 most common words in Hebrew — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "אני",
+      "romanization": "'ny",
+      "notes": "The most basic personal pronoun; for 'me' as a direct object, use אותי (oti), but אני is more common for 'I'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "you (m.s.)",
+      "target_text": "אתה",
+      "romanization": "'th",
+      "notes": "Used for addressing a single male or a male-dominant group informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "you (f.s.)",
+      "target_text": "את",
+      "romanization": "'t",
+      "notes": "Used for addressing a single female informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "he / it (m.)",
+      "target_text": "הוא",
+      "romanization": "hv'",
+      "notes": "A common pronoun for male persons and masculine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "she / it (f.)",
+      "target_text": "היא",
+      "romanization": "hy'",
+      "notes": "A common pronoun for female persons and feminine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "לא",
+      "romanization": "l'",
+      "notes": "The primary word for negation in Hebrew, used before verbs, adjectives, or nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "ו",
+      "romanization": "v",
+      "notes": "A very common conjunction, often prefixed directly to the following word (e.g., וגם - and also).",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "we",
+      "target_text": "אנחנו",
+      "romanization": "'nchnv",
+      "notes": "The plural personal pronoun for 'we'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "you (m.pl.)",
+      "target_text": "אתם",
+      "romanization": "'tm",
+      "notes": "Used for addressing a group of males or a mixed-gender group informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "they (m.pl.)",
+      "target_text": "הם",
+      "romanization": "hm",
+      "notes": "Used for referring to a group of males or a mixed-gender group.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "there is / has",
+      "target_text": "יש",
+      "romanization": "ysh",
+      "notes": "Expresses existence ('there is') or possession ('I have' is לי יש).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "there isn't / doesn't have",
+      "target_text": "אין",
+      "romanization": "'yn",
+      "notes": "The negation of 'יש', meaning 'there isn't' or 'doesn't have'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "מה",
+      "romanization": "mh",
+      "notes": "The most common interrogative pronoun, used for asking 'what'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "this / it (m.)",
+      "target_text": "זה",
+      "romanization": "zh",
+      "notes": "A demonstrative pronoun, also often used as a general 'it' or 'that is'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "hello / peace / goodbye",
+      "target_text": "שלום",
+      "romanization": "shlvm",
+      "notes": "A versatile greeting used for 'hello' and 'goodbye,' literally meaning 'peace'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "כן",
+      "romanization": "khn",
+      "notes": "The primary word for affirmation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "תודה",
+      "romanization": "tvdh",
+      "notes": "A very common expression of gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "expression",
+        "gratitude"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "מי",
+      "romanization": "my",
+      "notes": "Interrogative pronoun used for asking about people.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "איפה",
+      "romanization": "'yfh",
+      "notes": "Interrogative adverb for asking about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "איך",
+      "romanization": "'ykh",
+      "notes": "Interrogative adverb for asking about manner or condition.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "how much / how many",
+      "target_text": "כמה",
+      "romanization": "khmh",
+      "notes": "Interrogative adverb for asking about quantity or price.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "good / fine",
+      "target_text": "טוב",
+      "romanization": "tvv",
+      "notes": "A highly versatile adjective, also used as an interjection meaning 'okay' or 'fine'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "in / at / with (instrument)",
+      "target_text": "ב",
+      "romanization": "v",
+      "notes": "A highly frequent preposition, usually prefixed directly to the following word.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to / for / owned by",
+      "target_text": "ל",
+      "romanization": "l",
+      "notes": "A highly frequent preposition, usually prefixed directly to the following word, indicating direction, purpose, or possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "on / about / above",
+      "target_text": "על",
+      "romanization": "'l",
+      "notes": "A common preposition indicating location on top of something or referring to a topic.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "עם",
+      "romanization": "'m",
+      "notes": "A common preposition indicating accompaniment.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "accompaniment"
+      ]
+    },
+    {
+      "source_text": "from / than",
+      "target_text": "מ",
+      "romanization": "m",
+      "notes": "A highly frequent preposition, usually prefixed, meaning 'from' or used for comparison 'than'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "אבל",
+      "romanization": "'vl",
+      "notes": "A common conjunction used to introduce a contrasting idea.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "also / too / even",
+      "target_text": "גם",
+      "romanization": "gm",
+      "notes": "An adverb indicating addition or emphasis.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "יום",
+      "romanization": "yvm",
+      "notes": "A masculine noun referring to a day or daytime.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "בית",
+      "romanization": "vyt",
+      "notes": "A masculine noun for a building or a place of residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "housing"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "מים",
+      "romanization": "mym",
+      "notes": "A masculine plural noun that refers to water, always plural in form.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "food / eats (m.s.)",
+      "target_text": "אוכל",
+      "romanization": "'vkhl",
+      "notes": "Can be a masculine noun for 'food' or the present tense male singular verb 'eats'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "בוקר",
+      "romanization": "vvkr",
+      "notes": "A masculine noun referring to the morning, commonly used in 'boker tov' (good morning).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "ערב",
+      "romanization": "'rv",
+      "notes": "A masculine noun referring to the evening, commonly used in 'erev tov' (good evening).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "לילה",
+      "romanization": "lylh",
+      "notes": "A masculine noun referring to the night, used in 'layla tov' (good night).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "עכשיו",
+      "romanization": "'khshyv",
+      "notes": "An adverb indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "מחר",
+      "romanization": "mchr",
+      "notes": "An adverb referring to the next day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "אתמול",
+      "romanization": "'tmvl",
+      "notes": "An adverb referring to the previous day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "היום",
+      "romanization": "hyvm",
+      "notes": "A noun/adverb referring to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "want (m.s.)",
+      "target_text": "רוצה",
+      "romanization": "rvtsh",
+      "notes": "The present tense masculine singular form of the verb 'to want'; often used as a base form for learners.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "go / walk (m.s.)",
+      "target_text": "הולך",
+      "romanization": "hvlkh",
+      "notes": "The present tense masculine singular form of the verb 'to go' or 'to walk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "come (m.s.)",
+      "target_text": "בא",
+      "romanization": "v'",
+      "notes": "The present tense masculine singular form of the verb 'to come'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "do / make (m.s.)",
+      "target_text": "עושה",
+      "romanization": "'vshh",
+      "notes": "The present tense masculine singular form of the verb 'to do' or 'to make'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "say / tell (m.s.)",
+      "target_text": "אומר",
+      "romanization": "'vmr",
+      "notes": "The present tense masculine singular form of the verb 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "need / must (m.s.)",
+      "target_text": "צריך",
+      "romanization": "tsrykh",
+      "notes": "The present tense masculine singular form of the verb 'to need' or 'must'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "necessity"
+      ]
+    },
+    {
+      "source_text": "can / able (m.s.)",
+      "target_text": "יכול",
+      "romanization": "ykhvl",
+      "notes": "The present tense masculine singular form of the verb 'can' or 'be able to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "ability"
+      ]
+    },
+    {
+      "source_text": "know (m.s.)",
+      "target_text": "יודע",
+      "romanization": "yvd'",
+      "notes": "The present tense masculine singular form of the verb 'to know'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "speak / talk (m.s.)",
+      "target_text": "מדבר",
+      "romanization": "mdvr",
+      "notes": "The present tense masculine singular form of the verb 'to speak' or 'to talk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "man / person",
+      "target_text": "איש",
+      "romanization": "'ysh",
+      "notes": "A masculine noun referring to a man or a person in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman / wife",
+      "target_text": "אישה",
+      "romanization": "'yshh",
+      "notes": "A feminine noun referring to a woman or a wife.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "boy / child (m.)",
+      "target_text": "ילד",
+      "romanization": "yld",
+      "notes": "A masculine noun referring to a boy or a male child.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "girl / child (f.)",
+      "target_text": "ילדה",
+      "romanization": "yldh",
+      "notes": "A feminine noun referring to a girl or a female child.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "excuse me / sorry",
+      "target_text": "סליחה",
+      "romanization": "slychh",
+      "notes": "A common expression used to apologize or get attention.",
+      "cefr_level": "A1",
+      "labels": [
+        "expression",
+        "apology"
+      ]
+    },
+    {
+      "source_text": "please / you're welcome",
+      "target_text": "בבקשה",
+      "romanization": "vvkshh",
+      "notes": "A versatile expression for 'please' or 'you're welcome'.",
+      "cefr_level": "A1",
+      "labels": [
+        "expression",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "okay / alright",
+      "target_text": "בסדר",
+      "romanization": "vsdr",
+      "notes": "A common expression meaning 'okay,' 'alright,' or 'in order'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "expression"
+      ]
+    },
+    {
+      "source_text": "a lot / many / much",
+      "target_text": "הרבה",
+      "romanization": "hrvh",
+      "notes": "An adverb or adjective indicating a large quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "a little / few",
+      "target_text": "קצת",
+      "romanization": "ktst",
+      "notes": "An adverb or adjective indicating a small quantity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "new (m.s.)",
+      "target_text": "חדש",
+      "romanization": "chdsh",
+      "notes": "A masculine singular adjective for 'new'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old (m.s.) / sleeps (m.s.)",
+      "target_text": "ישן",
+      "romanization": "yshn",
+      "notes": "Can be a masculine singular adjective for 'old' or the present tense male singular verb 'sleeps'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "big / large (m.s.)",
+      "target_text": "גדול",
+      "romanization": "gdvl",
+      "notes": "A masculine singular adjective for 'big' or 'large'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little (m.s.)",
+      "target_text": "קטן",
+      "romanization": "ktn",
+      "notes": "A masculine singular adjective for 'small' or 'little'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "bad (m.s.)",
+      "target_text": "רע",
+      "romanization": "r'",
+      "notes": "A masculine singular adjective for 'bad'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "beautiful / nice (m./f.)",
+      "target_text": "יפה",
+      "romanization": "yfh",
+      "notes": "A common adjective that functions for both masculine and feminine singular forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "hot (m.s.)",
+      "target_text": "חם",
+      "romanization": "chm",
+      "notes": "A masculine singular adjective for 'hot'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "cold (m.s.)",
+      "target_text": "קר",
+      "romanization": "kr",
+      "notes": "A masculine singular adjective for 'cold'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "עיר",
+      "romanization": "'yr",
+      "notes": "A feminine noun for a city or town.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "street",
+      "target_text": "רחוב",
+      "romanization": "rchvv",
+      "notes": "A masculine noun for a street.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "place / spot",
+      "target_text": "מקום",
+      "romanization": "mkvm",
+      "notes": "A masculine noun for a location.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "location"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "ספר",
+      "romanization": "sfr",
+      "notes": "A masculine noun for a book.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "כסף",
+      "romanization": "khsf",
+      "notes": "A masculine noun for money, always singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "זמן",
+      "romanization": "zmn",
+      "notes": "A masculine noun for time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "name / there",
+      "target_text": "שם",
+      "romanization": "shm",
+      "notes": "Can be a masculine noun for 'name' or an adverb for 'there'; context distinguishes.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "adverb",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "עבודה",
+      "romanization": "'vvdh",
+      "notes": "A feminine noun for work or a job.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "להיות",
+      "romanization": "lhyvt",
+      "notes": "The infinitive form of the verb 'to be', crucial for constructing future tense and other verb forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "infinitive"
+      ]
+    },
+    {
+      "source_text": "when (question)",
+      "target_text": "מתי",
+      "romanization": "mty",
+      "notes": "Interrogative adverb for asking about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "למה",
+      "romanization": "lmh",
+      "notes": "Interrogative adverb for asking about reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "שבוע",
+      "romanization": "shvv'",
+      "notes": "A masculine noun for a week.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "חודש",
+      "romanization": "chvdsh",
+      "notes": "A masculine noun for a month.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "שנה",
+      "romanization": "shnh",
+      "notes": "A feminine noun for a year.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "משפחה",
+      "romanization": "mshfchh",
+      "notes": "A feminine noun for family.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "friend (m.)",
+      "target_text": "חבר",
+      "romanization": "chvr",
+      "notes": "A masculine noun for a friend or a male member.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "friend (f.) / girlfriend",
+      "target_text": "חברה",
+      "romanization": "chvrh",
+      "notes": "A feminine noun for a friend or a girlfriend.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "one (m.)",
+      "target_text": "אחד",
+      "romanization": "'chd",
+      "notes": "The masculine form of the number one.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "two (f.)",
+      "target_text": "שתיים",
+      "romanization": "shtyym",
+      "notes": "The feminine form of the number two, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three (f.)",
+      "target_text": "שלוש",
+      "romanization": "shlvsh",
+      "notes": "The feminine form of the number three, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four (f.)",
+      "target_text": "ארבע",
+      "romanization": "'rv'",
+      "notes": "The feminine form of the number four, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five (f.)",
+      "target_text": "חמש",
+      "romanization": "chmsh",
+      "notes": "The feminine form of the number five, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six (f.)",
+      "target_text": "שש",
+      "romanization": "shsh",
+      "notes": "The feminine form of the number six, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven (f.)",
+      "target_text": "שבע",
+      "romanization": "shv'",
+      "notes": "The feminine form of the number seven, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight (f.)",
+      "target_text": "שמונה",
+      "romanization": "shmvnh",
+      "notes": "The feminine form of the number eight, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine (f.)",
+      "target_text": "תשע",
+      "romanization": "tsh'",
+      "notes": "The feminine form of the number nine, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten (f.)",
+      "target_text": "עשר",
+      "romanization": "'shr",
+      "notes": "The feminine form of the number ten, often used when counting generically.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "מאה",
+      "romanization": "m'h",
+      "notes": "A feminine noun for the number one hundred.",
+      "cefr_level": "A2",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "thousand",
+      "target_text": "אלף",
+      "romanization": "'lf",
+      "notes": "A masculine noun for the number one thousand.",
+      "cefr_level": "A2",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "all / every / whole",
+      "target_text": "כל",
+      "romanization": "khl",
+      "notes": "A versatile adjective/determiner meaning 'all,' 'every,' or 'the whole of'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "רק",
+      "romanization": "rk",
+      "notes": "An adverb indicating restriction or emphasis.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "because / that",
+      "target_text": "כי",
+      "romanization": "khy",
+      "notes": "A conjunction meaning 'because' or introducing a subordinate clause, similar to English 'that'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "when (conjunction)",
+      "target_text": "כש",
+      "romanization": "khsh",
+      "notes": "A conjunction used to introduce a temporal clause, meaning 'when'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "time"
+      ]
+    },
+    {
+      "source_text": "if / whether",
+      "target_text": "אם",
+      "romanization": "'m",
+      "notes": "A conjunction used to introduce a conditional clause or a question.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction",
+        "condition"
+      ]
+    }
+  ]
+}

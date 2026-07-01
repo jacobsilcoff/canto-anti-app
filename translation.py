@@ -22,6 +22,10 @@ def _get_client(api_key: str):
 
 
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
+# Image phrase analysis asks for a heavy nested per-language sender/receiver JSON
+# structure — the cheapest model produces it unreliably (empty/malformed
+# suggestions). Use the mid-tier model for this quality-sensitive vision task.
+VISION_MODEL = "gemini-2.5-flash"
 # Models users may pick when spending on their OWN key. Server validates against
 # this so an arbitrary/expensive model id can't be injected via the API.
 MODEL_ALLOWLIST = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
@@ -577,17 +581,78 @@ SCRIPT_BY_LANG = {
 }
 
 
-def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL) -> str:
+def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
+          *, thinking_budget: int | None = None) -> str:
+    """Single Gemini text call with 503 backoff. Pass `thinking_budget=0` to turn
+    OFF the 2.5 models' built-in 'thinking' pass — a big latency win for focused,
+    low-reasoning calls (e.g. the flashcard Q&A pop-over) where it adds seconds
+    without improving the answer."""
+    config = None
+    if thinking_budget is not None:
+        from google.genai import types as _types
+        config = _types.GenerateContentConfig(
+            thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
+        )
     delays = [1, 3]
     for attempt, delay in enumerate([0] + delays):
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(model=model, contents=prompt).text.strip()
+            return _get_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config).text.strip()
         except ServerError as e:
             if e.status_code == 503 and attempt < len(delays):
                 continue
             raise
+
+
+async def _call_stream(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
+                       *, thinking_budget: int | None = None):
+    """Async generator yielding text chunks from a streaming Gemini call.
+
+    The SDK's streaming iterator is blocking, so a worker thread drives it and
+    pushes chunks onto an asyncio.Queue the event loop drains — letting the route
+    forward tokens to the client the moment the model emits them."""
+    config = None
+    if thinking_budget is not None:
+        from google.genai import types as _types
+        config = _types.GenerateContentConfig(
+            thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
+        )
+    loop = asyncio.get_event_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    def _produce():
+        try:
+            stream = _get_client(api_key).models.generate_content_stream(
+                model=model, contents=prompt, config=config)
+            for chunk in stream:
+                # `.text` can RAISE (not just return None) on some SDK versions
+                # for non-text/thought/empty chunks — guard it so one odd chunk
+                # (often the trailing usage-metadata one) can't abort the stream.
+                try:
+                    text = chunk.text
+                except Exception:
+                    text = None
+                if text:
+                    loop.call_soon_threadsafe(queue.put_nowait, text)
+        except Exception as exc:                    # surfaced to the consumer
+            loop.call_soon_threadsafe(queue.put_nowait, exc)
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+    fut = loop.run_in_executor(None, _produce)
+    try:
+        while True:
+            item = await queue.get()
+            if item is _DONE:
+                break
+            if isinstance(item, Exception):
+                raise item
+            yield item
+    finally:
+        await fut
 
 
 def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
@@ -599,9 +664,21 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(
+            resp = _get_client(api_key).models.generate_content(
                 model=model, contents=[part_img, prompt]
-            ).text.strip()
+            )
+            # resp.text is None when the response carried no text part — e.g. the
+            # prompt feedback / a candidate was blocked by safety filters. Calling
+            # .strip() on None raises AttributeError, which callers would otherwise
+            # swallow into a generic fallback, hiding the real cause. Surface it.
+            text = resp.text
+            if text is None:
+                reason = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+                if reason is None:
+                    cands = getattr(resp, "candidates", None) or []
+                    reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
+                raise ValueError(f"Vision model returned no text (reason: {reason})")
+            return text.strip()
         except ServerError as e:
             if e.status_code == 503 and attempt < len(delays):
                 continue
@@ -662,7 +739,7 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
         "}"
     )
     try:
-        raw = _call_with_image(prompt, image_bytes, api_key)
+        raw = _call_with_image(prompt, image_bytes, api_key, model=VISION_MODEL)
         result = _parse_json(raw)
         description = str(result.get("description", "")).strip() or "Photo"
         descriptions: dict[str, str] = {}
@@ -698,9 +775,13 @@ def analyze_image(image_bytes: bytes, langs: list[str], api_key: str) -> dict:
                 # Legacy flat list — assign to both perspectives
                 phrases = _clean_phrases(entry)
                 suggestions[code] = {"sender": phrases, "receiver": phrases}
+        if not suggestions:
+            logger.warning("analyze_image: parsed response but no usable suggestions "
+                           "(langs=%s); phrase menu will be empty", langs)
         return {"description": description, "descriptions": descriptions,
                 "suggestions": suggestions}
     except Exception:
+        logger.exception("analyze_image failed (langs=%s) — returning fallback", langs)
         return {"description": "Photo", "descriptions": {}, "suggestions": {}}
 
 
@@ -1603,6 +1684,47 @@ async def translate(
     prompt = _build_prompt(text, target_lang, source_is_target, context)
     raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
     return _parse_response(raw, text, source_is_target)
+
+
+async def regenerate_card_fields(
+    target_text: str, source_text: str, target_lang: str, *,
+    api_key: str, model: str = DEFAULT_MODEL,
+) -> dict:
+    """Re-author the AI-generated fields for an EXISTING card (the 🔄 refresh
+    button on the flashcard editor). Returns {notes, romanization}. The note is a
+    fresh learner-insight note from the model; romanization is always recomputed by
+    the offline oracle (never the model) so it stays consistent with the ruby."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    rules = info.get("rules", "")
+    rules_block = f"Language notes:\n{rules}\n" if rules else ""
+
+    prompt = (
+        f"You are helping a learner of {name}. Write a fresh, concise learner's NOTE for "
+        f"this flashcard.\n"
+        f"{rules_block}"
+        f'{name} word/phrase: {target_text}\n'
+        f'English meaning: {source_text}\n\n'
+        f"NOTES guidance: 1–2 sentences of genuine insight. Do NOT restate what the meaning "
+        f"already makes obvious. Focus on register/formality, common collocations, pitfalls for "
+        f"English speakers, cultural context, or a genuine etymology/mnemonic hook. Use an empty "
+        f"string if there is truly nothing non-obvious to add.\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{ "notes": "<your note, or empty string>" }'
+    )
+    notes = ""
+    try:
+        raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        if isinstance(raw, dict):
+            notes = (raw.get("notes") or "").strip()
+    except (ValueError, TypeError):
+        notes = ""
+
+    import tokenizer
+    romanization = tokenizer.romanize_text(target_text, target_lang) or ""
+    return {"notes": notes, "romanization": romanization}
 
 
 async def translate_message(text: str, source_lang: str, target_lang: str, *, api_key: str) -> dict:

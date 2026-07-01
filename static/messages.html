@@ -72,8 +72,8 @@
     .msg-chat-sub { font-size: 0.78rem; color: var(--text-muted); }
 
     /* Thread */
-    .msg-thread { flex: 1; overflow-y: auto; padding: 16px; display: flex;
-      flex-direction: column; gap: 10px; overscroll-behavior: contain;
+    .msg-thread { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch; }
     .msg-bubble-wrap { display: flex; flex-direction: column; gap: 2px; }
     .msg-bubble-wrap.mine { align-items: flex-end; }
@@ -403,6 +403,20 @@
     .rx-option { font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 4px;
       border-radius: 50%; border: none; background: none; transition: transform 0.1s; }
     .rx-option:hover { transform: scale(1.3); }
+
+    /* ── Swipe-to-delete ── */
+    .msg-swipe-row { display: flex; align-items: center; width: 100%; }
+    .msg-swipe-content { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column;
+      align-items: flex-end; }
+    .msg-delete-action { flex: 0 0 0px; overflow: hidden; white-space: nowrap;
+      transition: flex-basis 0.15s ease; border: none; cursor: pointer; padding: 0;
+      background: transparent; color: var(--danger); display: flex;
+      align-items: center; justify-content: center; }
+    .msg-delete-action.visible { flex-basis: 40px; }
+
+    /* Deleted-message placeholder */
+    .msg-deleted { font-size: 0.82rem; color: var(--text-muted); font-style: italic;
+      padding: 8px 14px; border: 1px dashed var(--border); border-radius: 18px; }
 
     /* ── Word tooltip (reader-style) ── */
     .word-tooltip { display: none; position: fixed; background: var(--surface);
@@ -952,12 +966,21 @@
     } catch {}
   }
 
+  const _trashSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
   function renderBubble(m) {
     const mine = m.is_mine;
     const cls = mine ? 'mine' : 'theirs';
     const isSending = !!m._sending;
     const analysis = m.analysis || {};
     const reactions = m.reactions || {};
+
+    // ── Deleted message ─────────────────────────────────────────────────────
+    if (analysis.deleted) {
+      return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
+        <div class="msg-deleted">${mine ? 'You unsent a message' : 'Message deleted'}</div>
+      </div>`;
+    }
 
     // ── Image bubble ─────────────────────────────────────────────────────────
     if (analysis.type === 'image') {
@@ -1009,8 +1032,7 @@
       const infoBtn = hasInfo
         ? `<button class="img-info-btn${_compactPhrases ? ' compact' : ''}" onclick="toggleImgInfo('${infoId}')" title="Phrases &amp; info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2.3A7 7 0 0 1 12 2z"/></svg>${_compactPhrases ? '' : ' Phrases'}</button>`
         : '';
-      return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
-        ${nameHtml}
+      const imgInner = `${nameHtml}
         <div class="msg-bubble msg-photo-bubble">
           <img src="${esc(imgSrc)}" class="msg-photo" loading="lazy"
                onclick="openPhoto('${esc(imgSrc)}')" alt="photo">
@@ -1018,8 +1040,16 @@
         </div>
         ${infoPanel}
         ${isSending ? '' : rxHtml}
-        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Analyzing…</span>' : relTime(m.created_at)}</div>
-      </div>`;
+        <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Analyzing…</span>' : relTime(m.created_at)}</div>`;
+      if (mine && !isSending) {
+        return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">
+          <div class="msg-swipe-row">
+            <div class="msg-swipe-content">${imgInner}</div>
+            <button class="msg-delete-action" data-msg-id="${m.id}" title="Unsend">${_trashSvg}</button>
+          </div>
+        </div>`;
+      }
+      return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}">${imgInner}</div>`;
     }
 
     // ── Text bubble ──────────────────────────────────────────────────────────
@@ -1124,8 +1154,7 @@
       </div>
     </div>` : '';
 
-    return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
-      ${nameHtml}
+    const txtInner = `${nameHtml}
       <div class="msg-bubble">${textHtml}</div>
       ${tools}
       ${corrHtml}
@@ -1133,8 +1162,16 @@
       ${nwHtml}
       ${aaHtml}
       ${isSending ? '' : rxHtml}
-      <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Processing…</span>' : relTime(m.created_at)}</div>
-    </div>`;
+      <div class="msg-bubble-time">${isSending ? '<span class="sending-indicator">⟳ Processing…</span>' : relTime(m.created_at)}</div>`;
+    if (mine && !isSending) {
+      return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">
+        <div class="msg-swipe-row">
+          <div class="msg-swipe-content">${txtInner}</div>
+          <button class="msg-delete-action" data-msg-id="${m.id}" title="Unsend">${_trashSvg}</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="msg-bubble-wrap ${cls}" id="bwrap-${m.id}" data-msgtext="${esc(m.display_text || '')}">${txtInner}</div>`;
   }
 
   function toggleAa(msgId) {
@@ -1636,6 +1673,78 @@
         ${emoji}<span class="rx-count">${count > 1 ? ' ' + count : ''}</span>
       </button>`
     ).join('');
+  }
+
+  // ── Swipe-to-delete on own messages ────────────────────────────────────────
+  {
+    const _SWIPE_THRESHOLD = 30;
+    let _swipeRow = null, _startX = 0, _dx = 0, _tracking = false;
+
+    const thread = document.getElementById('msg-thread');
+
+    function _closeAllSwipes(except) {
+      document.querySelectorAll('.msg-delete-action.visible').forEach(btn => {
+        if (except && btn.closest('.msg-swipe-row') === except) return;
+        btn.classList.remove('visible');
+      });
+    }
+
+    thread.addEventListener('touchstart', e => {
+      _tracking = false;
+      const row = e.target.closest('.msg-swipe-row');
+      if (!row) { _closeAllSwipes(); return; }
+      _swipeRow = row;
+      _startX = e.touches[0].clientX;
+      _dx = 0;
+      _tracking = true;
+    }, { passive: true });
+
+    thread.addEventListener('touchmove', e => {
+      if (!_tracking || !_swipeRow) return;
+      _dx = e.touches[0].clientX - _startX;
+    }, { passive: true });
+
+    thread.addEventListener('touchend', () => {
+      if (!_tracking || !_swipeRow) return;
+      const btn = _swipeRow.querySelector('.msg-delete-action');
+      if (!btn) { _swipeRow = null; return; }
+      const wasOpen = btn.classList.contains('visible');
+      if (_dx < -_SWIPE_THRESHOLD && !wasOpen) {
+        _closeAllSwipes(_swipeRow);
+        btn.classList.add('visible');
+      } else if (_dx > _SWIPE_THRESHOLD && wasOpen) {
+        btn.classList.remove('visible');
+      }
+      _swipeRow = null;
+      _tracking = false;
+    }, { passive: true });
+
+    thread.addEventListener('touchcancel', () => { _swipeRow = null; _tracking = false; }, { passive: true });
+
+    thread.addEventListener('click', async e => {
+      const btn = e.target.closest('.msg-delete-action[data-msg-id]');
+      if (!btn) {
+        if (!e.target.closest('.msg-swipe-row')) _closeAllSwipes();
+        return;
+      }
+      const msgId = btn.dataset.msgId;
+      if (!confirm('Unsend this message? It will be deleted for everyone.')) return;
+      try {
+        const res = await fetch(`/api/messages/${msgId}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          showToast(data.detail || 'Could not delete message', 2500);
+          return;
+        }
+        const bwrap = document.getElementById(`bwrap-${msgId}`);
+        if (bwrap) {
+          bwrap.innerHTML = '<div class="msg-deleted">You unsent a message</div>';
+          bwrap.className = 'msg-bubble-wrap mine';
+        }
+      } catch {
+        showToast('Could not delete message', 2500);
+      }
+    });
   }
 
   // Close tooltip and reaction picker when clicking outside

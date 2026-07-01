@@ -1,0 +1,1102 @@
+{
+  "lang": "ja",
+  "name": "Top 100 Japanese Words",
+  "description": "The 100 most common words in Japanese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be / it is",
+      "target_text": "です",
+      "romanization": "desu",
+      "notes": "This is the polite copula, used to link a noun or adjective to the end of a sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "copula",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "私",
+      "romanization": "watashi",
+      "notes": "A common first-person pronoun, often used by both men and women.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "Mr. / Ms.",
+      "target_text": "〜さん",
+      "romanization": "san",
+      "notes": "Attached to names as a polite honorific, never used for oneself.",
+      "cefr_level": "A1",
+      "labels": [
+        "honorific",
+        "suffix"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "人",
+      "romanization": "nin",
+      "notes": "Can refer to a single person or people in general; also used as a counter.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "はい",
+      "romanization": "hai",
+      "notes": "A very common affirmative response.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "no",
+      "target_text": "いいえ",
+      "romanization": "iie",
+      "notes": "A polite negative response.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "何",
+      "romanization": "nani",
+      "notes": "Pronounced なに when standalone or before certain particles, and なん before certain consonants.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this",
+      "target_text": "これ",
+      "romanization": "kore",
+      "notes": "Used for something physically close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that",
+      "target_text": "それ",
+      "romanization": "sore",
+      "notes": "Used for something physically close to the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that (over there)",
+      "target_text": "あれ",
+      "romanization": "are",
+      "notes": "Used for something far from both the speaker and listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "どこ",
+      "romanization": "doko",
+      "notes": "A question word used to ask about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "place"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "ありがとう",
+      "romanization": "arigatou",
+      "notes": "The informal version of 'thank you'; ありがとう ございます is the polite form.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "excuse me / sorry",
+      "target_text": "すみません",
+      "romanization": "sumimasen",
+      "notes": "Can be used to apologize, get attention, or thank someone for a favor.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "apology"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "食べる",
+      "romanization": "tabe ru",
+      "notes": "A common る-verb (ichidan verb) for consuming food.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily life"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "飲む",
+      "romanization": "nomu",
+      "notes": "A common う-verb (godan verb) for consuming liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily life"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "行く",
+      "romanization": "iku",
+      "notes": "An irregular う-verb (godan verb) with a special past tense conjugation (行った).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "来る",
+      "romanization": "kuru",
+      "notes": "An irregular verb (くる verb) with unique conjugations.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to do",
+      "target_text": "する",
+      "romanization": "suru",
+      "notes": "A versatile irregular verb (する verb) often used to turn nouns into verbs (e.g., 勉強する).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "general"
+      ]
+    },
+    {
+      "source_text": "to exist (inanimate) / to have",
+      "target_text": "ある",
+      "romanization": "aru",
+      "notes": "Used for the existence of inanimate objects or concepts, and also for possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to exist (animate) / to have",
+      "target_text": "いる",
+      "romanization": "iru",
+      "notes": "Used for the existence of animate beings (people, animals) and for possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "いい",
+      "romanization": "ii",
+      "notes": "The most common and colloquial form of the adjective 良い.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "evaluation"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "読む",
+      "romanization": "yomu",
+      "notes": "A common う-verb (godan verb) for the action of reading.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "study"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "書く",
+      "romanization": "kaku",
+      "notes": "A common う-verb (godan verb) for the action of writing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "study"
+      ]
+    },
+    {
+      "source_text": "to see / look",
+      "target_text": "見る",
+      "romanization": "miru",
+      "notes": "A common る-verb (ichidan verb) for perceiving with the eyes.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to hear / ask / listen",
+      "target_text": "聞く",
+      "romanization": "kiku",
+      "notes": "A versatile う-verb (godan verb) with meanings related to auditory perception and inquiry.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to speak / talk",
+      "target_text": "話す",
+      "romanization": "hanasu",
+      "notes": "A common う-verb (godan verb) for verbal communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "買う",
+      "romanization": "kau",
+      "notes": "A common う-verb (godan verb) for purchasing goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "分かる",
+      "romanization": "waka ru",
+      "notes": "An intransitive う-verb (godan verb) typically used with the particle が.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "time / moment",
+      "target_text": "時",
+      "romanization": "toki",
+      "notes": "Can refer to a general period of time, a specific moment, or 'when'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "今",
+      "romanization": "ima",
+      "notes": "Refers to the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "今日",
+      "romanization": "kyou",
+      "notes": "Often used without particles when indicating a time period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "明日",
+      "romanization": "ashita",
+      "notes": "Refers to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "昨日",
+      "romanization": "kinou",
+      "notes": "Refers to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hello",
+      "target_text": "こんにちは",
+      "romanization": "konnichiha",
+      "notes": "A standard daytime greeting, literally meaning 'this day is'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "good evening",
+      "target_text": "こんばんは",
+      "romanization": "konbanha",
+      "notes": "A standard evening greeting.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "good morning",
+      "target_text": "おはよう",
+      "romanization": "ohayou",
+      "notes": "The informal version; おはよう ございます is the polite form.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "goodbye",
+      "target_text": "さようなら",
+      "romanization": "sayounara",
+      "notes": "A formal goodbye, often implies a longer separation.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "どう",
+      "romanization": "dou",
+      "notes": "A question word asking about method or state.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "いつ",
+      "romanization": "itsu",
+      "notes": "A question word used to ask about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "time"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "誰",
+      "romanization": "dare",
+      "notes": "A question word used to ask about a person.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "とても",
+      "romanization": "totemo",
+      "notes": "An adverb used to intensify adjectives or adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "degree"
+      ]
+    },
+    {
+      "source_text": "a little / a few",
+      "target_text": "少し",
+      "romanization": "sukoshi",
+      "notes": "Can describe a small amount or degree, or 'a little bit'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "沢山",
+      "romanization": "takusan",
+      "notes": "Used to describe a large quantity of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "often / well",
+      "target_text": "よく",
+      "romanization": "yoku",
+      "notes": "Can mean 'often' for frequency or 'well' for quality.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "いつも",
+      "romanization": "itsumo",
+      "notes": "Indicates something happens all the time or without fail.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "sometimes",
+      "target_text": "時々",
+      "romanization": "tokidoki",
+      "notes": "Indicates something happens occasionally.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "名前",
+      "romanization": "namae",
+      "notes": "The word for a person's name.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "お金",
+      "romanization": "o kin",
+      "notes": "The common word for money, often used with the honorific お.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "Japan",
+      "target_text": "日本",
+      "romanization": "nippon",
+      "notes": "The country name, commonly read as にほん.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "country"
+      ]
+    },
+    {
+      "source_text": "Japanese language",
+      "target_text": "日本語",
+      "romanization": "nihongo",
+      "notes": "Refers to the Japanese language.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "English language",
+      "target_text": "英語",
+      "romanization": "eigo",
+      "notes": "Refers to the English language.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "student",
+      "target_text": "学生",
+      "romanization": "gakusei",
+      "notes": "A general term for a student.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "先生",
+      "romanization": "sensei",
+      "notes": "A polite term for a teacher, doctor, or master of a skill.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "job / work",
+      "target_text": "仕事",
+      "romanization": "shigoto",
+      "notes": "Can be used as a noun or combined with する to form a verb 'to work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "occupation"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "家族",
+      "romanization": "kazoku",
+      "notes": "A general term for one's family or a family unit.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "友達",
+      "romanization": "tomodachi",
+      "notes": "A common word for a friend.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man / male",
+      "target_text": "男",
+      "romanization": "otoko",
+      "notes": "Refers to a man or the male gender.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman / female",
+      "target_text": "女",
+      "romanization": "onna",
+      "notes": "Refers to a woman or the female gender.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "子供",
+      "romanization": "kodomo",
+      "notes": "A general term for a child.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "my father",
+      "target_text": "父",
+      "romanization": "chichi",
+      "notes": "Used to refer to your own father.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "my mother",
+      "target_text": "母",
+      "romanization": "haha",
+      "notes": "Used to refer to your own mother.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "meal / cooked rice",
+      "target_text": "ご飯",
+      "romanization": "go meshi",
+      "notes": "Can mean a meal in general or specifically cooked rice.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "水",
+      "romanization": "mizu",
+      "notes": "The common word for water.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "tea",
+      "target_text": "お茶",
+      "romanization": "o cha",
+      "notes": "A general term for tea, often used with the honorific お.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "coffee",
+      "target_text": "コーヒー",
+      "romanization": "koohii",
+      "notes": "A loanword for coffee.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food",
+        "loanword"
+      ]
+    },
+    {
+      "source_text": "milk",
+      "target_text": "牛乳",
+      "romanization": "gyuunyuu",
+      "notes": "The common word for cow's milk.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "bread",
+      "target_text": "パン",
+      "romanization": "pan",
+      "notes": "A loanword for bread.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food",
+        "loanword"
+      ]
+    },
+    {
+      "source_text": "meat",
+      "target_text": "肉",
+      "romanization": "niku",
+      "notes": "A general term for meat.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "fish",
+      "target_text": "魚",
+      "romanization": "sakana",
+      "notes": "A general term for fish.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "vegetable",
+      "target_text": "野菜",
+      "romanization": "yasai",
+      "notes": "A general term for vegetables.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "fruit",
+      "target_text": "果物",
+      "romanization": "kudamono",
+      "notes": "A general term for fruit.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "big",
+      "target_text": "大きい",
+      "romanization": "ookii",
+      "notes": "An い-adjective used to describe large size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small",
+      "target_text": "小さい",
+      "romanization": "chiisai",
+      "notes": "An い-adjective used to describe small size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "high / expensive",
+      "target_text": "高い",
+      "romanization": "takai",
+      "notes": "A versatile い-adjective meaning 'high', 'tall', or 'expensive'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "evaluation"
+      ]
+    },
+    {
+      "source_text": "cheap",
+      "target_text": "安い",
+      "romanization": "yasui",
+      "notes": "An い-adjective used to describe low cost.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "evaluation"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "新しい",
+      "romanization": "atarashii",
+      "notes": "An い-adjective used to describe something new or recent.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "古い",
+      "romanization": "furui",
+      "notes": "An い-adjective used to describe something old (but not for people's age).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "busy",
+      "target_text": "忙しい",
+      "romanization": "isogashii",
+      "notes": "An い-adjective describing a state of being busy.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "difficult",
+      "target_text": "難しい",
+      "romanization": "muzukashii",
+      "notes": "An い-adjective describing something challenging.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "evaluation"
+      ]
+    },
+    {
+      "source_text": "easy",
+      "target_text": "易しい",
+      "romanization": "yasashii",
+      "notes": "An い-adjective describing something simple or easy to understand.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "evaluation"
+      ]
+    },
+    {
+      "source_text": "delicious",
+      "target_text": "美味しい",
+      "romanization": "oishii",
+      "notes": "An い-adjective to describe something tasty or delicious.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "food"
+      ]
+    },
+    {
+      "source_text": "hot (weather)",
+      "target_text": "暑い",
+      "romanization": "atsui",
+      "notes": "An い-adjective specifically for hot weather.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "cold (weather)",
+      "target_text": "寒い",
+      "romanization": "samui",
+      "notes": "An い-adjective specifically for cold weather.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "warm (weather)",
+      "target_text": "暖かい",
+      "romanization": "atatakai",
+      "notes": "An い-adjective for warm weather, implying pleasantness.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "cool (weather)",
+      "target_text": "涼しい",
+      "romanization": "suzushii",
+      "notes": "An い-adjective for cool weather, implying pleasantness.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "hot (object)",
+      "target_text": "熱い",
+      "romanization": "atsui",
+      "notes": "An い-adjective specifically for hot objects or liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "cold (object)",
+      "target_text": "冷たい",
+      "romanization": "tsumetai",
+      "notes": "An い-adjective specifically for cold objects or liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "liked / favorite",
+      "target_text": "好き",
+      "romanization": "suki",
+      "notes": "A な-adjective expressing fondness or preference, often used with the particle が.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "disliked / hated",
+      "target_text": "嫌い",
+      "romanization": "kirai",
+      "notes": "A な-adjective expressing dislike or hatred, often used with the particle が.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "feeling"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "国",
+      "romanization": "kuni",
+      "notes": "A general term for a country or nation.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "shop / store",
+      "target_text": "店",
+      "romanization": "mise",
+      "notes": "A general term for a retail store or shop.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "station",
+      "target_text": "駅",
+      "romanization": "eki",
+      "notes": "Refers to a train or bus station.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "hospital",
+      "target_text": "病院",
+      "romanization": "byouin",
+      "notes": "The place for medical treatment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "bank",
+      "target_text": "銀行",
+      "romanization": "ginkou",
+      "notes": "The place for financial transactions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "university",
+      "target_text": "大学",
+      "romanization": "daigaku",
+      "notes": "A higher education institution.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "学校",
+      "romanization": "gakkou",
+      "notes": "A general term for a school.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "部屋",
+      "romanization": "heya",
+      "notes": "A general term for a room in a building.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "家",
+      "romanization": "ie",
+      "notes": "Can be read いえ for a house or うち for one's own home.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "本",
+      "romanization": "hon",
+      "notes": "A general term for a book.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "dictionary",
+      "target_text": "辞書",
+      "romanization": "jisho",
+      "notes": "A book containing an alphabetical list of words and their meanings.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object",
+        "study"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1095 @@
+{
+  "lang": "tr",
+  "name": "Top 100 Turkish Words",
+  "description": "The 100 most common words in Turkish — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be, become",
+      "target_text": "Olmak",
+      "romanization": "",
+      "notes": "This is the core verb for existence and states, functioning similarly to 'to be' in English when used with predicate nouns/adjectives.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "Ben",
+      "romanization": "",
+      "notes": "Used as the subject or object pronoun; personal pronouns are crucial for basic communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "Sen",
+      "romanization": "",
+      "notes": "Used for informal singular 'you'; remember 'siz' for plural or formal 'you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "O",
+      "romanization": "",
+      "notes": "Turkish has no grammatical gender for pronouns, so 'o' covers all third-person singular subjects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "Biz",
+      "romanization": "",
+      "notes": "Always refers to a group including the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "you (plural/formal)",
+      "target_text": "Siz",
+      "romanization": "",
+      "notes": "Use 'siz' for addressing multiple people or for showing respect in formal situations.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "Onlar",
+      "romanization": "",
+      "notes": "Refers to multiple third-person subjects or objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "there is / are",
+      "target_text": "Var",
+      "romanization": "",
+      "notes": "Used to express existence or possession (e.g., 'Benim kedim var' - I have a cat, lit. 'My cat exists').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "there isn't / aren't",
+      "target_text": "Yok",
+      "romanization": "",
+      "notes": "The negative counterpart of 'var', also used for negation of possession (e.g., 'Kedim yok' - I don't have a cat).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to do / make",
+      "target_text": "Yapmak",
+      "romanization": "",
+      "notes": "A versatile verb used for many actions, like 'yemek yapmak' (to make food) or 'iş yapmak' (to do work).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "Gitmek",
+      "romanization": "",
+      "notes": "Often used with dative case to indicate destination (e.g., 'Eve gidiyorum' - I am going home).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "Gelmek",
+      "romanization": "",
+      "notes": "Often used with dative case to indicate destination or origin (e.g., 'Buraya gel' - Come here).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "İstemek",
+      "romanization": "",
+      "notes": "Can take a direct object or an infinitive verb (e.g., 'su istiyorum' - I want water, 'gitmek istiyorum' - I want to go).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "Bilmek",
+      "romanization": "",
+      "notes": "Used for knowing facts, information, or how to do something (e.g., 'İngilizce biliyor musun?' - Do you know English?).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "Görmek",
+      "romanization": "",
+      "notes": "The primary verb for visual perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "Vermek",
+      "romanization": "",
+      "notes": "Often used with dative case for the recipient (e.g., 'Bana kalem ver' - Give me the pen).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take / buy",
+      "target_text": "Almak",
+      "romanization": "",
+      "notes": "A very common verb with multiple meanings, including 'to buy' (e.g., 'ne aldın?' - what did you buy?).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to say / tell",
+      "target_text": "Söylemek",
+      "romanization": "",
+      "notes": "Used for direct or indirect speech (e.g., 'Bana adını söyle' - Tell me your name).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to look / gaze",
+      "target_text": "Bakmak",
+      "romanization": "",
+      "notes": "Often used with dative case to indicate what is being looked at (e.g., 'Bana bak' - Look at me).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to speak / talk",
+      "target_text": "Konuşmak",
+      "romanization": "",
+      "notes": "Used for verbal communication (e.g., 'Türkçe konuşuyor musun?' - Do you speak Turkish?).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to eat / food",
+      "target_text": "Yemek",
+      "romanization": "",
+      "notes": "Can be a verb 'to eat' or a noun 'food'/'meal' depending on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "İçmek",
+      "romanization": "",
+      "notes": "Used for consuming liquids (e.g., 'su içiyorum' - I am drinking water).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to love / like",
+      "target_text": "Sevmek",
+      "romanization": "",
+      "notes": "Covers both 'to like' and 'to love', context determines the intensity (e.g., 'kahve severim' - I like coffee, 'seni seviyorum' - I love you).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to think",
+      "target_text": "Düşünmek",
+      "romanization": "",
+      "notes": "Used for mental processes and contemplation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "Anlamak",
+      "romanization": "",
+      "notes": "Crucial for expressing comprehension.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "Yazmak",
+      "romanization": "",
+      "notes": "Used for the act of writing (e.g., 'mektup yazmak' - to write a letter).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "Okumak",
+      "romanization": "",
+      "notes": "Used for the act of reading (e.g., 'kitap okumak' - to read a book).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "Sormak",
+      "romanization": "",
+      "notes": "Used for asking questions (e.g., 'bir soru sormak' - to ask a question).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to stay / remain",
+      "target_text": "Kalmak",
+      "romanization": "",
+      "notes": "Indicates staying in a place or a state (e.g., 'evde kalmak' - to stay at home).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to stop / stand",
+      "target_text": "Durmak",
+      "romanization": "",
+      "notes": "Can mean to stop moving or to be in a standing position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to start / begin",
+      "target_text": "Başlamak",
+      "romanization": "",
+      "notes": "Used for initiating an action or event (e.g., 'ders başladı' - the lesson started).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to end / finish (intr.)",
+      "target_text": "Bitmek",
+      "romanization": "",
+      "notes": "Describes something coming to an end by itself (e.g., 'film bitti' - the movie ended).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "Nasıl",
+      "romanization": "",
+      "notes": "Used to ask about manner or quality (e.g., 'Nasılsın?' - How are you?).",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "Ne",
+      "romanization": "",
+      "notes": "Used to ask about things or actions (e.g., 'Bu ne?' - What is this?).",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "who / whom",
+      "target_text": "Kim",
+      "romanization": "",
+      "notes": "Used to ask about people (e.g., 'Bu kim?' - Who is this?).",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "where / which place",
+      "target_text": "Nere",
+      "romanization": "",
+      "notes": "This is the base noun for 'place'; it takes case endings like '-de' (in, at: 'nerede' - where?) or '-ye' (to: 'nereye' - to where?).",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "noun"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "Zaman",
+      "romanization": "",
+      "notes": "A fundamental concept and noun; 'ne zaman?' means 'when?'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "why / reason",
+      "target_text": "Neden",
+      "romanization": "",
+      "notes": "Can be an interrogative adverb ('why') or a noun ('reason').",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "how many / how much",
+      "target_text": "Kaç",
+      "romanization": "",
+      "notes": "Used for quantities (e.g., 'Kaç yaşındasın?' - How old are you? lit. 'How many years are you in?').",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "which",
+      "target_text": "Hangi",
+      "romanization": "",
+      "notes": "Always precedes a noun to ask about a choice from a group (e.g., 'Hangi kitap?' - Which book?).",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "Şimdi",
+      "romanization": "",
+      "notes": "Indicates the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "Bugün",
+      "romanization": "",
+      "notes": "Formed from 'bu' (this) and 'gün' (day).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "Yarın",
+      "romanization": "",
+      "notes": "Refers to the day after today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "Dün",
+      "romanization": "",
+      "notes": "Refers to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before / ago",
+      "target_text": "Önce",
+      "romanization": "",
+      "notes": "Can function as an adverb or a postposition (e.g., 'iki yıl önce' - two years ago).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after / then",
+      "target_text": "Sonra",
+      "romanization": "",
+      "notes": "Can function as an adverb or a postposition (e.g., 'bir saat sonra' - after one hour).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "Çok",
+      "romanization": "",
+      "notes": "A versatile word used to express quantity ('çok su' - much water) or intensity ('çok güzel' - very beautiful).",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "little / few",
+      "target_text": "Az",
+      "romanization": "",
+      "notes": "The opposite of 'çok', used for small quantities or low intensity ('az su' - little water, 'azıcık' - a tiny bit).",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "every",
+      "target_text": "Her",
+      "romanization": "",
+      "notes": "Always precedes a noun to indicate all items in a group (e.g., 'her gün' - every day).",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "one / a, an",
+      "target_text": "Bir",
+      "romanization": "",
+      "notes": "Can be the number 'one' or the indefinite article 'a'/'an' (e.g., 'bir kitap' - a book, 'bir elma' - one apple).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "İki",
+      "romanization": "",
+      "notes": "The cardinal number two.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "Üç",
+      "romanization": "",
+      "notes": "The cardinal number three.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "Dört",
+      "romanization": "",
+      "notes": "The cardinal number four.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "Beş",
+      "romanization": "",
+      "notes": "The cardinal number five.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "Altı",
+      "romanization": "",
+      "notes": "The cardinal number six.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "Yedi",
+      "romanization": "",
+      "notes": "The cardinal number seven.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "Sekiz",
+      "romanization": "",
+      "notes": "The cardinal number eight.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "Dokuz",
+      "romanization": "",
+      "notes": "The cardinal number nine.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "On",
+      "romanization": "",
+      "notes": "The cardinal number ten.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "Büyük",
+      "romanization": "",
+      "notes": "Describes size; also means 'great' or 'elder'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "Küçük",
+      "romanization": "",
+      "notes": "Describes size; the opposite of 'büyük'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "İyi",
+      "romanization": "",
+      "notes": "A fundamental adjective for quality (e.g., 'iyi bir insan' - a good person, 'İyiyim' - I am good).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "bad",
+      "target_text": "Kötü",
+      "romanization": "",
+      "notes": "The opposite of 'iyi', indicating poor quality or negative state.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "beautiful / nice",
+      "target_text": "Güzel",
+      "romanization": "",
+      "notes": "Used for aesthetic appeal, or generally meaning 'nice'/'pleasant'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "Yeni",
+      "romanization": "",
+      "notes": "Describes something recently acquired or made, or not old.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "time"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "Eski",
+      "romanization": "",
+      "notes": "Describes something that has existed for a long time or is no longer new.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hot / warm",
+      "target_text": "Sıcak",
+      "romanization": "",
+      "notes": "Refers to temperature, can also describe personality (e.g., 'sıcak bir insan' - a warm person).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "Soğuk",
+      "romanization": "",
+      "notes": "The opposite of 'sıcak', also used to describe unfriendly demeanor.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "easy",
+      "target_text": "Kolay",
+      "romanization": "",
+      "notes": "Describes something simple or not difficult to do.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "difficult / hard",
+      "target_text": "Zor",
+      "romanization": "",
+      "notes": "The opposite of 'kolay', indicating something challenging or complex.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "correct / right",
+      "target_text": "Doğru",
+      "romanization": "",
+      "notes": "Can mean 'correct' (adjective) or 'straight'/'directly' (adverb).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "wrong / incorrect",
+      "target_text": "Yanlış",
+      "romanization": "",
+      "notes": "The opposite of 'doğru', indicating error or inaccuracy.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "open / light (color)",
+      "target_text": "Açık",
+      "romanization": "",
+      "notes": "Can describe something open (e.g., 'kapı açık' - the door is open) or a light shade of a color (e.g., 'açık mavi' - light blue).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "closed / dark (color)",
+      "target_text": "Kapalı",
+      "romanization": "",
+      "notes": "The opposite of 'açık', describing something shut or a dark shade of a color (e.g., 'kapalı hava' - cloudy weather).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "Evet",
+      "romanization": "",
+      "notes": "Used to affirm or agree.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "no",
+      "target_text": "Hayır",
+      "romanization": "",
+      "notes": "Used to negate or disagree; also functions as 'not' in some constructions with 'var'/'yok' in compound phrases.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "please",
+      "target_text": "Lütfen",
+      "romanization": "",
+      "notes": "A polite request word.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "hello",
+      "target_text": "Merhaba",
+      "romanization": "",
+      "notes": "A general greeting for any time of day.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "thank / gratitude",
+      "target_text": "Teşekkür",
+      "romanization": "",
+      "notes": "The noun form of 'thank'; often used with 'etmek' (to do) to form the verb 'teşekkür etmek' (to thank).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "Ad",
+      "romanization": "",
+      "notes": "Your personal identifier (e.g., 'Adınız ne?' - What is your name?).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "personal"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "Ev",
+      "romanization": "",
+      "notes": "Can refer to a physical house or the concept of home (e.g., 'Eve gidiyorum' - I'm going home).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "Oda",
+      "romanization": "",
+      "notes": "A space within a house or building.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "Su",
+      "romanization": "",
+      "notes": "An essential liquid; often desired with 'istiyorum' (I want).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "bread",
+      "target_text": "Ekmek",
+      "romanization": "",
+      "notes": "A staple food in Turkish cuisine.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "tea",
+      "target_text": "Çay",
+      "romanization": "",
+      "notes": "The most popular beverage in Turkey, usually black tea served in small glasses.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "coffee",
+      "target_text": "Kahve",
+      "romanization": "",
+      "notes": "Turkish coffee is a traditional preparation, but instant coffee is also common.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "milk",
+      "target_text": "Süt",
+      "romanization": "",
+      "notes": "A common dairy product.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "Para",
+      "romanization": "",
+      "notes": "Used for currency and financial transactions.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "Gün",
+      "romanization": "",
+      "notes": "A unit of time, also meaning 'daylight' or 'current day'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "Hafta",
+      "romanization": "",
+      "notes": "A period of seven days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month / moon",
+      "target_text": "Ay",
+      "romanization": "",
+      "notes": "Has two meanings: a unit of time or the celestial body.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "Yıl",
+      "romanization": "",
+      "notes": "A period of 12 months.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour / clock",
+      "target_text": "Saat",
+      "romanization": "",
+      "notes": "Can mean an hour (duration) or a clock/watch (object).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "İnsan",
+      "romanization": "",
+      "notes": "Refers to a human being; can be singular or plural in concept depending on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "Kadın",
+      "romanization": "",
+      "notes": "An adult female human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man",
+      "target_text": "Erkek",
+      "romanization": "",
+      "notes": "An adult male human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "Çocuk",
+      "romanization": "",
+      "notes": "A young human being, male or female.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "Aile",
+      "romanization": "",
+      "notes": "Refers to a group of related people.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "Anne",
+      "romanization": "",
+      "notes": "A female parent.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "Baba",
+      "romanization": "",
+      "notes": "A male parent.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1091 @@
+{
+  "lang": "tl",
+  "name": "Top 100 Tagalog Words",
+  "description": "The 100 most common words in Tagalog — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the / subject marker",
+      "target_text": "ang",
+      "romanization": "",
+      "notes": "Used to mark the topic or subject of a sentence, similar to 'the' in English.",
+      "cefr_level": "A1",
+      "labels": [
+        "marker",
+        "determiner"
+      ]
+    },
+    {
+      "source_text": "of / possessive marker",
+      "target_text": "ng",
+      "romanization": "",
+      "notes": "Pronounced 'nang', it functions as a genitive, possessive, or object marker.",
+      "cefr_level": "A1",
+      "labels": [
+        "marker",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to / at / in / on",
+      "target_text": "sa",
+      "romanization": "",
+      "notes": "A versatile marker indicating location, direction, time, or recipient.",
+      "cefr_level": "A1",
+      "labels": [
+        "marker",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "is / are / linker",
+      "target_text": "ay",
+      "romanization": "",
+      "notes": "Connects the predicate to the subject, often used to invert sentence structure.",
+      "cefr_level": "A1",
+      "labels": [
+        "linker",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "ako",
+      "romanization": "",
+      "notes": "The singular first-person pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (singular, informal)",
+      "target_text": "ikaw",
+      "romanization": "",
+      "notes": "The singular second-person pronoun; 'ka' is its enclitic form.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "siya",
+      "romanization": "",
+      "notes": "The singular third-person pronoun, gender-neutral.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we (exclusive)",
+      "target_text": "kami",
+      "romanization": "",
+      "notes": "First-person plural pronoun, excluding the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we (inclusive)",
+      "target_text": "tayo",
+      "romanization": "",
+      "notes": "First-person plural pronoun, including the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (plural / formal)",
+      "target_text": "kayo",
+      "romanization": "",
+      "notes": "Second-person plural pronoun, also used for formal singular address.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they",
+      "target_text": "sila",
+      "romanization": "",
+      "notes": "The plural third-person pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this",
+      "target_text": "ito",
+      "romanization": "",
+      "notes": "Refers to something near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (near listener)",
+      "target_text": "iyan",
+      "romanization": "",
+      "notes": "Refers to something near the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (far away)",
+      "target_text": "iyon",
+      "romanization": "",
+      "notes": "Refers to something far from both speaker and listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "of / by (personal name)",
+      "target_text": "ni",
+      "romanization": "",
+      "notes": "A genitive marker used specifically before singular proper names of people.",
+      "cefr_level": "A1",
+      "labels": [
+        "marker",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to / for (personal name)",
+      "target_text": "kay",
+      "romanization": "",
+      "notes": "A locative or dative marker used specifically before proper names of people.",
+      "cefr_level": "A1",
+      "labels": [
+        "marker",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "now / already / linker",
+      "target_text": "na",
+      "romanization": "",
+      "notes": "A versatile particle indicating completion, change, or connecting words.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "still / yet / more",
+      "target_text": "pa",
+      "romanization": "",
+      "notes": "Indicates continuation, addition, or 'yet' in questions/negations.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "lang",
+      "romanization": "",
+      "notes": "A particle expressing limitation or emphasis, often attached to words.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "rin",
+      "romanization": "",
+      "notes": "An enclitic particle meaning 'also' or 'too'; becomes 'din' after vowels and 'n'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "politeness particle",
+      "target_text": "po",
+      "romanization": "",
+      "notes": "Used to show respect, especially to elders or superiors, making speech more formal.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "hindi",
+      "romanization": "",
+      "notes": "The most common word for negation in Tagalog.",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "oo",
+      "romanization": "",
+      "notes": "The primary word for affirmation.",
+      "cefr_level": "A1",
+      "labels": [
+        "affirmation",
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "there is / has",
+      "target_text": "may",
+      "romanization": "",
+      "notes": "Indicates existence or possession; a shortened form of 'mayroon'.",
+      "cefr_level": "A1",
+      "labels": [
+        "existential",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "none / nothing / doesn't have",
+      "target_text": "wala",
+      "romanization": "",
+      "notes": "Indicates non-existence or lack of possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "existential"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "ano",
+      "romanization": "",
+      "notes": "A fundamental interrogative word.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "sino",
+      "romanization": "",
+      "notes": "Used to ask about a person.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "saan",
+      "romanization": "",
+      "notes": "Used to ask about location or destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "kailan",
+      "romanization": "",
+      "notes": "Used to ask about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "bakit",
+      "romanization": "",
+      "notes": "Used to ask for a reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "paano",
+      "romanization": "",
+      "notes": "Used to ask about manner or method.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word"
+      ]
+    },
+    {
+      "source_text": "how much / how many",
+      "target_text": "gaano",
+      "romanization": "",
+      "notes": "Used to ask about quantity, amount, or extent.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "beautiful / good",
+      "target_text": "maganda",
+      "romanization": "",
+      "notes": "A common adjective used for beauty, quality, or general goodness.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "mabuti",
+      "romanization": "",
+      "notes": "Describes something as good or well-done; can also be an adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "like / want",
+      "target_text": "gusto",
+      "romanization": "",
+      "notes": "Expresses preference or desire.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "dislike / don't want",
+      "target_text": "ayaw",
+      "romanization": "",
+      "notes": "Expresses aversion or lack of desire.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "can / may (possible)",
+      "target_text": "puwede",
+      "romanization": "",
+      "notes": "Indicates possibility, permission, or ability.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "possibility"
+      ]
+    },
+    {
+      "source_text": "should / ought to",
+      "target_text": "dapat",
+      "romanization": "",
+      "notes": "Expresses obligation, recommendation, or expectation.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "obligation"
+      ]
+    },
+    {
+      "source_text": "need / necessary",
+      "target_text": "kailangan",
+      "romanization": "",
+      "notes": "Indicates necessity or requirement.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "necessity"
+      ]
+    },
+    {
+      "source_text": "now / today",
+      "target_text": "ngayon",
+      "romanization": "",
+      "notes": "Refers to the present time or the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow / open",
+      "target_text": "bukas",
+      "romanization": "",
+      "notes": "Can mean the next day or be the root for 'open'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "kahapon",
+      "romanization": "",
+      "notes": "Refers to the day before today.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "dito",
+      "romanization": "",
+      "notes": "Refers to a location near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there (near listener)",
+      "target_text": "diyan",
+      "romanization": "",
+      "notes": "Refers to a location near the listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there (far away)",
+      "target_text": "doon",
+      "romanization": "",
+      "notes": "Refers to a location far from both speaker and listener.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "first / for a while",
+      "target_text": "muna",
+      "romanization": "",
+      "notes": "Indicates doing something temporarily or before something else.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "go ahead / okay",
+      "target_text": "sige",
+      "romanization": "",
+      "notes": "A common interjection for agreement, permission, or encouragement.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "don't",
+      "target_text": "huwag",
+      "romanization": "",
+      "notes": "Used to express a negative command or prohibition.",
+      "cefr_level": "A1",
+      "labels": [
+        "negation",
+        "imperative"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "marami",
+      "romanization": "",
+      "notes": "Indicates a large quantity or amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "kaunti",
+      "romanization": "",
+      "notes": "Indicates a small quantity or amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "malaki",
+      "romanization": "",
+      "notes": "Describes something of large size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "maliit",
+      "romanization": "",
+      "notes": "Describes something of small size.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new / before",
+      "target_text": "bago",
+      "romanization": "",
+      "notes": "Can describe something as new, or function as a temporal marker meaning 'before'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "time"
+      ]
+    },
+    {
+      "source_text": "old (object)",
+      "target_text": "luma",
+      "romanization": "",
+      "notes": "Describes objects or things that are old, worn, or used.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "expensive / beloved",
+      "target_text": "mahal",
+      "romanization": "",
+      "notes": "Can refer to high cost or being loved/dear.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "cheap / inexpensive",
+      "target_text": "mura",
+      "romanization": "",
+      "notes": "Describes something of low cost.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "price"
+      ]
+    },
+    {
+      "source_text": "hot",
+      "target_text": "mainit",
+      "romanization": "",
+      "notes": "Describes something as having high temperature.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "malamig",
+      "romanization": "",
+      "notes": "Describes something as having low temperature.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "far",
+      "target_text": "malayo",
+      "romanization": "",
+      "notes": "Describes something as being a long distance away.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "distance"
+      ]
+    },
+    {
+      "source_text": "near / close",
+      "target_text": "malapit",
+      "romanization": "",
+      "notes": "Describes something as being a short distance away.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "distance"
+      ]
+    },
+    {
+      "source_text": "can / able / that's why",
+      "target_text": "kaya",
+      "romanization": "",
+      "notes": "A versatile word indicating ability or consequence.",
+      "cefr_level": "A2",
+      "labels": [
+        "modal verb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "kumain",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to eat'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "uminom",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to drink'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "matulog",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to sleep'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "daily routine"
+      ]
+    },
+    {
+      "source_text": "to go home",
+      "target_text": "umuwi",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to go home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "pumunta",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to go'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "travel"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "magtrabaho",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to study",
+      "target_text": "mag-aral",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to study' or 'to learn'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "bumili",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to buy'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "shopping"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "gawin",
+      "romanization": "",
+      "notes": "The object-focus infinitive or imperative form for 'do' or 'make'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "sabihin",
+      "romanization": "",
+      "notes": "The object-focus infinitive or imperative form for 'say' or 'tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to look at",
+      "target_text": "tingnan",
+      "romanization": "",
+      "notes": "The object-focus infinitive or imperative form for 'look at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "magbasa",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to read'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to watch",
+      "target_text": "manood",
+      "romanization": "",
+      "notes": "The actor-focus infinitive form of the verb 'to watch'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "media"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "salamat",
+      "romanization": "",
+      "notes": "The standard expression of gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "hello / how are you",
+      "target_text": "kumusta",
+      "romanization": "",
+      "notes": "A common greeting, also used to ask about someone's well-being.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "tao",
+      "romanization": "",
+      "notes": "Refers to a human being or humanity in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "tubig",
+      "romanization": "",
+      "notes": "A fundamental noun for the essential liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "pagkain",
+      "romanization": "",
+      "notes": "General term for any edible item.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "bahay",
+      "romanization": "",
+      "notes": "Refers to a dwelling or residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "day / sun",
+      "target_text": "araw",
+      "romanization": "",
+      "notes": "Can refer to a period of 24 hours or the celestial body.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "nature"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "gabi",
+      "romanization": "",
+      "notes": "The period of darkness between sunset and sunrise.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "pera",
+      "romanization": "",
+      "notes": "General term for currency.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "currency"
+      ]
+    },
+    {
+      "source_text": "time / hour",
+      "target_text": "oras",
+      "romanization": "",
+      "notes": "Can refer to time in general or a specific hour.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "pangalan",
+      "romanization": "",
+      "notes": "Used to refer to a person's given identity.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "child / offspring",
+      "target_text": "anak",
+      "romanization": "",
+      "notes": "Refers to one's son or daughter.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "parent",
+      "target_text": "magulang",
+      "romanization": "",
+      "notes": "Refers to a father or mother; plural can mean 'parents'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "sibling",
+      "target_text": "kapatid",
+      "romanization": "",
+      "notes": "Refers to a brother or sister; gender-neutral.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "kaibigan",
+      "romanization": "",
+      "notes": "A common noun for a companion or pal.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "trabaho",
+      "romanization": "",
+      "notes": "Refers to employment or labor.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "doctor",
+      "target_text": "doktor",
+      "romanization": "",
+      "notes": "A common loanword for a medical professional.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "car",
+      "target_text": "kotse",
+      "romanization": "",
+      "notes": "A common Spanish loanword for an automobile.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "telephone / phone",
+      "target_text": "telepono",
+      "romanization": "",
+      "notes": "A common Spanish loanword for a communication device.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "libro",
+      "romanization": "",
+      "notes": "A common Spanish loanword for a written or printed work.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "help / aid",
+      "target_text": "tulong",
+      "romanization": "",
+      "notes": "Refers to assistance or support.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "action"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "at",
+      "romanization": "",
+      "notes": "A common conjunction connecting words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "o",
+      "romanization": "",
+      "notes": "A common conjunction offering alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "pero",
+      "romanization": "",
+      "notes": "A common Spanish loanword used as a conjunction to indicate contrast.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "because",
+      "target_text": "dahil",
+      "romanization": "",
+      "notes": "Introduces a reason or cause for something.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "reason"
+      ]
+    },
+    {
+      "source_text": "for / in order to",
+      "target_text": "para",
+      "romanization": "",
+      "notes": "A versatile word indicating purpose, recipient, or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "conjunction"
+      ]
+    }
+  ]
+}

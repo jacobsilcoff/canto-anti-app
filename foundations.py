@@ -218,6 +218,137 @@ def _listen_word(word: str, word_pool: list[str], lang: str = "ko") -> dict:
     }
 
 
+# ── Mini-game exercise builders ─────────────────────────────────────────────
+
+def _speed_round(items: list[dict], pool: list[dict]) -> dict | None:
+    """Rapid character→sound recognition against the clock."""
+    roman_pool = list({g["roman"] for g in pool if g.get("roman")})
+    if len(roman_pool) < 3:
+        return None
+    candidates = list(items) * 2
+    extras = [g for g in pool if g not in items]
+    random.shuffle(extras)
+    candidates += extras[:4]
+    random.shuffle(candidates)
+    rounds = []
+    for g in candidates[:12]:
+        distractors = [r for r in roman_pool if r != g["roman"]]
+        random.shuffle(distractors)
+        if len(distractors) < 2:
+            continue
+        rounds.append({"symbol": g["symbol"], "roman": g["roman"],
+                        "audio": g.get("audio", g["symbol"]),
+                        "distractors": distractors[:3]})
+    if len(rounds) < 6:
+        return None
+    return {"type": "speed_round", "time_limit": 30, "items": rounds, "hide_roman": True}
+
+
+def _audio_blitz(items: list[dict], pool: list[dict]) -> dict | None:
+    """Hear audio, quickly tap the matching character."""
+    items = [g for g in items if g.get("audio")]
+    pool = [g for g in pool if g.get("audio")]
+    if len(pool) < 4:
+        return None
+    candidates = list(items) * 2
+    extras = [g for g in pool if g not in items]
+    random.shuffle(extras)
+    candidates += extras[:3]
+    random.shuffle(candidates)
+    rounds = []
+    for g in candidates[:10]:
+        others = [o["symbol"] for o in pool if o["symbol"] != g["symbol"]]
+        random.shuffle(others)
+        if len(others) < 3:
+            continue
+        opts = [g["symbol"]] + others[:5]
+        random.shuffle(opts)
+        rounds.append({"audio": g.get("audio", g["symbol"]), "correct": g["symbol"],
+                        "options": opts, "roman": g.get("roman", "")})
+    if len(rounds) < 4:
+        return None
+    return {"type": "audio_blitz", "round_time": 4, "items": rounds, "hide_roman": True}
+
+
+def _memory_match(items: list[dict], *, count: int = 6,
+                   audio_mode: bool = False) -> dict | None:
+    """Classic concentration — flip cards to match characters with sounds/meanings."""
+    eligible = [g for g in items if g.get("meaning") or g.get("roman")]
+    if audio_mode:
+        eligible = [g for g in eligible if g.get("audio")]
+    if len(eligible) < 3:
+        return None
+    random.shuffle(eligible)
+    count = min(count, len(eligible))
+    count = max(count, 3)
+    selected = eligible[:count]
+    pairs = []
+    for g in selected:
+        label = g.get("meaning") or g.get("roman", "")
+        pairs.append({"symbol": g["symbol"], "label": label,
+                       "audio": g.get("audio", g["symbol"])})
+    return {"type": "memory_match", "pairs": pairs, "hide_roman": True,
+            "audio_mode": audio_mode}
+
+
+def _pick_minigame(current: list[dict], pool: list[dict], ltype: str) -> dict | None:
+    """Pick the best mini-game for this lesson, or None."""
+    if ltype in ("info", "blocks_info"):
+        return None
+    if ltype in ("tones", "compound_vowels"):
+        return _audio_blitz(current, pool)
+    if ltype == "words":
+        return _memory_match(current)
+    if len(pool) >= 6:
+        return _speed_round(current, pool)
+    if len(current) >= 3:
+        return _memory_match(current)
+    return None
+
+
+def _lesson_items_common(lesson: dict, lang: str) -> list[dict]:
+    """Convert lesson-specific data to common {symbol, roman, audio, meaning} format."""
+    ltype = lesson["type"]
+    if ltype in ("graphemes", "matras"):
+        return [{"symbol": g["symbol"], "roman": g["roman"],
+                 "audio": g.get("audio", g["symbol"])} for g in lesson.get("graphemes", [])]
+    if ltype == "compound_vowels":
+        return [{"symbol": g["symbol"], "roman": g["roman"],
+                 "audio": g.get("audio", g["symbol"])} for g in lesson.get("vowels", [])]
+    if ltype == "words":
+        return [{"symbol": w, "roman": _romanize(w, lang), "audio": w, "meaning": m}
+                for w, m in lesson.get("words", [])]
+    if ltype == "tones":
+        return [{"symbol": p["char"], "roman": p["roman"], "audio": p["audio"],
+                 "meaning": p.get("meaning", "")} for p in lesson.get("pairs", [])]
+    if ltype == "initials":
+        return [{"symbol": i["char"], "roman": i["roman"], "audio": i["audio"],
+                 "meaning": i.get("meaning", "")} for i in lesson.get("initials", [])]
+    if ltype == "finals":
+        return [{"symbol": f["char"], "roman": f["roman"], "audio": f["audio"],
+                 "meaning": f.get("meaning", "")} for f in lesson.get("finals", [])]
+    return []
+
+
+def _maybe_append_minigame(content: dict, lesson: dict, taught: list[dict], lang: str):
+    """Conditionally append a mini-game exercise to the lesson's last segment."""
+    current = _lesson_items_common(lesson, lang)
+    if not current:
+        return
+    ltype = lesson["type"]
+    if ltype in ("tones", "initials", "finals"):
+        pool = current
+    else:
+        taught_common = [{"symbol": g["symbol"], "roman": g["roman"],
+                          "audio": g.get("audio", g["symbol"])} for g in taught]
+        pool = current + taught_common
+    game = _pick_minigame(current, pool, ltype)
+    if game:
+        segments = content.get("segments", [])
+        if segments and "exercises" in segments[-1]:
+            segments[-1]["exercises"].append(game)
+
+
 # ── Lesson/segment assembly ───────────────────────────────────────────────────
 
 def _teach_item_grapheme(g: dict) -> dict:
@@ -430,14 +561,17 @@ def _lesson_taught_graphemes(lesson: dict) -> list[dict]:
 
 def _build_lesson_content(lesson: dict, taught: list[dict], script_type: str, lang: str) -> dict:
     if script_type == "abugida":
-        return _build_abugida_lesson_content(lesson, taught, lang)
-    if script_type == "tonal":
-        return _build_tonal_lesson_content(lesson, lang)
-    if script_type == "simple_alphabet":
-        return _build_simple_alphabet_lesson_content(lesson, taught, lang)
-    if script_type == "abjad":
-        return _build_abjad_lesson_content(lesson, taught, lang)
-    return _build_hangul_lesson_content(lesson, taught)
+        content = _build_abugida_lesson_content(lesson, taught, lang)
+    elif script_type == "tonal":
+        content = _build_tonal_lesson_content(lesson, lang)
+    elif script_type == "simple_alphabet":
+        content = _build_simple_alphabet_lesson_content(lesson, taught, lang)
+    elif script_type == "abjad":
+        content = _build_abjad_lesson_content(lesson, taught, lang)
+    else:
+        content = _build_hangul_lesson_content(lesson, taught)
+    _maybe_append_minigame(content, lesson, taught, lang)
+    return content
 
 
 def build_units(lang: str) -> list[dict]:
@@ -458,6 +592,52 @@ def build_units(lang: str) -> list[dict]:
         units.append({"title": u["title"], "theme": "foundations",
                       "objective": u.get("objective", ""), "lessons": lessons})
     return units
+
+
+def practice_game_pool(lang: str) -> list[dict]:
+    """Return deduplicated items from the entire foundations track."""
+    track = FOUNDATIONS.get(lang)
+    if not track:
+        return []
+    all_items: list[dict] = []
+    for u in track["units"]:
+        for lsn in u["lessons"]:
+            all_items += _lesson_items_common(lsn, lang)
+    seen: set[str] = set()
+    pool: list[dict] = []
+    for it in all_items:
+        if it["symbol"] not in seen and (it.get("roman") or it.get("meaning")):
+            seen.add(it["symbol"])
+            pool.append(it)
+    return pool
+
+
+def build_practice_game(lang: str, game_type: str, *,
+                        count: int = 6, audio_mode: bool = False) -> dict | None:
+    """Build a standalone mini-game exercise using ALL items from the foundations
+    track. Returns a lesson-like dict the player can open, or None."""
+    pool = practice_game_pool(lang)
+    if len(pool) < 4:
+        return None
+
+    builders = {
+        "speed_round": lambda: _speed_round(pool, pool),
+        "audio_blitz": lambda: _audio_blitz(pool, pool),
+        "memory_match": lambda: _memory_match(pool, count=count,
+                                               audio_mode=audio_mode),
+    }
+    builder = builders.get(game_type)
+    if not builder:
+        return None
+
+    game = builder()
+    if not game:
+        return None
+
+    # Wrap as a single-exercise lesson so the player can open it directly
+    return {
+        "segments": [{"teach": None, "exercises": [game]}],
+    }
 
 
 # ── Hindi / Devanagari track (abugida) ────────────────────────────────────────
@@ -971,7 +1151,7 @@ def decompose_simple(text: str) -> set[str]:
     return {ch for ch in text if not ch.isspace()}
 
 
-SL = lambda s, r, a=None, n="": {"symbol": s, "roman": r, "audio": a or s, "note": n, "kind": "letter"}
+SL = lambda s, r, a=None, n="": {"symbol": s, "roman": r, "audio": s if a is None else a, "note": n, "kind": "letter"}
 
 
 def _build_simple_alphabet_lesson_content(lesson: dict, taught: list[dict], lang: str) -> dict:
@@ -1011,7 +1191,7 @@ def _build_simple_alphabet_lesson_content(lesson: dict, taught: list[dict], lang
 
 # ── Russian / Cyrillic track ─────────────────────────────────────────────────
 _RU_VOWELS = [
-    SL("А", "a"), SL("О", "o"), SL("У", "u"), SL("Э", "e"), SL("И", "i"), SL("Ы", "y", n="No English equivalent — say 'i' with your tongue pulled back"),
+    SL("А", "a", "аа"), SL("О", "o", "оо"), SL("У", "u", "уу"), SL("Э", "e", "ээ"), SL("И", "i", "ии"), SL("Ы", "y", "ыы", n="No English equivalent — say 'i' with your tongue pulled back"),
 ]
 _RU_CONS_1 = [
     SL("М", "m"), SL("Н", "n"), SL("К", "k"), SL("Т", "t"), SL("Д", "d"), SL("С", "s"),
@@ -1026,10 +1206,10 @@ _RU_CONS_3 = [
 ]
 _RU_SPECIAL = [
     SL("Й", "y", n="Short 'y' — only after vowels"),
-    SL("Я", "ya"), SL("Ё", "yo"), SL("Ю", "yu"), SL("Е", "ye"),
+    SL("Я", "ya", "яя"), SL("Ё", "yo", "ёё"), SL("Ю", "yu", "юю"), SL("Е", "ye", "ее"),
     SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
-    SL("Ь", "'", n="Soft sign — softens the previous consonant"),
-    SL("Ъ", "", n="Hard sign — prevents softening (rare)"),
+    SL("Ь", "(soft)", "", n="Soft sign — softens the previous consonant"),
+    SL("Ъ", "(hard)", "", n="Hard sign — prevents softening (rare)"),
 ]
 
 _RU_WORDS_1 = [("мама", "mom"), ("дом", "house"), ("кот", "cat"),
@@ -1565,12 +1745,12 @@ FOUNDATIONS["el"] = _GREEK_TRACK
 # missing Ё/ё, Ъ/ъ, Ы/ы, Э/э. Some shared letters have different sounds.
 
 _UK_VOWELS = [
-    SL("А", "a"), SL("Е", "e"), SL("Є", "ye", n="Like 'ye' in 'yes' — unique to Ukrainian"),
-    SL("И", "y", n="Like 'i' in 'bit' — different from Russian И"),
-    SL("І", "i", n="Like 'ee' in 'see' — replaces Russian И for this sound"),
-    SL("Ї", "yi", n="Always 'yi' — unique to Ukrainian"),
-    SL("О", "o"), SL("У", "u"),
-    SL("Ю", "yu"), SL("Я", "ya"),
+    SL("А", "a", "аа"), SL("Е", "e", "ее"), SL("Є", "ye", "єє", n="Like 'ye' in 'yes' — unique to Ukrainian"),
+    SL("И", "y", "ии", n="Like 'i' in 'bit' — different from Russian И"),
+    SL("І", "i", "іі", n="Like 'ee' in 'see' — replaces Russian И for this sound"),
+    SL("Ї", "yi", "її", n="Always 'yi' — unique to Ukrainian"),
+    SL("О", "o", "оо"), SL("У", "u", "уу"),
+    SL("Ю", "yu", "юю"), SL("Я", "ya", "яя"),
 ]
 _UK_CONS_1 = [
     SL("Б", "b"), SL("В", "v"), SL("Г", "h", n="Sounds like 'h' in Ukrainian (not 'g')"),
@@ -1584,7 +1764,7 @@ _UK_CONS_2 = [
     SL("З", "z"), SL("Х", "kh", n="Like 'ch' in Scottish 'loch'"),
     SL("Ц", "ts"), SL("Ч", "ch"),
     SL("Ш", "sh"), SL("Щ", "shch", n="Like 'sh' + 'ch' run together"),
-    SL("Ф", "f"), SL("Ь", "'", n="Soft sign — softens the previous consonant"),
+    SL("Ф", "f"), SL("Ь", "(soft)", "", n="Soft sign — softens the previous consonant"),
 ]
 
 _UK_WORDS_1 = [("мама", "mom"), ("тато", "dad"), ("дім", "house"),

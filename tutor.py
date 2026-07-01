@@ -18,13 +18,20 @@ plain-text reply rather than an error bubble.
 """
 import asyncio
 import json
+import logging
 
 import embeddings
 import tokenizer
 from learning import _lang_preamble, _registry_block, _word_list_block
-from translation import LANG_INFO, _call, _parse_json
+from translation import LANG_INFO, _call, _call_stream, _parse_json
+
+logger = logging.getLogger(__name__)
 
 TUTOR_MODEL = "gemini-2.5-flash"   # better conversational quality than -lite, still cheap
+
+# Sentinel separating the streamed prose answer from the trailing JSON extras in
+# the card-ask streaming format (see build_card_ask_prompt(streaming=True)).
+STREAM_META = "<<<META>>>"
 
 HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
@@ -291,10 +298,14 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
     raw_cu = parsed.get("card_updates")
     if isinstance(raw_cu, dict):
         cu: dict[str, str] = {}
-        for field in ("notes", "romanization", "source_text"):
+        for field in ("notes_append", "notes", "romanization", "source_text"):
             val = (raw_cu.get(field) or "").strip()
             if val:
                 cu[field] = val[:600]
+        # `notes_append` (additive) wins over `notes` (replace) if the model sent
+        # both — never wipe the learner's existing notes when an append was offered.
+        if "notes_append" in cu:
+            cu.pop("notes", None)
         if cu:
             card_updates = cu
 
@@ -304,13 +315,16 @@ def _normalize(parsed: dict, target_lang: str, raw: str,
 
 
 async def _run(prompt: str, target_lang: str, *, api_key: str, model: str,
-               user_msg: str = "", known_texts: set[str] | None = None) -> dict:
+               user_msg: str = "", known_texts: set[str] | None = None,
+               thinking_budget: int | None = None) -> dict:
     """Call the model, parse JSON (one retry), normalize. Never hard-fails: a
-    malformed side-channel degrades to a plain-text reply."""
+    malformed side-channel degrades to a plain-text reply. Pass `thinking_budget=0`
+    to disable the model's thinking pass (faster, for low-reasoning Q&A)."""
     raw = ""
     parsed = None
     for _ in range(2):                       # one retry on malformed JSON
-        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+        raw = await asyncio.to_thread(
+            lambda: _call(prompt, api_key, model, thinking_budget=thinking_budget))
         try:
             parsed = _parse_json(raw)
             break
@@ -391,6 +405,7 @@ def build_card_ask_prompt(
     level: str = "A1",
     learner_profile: str = "",
     known_words: list[dict] | None = None,
+    streaming: bool = False,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -402,16 +417,18 @@ def build_card_ask_prompt(
                 f"{_word_list_block(known_words)}\n"
                 f"Prefer these in your example sentences; don't re-teach them as new_items.\n\n")
 
-    return (
+    base = (
         f"You are a warm, expert {name} tutor helping an English-speaking learner "
         f"(level {level}) who is reviewing a flashcard and has a question about it.\n\n"
         f"{_lang_preamble(info)}"
         f"── HOW TO ANSWER ──\n"
         f"• ANSWER THE QUESTION the learner actually asked — directly, clearly, concisely. "
-        f"Write your EXPLANATION in ENGLISH (this is study help, NOT conversation practice — "
-        f"the learner is decoding a card and needs to understand). Write only the actual "
-        f"{name} words and example sentences in {name} script, each followed by its "
-        f"romanization and a short English gloss in parentheses.\n"
+        f"This is study help, NOT conversation practice — the learner is decoding a card and "
+        f"needs to UNDERSTAND, so do NOT reply in {name}. Write your EXPLANATION in the SAME "
+        f"language the learner asked their question in (English by default; if they wrote their "
+        f"question in another language, answer in that language). The ONLY {name} that appears "
+        f"in your reply is the actual {name} words and example sentences, each followed by its "
+        f"romanization and a short gloss in parentheses.\n"
         f"• Be concrete and useful: explain the underlying RULE or pattern (not just this one "
         f"instance), give 1–2 SHORT example sentences in {name}, and mention a closely related "
         f"word, contrast, or memory/etymology hook when it genuinely helps.\n"
@@ -422,31 +439,62 @@ def build_card_ask_prompt(
         f"• Keep it focused — a few sentences, not an essay.\n\n"
         f"── SUGGESTING CARD UPDATES ──\n"
         f"You can suggest changes to THIS flashcard via `card_updates`. Be PROACTIVE — if your "
-        f"explanation would help the learner remember, put it in the notes! Specifically:\n"
+        f"explanation would help the learner remember, offer to save it to the card. Notes are "
+        f"ADDITIVE by default — prefer `notes_append` (a short snippet ADDED to the existing "
+        f"notes) over `notes` (which REPLACES them entirely). Specifically:\n"
         f"• When the learner asks about the card, asks to break it down, asks why something "
-        f"works a certain way, or asks for a mnemonic → ALWAYS suggest a `notes` update that "
-        f"captures the key insight in a concise note they'll see next time they review.\n"
-        f"• When the learner asks to update the card or add a note → ALWAYS include card_updates.\n"
+        f"works a certain way, or asks for a mnemonic → suggest a `notes_append` snippet that "
+        f"captures the key insight, so it's added to whatever notes are already there.\n"
+        f"• When the learner asks to update the card or add a note → ALWAYS include card_updates "
+        f"(use `notes_append` unless they explicitly want to rewrite/replace the note).\n"
+        f"• Use `notes` (full replacement) ONLY when the existing notes contain an actual ERROR "
+        f"worth removing, or the learner explicitly asks to rewrite them. Otherwise NEVER send "
+        f"`notes` — append instead, so you don't wipe what's already there.\n"
         f"• When you spot wrong/missing romanization → suggest `romanization` fix.\n"
         f"• When the translation is wrong or misleading → suggest `source_text` fix.\n"
-        f"• When existing notes are empty or sparse and your explanation adds real value → "
-        f"suggest enriched `notes` (etymology, mnemonic, usage tip, component breakdown).\n"
-        f"The notes field should be concise (a helpful reminder, not an essay). If the card "
-        f"already has good notes and the learner isn't asking about anything note-worthy, "
-        f"then omit card_updates (null).\n\n"
+        f"Keep the note snippet concise (a helpful reminder, not an essay). If the card already "
+        f"covers everything and the learner isn't asking about anything note-worthy, omit "
+        f"card_updates (null).\n\n"
         f"{profile}{deck}{_card_block(card, name)}"
         f"{_history_block(history or [])}"
         f"Learner's question: {question.strip()}\n\n"
+    )
+
+    extras_note = (
+        'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
+        'the learner\'s known-words list. card_updates: include only the fields you want to change. '
+        'Prefer `notes_append` over `notes`; send at most ONE of them (never both). Omit '
+        'card_updates entirely (or {}) when there is genuinely nothing useful to add to the card.'
+    )
+
+    if streaming:
+        # Streamed format: the prose answer comes FIRST (forwarded to the learner
+        # token-by-token), THEN a sentinel, THEN a single JSON object with the
+        # structured extras only (parsed server-side after the stream finishes).
+        return base + (
+            f"OUTPUT FORMAT — follow it EXACTLY, in this order:\n"
+            f"1. Your answer to the learner as plain prose ONLY (no JSON, no markdown headings, "
+            f"no field labels). English explanation, {name} examples in {name} script with "
+            f"romanization + gloss in parentheses. This is the ONLY part the learner reads.\n"
+            f"2. Then the marker on its own line — exactly: {STREAM_META}\n"
+            f"3. Then ONE JSON object and nothing after it (use {STREAM_META} followed by {{}} if "
+            f"there are no extras):\n"
+            '   {"new_items": [{"target_text":"<native>","english":"<gloss>","notes":"<usage, optional>"}],'
+            ' "card_updates": {"notes_append":"<short note to ADD>","notes":"<replacement, ONLY to fix an error>",'
+            '"romanization":"<fixed>","source_text":"<fixed translation>"}}\n'
+            f"CRITICAL: never write the words \"new_items\" or \"card_updates\" in the prose part — "
+            f"they appear ONLY inside the JSON after {STREAM_META}. Do not label or announce the "
+            f"JSON; just output the marker then the object. {extras_note}"
+        )
+
+    return base + (
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         f'  "reply": "<your answer; English explanation is fine, {name} examples in {name} script>",\n'
         '  "new_items": [{"target_text":"<native word/phrase worth saving>","english":"<gloss>","notes":"<usage, optional>"}],\n'
-        '  "card_updates": {"notes":"<concise note for the card>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
+        '  "card_updates": {"notes_append":"<short note to ADD to existing notes>","notes":"<full replacement, ONLY to fix an error>","romanization":"<fixed romanization>","source_text":"<fixed translation>"}\n'
         '}\n'
-        'new_items may be an empty array. Do NOT put a word in new_items that already appears in '
-        'the learner\'s known-words list. card_updates: include only the fields you want to change '
-        '(notes and/or romanization and/or source_text). Omit card_updates entirely (or null) only '
-        'when there is genuinely nothing useful to add to the card.'
+        + extras_note
     )
 
 
@@ -472,8 +520,191 @@ async def ask_about_card(
         level=level, learner_profile=learner_profile, known_words=known_words,
     )
     known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+    # Study Q&A is factual/low-reasoning — disable the thinking pass so the
+    # pop-over answers in ~1–2s instead of stalling for several seconds.
     return await _run(prompt, target_lang, api_key=api_key, model=model,
-                      user_msg=question, known_texts=known_texts)
+                      user_msg=question, known_texts=known_texts, thinking_budget=0)
+
+
+def _extract_card_ask_extras(text: str) -> dict:
+    """Tolerantly pull `new_items` / `card_updates` out of the streamed tail,
+    whatever shape the model used: the `<<<META>>>` + JSON contract, a bare JSON
+    object, or labelled `new_items: [...]` / `card_updates: {...}` blocks (the
+    common drift on weak models). Returns {} on anything unparseable."""
+    if not text:
+        return {}
+    t = text.replace(STREAM_META, " ").strip()
+    if not t:
+        return {}
+    # Best case: a single JSON object carrying the keys.
+    try:
+        parsed = _parse_json(t)
+        if isinstance(parsed, dict) and ("new_items" in parsed or "card_updates" in parsed):
+            return parsed
+    except (ValueError, TypeError):
+        pass
+    # Fallback: labelled blocks. Strip markdown emphasis/backticks first.
+    import re
+    cleaned = t.replace("*", "").replace("`", "")
+    out: dict = {}
+    m = re.search(r"new_items\s*[:=]?\s*(\[.*?\])", cleaned, re.S)
+    if m:
+        try:
+            out["new_items"] = json.loads(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    m = re.search(r"card_updates\s*[:=]?\s*(\{.*\})", cleaned, re.S)
+    if m:
+        try:
+            out["card_updates"] = json.loads(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    return out
+
+
+async def stream_card_ask(
+    target_lang: str,
+    question: str,
+    card: dict | None = None,
+    history: list[dict] | None = None,
+    *,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+    learner_profile: str = "",
+    known_words: list[dict] | None = None,
+):
+    """Streaming variant of `ask_about_card`. Yields NDJSON event strings (each
+    newline-terminated): `{"type":"delta","text":...}` for prose as it's generated,
+    then one `{"type":"final","reply":...,"new_items":[...],"card_updates":{...}}`
+    with the cleaned reply + parsed/normalized extras.
+
+    The model is told to emit the prose answer first, then `STREAM_META`, then the
+    JSON extras. Weak models don't always emit the marker — they may instead print
+    the structured part as visible `new_items:` / `card_updates:` labels — so the
+    boundary detector ALSO stops at those bare label tokens, and the extractor
+    (`_extract_card_ask_extras`) tolerates marker / labelled / raw-JSON shapes.
+    The `final` event carries the cleaned `reply` so the client can replace any
+    stray label text that slipped through before the boundary was recognised."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = build_card_ask_prompt(
+        target_lang, question, card, history,
+        level=level, learner_profile=learner_profile, known_words=known_words,
+        streaming=True,
+    )
+    known_texts = {(w.get("target_text") or "").strip() for w in (known_words or [])}
+
+    def _delta(text: str) -> str:
+        return json.dumps({"type": "delta", "text": text}, ensure_ascii=False) + "\n"
+
+    # Tokens that mark the start of the structured tail. `new_items`/`card_updates`
+    # are extremely unlikely in a genuine prose answer about a flashcard, so we
+    # treat the earliest of them (or the real marker) as the prose/meta boundary.
+    stop_tokens = (STREAM_META, "new_items", "card_updates")
+
+    def _earliest_stop(s: str) -> int:
+        best = -1
+        for tok in stop_tokens:
+            i = s.find(tok)
+            if i != -1 and (best == -1 or i < best):
+                best = i
+        return best
+
+    mode = None            # None=undecided, "prose", "json"
+    pending = ""           # un-emitted prose tail (may hold a partial stop token)
+    full_reply = ""
+    meta_buf = ""          # everything from the boundary onward (the extras)
+    json_buf = ""          # whole-output buffer in the JSON fallback path
+    in_meta = False
+    hold = max(len(t) for t in stop_tokens) - 1
+
+    stream_err = None
+    try:
+        async for chunk in _call_stream(prompt, api_key, model, thinking_budget=0):
+            if mode == "json":
+                json_buf += chunk
+                continue
+            if in_meta:
+                meta_buf += chunk
+                continue
+            pending += chunk
+            if mode is None:                       # decide prose vs JSON-fallback
+                stripped = pending.lstrip()
+                if not stripped:
+                    continue
+                if stripped[0] == "{":
+                    mode = "json"
+                    json_buf = pending
+                    pending = ""
+                    continue
+                mode = "prose"
+            # prose: stop at the earliest boundary token; emit everything ahead of it
+            i = _earliest_stop(pending)
+            if i != -1:
+                emit = pending[:i]
+                if emit:
+                    full_reply += emit
+                    yield _delta(emit)
+                meta_buf = pending[i:]             # keep the token; the extractor strips it
+                in_meta = True
+                pending = ""
+                continue
+            if len(pending) > hold:                # hold back chars that could start a token
+                cut = len(pending) - hold
+                emit, pending = pending[:cut], pending[cut:]
+                if emit:
+                    full_reply += emit
+                    yield _delta(emit)
+    except Exception as e:
+        # A mid/late stream failure must NOT discard an answer the learner already
+        # saw — capture it and finalize with whatever prose we have. Only re-raise
+        # (→ route emits an error event) if nothing usable streamed.
+        stream_err = e
+        logger.warning("card-ask stream interrupted: %s", e)
+
+    # Stream ended — flush remaining prose (no boundary ever arrived).
+    if mode != "json" and not in_meta and pending:
+        full_reply += pending
+        yield _delta(pending)
+
+    if stream_err is not None and not full_reply.strip() and not (mode == "json" and json_buf.strip()):
+        raise stream_err                            # genuine failure, no content
+
+    # Parse the structured extras and normalize via the shared oracle path.
+    extras = {}
+    try:
+        if mode == "json":
+            parsed = None
+            try:
+                parsed = _parse_json(json_buf)
+            except (ValueError, TypeError):
+                parsed = None
+            if isinstance(parsed, dict):
+                reply = (parsed.get("reply") or "").strip()
+                if reply:
+                    full_reply = reply
+                    yield _delta(reply)
+                extras = parsed
+        else:
+            extras = _extract_card_ask_extras(meta_buf)
+    except Exception as e:
+        logger.warning("card-ask extras parse failed: %s", e)
+        extras = {}
+
+    full_reply = full_reply.strip()
+    try:
+        norm = _normalize(
+            {"reply": full_reply, "new_items": extras.get("new_items"),
+             "card_updates": extras.get("card_updates")},
+            target_lang, raw=full_reply, user_msg=question, known_texts=known_texts,
+        )
+        final = {"type": "final", "reply": norm["reply"],
+                 "new_items": norm["new_items"], "card_updates": norm["card_updates"]}
+    except Exception as e:                           # never fail the answer over extras
+        logger.warning("card-ask normalize failed: %s", e)
+        final = {"type": "final", "reply": full_reply, "new_items": [], "card_updates": None}
+    yield json.dumps(final, ensure_ascii=False) + "\n"
 
 
 def build_drill_prompt(
@@ -687,126 +918,192 @@ async def start_drill(
 # as the rest of tutor — romanization recomputed by the oracle, fields normalized,
 # never hard-fails. One call per turn (start = no answer; then judge-and-advance).
 
-def build_lesson_drill_prompt(
+# ── Inline lesson construction-drill ──────────────────────────────────────────
+# Architecture: PLAN call generates English phrases WITH expected translations.
+# Judging is deterministic-first: if the learner's answer matches the expected
+# translation (after normalization), it's correct — no LLM needed. The LLM is
+# only called when the deterministic check fails, to decide if the answer is an
+# acceptable alternative or genuinely wrong. If the LLM call fails, the turn is
+# SKIPPED (not marked right or wrong) — the user sees "couldn't check" and moves
+# on. This makes the drill reliable even when the LLM is flaky.
+
+
+def build_lesson_drill_plan_prompt(
     target_lang: str,
     construction: str,
-    history: list[dict],
-    answer: str | None,
     *,
     level: str,
     known_words: list[dict] | None,
-    turn: int,
-    max_turns: int,
+    n: int,
 ) -> str:
+    """PLAN call: invent target-language sentences that USE the construction, then
+    back-translate each to English. The target is a reference example (it uses the
+    construction) — NOT a strict answer key; judging is done from the English."""
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
     deck = (f"── WORDS THE LEARNER KNOWS ──\n{_word_list_block(known_words)}\n\n"
             if known_words else "")
-    convo = ""
-    last_phrase = ""
-    if history:
-        lines = []
-        for h in history:
-            who = "You posed" if h.get("role") == "tutor" else "Learner answered"
-            lines.append(f"{who}: {(h.get('text') or '').strip()}")
-            if h.get("role") == "tutor":
-                last_phrase = (h.get("text") or "").strip()
-        convo = "── DRILL SO FAR ──\n" + "\n".join(lines) + "\n\n"
-    if answer is not None:
-        phrase_ref = f" for the phrase \"{last_phrase}\"" if last_phrase else ""
-        state = (f"The learner's answer{phrase_ref}: \"{answer.strip()}\". "
-                 f"Judge THIS answer (attempt #{turn} of ~{max_turns}), then either pose the "
-                 f"NEXT English phrase or, if they've done ~{max_turns}, set done=true and "
-                 f"pose nothing more.\n\n")
-    else:
-        state = "Begin the drill: pose the FIRST English phrase. There is no answer to judge yet.\n\n"
     return (
-        f"You are a {name} tutor running a tight PRACTICE DRILL embedded in a lesson "
-        f"(learner level {level}). The skill being drilled is the CONSTRUCTION/form: "
+        f"You are designing a tight PRACTICE DRILL inside a {name} lesson "
+        f"(learner level {level}). The skill being practised is the construction/form: "
         f"\"{construction}\".\n\n"
-        f"{_lang_preamble(info)}"
-        f"Each turn you pose EXACTLY ONE short, concrete English phrase for the learner to "
-        f"translate into {name}, all exercising \"{construction}\". Build every phrase from "
-        f"words the learner already KNOWS (use the list below); introduce a new word only if "
-        f"the construction truly needs it. Vary the vocabulary across turns. Do NOT translate "
-        f"the phrase for them, and do NOT add any {name} commentary — the ONLY {name} text you "
-        f"produce is the natural answer inside `feedback.corrected` when judging.\n"
-        f"When judging an answer: decide if it's correct (accept any natural, correct {name} "
-        f"rendering — don't nitpick word choice that means the same thing). There are THREE "
-        f"verdicts:\n"
-        f"1. PERFECT — flawless. `correct: true`, `corrected` = the EXACT string the learner "
-        f"wrote (copy it verbatim), `note` = brief confirmation of what they used (e.g. "
-        f"'Good — 本 is the correct classifier for books').\n"
-        f"2. ACCEPTED WITH A MINOR FLAW — correct except for a missing/wrong diacritic or "
-        f"accent (e.g. 'francaise' for 'française', 'cafe' for 'café') or a small typo (one "
-        f"swapped/missing letter) where the intent is unambiguous. Still `correct: true` (the "
-        f"learner clearly knows the word/form), but `corrected` = the POLISHED proper form "
-        f"(e.g. 'française'), and you MUST add a `note` naming the fix (e.g. 'Almost perfect — "
-        f"add the cedilla: française' or 'Watch the spelling: …'). NEVER leave the note empty "
-        f"in this case — the learner needs to see what was off, even though you accepted it.\n"
-        f"3. WRONG — a real error. `correct: false`. Gender/number agreement errors are NOT "
-        f"minor — they are real grammar mistakes (e.g. 'Elle est content' must be 'contente'; "
-        f"'les chat' must be 'les chats') — mark them WRONG. `corrected` = the FULL corrected "
-        f"sentence (the complete, natural {name} translation of the phrase you posed; NEVER "
-        f"just a word or fragment — the learner sees it side-by-side with what they wrote). "
-        f"`note` = (1) name the specific error category (e.g. 'Incorrect conjugation of verb "
-        f"mettre', 'Wrong gender agreement', 'Missing aspect marker'), (2) state the rule in "
-        f"one sentence (e.g. 'mettre → je mets (not met) — first-person singular adds -s').\n"
-        f"CRITICAL: base your `note` ONLY on characters and words the learner actually wrote "
-        f"— never reference a particle, classifier, or word that does not appear in their "
-        f"answer. If there is another equally natural form (e.g. 我本書 vs 我嘅書), put it in "
-        f"`alternative` with a one-sentence `alt_note` on when to prefer each; omit when there "
-        f"is no meaningful variant. Be encouraging but concise.\n\n"
-        f"{deck}{convo}{state}"
-        f"Return ONLY valid JSON, no other text:\n"
+        f"Write EXACTLY {n} short, natural {name} sentences that each USE "
+        f"\"{construction}\", then give the English translation of each. Requirements:\n"
+        f"• Build each sentence from words the learner already KNOWS (list below); "
+        f"introduce a new word only if the construction truly needs it.\n"
+        f"• Each {name} sentence must be ONE natural, standard rendering — no slashes, "
+        f"no parenthetical optional letters, no listed alternatives.\n"
+        f"• VARY the vocabulary across the {n} sentences — don't reuse the same nouns/verbs.\n"
+        f"• Keep each sentence short and level-appropriate ({level}); order them easiest first.\n"
+        f"• The English is what the learner will see and translate back into {name}.\n\n"
+        f"{deck}"
+        "Return ONLY valid JSON, no other text:\n"
         '{\n'
-        '  "feedback": {\n'
-        '    "correct": true,\n'
-        '    "corrected": "<perfect: verbatim; flaw/wrong: the polished/correct form; empty first turn>",\n'
-        '    "note": "<wrong: \'Error: [specific]. Rule: [one sentence]\'; minor flaw: name the fix (REQUIRED); perfect: confirm what they used; empty first turn>",\n'
-        '    "alternative": "<another equally natural correct form, omit if none>",\n'
-        '    "alt_note": "<one sentence: when to prefer corrected vs alternative; omit if no alternative>"\n'
-        '  },\n'
-        f'  "phrase": "<the next English phrase to translate, or empty when done>",\n'
-        '  "done": false\n'
+        '  "items": [\n'
+        '    {"target": "<' + name + ' sentence using the construction>", '
+        '"english": "<its English translation>"},\n'
+        '    ...\n'
+        '  ]\n'
         '}\n'
     )
 
 
-def _normalize_lesson_drill(parsed: dict, target_lang: str) -> dict:
+def build_lesson_drill_judge_prompt(
+    target_lang: str,
+    construction: str,
+    phrase: str,
+    answer: str,
+    reference: str,
+    *,
+    level: str,
+) -> str:
+    """JUDGE call: decide whether the learner's translation of `phrase` is
+    acceptable. Graded from the English meaning — NOT by matching `reference`
+    (which is just one example that happens to use the construction). Liberal:
+    any correct, natural translation passes, even if it doesn't use the
+    construction; in that case we still surface a construction-using version."""
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    ref = (f"One {name} sentence that uses this construction is: \"{reference.strip()}\". "
+           f"This is only an example — the learner does NOT need to match it.\n\n"
+           if reference.strip() else "")
+    return (
+        f"You are a {name} tutor. A learner (level {level}) translated this English "
+        f"phrase into {name}:\n"
+        f"  English: \"{phrase.strip()}\"\n"
+        f"  Learner wrote: \"{answer.strip()}\"\n\n"
+        f"The lesson is practising the construction \"{construction}\". "
+        f"{ref}"
+        f"Judge ONLY whether the learner's sentence is a correct, natural {name} "
+        f"translation of the English. Be liberal: accept ANY valid translation, even if "
+        f"it does not use the construction or differs from the example. Ignore "
+        f"capitalization, trailing punctuation (.!?), and apostrophe style. Accept a minor "
+        f"typo (one swapped/missing letter) when the intent is clear, but note it. Do NOT "
+        f"require optional gender/number/formality variants — one valid form is enough.\n\n"
+        f"Return ONLY valid JSON:\n"
+        '{\n'
+        '  "correct": true or false,\n'
+        '  "corrected": "<empty if the answer is correct and clean; the answer with typos '
+        'fixed if correct but slightly off; the correct translation if wrong>",\n'
+        f'  "alt": "<empty UNLESS the answer is correct but does not use the construction; '
+        f'then one natural {name} sentence that does>",\n'
+        '  "note": "<one short sentence: the error and rule if wrong; the construction tip '
+        'if you filled alt; empty otherwise>"\n'
+        '}\n'
+    )
+
+
+def _norm_for_compare(s: str) -> str:
+    """Normalize a string for mechanical same-answer comparison: casefold,
+    strip trailing/leading punctuation, collapse whitespace, and unify
+    apostrophe/quote variants to ASCII '."""
+    import unicodedata
+    s = unicodedata.normalize("NFC", s).casefold().strip()
+    s = s.rstrip(".!?。！？،؟…")
+    _APOSTROPHES = str.maketrans({
+        "’": "'", "‘": "'", "ʼ": "'",
+        "`": "'", "´": "'", "′": "'",
+    })
+    s = s.translate(_APOSTROPHES)
+    return " ".join(s.split())
+
+
+def _rom(s: str, target_lang: str) -> str:
     has_rom = bool(LANG_INFO[target_lang].get("romanization"))
+    return tokenizer.romanize_text(s, target_lang) if (has_rom and s) else ""
 
-    def rom(s: str) -> str:
-        return tokenizer.romanize_text(s, target_lang) if (has_rom and s) else ""
 
-    fb_raw = parsed.get("feedback") if isinstance(parsed.get("feedback"), dict) else {}
-    corrected = (fb_raw.get("corrected") or "").strip()
-    alternative = (fb_raw.get("alternative") or "").strip()
-    feedback = None
-    if corrected:
-        feedback = {
-            "correct":          bool(fb_raw.get("correct")),
-            "corrected":        corrected,
-            "corrected_roman":  rom(corrected),
-            "note":             (fb_raw.get("note") or "").strip(),
-            "alternative":      alternative,
-            "alternative_roman": rom(alternative) if alternative else "",
-            "alt_note":         (fb_raw.get("alt_note") or "").strip(),
-        }
-
+def _build_feedback(correct: bool, corrected: str, note: str,
+                    target_lang: str, alt: str = "") -> dict:
     return {
-        "feedback":  feedback,
-        "phrase":    (parsed.get("phrase") or "").strip(),
-        "done":      bool(parsed.get("done")),
+        "correct":         correct,
+        "corrected":       corrected,
+        "corrected_roman": _rom(corrected, target_lang),
+        "alt":             alt,
+        "alt_roman":       _rom(alt, target_lang),
+        "note":            note,
     }
+
+
+def _normalize_drill_plan(parsed: dict, n: int) -> list[dict]:
+    """Extract items from the plan response as {"english", "target"} dicts.
+    `target` is a reference rendering that uses the construction (for feedback,
+    not strict matching). Tolerates the old `expected` key and a bare `phrases`
+    list (English-only)."""
+    if not isinstance(parsed, dict):
+        return []
+    # New format: {"items": [{"target": ..., "english": ...}]}
+    raw = parsed.get("items")
+    if isinstance(raw, list):
+        out: list[dict] = []
+        for item in raw:
+            if isinstance(item, dict):
+                eng = (item.get("english") or "").strip()[:200]
+                tgt = (item.get("target") or item.get("expected") or "").strip()[:200]
+                if eng:
+                    out.append({"english": eng, "target": tgt})
+            if len(out) >= n:
+                break
+        return out
+    # Fallback: old {"phrases": [...]} format (English-only, no reference)
+    raw = parsed.get("phrases")
+    if isinstance(raw, list):
+        out = []
+        for p in raw:
+            if isinstance(p, str) and p.strip():
+                out.append({"english": p.strip()[:200], "target": ""})
+            if len(out) >= n:
+                break
+        return out
+    return []
+
+
+async def _drill_call(prompt: str, api_key: str, model: str) -> dict:
+    """Call + parse-with-one-retry; returns {} on ANY failure (never hard-fails).
+
+    Catches the API call too — not just parse errors — so a transient hiccup
+    (empty/safety-filtered response → `.text` is None → AttributeError, a 429/500,
+    a quota error) degrades to {} instead of propagating into a 502 that kills the
+    whole drill. The caller turns {} into a graceful "accepted" fallback so the
+    drill always continues.
+    """
+    for attempt in range(2):
+        try:
+            raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
+            parsed = _parse_json(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception as e:
+            logger.warning("drill LLM call/parse failed (attempt %d): %s", attempt + 1, e)
+    return {}
 
 
 async def run_lesson_drill(
     target_lang: str,
     construction: str,
-    history: list[dict] | None = None,
-    answer: str | None = None,
     *,
+    answer: str | None = None,
+    plan_items: list[dict] | None = None,
     api_key: str,
     model: str = TUTOR_MODEL,
     level: str = "A1",
@@ -814,23 +1111,67 @@ async def run_lesson_drill(
     turn: int = 1,
     max_turns: int = LESSON_DRILL_TURNS,
 ) -> dict:
-    """One turn of an inline lesson construction-drill: pose the first phrase
-    (`answer=None`) or judge `answer` and advance. Parse-with-one-retry, normalize,
-    never hard-fail."""
+    """One turn of an inline lesson construction-drill.
+
+    PLAN  (answer=None): generate target-lang sentences that use the
+      construction + their English translations; return the first phrase +
+      the full plan so the client can carry it forward.
+    JUDGE (answer given): one LLM call grades the learner's translation from
+      the English alone. The plan's reference `target` is passed as context
+      (an example that uses the construction) but is NOT a match-oracle.
+      If the LLM call fails, returns feedback=None so the client can show
+      "couldn't check" and let the user skip.
+    """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
-    prompt = build_lesson_drill_prompt(
-        target_lang, construction, history or [], answer,
-        level=level, known_words=known_words, turn=turn, max_turns=max_turns,
+
+    # ── PLAN ──
+    if answer is None:
+        prompt = build_lesson_drill_plan_prompt(
+            target_lang, construction, level=level,
+            known_words=known_words, n=max_turns,
+        )
+        plan = _normalize_drill_plan(await _drill_call(prompt, api_key, model), max_turns)
+        if not plan:
+            return {"feedback": None, "phrase": "", "plan_items": [], "done": True}
+        return {
+            "feedback": None,
+            "phrase": plan[0]["english"],
+            "plan_items": plan,
+            "done": False,
+        }
+
+    # ── JUDGE ──
+    items = plan_items or []
+    item = items[turn - 1] if 0 < turn <= len(items) else {}
+    phrase = item.get("english", "")
+    reference = item.get("target", item.get("expected", ""))
+
+    llm_result = await _drill_call(
+        build_lesson_drill_judge_prompt(
+            target_lang, construction, phrase, answer, reference,
+            level=level,
+        ), api_key, model,
     )
-    parsed = None
-    for _ in range(2):
-        raw = await asyncio.to_thread(lambda: _call(prompt, api_key, model))
-        try:
-            parsed = _parse_json(raw)
-            break
-        except (ValueError, TypeError):
-            parsed = None
-    if not isinstance(parsed, dict):
-        parsed = {}
-    return _normalize_lesson_drill(parsed, target_lang)
+    if not llm_result:
+        feedback = None
+    else:
+        correct = bool(llm_result.get("correct", llm_result.get("acceptable")))
+        corrected = (llm_result.get("corrected") or "").strip()
+        alt = (llm_result.get("alt") or "").strip()
+        note = (llm_result.get("note") or "").strip()
+        if not correct and _norm_for_compare(answer) == _norm_for_compare(corrected):
+            correct = True
+            note = ""
+        if not correct and not corrected:
+            corrected = reference
+        feedback = _build_feedback(correct, corrected, note, target_lang, alt)
+
+    # Next phrase from the plan
+    next_phrase = ""
+    done = True
+    if items and turn < len(items) and turn < max_turns:
+        next_phrase = items[turn].get("english", "")
+        done = False
+
+    return {"feedback": feedback, "phrase": next_phrase, "done": done}

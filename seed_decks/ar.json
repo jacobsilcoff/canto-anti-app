@@ -1,0 +1,1086 @@
+{
+  "lang": "ar",
+  "name": "Top 100 Arabic Words",
+  "description": "The 100 most common words in Arabic — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "وَ",
+      "romanization": "wa",
+      "notes": "This is a very common conjunction, often prefixed directly to the following word.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "in / at",
+      "target_text": "فِي",
+      "romanization": "fiy",
+      "notes": "A highly frequent preposition, followed by a noun in the genitive case (majrūr).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "from",
+      "target_text": "مِنْ",
+      "romanization": "min",
+      "notes": "Precedes a noun in the genitive case, indicating origin or starting point.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to / toward",
+      "target_text": "إِلَى",
+      "romanization": "iilaa",
+      "notes": "Indicates direction or destination, followed by a noun in the genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "for / to",
+      "target_text": "لِـ",
+      "romanization": "li",
+      "notes": "This inseparable preposition often marks the indirect object or indicates possession/purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "on / upon",
+      "target_text": "عَلَى",
+      "romanization": "'alaa",
+      "notes": "A common preposition indicating location or responsibility.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with / by",
+      "target_text": "بِـ",
+      "romanization": "bi",
+      "notes": "This inseparable preposition indicates instrumentality, accompaniment, or sometimes simply 'in'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "he / it (masc.)",
+      "target_text": "هُوَ",
+      "romanization": "huwa",
+      "notes": "This is the third person masculine singular pronoun, also used as a copula.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "she / it (fem.)",
+      "target_text": "هِيَ",
+      "romanization": "hiya",
+      "notes": "This is the third person feminine singular pronoun, also used as a copula.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "I",
+      "target_text": "أَنَا",
+      "romanization": "aanaa",
+      "notes": "This is the first person singular pronoun, used for both masculine and feminine speakers.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (masc. sing.)",
+      "target_text": "أَنْتَ",
+      "romanization": "aanta",
+      "notes": "This is the second person masculine singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (fem. sing.)",
+      "target_text": "أَنْتِ",
+      "romanization": "aanti",
+      "notes": "This is the second person feminine singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "we",
+      "target_text": "نَحْنُ",
+      "romanization": "naḥnu",
+      "notes": "This is the first person plural pronoun, used for both masculine and feminine.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "they (masc.)",
+      "target_text": "هُمْ",
+      "romanization": "hum",
+      "notes": "This is the third person masculine plural pronoun, also used for mixed-gender groups.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this (masc.)",
+      "target_text": "هَذَا",
+      "romanization": "hadhaa",
+      "notes": "A common masculine singular demonstrative pronoun, often followed by a definite noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "this (fem.)",
+      "target_text": "هَذِهِ",
+      "romanization": "hadhihi",
+      "notes": "A common feminine singular demonstrative pronoun, also used for inanimate plurals.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that (masc.)",
+      "target_text": "ذَلِكَ",
+      "romanization": "dhalika",
+      "notes": "The masculine singular distant demonstrative pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "that (fem.)",
+      "target_text": "تِلْكَ",
+      "romanization": "tilka",
+      "notes": "The feminine singular distant demonstrative pronoun, also used for inanimate plurals.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "how",
+      "target_text": "كَيْفَ",
+      "romanization": "kayfa",
+      "notes": "A very common interrogative adverb used to ask about manner or condition.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "what (verb)",
+      "target_text": "مَاذَا",
+      "romanization": "maadhaa",
+      "notes": "Used to ask 'what' when followed by a verb; contrasts with 'mā' for nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "what (noun) / not",
+      "target_text": "مَا",
+      "romanization": "maa",
+      "notes": "Used for 'what' with nouns, or as a negative particle for past tense verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "أَيْنَ",
+      "romanization": "aayna",
+      "notes": "An interrogative adverb used to ask about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "مَنْ",
+      "romanization": "man",
+      "notes": "An interrogative pronoun used to ask about people.",
+      "cefr_level": "A1",
+      "labels": [
+        "question",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "(yes/no question particle)",
+      "target_text": "هَلْ",
+      "romanization": "hal",
+      "notes": "Placed at the beginning of a sentence to indicate a yes/no question.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "question"
+      ]
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "لَا",
+      "romanization": "laa",
+      "notes": "A negative particle used to negate verbs in the present tense or as a standalone 'no'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "نَعَمْ",
+      "romanization": "na'am",
+      "notes": "The most common way to affirm something in Arabic.",
+      "cefr_level": "A1",
+      "labels": [
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "to be / was",
+      "target_text": "كَانَ",
+      "romanization": "kaana",
+      "notes": "A foundational verb, used as a copula in the past tense or as an auxiliary verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "to say",
+      "target_text": "قَالَ",
+      "romanization": "qaala",
+      "notes": "A very common verb used for direct or indirect speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to do / to work",
+      "target_text": "عَمِلَ",
+      "romanization": "'amila",
+      "notes": "A versatile verb meaning both 'to work' and 'to do' or 'to make'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "رَأَى",
+      "romanization": "raaaa",
+      "notes": "A common verb for visual perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ذَهَبَ",
+      "romanization": "dhahaba",
+      "notes": "A basic verb of motion, often followed by a preposition like 'ilā'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "جَاءَ",
+      "romanization": "jaa'a",
+      "notes": "A basic verb of motion, often followed by a preposition like 'ilā'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "أَرَادَ",
+      "romanization": "aaraada",
+      "notes": "A common verb for expressing desire, often followed by 'an' and a subjunctive verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to know",
+      "target_text": "عَرَفَ",
+      "romanization": "'arafa",
+      "notes": "This verb refers to knowing facts, people, or places.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "أَخَذَ",
+      "romanization": "aakhadha",
+      "notes": "A versatile verb meaning to grasp, get, or receive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "أَعْطَى",
+      "romanization": "aa'ṭaa",
+      "notes": "A common verb for bestowing or presenting something to someone.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "is not / does not",
+      "target_text": "لَيْسَ",
+      "romanization": "laysa",
+      "notes": "A crucial negative verb that functions like a copula, negating nominal sentences.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "بَيْت",
+      "romanization": "bayt",
+      "notes": "A foundational noun, often used in combinations like 'baytī' (my house).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "يَوْم",
+      "romanization": "yawm",
+      "notes": "A common noun for a period of 24 hours.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "وَقْت",
+      "romanization": "waqt",
+      "notes": "A common noun referring to a duration or a specific moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "man",
+      "target_text": "رَجُل",
+      "romanization": "rajul",
+      "notes": "A basic noun for an adult male human.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "اِمْرَأَة",
+      "romanization": "aimraaaa",
+      "notes": "A basic noun for an adult female human, plural is 'nisāʾ'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "مَاء",
+      "romanization": "maa'",
+      "notes": "An essential noun for water, often used in daily conversation.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "fluid"
+      ]
+    },
+    {
+      "source_text": "food",
+      "target_text": "طَعَام",
+      "romanization": "ṭa'aam",
+      "notes": "A general noun for any kind of food.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "مَدِينَة",
+      "romanization": "madiynaa",
+      "notes": "A common noun for an urban area.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country / town",
+      "target_text": "بَلَد",
+      "romanization": "balad",
+      "notes": "Can mean either country or a smaller town/area, depending on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "كِتَاب",
+      "romanization": "kitaab",
+      "notes": "A very common noun, often encountered early by learners.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "pen",
+      "target_text": "قَلَم",
+      "romanization": "qalam",
+      "notes": "Another common noun for a writing instrument.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "student (masc.)",
+      "target_text": "طَالِب",
+      "romanization": "ṭaalib",
+      "notes": "The masculine form of 'student'; feminine is 'ṭālibah'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "teacher / professor (masc.)",
+      "target_text": "أُسْتَاذ",
+      "romanization": "austaadh",
+      "notes": "A formal term of address or title for a male teacher or professor.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "أَب",
+      "romanization": "aab",
+      "notes": "A fundamental family noun; often appears with a suffix, e.g., 'abī' (my father).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "أُمّ",
+      "romanization": "aum",
+      "notes": "A fundamental family noun; often appears with a suffix, e.g., 'ummī' (my mother).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "son",
+      "target_text": "اِبْن",
+      "romanization": "aibn",
+      "notes": "Used to indicate a male child or descendant.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "daughter",
+      "target_text": "اِبْنَة",
+      "romanization": "aibnaa",
+      "notes": "Used to indicate a female child or descendant.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "أُسْرَة",
+      "romanization": "ausraa",
+      "notes": "A common noun referring to a family unit.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "friend (masc.)",
+      "target_text": "صَدِيق",
+      "romanization": "ṣadiyq",
+      "notes": "The masculine form of friend; feminine is 'ṣadīqah'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "thing / something",
+      "target_text": "شَيْء",
+      "romanization": "shay'",
+      "notes": "A very general and high-frequency noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "general"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "عَمَل",
+      "romanization": "'amal",
+      "notes": "A noun derived from the verb 'ʿamila', meaning 'to work' or 'to do'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "money / wealth",
+      "target_text": "مَال",
+      "romanization": "maal",
+      "notes": "An important noun for discussing finances.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "world",
+      "target_text": "عَالَم",
+      "romanization": "'aalam",
+      "notes": "A common noun for the earth or the universe.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "سَنَة",
+      "romanization": "sanaa",
+      "notes": "A common unit of time, often pluralized as 'sanawāt'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "big / large / old",
+      "target_text": "كَبِير",
+      "romanization": "kabiyr",
+      "notes": "Can mean 'big' in size or 'old' in age for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / young",
+      "target_text": "صَغِير",
+      "romanization": "ṣaghiyr",
+      "notes": "Can mean 'small' in size or 'young' in age for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "جَيِّد",
+      "romanization": "jayid",
+      "notes": "A highly versatile adjective used for quality or well-being.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "bad",
+      "target_text": "سَيِّئ",
+      "romanization": "sayi'",
+      "notes": "The opposite of 'jayyid', used to describe poor quality or negative things.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "beautiful / handsome",
+      "target_text": "جَمِيل",
+      "romanization": "jamiyl",
+      "notes": "Used for aesthetic beauty, applies to both people and objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "جَدِيد",
+      "romanization": "jadiyd",
+      "notes": "A common adjective for something recently made or acquired.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "age"
+      ]
+    },
+    {
+      "source_text": "old / ancient",
+      "target_text": "قَدِيم",
+      "romanization": "qadiym",
+      "notes": "The opposite of 'jadīd', referring to age of objects or places.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "age"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "كَثِير",
+      "romanization": "kathiyr",
+      "notes": "An adjective indicating a large quantity or number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "قَلِيل",
+      "romanization": "qaliyl",
+      "notes": "An adjective indicating a small quantity or number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "difficult / hard",
+      "target_text": "صَعْب",
+      "romanization": "ṣa'b",
+      "notes": "Describes something challenging or arduous.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "difficulty"
+      ]
+    },
+    {
+      "source_text": "easy",
+      "target_text": "سَهْل",
+      "romanization": "sahl",
+      "notes": "The opposite of 'ṣaʿb', describing something simple or effortless.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "difficulty"
+      ]
+    },
+    {
+      "source_text": "important",
+      "target_text": "مُهِمّ",
+      "romanization": "muhim",
+      "notes": "A key adjective for emphasizing significance.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "importance"
+      ]
+    },
+    {
+      "source_text": "happy",
+      "target_text": "سَعِيد",
+      "romanization": "sa'iyd",
+      "notes": "An adjective expressing joy or contentment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "sad",
+      "target_text": "حَزِين",
+      "romanization": "ḥaziyn",
+      "notes": "An adjective expressing sorrow or unhappiness.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "وَاحِد",
+      "romanization": "waaḥid",
+      "notes": "The cardinal number one, can also mean 'a single' or 'united'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "اِثْنَانِ",
+      "romanization": "aithnaani",
+      "notes": "The cardinal number two, often 'ithnayn' in construct state or with a suffix.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "ثَلَاثَة",
+      "romanization": "thalaathaa",
+      "notes": "The cardinal number three (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "أَرْبَعَة",
+      "romanization": "aarba'aa",
+      "notes": "The cardinal number four (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "خَمْسَة",
+      "romanization": "khamsaa",
+      "notes": "The cardinal number five (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "سِتَّة",
+      "romanization": "sitaa",
+      "notes": "The cardinal number six (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "سَبْعَة",
+      "romanization": "sab'aa",
+      "notes": "The cardinal number seven (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "ثَمَانِيَة",
+      "romanization": "thamaaniyaa",
+      "notes": "The cardinal number eight (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "تِسْعَة",
+      "romanization": "tis'aa",
+      "notes": "The cardinal number nine (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "عَشَرَة",
+      "romanization": "'asharaa",
+      "notes": "The cardinal number ten (masculine form for counting feminine nouns).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "cardinal"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "الْآنَ",
+      "romanization": "alaana",
+      "notes": "A very common adverb indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "غَدًا",
+      "romanization": "ghadana",
+      "notes": "An adverb of future time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "أَمْسِ",
+      "romanization": "aamsi",
+      "notes": "An adverb of past time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "دَائِمًا",
+      "romanization": "daa'imana",
+      "notes": "An adverb of frequency, indicating something happens at all times.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "أَبَدًا",
+      "romanization": "aabadana",
+      "notes": "An adverb of frequency, often used with negation.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "أَيْضًا",
+      "romanization": "aayḍana",
+      "notes": "A common adverb for adding information or expressing similarity.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "جِدًّا",
+      "romanization": "jidana",
+      "notes": "An adverb used to intensify adjectives or other adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "هُنَا",
+      "romanization": "hunaa",
+      "notes": "An adverb indicating proximity in location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "هُنَاكَ",
+      "romanization": "hunaaka",
+      "notes": "An adverb indicating distance in location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "hello / welcome",
+      "target_text": "مَرْحَبًا",
+      "romanization": "marḥabana",
+      "notes": "A common and versatile greeting.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "شُكْرًا",
+      "romanization": "shukrana",
+      "notes": "The standard expression of gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "expression"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "صَبَاح",
+      "romanization": "ṣabaaḥ",
+      "notes": "The noun for morning, used in greetings like 'ṣabāḥ al-khayr'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "مَسَاء",
+      "romanization": "masaa'",
+      "notes": "The noun for evening, used in greetings like 'masāʾ al-khayr'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "اِسْم",
+      "romanization": "aism",
+      "notes": "A foundational noun used in self-introductions, e.g. 'ismī' (my name).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "word",
+      "target_text": "كَلِمَة",
+      "romanization": "kalimaa",
+      "notes": "The noun for a single word, plural 'kalimāt'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1071 @@
+{
+  "lang": "de",
+  "name": "Top 100 German Words",
+  "description": "The 100 most common words in German — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (m.nom/acc, f.dat/gen, pl.gen)",
+      "target_text": "der",
+      "romanization": "",
+      "notes": "This definite article has many forms; 'der' is masculine nominative/accusative and dative feminine/plural genitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
+    },
+    {
+      "source_text": "the (f.nom/acc, pl.nom/acc)",
+      "target_text": "die",
+      "romanization": "",
+      "notes": "This definite article is used for feminine nouns in nominative/accusative and for all plural nouns in nominative/accusative.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
+    },
+    {
+      "source_text": "the (n.nom/acc)",
+      "target_text": "das",
+      "romanization": "",
+      "notes": "This definite article is used for neuter nouns in nominative and accusative cases.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "ich",
+      "romanization": "",
+      "notes": "This is the first-person singular personal pronoun and is always capitalized.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "sein",
+      "romanization": "",
+      "notes": "This is a highly irregular and essential auxiliary verb; remember its conjugations (bin, bist, ist, sind, seid, sind).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "and",
+      "target_text": "und",
+      "romanization": "",
+      "notes": "This common conjunction connects words, phrases, or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "she / they / her / them",
+      "target_text": "sie",
+      "romanization": "",
+      "notes": "This pronoun has three distinct meanings: 'she', 'they', and the informal 'her/them'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to have",
+      "target_text": "haben",
+      "romanization": "",
+      "notes": "This is an irregular and essential auxiliary verb, used for possession and forming the perfect tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "not",
+      "target_text": "nicht",
+      "romanization": "",
+      "notes": "This is the primary word for negation in German, typically placed after the verb or before the negated item.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "it",
+      "target_text": "es",
+      "romanization": "",
+      "notes": "This neuter pronoun can refer to things, or be used impersonally (e.g., Es regnet - It's raining).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (sg. informal)",
+      "target_text": "du",
+      "romanization": "",
+      "notes": "This is the familiar, singular form of 'you', used for friends, family, and children.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "er",
+      "romanization": "",
+      "notes": "This is the third-person masculine singular pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "to become / will",
+      "target_text": "werden",
+      "romanization": "",
+      "notes": "This irregular verb is used to form the future tense, passive voice, and means 'to become'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "on / upon / at",
+      "target_text": "auf",
+      "romanization": "",
+      "notes": "This two-way preposition takes accusative for motion ('onto') and dative for location ('on').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "with / by",
+      "target_text": "mit",
+      "romanization": "",
+      "notes": "This common preposition always takes the dative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "a / an (m./n.nom, n.acc)",
+      "target_text": "ein",
+      "romanization": "",
+      "notes": "This indefinite article is used for masculine and neuter nouns in the nominative, and neuter in the accusative.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
+    },
+    {
+      "source_text": "from / of / by",
+      "target_text": "von",
+      "romanization": "",
+      "notes": "This common preposition always takes the dative case and indicates origin, possession, or agent.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to / at / for",
+      "target_text": "zu",
+      "romanization": "",
+      "notes": "This preposition always takes the dative case and often indicates direction towards people or places (e.g., zu mir).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "how / as / like",
+      "target_text": "wie",
+      "romanization": "",
+      "notes": "This word functions as a question word ('how?') and a conjunction ('as', 'like').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "at / on / to",
+      "target_text": "an",
+      "romanization": "",
+      "notes": "This two-way preposition takes accusative for vertical motion ('to') and dative for location ('at', 'on').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "auch",
+      "romanization": "",
+      "notes": "This adverb usually follows the verb or the element it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "for",
+      "target_text": "für",
+      "romanization": "",
+      "notes": "This common preposition always takes the accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "one / you (impersonal)",
+      "target_text": "man",
+      "romanization": "",
+      "notes": "This indefinite pronoun is used to refer to people in general, like 'one' or 'they' in English.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "so / thus / such",
+      "target_text": "so",
+      "romanization": "",
+      "notes": "This versatile word can mean 'so', 'thus', 'such', or act as an intensifier.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "can / to be able to",
+      "target_text": "können",
+      "romanization": "",
+      "notes": "This modal verb means 'can' or 'to be able to' and takes an infinitive verb at the end of the sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "from / out of",
+      "target_text": "aus",
+      "romanization": "",
+      "notes": "This preposition always takes the dative case and indicates origin or material.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "oder",
+      "romanization": "",
+      "notes": "This common conjunction connects alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "as / when / than",
+      "target_text": "als",
+      "romanization": "",
+      "notes": "This word is a conjunction for past single events ('when') or comparisons ('than', 'as').",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "oneself / himself / herself / itself / themselves",
+      "target_text": "sich",
+      "romanization": "",
+      "notes": "This is the reflexive pronoun for all third-person and formal 'Sie' subjects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "aber",
+      "romanization": "",
+      "notes": "This conjunction introduces a contrast or exception.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "wir",
+      "romanization": "",
+      "notes": "This is the first-person plural personal pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "must / to have to",
+      "target_text": "müssen",
+      "romanization": "",
+      "notes": "This modal verb expresses necessity or obligation, meaning 'must' or 'to have to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "around / about / for",
+      "target_text": "um",
+      "romanization": "",
+      "notes": "This preposition can mean 'around' (spatially) or 'at' (for time) and always takes the accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "through",
+      "target_text": "durch",
+      "romanization": "",
+      "notes": "This common preposition always takes the accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "nur",
+      "romanization": "",
+      "notes": "This adverb limits something to a single option or condition.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "gut",
+      "romanization": "",
+      "notes": "This versatile word can be an adjective ('good') or an adverb ('well').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "against / towards",
+      "target_text": "gegen",
+      "romanization": "",
+      "notes": "This common preposition always takes the accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "ohne",
+      "romanization": "",
+      "notes": "This common preposition always takes the accusative case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "to want to",
+      "target_text": "wollen",
+      "romanization": "",
+      "notes": "This modal verb expresses desire or intention and takes an infinitive verb at the end of the sentence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to go / walk",
+      "target_text": "gehen",
+      "romanization": "",
+      "notes": "This irregular verb implies movement by foot or general travel; it forms the perfect tense with 'sein'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "kommen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to come' and forms the perfect tense with 'sein'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to say / tell",
+      "target_text": "sagen",
+      "romanization": "",
+      "notes": "This regular verb is used for speaking words or conveying information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to do / make",
+      "target_text": "machen",
+      "romanization": "",
+      "notes": "This very common verb is used for doing, making, and performing actions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "geben",
+      "romanization": "",
+      "notes": "This irregular verb means 'to give' and often takes a dative object for the recipient.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to see / watch",
+      "target_text": "sehen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to see' or 'to watch'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "wissen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to know' facts or information, distinct from 'kennen' (to know people/places).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to find",
+      "target_text": "finden",
+      "romanization": "",
+      "notes": "This irregular verb means 'to find' or 'to consider (something to be)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to stay / remain",
+      "target_text": "bleiben",
+      "romanization": "",
+      "notes": "This irregular verb means 'to stay' or 'to remain' and forms the perfect tense with 'sein'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "sprechen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to speak' and often takes the preposition 'mit' (with).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "fragen",
+      "romanization": "",
+      "notes": "This regular verb means 'to ask (a question)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "arbeiten",
+      "romanization": "",
+      "notes": "This regular verb means 'to work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to live / reside",
+      "target_text": "wohnen",
+      "romanization": "",
+      "notes": "This regular verb means 'to live' or 'to reside' in a specific place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "living"
+      ]
+    },
+    {
+      "source_text": "to drive / travel / go",
+      "target_text": "fahren",
+      "romanization": "",
+      "notes": "This irregular verb means 'to drive' or 'to travel (by vehicle)' and forms the perfect tense with 'sein'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "essen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to eat' and has an 'e-i' stem change in du/er/sie/es forms (isst).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "trinken",
+      "romanization": "",
+      "notes": "This irregular verb means 'to drink'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "lesen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to read' and has an 'e-ie' stem change in du/er/sie/es forms (liest).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "schreiben",
+      "romanization": "",
+      "notes": "This irregular verb means 'to write'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "verstehen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to understand' and is inseparable, so 'ver-' never moves.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to learn / study",
+      "target_text": "lernen",
+      "romanization": "",
+      "notes": "This regular verb means 'to learn' or 'to study' in a general sense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to need",
+      "target_text": "brauchen",
+      "romanization": "",
+      "notes": "This regular verb means 'to need' and typically takes an accusative object.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to be called / mean",
+      "target_text": "heißen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to be called' (e.g., Ich heiße...) or 'to mean'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "nehmen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to take' and has an 'e-i' stem change in du/er/sie/es forms (nimmt).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to bring / take",
+      "target_text": "bringen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to bring' or 'to take (to a place)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to think",
+      "target_text": "denken",
+      "romanization": "",
+      "notes": "This irregular verb means 'to think' and often takes 'an' (about) with accusative.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to believe",
+      "target_text": "glauben",
+      "romanization": "",
+      "notes": "This regular verb means 'to believe' and often takes a dative object for the person believed.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to lie / be located",
+      "target_text": "liegen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to lie' (horizontally) or 'to be located' in a fixed position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "to stand / be located",
+      "target_text": "stehen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to stand' (vertically) or 'to be located' in an upright position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "to sit / be located",
+      "target_text": "sitzen",
+      "romanization": "",
+      "notes": "This irregular verb means 'to sit' or 'to be seated' in a fixed position.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "position"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "Zeit",
+      "romanization": "",
+      "notes": "The noun 'Zeit' (f.) is always feminine; common phrases include 'viel Zeit' (much time).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "Jahr",
+      "romanization": "",
+      "notes": "The noun 'Jahr' (n.) is neuter; its plural form is 'Jahre'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person / human being",
+      "target_text": "Mensch",
+      "romanization": "",
+      "notes": "The noun 'Mensch' (m.) is masculine; its plural form is 'Menschen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "Tag",
+      "romanization": "",
+      "notes": "The noun 'Tag' (m.) is masculine; always say 'am Tag' (on the day), 'jeden Tag' (every day).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "woman / wife / Mrs.",
+      "target_text": "Frau",
+      "romanization": "",
+      "notes": "The noun 'Frau' (f.) is feminine; it is also used as a title for 'Mrs.'",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man / husband",
+      "target_text": "Mann",
+      "romanization": "",
+      "notes": "The noun 'Mann' (m.) is masculine; its plural form is 'Männer'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "Kind",
+      "romanization": "",
+      "notes": "The noun 'Kind' (n.) is neuter; its plural form is 'Kinder'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "hand",
+      "target_text": "Hand",
+      "romanization": "",
+      "notes": "The noun 'Hand' (f.) is feminine; its plural form is 'Hände'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "place / location",
+      "target_text": "Ort",
+      "romanization": "",
+      "notes": "The noun 'Ort' (m.) is masculine; its plural form is 'Orte' or 'Örter' (more abstract).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "world",
+      "target_text": "Welt",
+      "romanization": "",
+      "notes": "The noun 'Welt' (f.) is feminine; often used in the phrase 'auf der Welt' (in the world).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "example",
+      "target_text": "Beispiel",
+      "romanization": "",
+      "notes": "The noun 'Beispiel' (n.) is neuter; the common abbreviation is 'z.B.' (zum Beispiel - for example).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "question",
+      "target_text": "Frage",
+      "romanization": "",
+      "notes": "The noun 'Frage' (f.) is feminine; use 'eine Frage stellen' (to ask a question).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "Haus",
+      "romanization": "",
+      "notes": "The noun 'Haus' (n.) is neuter; use 'nach Hause' for 'home' (direction), 'zu Hause' for 'at home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "home"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "Wasser",
+      "romanization": "",
+      "notes": "The noun 'Wasser' (n.) is neuter and is usually used without a plural in this sense.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "nature",
+        "food"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "Stadt",
+      "romanization": "",
+      "notes": "The noun 'Stadt' (f.) is feminine; its plural form is 'Städte'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country / land",
+      "target_text": "Land",
+      "romanization": "",
+      "notes": "The noun 'Land' (n.) is neuter; its plural form is 'Länder' (countries) or 'Lande' (lands).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "Geld",
+      "romanization": "",
+      "notes": "The noun 'Geld' (n.) is neuter and is usually used without a plural in this sense.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "Arbeit",
+      "romanization": "",
+      "notes": "The noun 'Arbeit' (f.) is feminine; 'zur Arbeit gehen' (to go to work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "life",
+      "target_text": "Leben",
+      "romanization": "",
+      "notes": "The noun 'Leben' (n.) is neuter and has the same form for singular and plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "word",
+      "target_text": "Wort",
+      "romanization": "",
+      "notes": "The noun 'Wort' (n.) is neuter; its plural form is 'Wörter' (individual words) or 'Worte' (connected words/speech).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "thing / matter / issue",
+      "target_text": "Sache",
+      "romanization": "",
+      "notes": "The noun 'Sache' (f.) is feminine; its plural form is 'Sachen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun"
+      ]
+    },
+    {
+      "source_text": "page / side",
+      "target_text": "Seite",
+      "romanization": "",
+      "notes": "The noun 'Seite' (f.) is feminine; its plural form is 'Seiten'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "orientation"
+      ]
+    },
+    {
+      "source_text": "way / path",
+      "target_text": "Weg",
+      "romanization": "",
+      "notes": "The noun 'Weg' (m.) is masculine; its plural form is 'Wege'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "Name",
+      "romanization": "",
+      "notes": "The noun 'Name' (m.) is masculine; it is an 'n-declension' noun, taking -(e)n in all cases except nominative singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "school",
+      "target_text": "Schule",
+      "romanization": "",
+      "notes": "The noun 'Schule' (f.) is feminine; use 'in die Schule gehen' (to go to school).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "Buch",
+      "romanization": "",
+      "notes": "The noun 'Buch' (n.) is neuter; its plural form is 'Bücher'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "parents",
+      "target_text": "Eltern",
+      "romanization": "",
+      "notes": "The noun 'Eltern' (pl.) is always plural; there is no singular form.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "Freund",
+      "romanization": "",
+      "notes": "The noun 'Freund' (m.) is masculine; its feminine counterpart is 'Freundin' (f.).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "Familie",
+      "romanization": "",
+      "notes": "The noun 'Familie' (f.) is feminine; its plural form is 'Familien'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "car",
+      "target_text": "Auto",
+      "romanization": "",
+      "notes": "The noun 'Auto' (n.) is neuter; its plural form is 'Autos'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "table",
+      "target_text": "Tisch",
+      "romanization": "",
+      "notes": "The noun 'Tisch' (m.) is masculine; its plural form is 'Tische'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "furniture"
+      ]
+    },
+    {
+      "source_text": "door",
+      "target_text": "Tür",
+      "romanization": "",
+      "notes": "The noun 'Tür' (f.) is feminine; its plural form is 'Türen'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "home"
+      ]
+    }
+  ]
+}

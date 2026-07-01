@@ -1,0 +1,1074 @@
+{
+  "lang": "bn",
+  "name": "Top 100 Bengali Words",
+  "description": "The 100 most common words in Bengali — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "আমি",
+      "romanization": "āmi",
+      "notes": "The most common first-person pronoun, used for both subject and object forms.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (familiar)",
+      "target_text": "তুমি",
+      "romanization": "tumi",
+      "notes": "Use this for peers, friends, or younger people; avoid for elders or strangers.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "you (polite)",
+      "target_text": "আপনি",
+      "romanization": "āpani",
+      "notes": "The respectful form of 'you', essential for addressing elders, strangers, or superiors.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she / it (familiar)",
+      "target_text": "সে",
+      "romanization": "se",
+      "notes": "Refers to a third person of similar age or younger, or an animal/thing.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he / she (polite)",
+      "target_text": "তিনি",
+      "romanization": "tini",
+      "notes": "The respectful form for a third person, used for elders or people of higher status.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this one",
+      "target_text": "এটা",
+      "romanization": "eṭā",
+      "notes": "A demonstrative pronoun for 'this (thing/person)' close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that one",
+      "target_text": "ওটা",
+      "romanization": "oṭā",
+      "notes": "A demonstrative pronoun for 'that (thing/person)' slightly further away but still visible.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "what",
+      "target_text": "কী",
+      "romanization": "kī",
+      "notes": "Used as an interrogative pronoun or adjective; can also be an intensifier before an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "না",
+      "romanization": "nā",
+      "notes": "Placed before the verb to negate an action, or stands alone to mean 'no'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "to be (description)",
+      "target_text": "হয়",
+      "romanization": "haẏa",
+      "notes": "The base form of the copula 'to be', used for descriptions or identities; often omitted in present tense.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
+    },
+    {
+      "source_text": "to be / to have",
+      "target_text": "আছে",
+      "romanization": "āche",
+      "notes": "Means 'to exist' or 'to have'; conjugates to indicate possession or location.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "is not / are not",
+      "target_text": "নয়",
+      "romanization": "naẏa",
+      "notes": "The negative copula, used when saying something 'is not' a noun or adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "করা",
+      "romanization": "karā",
+      "notes": "A very common verb, often combined with nouns to form compound verbs (e.g., 'to study' is 'study do').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "যাওয়া",
+      "romanization": "yāoẏā",
+      "notes": "Basic verb for movement, widely used in various contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "আসা",
+      "romanization": "āsā",
+      "notes": "Basic verb for movement towards the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to eat / to drink",
+      "target_text": "খাওয়া",
+      "romanization": "khāoẏā",
+      "notes": "Used for both eating food and drinking liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to see / to watch",
+      "target_text": "দেখা",
+      "romanization": "dekhā",
+      "notes": "Common verb for visual perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses"
+      ]
+    },
+    {
+      "source_text": "to say / to speak",
+      "target_text": "বলা",
+      "romanization": "valā",
+      "notes": "Used for expressing words or communicating orally.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "দেওয়া",
+      "romanization": "deoẏā",
+      "notes": "Transitive verb for transferring possession or providing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to take",
+      "target_text": "নেওয়া",
+      "romanization": "neoẏā",
+      "notes": "Transitive verb for acquiring or receiving something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "ভালো",
+      "romanization": "bhālo",
+      "notes": "A versatile word used as an adjective ('good') or adverb ('well').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "bad",
+      "target_text": "খারাপ",
+      "romanization": "khārāpa",
+      "notes": "The opposite of 'bhālo', used to describe something negative.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "বড়",
+      "romanization": "var̤a",
+      "notes": "An adjective describing size or importance.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "ছোট",
+      "romanization": "choṭa",
+      "notes": "An adjective describing size, quantity, or age.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "who",
+      "target_text": "কে",
+      "romanization": "ke",
+      "notes": "An interrogative pronoun, changes to 'kār' for 'whose' and 'kāke' for 'whom'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "কোথায়",
+      "romanization": "kothāẏa",
+      "notes": "An interrogative adverb used to ask about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "কখন",
+      "romanization": "kakhana",
+      "notes": "An interrogative adverb used to ask about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "why",
+      "target_text": "কেন",
+      "romanization": "kena",
+      "notes": "An interrogative adverb used to ask for a reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "how / what kind",
+      "target_text": "কেমন",
+      "romanization": "kemana",
+      "notes": "Used to ask about condition, feeling, or manner (e.g., 'How are you?').",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "হ্যাঁ",
+      "romanization": "hyā~",
+      "notes": "A common affirmative interjection.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
+    },
+    {
+      "source_text": "and / more / again",
+      "target_text": "আর",
+      "romanization": "āra",
+      "notes": "A versatile word meaning 'and,' 'more,' or 'again,' depending on context.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "কিন্তু",
+      "romanization": "kintu",
+      "notes": "A common conjunction used to introduce a contrasting idea.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "অনেক",
+      "romanization": "aneka",
+      "notes": "A quantifier used for both countable and uncountable nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "very",
+      "target_text": "খুব",
+      "romanization": "khuva",
+      "notes": "An intensifier placed before adjectives or adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "সব",
+      "romanization": "sava",
+      "notes": "Refers to the entirety of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "some / a little",
+      "target_text": "কিছু",
+      "romanization": "kichu",
+      "notes": "Can mean 'some' or 'a few' when referring to quantity, or 'something' as a pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "এক",
+      "romanization": "eka",
+      "notes": "The cardinal number one; also used as an indefinite article 'a/an' when followed by a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "দুই",
+      "romanization": "dui",
+      "notes": "The cardinal number two.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "তিন",
+      "romanization": "tina",
+      "notes": "The cardinal number three.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "চার",
+      "romanization": "cāra",
+      "notes": "The cardinal number four.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "পাঁচ",
+      "romanization": "pā~ca",
+      "notes": "The cardinal number five.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "ধন্যবাদ",
+      "romanization": "dhanyavāda",
+      "notes": "The standard formal expression of gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "জল",
+      "romanization": "jala",
+      "notes": "A fundamental noun for water, generally preferred in West Bengal.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "fluid"
+      ]
+    },
+    {
+      "source_text": "cooked rice",
+      "target_text": "ভাত",
+      "romanization": "bhāta",
+      "notes": "Cooked rice is a staple food and culturally significant; 'cāl' is uncooked rice.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "বাড়ি",
+      "romanization": "vār̤i",
+      "notes": "Means both a physical 'house' and the abstract concept of 'home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "বই",
+      "romanization": "vai",
+      "notes": "A common noun for a book or any reading material.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "money / Taka",
+      "target_text": "টাকা",
+      "romanization": "ṭākā",
+      "notes": "Refers to money in general and is also the name of the Bangladeshi currency.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "currency"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "দিন",
+      "romanization": "dina",
+      "notes": "Can refer to a single day or daytime as opposed to night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "সময়",
+      "romanization": "samaẏa",
+      "notes": "Refers to time in general, an interval, or a specific moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "কাজ",
+      "romanization": "kāja",
+      "notes": "A versatile noun meaning 'work', 'task', or 'job'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "activity"
+      ]
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "মানুষ",
+      "romanization": "mānuṣa",
+      "notes": "Refers to an individual person or humanity in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "বন্ধু",
+      "romanization": "vandhu",
+      "notes": "A common noun for a friend, gender-neutral.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "পরিবার",
+      "romanization": "parivāra",
+      "notes": "Refers to one's immediate or extended family.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "to know (fact)",
+      "target_text": "জানা",
+      "romanization": "jānā",
+      "notes": "Used to know facts, information, or skills.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "বোঝা",
+      "romanization": "vojhā",
+      "notes": "Verb for comprehension or grasping a concept.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to read / to fall",
+      "target_text": "পড়া",
+      "romanization": "par̤ā",
+      "notes": "A polysemous verb meaning both 'to read' and 'to fall'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "লেখা",
+      "romanization": "lekhā",
+      "notes": "Verb for the act of writing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to learn",
+      "target_text": "শেখা",
+      "romanization": "śekhā",
+      "notes": "Verb for acquiring knowledge or skills.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to stay / to live",
+      "target_text": "থাকা",
+      "romanization": "thākā",
+      "notes": "Means 'to stay somewhere' or 'to reside/live'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "সঙ্গে",
+      "romanization": "saṅge",
+      "notes": "A postposition indicating accompaniment or association.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "সাথে",
+      "romanization": "sāthe",
+      "notes": "A common alternative to 'saṅge', also meaning accompaniment.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "from / since",
+      "target_text": "থেকে",
+      "romanization": "theke",
+      "notes": "A postposition indicating origin, starting point, or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "for / for the sake of",
+      "target_text": "জন্য",
+      "romanization": "janya",
+      "notes": "A postposition indicating purpose or beneficiary.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "এখানে",
+      "romanization": "ekhāne",
+      "notes": "An adverb of place indicating proximity to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "there",
+      "target_text": "সেখানে",
+      "romanization": "sekhāne",
+      "notes": "An adverb of place indicating a location further away or general.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "এখন",
+      "romanization": "ekhana",
+      "notes": "An adverb of time indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after / later",
+      "target_text": "পরে",
+      "romanization": "pare",
+      "notes": "An adverb of time indicating a subsequent moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before / first",
+      "target_text": "আগে",
+      "romanization": "āge",
+      "notes": "An adverb of time indicating an earlier moment or priority.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "আজ",
+      "romanization": "āja",
+      "notes": "A noun or adverb referring to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday / tomorrow",
+      "target_text": "কাল",
+      "romanization": "kāla",
+      "notes": "Ambiguous; means 'yesterday' or 'tomorrow' depending on context or modifiers.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "সকাল",
+      "romanization": "sakāla",
+      "notes": "Refers to the period of morning.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "সন্ধ্যা",
+      "romanization": "sandhyā",
+      "notes": "Refers to the period of evening.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "রাত",
+      "romanization": "rāta",
+      "notes": "Refers to the period of night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "বছর",
+      "romanization": "vachara",
+      "notes": "A common measure word for counting years.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "মাস",
+      "romanization": "māsa",
+      "notes": "A common measure word for counting months.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "সপ্তাহ",
+      "romanization": "saptāha",
+      "notes": "Refers to a period of seven days.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "which (adjective)",
+      "target_text": "কোন",
+      "romanization": "kona",
+      "notes": "Used before a noun to ask 'which' (e.g., 'kon bo-i' - which book).",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "নতুন",
+      "romanization": "natuna",
+      "notes": "An adjective describing something recently acquired or made.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "old (things)",
+      "target_text": "পুরনো",
+      "romanization": "purano",
+      "notes": "Used for objects, not for people's age (for people, use 'buṛo' or 'boyosko').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "hot / warm",
+      "target_text": "গরম",
+      "romanization": "garama",
+      "notes": "An adjective for temperature or spicy food.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "ঠান্ডা",
+      "romanization": "ṭhānḍā",
+      "notes": "An adjective for temperature; can also mean 'cool' or 'chilled'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "happy",
+      "target_text": "খুশি",
+      "romanization": "khuśi",
+      "notes": "An adjective describing a state of happiness or joy.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "sad / sorry",
+      "target_text": "দুঃখিত",
+      "romanization": "duḥkhita",
+      "notes": "Means 'sad' or 'sorry'; often used as an apology (ami duḥkhito).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "easy",
+      "target_text": "সহজ",
+      "romanization": "sahaja",
+      "notes": "An adjective describing something that is not difficult.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "difficult / hard",
+      "target_text": "কঠিন",
+      "romanization": "kaṭhina",
+      "notes": "An adjective describing something challenging or tough.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "less / few",
+      "target_text": "কম",
+      "romanization": "kama",
+      "notes": "A quantifier indicating a small amount or number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "more / much",
+      "target_text": "বেশি",
+      "romanization": "veśi",
+      "notes": "A quantifier indicating a large amount or number, or comparison.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "শুধু",
+      "romanization": "śudhu",
+      "notes": "An intensifier or limiter, used to mean 'only' or 'just'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "language",
+      "target_text": "ভাষা",
+      "romanization": "bhāṣā",
+      "notes": "Refers to any spoken or written language.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "দেশ",
+      "romanization": "deśa",
+      "notes": "Refers to a nation or homeland.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "শহর",
+      "romanization": "śahara",
+      "notes": "A noun for an urban area.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "place / space",
+      "target_text": "জায়গা",
+      "romanization": "jāẏagā",
+      "notes": "A versatile noun for a location, spot, or area.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "thing / item",
+      "target_text": "জিনিস",
+      "romanization": "jinisa",
+      "notes": "A general noun for an object or item.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "room / house",
+      "target_text": "ঘর",
+      "romanization": "ghara",
+      "notes": "Can mean a single room or, less commonly, a house.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
+    },
+    {
+      "source_text": "door",
+      "target_text": "দরজা",
+      "romanization": "darajā",
+      "notes": "A common noun for an entrance or exit.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "window",
+      "target_text": "জানালা",
+      "romanization": "jānālā",
+      "notes": "A common noun for a window.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "light",
+      "target_text": "আলো",
+      "romanization": "ālo",
+      "notes": "Refers to light, brightness, or illumination.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "physics"
+      ]
+    },
+    {
+      "source_text": "color",
+      "target_text": "রং",
+      "romanization": "raṃ",
+      "notes": "A noun for color or hue.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "visual"
+      ]
+    },
+    {
+      "source_text": "other / different",
+      "target_text": "অন্য",
+      "romanization": "anya",
+      "notes": "An adjective meaning 'another' or 'different'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "and (formal)",
+      "target_text": "এবং",
+      "romanization": "evaṃ",
+      "notes": "A formal conjunction, commonly used in writing or formal speech, alternative to 'ār'.",
+      "cefr_level": "A2",
+      "labels": [
+        "conjunction"
+      ]
+    }
+  ]
+}
