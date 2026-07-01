@@ -33,6 +33,7 @@ load_dotenv()
 import audio
 import auth
 import billing
+import common_decks
 import crypto
 import db
 import email_utils
@@ -3801,6 +3802,42 @@ async def admin_dashboard_stats(user: dict = Depends(current_admin)):
 @app.get("/api/admin/users")
 async def admin_list_users(user: dict = Depends(current_admin)):
     return {"users": await db.list_users()}
+
+
+@app.post("/api/admin/generate-common-decks")
+async def admin_generate_common_decks(
+    langs: str | None = None,
+    force: bool = False,
+    user: dict = Depends(current_admin),
+):
+    """Generate the official per-language "Top 100 Words" community decks
+    server-side (so no SSH is needed to seed them). Idempotent per language —
+    existing decks are skipped unless `force=true`.
+
+    `langs` = comma-separated codes (e.g. `fr,es,yue`); omit for ALL languages
+    (slow — one LLM call each). Uses the server's shared Gemini key (admin-billed).
+    """
+    if not _SHARED_API_KEY:
+        raise HTTPException(503, "No server Gemini key configured (GEMINI_API_KEY).")
+    system_id = await db.get_system_user_id()
+    if not system_id:
+        # Normally seeded at startup; create on demand as a fallback.
+        system_id = await db.get_or_create_system_user(
+            auth.hash_password(secrets.token_urlsafe(32))
+        )
+    if langs:
+        codes = [c.strip() for c in langs.split(",") if c.strip()]
+    else:
+        codes = list(translation.LANG_INFO.keys())
+    results = await common_decks.generate_decks(
+        codes, _SHARED_API_KEY, system_id=system_id, force=force
+    )
+    summary = {
+        "created": sum(1 for r in results if r["status"] == "created"),
+        "skipped": sum(1 for r in results if r["status"] == "skipped"),
+        "errors": sum(1 for r in results if r["status"] == "error"),
+    }
+    return {"summary": summary, "results": results}
 
 
 class PlanUpdate(BaseModel):
