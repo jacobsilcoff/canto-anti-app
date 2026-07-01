@@ -7,601 +7,1085 @@
       "source_text": "and",
       "target_text": "i",
       "romanization": "",
-      "notes": null
+      "notes": "The most common word in Polish, used to connect words or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
       "source_text": "to be",
       "target_text": "być",
       "romanization": "",
-      "notes": null
+      "notes": "A crucial irregular verb; its present tense forms are often omitted in simple sentences.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
     },
     {
-      "source_text": "in / at",
+      "source_text": "no, not",
+      "target_text": "nie",
+      "romanization": "",
+      "notes": "Used to negate verbs (placed before them) and adjectives or adverbs (placed before them).",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "negation"
+      ]
+    },
+    {
+      "source_text": "oneself, each other",
+      "target_text": "się",
+      "romanization": "",
+      "notes": "A reflexive pronoun required with many verbs, indicating reflexive or reciprocal action.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "reflexive"
+      ]
+    },
+    {
+      "source_text": "to, for, until",
+      "target_text": "do",
+      "romanization": "",
+      "notes": "A versatile preposition that always governs the genitive case, often indicating destination or purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "in, at, on",
       "target_text": "w",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "on / at",
-      "target_text": "na",
-      "romanization": "",
-      "notes": null
+      "notes": "A common preposition that can govern the locative case (for location) or the accusative case (for direction into).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "place"
+      ]
     },
     {
       "source_text": "that",
       "target_text": "że",
       "romanization": "",
-      "notes": "conjunction 'that'"
+      "notes": "A conjunction that introduces subordinate clauses, similar to English 'that'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
-      "source_text": "not",
-      "target_text": "nie",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "from / with",
+      "source_text": "from, with, of",
       "target_text": "z",
       "romanization": "",
-      "notes": null
+      "notes": "A versatile preposition that can govern the genitive case (origin) or the instrumental case (accompaniment, means).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
     },
     {
-      "source_text": "to / until",
-      "target_text": "do",
+      "source_text": "on, for, to",
+      "target_text": "na",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "reflexive particle",
-      "target_text": "się",
-      "romanization": "",
-      "notes": "used with verbs, e.g., 'to wash oneself'"
-    },
-    {
-      "source_text": "I / me",
-      "target_text": "ja",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "you (singular)",
-      "target_text": "ty",
-      "romanization": "",
-      "notes": "informal singular 'you'"
-    },
-    {
-      "source_text": "he / it",
-      "target_text": "on",
-      "romanization": "",
-      "notes": "masculine pronoun"
-    },
-    {
-      "source_text": "this / it is",
-      "target_text": "to",
-      "romanization": "",
-      "notes": "can be pronoun, particle or 'it is'"
-    },
-    {
-      "source_text": "to have",
-      "target_text": "mieć",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "what",
-      "target_text": "co",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "she / it",
-      "target_text": "ona",
-      "romanization": "",
-      "notes": "feminine pronoun"
-    },
-    {
-      "source_text": "this / that",
-      "target_text": "ten",
-      "romanization": "",
-      "notes": "masculine demonstrative pronoun"
+      "notes": "A common preposition that can govern the locative case (on) or the accusative case (onto).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "place"
+      ]
     },
     {
       "source_text": "but",
       "target_text": "ale",
       "romanization": "",
-      "notes": null
+      "notes": "A conjunction used to connect contrasting ideas or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
-      "source_text": "yes / so",
-      "target_text": "tak",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "because",
-      "target_text": "bo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "about / at",
-      "target_text": "o",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "from / since",
-      "target_text": "od",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "for",
-      "target_text": "dla",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "whether / or",
-      "target_text": "czy",
-      "romanization": "",
-      "notes": "also a question particle"
-    },
-    {
-      "source_text": "how / as",
+      "source_text": "how, as, what",
       "target_text": "jak",
       "romanization": "",
-      "notes": null
+      "notes": "A versatile word that can ask 'how', mean 'like/as', or introduce a comparison.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "already",
-      "target_text": "już",
+      "source_text": "you (informal singular)",
+      "target_text": "ty",
       "romanization": "",
-      "notes": null
+      "notes": "The informal singular pronoun for 'you', used with friends and family.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "we / us",
-      "target_text": "my",
+      "source_text": "he, it",
+      "target_text": "on",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine singular pronoun, also used for masculine inanimate objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "you (plural)",
-      "target_text": "wy",
+      "source_text": "I",
+      "target_text": "ja",
       "romanization": "",
-      "notes": "also formal singular 'you'"
-    },
-    {
-      "source_text": "only / just",
-      "target_text": "tylko",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "when",
-      "target_text": "kiedy",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "still / yet",
-      "target_text": "jeszcze",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "there",
-      "target_text": "tam",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "here",
-      "target_text": "tu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "where",
-      "target_text": "gdzie",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "now",
-      "target_text": "teraz",
-      "romanization": "",
-      "notes": null
+      "notes": "The first-person singular subject pronoun, often omitted when clear from the verb ending.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
       "source_text": "very",
       "target_text": "bardzo",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb used to intensify adjectives and other adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
     },
     {
-      "source_text": "well / good",
-      "target_text": "dobrze",
+      "source_text": "to have",
+      "target_text": "mieć",
       "romanization": "",
-      "notes": null
+      "notes": "A common imperfective verb that takes the accusative case for the object possessed.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
     },
     {
-      "source_text": "Mr. / sir",
-      "target_text": "pan",
+      "source_text": "what, something",
+      "target_text": "co",
       "romanization": "",
-      "notes": "also 'you' formal masculine"
+      "notes": "A versatile word that asks 'what' or means 'something' in indefinite contexts.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "Mrs. / madam",
-      "target_text": "pani",
+      "source_text": "this, that, it",
+      "target_text": "to",
       "romanization": "",
-      "notes": "also 'you' formal feminine"
+      "notes": "A highly versatile demonstrative; often means 'it is' or 'this is' without inflecting.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "day",
-      "target_text": "dzień",
+      "source_text": "now",
+      "target_text": "teraz",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb referring to the present moment, often used with imperfective verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "person / human",
-      "target_text": "człowiek",
+      "source_text": "this, that",
+      "target_text": "ten",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine singular demonstrative pronoun, which declines for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "kiedy",
+      "romanization": "",
+      "notes": "An adverb that asks 'when' or a conjunction that introduces a time clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "for",
+      "target_text": "dla",
+      "romanization": "",
+      "notes": "A preposition that always governs the genitive case, indicating beneficiary or purpose.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "purpose"
+      ]
+    },
+    {
+      "source_text": "yes, so",
+      "target_text": "tak",
+      "romanization": "",
+      "notes": "Means 'yes' or 'so' when intensifying an adjective or adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "if, whether, question marker",
+      "target_text": "czy",
+      "romanization": "",
+      "notes": "Used to form yes/no questions (placed at the beginning) or to mean 'if/whether' in embedded clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "conjunction",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "to speak, to say",
+      "target_text": "mówić",
+      "romanization": "",
+      "notes": "An imperfective verb; often followed by 'do' + genitive for the recipient of speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
     },
     {
       "source_text": "to want",
       "target_text": "chcieć",
       "romanization": "",
-      "notes": null
+      "notes": "An imperfective verb that takes the accusative case for nouns or an infinitive for verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
     },
     {
-      "source_text": "can / be able to",
-      "target_text": "móc",
+      "source_text": "from",
+      "target_text": "od",
       "romanization": "",
-      "notes": null
+      "notes": "A preposition that governs the genitive case, indicating origin or a starting point.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "origin"
+      ]
     },
     {
-      "source_text": "to know (facts)",
-      "target_text": "wiedzieć",
+      "source_text": "after, for, along",
+      "target_text": "po",
       "romanization": "",
-      "notes": null
+      "notes": "A versatile preposition that can govern the locative, accusative, or dative cases depending on meaning.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "time"
+      ]
     },
     {
-      "source_text": "must / to have to",
-      "target_text": "musieć",
+      "source_text": "well, good",
+      "target_text": "dobrze",
       "romanization": "",
-      "notes": null
+      "notes": "The adverbial form of 'dobry'; often used impersonally (e.g., 'Jest dobrze' - It's good).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quality"
+      ]
     },
     {
-      "source_text": "to go / walk",
-      "target_text": "iść",
+      "source_text": "she, it",
+      "target_text": "ona",
       "romanization": "",
-      "notes": "imperfective"
+      "notes": "The feminine singular pronoun, also used for feminine inanimate objects.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "to see",
-      "target_text": "widzieć",
+      "source_text": "we",
+      "target_text": "my",
       "romanization": "",
-      "notes": null
+      "notes": "The first-person plural subject pronoun, often omitted when clear from the verb ending.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "to do / make",
-      "target_text": "robić",
+      "source_text": "already, yet",
+      "target_text": "już",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb indicating something has started or is completed by now.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "to speak / say",
-      "target_text": "mówić",
+      "source_text": "still, yet, more",
+      "target_text": "jeszcze",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb indicating continuation, something extra, or 'not yet' when used with negation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "to go / walk",
-      "target_text": "pójść",
+      "source_text": "through, by, for",
+      "target_text": "przez",
       "romanization": "",
-      "notes": "perfective"
+      "notes": "A preposition that governs the accusative case, indicating passage, means, or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "manner"
+      ]
     },
     {
-      "source_text": "to take",
-      "target_text": "brać",
+      "source_text": "Mr., sir, gentleman",
+      "target_text": "pan",
       "romanization": "",
-      "notes": null
+      "notes": "A respectful term for a man, also used as the formal 'you' (masculine singular or plural).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title"
+      ]
     },
     {
-      "source_text": "to give",
-      "target_text": "dawać",
+      "source_text": "Ms., madam, lady",
+      "target_text": "pani",
       "romanization": "",
-      "notes": null
+      "notes": "A respectful term for a woman, also used as the formal 'you' (feminine singular).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title"
+      ]
     },
     {
-      "source_text": "please / you're welcome",
+      "source_text": "thank you",
+      "target_text": "dziękuję",
+      "romanization": "",
+      "notes": "The standard polite expression of gratitude, usually used with implied 'Panu/Pani/Państwu'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "please, you're welcome",
       "target_text": "proszę",
       "romanization": "",
-      "notes": "verb 'prosić' (to ask) in 1st person singular"
+      "notes": "A highly versatile polite word that can mean 'please', 'you're welcome', or 'here you are'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
     },
     {
-      "source_text": "to ask a question",
-      "target_text": "pytać",
+      "source_text": "who",
+      "target_text": "kto",
       "romanization": "",
-      "notes": null
+      "notes": "An interrogative pronoun that asks 'who'; it declines differently than personal pronouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "to understand",
-      "target_text": "rozumieć",
+      "source_text": "my, mine",
+      "target_text": "mój",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine singular possessive pronoun, which declines for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
     },
     {
-      "source_text": "to like",
-      "target_text": "lubić",
+      "source_text": "our",
+      "target_text": "nasz",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine singular possessive pronoun for 'our', which declines for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
     },
     {
-      "source_text": "to wait",
-      "target_text": "czekać",
+      "source_text": "also, too",
+      "target_text": "też",
       "romanization": "",
-      "notes": null
+      "notes": "A particle that adds emphasis or inclusion, usually placed after the word it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle"
+      ]
     },
     {
-      "source_text": "work / job",
-      "target_text": "praca",
+      "source_text": "without",
+      "target_text": "bez",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "time",
-      "target_text": "czas",
-      "romanization": "",
-      "notes": null
+      "notes": "A preposition that always governs the genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
       "source_text": "year",
       "target_text": "rok",
       "romanization": "",
-      "notes": null
+      "notes": "A common unit of time; its plural forms often take the genitive case.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "people",
-      "target_text": "ludzie",
+      "source_text": "day",
+      "target_text": "dzień",
       "romanization": "",
-      "notes": "plural noun"
+      "notes": "A masculine noun referring to a day or daytime.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "life",
-      "target_text": "życie",
+      "source_text": "time",
+      "target_text": "czas",
       "romanization": "",
-      "notes": null
+      "notes": "A general masculine noun for 'time', also meaning 'a while' or 'opportunity'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "concept"
+      ]
     },
     {
-      "source_text": "house / home",
-      "target_text": "dom",
+      "source_text": "to see",
+      "target_text": "widzieć",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "city",
-      "target_text": "miasto",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "matter / affair",
-      "target_text": "sprawa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thing",
-      "target_text": "rzecz",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "hand",
-      "target_text": "ręka",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "head",
-      "target_text": "głowa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "child",
-      "target_text": "dziecko",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "mother",
-      "target_text": "matka",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "father",
-      "target_text": "ojciec",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "man",
-      "target_text": "mężczyzna",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "woman",
-      "target_text": "kobieta",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "family",
-      "target_text": "rodzina",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "water",
-      "target_text": "woda",
-      "romanization": "",
-      "notes": null
+      "notes": "An imperfective verb referring to the ongoing action or state of seeing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "senses"
+      ]
     },
     {
       "source_text": "one",
       "target_text": "jeden",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine singular form of the number one, which inflects for gender and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "two",
       "target_text": "dwa",
       "romanization": "",
-      "notes": null
+      "notes": "The masculine inanimate/neuter form of the number two, which inflects for gender and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "three",
       "target_text": "trzy",
       "romanization": "",
-      "notes": null
+      "notes": "The number three, which applies to all genders and inflects for case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "cztery",
+      "romanization": "",
+      "notes": "The number four, which applies to all genders and inflects for case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "pięć",
+      "romanization": "",
+      "notes": "The number five, which applies to all genders and inflects for case.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "good",
       "target_text": "dobry",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "The masculine singular adjective 'good', which inflects for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
     },
     {
-      "source_text": "big / large",
-      "target_text": "duży",
+      "source_text": "much, many",
+      "target_text": "dużo",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "A quantifier used with uncountable nouns or countable nouns in the genitive plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier"
+      ]
     },
     {
-      "source_text": "small",
-      "target_text": "mały",
+      "source_text": "little, few",
+      "target_text": "mało",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "A quantifier used with uncountable nouns or countable nouns in the genitive plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier"
+      ]
+    },
+    {
+      "source_text": "what kind of, which",
+      "target_text": "jaki",
+      "romanization": "",
+      "notes": "An interrogative adjective that asks about quality or type; it inflects like an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "interrogative"
+      ]
     },
     {
       "source_text": "new",
       "target_text": "nowy",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "The masculine singular adjective 'new', which inflects for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
       "source_text": "old",
       "target_text": "stary",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "The masculine singular adjective 'old', which inflects for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "other / different",
-      "target_text": "inny",
+      "source_text": "small, little",
+      "target_text": "mały",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "The masculine singular adjective 'small' or 'little', which inflects for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
     },
     {
-      "source_text": "whole / entire",
-      "target_text": "cały",
+      "source_text": "big, large",
+      "target_text": "duży",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "The masculine singular adjective 'big' or 'large', which inflects for gender, number, and case.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
     },
     {
-      "source_text": "first",
-      "target_text": "pierwszy",
+      "source_text": "to know (a fact)",
+      "target_text": "wiedzieć",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "An imperfective verb referring to factual knowledge or information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
     },
     {
-      "source_text": "second",
-      "target_text": "drugi",
+      "source_text": "to know (a person/place)",
+      "target_text": "znać",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "An imperfective verb referring to acquaintance with people, places, or languages; takes accusative.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
     },
     {
-      "source_text": "last",
-      "target_text": "ostatni",
+      "source_text": "work, job",
+      "target_text": "praca",
       "romanization": "",
-      "notes": "masculine singular adjective"
+      "notes": "A feminine noun for 'work', 'job', or 'employment'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
     },
     {
-      "source_text": "right away",
-      "target_text": "zaraz",
+      "source_text": "house, home",
+      "target_text": "dom",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun for 'house' or 'home'; 'w domu' means 'at home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "then / afterwards",
-      "target_text": "potem",
+      "source_text": "city, town",
+      "target_text": "miasto",
       "romanization": "",
-      "notes": null
+      "notes": "A neuter noun for 'city' or 'town'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "much / many",
-      "target_text": "dużo",
+      "source_text": "country",
+      "target_text": "kraj",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun referring to a nation or land.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "little / few",
-      "target_text": "mało",
+      "source_text": "world",
+      "target_text": "świat",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun for 'world', often used in the phrase 'na świecie' (in the world).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "everything",
-      "target_text": "wszystko",
+      "source_text": "child",
+      "target_text": "dziecko",
       "romanization": "",
-      "notes": null
+      "notes": "A neuter noun for 'child'; its plural is the irregular 'dzieci'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
     },
     {
-      "source_text": "nothing",
-      "target_text": "nic",
+      "source_text": "people",
+      "target_text": "ludzie",
       "romanization": "",
-      "notes": null
+      "notes": "The plural form of 'człowiek' (person), used for 'people' in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
     },
     {
-      "source_text": "always",
-      "target_text": "zawsze",
+      "source_text": "thing, matter",
+      "target_text": "rzecz",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun, a very general term for an object, item, or issue.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
     },
     {
-      "source_text": "never",
-      "target_text": "nigdy",
+      "source_text": "hand, arm",
+      "target_text": "ręka",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun that can mean both 'hand' and 'arm'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
     },
     {
-      "source_text": "often",
-      "target_text": "często",
+      "source_text": "head",
+      "target_text": "głowa",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun for 'head', often used in idioms.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
     },
     {
-      "source_text": "tomorrow",
-      "target_text": "jutro",
+      "source_text": "mom, mother",
+      "target_text": "mama",
       "romanization": "",
-      "notes": null
+      "notes": "An informal feminine noun for 'mother'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
     },
     {
-      "source_text": "today",
-      "target_text": "dziś",
+      "source_text": "dad, father",
+      "target_text": "tata",
       "romanization": "",
-      "notes": "also 'dzisiaj'"
+      "notes": "An informal masculine noun for 'father'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "rodzina",
+      "romanization": "",
+      "notes": "A feminine noun for 'family'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "to love",
+      "target_text": "kochać",
+      "romanization": "",
+      "notes": "An imperfective verb that expresses strong affection or love.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to like",
+      "target_text": "lubić",
+      "romanization": "",
+      "notes": "An imperfective verb that expresses preference or fondness.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "jeść",
+      "romanization": "",
+      "notes": "An imperfective verb for the ongoing action of eating.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "pić",
+      "romanization": "",
+      "notes": "An imperfective verb for the ongoing action of drinking.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "robić",
+      "romanization": "",
+      "notes": "An imperfective verb for general action, creation, or work.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "pisać",
+      "romanization": "",
+      "notes": "An imperfective verb for the action of writing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "czytać",
+      "romanization": "",
+      "notes": "An imperfective verb for the action of reading.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "pracować",
+      "romanization": "",
+      "notes": "An imperfective verb for the ongoing act of working.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "to teach",
+      "target_text": "uczyć",
+      "romanization": "",
+      "notes": "An imperfective verb meaning 'to teach'; 'uczyć się' means 'to learn/study'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to look for, to search",
+      "target_text": "szukać",
+      "romanization": "",
+      "notes": "An imperfective verb that takes the genitive case for the object being sought.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb"
+      ]
+    },
+    {
+      "source_text": "to live, to reside",
+      "target_text": "mieszkać",
+      "romanization": "",
+      "notes": "An imperfective verb for dwelling or residing in a place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "to go, to walk (habitual)",
+      "target_text": "chodzić",
+      "romanization": "",
+      "notes": "An imperfective verb of motion, implying habitual or undirected movement.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to go, to walk (directed)",
+      "target_text": "iść",
+      "romanization": "",
+      "notes": "An imperfective verb of motion, implying a single, directed movement.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
     },
     {
       "source_text": "yesterday",
       "target_text": "wczoraj",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb referring to the previous day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "today",
+      "target_text": "dzisiaj",
+      "romanization": "",
+      "notes": "An adverb referring to the current day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "jutro",
+      "romanization": "",
+      "notes": "An adverb referring to the next day.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "rano",
+      "romanization": "",
+      "notes": "As an adverb, it means 'in the morning'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "in the evening",
+      "target_text": "wieczorem",
+      "romanization": "",
+      "notes": "The adverbial form for 'in the evening'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "noc",
+      "romanization": "",
+      "notes": "A feminine noun for 'night', often used with 'w nocy' (at night).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour",
+      "target_text": "godzina",
+      "romanization": "",
+      "notes": "A feminine noun for 'an hour'; also means 'o'clock' when telling time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "tydzień",
+      "romanization": "",
+      "notes": "A masculine noun for 'week'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "miesiąc",
+      "romanization": "",
+      "notes": "A masculine noun for 'month'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "pieniądze",
+      "romanization": "",
+      "notes": "A plural noun, always treated as plural even when referring to a single amount.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "something",
+      "target_text": "coś",
+      "romanization": "",
+      "notes": "An indefinite pronoun; takes the genitive case of an adjective (e.g., 'coś dobrego' - something good).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "indefinite"
+      ]
+    },
+    {
+      "source_text": "nothing",
+      "target_text": "nic",
+      "romanization": "",
+      "notes": "A negative indefinite pronoun that requires a negation (nie) in the accompanying verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "indefinite"
+      ]
     }
   ]
 }

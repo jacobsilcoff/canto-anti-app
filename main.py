@@ -425,6 +425,37 @@ _LANG_WIDGET = """
       + 'box-shadow:var(--shadow-pop);z-index:2000;padding:4px;max-height:84vh;overflow-y:auto;'
       + 'grid-auto-flow:column;';
 
+    // Apply a language switch: persist it, update the pill + dropdown, and let
+    // every page react via the 'langchange' event. Shared by the dropdown and
+    // window.setAppLanguage (called when e.g. importing a deck in another lang).
+    function applyLang(l) {
+      return fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_target_lang: l.code }),
+      }).then(function () {
+        flagSpan.textContent = l.flag || '🌐';
+        nameSpan.textContent = l.name;
+        dd.style.display = 'none';
+        var opts = dd.querySelectorAll('[data-code]');
+        for (var i = 0; i < opts.length; i++) {
+          var oc = opts[i].dataset.code;
+          opts[i].querySelector('span').textContent = (oc === l.code ? '✓' : '');
+          opts[i].style.color = (oc === l.code ? 'var(--primary)' : 'var(--text)');
+        }
+        currentCode = l.code;
+        document.dispatchEvent(new CustomEvent('langchange', { detail: { code: l.code, lang: l } }));
+      });
+    }
+    // Public helper so other UI (deck import, etc.) can switch the learning
+    // language without a full page reload. Returns a promise<boolean> (did switch).
+    window.setAppLanguage = function (code) {
+      if (!code || code === currentCode) return Promise.resolve(false);
+      var l = langs.find(function (x) { return x.code === code; });
+      if (!l) return Promise.resolve(false);
+      return applyLang(l).then(function () { return true; }).catch(function () { return false; });
+    };
+
     langs.forEach(function (l) {
       var opt = document.createElement('div');
       opt.dataset.code = l.code;
@@ -446,29 +477,9 @@ _LANG_WIDGET = """
         opt.style.opacity = '0.5';
         opt.style.pointerEvents = 'none';
         pill.style.pointerEvents = 'none';
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ default_target_lang: l.code }),
-        }).then(function () {
-          flagSpan.textContent = l.flag || '🌐';
-          nameSpan.textContent = l.name;
-          dd.style.display = 'none';
-          // Update checkmarks and highlight
-          var opts = dd.querySelectorAll('[data-code]');
-          for (var i = 0; i < opts.length; i++) {
-            opts[i].querySelector('span').textContent = '';
-            opts[i].style.color = 'var(--text)';
-          }
-          check.textContent = '✓';
-          opt.style.color = 'var(--primary)';
+        applyLang(l).catch(function () {}).then(function () {
           opt.style.opacity = '';
           opt.style.pointerEvents = '';
-          pill.style.pointerEvents = '';
-          currentCode = l.code;
-          document.dispatchEvent(new CustomEvent('langchange', { detail: { code: l.code, lang: l } }));
-        }).catch(function () {
-          opt.style.opacity = ''; opt.style.pointerEvents = '';
           pill.style.pointerEvents = '';
         });
       });

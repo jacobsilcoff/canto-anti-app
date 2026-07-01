@@ -4,604 +4,1118 @@
   "description": "The 100 most common words in Portuguese — a fast start for beginners.",
   "items": [
     {
-      "source_text": "of / from",
-      "target_text": "de",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "the (fem. sing.) / to",
-      "target_text": "a",
-      "romanization": "",
-      "notes": null
-    },
-    {
       "source_text": "the (masc. sing.)",
       "target_text": "o",
       "romanization": "",
-      "notes": null
+      "notes": "This definite article is one of the most common words and changes for gender and number: a (fem. sing.), os (masc. plur.), as (fem. plur.).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
       "source_text": "and",
       "target_text": "e",
       "romanization": "",
-      "notes": null
+      "notes": "A very common conjunction, often linking clauses or items in a list.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
     },
     {
-      "source_text": "that / which / what",
+      "source_text": "of, from",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "Very frequently used preposition indicating possession, origin, or composition.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "that, which, what",
       "target_text": "que",
       "romanization": "",
-      "notes": null
+      "notes": "An extremely versatile word used as a conjunction, relative pronoun, and interrogative.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "pronoun",
+        "grammar"
+      ]
     },
     {
-      "source_text": "no / not",
-      "target_text": "não",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "a / an / one (masc.)",
+      "source_text": "a, an, one (masc.)",
       "target_text": "um",
       "romanization": "",
-      "notes": null
+      "notes": "This indefinite article also means 'one' and changes for gender and number: uma (fem. sing.), uns (masc. plur.), umas (fem. plur.).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number",
+        "grammar"
+      ]
     },
     {
-      "source_text": "a / an / one (fem.)",
-      "target_text": "uma",
+      "source_text": "to, at",
+      "target_text": "a",
       "romanization": "",
-      "notes": null
+      "notes": "A common preposition, often indicating direction or time; it can contract with definite articles (e.g., 'à' = a + a).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "in / on / at",
+      "source_text": "in, on, at",
       "target_text": "em",
       "romanization": "",
-      "notes": null
+      "notes": "A very common preposition indicating location or time; contracts with articles (e.g., 'no', 'na').",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "for / to",
-      "target_text": "para",
+      "source_text": "no, not",
+      "target_text": "não",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "with",
-      "target_text": "com",
-      "romanization": "",
-      "notes": null
+      "notes": "Placed before the verb to negate it; also used as a standalone 'no'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
     },
     {
       "source_text": "to be (permanent)",
       "target_text": "ser",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to be (temporary)",
-      "target_text": "estar",
-      "romanization": "",
-      "notes": null
+      "notes": "Use 'ser' for inherent qualities, identity, origin, and time; conjugates irregularly.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
     },
     {
       "source_text": "to have",
       "target_text": "ter",
       "romanization": "",
-      "notes": null
+      "notes": "Used for possession and also to form compound tenses (e.g., 'tenho feito' - I have done).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
     },
     {
-      "source_text": "to go",
-      "target_text": "ir",
+      "source_text": "to, for, in order to",
+      "target_text": "para",
       "romanization": "",
-      "notes": null
+      "notes": "Use for destination, purpose, or recipient; distinct from 'por' (by, through).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "you (sing.)",
-      "target_text": "você",
+      "source_text": "with",
+      "target_text": "com",
       "romanization": "",
-      "notes": "Standard singular 'you' in Brazil"
+      "notes": "A common preposition indicating accompaniment or means.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "I",
-      "target_text": "eu",
+      "source_text": "by, through, for",
+      "target_text": "por",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "he / him",
-      "target_text": "ele",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "she / her",
-      "target_text": "ela",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "we / us",
-      "target_text": "nós",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "they / them (masc.)",
-      "target_text": "eles",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "they / them (fem.)",
-      "target_text": "elas",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to do / to make",
-      "target_text": "fazer",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to say / to tell",
-      "target_text": "dizer",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to be able to / can",
-      "target_text": "poder",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to see",
-      "target_text": "ver",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to come",
-      "target_text": "vir",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to give",
-      "target_text": "dar",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to know (facts/how to)",
-      "target_text": "saber",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to want",
-      "target_text": "querer",
-      "romanization": "",
-      "notes": null
+      "notes": "Use for movement through, duration, or means; distinct from 'para' (destination, purpose).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
       "source_text": "more",
       "target_text": "mais",
       "romanization": "",
-      "notes": null
+      "notes": "Used for comparison, quantity, or as 'plus' in math.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
     },
     {
-      "source_text": "very / much / many",
+      "source_text": "how, as, like",
+      "target_text": "como",
+      "romanization": "",
+      "notes": "A versatile word used as an adverb for manner, a conjunction, or an interrogative ('how?').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "fazer",
+      "romanization": "",
+      "notes": "A versatile irregular verb used for actions, creation, and expressing weather (e.g., 'faz calor').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ir",
+      "romanization": "",
+      "notes": "An irregular verb often used to form the immediate future (e.g., 'vou fazer' - I am going to do).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "he, it (masc.)",
+      "target_text": "ele",
+      "romanization": "",
+      "notes": "This pronoun changes for gender and number: ela (she), eles (they, masc.), elas (they, fem.).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I",
+      "target_text": "eu",
+      "romanization": "",
+      "notes": "The first-person singular subject pronoun; it is often omitted in Brazilian Portuguese.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "você",
+      "romanization": "",
+      "notes": "The most common singular 'you' in Brazil, uses third-person verb conjugations; plural is 'vocês'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "very, much, a lot",
       "target_text": "muito",
       "romanization": "",
-      "notes": null
+      "notes": "Can be an adverb (very) or an adjective (much/many), agreeing in gender/number with a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
     },
     {
-      "source_text": "already / now",
-      "target_text": "já",
+      "source_text": "to say, to tell",
+      "target_text": "dizer",
       "romanization": "",
-      "notes": null
+      "notes": "An irregular verb, often followed by 'que' to introduce reported speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to be (temporary)",
+      "target_text": "estar",
+      "romanization": "",
+      "notes": "Use 'estar' for temporary states, locations, feelings, and continuous actions; conjugates irregularly.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "ver",
+      "romanization": "",
+      "notes": "An irregular verb, essential for describing perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
     },
     {
       "source_text": "now",
       "target_text": "agora",
       "romanization": "",
-      "notes": null
+      "notes": "A common adverb of time, indicating the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "still / yet",
-      "target_text": "ainda",
+      "source_text": "already, now",
+      "target_text": "já",
       "romanization": "",
-      "notes": null
+      "notes": "A versatile adverb indicating something has happened, or an immediate action ('já vou!' - I'm coming now!).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "well",
+      "source_text": "well, good",
       "target_text": "bem",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb modifying verbs and adjectives, can also mean 'very' or 'quite'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quality"
+      ]
     },
     {
-      "source_text": "good (masc.)",
-      "target_text": "bom",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "bad (masc.)",
-      "target_text": "mau",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thus / like this",
-      "target_text": "assim",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "always",
-      "target_text": "sempre",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "never",
-      "target_text": "nunca",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "only / alone",
+      "source_text": "only, alone",
       "target_text": "só",
       "romanization": "",
-      "notes": null
+      "notes": "An adverb meaning 'only' or an adjective meaning 'alone'; do not confuse with 'se' (if/oneself).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
     },
     {
-      "source_text": "all / every (masc.)",
+      "source_text": "all, every, whole",
       "target_text": "todo",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that agrees in gender and number (toda, todos, todas); often used with articles (e.g., 'todos os dias').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
     },
     {
-      "source_text": "other / another (masc.)",
+      "source_text": "other, another",
       "target_text": "outro",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that agrees in gender and number: outra (fem. sing.), outros (masc. plur.), outras (fem. plur.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
     },
     {
-      "source_text": "this / that (near listener, masc.)",
-      "target_text": "esse",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "this (near speaker, masc.)",
-      "target_text": "este",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "that (far away, masc.)",
-      "target_text": "aquele",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "how / as / like",
-      "target_text": "como",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "when",
-      "target_text": "quando",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "where",
-      "target_text": "onde",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "who / whom",
-      "target_text": "quem",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "because",
-      "target_text": "porque",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "if / oneself",
-      "target_text": "se",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "my (masc.)",
-      "target_text": "meu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "your / his / her / their (masc.)",
-      "target_text": "seu",
-      "romanization": "",
-      "notes": "Context dependent for 'your', 'his', 'her', 'their'"
-    },
-    {
-      "source_text": "our (masc.)",
-      "target_text": "nosso",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "day",
-      "target_text": "dia",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "time / weather",
+      "source_text": "time, weather",
       "target_text": "tempo",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "year",
-      "target_text": "ano",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "person",
-      "target_text": "pessoa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thing",
-      "target_text": "coisa",
-      "romanization": "",
-      "notes": null
+      "notes": "A common masculine noun with two main meanings; also used for 'tense' in grammar.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "weather"
+      ]
     },
     {
       "source_text": "life",
       "target_text": "vida",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun, common in many idioms.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "dia",
+      "romanization": "",
+      "notes": "Despite ending in '-a', 'dia' is a masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "saber",
+      "romanization": "",
+      "notes": "Use 'saber' for knowing facts, information, or how to do something; 'conhecer' for knowing people/places.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "this, that (masc. sing.)",
+      "target_text": "esse",
+      "romanization": "",
+      "notes": "Demonstrative pronoun/adjective for things near the listener or in recent context; changes for gender and number (essa, esses, essas).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "adjective",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "like this, so",
+      "target_text": "assim",
+      "romanization": "",
+      "notes": "Used to describe manner or consequence, can mean 'in this way'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "thing",
+      "target_text": "coisa",
+      "romanization": "",
+      "notes": "A very common, generic feminine noun for an object, idea, or matter.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "querer",
+      "romanization": "",
+      "notes": "An irregular verb, essential for expressing desires and intentions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to stay, to become",
+      "target_text": "ficar",
+      "romanization": "",
+      "notes": "A versatile verb meaning 'to stay', 'to be located', 'to become', or 'to remain'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "location",
+        "change"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "vir",
+      "romanization": "",
+      "notes": "An irregular verb, often used in conjunction with 'para' or 'a' to indicate destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "people, we (informal)",
+      "target_text": "gente",
+      "romanization": "",
+      "notes": "A feminine noun for 'people', but 'a gente' is a very common informal substitute for 'nós' (we), taking a third-person singular verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "pronoun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "same, truly, even",
+      "target_text": "mesmo",
+      "romanization": "",
+      "notes": "A versatile word that can be an adjective (same), adverb (truly/really), or pronoun (self), agreeing in gender/number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb",
+        "emphasis"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "dar",
+      "romanization": "",
+      "notes": "An irregular verb, fundamental for expressions of giving and offering.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "aqui",
+      "romanization": "",
+      "notes": "An adverb indicating proximity to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "where",
+      "target_text": "onde",
+      "romanization": "",
+      "notes": "Used for asking about location or as a relative adverb to indicate place.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "when",
+      "target_text": "quando",
+      "romanization": "",
+      "notes": "Used for asking about time or connecting clauses indicating time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "good (masc. sing.)",
+      "target_text": "bom",
+      "romanization": "",
+      "notes": "An adjective that agrees in gender and number: boa (fem. sing.), bons (masc. plur.), boas (fem. plur.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "novo",
+      "romanization": "",
+      "notes": "An adjective that agrees in gender and number; often contrasts with 'velho' (old).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "big, large, great",
+      "target_text": "grande",
+      "romanization": "",
+      "notes": "An adjective that is invariable for gender but changes for number (grandes).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": "A very common feminine noun; 'em casa' means 'at home', 'para casa' means 'homebound'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "dwelling"
+      ]
     },
     {
       "source_text": "world",
       "target_text": "mundo",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun, often used in expressions like 'todo o mundo' (everyone).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
     },
     {
-      "source_text": "house / home",
-      "target_text": "casa",
+      "source_text": "we, us",
+      "target_text": "nós",
       "romanization": "",
-      "notes": null
+      "notes": "The first-person plural subject/object pronoun; 'a gente' is often used informally in Brazil.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar"
+      ]
     },
     {
-      "source_text": "work / job",
+      "source_text": "person",
+      "target_text": "pessoa",
+      "romanization": "",
+      "notes": "A feminine noun, always singular when referring to an individual.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman, wife",
+      "target_text": "mulher",
+      "romanization": "",
+      "notes": "A feminine noun, plural form is 'mulheres'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man, husband",
+      "target_text": "homem",
+      "romanization": "",
+      "notes": "A masculine noun, plural form is 'homens'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "criança",
+      "romanization": "",
+      "notes": "A feminine noun, regardless of the child's gender.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "nome",
+      "romanization": "",
+      "notes": "A masculine noun, despite ending in '-e'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "work, job",
       "target_text": "trabalho",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun, also the first-person singular conjugation of 'trabalhar' (to work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "falar",
+      "romanization": "",
+      "notes": "A regular -ar verb, fundamental for communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "after, afterwards",
+      "target_text": "depois",
+      "romanization": "",
+      "notes": "An adverb of time, often followed by 'de' when preceding a noun or verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "sem",
+      "romanization": "",
+      "notes": "A common preposition, indicating absence.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "until, even",
+      "target_text": "até",
+      "romanization": "",
+      "notes": "Can be a preposition indicating a limit (until) or an adverb for emphasis (even).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "then, so",
+      "target_text": "então",
+      "romanization": "",
+      "notes": "Used to indicate sequence in time or logical consequence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "everything, all",
+      "target_text": "tudo",
+      "romanization": "",
+      "notes": "An invariable pronoun, always singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "moment",
+      "target_text": "momento",
+      "romanization": "",
+      "notes": "A masculine noun, often used with 'nesse' or 'neste' to refer to a specific point in time.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
       "source_text": "city",
       "target_text": "cidade",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
       "source_text": "country",
       "target_text": "país",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun, plural form is 'países'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "geography"
+      ]
+    },
+    {
+      "source_text": "two (masc.)",
+      "target_text": "dois",
+      "romanization": "",
+      "notes": "The number two, changes for gender: duas (fem.).",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "três",
+      "romanization": "",
+      "notes": "An invariable number, used for both masculine and feminine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "sempre",
+      "romanization": "",
+      "notes": "An adverb of frequency.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "first",
+      "target_text": "primeiro",
+      "romanization": "",
+      "notes": "An ordinal number that agrees in gender and number (primeira, primeiros, primeiras); often used as an adverb.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "number",
+        "sequence"
+      ]
+    },
+    {
+      "source_text": "better, best",
+      "target_text": "melhor",
+      "romanization": "",
+      "notes": "Invariable form for comparative and superlative, can be an adjective or adverb.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "adverb",
+        "comparison"
+      ]
+    },
+    {
+      "source_text": "still, yet",
+      "target_text": "ainda",
+      "romanization": "",
+      "notes": "An adverb indicating continuation or something not having happened.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "almost",
+      "target_text": "quase",
+      "romanization": "",
+      "notes": "An adverb expressing proximity to completion or a state.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "degree"
+      ]
+    },
+    {
+      "source_text": "since, from",
+      "target_text": "desde",
+      "romanization": "",
+      "notes": "A preposition indicating the starting point of time or space.",
+      "cefr_level": "A2",
+      "labels": [
+        "preposition",
+        "time"
+      ]
+    },
+    {
+      "source_text": "before, previously",
+      "target_text": "antes",
+      "romanization": "",
+      "notes": "An adverb of time, often followed by 'de' when preceding a noun or verb.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "between, among",
+      "target_text": "entre",
+      "romanization": "",
+      "notes": "A common preposition for spatial or temporal relations.",
+      "cefr_level": "A2",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "to arrive, to reach",
+      "target_text": "chegar",
+      "romanization": "",
+      "notes": "A regular -ar verb, often followed by 'a' or 'em' to indicate destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to enter, to come in",
+      "target_text": "entrar",
+      "romanization": "",
+      "notes": "A regular -ar verb, often followed by 'em' or 'na'/'no' for destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to leave, to go out",
+      "target_text": "sair",
+      "romanization": "",
+      "notes": "An irregular verb, often followed by 'de' or 'da'/'do' to indicate origin.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "side",
+      "target_text": "lado",
+      "romanization": "",
+      "notes": "A masculine noun, often used in spatial expressions (e.g., 'ao lado de' - next to).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "way, path",
+      "target_text": "caminho",
+      "romanization": "",
+      "notes": "A masculine noun, used for physical routes and metaphorical methods.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "each, every",
+      "target_text": "cada",
+      "romanization": "",
+      "notes": "An invariable adjective, always singular, placed before a noun.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "ano",
+      "romanization": "",
+      "notes": "A masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "mês",
+      "romanization": "",
+      "notes": "A masculine noun, plural form is 'meses'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "week",
+      "target_text": "semana",
+      "romanization": "",
+      "notes": "A feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "hour, time (clock)",
+      "target_text": "hora",
+      "romanization": "",
+      "notes": "A feminine noun, used for specific times and duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "dinheiro",
+      "romanization": "",
+      "notes": "A masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
     },
     {
       "source_text": "water",
       "target_text": "água",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun, essential for daily use.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
     },
     {
-      "source_text": "to speak / to talk",
-      "target_text": "falar",
+      "source_text": "food",
+      "target_text": "comida",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
     },
     {
-      "source_text": "to find / to think",
-      "target_text": "achar",
+      "source_text": "coffee, cafe",
+      "target_text": "café",
       "romanization": "",
-      "notes": null
+      "notes": "A masculine noun for both the beverage and a coffee shop.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink",
+        "place"
+      ]
     },
     {
-      "source_text": "to like",
+      "source_text": "to like, to enjoy",
       "target_text": "gostar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb, always followed by 'de' (e.g., 'Eu gosto de café').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
     },
     {
-      "source_text": "to start / to begin",
-      "target_text": "começar",
+      "source_text": "to think",
+      "target_text": "pensar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb, often followed by 'em' when thinking about something or 'que' to introduce a thought.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
     },
     {
-      "source_text": "to finish / to end",
-      "target_text": "acabar",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to call / to name",
+      "source_text": "to call, to be called",
       "target_text": "chamar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb; 'me chamo' (I call myself) means 'My name is'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
     },
     {
-      "source_text": "to arrive",
-      "target_text": "chegar",
+      "source_text": "to find, to meet",
+      "target_text": "encontrar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb, can refer to finding an object or meeting a person.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "discovery"
+      ]
     },
     {
-      "source_text": "to leave / to go out",
-      "target_text": "sair",
+      "source_text": "to look, to watch",
+      "target_text": "olhar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb, often followed by 'para' or 'a' to indicate direction of gaze.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
     },
     {
-      "source_text": "to enter / to come in",
-      "target_text": "entrar",
+      "source_text": "to feel",
+      "target_text": "sentir",
       "romanization": "",
-      "notes": null
+      "notes": "Irregular -ir verb, used for physical sensations or emotions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
     },
     {
-      "source_text": "to count / to tell",
+      "source_text": "to count, to tell",
       "target_text": "contar",
       "romanization": "",
-      "notes": null
+      "notes": "Regular -ar verb, can mean to count numbers or to narrate a story.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication",
+        "number"
+      ]
     },
     {
-      "source_text": "to take / to carry",
-      "target_text": "levar",
+      "source_text": "question",
+      "target_text": "pergunta",
       "romanization": "",
-      "notes": null
+      "notes": "A feminine noun; 'fazer uma pergunta' means 'to ask a question'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
     },
     {
-      "source_text": "to stay / to remain / to become",
-      "target_text": "ficar",
+      "source_text": "answer",
+      "target_text": "resposta",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "after / then",
-      "target_text": "depois",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "before",
-      "target_text": "antes",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "each / every",
-      "target_text": "cada",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "which / what",
-      "target_text": "qual",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "some / any (masc.)",
-      "target_text": "algum",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "no / none (masc.)",
-      "target_text": "nenhum",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "new (masc.)",
-      "target_text": "novo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "old (masc.)",
-      "target_text": "velho",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "large / big",
-      "target_text": "grande",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "small / little (masc.)",
-      "target_text": "pequeno",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "certain / right (masc.)",
-      "target_text": "certo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "clear / light (masc.)",
-      "target_text": "claro",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "easy",
-      "target_text": "fácil",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "difficult",
-      "target_text": "difícil",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "important",
-      "target_text": "importante",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thank you",
-      "target_text": "obrigado",
-      "romanization": "",
-      "notes": "Said by male speakers. Female speakers say 'obrigada'."
-    },
-    {
-      "source_text": "yes",
-      "target_text": "sim",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "hi / hello",
-      "target_text": "oi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "bye",
-      "target_text": "tchau",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "people / folks",
-      "target_text": "gente",
-      "romanization": "",
-      "notes": "Also used informally for 'we' in Brazil"
+      "notes": "A feminine noun; 'dar uma resposta' means 'to give an answer'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
     }
   ]
 }

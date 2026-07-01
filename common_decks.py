@@ -73,34 +73,48 @@ def load_seed(lang: str) -> dict | None:
 
 # ── Phase 1: LLM generation → committed seed file ────────────────────────────
 
-def _build_prompt(info: dict) -> str:
+# Over-request so that after dedup/cleaning we can trim to exactly WORDS_PER_DECK.
+_REQUEST_COUNT = 120
+_VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+
+
+def _build_prompt(info: dict, count: int, avoid: list[str] | None = None) -> str:
+    avoid_block = ""
+    if avoid:
+        avoid_block = (
+            "\nDo NOT include any of these already-covered words:\n"
+            + ", ".join(avoid) + "\n"
+        )
     return (
         f"You are compiling a frequency-ordered starter vocabulary for learners of "
         f"{info.get('full_name', info['name'])}.\n"
-        f"List the {WORDS_PER_DECK} MOST COMMON and MOST USEFUL individual words in "
+        f"List the {count} MOST COMMON and MOST USEFUL individual words in "
         f"{info['name']}, ordered from most frequent to less frequent.\n\n"
-        f"Language rules:\n{info.get('rules', '')}\n\n"
-        "Requirements:\n"
-        "- Each entry is a SINGLE common word (not a phrase or full sentence). "
-        "Include high-frequency function words (pronouns, particles, common verbs, "
-        "numbers) and everyday nouns/adjectives.\n"
-        "- Prefer the base/dictionary form. No duplicates.\n"
-        "- source_text = a concise English gloss (1-4 words).\n"
-        "- notes = an optional very short usage note, or an empty string.\n\n"
-        f"Return ONLY a JSON array of exactly {WORDS_PER_DECK} objects, no prose, no "
-        "markdown fences:\n"
-        '[{"source_text": "I / me", "target_text": "…", "notes": ""}, ...]'
+        f"Language rules:\n{info.get('rules', '')}\n"
+        f"{avoid_block}\n"
+        "For EACH word provide:\n"
+        "- target_text: the SINGLE word in the native script ONLY (base/dictionary "
+        "form, no phrases, no romanization in parentheses).\n"
+        "- source_text: a concise English gloss (1-4 words).\n"
+        "- notes: ONE short, genuinely useful learner note WRITTEN IN ENGLISH — a "
+        "usage nuance, common collocation, gender/measure word, or a quick memory "
+        "hook. 1 sentence, in English, no romanization. Empty string only if truly "
+        "nothing useful.\n"
+        "- cefr: the word's CEFR level, one of A1, A2, B1, B2, C1, C2.\n"
+        "- labels: 2-3 short lowercase category tags for organising a deck "
+        '(e.g. "pronoun", "food", "greeting", "verb", "time", "number"). '
+        "Prefer grammatical class + a topic.\n\n"
+        "No duplicates. Return ONLY a JSON array, no prose, no markdown fences:\n"
+        '[{"source_text": "I / me", "target_text": "…", "notes": "…", '
+        '"cefr": "A1", "labels": ["pronoun"]}, ...]'
     )
 
 
-def _generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dict]:
-    """Blocking — call the LLM and build validated deck items. Run in a thread."""
-    raw = translation._call(_build_prompt(info), api_key, model=model)
+def _parse_entries(lang: str, raw: str, items: list[dict], seen: set[str]) -> None:
+    """Parse one LLM response into `items`, deduping against `seen` in place."""
     data = translation._parse_json(raw)
     if not isinstance(data, list):
         raise ValueError(f"{lang}: model did not return a JSON array")
-    items: list[dict] = []
-    seen: set[str] = set()
     for entry in data:
         if not isinstance(entry, dict):
             continue
@@ -112,24 +126,53 @@ def _generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dic
         # Never trust model romanization — recompute with the offline oracle so
         # tones/jyutping/pinyin match ruby everywhere else. Blank for Latin scripts.
         roman = tokenizer.romanize_text(target, lang) or ""
+        cefr = (entry.get("cefr") or "").strip().upper()
+        labels = entry.get("labels") or []
+        if isinstance(labels, str):
+            labels = [labels]
+        labels = [str(x).strip().lower() for x in labels if str(x).strip()][:4]
         items.append({
             "source_text": source,
             "target_text": target,
             "romanization": roman,
             "notes": (entry.get("notes") or "").strip() or None,
+            "cefr_level": cefr if cefr in _VALID_CEFR else None,
+            "labels": labels or None,
         })
-        if len(items) >= WORDS_PER_DECK:
-            break
-    return items
 
 
 def generate_seed_file(lang: str, api_key: str, *, model: str = DEFAULT_MODEL) -> dict:
     """LLM-generate a language's word list and write seed_decks/<lang>.json.
+    Over-requests + tops up so the file has EXACTLY WORDS_PER_DECK words.
     Blocking (LLM call) — call via asyncio.to_thread. Returns {lang, count, path}."""
     info = translation.LANG_INFO.get(lang)
     if not info:
         raise ValueError(f"{lang}: not in LANG_INFO")
-    items = _generate_items(lang, info, api_key, model)
+    items: list[dict] = []
+    seen: set[str] = set()
+    # One retry — the model occasionally returns malformed/empty JSON.
+    for attempt in range(2):
+        try:
+            _parse_entries(
+                lang, translation._call(_build_prompt(info, _REQUEST_COUNT), api_key, model=model),
+                items, seen,
+            )
+            break
+        except Exception:
+            if attempt:
+                raise
+    # Top-up pass if dedup/cleaning left us short of the target.
+    if len(items) < WORDS_PER_DECK:
+        need = WORDS_PER_DECK - len(items)
+        _parse_entries(
+            lang,
+            translation._call(
+                _build_prompt(info, need + 20, avoid=[it["target_text"] for it in items]),
+                api_key, model=model,
+            ),
+            items, seen,
+        )
+    items = items[:WORDS_PER_DECK]  # trim to exactly WORDS_PER_DECK
     if len(items) < MIN_VALID_ITEMS:
         raise ValueError(f"{lang}: only {len(items)} valid items")
     os.makedirs(SEED_DIR, exist_ok=True)

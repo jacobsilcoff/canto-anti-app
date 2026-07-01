@@ -4,604 +4,1091 @@
   "description": "The 100 most common words in Swahili — a fast start for beginners.",
   "items": [
     {
-      "source_text": "and / with",
+      "source_text": "and, with",
       "target_text": "na",
       "romanization": "",
-      "notes": null
+      "notes": "Connects words or clauses and can also indicate accompaniment or possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "preposition"
+      ]
     },
     {
-      "source_text": "is / am / are",
-      "target_text": "ni",
-      "romanization": "",
-      "notes": "Copula"
-    },
-    {
-      "source_text": "to be / to have",
+      "source_text": "to be",
       "target_text": "kuwa",
       "romanization": "",
-      "notes": "Infinitive verb"
+      "notes": "Used as an auxiliary verb to form tenses and as the main verb 'to be' (often omitted in present tense).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
     },
     {
-      "source_text": "I / me",
-      "target_text": "mimi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "you (singular)",
-      "target_text": "wewe",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "he / she / it",
-      "target_text": "yeye",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "we / us",
-      "target_text": "sisi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "you (plural)",
-      "target_text": "nyinyi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "they / them",
-      "target_text": "wao",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "for / by / with / to",
+      "source_text": "for, by, with, to",
       "target_text": "kwa",
       "romanization": "",
-      "notes": null
+      "notes": "A highly versatile preposition indicating purpose, means, agent, or direction.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "in / on / at",
-      "target_text": "katika",
+      "source_text": "I, me",
+      "target_text": "mimi",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'ni-' often implies 'I'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to do / to make",
-      "target_text": "kufanya",
+      "source_text": "you (sg)",
+      "target_text": "wewe",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'u-' often implies 'you' (singular).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to go",
-      "target_text": "kwenda",
+      "source_text": "he, she, him, her",
+      "target_text": "yeye",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'a-' often implies 'he/she'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to come",
-      "target_text": "kuja",
+      "source_text": "we, us",
+      "target_text": "sisi",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'tu-' often implies 'we'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to say / to speak",
-      "target_text": "kusema",
+      "source_text": "you (pl)",
+      "target_text": "ninyi",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'm-' often implies 'you' (plural).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to know",
-      "target_text": "kujua",
+      "source_text": "they, them",
+      "target_text": "wao",
       "romanization": "",
-      "notes": null
+      "notes": "Used for emphasis; the subject prefix 'wa-' often implies 'they'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "to want",
-      "target_text": "kutaka",
+      "source_text": "news, hello",
+      "target_text": "habari",
       "romanization": "",
-      "notes": null
+      "notes": "A ubiquitous greeting, often followed by a specific question like 'za asubuhi?' (of the morning?).",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "noun"
+      ]
     },
     {
-      "source_text": "to give / to take out",
-      "target_text": "kutoa",
+      "source_text": "thank you",
+      "target_text": "asante",
       "romanization": "",
-      "notes": null
+      "notes": "Can be followed by 'sana' for 'thank you very much'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "interjection"
+      ]
     },
     {
-      "source_text": "to get / to obtain",
-      "target_text": "kupata",
+      "source_text": "please",
+      "target_text": "tafadhali",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "very / much",
-      "target_text": "sana",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "also / too",
-      "target_text": "pia",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "but",
-      "target_text": "lakini",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "if / like / as",
-      "target_text": "kama",
-      "romanization": "",
-      "notes": null
+      "notes": "Used to make polite requests or offer something politely.",
+      "cefr_level": "A1",
+      "labels": [
+        "request",
+        "interjection"
+      ]
     },
     {
       "source_text": "yes",
       "target_text": "ndiyo",
       "romanization": "",
-      "notes": null
+      "notes": "Used to affirm or agree.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
     },
     {
       "source_text": "no",
       "target_text": "hapana",
       "romanization": "",
-      "notes": null
+      "notes": "Used to negate or disagree.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
     },
     {
-      "source_text": "what?",
-      "target_text": "nini",
+      "source_text": "in, at, on",
+      "target_text": "katika",
       "romanization": "",
-      "notes": null
+      "notes": "Indicates location, time within a period, or a general context.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "where?",
-      "target_text": "wapi",
+      "source_text": "but",
+      "target_text": "lakini",
       "romanization": "",
-      "notes": null
+      "notes": "Connects contrasting ideas or clauses.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
-      "source_text": "how?",
-      "target_text": "vipi",
+      "source_text": "or",
+      "target_text": "au",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "who?",
-      "target_text": "nani",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "person",
-      "target_text": "mtu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "day",
-      "target_text": "siku",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "work / job",
-      "target_text": "kazi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "water",
-      "target_text": "maji",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "food",
-      "target_text": "chakula",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "house",
-      "target_text": "nyumba",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "money",
-      "target_text": "pesa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "child",
-      "target_text": "mtoto",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "book",
-      "target_text": "kitabu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "school",
-      "target_text": "shule",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "language",
-      "target_text": "lugha",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "friend",
-      "target_text": "rafiki",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "car",
-      "target_text": "gari",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "phone",
-      "target_text": "simu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "good / beautiful",
-      "target_text": "nzuri",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "big / large",
-      "target_text": "kubwa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "small",
-      "target_text": "ndogo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "many / much",
-      "target_text": "nyingi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "all / entire",
-      "target_text": "yote",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "one / a / single",
-      "target_text": "moja",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "this",
-      "target_text": "hii",
-      "romanization": "",
-      "notes": "Demonstrative"
-    },
-    {
-      "source_text": "that",
-      "target_text": "ile",
-      "romanization": "",
-      "notes": "Demonstrative"
-    },
-    {
-      "source_text": "now",
-      "target_text": "sasa",
-      "romanization": "",
-      "notes": null
+      "notes": "Used to present alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
       "source_text": "today",
       "target_text": "leo",
       "romanization": "",
-      "notes": null
+      "notes": "A common adverb of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "tomorrow",
-      "target_text": "kesho",
+      "source_text": "now",
+      "target_text": "sasa",
       "romanization": "",
-      "notes": null
+      "notes": "Indicates the present moment, or urgency.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "yesterday",
-      "target_text": "jana",
+      "source_text": "here",
+      "target_text": "hapa",
       "romanization": "",
-      "notes": null
+      "notes": "Indicates a location near the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
     },
     {
-      "source_text": "morning",
-      "target_text": "asubuhi",
+      "source_text": "very, much",
+      "target_text": "sana",
       "romanization": "",
-      "notes": null
+      "notes": "An intensifier, often used after adjectives or verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
     },
     {
-      "source_text": "evening",
-      "target_text": "jioni",
+      "source_text": "to go",
+      "target_text": "kwenda",
       "romanization": "",
-      "notes": null
+      "notes": "A fundamental verb of motion, often followed by a locative.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
     },
     {
-      "source_text": "night",
-      "target_text": "usiku",
+      "source_text": "to do, to make",
+      "target_text": "kufanya",
       "romanization": "",
-      "notes": null
+      "notes": "A versatile verb used for actions, creating, or performing.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
-      "source_text": "year",
-      "target_text": "mwaka",
+      "source_text": "to come",
+      "target_text": "kuja",
       "romanization": "",
-      "notes": null
+      "notes": "A fundamental verb of motion, often followed by a locative.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
     },
     {
-      "source_text": "week",
-      "target_text": "wiki",
+      "source_text": "to say, to speak",
+      "target_text": "kusema",
       "romanization": "",
-      "notes": null
+      "notes": "Refers to the act of verbal communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
     },
     {
-      "source_text": "hour / clock / time",
-      "target_text": "saa",
+      "source_text": "to want",
+      "target_text": "kutaka",
       "romanization": "",
-      "notes": null
+      "notes": "Used to express desire or intention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
     },
     {
-      "source_text": "minute",
-      "target_text": "dakika",
+      "source_text": "to know",
+      "target_text": "kujua",
       "romanization": "",
-      "notes": null
+      "notes": "Used to express knowledge or understanding.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
     },
     {
-      "source_text": "two",
-      "target_text": "mbili",
+      "source_text": "to be able to",
+      "target_text": "kuweza",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "three",
-      "target_text": "tatu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "four",
-      "target_text": "nne",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "five",
-      "target_text": "tano",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "ten",
-      "target_text": "kumi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to eat",
-      "target_text": "kula",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to drink",
-      "target_text": "kunywa",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to live",
-      "target_text": "kuishi",
-      "romanization": "",
-      "notes": null
+      "notes": "Expresses ability or possibility, similar to 'can' or 'may'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modality"
+      ]
     },
     {
       "source_text": "to see",
       "target_text": "kuona",
       "romanization": "",
-      "notes": null
+      "notes": "Refers to the act of perceiving with eyes.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
     },
     {
-      "source_text": "to buy",
-      "target_text": "kununua",
+      "source_text": "to eat",
+      "target_text": "kula",
       "romanization": "",
-      "notes": null
+      "notes": "A basic verb related to consumption.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
     },
     {
-      "source_text": "to sell",
-      "target_text": "kuuza",
+      "source_text": "to drink",
+      "target_text": "kunywa",
       "romanization": "",
-      "notes": null
+      "notes": "A basic verb related to consumption of liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
     },
     {
-      "source_text": "to read",
-      "target_text": "kusoma",
+      "source_text": "person, human",
+      "target_text": "mtu",
       "romanization": "",
-      "notes": null
+      "notes": "Singular for 'person', belongs to the M-Wa noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
     },
     {
-      "source_text": "to write",
-      "target_text": "kuandika",
+      "source_text": "water",
+      "target_text": "maji",
       "romanization": "",
-      "notes": null
+      "notes": "A common plural noun (Ji-Ma class), even when referring to a single instance of water.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink"
+      ]
     },
     {
-      "source_text": "to like / to love",
-      "target_text": "kupenda",
+      "source_text": "food",
+      "target_text": "chakula",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the Ki-Vi noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
     },
     {
-      "source_text": "to help",
-      "target_text": "kusaidia",
+      "source_text": "work, job",
+      "target_text": "kazi",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the N-N noun class; also used for 'task' or 'duty'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
     },
     {
-      "source_text": "to need",
-      "target_text": "kuhitaji",
+      "source_text": "day",
+      "target_text": "siku",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the N-N noun class; can refer to a specific day or 'a day'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "to be able",
-      "target_text": "kuweza",
+      "source_text": "hour, clock, watch",
+      "target_text": "saa",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the N-N noun class; used for time, watches, and clocks.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "country",
-      "target_text": "nchi",
+      "source_text": "year",
+      "target_text": "mwaka",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the M-Mi noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "city / town",
-      "target_text": "mji",
+      "source_text": "house, home",
+      "target_text": "nyumba",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
       "source_text": "name",
       "target_text": "jina",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the Ji-Ma noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
     },
     {
-      "source_text": "hand / arm",
-      "target_text": "mkono",
+      "source_text": "city, town",
+      "target_text": "mji",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the M-Mi noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "head",
-      "target_text": "kichwa",
+      "source_text": "school",
+      "target_text": "shule",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
     },
     {
-      "source_text": "father",
-      "target_text": "baba",
+      "source_text": "book",
+      "target_text": "kitabu",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the Ki-Vi noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "reading"
+      ]
     },
     {
-      "source_text": "mother",
-      "target_text": "mama",
+      "source_text": "car, vehicle",
+      "target_text": "gari",
       "romanization": "",
-      "notes": null
+      "notes": "Can be either N-N or Ji-Ma class depending on region, but often treated as N-N.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
     },
     {
-      "source_text": "down / below",
-      "target_text": "chini",
+      "source_text": "money",
+      "target_text": "fedha",
       "romanization": "",
-      "notes": null
+      "notes": "Another common word for money is 'pesa'. Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
     },
     {
-      "source_text": "up / above",
-      "target_text": "juu",
+      "source_text": "shop, store",
+      "target_text": "duka",
       "romanization": "",
-      "notes": null
+      "notes": "Belongs to the Ji-Ma noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "commerce"
+      ]
     },
     {
-      "source_text": "outside",
-      "target_text": "nje",
+      "source_text": "good, nice",
+      "target_text": "nzuri",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that changes prefix based on the noun class it describes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "inside",
-      "target_text": "ndani",
+      "source_text": "bad, ugly",
+      "target_text": "mbaya",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that changes prefix based on the noun class it describes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "old (person/adj.)",
-      "target_text": "mzee",
+      "source_text": "big, large",
+      "target_text": "kubwa",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that changes prefix based on the noun class it describes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "new",
-      "target_text": "mpya",
+      "source_text": "small",
+      "target_text": "ndogo",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that changes prefix based on the noun class it describes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "quickly / fast",
-      "target_text": "haraka",
+      "source_text": "many, much",
+      "target_text": "nyingi",
       "romanization": "",
-      "notes": null
+      "notes": "An adjective that changes prefix based on the noun class it describes.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
     },
     {
-      "source_text": "slowly",
-      "target_text": "polepole",
+      "source_text": "a little, few",
+      "target_text": "kidogo",
       "romanization": "",
-      "notes": null
+      "notes": "Can function as an adjective ('a little bit') or an adverb ('a little').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "adverb",
+        "quantity"
+      ]
     },
     {
-      "source_text": "easy",
-      "target_text": "rahisi",
+      "source_text": "yesterday",
+      "target_text": "jana",
       "romanization": "",
-      "notes": null
+      "notes": "A common adverb of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "difficult",
-      "target_text": "ngumu",
+      "source_text": "tomorrow",
+      "target_text": "kesho",
       "romanization": "",
-      "notes": null
+      "notes": "A common adverb of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "reason",
-      "target_text": "sababu",
+      "source_text": "there (near)",
+      "target_text": "pale",
       "romanization": "",
-      "notes": "Often used in 'kwa sababu' (because)"
+      "notes": "Indicates a location further from the speaker but still generally visible or known.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
     },
     {
-      "source_text": "first",
-      "target_text": "kwanza",
+      "source_text": "where?",
+      "target_text": "wapi",
       "romanization": "",
-      "notes": null
+      "notes": "A common interrogative for asking about location.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "location"
+      ]
     },
     {
-      "source_text": "end / last",
-      "target_text": "mwisho",
+      "source_text": "when?",
+      "target_text": "lini",
       "romanization": "",
-      "notes": null
+      "notes": "A common interrogative for asking about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "time"
+      ]
     },
     {
-      "source_text": "how many/much?",
-      "target_text": "ngapi",
+      "source_text": "who?",
+      "target_text": "nani",
       "romanization": "",
-      "notes": null
+      "notes": "A common interrogative for asking about a person.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "people"
+      ]
+    },
+    {
+      "source_text": "what?",
+      "target_text": "nini",
+      "romanization": "",
+      "notes": "A common interrogative for asking about a thing or action.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "thing"
+      ]
+    },
+    {
+      "source_text": "how?",
+      "target_text": "vipi",
+      "romanization": "",
+      "notes": "A common interrogative for asking about manner or method.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "one",
+      "target_text": "moja",
+      "romanization": "",
+      "notes": "The cardinal number one; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "two",
+      "target_text": "mbili",
+      "romanization": "",
+      "notes": "The cardinal number two; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "three",
+      "target_text": "tatu",
+      "romanization": "",
+      "notes": "The cardinal number three; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "four",
+      "target_text": "nne",
+      "romanization": "",
+      "notes": "The cardinal number four; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "five",
+      "target_text": "tano",
+      "romanization": "",
+      "notes": "The cardinal number five; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "sita",
+      "romanization": "",
+      "notes": "The cardinal number six; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "saba",
+      "romanization": "",
+      "notes": "The cardinal number seven; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "nane",
+      "romanization": "",
+      "notes": "The cardinal number eight; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "tisa",
+      "romanization": "",
+      "notes": "The cardinal number nine; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "kumi",
+      "romanization": "",
+      "notes": "The cardinal number ten; its prefix changes based on the noun class it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "again, more",
+      "target_text": "tena",
+      "romanization": "",
+      "notes": "Indicates repetition or addition.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "also, too",
+      "target_text": "pia",
+      "romanization": "",
+      "notes": "Indicates inclusion or additional information.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "only, just",
+      "target_text": "tu",
+      "romanization": "",
+      "notes": "Always placed after the word it modifies; indicates exclusivity or limitation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "limiter"
+      ]
+    },
+    {
+      "source_text": "like, as, if",
+      "target_text": "kama",
+      "romanization": "",
+      "notes": "A versatile word used for comparison, condition, or approximation.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "preposition"
+      ]
+    },
+    {
+      "source_text": "truth, truly",
+      "target_text": "kweli",
+      "romanization": "",
+      "notes": "Can be a noun meaning 'truth' or an adverb meaning 'truly' or 'really'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "to read, to study",
+      "target_text": "kusoma",
+      "romanization": "",
+      "notes": "Refers to both reading a text and studying for educational purposes.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "kuandika",
+      "romanization": "",
+      "notes": "Refers to the act of putting words on paper or a screen.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to hear, to feel",
+      "target_text": "kusikia",
+      "romanization": "",
+      "notes": "Can refer to both auditory perception and physical sensation.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to like, to love",
+      "target_text": "kupenda",
+      "romanization": "",
+      "notes": "Used to express affection or preference.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to live",
+      "target_text": "kuishi",
+      "romanization": "",
+      "notes": "Refers to existing or residing in a place.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "life"
+      ]
+    },
+    {
+      "source_text": "to arrive",
+      "target_text": "kufika",
+      "romanization": "",
+      "notes": "A verb of motion indicating arrival at a destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "motion"
+      ]
+    },
+    {
+      "source_text": "to get, to obtain",
+      "target_text": "kupata",
+      "romanization": "",
+      "notes": "A versatile verb for acquiring something or experiencing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "acquisition"
+      ]
+    },
+    {
+      "source_text": "people",
+      "target_text": "watu",
+      "romanization": "",
+      "notes": "Plural for 'mtu', belongs to the M-Wa noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "doctor",
+      "target_text": "daktari",
+      "romanization": "",
+      "notes": "Belongs to the N-N noun class, but often takes M-Wa prefixes when referring to people.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "mwalimu",
+      "romanization": "",
+      "notes": "Belongs to the M-Wa noun class; plural is 'walimu'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession"
+      ]
+    },
+    {
+      "source_text": "student",
+      "target_text": "mwanafunzi",
+      "romanization": "",
+      "notes": "Belongs to the M-Wa noun class; plural is 'wanafunzi'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "friend",
+      "target_text": "rafiki",
+      "romanization": "",
+      "notes": "Can be singular or plural (N-N class), but also takes M-Wa prefixes for people.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "family",
+      "target_text": "familia",
+      "romanization": "",
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "phone",
+      "target_text": "simu",
+      "romanization": "",
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "technology"
+      ]
+    },
+    {
+      "source_text": "computer",
+      "target_text": "kompyuta",
+      "romanization": "",
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "technology"
+      ]
+    },
+    {
+      "source_text": "road, street",
+      "target_text": "barabara",
+      "romanization": "",
+      "notes": "Belongs to the N-N noun class.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "this (person)",
+      "target_text": "huyu",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a person close to the speaker (M-Wa class).",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (person, near)",
+      "target_text": "huyo",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a person slightly distant from the speaker (M-Wa class).",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (person, far)",
+      "target_text": "yule",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a person far from the speaker (M-Wa class).",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "this (Ki-Vi class)",
+      "target_text": "hiki",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a Ki-Vi class noun close to the speaker, e.g., 'kitabu hiki'.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (Ki-Vi class, near)",
+      "target_text": "hicho",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a Ki-Vi class noun slightly distant from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "that (Ki-Vi class, far)",
+      "target_text": "kile",
+      "romanization": "",
+      "notes": "A demonstrative pronoun used for a Ki-Vi class noun far from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "all, every, each",
+      "target_text": "kila",
+      "romanization": "",
+      "notes": "An invariable determiner, used before nouns to mean 'every' or 'each'.",
+      "cefr_level": "A1",
+      "labels": [
+        "determiner",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "together",
+      "target_text": "pamoja",
+      "romanization": "",
+      "notes": "An adverb indicating togetherness or accompaniment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "social"
+      ]
+    },
+    {
+      "source_text": "time, period",
+      "target_text": "muda",
+      "romanization": "",
+      "notes": "Belongs to the M-Mi noun class; refers to a duration or period of time.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time"
+      ]
     }
   ]
 }

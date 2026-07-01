@@ -4,604 +4,1104 @@
   "description": "The 100 most common words in Spanish — a fast start for beginners.",
   "items": [
     {
-      "source_text": "the (masc. sing.)",
+      "source_text": "the (m. sg.)",
       "target_text": "el",
       "romanization": "",
-      "notes": null
+      "notes": "Use with masculine singular nouns; it often precedes abstract concepts and body parts in general statements.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
-      "source_text": "of / from",
+      "source_text": "of, from, about",
       "target_text": "de",
       "romanization": "",
-      "notes": null
+      "notes": "Essential preposition for possession, origin, and topic; often translates to 'of' or 'from'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "that / which",
-      "target_text": "que",
+      "source_text": "to (direction, purpose)",
+      "target_text": "a",
       "romanization": "",
-      "notes": null
+      "notes": "Used for direction, indirect objects, and often before people or personified nouns as the personal 'a'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "the (fem. sing.)",
+      "source_text": "the (f. sg.)",
       "target_text": "la",
       "romanization": "",
-      "notes": null
+      "notes": "Use with feminine singular nouns; remember that feminine nouns starting with stressed 'a-' or 'ha-' take 'el' in the singular.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
       "source_text": "and",
       "target_text": "y",
       "romanization": "",
-      "notes": null
+      "notes": "The conjunction 'y' changes to 'e' before words starting with 'i-' or 'hi-'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
     },
     {
-      "source_text": "to / at",
-      "target_text": "a",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "in / on",
-      "target_text": "en",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "a / an (masc.)",
-      "target_text": "un",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to be (permanent)",
+      "source_text": "to be (essence)",
       "target_text": "ser",
       "romanization": "",
-      "notes": "Used for identity, origin, characteristics, time."
+      "notes": "Used for inherent qualities, identity, origin, and time; remember its irregular conjugations.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "essence"
+      ]
     },
     {
-      "source_text": "reflexive / impersonal",
-      "target_text": "se",
+      "source_text": "in, on, at",
+      "target_text": "en",
       "romanization": "",
-      "notes": "Used for reflexive actions, passive voice, or impersonal statements."
+      "notes": "Indicates location or time; often means 'in' or 'on'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
     },
     {
-      "source_text": "no / not",
-      "target_text": "no",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to have (auxiliary)",
-      "target_text": "haber",
-      "romanization": "",
-      "notes": "Used to form compound tenses ('he comido'); also 'hay' (there is/are)."
-    },
-    {
-      "source_text": "for / by",
-      "target_text": "por",
-      "romanization": "",
-      "notes": "Used for cause, duration, means, exchange."
-    },
-    {
-      "source_text": "with",
-      "target_text": "con",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "his/her/its/their",
-      "target_text": "su",
-      "romanization": "",
-      "notes": "Also 'your' (formal)."
-    },
-    {
-      "source_text": "for / to",
-      "target_text": "para",
-      "romanization": "",
-      "notes": "Used for purpose, destination, recipient, deadline."
-    },
-    {
-      "source_text": "as / like",
-      "target_text": "como",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to be (temporary)",
-      "target_text": "estar",
-      "romanization": "",
-      "notes": "Used for location, temporary states, emotions."
-    },
-    {
-      "source_text": "to have / possess",
+      "source_text": "to have",
       "target_text": "tener",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'to have' (possession) and is used in many common expressions like 'tener hambre' (to be hungry).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "possession"
+      ]
     },
     {
-      "source_text": "the (masc. plural)",
-      "target_text": "los",
+      "source_text": "that, which",
+      "target_text": "que",
       "romanization": "",
-      "notes": null
+      "notes": "Can be a conjunction 'that' or a relative pronoun 'that/which'; it's one of the most versatile words.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "him/her (indirect obj.)",
-      "target_text": "le",
+      "source_text": "not, no",
+      "target_text": "no",
       "romanization": "",
-      "notes": null
+      "notes": "Always precedes the verb in Spanish sentences to negate it.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
     },
     {
-      "source_text": "me (direct/indirect obj.)",
-      "target_text": "me",
+      "source_text": "to be (state/location)",
+      "target_text": "estar",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "if",
-      "target_text": "si",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "more / most",
-      "target_text": "más",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "or",
-      "target_text": "o",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "but",
-      "target_text": "pero",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to go",
-      "target_text": "ir",
-      "romanization": "",
-      "notes": null
+      "notes": "Used for temporary states, emotions, health, and location; remember its irregular conjugations.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state"
+      ]
     },
     {
       "source_text": "I",
       "target_text": "yo",
       "romanization": "",
-      "notes": null
+      "notes": "Subject pronoun for 'I'; often omitted when the verb conjugation makes the subject clear.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
-      "source_text": "it / him (direct obj.)",
+      "source_text": "it (dir. obj.), him",
       "target_text": "lo",
       "romanization": "",
-      "notes": null
+      "notes": "Direct object pronoun for masculine singular nouns or general concepts; also used with verbs to form the neuter 'lo'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object"
+      ]
     },
     {
-      "source_text": "the (fem. plural)",
-      "target_text": "las",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "a / an (fem.)",
-      "target_text": "una",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "all / every",
+      "source_text": "all, every",
       "target_text": "todo",
       "romanization": "",
-      "notes": null
+      "notes": "Functions as an adjective 'all/every' (e.g., 'todo el día') or a pronoun 'everything'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "he",
+      "source_text": "to go",
+      "target_text": "ir",
+      "romanization": "",
+      "notes": "Very common irregular verb for 'to go'; often followed by 'a' when indicating destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "for, by, through",
+      "target_text": "por",
+      "romanization": "",
+      "notes": "Indicates reason, duration, means, or movement 'through' a place; often confused with 'para'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "reason"
+      ]
+    },
+    {
+      "source_text": "with",
+      "target_text": "con",
+      "romanization": "",
+      "notes": "Means 'with'; combine with 'mí', 'ti', 'sí' to form 'conmigo', 'contigo', 'consigo'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "accompaniment"
+      ]
+    },
+    {
+      "source_text": "he, it (m.)",
       "target_text": "él",
       "romanization": "",
-      "notes": null
+      "notes": "Subject pronoun for 'he' or masculine 'it'; note the accent mark to distinguish it from the article 'el'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
-      "source_text": "to do / make",
-      "target_text": "hacer",
+      "source_text": "for, in order to",
+      "target_text": "para",
       "romanization": "",
-      "notes": null
+      "notes": "Indicates purpose, destination, recipient, or deadline; often confused with 'por'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "purpose"
+      ]
     },
     {
-      "source_text": "to be able to / can",
-      "target_text": "poder",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to say / tell",
-      "target_text": "decir",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "this (masc.)",
+      "source_text": "this (m. sg.)",
       "target_text": "este",
       "romanization": "",
-      "notes": null
+      "notes": "Demonstrative adjective 'this'; use for masculine singular nouns that are close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "other",
-      "target_text": "otro",
+      "source_text": "this (f. sg.)",
+      "target_text": "esta",
       "romanization": "",
-      "notes": null
+      "notes": "Demonstrative adjective 'this'; use for feminine singular nouns that are close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "same",
-      "target_text": "mismo",
+      "source_text": "to do, to make",
+      "target_text": "hacer",
       "romanization": "",
-      "notes": null
+      "notes": "Very common irregular verb used for creating, performing actions, and in expressions about weather.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
-      "source_text": "well / good",
-      "target_text": "bien",
+      "source_text": "they (m. pl.), them",
+      "target_text": "ellos",
       "romanization": "",
-      "notes": null
+      "notes": "Subject pronoun for 'they' (masculine or mixed gender group); also a prepositional object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
-      "source_text": "without",
-      "target_text": "sin",
+      "source_text": "time (general)",
+      "target_text": "tiempo",
       "romanization": "",
-      "notes": null
+      "notes": "Refers to time in general, weather, or a period; 'vez' is used for 'time' as in 'occurrence'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "neither / nor",
-      "target_text": "ni",
+      "source_text": "one, a, an (m. sg.)",
+      "target_text": "un",
       "romanization": "",
-      "notes": null
+      "notes": "Indefinite article 'a/an'; also the number 'one' when used before a masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
     },
     {
-      "source_text": "already / now",
-      "target_text": "ya",
+      "source_text": "the (m. pl.)",
+      "target_text": "los",
       "romanization": "",
-      "notes": null
+      "notes": "Use with masculine plural nouns; also can refer to 'they' or 'them' (masculine) when it's a direct object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
-      "source_text": "to see",
-      "target_text": "ver",
+      "source_text": "to know (facts/skills)",
+      "target_text": "saber",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'to know' facts, information, or how to do something; distinguishes from 'conocer' (to know people/places).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "one, a, an (f. sg.)",
+      "target_text": "una",
+      "romanization": "",
+      "notes": "Indefinite article 'a/an'; also the number 'one' for feminine nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "number"
+      ]
+    },
+    {
+      "source_text": "me (obj. pronoun)",
+      "target_text": "me",
+      "romanization": "",
+      "notes": "Direct or indirect object pronoun for 'me'; precedes conjugated verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "sí",
+      "romanization": "",
+      "notes": "Means 'yes'; note the accent mark to distinguish it from 'si' (if).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "to want, to love",
+      "target_text": "querer",
+      "romanization": "",
+      "notes": "Means 'to want' (desire) or 'to love' (people); its conjugation is irregular.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "where (question)",
+      "target_text": "dónde",
+      "romanization": "",
+      "notes": "Interrogative adverb 'where'; use with an accent when asking a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "what, which (question)",
+      "target_text": "qué",
+      "romanization": "",
+      "notes": "Interrogative pronoun/adjective 'what/which'; use with an accent when asking a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "question"
+      ]
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "decir",
+      "romanization": "",
+      "notes": "Very common irregular verb for 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "my (sg.)",
+      "target_text": "mi",
+      "romanization": "",
+      "notes": "Possessive adjective 'my'; does not change for gender, only number (mis).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "possession"
+      ]
     },
     {
       "source_text": "to give",
       "target_text": "dar",
       "romanization": "",
-      "notes": null
+      "notes": "Common irregular verb 'to give'; often used with indirect object pronouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
-      "source_text": "when",
-      "target_text": "cuando",
+      "source_text": "you (sg. formal), you (pl.)",
+      "target_text": "usted",
       "romanization": "",
-      "notes": null
+      "notes": "Formal singular 'you' and the standard plural 'you' in Latin America; conjugates like 'él/ella'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
-      "source_text": "always",
-      "target_text": "siempre",
+      "source_text": "she, it (f.)",
+      "target_text": "ella",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "only / alone",
-      "target_text": "solo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "between / among",
-      "target_text": "entre",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "very",
-      "target_text": "muy",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to know (facts/how-to)",
-      "target_text": "saber",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to want / love",
-      "target_text": "querer",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to arrive",
-      "target_text": "llegar",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to pass / happen",
-      "target_text": "pasar",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "should / must",
-      "target_text": "deber",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to put",
-      "target_text": "poner",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "from / since",
-      "target_text": "desde",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "each",
-      "target_text": "cada",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thus / so",
-      "target_text": "así",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "what (interrogative)",
-      "target_text": "qué",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "where",
-      "target_text": "donde",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "time / weather",
-      "target_text": "tiempo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "life",
-      "target_text": "vida",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "much / many",
-      "target_text": "mucho",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "something",
-      "target_text": "algo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "one / a",
-      "target_text": "uno",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "two",
-      "target_text": "dos",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "day",
-      "target_text": "día",
-      "romanization": "",
-      "notes": null
+      "notes": "Subject pronoun for 'she' or feminine 'it'; also a prepositional object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
       "source_text": "thing",
       "target_text": "cosa",
       "romanization": "",
-      "notes": null
+      "notes": "Very general word for 'thing' or 'matter'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "general"
+      ]
     },
     {
-      "source_text": "man",
+      "source_text": "can, to be able to",
+      "target_text": "poder",
+      "romanization": "",
+      "notes": "Means 'can' or 'to be able to'; a stem-changing verb (o>ue).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "ability"
+      ]
+    },
+    {
+      "source_text": "to see, to watch",
+      "target_text": "ver",
+      "romanization": "",
+      "notes": "Common irregular verb for 'to see' or 'to watch'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "man, husband",
       "target_text": "hombre",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'man' or 'human being'; can also refer to 'husband'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
     },
     {
-      "source_text": "woman",
-      "target_text": "mujer",
+      "source_text": "more",
+      "target_text": "más",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'more'; note the accent mark to distinguish it from 'mas' (but, archaic).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
     },
     {
-      "source_text": "house / home",
-      "target_text": "casa",
+      "source_text": "we (m. or mixed), us",
+      "target_text": "nosotros",
       "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "world",
-      "target_text": "mundo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "country",
-      "target_text": "país",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "big / great",
-      "target_text": "grande",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "new",
-      "target_text": "nuevo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "good",
-      "target_text": "bueno",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "small",
-      "target_text": "pequeño",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "better / best",
-      "target_text": "mejor",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "work / job",
-      "target_text": "trabajo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "friend",
-      "target_text": "amigo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "money",
-      "target_text": "dinero",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "family",
-      "target_text": "familia",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "problem",
-      "target_text": "problema",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "night",
-      "target_text": "noche",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "hour / time",
-      "target_text": "hora",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "people",
-      "target_text": "gente",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "now",
-      "target_text": "ahora",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "after / then",
-      "target_text": "después",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "before",
-      "target_text": "antes",
-      "romanization": "",
-      "notes": null
+      "notes": "Subject pronoun for 'we' (masculine or mixed group); also a prepositional object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
       "source_text": "never",
       "target_text": "nunca",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'never'; if placed after the verb, it needs 'no' before the verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
     },
     {
-      "source_text": "you (formal sing.)",
-      "target_text": "usted",
+      "source_text": "life",
+      "target_text": "vida",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'life'; it is a feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
     },
     {
-      "source_text": "we",
-      "target_text": "nosotros",
+      "source_text": "world",
+      "target_text": "mundo",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'world'; often used in expressions like 'todo el mundo' (everyone).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
-      "source_text": "they (masc./mixed)",
-      "target_text": "ellos",
+      "source_text": "day",
+      "target_text": "día",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'day'; despite ending in -a, it is a masculine noun (el día).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "she",
-      "target_text": "ella",
+      "source_text": "to come",
+      "target_text": "venir",
       "romanization": "",
-      "notes": null
+      "notes": "Irregular verb for 'to come'; often used with 'de' for origin or 'a' for destination.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
     },
     {
-      "source_text": "my",
-      "target_text": "mi",
+      "source_text": "well",
+      "target_text": "bien",
       "romanization": "",
-      "notes": null
+      "notes": "Adverb 'well' (e.g., 'estoy bien'); 'bueno' is the adjective 'good'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quality"
+      ]
     },
     {
-      "source_text": "your (informal)",
+      "source_text": "good (m. sg.)",
+      "target_text": "bueno",
+      "romanization": "",
+      "notes": "Adjective 'good'; shortens to 'buen' before a masculine singular noun (e.g., 'un buen libro').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "here",
+      "target_text": "aquí",
+      "romanization": "",
+      "notes": "Means 'here', indicating a location close to the speaker; 'acá' is a less precise alternative.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "little, few",
+      "target_text": "poco",
+      "romanization": "",
+      "notes": "Can be an adjective 'little/few' or an adverb 'a little bit'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "another, other",
+      "target_text": "otro",
+      "romanization": "",
+      "notes": "Means 'another' or 'other'; never use 'un' or 'una' before it.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "sin",
+      "romanization": "",
+      "notes": "Means 'without'; often followed by an infinitive or a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "absence"
+      ]
+    },
+    {
+      "source_text": "many, much",
+      "target_text": "mucho",
+      "romanization": "",
+      "notes": "Can be an adjective 'many/much' or an adverb 'a lot'; agrees in gender and number when an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "before, previously",
+      "target_text": "antes",
+      "romanization": "",
+      "notes": "Adverb 'before'; usually followed by 'de' when preceding a noun or infinitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "you (sg. informal)",
+      "target_text": "tú",
+      "romanization": "",
+      "notes": "Informal singular 'you'; note the accent mark to distinguish it from 'tu' (your).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
+    },
+    {
+      "source_text": "person",
+      "target_text": "persona",
+      "romanization": "",
+      "notes": "Means 'person' or 'people'; always feminine, even when referring to a man.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "año",
+      "romanization": "",
+      "notes": "Means 'year'; don't confuse the 'ñ' with 'n' (ano means anus).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "the (f. pl.)",
+      "target_text": "las",
+      "romanization": "",
+      "notes": "Use with feminine plural nouns; also can refer to 'they' or 'them' (feminine) when it's a direct object pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "to pass, to happen",
+      "target_text": "pasar",
+      "romanization": "",
+      "notes": "Means 'to pass', 'to happen', or 'to spend time'; versatile verb with many uses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to put, to place",
+      "target_text": "poner",
+      "romanization": "",
+      "notes": "Common irregular verb for 'to put' or 'to place'; often used reflexively as 'ponerse' (to put on, to become).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take, to drink",
+      "target_text": "tomar",
+      "romanization": "",
+      "notes": "Means 'to take' or 'to drink'; very common and versatile verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "work, job",
+      "target_text": "trabajo",
+      "romanization": "",
+      "notes": "Can be the noun 'work/job' (masculine) or the first-person singular of 'trabajar' (to work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "part, share",
+      "target_text": "parte",
+      "romanization": "",
+      "notes": "Means 'part' or 'share'; it is a feminine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "general"
+      ]
+    },
+    {
+      "source_text": "or",
+      "target_text": "o",
+      "romanization": "",
+      "notes": "The conjunction 'o' changes to 'u' before words starting with 'o-' or 'ho-'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "like, as",
+      "target_text": "como",
+      "romanization": "",
+      "notes": "Can be an adverb 'like/as' or an interrogative 'cómo' (how).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "then, so",
+      "target_text": "entonces",
+      "romanization": "",
+      "notes": "Means 'then' (time) or 'so' (consequence); a useful connector.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "connector"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "mujer",
+      "romanization": "",
+      "notes": "Means 'woman' or 'wife'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "your (sg. informal)",
       "target_text": "tu",
       "romanization": "",
-      "notes": null
+      "notes": "Informal singular possessive adjective 'your'; does not change for gender, only number (tus).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "possession"
+      ]
     },
     {
-      "source_text": "who (interrogative)",
-      "target_text": "quién",
+      "source_text": "our (m. pl.)",
+      "target_text": "nuestro",
       "romanization": "",
-      "notes": null
+      "notes": "Possessive adjective 'our'; agrees in gender and number with the noun it modifies.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "us (obj. pronoun)",
+      "target_text": "nos",
+      "romanization": "",
+      "notes": "Direct or indirect object pronoun for 'us'; also the reflexive pronoun for 'we'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object"
+      ]
+    },
+    {
+      "source_text": "to believe, to think",
+      "target_text": "creer",
+      "romanization": "",
+      "notes": "Means 'to believe' or 'to think'; common in phrases like 'creo que sí' (I think so).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "thought"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "país",
+      "romanization": "",
+      "notes": "Means 'country'; it is a masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "hand",
+      "target_text": "mano",
+      "romanization": "",
+      "notes": "Means 'hand'; despite ending in -o, it is a feminine noun (la mano).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "where (not question)",
+      "target_text": "donde",
+      "romanization": "",
+      "notes": "Relative adverb 'where'; use without an accent when not asking a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "this (pronoun)",
+      "target_text": "esto",
+      "romanization": "",
+      "notes": "Neuter demonstrative pronoun 'this'; refers to an idea, situation, or unspecified thing, never a specific noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
+    },
+    {
+      "source_text": "to find, to meet",
+      "target_text": "encontrar",
+      "romanization": "",
+      "notes": "Means 'to find' or 'to meet'; a stem-changing verb (o>ue).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "discovery"
+      ]
+    },
+    {
+      "source_text": "to call, to be called",
+      "target_text": "llamar",
+      "romanization": "",
+      "notes": "Means 'to call'; used reflexively ('llamarse') for 'to be called' (e.g., 'me llamo').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "how (question)",
+      "target_text": "cómo",
+      "romanization": "",
+      "notes": "Interrogative adverb 'how'; use with an accent when asking a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "question"
+      ]
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "hablar",
+      "romanization": "",
+      "notes": "Regular verb for 'to speak' or 'to talk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "now",
+      "target_text": "ahora",
+      "romanization": "",
+      "notes": "Means 'now'; 'ahora mismo' means 'right now'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
       "source_text": "also",
       "target_text": "también",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'also' or 'too'; useful for agreeing with positive statements.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "addition"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "siempre",
+      "romanization": "",
+      "notes": "Means 'always'; common adverb of frequency.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "home, house",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": "Means 'house' or 'home'; often used with 'en' to mean 'at home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "same",
+      "target_text": "mismo",
+      "romanization": "",
+      "notes": "Adjective 'same'; often used with 'el/la' or possessives.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "to take, to carry",
+      "target_text": "llevar",
+      "romanization": "",
+      "notes": "Means 'to take', 'to carry', 'to wear', or 'to lead'; highly versatile.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to leave, to let",
+      "target_text": "dejar",
+      "romanization": "",
+      "notes": "Means 'to leave' (something behind) or 'to let/allow'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "each, every",
+      "target_text": "cada",
+      "romanization": "",
+      "notes": "Means 'each' or 'every'; always used with a singular noun and is invariable in form.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quantity"
+      ]
     },
     {
       "source_text": "today",
       "target_text": "hoy",
       "romanization": "",
-      "notes": null
+      "notes": "Means 'today'; common adverb of time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "after, then",
+      "target_text": "después",
+      "romanization": "",
+      "notes": "Adverb 'after' or 'then'; usually followed by 'de' when preceding a noun or infinitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "big, great",
+      "target_text": "grande",
+      "romanization": "",
+      "notes": "Adjective 'big' or 'great'; shortens to 'gran' before any singular noun (e.g., 'un gran libro').",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "so, thus",
+      "target_text": "así",
+      "romanization": "",
+      "notes": "Means 'like this/that', 'thus', or 'so'; indicates manner.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "to arrive",
+      "target_text": "llegar",
+      "romanization": "",
+      "notes": "Means 'to arrive' or 'to get to'; a regular -ar verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "his, her, its, your (formal/plural)",
+      "target_text": "su",
+      "romanization": "",
+      "notes": "Possessive adjective 'his/her/its/their/your (formal)'; ambiguous, often clarified with 'de él/ella/usted'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "place",
+      "target_text": "lugar",
+      "romanization": "",
+      "notes": "Means 'place' or 'spot'; it is a masculine noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "to think",
+      "target_text": "pensar",
+      "romanization": "",
+      "notes": "Means 'to think'; a stem-changing verb (e>ie); often followed by 'en' when thinking about something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "thought"
+      ]
+    },
+    {
+      "source_text": "to seem, to appear",
+      "target_text": "parecer",
+      "romanization": "",
+      "notes": "Means 'to seem' or 'to appear'; often used as 'me parece que...' (it seems to me that...).",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "you (obj. informal)",
+      "target_text": "te",
+      "romanization": "",
+      "notes": "Direct or indirect object pronoun for informal singular 'you'; precedes conjugated verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object"
+      ]
     }
   ]
 }

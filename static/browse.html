@@ -1696,7 +1696,7 @@
           : '';
         actionsHtml = `<div class="deck-actions-row">${studyLink}<button class="deck-import-btn" disabled style="background:var(--neutral-soft);color:var(--text-muted)">Imported</button></div>`;
       } else {
-        actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id})">Import ${items.length} cards to my deck</button>`;
+        actionsHtml = `<button class="deck-import-btn" id="import-btn" onclick="importDeck(${d.id}, '${d.target_lang || ''}')">Import ${items.length} cards to my deck</button>`;
       }
       const ratingHtml = isMine ? '' : `
         <div class="deck-rating-row">
@@ -1737,7 +1737,26 @@
     });
   }
 
-  async function importDeck(deckId) {
+  // Switch the app's learning language if the deck is in a different one (live,
+  // via the shared nav helper; falls back to a settings PUT). Returns true if
+  // it switched. Keeps _defaultLang in sync.
+  async function _maybeSwitchLang(lang) {
+    if (!lang || lang === _defaultLang) return false;
+    try {
+      if (window.setAppLanguage) {
+        if (!(await window.setAppLanguage(lang))) return false;
+      } else {
+        await fetch('/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ default_target_lang: lang }),
+        });
+      }
+    } catch { return false; }
+    _defaultLang = lang;
+    return true;
+  }
+
+  async function importDeck(deckId, lang) {
     const btn = document.getElementById('import-btn');
     if (!btn) return;
     btn.disabled = true;
@@ -1746,7 +1765,8 @@
       const resp = await fetch(`/api/decks/${deckId}/import`, { method: 'POST' });
       const res = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(res.detail || 'Import failed');
-      showToast(`Imported ${res.created} new cards (${res.total} total)`);
+      const switched = await _maybeSwitchLang(lang);
+      showToast(`Imported ${res.created} new cards (${res.total} total)` + (switched ? ` · switched language` : ''));
       if (res.label_id) {
         btn.outerHTML = `<a class="deck-import-btn" href="/cards?label_id=${res.label_id}&study=1" style="text-decoration:none;display:inline-block">Study now</a>`;
       } else {

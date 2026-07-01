@@ -4,604 +4,1125 @@
   "description": "The 100 most common words in Italian — a fast start for beginners.",
   "items": [
     {
-      "source_text": "the",
-      "target_text": "il",
-      "romanization": "",
-      "notes": "masc. sg. definite article"
-    },
-    {
       "source_text": "of / from",
       "target_text": "di",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "Crucial for possession, origin, and many verb constructions; equivalent to 'of' or 'from'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "the (masc. sing.)",
+      "target_text": "il",
+      "romanization": "",
+      "notes": "The masculine singular definite article, always accompanies a noun starting with a consonant (except s+consonant, z, gn, ps, x, y).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
       "source_text": "and",
       "target_text": "e",
       "romanization": "",
-      "notes": "conjunction"
-    },
-    {
-      "source_text": "to be",
-      "target_text": "essere",
-      "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "The conjunction 'and'; changes to 'ed' before a vowel for smoother pronunciation.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
     },
     {
       "source_text": "to / at",
       "target_text": "a",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "Essential for indicating destination, time, or direct object with personal names; translates to 'to' or 'at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "the (fem. sing.)",
+      "target_text": "la",
+      "romanization": "",
+      "notes": "The feminine singular definite article, always accompanies a noun starting with any letter except a vowel where it becomes 'l''.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
       "source_text": "that / which / who",
       "target_text": "che",
       "romanization": "",
-      "notes": "conjunction or pronoun"
+      "notes": "A versatile word that can be a conjunction (that), relative pronoun (which, who), or interrogative pronoun (what).",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "in / into / on",
+      "source_text": "a / an (masc.)",
+      "target_text": "un",
+      "romanization": "",
+      "notes": "The masculine indefinite article, used before nouns starting with a consonant or vowel.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "for / through",
+      "target_text": "per",
+      "romanization": "",
+      "notes": "Used to express purpose, duration, or movement through something; means 'for' or 'through'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "in / into / at",
       "target_text": "in",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "Used for location (in, inside), means of transport (by), or duration; translates to 'in', 'into', 'at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
       "source_text": "not",
       "target_text": "non",
       "romanization": "",
-      "notes": "negation adverb"
+      "notes": "Placed directly before the verb to negate it; the equivalent of 'not'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
     },
     {
-      "source_text": "a / an",
-      "target_text": "un",
+      "source_text": "the (masc. plur.)",
+      "target_text": "i",
       "romanization": "",
-      "notes": "masc. sg. indefinite article"
+      "notes": "The masculine plural definite article, used for nouns starting with consonants.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
-      "source_text": "to have",
-      "target_text": "avere",
+      "source_text": "a / an (fem.)",
+      "target_text": "una",
       "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "The feminine indefinite article, used before nouns; becomes 'un'' before a vowel.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "grammar"
+      ]
     },
     {
-      "source_text": "for / by / through",
-      "target_text": "per",
+      "source_text": "from / by / since",
+      "target_text": "da",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "Indicates origin, agent in passive sentences, or a deadline; translates to 'from', 'by', 'since'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
       "source_text": "with",
       "target_text": "con",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "Expresses accompaniment or means; means 'with'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "grammar"
+      ]
     },
     {
-      "source_text": "I",
-      "target_text": "io",
-      "romanization": "",
-      "notes": "personal pronoun"
-    },
-    {
-      "source_text": "oneself / itself / one",
+      "source_text": "oneself / him/herself",
       "target_text": "si",
       "romanization": "",
-      "notes": "reflexive or impersonal pronoun"
+      "notes": "A reflexive pronoun (oneself), an impersonal pronoun (one, people), or a passive marker.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "grammar",
+        "reflexive"
+      ]
     },
     {
-      "source_text": "the / her / it",
-      "target_text": "la",
+      "source_text": "the (fem. plur.) / to her",
+      "target_text": "le",
       "romanization": "",
-      "notes": "fem. sg. def. article or direct object pronoun"
+      "notes": "As an article, it's the feminine plural 'the'; as a pronoun, it means 'to her' (dative) or 'them' (feminine direct).",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "from / by",
-      "target_text": "da",
+      "source_text": "to be",
+      "target_text": "essere",
       "romanization": "",
-      "notes": "preposition"
+      "notes": "One of the two main auxiliary verbs, vital for forming compound tenses and expressing states of being.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
     },
     {
-      "source_text": "how / as / like",
-      "target_text": "come",
+      "source_text": "to have",
+      "target_text": "avere",
       "romanization": "",
-      "notes": "adverb or conjunction"
+      "notes": "The other main auxiliary verb, used for forming compound tenses and expressing possession.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "auxiliary"
+      ]
+    },
+    {
+      "source_text": "the (masc. sing.) / him",
+      "target_text": "lo",
+      "romanization": "",
+      "notes": "As an article, it's the masculine singular 'the' for specific sounds (s+consonant, z, gn, ps, x, y); as a pronoun, it means 'him' or 'it'.",
+      "cefr_level": "A1",
+      "labels": [
+        "article",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "on / on top of",
+      "target_text": "su",
+      "romanization": "",
+      "notes": "Indicates position on top of something or a topic; translates to 'on' or 'about'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "of the (masc. sing.)",
+      "target_text": "del",
+      "romanization": "",
+      "notes": "Articulated preposition (di + il), meaning 'of the' or 'some' (partitive article).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "article",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "of the (fem. sing.)",
+      "target_text": "della",
+      "romanization": "",
+      "notes": "Articulated preposition (di + la), meaning 'of the' or 'some' (partitive article).",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "article",
+        "grammar"
+      ]
     },
     {
       "source_text": "me / to me",
       "target_text": "mi",
       "romanization": "",
-      "notes": "direct or indirect object pronoun"
+      "notes": "A direct or indirect object pronoun, meaning 'me' or 'to me'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "object"
+      ]
     },
     {
-      "source_text": "to do / to make",
-      "target_text": "fare",
+      "source_text": "to the (masc. sing.)",
+      "target_text": "al",
       "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "Articulated preposition (a + il), meaning 'to the' or 'at the'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "article",
+        "grammar"
+      ]
     },
     {
-      "source_text": "more / plus",
-      "target_text": "più",
+      "source_text": "to the (fem. sing.)",
+      "target_text": "alla",
       "romanization": "",
-      "notes": "adverb or adjective"
+      "notes": "Articulated preposition (a + la), meaning 'to the' or 'at the'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "article",
+        "grammar"
+      ]
+    },
+    {
+      "source_text": "I",
+      "target_text": "io",
+      "romanization": "",
+      "notes": "The first person singular subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
+    },
+    {
+      "source_text": "us / to us / there",
+      "target_text": "ci",
+      "romanization": "",
+      "notes": "A versatile particle meaning 'us', 'to us', 'there', or indicating reciprocal action.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "adverb",
+        "location"
+      ]
     },
     {
       "source_text": "but",
       "target_text": "ma",
       "romanization": "",
-      "notes": "conjunction"
+      "notes": "A common coordinating conjunction for contrast; means 'but'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
     },
     {
-      "source_text": "this",
-      "target_text": "questo",
+      "source_text": "to do / to make",
+      "target_text": "fare",
       "romanization": "",
-      "notes": "demonstrative pronoun or adjective"
+      "notes": "A highly versatile verb meaning 'to do' or 'to make', used in many idiomatic expressions.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
-      "source_text": "to say / to tell",
-      "target_text": "dire",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "what / thing",
-      "target_text": "cosa",
-      "romanization": "",
-      "notes": "interrogative pronoun or noun"
-    },
-    {
-      "source_text": "to want",
-      "target_text": "volere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "to be able to / can",
-      "target_text": "potere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "you",
-      "target_text": "tu",
-      "romanization": "",
-      "notes": "sg. informal personal pronoun"
-    },
-    {
-      "source_text": "when",
-      "target_text": "quando",
-      "romanization": "",
-      "notes": "adverb or conjunction"
-    },
-    {
-      "source_text": "also / too / even",
+      "source_text": "also / even",
       "target_text": "anche",
       "romanization": "",
-      "notes": "adverb"
+      "notes": "Used to add emphasis or inclusion; means 'also', 'even', or 'too'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "emphasis"
+      ]
     },
     {
-      "source_text": "now / hour",
-      "target_text": "ora",
+      "source_text": "or",
+      "target_text": "o",
       "romanization": "",
-      "notes": "adverb or noun"
+      "notes": "The coordinating conjunction 'or'; changes to 'od' before a vowel.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammar"
+      ]
     },
     {
-      "source_text": "the / him / it",
-      "target_text": "lo",
+      "source_text": "if / whether",
+      "target_text": "se",
       "romanization": "",
-      "notes": "masc. sg. def. article or direct obj. pronoun"
+      "notes": "Used for conditional clauses ('if') or reported speech ('whether').",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "conditional"
+      ]
     },
     {
-      "source_text": "that",
-      "target_text": "quello",
-      "romanization": "",
-      "notes": "demonstrative pronoun or adjective"
-    },
-    {
-      "source_text": "on / upon / up",
-      "target_text": "su",
-      "romanization": "",
-      "notes": "preposition"
-    },
-    {
-      "source_text": "to go",
-      "target_text": "andare",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "there / here / to us / us",
-      "target_text": "ci",
-      "romanization": "",
-      "notes": "locative adverb or pronoun"
-    },
-    {
-      "source_text": "without",
-      "target_text": "senza",
-      "romanization": "",
-      "notes": "preposition"
-    },
-    {
-      "source_text": "well",
-      "target_text": "bene",
-      "romanization": "",
-      "notes": "adverb"
-    },
-    {
-      "source_text": "so / thus",
+      "source_text": "so / thus / in this way",
       "target_text": "così",
       "romanization": "",
-      "notes": "adverb"
+      "notes": "Expresses manner or intensity; means 'so', 'thus', 'in this way'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "manner"
+      ]
     },
     {
-      "source_text": "why / because",
-      "target_text": "perché",
+      "source_text": "how / as / like",
+      "target_text": "come",
       "romanization": "",
-      "notes": "interrogative adverb or conjunction"
+      "notes": "Used to ask 'how', compare 'as/like', or connect clauses 'when'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction"
+      ]
     },
     {
-      "source_text": "only / alone",
-      "target_text": "solo",
+      "source_text": "you (sing. informal)",
+      "target_text": "tu",
       "romanization": "",
-      "notes": "adverb or adjective"
-    },
-    {
-      "source_text": "you",
-      "target_text": "te",
-      "romanization": "",
-      "notes": "stressed object pronoun (sg. informal)"
+      "notes": "The second person singular informal subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
       "source_text": "we",
       "target_text": "noi",
       "romanization": "",
-      "notes": "personal pronoun"
+      "notes": "The first person plural subject pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "subject"
+      ]
     },
     {
-      "source_text": "then / afterwards",
-      "target_text": "poi",
+      "source_text": "only / just / alone",
+      "target_text": "solo",
       "romanization": "",
-      "notes": "adverb"
+      "notes": "Can be an adjective meaning 'alone' or an adverb meaning 'only' or 'just'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
     },
     {
-      "source_text": "two",
-      "target_text": "due",
+      "source_text": "now / hour",
+      "target_text": "ora",
       "romanization": "",
-      "notes": "number"
+      "notes": "Refers to the present moment ('now') or a unit of time ('hour').",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "noun"
+      ]
     },
     {
-      "source_text": "all / whole / everything",
-      "target_text": "tutto",
+      "source_text": "well / good",
+      "target_text": "bene",
       "romanization": "",
-      "notes": "pronoun or adjective"
+      "notes": "An adverb meaning 'well', but can also act as an adjective for 'good'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
     },
     {
-      "source_text": "yes",
-      "target_text": "sì",
+      "source_text": "this",
+      "target_text": "questo",
       "romanization": "",
-      "notes": "affirmation"
+      "notes": "A demonstrative adjective or pronoun meaning 'this' or 'this one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "to find",
-      "target_text": "trovare",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "way / street / away",
-      "target_text": "via",
-      "romanization": "",
-      "notes": "noun or adverb"
-    },
-    {
-      "source_text": "you / to you",
-      "target_text": "ti",
-      "romanization": "",
-      "notes": "direct or indirect obj. pronoun (sg. informal)"
-    },
-    {
-      "source_text": "one / a, an",
-      "target_text": "uno",
-      "romanization": "",
-      "notes": "number or masc. sg. indefinite article"
-    },
-    {
-      "source_text": "to have to / must",
-      "target_text": "dovere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "they / them",
+      "source_text": "they / them / their",
       "target_text": "loro",
       "romanization": "",
-      "notes": "personal pronoun"
+      "notes": "The third person plural subject pronoun ('they'), object pronoun ('them'), or possessive adjective ('their').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "possessive"
+      ]
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "dire",
+      "romanization": "",
+      "notes": "A fundamental verb for communication; means 'to say' or 'to tell'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
     },
     {
       "source_text": "time / weather",
       "target_text": "tempo",
       "romanization": "",
-      "notes": "noun"
+      "notes": "A common noun for 'time' or 'weather'; often used in expressions like 'fa bel tempo' (the weather is good).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "weather"
+      ]
     },
     {
-      "source_text": "man",
-      "target_text": "uomo",
+      "source_text": "then / afterwards",
+      "target_text": "poi",
       "romanization": "",
-      "notes": "noun"
+      "notes": "An adverb indicating sequence or addition; means 'then' or 'afterwards'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "the / to him / to them",
-      "target_text": "gli",
+      "source_text": "when",
+      "target_text": "quando",
       "romanization": "",
-      "notes": "masc. pl. def. article or indirect obj. pronoun"
-    },
-    {
-      "source_text": "always",
-      "target_text": "sempre",
-      "romanization": "",
-      "notes": "adverb"
-    },
-    {
-      "source_text": "life",
-      "target_text": "vita",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "to see",
-      "target_text": "vedere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "already",
-      "target_text": "già",
-      "romanization": "",
-      "notes": "adverb"
-    },
-    {
-      "source_text": "to know",
-      "target_text": "sapere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "still / yet / again",
-      "target_text": "ancora",
-      "romanization": "",
-      "notes": "adverb"
-    },
-    {
-      "source_text": "to take / to get",
-      "target_text": "prendere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "to come",
-      "target_text": "venire",
-      "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "An interrogative or relative adverb/conjunction meaning 'when'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "conjunction",
+        "time"
+      ]
     },
     {
       "source_text": "very / much / many",
       "target_text": "molto",
       "romanization": "",
-      "notes": "adverb or adjective"
+      "notes": "Can be an adverb meaning 'very' or an adjective meaning 'much'/'many' (agrees in gender/number).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "yes",
+      "target_text": "sì",
+      "romanization": "",
+      "notes": "A simple affirmation, equivalent to 'yes'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "affirmation"
+      ]
+    },
+    {
+      "source_text": "who / whom",
+      "target_text": "chi",
+      "romanization": "",
+      "notes": "An interrogative or relative pronoun, meaning 'who' or 'whom'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "vedere",
+      "romanization": "",
+      "notes": "A common verb for perception; means 'to see'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "without",
+      "target_text": "senza",
+      "romanization": "",
+      "notes": "A preposition indicating absence; means 'without'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "absence"
+      ]
     },
     {
       "source_text": "where",
       "target_text": "dove",
       "romanization": "",
-      "notes": "adverb or conjunction"
+      "notes": "An interrogative or relative adverb meaning 'where'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "location"
+      ]
     },
     {
-      "source_text": "nothing",
-      "target_text": "niente",
+      "source_text": "all / every / whole",
+      "target_text": "tutto",
       "romanization": "",
-      "notes": "pronoun"
-    },
-    {
-      "source_text": "new",
-      "target_text": "nuovo",
-      "romanization": "",
-      "notes": "adjective"
-    },
-    {
-      "source_text": "other / another",
-      "target_text": "altro",
-      "romanization": "",
-      "notes": "adjective or pronoun"
-    },
-    {
-      "source_text": "to give",
-      "target_text": "dare",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "day",
-      "target_text": "giorno",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "house / home",
-      "target_text": "casa",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "woman",
-      "target_text": "donna",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "to speak / to talk",
-      "target_text": "parlare",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "you",
-      "target_text": "voi",
-      "romanization": "",
-      "notes": "plural or formal personal pronoun"
-    },
-    {
-      "source_text": "the / her / them",
-      "target_text": "le",
-      "romanization": "",
-      "notes": "fem. pl. def. article or direct obj. pronoun"
-    },
-    {
-      "source_text": "the",
-      "target_text": "i",
-      "romanization": "",
-      "notes": "masc. pl. definite article"
-    },
-    {
-      "source_text": "year",
-      "target_text": "anno",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "less / minus",
-      "target_text": "meno",
-      "romanization": "",
-      "notes": "adverb or adjective"
+      "notes": "Can be an adjective ('all', 'every') or a pronoun ('everything'); agrees in gender/number.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "pronoun",
+        "quantity"
+      ]
     },
     {
       "source_text": "big / large / great",
       "target_text": "grande",
       "romanization": "",
-      "notes": "adjective"
+      "notes": "An adjective meaning 'big', 'large', or 'great'; often precedes the noun and can shorten to 'gran'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "description"
+      ]
     },
     {
-      "source_text": "own / proper / really",
-      "target_text": "proprio",
+      "source_text": "to go",
+      "target_text": "andare",
       "romanization": "",
-      "notes": "adjective or adverb"
+      "notes": "A common verb of movement, meaning 'to go'; often used reflexively.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
     },
     {
-      "source_text": "work / job",
-      "target_text": "lavoro",
+      "source_text": "thank you / thanks",
+      "target_text": "grazie",
       "romanization": "",
-      "notes": "noun"
+      "notes": "A widely used interjection to express gratitude; means 'thank you'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
     },
     {
-      "source_text": "world",
-      "target_text": "mondo",
+      "source_text": "here",
+      "target_text": "qui",
       "romanization": "",
-      "notes": "noun"
+      "notes": "An adverb indicating proximity; means 'here'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "location"
+      ]
+    },
+    {
+      "source_text": "already",
+      "target_text": "già",
+      "romanization": "",
+      "notes": "An adverb indicating something has happened or is known; means 'already' or 'yet'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "still / yet / again",
+      "target_text": "ancora",
+      "romanization": "",
+      "notes": "An adverb indicating continuation, repetition, or intensity; means 'still', 'yet', or 'again'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "thing / what",
+      "target_text": "cosa",
+      "romanization": "",
+      "notes": "A very common noun meaning 'thing' or an interrogative pronoun meaning 'what'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "pronoun",
+        "interrogative"
+      ]
+    },
+    {
+      "source_text": "to want / to wish",
+      "target_text": "volere",
+      "romanization": "",
+      "notes": "A modal verb meaning 'to want' or 'to wish'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "sempre",
+      "romanization": "",
+      "notes": "An adverb of frequency; means 'always'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "frequency"
+      ]
+    },
+    {
+      "source_text": "to have to / must",
+      "target_text": "dovere",
+      "romanization": "",
+      "notes": "A modal verb meaning 'to have to', 'must', or 'to owe'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal",
+        "obligation"
+      ]
+    },
+    {
+      "source_text": "to him / to them / the (masc. plur.)",
+      "target_text": "gli",
+      "romanization": "",
+      "notes": "As an article, it's the masculine plural 'the' (for specific sounds); as a pronoun, it means 'to him' or 'to them'.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "article"
+      ]
+    },
+    {
+      "source_text": "to know (facts / how to)",
+      "target_text": "sapere",
+      "romanization": "",
+      "notes": "A modal verb meaning 'to know (facts/how to)'; distinct from 'conoscere'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "can / to be able to",
+      "target_text": "potere",
+      "romanization": "",
+      "notes": "A modal verb meaning 'can' or 'to be able to'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal",
+        "ability"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "venire",
+      "romanization": "",
+      "notes": "A verb of movement, meaning 'to come'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to stay / to be / to stand",
+      "target_text": "stare",
+      "romanization": "",
+      "notes": "A versatile verb meaning 'to stay', 'to be' (for temporary states or location), or 'to stand'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "dare",
+      "romanization": "",
+      "notes": "A fundamental verb meaning 'to give'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take / to get",
+      "target_text": "prendere",
+      "romanization": "",
+      "notes": "A versatile verb meaning 'to take', 'to get', or 'to pick up'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "parlare",
+      "romanization": "",
+      "notes": "A verb for communication; means 'to speak' or 'to talk'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to find",
+      "target_text": "trovare",
+      "romanization": "",
+      "notes": "A common verb meaning 'to find'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to feel / to hear",
+      "target_text": "sentire",
+      "romanization": "",
+      "notes": "A verb of perception meaning 'to feel' or 'to hear'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to leave / to let",
+      "target_text": "lasciare",
+      "romanization": "",
+      "notes": "A verb meaning 'to leave' (something or someone) or 'to let'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
       "source_text": "to put / to place",
       "target_text": "mettere",
       "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "A verb meaning 'to put' or 'to place'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to think",
+      "target_text": "pensare",
+      "romanization": "",
+      "notes": "A common verb for cognitive activity; means 'to think'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "lavoro",
+      "romanization": "",
+      "notes": "A masculine noun meaning 'work' or 'job'; also the first person singular of 'lavorare'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "giorno",
+      "romanization": "",
+      "notes": "A masculine noun for a period of 24 hours or daylight; means 'day'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "life",
+      "target_text": "vita",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'life'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "world",
+      "target_text": "mondo",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'world'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "part / side",
+      "target_text": "parte",
+      "romanization": "",
+      "notes": "A feminine noun meaning 'part' or 'side'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "hand",
+      "target_text": "mano",
+      "romanization": "",
+      "notes": "A feminine noun, despite ending in -o; means 'hand'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "body"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "anno",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'year'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "man / human",
+      "target_text": "uomo",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'man' or 'human'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "donna",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'woman'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "boy / young man",
+      "target_text": "ragazzo",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'boy' or 'young man'; its feminine form is 'ragazza'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'house' or 'home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "home"
+      ]
     },
     {
       "source_text": "family",
       "target_text": "famiglia",
       "romanization": "",
-      "notes": "noun"
+      "notes": "A feminine noun, meaning 'family'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people",
+        "family"
+      ]
     },
     {
-      "source_text": "three",
-      "target_text": "tre",
+      "source_text": "friend (masc.)",
+      "target_text": "amico",
       "romanization": "",
-      "notes": "number"
+      "notes": "A masculine noun, meaning 'friend'; its feminine form is 'amica'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "acqua",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'water'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "liquid"
+      ]
+    },
+    {
+      "source_text": "air",
+      "target_text": "aria",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'air'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "element"
+      ]
+    },
+    {
+      "source_text": "light",
+      "target_text": "luce",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'light'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "notte",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'night'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "mattina",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'morning'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening",
+      "target_text": "sera",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'evening' or 'night'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "padre",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'father'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "madre",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'mother'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "son / child (masc.)",
+      "target_text": "figlio",
+      "romanization": "",
+      "notes": "A masculine noun, meaning 'son' or 'child'; its feminine form is 'figlia'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "door",
+      "target_text": "porta",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'door'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "object",
+        "house"
+      ]
+    },
+    {
+      "source_text": "road / street",
+      "target_text": "strada",
+      "romanization": "",
+      "notes": "A feminine noun, meaning 'road' or 'street'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
       "source_text": "city",
       "target_text": "città",
       "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "country / village",
-      "target_text": "paese",
-      "romanization": "",
-      "notes": "noun"
-    },
-    {
-      "source_text": "same",
-      "target_text": "stesso",
-      "romanization": "",
-      "notes": "adjective or pronoun"
-    },
-    {
-      "source_text": "between / among",
-      "target_text": "tra",
-      "romanization": "",
-      "notes": "preposition"
-    },
-    {
-      "source_text": "before / first",
-      "target_text": "prima",
-      "romanization": "",
-      "notes": "adverb or adjective"
-    },
-    {
-      "source_text": "which / what",
-      "target_text": "quale",
-      "romanization": "",
-      "notes": "interrogative or relative pronoun"
-    },
-    {
-      "source_text": "to believe / to think",
-      "target_text": "credere",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "to hear / to feel",
-      "target_text": "sentire",
-      "romanization": "",
-      "notes": "infinitive verb"
-    },
-    {
-      "source_text": "beautiful / nice",
-      "target_text": "bello",
-      "romanization": "",
-      "notes": "adjective"
-    },
-    {
-      "source_text": "small / little",
-      "target_text": "piccolo",
-      "romanization": "",
-      "notes": "adjective"
-    },
-    {
-      "source_text": "thank you",
-      "target_text": "grazie",
-      "romanization": "",
-      "notes": "interjection or noun"
-    },
-    {
-      "source_text": "immediately / at once",
-      "target_text": "subito",
-      "romanization": "",
-      "notes": "adverb"
-    },
-    {
-      "source_text": "true / real",
-      "target_text": "vero",
-      "romanization": "",
-      "notes": "adjective"
-    },
-    {
-      "source_text": "no",
-      "target_text": "no",
-      "romanization": "",
-      "notes": "negation"
-    },
-    {
-      "source_text": "to stay / to be",
-      "target_text": "stare",
-      "romanization": "",
-      "notes": "infinitive verb"
+      "notes": "A feminine noun, always ending in 'à' and invariant in plural; means 'city'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     }
   ]
 }

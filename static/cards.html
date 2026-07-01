@@ -3114,15 +3114,39 @@
           d.import_label_id = out.label_id || null;
           _cdRenderActions(actions, d, true);
           const n = out.created || 0;
-          showToast(n ? `Imported — ${n} new card${n === 1 ? '' : 's'} added to your deck` : 'Imported — cards already in your deck');
+          const switched = await _maybeSwitchLang(d.target_lang);
+          const langMsg = switched ? ` · switched to ${langInfo(d.target_lang).name || d.target_lang}` : '';
+          showToast((n ? `Imported — ${n} new card${n === 1 ? '' : 's'} added to your deck` : 'Imported — cards already in your deck') + langMsg);
         } catch { btn.disabled = false; btn.textContent = 'Import Deck'; showToast('Could not import deck.'); }
       };
       actions.appendChild(btn);
     }
   }
 
+  // Switch the app's learning language to `lang` if it differs from the current
+  // one (live, via the shared nav helper; falls back to a settings PUT). Returns
+  // true if it actually switched. Keeps the local `settings` copy in sync.
+  async function _maybeSwitchLang(lang) {
+    const cur = (settings && settings.default_target_lang) || '';
+    if (!lang || lang === cur) return false;
+    try {
+      if (window.setAppLanguage) {
+        const ok = await window.setAppLanguage(lang);
+        if (!ok) return false;
+      } else {
+        await fetch('/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ default_target_lang: lang }),
+        });
+      }
+    } catch { return false; }
+    if (settings) settings.default_target_lang = lang;
+    return true;
+  }
+
   // Close the panel and filter the flashcards to the imported deck's label.
   async function _cdStudyDeck(d) {
+    await _maybeSwitchLang(d.target_lang);
     let labelId = d.import_label_id;
     if (!labelId) {
       // The community list doesn't carry the label id — fetch the deck detail.

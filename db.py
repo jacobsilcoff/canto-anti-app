@@ -4031,14 +4031,25 @@ async def create_shared_deck(
         for i, item in enumerate(items):
             await db.execute(
                 """INSERT INTO shared_deck_items
-                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang, cefr_level, labels)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (deck_id, item["source_text"], item["target_text"],
                  item.get("romanization"), item.get("notes"), i,
-                 item.get("target_lang") or target_lang),
+                 item.get("target_lang") or target_lang,
+                 item.get("cefr_level"), _labels_json(item.get("labels"))),
             )
         await db.commit()
         return deck_id
+
+
+def _labels_json(labels) -> str | None:
+    """Normalize a deck item's labels to a JSON array string (or None)."""
+    if not labels:
+        return None
+    if isinstance(labels, str):
+        return labels  # already serialized
+    clean = [str(x).strip() for x in labels if str(x).strip()]
+    return json.dumps(clean) if clean else None
 
 
 async def upsert_featured_deck(
@@ -4075,11 +4086,12 @@ async def upsert_featured_deck(
         for i, item in enumerate(items):
             await db.execute(
                 """INSERT INTO shared_deck_items
-                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang, cefr_level, labels)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (deck_id, item["source_text"], item["target_text"],
                  item.get("romanization"), item.get("notes"), i,
-                 item.get("target_lang") or target_lang),
+                 item.get("target_lang") or target_lang,
+                 item.get("cefr_level"), _labels_json(item.get("labels"))),
             )
         await db.commit()
         return deck_id, action
@@ -4287,7 +4299,7 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
             else:
                 return None
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes, target_lang
+            """SELECT source_text, target_text, romanization, notes, target_lang, cefr_level
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
@@ -4389,7 +4401,7 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             ) as cur2:
                 label_id = (await cur2.fetchone())[0]
         async with db.execute(
-            """SELECT source_text, target_text, romanization, notes, target_lang
+            """SELECT source_text, target_text, romanization, notes, target_lang, cefr_level, labels
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
             (deck_id,),
         ) as cur:
@@ -4416,9 +4428,12 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             if key in existing or key in seen_new:
                 continue
             seen_new.add(key)
+            cefr = it.get("cefr_level")
+            if cefr not in ("A1", "A2", "B1", "B2", "C1", "C2"):
+                cefr = None
             new_rows.append((
                 user_id, it["source_text"], it["target_text"],
-                it.get("romanization"), key[1], it.get("notes"),
+                it.get("romanization"), key[1], it.get("notes"), cefr,
             ))
 
         created_ids: list[int] = []
@@ -4428,8 +4443,8 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             await db.executemany(
                 """INSERT INTO cards
                    (user_id, source_text, target_text, romanization,
-                    target_lang, notes, priority)
-                   VALUES (?, ?, ?, ?, ?, ?, 3)""",
+                    target_lang, notes, cefr_level, priority)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 3)""",
                 new_rows,
             )
             # No other writer can interleave inside our held write transaction,
@@ -4465,6 +4480,51 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
             "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
             [(cid, label_id) for cid in label_card_ids],
         )
+
+        # Attach the deck's baked-in category labels (e.g. "pronoun", "food") so
+        # imported cards arrive organised like translate-flow cards. Bulk: create
+        # the distinct label set once, then map each card to its item's labels.
+        # Only newly-created cards get category labels (pre-existing cards keep
+        # their own organisation); the deck label above still tags everything.
+        item_by_key = {
+            (it["target_text"], it.get("target_lang") or target_lang): it
+            for it in items
+        }
+        all_names: set[str] = set()
+        card_label_names: list[tuple[int, str]] = []
+        created_set = set(created_ids)
+        for key, cid in existing.items():
+            if cid not in created_set:
+                continue
+            it = item_by_key.get(key)
+            if not it or not it.get("labels"):
+                continue
+            try:
+                names = json.loads(it["labels"]) if isinstance(it["labels"], str) else it["labels"]
+            except (json.JSONDecodeError, TypeError):
+                names = []
+            for nm in names:
+                nm = str(nm).strip()
+                if nm:
+                    all_names.add(nm)
+                    card_label_names.append((cid, nm))
+        if all_names:
+            await db.executemany(
+                "INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)",
+                [(user_id, nm) for nm in all_names],
+            )
+            name_to_id: dict[str, int] = {}
+            async with db.execute(
+                "SELECT id, name FROM labels WHERE user_id=?", (user_id,),
+            ) as cur:
+                for r in await cur.fetchall():
+                    name_to_id[str(r["name"]).casefold()] = r["id"]
+            await db.executemany(
+                "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)",
+                [(cid, name_to_id[nm.casefold()]) for cid, nm in card_label_names
+                 if nm.casefold() in name_to_id],
+            )
+
         await db.execute(
             "INSERT OR IGNORE INTO deck_imports (user_id, deck_id) VALUES (?, ?)",
             (user_id, deck_id),

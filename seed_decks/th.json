@@ -4,604 +4,1112 @@
   "description": "The 100 most common words in Thai — a fast start for beginners.",
   "items": [
     {
-      "source_text": "male polite particle",
-      "target_text": "ครับ",
-      "romanization": "khráp",
-      "notes": null
-    },
-    {
-      "source_text": "female polite particle",
+      "source_text": "polite particle (female)",
       "target_text": "ค่ะ",
       "romanization": "khâ",
-      "notes": null
+      "notes": "Used by female speakers at the end of sentences for politeness or to confirm.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "politeness",
+        "female"
+      ]
     },
     {
-      "source_text": "no, not",
+      "source_text": "polite particle (male)",
+      "target_text": "ครับ",
+      "romanization": "khráp",
+      "notes": "Used by male speakers at the end of sentences for politeness or to confirm.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "politeness",
+        "male"
+      ]
+    },
+    {
+      "source_text": "no / not",
       "target_text": "ไม่",
       "romanization": "mâi",
-      "notes": null
+      "notes": "Always placed before the verb or adjective it negates.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation"
+      ]
     },
     {
-      "source_text": "to be (identity, profession)",
+      "source_text": "to be / to be able to",
       "target_text": "เป็น",
       "romanization": "pen",
-      "notes": null
+      "notes": "Used for identity, profession, or acquired skills; often translates as 'is' or 'can'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "copula"
+      ]
     },
     {
-      "source_text": "to have, there is/are",
+      "source_text": "to have / there is",
       "target_text": "มี",
       "romanization": "mi",
-      "notes": null
-    },
-    {
-      "source_text": "to be (at a location), to live",
-      "target_text": "อยู่",
-      "romanization": "yù",
-      "notes": null
+      "notes": "Indicates possession or existence; can also mean 'to exist'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "possession",
+        "existence"
+      ]
     },
     {
       "source_text": "to go",
       "target_text": "ไป",
       "romanization": "pai",
-      "notes": null
+      "notes": "Often used with directional words or destinations.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
     },
     {
-      "source_text": "to come",
-      "target_text": "มา",
-      "romanization": "ma",
-      "notes": null
-    },
-    {
-      "source_text": "you, Mr./Ms./Mx.",
-      "target_text": "คุณ",
-      "romanization": "khun",
-      "notes": null
-    },
-    {
-      "source_text": "I / me (male)",
-      "target_text": "ผม",
-      "romanization": "phǒm",
-      "notes": null
-    },
-    {
-      "source_text": "I / me (female, general)",
-      "target_text": "ฉัน",
-      "romanization": "chǎn",
-      "notes": null
-    },
-    {
-      "source_text": "at, in, on, that, which",
+      "source_text": "at / in / on / place",
       "target_text": "ที่",
       "romanization": "thî",
-      "notes": null
-    },
-    {
-      "source_text": "and",
-      "target_text": "และ",
-      "romanization": "láe",
-      "notes": null
-    },
-    {
-      "source_text": "or",
-      "target_text": "หรือ",
-      "romanization": "rǔe",
-      "notes": null
-    },
-    {
-      "source_text": "but",
-      "target_text": "แต่",
-      "romanization": "tàe",
-      "notes": null
-    },
-    {
-      "source_text": "will (future marker)",
-      "target_text": "จะ",
-      "romanization": "chà",
-      "notes": null
-    },
-    {
-      "source_text": "must, have to",
-      "target_text": "ต้อง",
-      "romanization": "tông",
-      "notes": null
+      "notes": "Functions as a preposition for location or a relative pronoun 'that/which'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
     },
     {
       "source_text": "what",
       "target_text": "อะไร",
       "romanization": "àrai",
-      "notes": null
-    },
-    {
-      "source_text": "where, which (interrogative)",
-      "target_text": "ไหน",
-      "romanization": "nǎi",
-      "notes": null
-    },
-    {
-      "source_text": "who",
-      "target_text": "ใคร",
-      "romanization": "khain",
-      "notes": null
-    },
-    {
-      "source_text": "why",
-      "target_text": "ทำไม",
-      "romanization": "thammai",
-      "notes": null
-    },
-    {
-      "source_text": "good, well",
-      "target_text": "ดี",
-      "romanization": "di",
-      "notes": null
-    },
-    {
-      "source_text": "very, much, many",
-      "target_text": "มาก",
-      "romanization": "mâk",
-      "notes": null
-    },
-    {
-      "source_text": "can, to get, to receive",
-      "target_text": "ได้",
-      "romanization": "dâi",
-      "notes": null
+      "notes": "Used to ask for information about things or actions.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "pronoun"
+      ]
     },
     {
       "source_text": "to eat",
       "target_text": "กิน",
       "romanization": "kin",
-      "notes": null
+      "notes": "A general verb for eating or consuming food.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
     },
     {
-      "source_text": "to do, to make",
-      "target_text": "ทำ",
-      "romanization": "tham",
-      "notes": null
-    },
-    {
-      "source_text": "to speak, to say",
-      "target_text": "พูด",
-      "romanization": "phût",
-      "notes": null
-    },
-    {
-      "source_text": "to want",
-      "target_text": "อยาก",
-      "romanization": "yàk",
-      "notes": null
-    },
-    {
-      "source_text": "to like",
-      "target_text": "ชอบ",
-      "romanization": "chôp",
-      "notes": null
-    },
-    {
-      "source_text": "to love",
-      "target_text": "รัก",
-      "romanization": "rák",
-      "notes": null
-    },
-    {
-      "source_text": "to think",
-      "target_text": "คิด",
-      "romanization": "khít",
-      "notes": null
-    },
-    {
-      "source_text": "to know",
-      "target_text": "รู้",
-      "romanization": "rú",
-      "notes": null
-    },
-    {
-      "source_text": "to see",
-      "target_text": "เห็น",
-      "romanization": "ěn",
-      "notes": null
-    },
-    {
-      "source_text": "to give, to allow, for",
-      "target_text": "ให้",
-      "romanization": "hâi",
-      "notes": null
-    },
-    {
-      "source_text": "to take, to want (informal)",
-      "target_text": "เอา",
-      "romanization": "ao",
-      "notes": null
-    },
-    {
-      "source_text": "to tell",
-      "target_text": "บอก",
-      "romanization": "bòk",
-      "notes": null
-    },
-    {
-      "source_text": "to ask",
-      "target_text": "ถาม",
-      "romanization": "thǎm",
-      "notes": null
-    },
-    {
-      "source_text": "day",
-      "target_text": "วัน",
-      "romanization": "wan",
-      "notes": null
-    },
-    {
-      "source_text": "time",
-      "target_text": "เวลา",
-      "romanization": "wela",
-      "notes": null
-    },
-    {
-      "source_text": "now",
-      "target_text": "ตอนนี้",
-      "romanization": "tonní",
-      "notes": null
-    },
-    {
-      "source_text": "today",
-      "target_text": "วันนี้",
-      "romanization": "wanní",
-      "notes": null
-    },
-    {
-      "source_text": "tomorrow",
-      "target_text": "พรุ่งนี้",
-      "romanization": "phrûngní",
-      "notes": null
-    },
-    {
-      "source_text": "person, people",
+      "source_text": "person / people / classifier",
       "target_text": "คน",
       "romanization": "khon",
-      "notes": null
+      "notes": "Can mean 'person' or 'people', and is the classifier for human beings.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "classifier",
+        "people"
+      ]
     },
     {
-      "source_text": "house, home",
-      "target_text": "บ้าน",
-      "romanization": "bân",
-      "notes": null
+      "source_text": "good / well",
+      "target_text": "ดี",
+      "romanization": "di",
+      "notes": "A general term for 'good', 'fine', or 'nice'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
     },
     {
-      "source_text": "water",
-      "target_text": "น้ำ",
-      "romanization": "nám",
-      "notes": null
+      "source_text": "hello / goodbye",
+      "target_text": "สวัสดี",
+      "romanization": "swàtdi",
+      "notes": "The universal Thai greeting for both 'hello' and 'goodbye', often accompanied by a 'wai'.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting",
+        "interjection"
+      ]
     },
     {
-      "source_text": "money",
-      "target_text": "เงิน",
-      "romanization": "ngoen",
-      "notes": null
+      "source_text": "I / me (female/neutral)",
+      "target_text": "ฉัน",
+      "romanization": "chǎn",
+      "notes": "A common first-person pronoun, often used by females but acceptable for males too.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "food",
-      "target_text": "อาหาร",
-      "romanization": "ahǎn",
-      "notes": null
+      "source_text": "I / me (male)",
+      "target_text": "ผม",
+      "romanization": "phǒm",
+      "notes": "A common first-person pronoun used by male speakers.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "male"
+      ]
     },
     {
-      "source_text": "name",
-      "target_text": "ชื่อ",
-      "romanization": "chûe",
-      "notes": null
+      "source_text": "you / Mr. / Ms.",
+      "target_text": "คุณ",
+      "romanization": "khun",
+      "notes": "A polite second-person pronoun and a general honorific title.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "title",
+        "politeness"
+      ]
     },
     {
-      "source_text": "car, vehicle",
-      "target_text": "รถ",
-      "romanization": "rôt",
-      "notes": null
+      "source_text": "he / she / they",
+      "target_text": "เขา",
+      "romanization": "khǎo",
+      "notes": "A gender-neutral and number-neutral third-person pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "people"
+      ]
     },
     {
-      "source_text": "shop, restaurant",
-      "target_text": "ร้าน",
-      "romanization": "rán",
-      "notes": null
+      "source_text": "this / these",
+      "target_text": "นี้",
+      "romanization": "ní",
+      "notes": "Used to refer to something close to the speaker; often follows a noun.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "work, job, event",
-      "target_text": "งาน",
-      "romanization": "ngan",
-      "notes": null
+      "source_text": "that / those (near)",
+      "target_text": "นั่น",
+      "romanization": "nân",
+      "notes": "Used to refer to something further away from the speaker but still visible.",
+      "cefr_level": "A1",
+      "labels": [
+        "demonstrative",
+        "pronoun"
+      ]
     },
     {
-      "source_text": "of, 's (possessive), thing",
-      "target_text": "ของ",
-      "romanization": "khǒng",
-      "notes": null
+      "source_text": "to come",
+      "target_text": "มา",
+      "romanization": "ma",
+      "notes": "Indicates movement towards the speaker or a designated point.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
     },
     {
-      "source_text": "with, and",
-      "target_text": "กับ",
-      "romanization": "kàp",
-      "notes": null
+      "source_text": "to do / to make",
+      "target_text": "ทำ",
+      "romanization": "tham",
+      "notes": "A general verb for performing actions or creating things.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
     },
     {
-      "source_text": "from",
-      "target_text": "จาก",
-      "romanization": "chàk",
-      "notes": null
+      "source_text": "very / much / many",
+      "target_text": "มาก",
+      "romanization": "mâk",
+      "notes": "Placed after adjectives or verbs to intensify their meaning.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity",
+        "intensity"
+      ]
     },
     {
-      "source_text": "to, until, arrive",
-      "target_text": "ถึง",
-      "romanization": "thǔeng",
-      "notes": null
-    },
-    {
-      "source_text": "in, inside",
-      "target_text": "ใน",
-      "romanization": "nai",
-      "notes": null
-    },
-    {
-      "source_text": "outside",
-      "target_text": "นอก",
-      "romanization": "nôk",
-      "notes": null
-    },
-    {
-      "source_text": "on, above",
-      "target_text": "บน",
-      "romanization": "bon",
-      "notes": null
-    },
-    {
-      "source_text": "below, under",
-      "target_text": "ล่าง",
-      "romanization": "lâng",
-      "notes": null
-    },
-    {
-      "source_text": "front, face",
-      "target_text": "หน้า",
-      "romanization": "nâ",
-      "notes": null
-    },
-    {
-      "source_text": "back, behind",
-      "target_text": "หลัง",
-      "romanization": "lǎng",
-      "notes": null
-    },
-    {
-      "source_text": "already, then (completion)",
+      "source_text": "already / then / finished",
       "target_text": "แล้ว",
       "romanization": "láeo",
-      "notes": null
+      "notes": "Marks completion or sequence; can also mean 'already'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time",
+        "particle"
+      ]
     },
     {
-      "source_text": "also, then, so (particle)",
-      "target_text": "ก็",
-      "romanization": "kò",
-      "notes": null
+      "source_text": "will (future marker)",
+      "target_text": "จะ",
+      "romanization": "chà",
+      "notes": "Placed before a verb to indicate future action.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "future"
+      ]
     },
     {
-      "source_text": "small",
-      "target_text": "เล็ก",
-      "romanization": "lêk",
-      "notes": null
+      "source_text": "can / able to / to get",
+      "target_text": "ได้",
+      "romanization": "dâi",
+      "notes": "Indicates ability, permission, or achievement; can also mean 'yes' in response to a question.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal",
+        "ability"
+      ]
     },
     {
-      "source_text": "big",
-      "target_text": "ใหญ่",
-      "romanization": "àin",
-      "notes": null
+      "source_text": "to give / for",
+      "target_text": "ให้",
+      "romanization": "hâi",
+      "notes": "A versatile verb meaning 'to give' or a preposition meaning 'for' or 'to allow'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "preposition"
+      ]
     },
     {
-      "source_text": "hot",
-      "target_text": "ร้อน",
-      "romanization": "rón",
-      "notes": null
+      "source_text": "to want (to do)",
+      "target_text": "อยาก",
+      "romanization": "yàk",
+      "notes": "Expresses a desire to perform an action.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
     },
     {
-      "source_text": "cold",
-      "target_text": "หนาว",
-      "romanization": "nǎo",
-      "notes": null
+      "source_text": "to be at / to live / to stay",
+      "target_text": "อยู่",
+      "romanization": "yù",
+      "notes": "Indicates location, residence, or a continuous action.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "location",
+        "state"
+      ]
     },
     {
-      "source_text": "beautiful",
-      "target_text": "สวย",
-      "romanization": "sǔai",
-      "notes": null
-    },
-    {
-      "source_text": "delicious",
-      "target_text": "อร่อย",
-      "romanization": "ròi",
-      "notes": null
-    },
-    {
-      "source_text": "expensive",
-      "target_text": "แพง",
-      "romanization": "phaeng",
-      "notes": null
-    },
-    {
-      "source_text": "cheap, correct",
-      "target_text": "ถูก",
-      "romanization": "thùk",
-      "notes": null
-    },
-    {
-      "source_text": "new",
-      "target_text": "ใหม่",
-      "romanization": "àim",
-      "notes": null
-    },
-    {
-      "source_text": "old (for things)",
-      "target_text": "เก่า",
-      "romanization": "kào",
-      "notes": null
-    },
-    {
-      "source_text": "fast, early",
-      "target_text": "เร็ว",
-      "romanization": "reo",
-      "notes": null
-    },
-    {
-      "source_text": "slow, late",
-      "target_text": "ช้า",
-      "romanization": "chá",
-      "notes": null
-    },
-    {
-      "source_text": "near",
-      "target_text": "ใกล้",
-      "romanization": "kâin",
-      "notes": null
-    },
-    {
-      "source_text": "far",
-      "target_text": "ไกล",
-      "romanization": "klai",
-      "notes": null
-    },
-    {
-      "source_text": "tired",
-      "target_text": "เหนื่อย",
-      "romanization": "ènue",
-      "notes": null
-    },
-    {
-      "source_text": "hungry",
-      "target_text": "หิว",
-      "romanization": "hǐo",
-      "notes": null
-    },
-    {
-      "source_text": "full (after eating)",
-      "target_text": "อิ่ม",
-      "romanization": "ìm",
-      "notes": null
-    },
-    {
-      "source_text": "to enter",
-      "target_text": "เข้า",
-      "romanization": "khâo",
-      "notes": null
-    },
-    {
-      "source_text": "to exit",
-      "target_text": "ออก",
-      "romanization": "òk",
-      "notes": null
-    },
-    {
-      "source_text": "to open",
-      "target_text": "เปิด",
-      "romanization": "pòet",
-      "notes": null
-    },
-    {
-      "source_text": "to close",
-      "target_text": "ปิด",
-      "romanization": "pìt",
-      "notes": null
-    },
-    {
-      "source_text": "to sleep",
-      "target_text": "นอน",
-      "romanization": "non",
-      "notes": null
-    },
-    {
-      "source_text": "to sit",
-      "target_text": "นั่ง",
-      "romanization": "nâng",
-      "notes": null
-    },
-    {
-      "source_text": "to stand",
-      "target_text": "ยืน",
-      "romanization": "yuen",
-      "notes": null
-    },
-    {
-      "source_text": "to walk",
-      "target_text": "เดิน",
-      "romanization": "doen",
-      "notes": null
-    },
-    {
-      "source_text": "hand",
-      "target_text": "มือ",
-      "romanization": "mue",
-      "notes": null
-    },
-    {
-      "source_text": "foot",
-      "target_text": "เท้า",
-      "romanization": "tháo",
-      "notes": null
-    },
-    {
-      "source_text": "heart, mind",
-      "target_text": "ใจ",
-      "romanization": "chai",
-      "notes": null
-    },
-    {
-      "source_text": "eye, grandfather",
-      "target_text": "ตา",
-      "romanization": "ta",
-      "notes": null
-    },
-    {
-      "source_text": "mouth",
-      "target_text": "ปาก",
-      "romanization": "pàk",
-      "notes": null
-    },
-    {
-      "source_text": "month",
-      "target_text": "เดือน",
-      "romanization": "duean",
-      "notes": null
-    },
-    {
-      "source_text": "year",
-      "target_text": "ปี",
-      "romanization": "pi",
-      "notes": null
+      "source_text": "where / which",
+      "target_text": "ไหน",
+      "romanization": "nǎi",
+      "notes": "Used to ask 'where' or 'which one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "pronoun"
+      ]
     },
     {
       "source_text": "one",
       "target_text": "หนึ่ง",
       "romanization": "nùeng",
-      "notes": null
+      "notes": "The number one.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "two",
       "target_text": "สอง",
       "romanization": "sǒng",
-      "notes": null
+      "notes": "The number two.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "three",
       "target_text": "สาม",
       "romanization": "sǎm",
-      "notes": null
+      "notes": "The number three.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "four",
       "target_text": "สี่",
       "romanization": "sì",
-      "notes": null
+      "notes": "The number four.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "five",
       "target_text": "ห้า",
       "romanization": "hâ",
-      "notes": null
+      "notes": "The number five.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "six",
+      "target_text": "หก",
+      "romanization": "hòk",
+      "notes": "The number six.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "seven",
+      "target_text": "เจ็ด",
+      "romanization": "chèt",
+      "notes": "The number seven.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "eight",
+      "target_text": "แปด",
+      "romanization": "pàet",
+      "notes": "The number eight.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "nine",
+      "target_text": "เก้า",
+      "romanization": "kâo",
+      "notes": "The number nine.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "ten",
+      "target_text": "สิบ",
+      "romanization": "sìp",
+      "notes": "The number ten.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
+    },
+    {
+      "source_text": "how many / how much",
+      "target_text": "กี่",
+      "romanization": "kì",
+      "notes": "Used to ask about quantity, always placed before the noun and classifier.",
+      "cefr_level": "A1",
+      "labels": [
+        "question word",
+        "quantity"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "เวลา",
+      "romanization": "wela",
+      "notes": "Refers to time in general or a specific period.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "วัน",
+      "romanization": "wan",
+      "notes": "Refers to a day or a specific date.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "month",
+      "target_text": "เดือน",
+      "romanization": "duean",
+      "notes": "Refers to a month; also a classifier for months.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "classifier"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "ปี",
+      "romanization": "pi",
+      "notes": "Refers to a year; also a classifier for years.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "classifier"
+      ]
+    },
+    {
+      "source_text": "with / and",
+      "target_text": "กับ",
+      "romanization": "kàp",
+      "notes": "Connects people or items, or means 'with'.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "ใน",
+      "romanization": "nai",
+      "notes": "Indicates being enclosed within something.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "location"
+      ]
+    },
+    {
+      "source_text": "of / belonging to / thing",
+      "target_text": "ของ",
+      "romanization": "khǒng",
+      "notes": "Indicates possession or can refer to an unspecified item.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "noun",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "to speak / to say",
+      "target_text": "พูด",
+      "romanization": "phût",
+      "notes": "Refers to the act of speaking or saying words.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "language",
+      "target_text": "ภาษา",
+      "romanization": "phasǎ",
+      "notes": "Used to refer to a language, e.g., 'ภาษาไทย' (Thai language).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "language"
+      ]
+    },
+    {
+      "source_text": "Thai / Thailand",
+      "target_text": "ไทย",
+      "romanization": "thai",
+      "notes": "Refers to Thailand, the Thai people, or the Thai language.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "nationality"
+      ]
+    },
+    {
+      "source_text": "to know (information)",
+      "target_text": "รู้",
+      "romanization": "rú",
+      "notes": "Means to know facts or information.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "เห็น",
+      "romanization": "ěn",
+      "notes": "Refers to the act of seeing something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to listen",
+      "target_text": "ฟัง",
+      "romanization": "fang",
+      "notes": "Refers to the act of hearing and paying attention.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to read",
+      "target_text": "อ่าน",
+      "romanization": "àn",
+      "notes": "Refers to the act of deciphering written text.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "เขียน",
+      "romanization": "khǐan",
+      "notes": "Refers to the act of forming characters or words.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to learn / to study",
+      "target_text": "เรียน",
+      "romanization": "rian",
+      "notes": "Used for the act of acquiring knowledge.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to think / to miss",
+      "target_text": "คิด",
+      "romanization": "khít",
+      "notes": "Means 'to think' or 'to miss (someone/something)'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to tell / to inform",
+      "target_text": "บอก",
+      "romanization": "bòk",
+      "notes": "The verb for 'to tell' or 'to instruct'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "ถาม",
+      "romanization": "thǎm",
+      "notes": "The verb for 'to ask a question'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to like / to prefer",
+      "target_text": "ชอบ",
+      "romanization": "chôp",
+      "notes": "Expresses preference or enjoyment.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "preference"
+      ]
+    },
+    {
+      "source_text": "to love",
+      "target_text": "รัก",
+      "romanization": "rák",
+      "notes": "Expresses strong affection or love.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to ask for / to request",
+      "target_text": "ขอ",
+      "romanization": "khò",
+      "notes": "Used for polite requests, often followed by the item or action desired.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "request",
+        "politeness"
+      ]
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "ซื้อ",
+      "romanization": "súe",
+      "notes": "The common verb for purchasing goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "ขาย",
+      "romanization": "khǎi",
+      "notes": "The common verb for selling goods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "บ้าน",
+      "romanization": "bân",
+      "notes": "Refers to a dwelling or one's hometown.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place",
+        "home"
+      ]
+    },
+    {
+      "source_text": "shop / store",
+      "target_text": "ร้าน",
+      "romanization": "rán",
+      "notes": "A general term for any retail establishment.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "commerce",
+        "place"
+      ]
+    },
+    {
+      "source_text": "room",
+      "target_text": "ห้อง",
+      "romanization": "hông",
+      "notes": "Refers to any room, often used with other words to specify, e.g., 'ห้องน้ำ' (bathroom).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "water / liquid",
+      "target_text": "น้ำ",
+      "romanization": "nám",
+      "notes": "A general term for water or any liquid.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "drink",
+        "liquid"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "เงิน",
+      "romanization": "ngoen",
+      "notes": "Refers to currency or wealth.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "price",
+      "target_text": "ราคา",
+      "romanization": "rakha",
+      "notes": "Refers to the cost of an item or service.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "commerce"
+      ]
+    },
+    {
+      "source_text": "car / vehicle",
+      "target_text": "รถ",
+      "romanization": "rôt",
+      "notes": "A general term for any wheeled vehicle.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "transport"
+      ]
+    },
+    {
+      "source_text": "food / meal",
+      "target_text": "อาหาร",
+      "romanization": "ahǎn",
+      "notes": "A general term for food.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "rice / meal",
+      "target_text": "ข้าว",
+      "romanization": "khâo",
+      "notes": "Can mean uncooked rice, cooked rice, or a meal in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "ดื่ม",
+      "romanization": "dùem",
+      "notes": "The common verb for consuming liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "drink"
+      ]
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "นั่ง",
+      "romanization": "nâng",
+      "notes": "Refers to the act of sitting down.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to walk",
+      "target_text": "เดิน",
+      "romanization": "doen",
+      "notes": "Refers to the act of walking.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "นอน",
+      "romanization": "non",
+      "notes": "The common verb for resting or sleeping.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "morning",
+      "target_text": "เช้า",
+      "romanization": "cháo",
+      "notes": "Refers to the early part of the day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "noon / midday",
+      "target_text": "เที่ยง",
+      "romanization": "thîang",
+      "notes": "Refers to 12:00 PM.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "afternoon",
+      "target_text": "บ่าย",
+      "romanization": "bài",
+      "notes": "Refers to the period between noon and evening.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "evening / cold",
+      "target_text": "เย็น",
+      "romanization": "yen",
+      "notes": "Can mean 'evening' or 'cold' (temperature).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "night / to return",
+      "target_text": "คืน",
+      "romanization": "khuen",
+      "notes": "Can refer to the night or mean 'to return/give back'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "hot",
+      "target_text": "ร้อน",
+      "romanization": "rón",
+      "notes": "Can describe temperature (hot weather, hot food) or a feeling of heat.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "temperature"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "ใหม่",
+      "romanization": "àim",
+      "notes": "Describes something recently acquired or made.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old (things)",
+      "target_text": "เก่า",
+      "romanization": "kào",
+      "notes": "Describes the age of objects, not living beings.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "ใหญ่",
+      "romanization": "àin",
+      "notes": "Describes size, opposite of 'เล็ก'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small",
+      "target_text": "เล็ก",
+      "romanization": "lêk",
+      "notes": "Describes size, opposite of 'ใหญ่'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "doctor",
+      "target_text": "หมอ",
+      "romanization": "mǒ",
+      "notes": "A general term for a physician.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "profession",
+        "health"
+      ]
+    },
+    {
+      "source_text": "medicine",
+      "target_text": "ยา",
+      "romanization": "ya",
+      "notes": "A general term for medication or drugs.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "health"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "เด็ก",
+      "romanization": "dèk",
+      "notes": "A general term for a child or young person.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "color",
+      "target_text": "สี",
+      "romanization": "sǐ",
+      "notes": "A general term for colors.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "description"
+      ]
+    },
+    {
+      "source_text": "red",
+      "target_text": "แดง",
+      "romanization": "daeng",
+      "notes": "The color red; commonly used as an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "color"
+      ]
+    },
+    {
+      "source_text": "white",
+      "target_text": "ขาว",
+      "romanization": "khǎo",
+      "notes": "The color white; commonly used as an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "color"
+      ]
+    },
+    {
+      "source_text": "black",
+      "target_text": "ดำ",
+      "romanization": "dam",
+      "notes": "The color black; commonly used as an adjective.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "color"
+      ]
+    },
+    {
+      "source_text": "general classifier",
+      "target_text": "อัน",
+      "romanization": "àn",
+      "notes": "A versatile classifier for various general items, often small or non-specific.",
+      "cefr_level": "A1",
+      "labels": [
+        "classifier"
+      ]
+    },
+    {
+      "source_text": "body / classifier (animals)",
+      "target_text": "ตัว",
+      "romanization": "tua",
+      "notes": "Can mean 'body' or serve as a classifier for animals, shirts, and tables.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "classifier",
+        "body"
+      ]
+    },
+    {
+      "source_text": "so / also / then",
+      "target_text": "ก็",
+      "romanization": "kò",
+      "notes": "Connects clauses, often implying 'so', 'then', or 'too'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "but",
+      "target_text": "แต่",
+      "romanization": "tàe",
+      "notes": "Connects contrasting ideas or statements.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "because",
+      "target_text": "เพราะ",
+      "romanization": "phéra",
+      "notes": "Introduces a reason or cause.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "cause"
+      ]
+    },
+    {
+      "source_text": "that (conjunction) / to say",
+      "target_text": "ว่า",
+      "romanization": "wâ",
+      "notes": "Can introduce a clause (like 'that') or mean 'to say'.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "verb"
+      ]
+    },
+    {
+      "source_text": "comfortable / well",
+      "target_text": "สบาย",
+      "romanization": "sǎbai",
+      "notes": "Commonly used in greetings like 'สบายดีไหม' (Are you well?).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "feeling"
+      ]
     }
   ]
 }

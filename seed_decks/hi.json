@@ -4,604 +4,1125 @@
   "description": "The 100 most common words in Hindi — a fast start for beginners.",
   "items": [
     {
-      "source_text": "of, 's",
-      "target_text": "का",
-      "romanization": "kā",
-      "notes": "Possessive marker (masc. sg.)"
-    },
-    {
-      "source_text": "of, 's",
-      "target_text": "की",
-      "romanization": "kī",
-      "notes": "Possessive marker (fem. sg/pl, masc. pl. oblique)"
-    },
-    {
-      "source_text": "of, 's, for",
-      "target_text": "के",
-      "romanization": "ke",
-      "notes": "Possessive marker (masc. pl. oblique); also a postposition 'for'"
-    },
-    {
-      "source_text": "in, into",
-      "target_text": "में",
-      "romanization": "meṃ",
-      "notes": null
-    },
-    {
-      "source_text": "on, at",
-      "target_text": "पर",
-      "romanization": "para",
-      "notes": null
-    },
-    {
-      "source_text": "from, by, with, than",
-      "target_text": "से",
-      "romanization": "se",
-      "notes": null
-    },
-    {
-      "source_text": "to, for (DO marker)",
-      "target_text": "को",
-      "romanization": "ko",
-      "notes": null
+      "source_text": "is / are",
+      "target_text": "है",
+      "romanization": "hai",
+      "notes": "This is the most common verb in Hindi, used for 'is' or 'are' with singular or plural subjects.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence",
+        "grammatical"
+      ]
     },
     {
       "source_text": "and",
       "target_text": "और",
       "romanization": "aura",
-      "notes": null
+      "notes": "Used to connect two nouns, adjectives, or clauses, similar to 'and' in English.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "grammatical"
+      ]
     },
     {
-      "source_text": "I, me",
-      "target_text": "मैं",
-      "romanization": "maiṃ",
-      "notes": null
+      "source_text": "'s / of",
+      "target_text": "का",
+      "romanization": "kā",
+      "notes": "This is a genitive postposition, agreeing in gender and number with the possessed noun (का, के, की).",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "possession",
+        "grammatical"
+      ]
     },
     {
-      "source_text": "no, not",
+      "source_text": "in",
+      "target_text": "में",
+      "romanization": "meṃ",
+      "notes": "A very common postposition used for 'in', 'inside', or 'among'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "place",
+        "grammatical"
+      ]
+    },
+    {
+      "source_text": "no / not",
       "target_text": "नहीं",
       "romanization": "nahīṃ",
-      "notes": null
+      "notes": "The primary word for negation in Hindi, used with verbs, adjectives, and nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negation",
+        "grammatical"
+      ]
     },
     {
-      "source_text": "what?, question particle",
-      "target_text": "क्या",
-      "romanization": "kyā",
-      "notes": null
+      "source_text": "I / me",
+      "target_text": "मैं",
+      "romanization": "maiṃ",
+      "notes": "The first-person singular pronoun; its oblique form is 'मुझ' (mujh) for use with postpositions.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "to be, happen",
-      "target_text": "होना",
-      "romanization": "honā",
-      "notes": null
-    },
-    {
-      "source_text": "to do, make",
-      "target_text": "करना",
-      "romanization": "karanā",
-      "notes": null
-    },
-    {
-      "source_text": "you (informal, singular)",
-      "target_text": "तुम",
-      "romanization": "tuma",
-      "notes": null
-    },
-    {
-      "source_text": "you (formal, sg/pl)",
+      "source_text": "you (polite)",
       "target_text": "आप",
       "romanization": "āpa",
-      "notes": null
+      "notes": "This is the polite second-person singular and plural pronoun, requiring plural verb agreement.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "personal"
+      ]
     },
     {
-      "source_text": "he, she, it, that (distant)",
+      "source_text": "he / she / it / that",
       "target_text": "वह",
       "romanization": "vaha",
-      "notes": null
+      "notes": "Used for 'he', 'she', 'it', or 'that' when referring to something relatively distant; its oblique form is 'उस' (us).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "he, she, it, this (near)",
+      "source_text": "he / she / it / this",
       "target_text": "यह",
       "romanization": "yaha",
-      "notes": null
+      "notes": "Used for 'he', 'she', 'it', or 'this' when referring to something relatively near; its oblique form is 'इस' (is).",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "demonstrative"
+      ]
     },
     {
-      "source_text": "we, us",
-      "target_text": "हम",
-      "romanization": "hama",
-      "notes": null
+      "source_text": "then / so / indeed",
+      "target_text": "तो",
+      "romanization": "to",
+      "notes": "A versatile particle indicating emphasis, condition ('if...then'), or consequence ('so').",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "also / too / even",
+      "target_text": "भी",
+      "romanization": "bhī",
+      "notes": "An emphatic particle placed after the word it modifies to mean 'also', 'too', or 'even'.",
+      "cefr_level": "A1",
+      "labels": [
+        "particle",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "what / interrogative",
+      "target_text": "क्या",
+      "romanization": "kyā",
+      "notes": "Used as 'what' (pronoun) or as an interrogative particle at the start of a yes/no question.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun",
+        "particle"
+      ]
+    },
+    {
+      "source_text": "on / at / but",
+      "target_text": "पर",
+      "romanization": "para",
+      "notes": "A common postposition meaning 'on' or 'at', but can also function as a conjunction meaning 'but'.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "conjunction",
+        "grammatical"
+      ]
+    },
+    {
+      "source_text": "from / by / with",
+      "target_text": "से",
+      "romanization": "se",
+      "notes": "A highly versatile postposition indicating separation, instrument, agent, or comparison.",
+      "cefr_level": "A1",
+      "labels": [
+        "postposition",
+        "grammatical"
+      ]
     },
     {
       "source_text": "to go",
       "target_text": "जाना",
       "romanization": "jānā",
-      "notes": null
+      "notes": "A fundamental verb of movement, often used to form compound verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "करना",
+      "romanization": "karanā",
+      "notes": "One of the most common verbs, used with many nouns to form compound verbs (e.g., 'बात करना' - to talk).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to be / to happen",
+      "target_text": "होना",
+      "romanization": "honā",
+      "notes": "This verb means 'to be' or 'to happen' and is crucial for forming various tenses and moods.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
     },
     {
       "source_text": "to come",
       "target_text": "आना",
       "romanization": "ānā",
-      "notes": null
+      "notes": "A basic verb of movement, often used in compound verbs to indicate arrival or completion.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
     },
     {
-      "source_text": "one, a, an",
+      "source_text": "one / a / an",
       "target_text": "एक",
       "romanization": "eka",
-      "notes": null
+      "notes": "Means 'one' and also functions as the indefinite article 'a' or 'an'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number",
+        "determiner"
+      ]
     },
     {
-      "source_text": "very, much, many",
-      "target_text": "बहुत",
-      "romanization": "bahuta",
-      "notes": null
-    },
-    {
-      "source_text": "good, well, okay",
+      "source_text": "good / fine",
       "target_text": "अच्छा",
       "romanization": "acchā",
-      "notes": "(masc. sg. form)"
+      "notes": "A common adjective that also serves as an interjection meaning 'okay' or 'alright'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
     },
     {
-      "source_text": "who?",
-      "target_text": "कौन",
-      "romanization": "kauna",
-      "notes": null
+      "source_text": "very / much / many",
+      "target_text": "बहुत",
+      "romanization": "bahuta",
+      "notes": "Used as an adverb meaning 'very' or as a quantifier meaning 'much' or 'many'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "quantity"
+      ]
     },
     {
-      "source_text": "some, any, a little",
-      "target_text": "कुछ",
-      "romanization": "kucha",
-      "notes": null
-    },
-    {
-      "source_text": "any, some, someone",
-      "target_text": "कोई",
-      "romanization": "koī",
-      "notes": null
-    },
-    {
-      "source_text": "to give",
-      "target_text": "देना",
-      "romanization": "denā",
-      "notes": null
-    },
-    {
-      "source_text": "to take",
-      "target_text": "लेना",
-      "romanization": "lenā",
-      "notes": null
-    },
-    {
-      "source_text": "to see, watch",
-      "target_text": "देखना",
-      "romanization": "dekhanā",
-      "notes": null
-    },
-    {
-      "source_text": "also, too, even",
-      "target_text": "भी",
-      "romanization": "bhī",
-      "notes": null
-    },
-    {
-      "source_text": "to speak, say",
-      "target_text": "बोलना",
-      "romanization": "bolanā",
-      "notes": null
-    },
-    {
-      "source_text": "to say, tell",
-      "target_text": "कहना",
-      "romanization": "kahanā",
-      "notes": null
-    },
-    {
-      "source_text": "to know (fact/info)",
-      "target_text": "जानना",
-      "romanization": "jānanā",
-      "notes": null
-    },
-    {
-      "source_text": "when (conjunction)",
-      "target_text": "जब",
-      "romanization": "jaba",
-      "notes": null
-    },
-    {
-      "source_text": "then",
-      "target_text": "तब",
-      "romanization": "taba",
-      "notes": null
-    },
-    {
-      "source_text": "right now, just now",
-      "target_text": "अभी",
-      "romanization": "abhī",
-      "notes": null
-    },
-    {
-      "source_text": "today",
-      "target_text": "आज",
-      "romanization": "āja",
-      "notes": null
-    },
-    {
-      "source_text": "yesterday, tomorrow",
-      "target_text": "कल",
-      "romanization": "kala",
-      "notes": null
-    },
-    {
-      "source_text": "now",
-      "target_text": "अब",
-      "romanization": "aba",
-      "notes": null
-    },
-    {
-      "source_text": "again, then, afterwards",
-      "target_text": "फिर",
-      "romanization": "phira",
-      "notes": null
-    },
-    {
-      "source_text": "here",
-      "target_text": "यहाँ",
-      "romanization": "yahā~",
-      "notes": null
-    },
-    {
-      "source_text": "there",
-      "target_text": "वहाँ",
-      "romanization": "vahā~",
-      "notes": null
-    },
-    {
-      "source_text": "up, above, on",
-      "target_text": "ऊपर",
-      "romanization": "ūpara",
-      "notes": null
-    },
-    {
-      "source_text": "down, below, under",
-      "target_text": "नीचे",
-      "romanization": "nīce",
-      "notes": null
-    },
-    {
-      "source_text": "inside",
-      "target_text": "अंदर",
-      "romanization": "aṃdara",
-      "notes": null
-    },
-    {
-      "source_text": "big, large, old",
-      "target_text": "बड़ा",
-      "romanization": "bar̤ā",
-      "notes": "(masc. sg. form)"
-    },
-    {
-      "source_text": "small, little, young",
-      "target_text": "छोटा",
-      "romanization": "choṭā",
-      "notes": "(masc. sg. form)"
-    },
-    {
-      "source_text": "new",
-      "target_text": "नया",
-      "romanization": "nayā",
-      "notes": "(masc. sg. form)"
-    },
-    {
-      "source_text": "old (for things)",
-      "target_text": "पुराना",
-      "romanization": "purānā",
-      "notes": "(masc. sg. form)"
-    },
-    {
-      "source_text": "beautiful",
-      "target_text": "सुंदर",
-      "romanization": "suṃdara",
-      "notes": null
-    },
-    {
-      "source_text": "hot",
-      "target_text": "गरम",
-      "romanization": "garama",
-      "notes": null
-    },
-    {
-      "source_text": "cold",
-      "target_text": "ठंडा",
-      "romanization": "ṭhaṃḍā",
-      "notes": "(masc. sg. form)"
-    },
-    {
-      "source_text": "less, few",
-      "target_text": "कम",
-      "romanization": "kama",
-      "notes": null
-    },
-    {
-      "source_text": "more, much, too much",
-      "target_text": "ज़्यादा",
-      "romanization": "zyādā",
-      "notes": null
-    },
-    {
-      "source_text": "slowly, gently",
-      "target_text": "धीरे",
-      "romanization": "dhīre",
-      "notes": null
-    },
-    {
-      "source_text": "quickly, fast, soon",
-      "target_text": "जल्दी",
-      "romanization": "jaldī",
-      "notes": null
-    },
-    {
-      "source_text": "they, those (distant)",
-      "target_text": "वे",
-      "romanization": "ve",
-      "notes": null
-    },
-    {
-      "source_text": "they, these (near)",
-      "target_text": "ये",
-      "romanization": "ye",
-      "notes": null
-    },
-    {
-      "source_text": "one's own",
-      "target_text": "अपना",
-      "romanization": "apanā",
-      "notes": "(reflexive possessive, masc. sg. form)"
-    },
-    {
-      "source_text": "talk, word, matter",
-      "target_text": "बात",
-      "romanization": "bāta",
-      "notes": null
-    },
-    {
-      "source_text": "name",
-      "target_text": "नाम",
-      "romanization": "nāma",
-      "notes": null
-    },
-    {
-      "source_text": "house, home",
+      "source_text": "house / home",
       "target_text": "घर",
       "romanization": "ghara",
-      "notes": null
-    },
-    {
-      "source_text": "man, person",
-      "target_text": "आदमी",
-      "romanization": "ādamī",
-      "notes": null
-    },
-    {
-      "source_text": "woman",
-      "target_text": "औरत",
-      "romanization": "aurata",
-      "notes": null
-    },
-    {
-      "source_text": "child",
-      "target_text": "बच्चा",
-      "romanization": "baccā",
-      "notes": null
-    },
-    {
-      "source_text": "friend",
-      "target_text": "दोस्त",
-      "romanization": "dosta",
-      "notes": null
+      "notes": "A masculine noun meaning 'house' or 'home', frequently used with 'पर' (at home) or 'जाना' (to go home).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
     },
     {
       "source_text": "water",
       "target_text": "पानी",
       "romanization": "pānī",
-      "notes": null
+      "notes": "A masculine noun for 'water', essential for everyday communication.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "liquid"
+      ]
     },
     {
-      "source_text": "food, to eat",
+      "source_text": "food / to eat",
       "target_text": "खाना",
       "romanization": "khānā",
-      "notes": "Can be noun 'food' or verb 'to eat'"
+      "notes": "Functions both as a masculine noun for 'food' and a transitive verb 'to eat'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "verb",
+        "food"
+      ]
     },
     {
-      "source_text": "book",
-      "target_text": "किताब",
-      "romanization": "kitāba",
-      "notes": null
+      "source_text": "to give",
+      "target_text": "देना",
+      "romanization": "denā",
+      "notes": "A common transitive verb meaning 'to give', often used in compound verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action",
+        "possession"
+      ]
     },
     {
-      "source_text": "day",
-      "target_text": "दिन",
-      "romanization": "dina",
-      "notes": null
+      "source_text": "to take",
+      "target_text": "लेना",
+      "romanization": "lenā",
+      "notes": "A common transitive verb meaning 'to take' or 'to receive', often used in compound verbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action",
+        "possession"
+      ]
     },
     {
-      "source_text": "night",
-      "target_text": "रात",
-      "romanization": "rāta",
-      "notes": null
+      "source_text": "to see / to watch",
+      "target_text": "देखना",
+      "romanization": "dekhanā",
+      "notes": "A transitive verb used for visual perception, 'to see', 'to watch', or 'to look at'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
     },
     {
-      "source_text": "morning",
-      "target_text": "सुबह",
-      "romanization": "subaha",
-      "notes": null
-    },
-    {
-      "source_text": "evening",
-      "target_text": "शाम",
-      "romanization": "śāma",
-      "notes": null
+      "source_text": "to say / to tell",
+      "target_text": "कहना",
+      "romanization": "kahanā",
+      "notes": "A common transitive verb meaning 'to say' or 'to tell', often used for reporting speech.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
     },
     {
       "source_text": "time",
       "target_text": "समय",
       "romanization": "samaya",
-      "notes": null
+      "notes": "A masculine noun meaning 'time', often used with 'क्या' (what time) or 'है' (there is time).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract",
+        "time"
+      ]
     },
     {
-      "source_text": "money",
-      "target_text": "पैसा",
-      "romanization": "paisā",
-      "notes": null
+      "source_text": "day",
+      "target_text": "दिन",
+      "romanization": "dina",
+      "notes": "A masculine noun meaning 'day', used for specific days or the general concept of a day.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "work, job",
-      "target_text": "काम",
-      "romanization": "kāma",
-      "notes": null
+      "source_text": "night",
+      "target_text": "रात",
+      "romanization": "rāta",
+      "notes": "A feminine noun meaning 'night', used for specific nights or the general concept of night.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
     },
     {
-      "source_text": "city, town",
-      "target_text": "शहर",
-      "romanization": "śahara",
-      "notes": null
+      "source_text": "now",
+      "target_text": "अब",
+      "romanization": "aba",
+      "notes": "A temporal adverb meaning 'now', crucial for indicating present time.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "country",
-      "target_text": "देश",
-      "romanization": "deśa",
-      "notes": null
-    },
-    {
-      "source_text": "place, space",
-      "target_text": "जगह",
-      "romanization": "jagaha",
-      "notes": null
-    },
-    {
-      "source_text": "yes",
-      "target_text": "हाँ",
-      "romanization": "hā~",
-      "notes": null
-    },
-    {
-      "source_text": "yes (honorific), particle",
-      "target_text": "जी",
-      "romanization": "jī",
-      "notes": null
-    },
-    {
-      "source_text": "thanks, thank you",
-      "target_text": "धन्यवाद",
-      "romanization": "dhanyavāda",
-      "notes": null
-    },
-    {
-      "source_text": "hello, greetings",
-      "target_text": "नमस्कार",
-      "romanization": "namaskāra",
-      "notes": null
-    },
-    {
-      "source_text": "to keep, put",
-      "target_text": "रखना",
-      "romanization": "rakhanā",
-      "notes": null
-    },
-    {
-      "source_text": "to meet, get, find",
-      "target_text": "मिलना",
-      "romanization": "milanā",
-      "notes": null
-    },
-    {
-      "source_text": "to sit",
-      "target_text": "बैठना",
-      "romanization": "baiṭhanā",
-      "notes": null
-    },
-    {
-      "source_text": "to get up, rise",
-      "target_text": "उठना",
-      "romanization": "uṭhanā",
-      "notes": null
-    },
-    {
-      "source_text": "when? (interrogative)",
+      "source_text": "when",
       "target_text": "कब",
       "romanization": "kaba",
-      "notes": null
+      "notes": "An interrogative adverb meaning 'when', used to ask about time.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "where?",
-      "target_text": "कहाँ",
-      "romanization": "kahā~",
-      "notes": null
+      "source_text": "here",
+      "target_text": "यहाँ",
+      "romanization": "yahā~",
+      "notes": "A spatial adverb meaning 'here', indicating a nearby location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
     },
     {
-      "source_text": "how?",
+      "source_text": "there",
+      "target_text": "वहाँ",
+      "romanization": "vahā~",
+      "notes": "A spatial adverb meaning 'there', indicating a relatively distant location.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
+    },
+    {
+      "source_text": "how",
       "target_text": "कैसे",
       "romanization": "kaise",
-      "notes": null
+      "notes": "An interrogative adverb meaning 'how', used to ask about manner or state.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb",
+        "manner"
+      ]
     },
     {
-      "source_text": "why?",
+      "source_text": "why",
       "target_text": "क्यों",
       "romanization": "kyoṃ",
-      "notes": null
+      "notes": "An interrogative adverb meaning 'why', used to ask about reason.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "adverb",
+        "reason"
+      ]
     },
     {
-      "source_text": "how much/many?",
-      "target_text": "कितना",
-      "romanization": "kitanā",
-      "notes": "(masc. sg. form)"
+      "source_text": "who",
+      "target_text": "कौन",
+      "romanization": "kauna",
+      "notes": "An interrogative pronoun meaning 'who' or 'which one'.",
+      "cefr_level": "A1",
+      "labels": [
+        "interrogative",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "name",
+      "target_text": "नाम",
+      "romanization": "nāma",
+      "notes": "A masculine noun meaning 'name', commonly used in introductions ('आपका नाम क्या है?').",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "identity"
+      ]
+    },
+    {
+      "source_text": "people",
+      "target_text": "लोग",
+      "romanization": "loga",
+      "notes": "A masculine plural noun meaning 'people', often used generally.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "city",
+      "target_text": "शहर",
+      "romanization": "śahara",
+      "notes": "A masculine noun meaning 'city' or 'town'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "काम",
+      "romanization": "kāma",
+      "notes": "A masculine noun meaning 'work' or 'job', often used with 'करना' (to do work).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "activity"
+      ]
+    },
+    {
+      "source_text": "want / need",
+      "target_text": "चाहिए",
+      "romanization": "cāhie",
+      "notes": "A modal verb expressing 'want' or 'need', used with the dative case for the subject.",
+      "cefr_level": "A1",
+      "labels": [
+        "modal verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to meet / to get",
+      "target_text": "मिलना",
+      "romanization": "milanā",
+      "notes": "An intransitive verb meaning 'to meet' (with 'से') or 'to get/receive' (with 'को').",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "social",
+        "obtain"
+      ]
+    },
+    {
+      "source_text": "to live / to stay",
+      "target_text": "रहना",
+      "romanization": "rahanā",
+      "notes": "An intransitive verb meaning 'to live' or 'to stay', crucial for indicating residence.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "existence"
+      ]
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "बोलना",
+      "romanization": "bolanā",
+      "notes": "A common verb meaning 'to speak' or 'to talk', can be transitive or intransitive.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to write",
+      "target_text": "लिखना",
+      "romanization": "likhanā",
+      "notes": "A transitive verb meaning 'to write', used for composing text.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to read / to study",
+      "target_text": "पढ़ना",
+      "romanization": "par̤hanā",
+      "notes": "A versatile verb meaning 'to read' or 'to study' (transitive).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "education"
+      ]
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "समझना",
+      "romanization": "samajhanā",
+      "notes": "A transitive verb meaning 'to understand' or 'to comprehend'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "to know (fact)",
+      "target_text": "जानना",
+      "romanization": "jānanā",
+      "notes": "A transitive verb meaning 'to know' a fact, information, or person.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "cognition"
+      ]
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "बड़ा",
+      "romanization": "bar̤ā",
+      "notes": "An adjective meaning 'big' or 'large', inflecting for gender and number (बड़ा, बड़े, बड़ी).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "छोटा",
+      "romanization": "choṭā",
+      "notes": "An adjective meaning 'small' or 'little', inflecting for gender and number (छोटा, छोटे, छोटी).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "नया",
+      "romanization": "nayā",
+      "notes": "An adjective meaning 'new', inflecting for gender and number (नया, नए, नयी).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "age"
+      ]
+    },
+    {
+      "source_text": "old (thing)",
+      "target_text": "पुराना",
+      "romanization": "purānā",
+      "notes": "An adjective meaning 'old' for objects, inflecting for gender and number (पुराना, पुराने, पुरानी).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "age"
+      ]
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "सुंदर",
+      "romanization": "suṃdara",
+      "notes": "A non-inflecting adjective meaning 'beautiful' or 'handsome', applicable to people or things.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "औरत",
+      "romanization": "aurata",
+      "notes": "A feminine noun meaning 'woman' or 'female'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "man / person",
+      "target_text": "आदमी",
+      "romanization": "ādamī",
+      "notes": "A masculine noun meaning 'man' or 'person', whose plural is also 'आदमी'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "बच्चा",
+      "romanization": "baccā",
+      "notes": "A masculine noun meaning 'child', inflecting to 'बच्चे' (bacce) in plural or oblique cases.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "person"
+      ]
+    },
+    {
+      "source_text": "mother",
+      "target_text": "माँ",
+      "romanization": "mā~",
+      "notes": "A feminine noun meaning 'mother', often used informally.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "father",
+      "target_text": "पिता",
+      "romanization": "pitā",
+      "notes": "A masculine noun meaning 'father', more formal than 'बाप' (bāp).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "brother",
+      "target_text": "भाई",
+      "romanization": "bhāī",
+      "notes": "A masculine noun meaning 'brother', can also be used honorifically for older men.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
+    },
+    {
+      "source_text": "sister",
+      "target_text": "बहन",
+      "romanization": "bahana",
+      "notes": "A feminine noun meaning 'sister', can also be used honorifically for older women.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "family"
+      ]
     },
     {
       "source_text": "two",
       "target_text": "दो",
       "romanization": "do",
-      "notes": null
+      "notes": "The cardinal number 'two'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "three",
       "target_text": "तीन",
       "romanization": "tīna",
-      "notes": null
+      "notes": "The cardinal number 'three'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "four",
       "target_text": "चार",
       "romanization": "cāra",
-      "notes": null
+      "notes": "The cardinal number 'four'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
       "source_text": "five",
       "target_text": "पाँच",
       "romanization": "pā~ca",
-      "notes": null
+      "notes": "The cardinal number 'five'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
-      "source_text": "up to, until",
-      "target_text": "तक",
-      "romanization": "taka",
-      "notes": null
+      "source_text": "ten",
+      "target_text": "दस",
+      "romanization": "dasa",
+      "notes": "The cardinal number 'ten'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
-      "source_text": "or",
-      "target_text": "या",
-      "romanization": "yā",
-      "notes": null
+      "source_text": "hundred",
+      "target_text": "सौ",
+      "romanization": "sau",
+      "notes": "The cardinal number 'hundred'.",
+      "cefr_level": "A1",
+      "labels": [
+        "number"
+      ]
     },
     {
-      "source_text": "but",
-      "target_text": "लेकिन",
-      "romanization": "lekina",
-      "notes": null
+      "source_text": "rupee",
+      "target_text": "रुपया",
+      "romanization": "rupayā",
+      "notes": "A masculine noun for the primary unit of currency in India and Pakistan, plural is 'रुपये' (rupaye).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "currency"
+      ]
     },
     {
-      "source_text": "then, so, indeed",
-      "target_text": "तो",
-      "romanization": "to",
-      "notes": "Emphatic particle"
+      "source_text": "today",
+      "target_text": "आज",
+      "romanization": "āja",
+      "notes": "A temporal adverb meaning 'today'.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "yesterday / tomorrow",
+      "target_text": "कल",
+      "romanization": "kala",
+      "notes": "A temporal adverb referring to both 'yesterday' and 'tomorrow'; context determines meaning.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "inside",
+      "target_text": "अंदर",
+      "romanization": "aṃdara",
+      "notes": "Can function as an adverb or as a postposition (with 'के') meaning 'inside' or 'within'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "outside",
+      "target_text": "बाहर",
+      "romanization": "bāhara",
+      "notes": "Can function as an adverb or as a postposition (with 'के') meaning 'outside'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "up / above",
+      "target_text": "ऊपर",
+      "romanization": "ūpara",
+      "notes": "Can function as an adverb or as a postposition (with 'के') meaning 'up', 'above', or 'on top of'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "down / below",
+      "target_text": "नीचे",
+      "romanization": "nīce",
+      "notes": "Can function as an adverb or as a postposition (with 'के') meaning 'down' or 'below'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "in front of",
+      "target_text": "सामने",
+      "romanization": "sāmane",
+      "notes": "Functions as an adverb or as a postposition (with 'के') meaning 'in front of' or 'opposite'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "behind",
+      "target_text": "पीछे",
+      "romanization": "pīche",
+      "notes": "Functions as an adverb or as a postposition (with 'के') meaning 'behind' or 'after'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adverb",
+        "postposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "near / with",
+      "target_text": "पास",
+      "romanization": "pāsa",
+      "notes": "Functions as a postposition (with 'के') meaning 'near' or 'with' (for possession).",
+      "cefr_level": "A2",
+      "labels": [
+        "postposition",
+        "place",
+        "possession"
+      ]
+    },
+    {
+      "source_text": "far",
+      "target_text": "दूर",
+      "romanization": "dūra",
+      "notes": "An adjective or adverb meaning 'far' or 'distant', often used with 'से' (from).",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "adverb",
+        "distance"
+      ]
+    },
+    {
+      "source_text": "correct / right",
+      "target_text": "सही",
+      "romanization": "sahī",
+      "notes": "A non-inflecting adjective meaning 'correct' or 'right'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "wrong / incorrect",
+      "target_text": "गलत",
+      "romanization": "galata",
+      "notes": "A non-inflecting adjective meaning 'wrong' or 'incorrect'.",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "liking / favorite",
+      "target_text": "पसंद",
+      "romanization": "pasaṃda",
+      "notes": "A feminine noun meaning 'liking' or 'choice', commonly used with 'होना' or 'आना' to express 'to like'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "emotion"
+      ]
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "पूछना",
+      "romanization": "pūchanā",
+      "notes": "A transitive verb meaning 'to ask' a question (from 'से' or 'को').",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to open",
+      "target_text": "खोलना",
+      "romanization": "kholanā",
+      "notes": "A transitive verb meaning 'to open' something.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "closed",
+      "target_text": "बंद",
+      "romanization": "baṃda",
+      "notes": "An adjective meaning 'closed' or 'shut', often used with 'करना' (to close) or 'होना' (to be closed).",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "state"
+      ]
+    },
+    {
+      "source_text": "start / beginning",
+      "target_text": "शुरू",
+      "romanization": "śurū",
+      "notes": "An adjective/noun meaning 'start' or 'beginning', often used with 'करना' (to start) or 'होना' (to begin).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time",
+        "action"
+      ]
+    },
+    {
+      "source_text": "finished / end",
+      "target_text": "खत्म",
+      "romanization": "khatma",
+      "notes": "An adjective/noun meaning 'finished' or 'end', often used with 'करना' (to finish) or 'होना' (to be finished).",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "time",
+        "state"
+      ]
+    },
+    {
+      "source_text": "to sleep / gold",
+      "target_text": "सोना",
+      "romanization": "sonā",
+      "notes": "Can be an intransitive verb 'to sleep' or a masculine noun 'gold'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "rest",
+        "noun",
+        "material"
+      ]
+    },
+    {
+      "source_text": "to get up / to rise",
+      "target_text": "उठना",
+      "romanization": "uṭhanā",
+      "notes": "An intransitive verb meaning 'to get up' or 'to rise'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "बैठना",
+      "romanization": "baiṭhanā",
+      "notes": "An intransitive verb meaning 'to sit' or 'to sit down'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "posture"
+      ]
+    },
+    {
+      "source_text": "standing",
+      "target_text": "खड़ा",
+      "romanization": "khar̤ā",
+      "notes": "An adjective meaning 'standing', commonly used with 'होना' (to stand) or 'करना' (to make stand).",
+      "cefr_level": "A2",
+      "labels": [
+        "adjective",
+        "posture"
+      ]
+    },
+    {
+      "source_text": "to walk / to move",
+      "target_text": "चलना",
+      "romanization": "calanā",
+      "notes": "An intransitive verb meaning 'to walk' or 'to move', also used for machines 'to run'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to run",
+      "target_text": "दौड़ना",
+      "romanization": "daur̤anā",
+      "notes": "An intransitive verb meaning 'to run'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to sing / song",
+      "target_text": "गाना",
+      "romanization": "gānā",
+      "notes": "Functions both as a transitive verb 'to sing' and a masculine noun 'song'.",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "noun",
+        "art"
+      ]
+    },
+    {
+      "source_text": "to play",
+      "target_text": "खेलना",
+      "romanization": "khelanā",
+      "notes": "An intransitive verb meaning 'to play' (a game or sport).",
+      "cefr_level": "A2",
+      "labels": [
+        "verb",
+        "recreation"
+      ]
+    },
+    {
+      "source_text": "world",
+      "target_text": "दुनिया",
+      "romanization": "duniyā",
+      "notes": "A feminine noun meaning 'world', often used to refer to people or society in general.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "देश",
+      "romanization": "deśa",
+      "notes": "A masculine noun meaning 'country' or 'nation'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "village",
+      "target_text": "गाँव",
+      "romanization": "gā~va",
+      "notes": "A masculine noun meaning 'village', inflecting to 'गाँवों' (gāṁvoṃ) in the oblique plural.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "way / path",
+      "target_text": "रास्ता",
+      "romanization": "rāstā",
+      "notes": "A masculine noun meaning 'way' or 'path', also used for figurative paths.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "road",
+      "target_text": "सड़क",
+      "romanization": "sar̤aka",
+      "notes": "A feminine noun meaning 'road' or 'street'.",
+      "cefr_level": "A2",
+      "labels": [
+        "noun",
+        "place"
+      ]
     }
   ]
 }

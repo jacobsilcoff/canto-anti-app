@@ -1,601 +1,1093 @@
 {
   "lang": "ro",
   "name": "Top 100 Romanian Words",
-  "description": "The 99 most common words in Romanian — a fast start for beginners.",
+  "description": "The 100 most common words in Romanian — a fast start for beginners.",
   "items": [
-    {
-      "source_text": "to be",
-      "target_text": "a fi",
-      "romanization": "",
-      "notes": "Infinitive form of the verb 'to be'."
-    },
     {
       "source_text": "and",
       "target_text": "și",
       "romanization": "",
-      "notes": null
+      "notes": "Used to connect words, phrases, or clauses; corresponds to 'et' in Latin.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
+    },
+    {
+      "source_text": "to be",
+      "target_text": "a fi",
+      "romanization": "",
+      "notes": "One of the most essential verbs, used for existence, identity, and forming compound tenses.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "grammar"
+      ]
     },
     {
       "source_text": "to have",
       "target_text": "a avea",
       "romanization": "",
-      "notes": "Infinitive form of the verb 'to have'."
-    },
-    {
-      "source_text": "of, from, by",
-      "target_text": "de",
-      "romanization": "",
-      "notes": "Common preposition with multiple meanings."
-    },
-    {
-      "source_text": "not, no",
-      "target_text": "nu",
-      "romanization": "",
-      "notes": "Negation particle and interjection 'no'."
-    },
-    {
-      "source_text": "in, into",
-      "target_text": "în",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "at, to",
-      "target_text": "la",
-      "romanization": "",
-      "notes": null
+      "notes": "Essential verb for possession and for forming compound tenses, like the perfect compound.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "possession"
+      ]
     },
     {
       "source_text": "I",
       "target_text": "eu",
       "romanization": "",
-      "notes": "Subject pronoun."
+      "notes": "The first person singular pronoun, typically omitted in spoken Romanian if clear from context.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "he, it",
+      "source_text": "you (singular)",
+      "target_text": "tu",
+      "romanization": "",
+      "notes": "The informal second person singular pronoun, used with friends and family.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "he, it (masculine)",
       "target_text": "el",
       "romanization": "",
-      "notes": "Subject pronoun (masculine singular)."
+      "notes": "Third person singular pronoun for masculine nouns or male persons.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "a, an (masc.)",
-      "target_text": "un",
+      "source_text": "she, it (feminine)",
+      "target_text": "ea",
       "romanization": "",
-      "notes": "Indefinite article (masculine singular)."
-    },
-    {
-      "source_text": "a, an (fem.)",
-      "target_text": "o",
-      "romanization": "",
-      "notes": "Indefinite article (feminine singular)."
-    },
-    {
-      "source_text": "on, upon, over",
-      "target_text": "pe",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "with",
-      "target_text": "cu",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "more, still",
-      "target_text": "mai",
-      "romanization": "",
-      "notes": "Adverb, also used to form comparatives."
-    },
-    {
-      "source_text": "to do, to make",
-      "target_text": "a face",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "but",
-      "target_text": "dar",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "to say, to tell",
-      "target_text": "a zice",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "himself/herself/itself/themselves",
-      "target_text": "se",
-      "romanization": "",
-      "notes": "Reflexive or impersonal pronoun."
-    },
-    {
-      "source_text": "to come",
-      "target_text": "a veni",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to go, to walk",
-      "target_text": "a merge",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to want",
-      "target_text": "a vrea",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to be able to, can",
-      "target_text": "a putea",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "as, like, so that",
-      "target_text": "ca",
-      "romanization": "",
-      "notes": "Conjunction/preposition."
-    },
-    {
-      "source_text": "to, that",
-      "target_text": "să",
-      "romanization": "",
-      "notes": "Subjunctive particle."
-    },
-    {
-      "source_text": "for",
-      "target_text": "pentru",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "from, out of",
-      "target_text": "din",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "there",
-      "target_text": "acolo",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "here",
-      "target_text": "aici",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "when",
-      "target_text": "când",
-      "romanization": "",
-      "notes": "Adverb/conjunction."
-    },
-    {
-      "source_text": "how, as",
-      "target_text": "cum",
-      "romanization": "",
-      "notes": "Adverb/conjunction."
-    },
-    {
-      "source_text": "what, which",
-      "target_text": "ce",
-      "romanization": "",
-      "notes": "Interrogative/relative pronoun/adjective."
-    },
-    {
-      "source_text": "who",
-      "target_text": "cine",
-      "romanization": "",
-      "notes": "Interrogative/relative pronoun."
-    },
-    {
-      "source_text": "all, whole",
-      "target_text": "tot",
-      "romanization": "",
-      "notes": "Adjective/adverb."
-    },
-    {
-      "source_text": "much, many",
-      "target_text": "mult",
-      "romanization": "",
-      "notes": "Adjective/adverb."
-    },
-    {
-      "source_text": "very",
-      "target_text": "foarte",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "now",
-      "target_text": "acum",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "again, and, while",
-      "target_text": "iar",
-      "romanization": "",
-      "notes": "Adverb/conjunction."
+      "notes": "Third person singular pronoun for feminine nouns or female persons.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
       "source_text": "we",
       "target_text": "noi",
       "romanization": "",
-      "notes": "Subject pronoun."
+      "notes": "First person plural pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "you (plural)",
+      "source_text": "you (plural/formal)",
       "target_text": "voi",
       "romanization": "",
-      "notes": "Subject pronoun."
+      "notes": "Second person plural pronoun, or formal singular (like 'dumneavoastră').",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "they (masc.)",
+      "source_text": "they (masculine)",
       "target_text": "ei",
       "romanization": "",
-      "notes": "Subject pronoun (masculine plural)."
+      "notes": "Third person plural pronoun for masculine nouns or groups including males.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "she, it",
-      "target_text": "ea",
-      "romanization": "",
-      "notes": "Subject pronoun (feminine singular)."
-    },
-    {
-      "source_text": "they (fem.)",
+      "source_text": "they (feminine)",
       "target_text": "ele",
       "romanization": "",
-      "notes": "Subject pronoun (feminine plural)."
+      "notes": "Third person plural pronoun for feminine nouns or groups of only females.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun"
+      ]
     },
     {
-      "source_text": "you (sing.)",
-      "target_text": "tu",
+      "source_text": "of, from, by",
+      "target_text": "de",
       "romanization": "",
-      "notes": "Subject pronoun."
+      "notes": "A highly versatile preposition, often indicating origin, possession, or agent.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "you (sing. acc.)",
-      "target_text": "te",
+      "source_text": "to, at",
+      "target_text": "la",
       "romanization": "",
-      "notes": "Direct object pronoun."
+      "notes": "Indicates direction towards a place or person, or location at a place.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "me (acc.)",
-      "target_text": "mă",
+      "source_text": "in, into",
+      "target_text": "în",
       "romanization": "",
-      "notes": "Direct object pronoun."
+      "notes": "Used for location inside something or movement towards the interior of something.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "him, it (masc. acc.)",
-      "target_text": "îl",
+      "source_text": "with",
+      "target_text": "cu",
       "romanization": "",
-      "notes": "Direct object pronoun."
+      "notes": "Indicates accompaniment, means, or instrument.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition"
+      ]
     },
     {
-      "source_text": "them (acc.)",
-      "target_text": "le",
+      "source_text": "a, an (masculine)",
+      "target_text": "un",
       "romanization": "",
-      "notes": "Direct object pronoun (plural)."
+      "notes": "The masculine indefinite article, preceding masculine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
     },
     {
-      "source_text": "him (dat.), them (masc. dat.)",
-      "target_text": "îi",
+      "source_text": "a, an (feminine)",
+      "target_text": "o",
       "romanization": "",
-      "notes": "Indirect object pronoun."
+      "notes": "The feminine indefinite article, preceding feminine singular nouns.",
+      "cefr_level": "A1",
+      "labels": [
+        "article"
+      ]
     },
     {
-      "source_text": "us (acc./dat.)",
-      "target_text": "ne",
+      "source_text": "no, not",
+      "target_text": "nu",
       "romanization": "",
-      "notes": "Direct or indirect object pronoun."
+      "notes": "The primary negative word, placed before the verb for negation.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "negative"
+      ]
     },
     {
-      "source_text": "you (pl. acc./dat.)",
-      "target_text": "vă",
+      "source_text": "what",
+      "target_text": "ce",
       "romanization": "",
-      "notes": "Direct or indirect object pronoun."
+      "notes": "Used for questions about things or as a relative pronoun.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "himself/herself/itself/themselves",
-      "target_text": "își",
+      "source_text": "which, who, that",
+      "target_text": "care",
       "romanization": "",
-      "notes": "Dative reflexive pronoun."
+      "notes": "A versatile relative pronoun, used for both people and things.",
+      "cefr_level": "A1",
+      "labels": [
+        "pronoun",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "to know (facts)",
-      "target_text": "a ști",
+      "source_text": "when",
+      "target_text": "când",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Used to ask about time or introduce a temporal clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "time"
+      ]
     },
     {
-      "source_text": "to give",
-      "target_text": "a da",
+      "source_text": "where",
+      "target_text": "unde",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Used to ask about location or introduce a spatial clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "place"
+      ]
     },
     {
-      "source_text": "to see",
-      "target_text": "a vedea",
+      "source_text": "how",
+      "target_text": "cum",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Used to ask about manner or introduce a comparative clause.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative"
+      ]
     },
     {
-      "source_text": "to take",
-      "target_text": "a lua",
+      "source_text": "how much/many",
+      "target_text": "cât",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Used to ask about quantity; it changes form for gender and number (câtă, câți, câte).",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "interrogative",
+        "quantifier"
+      ]
     },
     {
-      "source_text": "to say, to tell",
-      "target_text": "a spune",
+      "source_text": "but",
+      "target_text": "dar",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Connects clauses, indicating a contrast or exception.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
-      "source_text": "to believe, to think",
-      "target_text": "a crede",
+      "source_text": "or",
+      "target_text": "sau",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Connects alternatives.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction"
+      ]
     },
     {
-      "source_text": "to remain, to stay",
-      "target_text": "a rămâne",
+      "source_text": "here",
+      "target_text": "aici",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Indicates a location close to the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
     },
     {
-      "source_text": "to find out",
-      "target_text": "a afla",
+      "source_text": "there",
+      "target_text": "acolo",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Indicates a location far from the speaker.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "place"
+      ]
     },
     {
-      "source_text": "to ask for, to request",
-      "target_text": "a cere",
+      "source_text": "now",
+      "target_text": "acum",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Indicates the present moment.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
     },
     {
-      "source_text": "to put",
-      "target_text": "a pune",
+      "source_text": "more, still, yet",
+      "target_text": "mai",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "A very common adverb with multiple uses, often indicating continuation or comparison.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "comparison"
+      ]
     },
     {
-      "source_text": "to exit, to go out",
-      "target_text": "a ieși",
+      "source_text": "very",
+      "target_text": "foarte",
       "romanization": "",
-      "notes": "Infinitive form."
+      "notes": "Intensifies adjectives or adverbs.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "intensifier"
+      ]
     },
     {
-      "source_text": "to enter, to come in",
-      "target_text": "a intra",
+      "source_text": "well, good",
+      "target_text": "bine",
       "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to work",
-      "target_text": "a lucra",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to speak, to talk",
-      "target_text": "a vorbi",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to write",
-      "target_text": "a scrie",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to read",
-      "target_text": "a citi",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to listen",
-      "target_text": "a asculta",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to understand",
-      "target_text": "a înțelege",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to begin, to start",
-      "target_text": "a începe",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to finish",
-      "target_text": "a termina",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to wait",
-      "target_text": "a aștepta",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to look for, to search",
-      "target_text": "a căuta",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "to feel",
-      "target_text": "a simți",
-      "romanization": "",
-      "notes": "Infinitive form."
-    },
-    {
-      "source_text": "man, person",
-      "target_text": "om",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "time",
-      "target_text": "timp",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "place",
-      "target_text": "loc",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "day",
-      "target_text": "zi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "world, people",
-      "target_text": "lume",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "thing",
-      "target_text": "lucru",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "water",
-      "target_text": "apă",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "house",
-      "target_text": "casă",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "road, way",
-      "target_text": "drum",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "hand",
-      "target_text": "mână",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "head, end",
-      "target_text": "cap",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "eye",
-      "target_text": "ochi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "life",
-      "target_text": "viață",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "money",
-      "target_text": "bani",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "big, great",
-      "target_text": "mare",
-      "romanization": "",
-      "notes": "Adjective, often invariant for gender."
-    },
-    {
-      "source_text": "small",
-      "target_text": "mic",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "good",
-      "target_text": "bun",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "new",
-      "target_text": "nou",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "old",
-      "target_text": "vechi",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "beautiful",
-      "target_text": "frumos",
-      "romanization": "",
-      "notes": null
-    },
-    {
-      "source_text": "bad, evil",
-      "target_text": "rău",
-      "romanization": "",
-      "notes": null
+      "notes": "An adverb describing something done well, or an adjective meaning good.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective"
+      ]
     },
     {
       "source_text": "yes",
       "target_text": "da",
       "romanization": "",
-      "notes": null
+      "notes": "The affirmative response.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection"
+      ]
     },
     {
-      "source_text": "one",
-      "target_text": "unu",
+      "source_text": "thank you",
+      "target_text": "mulțumesc",
       "romanization": "",
-      "notes": "Cardinal number (masculine)."
+      "notes": "The most common way to express gratitude.",
+      "cefr_level": "A1",
+      "labels": [
+        "interjection",
+        "greeting"
+      ]
     },
     {
-      "source_text": "two",
-      "target_text": "doi",
+      "source_text": "hello, hi",
+      "target_text": "salut",
       "romanization": "",
-      "notes": "Cardinal number (masculine)."
+      "notes": "An informal greeting, suitable for friends and acquaintances.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
     },
     {
-      "source_text": "three",
-      "target_text": "trei",
+      "source_text": "bye",
+      "target_text": "pa",
       "romanization": "",
-      "notes": "Cardinal number."
+      "notes": "An informal way to say goodbye.",
+      "cefr_level": "A1",
+      "labels": [
+        "greeting"
+      ]
+    },
+    {
+      "source_text": "day",
+      "target_text": "zi",
+      "romanization": "",
+      "notes": "A feminine noun, often used in time expressions like 'Bună ziua' (Good day).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "night",
+      "target_text": "noapte",
+      "romanization": "",
+      "notes": "A feminine noun, used in 'Bună noapte' (Good night).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "time",
+      "target_text": "timp",
+      "romanization": "",
+      "notes": "A masculine noun, generally refers to time in an abstract sense.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "year",
+      "target_text": "an",
+      "romanization": "",
+      "notes": "A masculine noun, `ani` is the plural form.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "time"
+      ]
+    },
+    {
+      "source_text": "person, man",
+      "target_text": "om",
+      "romanization": "",
+      "notes": "A masculine noun, `oameni` is the plural form and can refer to people in general.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "woman",
+      "target_text": "femeie",
+      "romanization": "",
+      "notes": "A feminine noun, `femei` is the plural form.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "man",
+      "target_text": "bărbat",
+      "romanization": "",
+      "notes": "A masculine noun specifically referring to an adult male.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "child",
+      "target_text": "copil",
+      "romanization": "",
+      "notes": "A masculine noun that refers to a child of any gender; can become `copii` (children).",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "people"
+      ]
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "casă",
+      "romanization": "",
+      "notes": "A feminine noun; `casa` means 'the house/home'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "water",
+      "target_text": "apă",
+      "romanization": "",
+      "notes": "A feminine noun; `apa` means 'the water'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "bread",
+      "target_text": "pâine",
+      "romanization": "",
+      "notes": "A feminine noun, central to Romanian cuisine.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "food, meal",
+      "target_text": "mâncare",
+      "romanization": "",
+      "notes": "A feminine noun, generally referring to any type of food.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "drink, beverage",
+      "target_text": "băutură",
+      "romanization": "",
+      "notes": "A feminine noun, generally referring to any type of drink.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "food"
+      ]
+    },
+    {
+      "source_text": "big, large, great",
+      "target_text": "mare",
+      "romanization": "",
+      "notes": "An adjective that has the same form for masculine and feminine, singular and plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "small, little",
+      "target_text": "mic",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: mic (m.sg.), mică (f.sg.), mici (m./f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "size"
+      ]
+    },
+    {
+      "source_text": "good",
+      "target_text": "bun",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: bun (m.sg.), bună (f.sg.), buni (m.pl.), bune (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "bad, evil",
+      "target_text": "rău",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: rău (m.sg.), rea (f.sg.), răi (m.pl.), rele (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "new",
+      "target_text": "nou",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: nou (m.sg.), nouă (f.sg.), noi (m./f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "old",
+      "target_text": "vechi",
+      "romanization": "",
+      "notes": "An adjective that has the same form for masculine and feminine, singular and plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "quality"
+      ]
+    },
+    {
+      "source_text": "beautiful, nice",
+      "target_text": "frumos",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: frumos (m.sg.), frumoasă (f.sg.), frumoși (m.pl.), frumoase (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "appearance"
+      ]
+    },
+    {
+      "source_text": "warm, hot",
+      "target_text": "cald",
+      "romanization": "",
+      "notes": "An adjective that changes for gender and number: cald (m.sg.), caldă (f.sg.), calzi (m.pl.), calde (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "cold",
+      "target_text": "rece",
+      "romanization": "",
+      "notes": "An adjective that has the same form for masculine and feminine, singular and plural.",
+      "cefr_level": "A1",
+      "labels": [
+        "adjective",
+        "weather"
+      ]
+    },
+    {
+      "source_text": "to go, to walk",
+      "target_text": "a merge",
+      "romanization": "",
+      "notes": "A common verb for movement, often used impersonally for things going well or badly.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to come",
+      "target_text": "a veni",
+      "romanization": "",
+      "notes": "A common verb indicating movement towards the speaker or a designated point.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "movement"
+      ]
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "a face",
+      "romanization": "",
+      "notes": "A very versatile verb with many idiomatic expressions (e.g., 'a face cumpărături' - to shop).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to want",
+      "target_text": "a vrea",
+      "romanization": "",
+      "notes": "An irregular verb that expresses desire; its present tense forms are often used as future auxiliaries.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "desire"
+      ]
+    },
+    {
+      "source_text": "to know (a fact)",
+      "target_text": "a ști",
+      "romanization": "",
+      "notes": "Used for knowing facts, information, or how to do something; distinguishes from 'a cunoaște' (to know a person/place).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "knowledge"
+      ]
+    },
+    {
+      "source_text": "to be able to, can",
+      "target_text": "a putea",
+      "romanization": "",
+      "notes": "A modal verb expressing ability or possibility.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "modal"
+      ]
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "a spune",
+      "romanization": "",
+      "notes": "A common verb for verbal communication; often takes an indirect object for 'to tell someone'.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to give",
+      "target_text": "a da",
+      "romanization": "",
+      "notes": "An irregular verb with many uses, including 'a-și da seama' (to realize).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to take, to get",
+      "target_text": "a lua",
+      "romanization": "",
+      "notes": "A highly versatile verb with various meanings depending on context (e.g., 'a lua micul dejun' - to have breakfast).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "to see",
+      "target_text": "a vedea",
+      "romanization": "",
+      "notes": "A common verb for visual perception.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "perception"
+      ]
+    },
+    {
+      "source_text": "to work",
+      "target_text": "a lucra",
+      "romanization": "",
+      "notes": "A regular verb for employment or effort.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "work"
+      ]
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "a mânca",
+      "romanization": "",
+      "notes": "A regular verb for consuming food.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "a bea",
+      "romanization": "",
+      "notes": "An irregular verb for consuming liquids.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "food"
+      ]
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "a vorbi",
+      "romanization": "",
+      "notes": "A regular verb for verbal communication; often followed by 'cu' (with) or 'despre' (about).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "to believe, to think",
+      "target_text": "a crede",
+      "romanization": "",
+      "notes": "Used for belief or opinion; often followed by 'că' (that).",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "opinion"
+      ]
+    },
+    {
+      "source_text": "to find",
+      "target_text": "a găsi",
+      "romanization": "",
+      "notes": "A regular verb for discovering something.",
+      "cefr_level": "A1",
+      "labels": [
+        "verb",
+        "action"
+      ]
+    },
+    {
+      "source_text": "the world, people",
+      "target_text": "lumea",
+      "romanization": "",
+      "notes": "A feminine definite noun, can mean 'the world' or 'people in general'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "society",
+        "place"
+      ]
+    },
+    {
+      "source_text": "the life",
+      "target_text": "viața",
+      "romanization": "",
+      "notes": "A feminine definite noun, generally refers to life as a concept.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "work, job",
+      "target_text": "muncă",
+      "romanization": "",
+      "notes": "A feminine noun; `munca` means 'the work'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "work"
+      ]
+    },
+    {
+      "source_text": "city, town",
+      "target_text": "oraș",
+      "romanization": "",
+      "notes": "A masculine noun; `orașul` means 'the city'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "country",
+      "target_text": "țară",
+      "romanization": "",
+      "notes": "A feminine noun; `țara` means 'the country'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "language, tongue",
+      "target_text": "limbă",
+      "romanization": "",
+      "notes": "A feminine noun, meaning both a spoken language and the anatomical tongue.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "communication"
+      ]
+    },
+    {
+      "source_text": "book",
+      "target_text": "carte",
+      "romanization": "",
+      "notes": "A feminine noun; `cartea` means 'the book'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "education"
+      ]
+    },
+    {
+      "source_text": "money",
+      "target_text": "bani",
+      "romanization": "",
+      "notes": "An inherently plural masculine noun; always used in plural form.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "finance"
+      ]
+    },
+    {
+      "source_text": "place, spot",
+      "target_text": "loc",
+      "romanization": "",
+      "notes": "A masculine noun; `locul` means 'the place'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "place"
+      ]
+    },
+    {
+      "source_text": "part, side",
+      "target_text": "parte",
+      "romanization": "",
+      "notes": "A feminine noun, can refer to a portion or a direction.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "direction"
+      ]
+    },
+    {
+      "source_text": "thing, job",
+      "target_text": "lucru",
+      "romanization": "",
+      "notes": "A masculine noun with a neutral plural form (`lucruri`), can mean 'thing' or 'task'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "abstract"
+      ]
+    },
+    {
+      "source_text": "mister, sir, gentleman",
+      "target_text": "domn",
+      "romanization": "",
+      "notes": "A formal title for a man; `domnul` means 'the gentleman'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title"
+      ]
+    },
+    {
+      "source_text": "madam, lady",
+      "target_text": "doamnă",
+      "romanization": "",
+      "notes": "A formal title for a married or older woman; `doamna` means 'the lady'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title"
+      ]
+    },
+    {
+      "source_text": "miss, young lady",
+      "target_text": "domnișoară",
+      "romanization": "",
+      "notes": "A formal title for an unmarried or young woman; `domnișoara` means 'the young lady'.",
+      "cefr_level": "A1",
+      "labels": [
+        "noun",
+        "title"
+      ]
+    },
+    {
+      "source_text": "much, many",
+      "target_text": "mult",
+      "romanization": "",
+      "notes": "A quantifier that changes for gender and number: mult (m.sg.), multă (f.sg.), mulți (m.pl.), multe (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "little, few",
+      "target_text": "puțin",
+      "romanization": "",
+      "notes": "A quantifier that changes for gender and number: puțin (m.sg.), puțină (f.sg.), puțini (m.pl.), puține (f.pl.).",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "all, whole, every",
+      "target_text": "tot",
+      "romanization": "",
+      "notes": "A versatile word that can function as an adjective, pronoun, or adverb, indicating entirety.",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "pronoun",
+        "adjective"
+      ]
+    },
+    {
+      "source_text": "all (feminine plural)",
+      "target_text": "toate",
+      "romanization": "",
+      "notes": "The feminine plural form of 'tot', referring to all feminine things or all things in general (when plural).",
+      "cefr_level": "A1",
+      "labels": [
+        "quantifier",
+        "pronoun"
+      ]
+    },
+    {
+      "source_text": "neither, nor",
+      "target_text": "nici",
+      "romanization": "",
+      "notes": "Used to form negative conjunctions (nici...nici) or to emphasize negation.",
+      "cefr_level": "A1",
+      "labels": [
+        "conjunction",
+        "adverb"
+      ]
+    },
+    {
+      "source_text": "never",
+      "target_text": "niciodată",
+      "romanization": "",
+      "notes": "A common adverb of time, used with the negative 'nu' before the verb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "always",
+      "target_text": "mereu",
+      "romanization": "",
+      "notes": "A common adverb of time, indicating constant recurrence.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "time"
+      ]
+    },
+    {
+      "source_text": "fast, quickly",
+      "target_text": "repede",
+      "romanization": "",
+      "notes": "An adverb describing speed; it does not change form.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "slow, slowly",
+      "target_text": "încet",
+      "romanization": "",
+      "notes": "Can function as both an adjective (slow) and an adverb (slowly); it does not change form for gender/number when adverb.",
+      "cefr_level": "A1",
+      "labels": [
+        "adverb",
+        "adjective",
+        "manner"
+      ]
+    },
+    {
+      "source_text": "between, among",
+      "target_text": "între",
+      "romanization": "",
+      "notes": "A preposition indicating position in the middle of two or more things.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "on, upon, for",
+      "target_text": "pe",
+      "romanization": "",
+      "notes": "A highly versatile preposition, often indicating location, direct object, or duration.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "place"
+      ]
+    },
+    {
+      "source_text": "towards",
+      "target_text": "spre",
+      "romanization": "",
+      "notes": "A preposition indicating direction.",
+      "cefr_level": "A1",
+      "labels": [
+        "preposition",
+        "direction"
+      ]
     }
   ]
 }
