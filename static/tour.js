@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 13;
+  var TOUR_VERSION = 14;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -35,6 +35,10 @@
       body: 'Now supporting Turkish, Dutch, Polish, Swedish, Norwegian, Romanian, Ukrainian, Greek, Thai, and Hebrew — with native fonts, audio, romanization, and optional script reading tracks for non-Latin scripts.', v: 11 },
     { icon: '🏠', title: 'Flashcards are now home',
       body: 'Your deck is the home page now. Tap the + button to translate words or browse community decks — no page reload. Lessons have bonus mini-games, and the flashcard tutor is smarter.', v: 13 },
+    { icon: '🚀', title: 'Top 100 words, ready to add',
+      body: 'Every language now has a ready-made "Top 100 Words" deck. New learners can add it in one tap at signup, or find it any time in Browse → Community to jump-start a real deck.', v: 14 },
+    { icon: '⭐', title: 'Rate the decks you study',
+      body: 'Studying an imported community deck? You can now rate it right from the Flashcards page — and we\'ll nudge you once you\'ve worked through a good chunk, so other learners know which decks are worth it.', v: 14 },
   ];
 
   var steps, stepIdx;

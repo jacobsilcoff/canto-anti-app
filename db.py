@@ -499,6 +499,44 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
         return admin_id
 
 
+# The account that owns official / auto-generated community decks (e.g. the
+# per-language "Top 100 Words" decks). It never logs in (unusable password) and
+# is not a real learner — decks are "official" purely by having this creator_id.
+SYSTEM_USERNAME = "__system__"
+SYSTEM_DISPLAY_NAME = "Silcoff Labs"
+
+
+async def get_or_create_system_user(password_hash: str) -> int:
+    """Ensure the system deck-owner account exists. Returns its user_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+            (SYSTEM_USERNAME,),
+        ) as cur:
+            row = await cur.fetchone()
+            if row:
+                return row["id"]
+        cur = await db.execute(
+            """INSERT INTO users
+               (username, password_hash, is_admin, display_name, email_verified)
+               VALUES (?, ?, 0, ?, 1)""",
+            (SYSTEM_USERNAME, password_hash, SYSTEM_DISPLAY_NAME),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def get_system_user_id() -> int | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+            (SYSTEM_USERNAME,),
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 _USER_COLS = (
@@ -776,7 +814,8 @@ async def get_admin_dashboard_stats() -> dict:
                  COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NOT NULL THEN 1 ELSE 0 END),0) AS pro_paid,
                  COALESCE(SUM(CASE WHEN plan='pro' AND stripe_customer_id IS NULL AND NOT is_admin THEN 1 ELSE 0 END),0) AS pro_comped,
                  COALESCE(SUM(CASE WHEN plan='free' AND NOT is_admin THEN 1 ELSE 0 END),0) AS free
-               FROM users"""
+               FROM users WHERE username != ?""",
+            (SYSTEM_USERNAME,),
         ) as cur:
             tier_row = dict(await cur.fetchone())
 
@@ -803,7 +842,8 @@ async def get_admin_dashboard_stats() -> dict:
                        )) AS last_active,
                       (SELECT ai_calls FROM usage_counters uc
                        WHERE uc.user_id=u.id AND uc.period=strftime('%Y-%m','now')) AS ai_calls_month
-               FROM users u ORDER BY u.id"""
+               FROM users u WHERE u.username != ? ORDER BY u.id""",
+            (SYSTEM_USERNAME,),
         ) as cur:
             users = [dict(r) for r in await cur.fetchall()]
 
@@ -819,8 +859,9 @@ async def get_admin_dashboard_stats() -> dict:
         # ── Signups this week / month ──
         async with db.execute(
             """SELECT
-                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-7 days')) AS signups_week,
-                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-30 days')) AS signups_month"""
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-7 days') AND username != ?) AS signups_week,
+                 (SELECT COUNT(*) FROM users WHERE created_at>=datetime('now','-30 days') AND username != ?) AS signups_month""",
+            (SYSTEM_USERNAME, SYSTEM_USERNAME),
         ) as cur:
             signups = dict(await cur.fetchone())
 
@@ -4057,12 +4098,14 @@ async def list_my_decks(user_id: int) -> list[dict]:
         async with db.execute(
             """SELECT sd.id, sd.name, sd.description, sd.target_lang,
                       sd.visibility, sd.created_at,
-                      u.username as creator,
+                      COALESCE(NULLIF(u.display_name,''), u.username) as creator,
                       sd.creator_id,
                       COUNT(sdi.id) as card_count,
                       (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
                       COALESCE(dr.avg_r, 0) as avg_rating,
-                      COALESCE(dr.cnt, 0) as rating_count
+                      COALESCE(dr.cnt, 0) as rating_count,
+                      (SELECT rating FROM deck_ratings mr
+                       WHERE mr.deck_id = sd.id AND mr.user_id = ?) as user_rating
                FROM shared_decks sd
                JOIN users u ON sd.creator_id = u.id
                LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
@@ -4072,7 +4115,7 @@ async def list_my_decks(user_id: int) -> list[dict]:
                   OR EXISTS(SELECT 1 FROM deck_imports di2
                             WHERE di2.deck_id=sd.id AND di2.user_id=?)
                GROUP BY sd.id ORDER BY sd.created_at DESC""",
-            (user_id, user_id),
+            (user_id, user_id, user_id),
         ) as cur:
             rows = [dict(r) for r in await cur.fetchall()]
         for r in rows:
@@ -4098,7 +4141,7 @@ async def list_community_decks(
         sql = """
             SELECT sd.id, sd.name, sd.description, sd.target_lang,
                    sd.visibility, sd.created_at,
-                   u.username as creator,
+                   COALESCE(NULLIF(u.display_name,''), u.username) as creator,
                    COUNT(sdi.id) as card_count,
                    (SELECT COUNT(*) FROM deck_imports di WHERE di.deck_id = sd.id) as import_count,
                    EXISTS(SELECT 1 FROM deck_imports di2
@@ -4134,11 +4177,40 @@ async def list_community_decks(
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def list_featured_decks(target_lang: str | None = None) -> list[dict]:
+    """Public decks owned by the system user (official Top-100 word decks etc.).
+    Surfaced as onboarding suggestions. Returns [] if the system user or no
+    matching deck exists."""
+    sys_id = await get_system_user_id()
+    if not sys_id:
+        return []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        params: list = [sys_id]
+        sql = """
+            SELECT sd.id, sd.name, sd.description, sd.target_lang,
+                   COUNT(sdi.id) as card_count,
+                   COALESCE(dr.avg_r, 0) as avg_rating,
+                   COALESCE(dr.cnt, 0) as rating_count
+            FROM shared_decks sd
+            LEFT JOIN shared_deck_items sdi ON sd.id = sdi.deck_id
+            LEFT JOIN (SELECT deck_id, AVG(rating) as avg_r, COUNT(*) as cnt
+                       FROM deck_ratings GROUP BY deck_id) dr ON dr.deck_id = sd.id
+            WHERE sd.creator_id = ? AND sd.visibility = 'public'
+        """
+        if target_lang:
+            sql += " AND sd.target_lang = ?"
+            params.append(target_lang)
+        sql += " GROUP BY sd.id ORDER BY sd.created_at DESC"
+        async with db.execute(sql, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT sd.*, u.username as creator
+            """SELECT sd.*, COALESCE(NULLIF(u.display_name,''), u.username) as creator
                FROM shared_decks sd JOIN users u ON sd.creator_id = u.id
                WHERE sd.id=?""",
             (deck_id,),

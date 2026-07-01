@@ -76,6 +76,9 @@ async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
         await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
+    # Owner of official / auto-generated community decks (Top-100 word decks).
+    # Never logs in — seeded with an unusable random password.
+    await db.get_or_create_system_user(auth.hash_password(secrets.token_urlsafe(32)))
     if _TEST_USERS:
         # "new" — email verified, no cards, no onboarding; use to test first-time UX
         existing = await db.get_user_by_username("new")
@@ -5121,6 +5124,11 @@ async def community_decks(
     user: dict = Depends(current_user),
 ):
     return {"decks": await db.list_community_decks(user["id"], target_lang=lang, search=search, sort=sort)}
+
+@app.get("/api/decks/featured")
+async def featured_decks(lang: str | None = None, user: dict = Depends(current_user)):
+    """Official system-owned decks (e.g. per-language Top-100). Suggested at onboarding."""
+    return {"decks": await db.list_featured_decks(target_lang=lang)}
 
 @app.get("/api/decks/{deck_id}")
 async def get_deck(deck_id: int, user: dict = Depends(current_user)):

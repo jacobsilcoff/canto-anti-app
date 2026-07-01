@@ -48,6 +48,25 @@
       background: var(--primary); }
     .deck-pick-row.active .deck-pick-check::after { content: '';
       width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+    /* ── Deck rating (stars + prompt modal) ── */
+    .deck-rate-stars { display: inline-flex; gap: 2px; }
+    .deck-rate-stars .star { color: var(--border); cursor: pointer; font-size: 1.15rem;
+      line-height: 1; transition: color 0.1s; }
+    .deck-rate-stars .star.filled { color: var(--warn-accent); }
+    .deck-rate-stars .star:hover { color: var(--warn-accent); }
+    .deck-pick-stars { margin-left: auto; flex-shrink: 0; }
+    .deck-pick-stars .star { font-size: 0.95rem; }
+    .deck-rate-overlay { position: fixed; inset: 0; z-index: 200; background: var(--overlay);
+      display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .deck-rate-modal { background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; width: 100%; max-width: 380px; padding: 24px 20px;
+      box-shadow: var(--shadow-pop); text-align: center; }
+    .deck-rate-modal h3 { font-size: 1.05rem; font-weight: 700; margin: 0 0 6px; color: var(--text); }
+    .deck-rate-modal p { font-size: 0.88rem; color: var(--text-muted); margin: 0 0 16px; line-height: 1.4; }
+    .deck-rate-modal .deck-rate-stars .star { font-size: 2rem; }
+    .deck-rate-modal-actions { margin-top: 18px; }
+    .deck-rate-skip { background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
     .offline-bar {
       background: var(--hard);
       color: white;
@@ -592,6 +611,10 @@
     <div class="icon">✅</div>
     <h2>Session complete!</h2>
     <p id="done-msg"></p>
+    <div id="done-rate" style="display:none;margin:2px 0 6px">
+      <div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:6px">Rate this deck</div>
+      <span class="deck-rate-stars" id="done-rate-stars"></span>
+    </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:4px">
       <a href="#" class="cta-btn" onclick="event.preventDefault();openTranslatePanel()">Translate More</a>
       <button class="cta-btn secondary" onclick="loadSession('all')">Practice More</button>
@@ -1364,6 +1387,7 @@
       updateOfflineBar((await idbGetAllWithKeys('pending')).length);
     }
     reviewedFaces.add(`${item.card_id}-${item.face}`);
+    if (_activeDeckId) _recordDeckSeen(_activeDeckId, item.card_id);
     idx++;
     // A card still in learning is due again in a minute or two — bring it back
     // around this session instead of waiting for the next one. (Offline, we have
@@ -1383,6 +1407,7 @@
       total = queue.length;
     }
     showCard();
+    maybePromptDeckRating();
   }
 
   let _xpPopTimer;
@@ -1401,6 +1426,17 @@
     const n = reviewedFaces.size || total;
     document.getElementById('done-msg').textContent =
       `You reviewed ${n} flashcard${n === 1 ? '' : 's'}. Great work!`;
+    // Offer a rating when a just-studied community deck is still unrated.
+    const d = _activeDeck();
+    const rateWrap = document.getElementById('done-rate');
+    if (_isRatableDeck(d)) {
+      const stars = document.getElementById('done-rate-stars');
+      stars.dataset.deckId = d.id;
+      stars.innerHTML = _rateStarsHtml(d.id, 0);
+      rateWrap.style.display = '';
+    } else {
+      rateWrap.style.display = 'none';
+    }
   }
 
   async function toggleTutorFlag() {
@@ -1829,10 +1865,14 @@
     </div>`];
     _myDecks.forEach(d => {
       if (!d.import_label_id) return;
+      const stars = (!d.is_creator && d.import_label_id)
+        ? `<span class="deck-rate-stars deck-pick-stars" data-deck-id="${d.id}" onclick="event.stopPropagation()">${_rateStarsHtml(d.id, d.user_rating || 0)}</span>`
+        : '';
       rows.push(`<div class="deck-pick-row${_activeDeckId === d.id ? ' active' : ''}" data-deck-id="${d.id}" data-label-id="${d.import_label_id}">
         <span class="deck-pick-check"></span>
         <span class="deck-pick-name">${escHtml(d.name)}</span>
         <span class="deck-pick-meta">${d.card_count} cards</span>
+        ${stars}
       </div>`);
     });
     list.innerHTML = rows.join('');
@@ -1874,6 +1914,85 @@
     document.getElementById('deck-picker').style.display = 'none';
     document.getElementById('deck-toggle').classList.remove('open');
     loadSession('due');
+  }
+
+  // ── Deck rating ──────────────────────────────────────────────────────────
+  function _activeDeck() { return _myDecks.find(d => d.id === _activeDeckId) || null; }
+
+  // An imported community deck (not one you created) that you haven't rated yet.
+  function _isRatableDeck(d) { return !!(d && d.import_label_id && !d.is_creator && !d.user_rating); }
+
+  function _rateStarsHtml(deckId, current) {
+    let h = '';
+    for (let i = 1; i <= 5; i++) {
+      h += `<span class="star${current && i <= current ? ' filled' : ''}" data-star="${i}" onclick="rateDeckHere(${deckId},${i},event)">★</span>`;
+    }
+    return h;
+  }
+
+  async function rateDeckHere(deckId, rating, ev) {
+    if (ev) ev.stopPropagation();
+    try {
+      await fetch(`/api/decks/${deckId}/rate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating }),
+      });
+      const d = _myDecks.find(x => x.id === deckId);
+      if (d) d.user_rating = rating;
+      localStorage.setItem(`deckRatePrompted:${deckId}`, '1');
+      // Reflect the new rating on every visible star group for this deck.
+      document.querySelectorAll(`.deck-rate-stars[data-deck-id="${deckId}"]`).forEach(el => {
+        el.innerHTML = _rateStarsHtml(deckId, rating);
+      });
+      showToast('Thanks for rating!');
+      if (document.getElementById('deck-rate-overlay').style.display !== 'none') {
+        setTimeout(closeDeckRateModal, 700);
+      }
+      const doneRate = document.getElementById('done-rate');
+      if (doneRate && doneRate.querySelector(`[data-deck-id="${deckId}"]`)) {
+        setTimeout(() => { doneRate.style.display = 'none'; }, 700);
+      }
+    } catch { showToast('Rating failed'); }
+  }
+
+  // Cumulative distinct cards a user has worked through in a given deck, so the
+  // rate prompt survives across study sessions.
+  function _deckSeenKey(id) { return `deckSeen:${id}`; }
+  function _deckSeenCount(id) {
+    try { return new Set(JSON.parse(localStorage.getItem(_deckSeenKey(id)) || '[]')).size; }
+    catch { return 0; }
+  }
+  function _recordDeckSeen(deckId, cardId) {
+    try {
+      const key = _deckSeenKey(deckId);
+      const set = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+      set.add(cardId);
+      localStorage.setItem(key, JSON.stringify([...set]));
+    } catch {}
+  }
+
+  function maybePromptDeckRating() {
+    const d = _activeDeck();
+    if (!_isRatableDeck(d)) return;
+    if (localStorage.getItem(`deckRatePrompted:${d.id}`)) return;
+    if (!d.card_count) return;
+    // Prompt after 50 cards OR half the deck, whichever comes first.
+    const threshold = Math.min(50, Math.max(1, Math.ceil(0.5 * d.card_count)));
+    if (_deckSeenCount(d.id) >= threshold) openDeckRateModal(d.id);
+  }
+
+  function openDeckRateModal(deckId) {
+    const d = _myDecks.find(x => x.id === deckId);
+    if (!d) return;
+    localStorage.setItem(`deckRatePrompted:${deckId}`, '1');  // one prompt only — don't nag
+    document.getElementById('deck-rate-title').textContent = `Enjoying "${d.name}"?`;
+    const stars = document.getElementById('deck-rate-modal-stars');
+    stars.dataset.deckId = deckId;
+    stars.innerHTML = _rateStarsHtml(deckId, d.user_rating || 0);
+    document.getElementById('deck-rate-overlay').style.display = '';
+  }
+  function closeDeckRateModal() {
+    document.getElementById('deck-rate-overlay').style.display = 'none';
   }
 
   function showToast(msg) {
@@ -3020,5 +3139,15 @@
     }
   }
 </script>
+<div class="deck-rate-overlay" id="deck-rate-overlay" style="display:none" onclick="if(event.target===this)closeDeckRateModal()">
+  <div class="deck-rate-modal">
+    <h3 id="deck-rate-title">Enjoying this deck?</h3>
+    <p id="deck-rate-sub">You've studied a good chunk — leave a rating to help others.</p>
+    <span class="deck-rate-stars" id="deck-rate-modal-stars"></span>
+    <div class="deck-rate-modal-actions">
+      <button class="deck-rate-skip" onclick="closeDeckRateModal()">Not now</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
