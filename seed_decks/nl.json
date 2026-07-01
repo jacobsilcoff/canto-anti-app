@@ -1,0 +1,607 @@
+{
+  "lang": "nl",
+  "name": "Top 100 Dutch Words",
+  "description": "The 100 most common words in Dutch — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the",
+      "target_text": "de",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the / it",
+      "target_text": "het",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "een",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "ik",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be / his",
+      "target_text": "zijn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "hebben",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you / your (informal)",
+      "target_text": "je",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / into",
+      "target_text": "in",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "of / from",
+      "target_text": "van",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that / which",
+      "target_text": "dat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not",
+      "target_text": "niet",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there / it (pronominal)",
+      "target_text": "er",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "en",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "on / at",
+      "target_text": "op",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that / which / those",
+      "target_text": "die",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for / before",
+      "target_text": "voor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "met",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "ook",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but / only",
+      "target_text": "maar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "at / to / on",
+      "target_text": "aan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "as / if / when",
+      "target_text": "als",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / to be able",
+      "target_text": "kunnen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "must / to have to",
+      "target_text": "moeten",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "willen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "gaan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to become / to be",
+      "target_text": "worden",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "doen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say",
+      "target_text": "zeggen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to make / to create",
+      "target_text": "maken",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "zien",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "komen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "weten",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to think",
+      "target_text": "denken",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "shall / will (auxiliary)",
+      "target_text": "zullen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "may / to be allowed",
+      "target_text": "mogen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "me",
+      "target_text": "mij",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "him",
+      "target_text": "hem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "her / their",
+      "target_text": "haar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we",
+      "target_text": "wij",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she / they",
+      "target_text": "zij",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (informal subject)",
+      "target_text": "jij",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (formal)",
+      "target_text": "u",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "out / from",
+      "target_text": "uit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / towards",
+      "target_text": "naar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "at / by / near",
+      "target_text": "bij",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "by / through",
+      "target_text": "door",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "then / than",
+      "target_text": "dan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "nu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "hier",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "daar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "so / such",
+      "target_text": "zo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "still / yet",
+      "target_text": "nog",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / all",
+      "target_text": "al",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "again / weather",
+      "target_text": "weer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "well / indeed (particle)",
+      "target_text": "wel",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no / not a",
+      "target_text": "geen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what / something",
+      "target_text": "wat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "wie",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where / true",
+      "target_text": "waar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "hoe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "waarom",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "wanneer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this (neuter)",
+      "target_text": "dit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this / these (common)",
+      "target_text": "deze",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "everything",
+      "target_text": "alles",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "something",
+      "target_text": "iets",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "nothing",
+      "target_text": "niets",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "tijd",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "jaar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "dag",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "mens",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man",
+      "target_text": "man",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman",
+      "target_text": "vrouw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "kind",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "huis",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "life / to live",
+      "target_text": "leven",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "werk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "geld",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "goed",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "much / many",
+      "target_text": "veel",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very / whole",
+      "target_text": "heel",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "groot",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "klein",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "nieuw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "oud",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful / nice",
+      "target_text": "mooi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "long",
+      "target_text": "lang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "really / real",
+      "target_text": "echt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "just / normal",
+      "target_text": "gewoon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "together",
+      "target_text": "samen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "altijd",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "nooit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "my",
+      "target_text": "mijn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "your (informal singular)",
+      "target_text": "jouw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "us / our",
+      "target_text": "ons",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "your (formal)",
+      "target_text": "uw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "twee",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "drie",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "nee",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+{
+  "lang": "th",
+  "name": "Top 100 Thai Words",
+  "description": "The 100 most common words in Thai — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "male polite particle",
+      "target_text": "ครับ",
+      "romanization": "khráp",
+      "notes": null
+    },
+    {
+      "source_text": "female polite particle",
+      "target_text": "ค่ะ",
+      "romanization": "khâ",
+      "notes": null
+    },
+    {
+      "source_text": "no, not",
+      "target_text": "ไม่",
+      "romanization": "mâi",
+      "notes": null
+    },
+    {
+      "source_text": "to be (identity, profession)",
+      "target_text": "เป็น",
+      "romanization": "pen",
+      "notes": null
+    },
+    {
+      "source_text": "to have, there is/are",
+      "target_text": "มี",
+      "romanization": "mi",
+      "notes": null
+    },
+    {
+      "source_text": "to be (at a location), to live",
+      "target_text": "อยู่",
+      "romanization": "yù",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ไป",
+      "romanization": "pai",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "มา",
+      "romanization": "ma",
+      "notes": null
+    },
+    {
+      "source_text": "you, Mr./Ms./Mx.",
+      "target_text": "คุณ",
+      "romanization": "khun",
+      "notes": null
+    },
+    {
+      "source_text": "I / me (male)",
+      "target_text": "ผม",
+      "romanization": "phǒm",
+      "notes": null
+    },
+    {
+      "source_text": "I / me (female, general)",
+      "target_text": "ฉัน",
+      "romanization": "chǎn",
+      "notes": null
+    },
+    {
+      "source_text": "at, in, on, that, which",
+      "target_text": "ที่",
+      "romanization": "thî",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "และ",
+      "romanization": "láe",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "หรือ",
+      "romanization": "rǔe",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "แต่",
+      "romanization": "tàe",
+      "notes": null
+    },
+    {
+      "source_text": "will (future marker)",
+      "target_text": "จะ",
+      "romanization": "chà",
+      "notes": null
+    },
+    {
+      "source_text": "must, have to",
+      "target_text": "ต้อง",
+      "romanization": "tông",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "อะไร",
+      "romanization": "àrai",
+      "notes": null
+    },
+    {
+      "source_text": "where, which (interrogative)",
+      "target_text": "ไหน",
+      "romanization": "nǎi",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "ใคร",
+      "romanization": "khain",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "ทำไม",
+      "romanization": "thammai",
+      "notes": null
+    },
+    {
+      "source_text": "good, well",
+      "target_text": "ดี",
+      "romanization": "di",
+      "notes": null
+    },
+    {
+      "source_text": "very, much, many",
+      "target_text": "มาก",
+      "romanization": "mâk",
+      "notes": null
+    },
+    {
+      "source_text": "can, to get, to receive",
+      "target_text": "ได้",
+      "romanization": "dâi",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "กิน",
+      "romanization": "kin",
+      "notes": null
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "ทำ",
+      "romanization": "tham",
+      "notes": null
+    },
+    {
+      "source_text": "to speak, to say",
+      "target_text": "พูด",
+      "romanization": "phût",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "อยาก",
+      "romanization": "yàk",
+      "notes": null
+    },
+    {
+      "source_text": "to like",
+      "target_text": "ชอบ",
+      "romanization": "chôp",
+      "notes": null
+    },
+    {
+      "source_text": "to love",
+      "target_text": "รัก",
+      "romanization": "rák",
+      "notes": null
+    },
+    {
+      "source_text": "to think",
+      "target_text": "คิด",
+      "romanization": "khít",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "รู้",
+      "romanization": "rú",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "เห็น",
+      "romanization": "ěn",
+      "notes": null
+    },
+    {
+      "source_text": "to give, to allow, for",
+      "target_text": "ให้",
+      "romanization": "hâi",
+      "notes": null
+    },
+    {
+      "source_text": "to take, to want (informal)",
+      "target_text": "เอา",
+      "romanization": "ao",
+      "notes": null
+    },
+    {
+      "source_text": "to tell",
+      "target_text": "บอก",
+      "romanization": "bòk",
+      "notes": null
+    },
+    {
+      "source_text": "to ask",
+      "target_text": "ถาม",
+      "romanization": "thǎm",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "วัน",
+      "romanization": "wan",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "เวลา",
+      "romanization": "wela",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "ตอนนี้",
+      "romanization": "tonní",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "วันนี้",
+      "romanization": "wanní",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "พรุ่งนี้",
+      "romanization": "phrûngní",
+      "notes": null
+    },
+    {
+      "source_text": "person, people",
+      "target_text": "คน",
+      "romanization": "khon",
+      "notes": null
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "บ้าน",
+      "romanization": "bân",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "น้ำ",
+      "romanization": "nám",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "เงิน",
+      "romanization": "ngoen",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "อาหาร",
+      "romanization": "ahǎn",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "ชื่อ",
+      "romanization": "chûe",
+      "notes": null
+    },
+    {
+      "source_text": "car, vehicle",
+      "target_text": "รถ",
+      "romanization": "rôt",
+      "notes": null
+    },
+    {
+      "source_text": "shop, restaurant",
+      "target_text": "ร้าน",
+      "romanization": "rán",
+      "notes": null
+    },
+    {
+      "source_text": "work, job, event",
+      "target_text": "งาน",
+      "romanization": "ngan",
+      "notes": null
+    },
+    {
+      "source_text": "of, 's (possessive), thing",
+      "target_text": "ของ",
+      "romanization": "khǒng",
+      "notes": null
+    },
+    {
+      "source_text": "with, and",
+      "target_text": "กับ",
+      "romanization": "kàp",
+      "notes": null
+    },
+    {
+      "source_text": "from",
+      "target_text": "จาก",
+      "romanization": "chàk",
+      "notes": null
+    },
+    {
+      "source_text": "to, until, arrive",
+      "target_text": "ถึง",
+      "romanization": "thǔeng",
+      "notes": null
+    },
+    {
+      "source_text": "in, inside",
+      "target_text": "ใน",
+      "romanization": "nai",
+      "notes": null
+    },
+    {
+      "source_text": "outside",
+      "target_text": "นอก",
+      "romanization": "nôk",
+      "notes": null
+    },
+    {
+      "source_text": "on, above",
+      "target_text": "บน",
+      "romanization": "bon",
+      "notes": null
+    },
+    {
+      "source_text": "below, under",
+      "target_text": "ล่าง",
+      "romanization": "lâng",
+      "notes": null
+    },
+    {
+      "source_text": "front, face",
+      "target_text": "หน้า",
+      "romanization": "nâ",
+      "notes": null
+    },
+    {
+      "source_text": "back, behind",
+      "target_text": "หลัง",
+      "romanization": "lǎng",
+      "notes": null
+    },
+    {
+      "source_text": "already, then (completion)",
+      "target_text": "แล้ว",
+      "romanization": "láeo",
+      "notes": null
+    },
+    {
+      "source_text": "also, then, so (particle)",
+      "target_text": "ก็",
+      "romanization": "kò",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "เล็ก",
+      "romanization": "lêk",
+      "notes": null
+    },
+    {
+      "source_text": "big",
+      "target_text": "ใหญ่",
+      "romanization": "àin",
+      "notes": null
+    },
+    {
+      "source_text": "hot",
+      "target_text": "ร้อน",
+      "romanization": "rón",
+      "notes": null
+    },
+    {
+      "source_text": "cold",
+      "target_text": "หนาว",
+      "romanization": "nǎo",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "สวย",
+      "romanization": "sǔai",
+      "notes": null
+    },
+    {
+      "source_text": "delicious",
+      "target_text": "อร่อย",
+      "romanization": "ròi",
+      "notes": null
+    },
+    {
+      "source_text": "expensive",
+      "target_text": "แพง",
+      "romanization": "phaeng",
+      "notes": null
+    },
+    {
+      "source_text": "cheap, correct",
+      "target_text": "ถูก",
+      "romanization": "thùk",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "ใหม่",
+      "romanization": "àim",
+      "notes": null
+    },
+    {
+      "source_text": "old (for things)",
+      "target_text": "เก่า",
+      "romanization": "kào",
+      "notes": null
+    },
+    {
+      "source_text": "fast, early",
+      "target_text": "เร็ว",
+      "romanization": "reo",
+      "notes": null
+    },
+    {
+      "source_text": "slow, late",
+      "target_text": "ช้า",
+      "romanization": "chá",
+      "notes": null
+    },
+    {
+      "source_text": "near",
+      "target_text": "ใกล้",
+      "romanization": "kâin",
+      "notes": null
+    },
+    {
+      "source_text": "far",
+      "target_text": "ไกล",
+      "romanization": "klai",
+      "notes": null
+    },
+    {
+      "source_text": "tired",
+      "target_text": "เหนื่อย",
+      "romanization": "ènue",
+      "notes": null
+    },
+    {
+      "source_text": "hungry",
+      "target_text": "หิว",
+      "romanization": "hǐo",
+      "notes": null
+    },
+    {
+      "source_text": "full (after eating)",
+      "target_text": "อิ่ม",
+      "romanization": "ìm",
+      "notes": null
+    },
+    {
+      "source_text": "to enter",
+      "target_text": "เข้า",
+      "romanization": "khâo",
+      "notes": null
+    },
+    {
+      "source_text": "to exit",
+      "target_text": "ออก",
+      "romanization": "òk",
+      "notes": null
+    },
+    {
+      "source_text": "to open",
+      "target_text": "เปิด",
+      "romanization": "pòet",
+      "notes": null
+    },
+    {
+      "source_text": "to close",
+      "target_text": "ปิด",
+      "romanization": "pìt",
+      "notes": null
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "นอน",
+      "romanization": "non",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "นั่ง",
+      "romanization": "nâng",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "ยืน",
+      "romanization": "yuen",
+      "notes": null
+    },
+    {
+      "source_text": "to walk",
+      "target_text": "เดิน",
+      "romanization": "doen",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "มือ",
+      "romanization": "mue",
+      "notes": null
+    },
+    {
+      "source_text": "foot",
+      "target_text": "เท้า",
+      "romanization": "tháo",
+      "notes": null
+    },
+    {
+      "source_text": "heart, mind",
+      "target_text": "ใจ",
+      "romanization": "chai",
+      "notes": null
+    },
+    {
+      "source_text": "eye, grandfather",
+      "target_text": "ตา",
+      "romanization": "ta",
+      "notes": null
+    },
+    {
+      "source_text": "mouth",
+      "target_text": "ปาก",
+      "romanization": "pàk",
+      "notes": null
+    },
+    {
+      "source_text": "month",
+      "target_text": "เดือน",
+      "romanization": "duean",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "ปี",
+      "romanization": "pi",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "หนึ่ง",
+      "romanization": "nùeng",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "สอง",
+      "romanization": "sǒng",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "สาม",
+      "romanization": "sǎm",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "สี่",
+      "romanization": "sì",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "ห้า",
+      "romanization": "hâ",
+      "notes": null
+    }
+  ]
+}

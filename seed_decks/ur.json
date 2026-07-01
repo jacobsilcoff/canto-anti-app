@@ -1,0 +1,607 @@
+{
+  "lang": "ur",
+  "name": "Top 100 Urdu Words",
+  "description": "The 100 most common words in Urdu — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "میں / main",
+      "romanization": "myn main",
+      "notes": null
+    },
+    {
+      "source_text": "to be (is, 3rd sg.)",
+      "target_text": "ہے / hai",
+      "romanization": "he hai",
+      "notes": null
+    },
+    {
+      "source_text": "to be (are, 3rd pl. / 2nd formal / 1st pl.)",
+      "target_text": "ہیں / hain",
+      "romanization": "hyn hain",
+      "notes": null
+    },
+    {
+      "source_text": "you (formal / plural)",
+      "target_text": "آپ / aap",
+      "romanization": "aap aap",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it / that / those",
+      "target_text": "وہ / woh",
+      "romanization": "wh woh",
+      "notes": null
+    },
+    {
+      "source_text": "this / it / these",
+      "target_text": "یہ / yeh",
+      "romanization": "yh yeh",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "اور / aur",
+      "romanization": "awr aur",
+      "notes": null
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "نہیں / nahin",
+      "romanization": "nhyn nahin",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "کرنا / karna",
+      "romanization": "krna karna",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "جانا / jaana",
+      "romanization": "jana jaana",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "آنا / aana",
+      "romanization": "aana aana",
+      "notes": null
+    },
+    {
+      "source_text": "what?",
+      "target_text": "کیا / kya",
+      "romanization": "kya kya",
+      "notes": null
+    },
+    {
+      "source_text": "where?",
+      "target_text": "کہاں / kahan",
+      "romanization": "khan kahan",
+      "notes": null
+    },
+    {
+      "source_text": "who?",
+      "target_text": "کون / kaun",
+      "romanization": "kwn kaun",
+      "notes": null
+    },
+    {
+      "source_text": "how?",
+      "target_text": "کیسے / kaise",
+      "romanization": "kyse kaise",
+      "notes": null
+    },
+    {
+      "source_text": "when?",
+      "target_text": "کب / kab",
+      "romanization": "kb kab",
+      "notes": null
+    },
+    {
+      "source_text": "why?",
+      "target_text": "کیوں / kyon",
+      "romanization": "kywn kyon",
+      "notes": null
+    },
+    {
+      "source_text": "yes / polite particle",
+      "target_text": "جی / ji",
+      "romanization": "jy ji",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "ایک / ek",
+      "romanization": "ayk ek",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "دو / do",
+      "romanization": "dw do",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "تین / teen",
+      "romanization": "tyn teen",
+      "notes": null
+    },
+    {
+      "source_text": "many / much / very",
+      "target_text": "بہت / bahut",
+      "romanization": "bht bahut",
+      "notes": null
+    },
+    {
+      "source_text": "little / few",
+      "target_text": "کم / kam",
+      "romanization": "km kam",
+      "notes": null
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "سب / sab",
+      "romanization": "sb sab",
+      "notes": null
+    },
+    {
+      "source_text": "in / on / at",
+      "target_text": "میں / men",
+      "romanization": "myn men",
+      "notes": null
+    },
+    {
+      "source_text": "of / 's (masc. sg.)",
+      "target_text": "کا / ka",
+      "romanization": "ka ka",
+      "notes": null
+    },
+    {
+      "source_text": "of / 's (fem. sg./pl.)",
+      "target_text": "کی / ki",
+      "romanization": "ky ki",
+      "notes": null
+    },
+    {
+      "source_text": "of / 's (masc. pl. / polite)",
+      "target_text": "کے / ke",
+      "romanization": "ke ke",
+      "notes": null
+    },
+    {
+      "source_text": "from / by / than",
+      "target_text": "سے / se",
+      "romanization": "se se",
+      "notes": null
+    },
+    {
+      "source_text": "to / for (dative marker)",
+      "target_text": "کو / ko",
+      "romanization": "kw ko",
+      "notes": null
+    },
+    {
+      "source_text": "with / together",
+      "target_text": "ساتھ / saath",
+      "romanization": "sath saath",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "یا / ya",
+      "romanization": "ya ya",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "لیکن / lekin",
+      "romanization": "lykn lekin",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "اگر / agar",
+      "romanization": "agr agar",
+      "notes": null
+    },
+    {
+      "source_text": "also / even",
+      "target_text": "بھی / bhi",
+      "romanization": "bhy bhi",
+      "notes": null
+    },
+    {
+      "source_text": "only / just / emphasis",
+      "target_text": "ہی / hi",
+      "romanization": "hy hi",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "اب / ab",
+      "romanization": "ab ab",
+      "notes": null
+    },
+    {
+      "source_text": "then / again",
+      "target_text": "پھر / phir",
+      "romanization": "phr phir",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "یہاں / yahan",
+      "romanization": "yhan yahan",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "وہاں / wahan",
+      "romanization": "whan wahan",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "دن / din",
+      "romanization": "dn din",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "رات / raat",
+      "romanization": "rat raat",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "وقت / waqt",
+      "romanization": "wqt waqt",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "سال / saal",
+      "romanization": "sal saal",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "نام / naam",
+      "romanization": "nam naam",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "کام / kaam",
+      "romanization": "kam kaam",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "پانی / paani",
+      "romanization": "pany paani",
+      "notes": null
+    },
+    {
+      "source_text": "food / to eat",
+      "target_text": "کھانا / khaana",
+      "romanization": "khana khaana",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "گھر / ghar",
+      "romanization": "ghr ghar",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "شہر / shahar",
+      "romanization": "shhr shahar",
+      "notes": null
+    },
+    {
+      "source_text": "person / man",
+      "target_text": "آدمی / aadmi",
+      "romanization": "aadmy aadmi",
+      "notes": null
+    },
+    {
+      "source_text": "woman / lady",
+      "target_text": "عورت / aurat",
+      "romanization": "'wrt aurat",
+      "notes": null
+    },
+    {
+      "source_text": "boy",
+      "target_text": "لڑکا / ladka",
+      "romanization": "lka ladka",
+      "notes": null
+    },
+    {
+      "source_text": "girl",
+      "target_text": "لڑکی / ladki",
+      "romanization": "lky ladki",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "باپ / baap",
+      "romanization": "bap baap",
+      "notes": null
+    },
+    {
+      "source_text": "mother",
+      "target_text": "ماں / maan",
+      "romanization": "man maan",
+      "notes": null
+    },
+    {
+      "source_text": "brother",
+      "target_text": "بھائی / bhai",
+      "romanization": "bha'y bhai",
+      "notes": null
+    },
+    {
+      "source_text": "sister",
+      "target_text": "بہن / bahen",
+      "romanization": "bhn bahen",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "دوست / dost",
+      "romanization": "dwst dost",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "کتاب / kitaab",
+      "romanization": "ktab kitaab",
+      "notes": null
+    },
+    {
+      "source_text": "good (masc. sg.)",
+      "target_text": "اچھا / achha",
+      "romanization": "achha achha",
+      "notes": null
+    },
+    {
+      "source_text": "bad (masc. sg.)",
+      "target_text": "برا / bura",
+      "romanization": "bra bura",
+      "notes": null
+    },
+    {
+      "source_text": "big / large (masc. sg.)",
+      "target_text": "بڑا / bada",
+      "romanization": "ba bada",
+      "notes": null
+    },
+    {
+      "source_text": "small / little (masc. sg.)",
+      "target_text": "چھوٹا / chhota",
+      "romanization": "chhwa chhota",
+      "notes": null
+    },
+    {
+      "source_text": "new (masc. sg.)",
+      "target_text": "نیا / naya",
+      "romanization": "nya naya",
+      "notes": null
+    },
+    {
+      "source_text": "old (things, masc. sg.)",
+      "target_text": "پرانا / puraana",
+      "romanization": "prana puraana",
+      "notes": null
+    },
+    {
+      "source_text": "old (people, masc. sg.)",
+      "target_text": "بوڑھا / boorhha",
+      "romanization": "bwha boorhha",
+      "notes": null
+    },
+    {
+      "source_text": "happy",
+      "target_text": "خوش / khush",
+      "romanization": "khwsh khush",
+      "notes": null
+    },
+    {
+      "source_text": "sad",
+      "target_text": "اداس / udaas",
+      "romanization": "adas udaas",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "دینا / dena",
+      "romanization": "dyna dena",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "لینا / lena",
+      "romanization": "lyna lena",
+      "notes": null
+    },
+    {
+      "source_text": "to see / to look",
+      "target_text": "دیکھنا / dekhna",
+      "romanization": "dykhna dekhna",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "کہنا / kehna",
+      "romanization": "khna kehna",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "پینا / peena",
+      "romanization": "pyna peena",
+      "notes": null
+    },
+    {
+      "source_text": "to walk / to move",
+      "target_text": "چلنا / chalna",
+      "romanization": "chlna chalna",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "بیٹھنا / baithna",
+      "romanization": "byhna baithna",
+      "notes": null
+    },
+    {
+      "source_text": "to get up / to rise",
+      "target_text": "اٹھنا / uthna",
+      "romanization": "ahna uthna",
+      "notes": null
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "سونا / sona",
+      "romanization": "swna sona",
+      "notes": null
+    },
+    {
+      "source_text": "to live / to stay",
+      "target_text": "رہنا / rehna",
+      "romanization": "rhna rehna",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "جاننا / jaanna",
+      "romanization": "janna jaanna",
+      "notes": null
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "سمجھنا / samajhna",
+      "romanization": "smjhna samajhna",
+      "notes": null
+    },
+    {
+      "source_text": "to want / to need",
+      "target_text": "چاہنا / chaahna",
+      "romanization": "chahna chaahna",
+      "notes": null
+    },
+    {
+      "source_text": "love (noun)",
+      "target_text": "پیار / pyaar",
+      "romanization": "pyar pyaar",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "پیسہ / paisa",
+      "romanization": "pysh paisa",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "چیز / cheez",
+      "romanization": "chyz cheez",
+      "notes": null
+    },
+    {
+      "source_text": "people",
+      "target_text": "لوگ / log",
+      "romanization": "lwg log",
+      "notes": null
+    },
+    {
+      "source_text": "to read / to study",
+      "target_text": "پڑھنا / parhna",
+      "romanization": "phna parhna",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "لکھنا / likhna",
+      "romanization": "lkhna likhna",
+      "notes": null
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "سننا / sunna",
+      "romanization": "snna sunna",
+      "notes": null
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "بولنا / bolna",
+      "romanization": "bwlna bolna",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "ہاتھ / haath",
+      "romanization": "hath haath",
+      "notes": null
+    },
+    {
+      "source_text": "head",
+      "target_text": "سر / sar",
+      "romanization": "sr sar",
+      "notes": null
+    },
+    {
+      "source_text": "heart",
+      "target_text": "دل / dil",
+      "romanization": "dl dil",
+      "notes": null
+    },
+    {
+      "source_text": "eye",
+      "target_text": "آنکھ / aankh",
+      "romanization": "aankh aankh",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "آج / aaj",
+      "romanization": "aaj aaj",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday / tomorrow",
+      "target_text": "کل / kal",
+      "romanization": "kl kal",
+      "notes": null
+    },
+    {
+      "source_text": "before / first",
+      "target_text": "پہلے / pehle",
+      "romanization": "phle pehle",
+      "notes": null
+    },
+    {
+      "source_text": "after / later",
+      "target_text": "بعد / baad",
+      "romanization": "b'd baad",
+      "notes": null
+    },
+    {
+      "source_text": "inside",
+      "target_text": "اندر / andar",
+      "romanization": "andr andar",
+      "notes": null
+    },
+    {
+      "source_text": "outside",
+      "target_text": "باہر / baahar",
+      "romanization": "bahr baahar",
+      "notes": null
+    }
+  ]
+}

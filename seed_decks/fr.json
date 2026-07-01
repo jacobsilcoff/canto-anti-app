@@ -1,0 +1,607 @@
+{
+  "lang": "fr",
+  "name": "Top 100 French Words",
+  "description": "The 100 most common words in French — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "of / from",
+      "target_text": "de",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "être",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "un",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "to / at / in",
+      "target_text": "à",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "avoir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "et",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the",
+      "target_text": "le",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "he / it",
+      "target_text": "il",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not",
+      "target_text": "ne",
+      "romanization": "",
+      "notes": "negation particle (used with 'pas')"
+    },
+    {
+      "source_text": "not",
+      "target_text": "pas",
+      "romanization": "",
+      "notes": "negation adverb"
+    },
+    {
+      "source_text": "I",
+      "target_text": "je",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that / which / whom",
+      "target_text": "que",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (pl/formal)",
+      "target_text": "vous",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for",
+      "target_text": "pour",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "dans",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "oneself / himself",
+      "target_text": "se",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "by / through",
+      "target_text": "par",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "faire",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / every / whole / very",
+      "target_text": "tout",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "on / upon",
+      "target_text": "sur",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this / that",
+      "target_text": "ce",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "who / which",
+      "target_text": "qui",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "nous",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "mais",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more / no more",
+      "target_text": "plus",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "me / to me",
+      "target_text": "me",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / to be able to",
+      "target_text": "pouvoir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where / when",
+      "target_text": "où",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "aller",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "his / her / its",
+      "target_text": "son",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "dire",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there / to it",
+      "target_text": "y",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "some / any / of it / from there",
+      "target_text": "en",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "well / very",
+      "target_text": "bien",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she / it",
+      "target_text": "elle",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if / so / yes",
+      "target_text": "si",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "without",
+      "target_text": "sans",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "savoir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "me",
+      "target_text": "moi",
+      "romanization": "",
+      "notes": "stressed pronoun"
+    },
+    {
+      "source_text": "my",
+      "target_text": "mon",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "to see",
+      "target_text": "voir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "them",
+      "target_text": "eux",
+      "romanization": "",
+      "notes": "stressed pronoun"
+    },
+    {
+      "source_text": "to want",
+      "target_text": "vouloir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you / to you",
+      "target_text": "te",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "venir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "quand",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "same / even",
+      "target_text": "même",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be necessary",
+      "target_text": "falloir",
+      "romanization": "",
+      "notes": "impersonal verb (e.g. 'il faut')"
+    },
+    {
+      "source_text": "here",
+      "target_text": "ici",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "prendre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "donner",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "as / like",
+      "target_text": "comme",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "deux",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time / weather",
+      "target_text": "temps",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "jamais",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "still / yet / again",
+      "target_text": "encore",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "non",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "jour",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after",
+      "target_text": "après",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man / human",
+      "target_text": "homme",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to put / to place",
+      "target_text": "mettre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to pass / to spend",
+      "target_text": "passer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to find",
+      "target_text": "trouver",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to live",
+      "target_text": "vivre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "against",
+      "target_text": "contre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "between / among",
+      "target_text": "entre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to stay / to remain",
+      "target_text": "rester",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "parler",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "mister / sir",
+      "target_text": "monsieur",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "comprendre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to think",
+      "target_text": "penser",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to carry / to wear",
+      "target_text": "porter",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to arrive / to happen",
+      "target_text": "arriver",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "écrire",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to leave / to depart",
+      "target_text": "partir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give back / to make",
+      "target_text": "rendre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to believe",
+      "target_text": "croire",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to call",
+      "target_text": "appeler",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to work",
+      "target_text": "travailler",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to become",
+      "target_text": "devenir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to feel / to smell",
+      "target_text": "sentir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to hear",
+      "target_text": "entendre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to wait for",
+      "target_text": "attendre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to look for",
+      "target_text": "chercher",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to leave / to let",
+      "target_text": "laisser",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "each / every",
+      "target_text": "chaque",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "enough",
+      "target_text": "assez",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "avant",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "little / few",
+      "target_text": "peu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "trois",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "nouveau",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "always / still",
+      "target_text": "toujours",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / tall",
+      "target_text": "grand",
+      "romanization": "",
+      "notes": "masculine singular"
+    },
+    {
+      "source_text": "child",
+      "target_text": "enfant",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman / wife",
+      "target_text": "femme",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "chose",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world / people",
+      "target_text": "monde",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "ville",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "madam / Mrs.",
+      "target_text": "madame",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "main",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

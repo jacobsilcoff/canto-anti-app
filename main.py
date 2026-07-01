@@ -77,9 +77,18 @@ async def lifespan(app: FastAPI):
     await db.init()
     if _BOOTSTRAP_PASSWORD:
         await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
-    # Owner of official / auto-generated community decks (Top-100 word decks).
-    # Never logs in — seeded with an unusable random password.
-    await db.get_or_create_system_user(auth.hash_password(secrets.token_urlsafe(32)))
+    # Owner of official community decks (Top-100 word decks). Never logs in —
+    # seeded with an unusable random password. Then deterministically seed the
+    # committed seed_decks/*.json into this DB (create-missing; edits are pushed
+    # via the admin endpoint with force). Best-effort — never block startup.
+    try:
+        _system_id = await db.get_or_create_system_user(auth.hash_password(secrets.token_urlsafe(32)))
+        _seed_results = await common_decks.seed_all(_system_id)
+        _new = [r for r in _seed_results if r["status"] in ("created", "updated")]
+        if _new:
+            logging.info("Seeded %d official Top-100 decks", len(_new))
+    except Exception:
+        logging.exception("Failed to seed official decks at startup")
     if _TEST_USERS:
         # "new" — email verified, no cards, no onboarding; use to test first-time UX
         existing = await db.get_user_by_username("new")
@@ -3804,38 +3813,32 @@ async def admin_list_users(user: dict = Depends(current_admin)):
     return {"users": await db.list_users()}
 
 
-@app.post("/api/admin/generate-common-decks")
-async def admin_generate_common_decks(
+@app.post("/api/admin/seed-common-decks")
+async def admin_seed_common_decks(
     langs: str | None = None,
     force: bool = False,
     user: dict = Depends(current_admin),
 ):
-    """Generate the official per-language "Top 100 Words" community decks
-    server-side (so no SSH is needed to seed them). Idempotent per language —
-    existing decks are skipped unless `force=true`.
+    """Seed the official per-language "Top 100 Words" decks from the committed
+    `seed_decks/*.json` files into this environment's DB — DETERMINISTIC, no LLM
+    (so dev and prod get the identical reviewed cards). Startup already seeds
+    missing decks; call this to force-refresh after editing/adding seed files.
 
-    `langs` = comma-separated codes (e.g. `fr,es,yue`); omit for ALL languages
-    (slow — one LLM call each). Uses the server's shared Gemini key (admin-billed).
+    `langs` = comma-separated codes (e.g. `fr,es`); omit for ALL committed files.
+    `force=true` refreshes existing decks in place (preserving deck_id, so
+    importers' imports/ratings survive). Generation of the seed files themselves
+    is a dev step: `python scripts/generate_common_decks.py`.
     """
-    if not _SHARED_API_KEY:
-        raise HTTPException(503, "No server Gemini key configured (GEMINI_API_KEY).")
     system_id = await db.get_system_user_id()
     if not system_id:
-        # Normally seeded at startup; create on demand as a fallback.
         system_id = await db.get_or_create_system_user(
             auth.hash_password(secrets.token_urlsafe(32))
         )
-    if langs:
-        codes = [c.strip() for c in langs.split(",") if c.strip()]
-    else:
-        codes = list(translation.LANG_INFO.keys())
-    results = await common_decks.generate_decks(
-        codes, _SHARED_API_KEY, system_id=system_id, force=force
-    )
+    codes = [c.strip() for c in langs.split(",") if c.strip()] if langs else None
+    results = await common_decks.seed_all(system_id, langs=codes, force=force)
     summary = {
-        "created": sum(1 for r in results if r["status"] == "created"),
-        "skipped": sum(1 for r in results if r["status"] == "skipped"),
-        "errors": sum(1 for r in results if r["status"] == "error"),
+        s: sum(1 for r in results if r["status"] == s)
+        for s in ("created", "updated", "skipped", "missing", "error")
     }
     return {"summary": summary, "results": results}
 

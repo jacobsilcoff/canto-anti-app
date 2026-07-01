@@ -1,0 +1,607 @@
+{
+  "lang": "he",
+  "name": "Top 100 Hebrew Words",
+  "description": "The 100 most common words in Hebrew — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "ו",
+      "romanization": "v",
+      "notes": "often prefixed to the next word"
+    },
+    {
+      "source_text": "direct object marker",
+      "target_text": "את",
+      "romanization": "'t",
+      "notes": "not translated directly"
+    },
+    {
+      "source_text": "to, for",
+      "target_text": "ל",
+      "romanization": "l",
+      "notes": "often prefixed to the next word"
+    },
+    {
+      "source_text": "that, which",
+      "target_text": "ש",
+      "romanization": "sh",
+      "notes": "conjunction/relative pronoun, often prefixed"
+    },
+    {
+      "source_text": "the",
+      "target_text": "ה",
+      "romanization": "h",
+      "notes": "definite article, prefixed to the word"
+    },
+    {
+      "source_text": "in, at, with",
+      "target_text": "ב",
+      "romanization": "v",
+      "notes": "often prefixed to the next word"
+    },
+    {
+      "source_text": "I",
+      "target_text": "אני",
+      "romanization": "'ny",
+      "notes": null
+    },
+    {
+      "source_text": "you (m.sg)",
+      "target_text": "אתה",
+      "romanization": "'th",
+      "notes": null
+    },
+    {
+      "source_text": "he, it (m.sg)",
+      "target_text": "הוא",
+      "romanization": "hv'",
+      "notes": null
+    },
+    {
+      "source_text": "she, it (f.sg)",
+      "target_text": "היא",
+      "romanization": "hy'",
+      "notes": null
+    },
+    {
+      "source_text": "no, not",
+      "target_text": "לא",
+      "romanization": "l'",
+      "notes": null
+    },
+    {
+      "source_text": "there is/are, has",
+      "target_text": "יש",
+      "romanization": "ysh",
+      "notes": null
+    },
+    {
+      "source_text": "there isn't/aren't, doesn't have",
+      "target_text": "אין",
+      "romanization": "'yn",
+      "notes": null
+    },
+    {
+      "source_text": "this (m.sg)",
+      "target_text": "זה",
+      "romanization": "zh",
+      "notes": null
+    },
+    {
+      "source_text": "this (f.sg)",
+      "target_text": "זאת",
+      "romanization": "z't",
+      "notes": null
+    },
+    {
+      "source_text": "yes, so",
+      "target_text": "כן",
+      "romanization": "khn",
+      "notes": null
+    },
+    {
+      "source_text": "all, every",
+      "target_text": "כל",
+      "romanization": "khl",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "מה",
+      "romanization": "mh",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "מי",
+      "romanization": "my",
+      "notes": null
+    },
+    {
+      "source_text": "on, about",
+      "target_text": "על",
+      "romanization": "'l",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "עם",
+      "romanization": "'m",
+      "notes": null
+    },
+    {
+      "source_text": "from",
+      "target_text": "מ",
+      "romanization": "m",
+      "notes": "often prefixed to the next word"
+    },
+    {
+      "source_text": "until, up to",
+      "target_text": "עד",
+      "romanization": "'d",
+      "notes": null
+    },
+    {
+      "source_text": "also, too",
+      "target_text": "גם",
+      "romanization": "gm",
+      "notes": null
+    },
+    {
+      "source_text": "only",
+      "target_text": "רק",
+      "romanization": "rk",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "אבל",
+      "romanization": "'vl",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "או",
+      "romanization": "'v",
+      "notes": null
+    },
+    {
+      "source_text": "because, that",
+      "target_text": "כי",
+      "romanization": "khy",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "אם",
+      "romanization": "'m",
+      "notes": null
+    },
+    {
+      "source_text": "like, as",
+      "target_text": "כמו",
+      "romanization": "khmv",
+      "notes": null
+    },
+    {
+      "source_text": "of (possessive marker)",
+      "target_text": "של",
+      "romanization": "shl",
+      "notes": null
+    },
+    {
+      "source_text": "need, must (m.sg)",
+      "target_text": "צריך",
+      "romanization": "tsrykh",
+      "notes": "used like a modal verb"
+    },
+    {
+      "source_text": "can, able (m.sg)",
+      "target_text": "יכול",
+      "romanization": "ykhvl",
+      "notes": "used like a modal verb"
+    },
+    {
+      "source_text": "maybe",
+      "target_text": "אולי",
+      "romanization": "'vly",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ללכת",
+      "romanization": "llkht",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "לדבר",
+      "romanization": "ldvr",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to know",
+      "target_text": "לדעת",
+      "romanization": "ld't",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to see",
+      "target_text": "לראות",
+      "romanization": "lr'vt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to do, make",
+      "target_text": "לעשות",
+      "romanization": "l'shvt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to say",
+      "target_text": "לומר",
+      "romanization": "lvmr",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "לאכול",
+      "romanization": "l'khvl",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "לשתות",
+      "romanization": "lshtvt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to want",
+      "target_text": "לרצות",
+      "romanization": "lrtsvt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to come",
+      "target_text": "לבוא",
+      "romanization": "lvv'",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to give",
+      "target_text": "לתת",
+      "romanization": "ltt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "לקנות",
+      "romanization": "lknvt",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "to work",
+      "target_text": "לעבוד",
+      "romanization": "l'vvd",
+      "notes": "infinitive"
+    },
+    {
+      "source_text": "one (m)",
+      "target_text": "אחד",
+      "romanization": "'chd",
+      "notes": null
+    },
+    {
+      "source_text": "two (m)",
+      "target_text": "שנים",
+      "romanization": "shnym",
+      "notes": null
+    },
+    {
+      "source_text": "three (m)",
+      "target_text": "שלושה",
+      "romanization": "shlvshh",
+      "notes": null
+    },
+    {
+      "source_text": "how much/many",
+      "target_text": "כמה",
+      "romanization": "khmh",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "איפה",
+      "romanization": "'yfh",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "מתי",
+      "romanization": "mty",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "למה",
+      "romanization": "lmh",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "איך",
+      "romanization": "'ykh",
+      "notes": null
+    },
+    {
+      "source_text": "fast, quickly",
+      "target_text": "מהר",
+      "romanization": "mhr",
+      "notes": null
+    },
+    {
+      "source_text": "slow, slowly",
+      "target_text": "לאט",
+      "romanization": "l't",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "מחר",
+      "romanization": "mchr",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "היום",
+      "romanization": "hyvm",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "אתמול",
+      "romanization": "'tmvl",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "עכשיו",
+      "romanization": "'khshyv",
+      "notes": null
+    },
+    {
+      "source_text": "then",
+      "target_text": "אז",
+      "romanization": "'z",
+      "notes": null
+    },
+    {
+      "source_text": "after",
+      "target_text": "אחרי",
+      "romanization": "'chry",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "לפני",
+      "romanization": "lfny",
+      "notes": null
+    },
+    {
+      "source_text": "a lot, many",
+      "target_text": "הרבה",
+      "romanization": "hrvh",
+      "notes": null
+    },
+    {
+      "source_text": "a little, few",
+      "target_text": "מעט",
+      "romanization": "m't",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "מאוד",
+      "romanization": "m'vd",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "טוב",
+      "romanization": "tvv",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "bad",
+      "target_text": "רע",
+      "romanization": "r'",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "small",
+      "target_text": "קטן",
+      "romanization": "ktn",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "big",
+      "target_text": "גדול",
+      "romanization": "gdvl",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "new",
+      "target_text": "חדש",
+      "romanization": "chdsh",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "old (for objects)",
+      "target_text": "ישן",
+      "romanization": "yshn",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "beautiful, nice",
+      "target_text": "יפה",
+      "romanization": "yfh",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "hot",
+      "target_text": "חם",
+      "romanization": "chm",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "cold",
+      "target_text": "קר",
+      "romanization": "kr",
+      "notes": "m.sg"
+    },
+    {
+      "source_text": "water",
+      "target_text": "מים",
+      "romanization": "mym",
+      "notes": "always plural form"
+    },
+    {
+      "source_text": "bread",
+      "target_text": "לחם",
+      "romanization": "lchm",
+      "notes": null
+    },
+    {
+      "source_text": "milk",
+      "target_text": "חלב",
+      "romanization": "chlv",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "אוכל",
+      "romanization": "'vkhl",
+      "notes": null
+    },
+    {
+      "source_text": "money, silver",
+      "target_text": "כסף",
+      "romanization": "khsf",
+      "notes": null
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "בית",
+      "romanization": "vyt",
+      "notes": null
+    },
+    {
+      "source_text": "street",
+      "target_text": "רחוב",
+      "romanization": "rchvv",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "עיר",
+      "romanization": "'yr",
+      "notes": null
+    },
+    {
+      "source_text": "market",
+      "target_text": "שוק",
+      "romanization": "shvk",
+      "notes": null
+    },
+    {
+      "source_text": "shop",
+      "target_text": "חנות",
+      "romanization": "chnvt",
+      "notes": null
+    },
+    {
+      "source_text": "work",
+      "target_text": "עבודה",
+      "romanization": "'vvdh",
+      "notes": null
+    },
+    {
+      "source_text": "there (location)",
+      "target_text": "שם",
+      "romanization": "shm",
+      "notes": null
+    },
+    {
+      "source_text": "here (location)",
+      "target_text": "פה",
+      "romanization": "fh",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "יום",
+      "romanization": "yvm",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "לילה",
+      "romanization": "lylh",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "בוקר",
+      "romanization": "vvkr",
+      "notes": null
+    },
+    {
+      "source_text": "evening",
+      "target_text": "ערב",
+      "romanization": "'rv",
+      "notes": null
+    },
+    {
+      "source_text": "hour, time",
+      "target_text": "שעה",
+      "romanization": "sh'h",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "שנה",
+      "romanization": "shnh",
+      "notes": null
+    },
+    {
+      "source_text": "week",
+      "target_text": "שבוע",
+      "romanization": "shvv'",
+      "notes": null
+    },
+    {
+      "source_text": "man, person",
+      "target_text": "איש",
+      "romanization": "'ysh",
+      "notes": null
+    },
+    {
+      "source_text": "woman, wife",
+      "target_text": "אישה",
+      "romanization": "'yshh",
+      "notes": null
+    },
+    {
+      "source_text": "boy, child",
+      "target_text": "ילד",
+      "romanization": "yld",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "תודה",
+      "romanization": "tvdh",
+      "notes": null
+    }
+  ]
+}

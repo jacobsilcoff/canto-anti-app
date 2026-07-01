@@ -1,0 +1,607 @@
+{
+  "lang": "pt",
+  "name": "Top 100 Portuguese Words",
+  "description": "The 100 most common words in Portuguese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "of / from",
+      "target_text": "de",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (fem. sing.) / to",
+      "target_text": "a",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (masc. sing.)",
+      "target_text": "o",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "e",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that / which / what",
+      "target_text": "que",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "não",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one (masc.)",
+      "target_text": "um",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one (fem.)",
+      "target_text": "uma",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / on / at",
+      "target_text": "em",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for / to",
+      "target_text": "para",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "com",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be (permanent)",
+      "target_text": "ser",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be (temporary)",
+      "target_text": "estar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "ter",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (sing.)",
+      "target_text": "você",
+      "romanization": "",
+      "notes": "Standard singular 'you' in Brazil"
+    },
+    {
+      "source_text": "I",
+      "target_text": "eu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "ele",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she / her",
+      "target_text": "ela",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "nós",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "they / them (masc.)",
+      "target_text": "eles",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "they / them (fem.)",
+      "target_text": "elas",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "fazer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "dizer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be able to / can",
+      "target_text": "poder",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "ver",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "vir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "dar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts/how to)",
+      "target_text": "saber",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "querer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more",
+      "target_text": "mais",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "muito",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / now",
+      "target_text": "já",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "agora",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "still / yet",
+      "target_text": "ainda",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "well",
+      "target_text": "bem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good (masc.)",
+      "target_text": "bom",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bad (masc.)",
+      "target_text": "mau",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thus / like this",
+      "target_text": "assim",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "sempre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "nunca",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only / alone",
+      "target_text": "só",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / every (masc.)",
+      "target_text": "todo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "other / another (masc.)",
+      "target_text": "outro",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this / that (near listener, masc.)",
+      "target_text": "esse",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this (near speaker, masc.)",
+      "target_text": "este",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that (far away, masc.)",
+      "target_text": "aquele",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how / as / like",
+      "target_text": "como",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "quando",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "onde",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who / whom",
+      "target_text": "quem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "because",
+      "target_text": "porque",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if / oneself",
+      "target_text": "se",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "my (masc.)",
+      "target_text": "meu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "your / his / her / their (masc.)",
+      "target_text": "seu",
+      "romanization": "",
+      "notes": "Context dependent for 'your', 'his', 'her', 'their'"
+    },
+    {
+      "source_text": "our (masc.)",
+      "target_text": "nosso",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "dia",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time / weather",
+      "target_text": "tempo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "ano",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person",
+      "target_text": "pessoa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "coisa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "life",
+      "target_text": "vida",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world",
+      "target_text": "mundo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "trabalho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "cidade",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "país",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "água",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "falar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to find / to think",
+      "target_text": "achar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to like",
+      "target_text": "gostar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to start / to begin",
+      "target_text": "começar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to finish / to end",
+      "target_text": "acabar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to call / to name",
+      "target_text": "chamar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to arrive",
+      "target_text": "chegar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to leave / to go out",
+      "target_text": "sair",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to enter / to come in",
+      "target_text": "entrar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to count / to tell",
+      "target_text": "contar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to take / to carry",
+      "target_text": "levar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to stay / to remain / to become",
+      "target_text": "ficar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after / then",
+      "target_text": "depois",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "antes",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "each / every",
+      "target_text": "cada",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "which / what",
+      "target_text": "qual",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "some / any (masc.)",
+      "target_text": "algum",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no / none (masc.)",
+      "target_text": "nenhum",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new (masc.)",
+      "target_text": "novo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old (masc.)",
+      "target_text": "velho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "large / big",
+      "target_text": "grande",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small / little (masc.)",
+      "target_text": "pequeno",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "certain / right (masc.)",
+      "target_text": "certo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "clear / light (masc.)",
+      "target_text": "claro",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "easy",
+      "target_text": "fácil",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "difficult",
+      "target_text": "difícil",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "important",
+      "target_text": "importante",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "obrigado",
+      "romanization": "",
+      "notes": "Said by male speakers. Female speakers say 'obrigada'."
+    },
+    {
+      "source_text": "yes",
+      "target_text": "sim",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hi / hello",
+      "target_text": "oi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bye",
+      "target_text": "tchau",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "people / folks",
+      "target_text": "gente",
+      "romanization": "",
+      "notes": "Also used informally for 'we' in Brazil"
+    }
+  ]
+}

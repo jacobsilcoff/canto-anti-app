@@ -1,0 +1,607 @@
+{
+  "lang": "vi",
+  "name": "Top 100 Vietnamese Words",
+  "description": "The 100 most common words in Vietnamese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "tôi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "là",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not / no",
+      "target_text": "không",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have / there is/are",
+      "target_text": "có",
+      "romanization": "",
+      "notes": "Also means 'yes' in response to 'có... không?' questions."
+    },
+    {
+      "source_text": "to go / walk",
+      "target_text": "đi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you / older brother",
+      "target_text": "anh",
+      "romanization": "",
+      "notes": "Polite address for males older than speaker, or male peers."
+    },
+    {
+      "source_text": "you / older sister",
+      "target_text": "chị",
+      "romanization": "",
+      "notes": "Polite address for females older than speaker, or female peers."
+    },
+    {
+      "source_text": "you / younger sibling",
+      "target_text": "em",
+      "romanization": "",
+      "notes": "Polite address for younger people, or younger siblings."
+    },
+    {
+      "source_text": "and",
+      "target_text": "và",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "nhà",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "rất",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one / a/an",
+      "target_text": "một",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "hai",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "ba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "cũng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water / country",
+      "target_text": "nước",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "Mr. / grandfather / you (older male)",
+      "target_text": "ông",
+      "romanization": "",
+      "notes": "Polite address for much older males or formal Mr."
+    },
+    {
+      "source_text": "Mrs. / grandmother / you (older female)",
+      "target_text": "bà",
+      "romanization": "",
+      "notes": "Polite address for much older females or formal Mrs."
+    },
+    {
+      "source_text": "what",
+      "target_text": "gì",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "at / in / on",
+      "target_text": "ở",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "đâu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "ai",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "ăn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to speak / say",
+      "target_text": "nói",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / make / work",
+      "target_text": "làm",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come / arrive",
+      "target_text": "đến",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to return (home) / about",
+      "target_text": "về",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to listen / hear",
+      "target_text": "nghe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see / perceive",
+      "target_text": "thấy",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "biết",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "muốn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to need",
+      "target_text": "cần",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give / for",
+      "target_text": "cho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to ask for / please",
+      "target_text": "xin",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to get / be allowed",
+      "target_text": "được",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "uống",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "ngủ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to wake up / to teach",
+      "target_text": "dậy",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to learn / study",
+      "target_text": "học",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to teach",
+      "target_text": "dạy",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to watch / look at",
+      "target_text": "xem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "mua",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "bán",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "người",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "tiền",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "ngày",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "năm",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hour / o'clock",
+      "target_text": "giờ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "room",
+      "target_text": "phòng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "vehicle",
+      "target_text": "xe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "table / desk",
+      "target_text": "bàn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "sách",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "cooked rice / meal",
+      "target_text": "cơm",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend / you (informal)",
+      "target_text": "bạn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child / offspring",
+      "target_text": "con",
+      "romanization": "",
+      "notes": "Also used as an address term for children."
+    },
+    {
+      "source_text": "husband",
+      "target_text": "chồng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "market",
+      "target_text": "chợ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "school",
+      "target_text": "trường",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / task / matter",
+      "target_text": "việc",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "meat",
+      "target_text": "thịt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "fish",
+      "target_text": "cá",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "vegetables",
+      "target_text": "rau",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "shirt / top",
+      "target_text": "áo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "trousers / pants",
+      "target_text": "quần",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "đẹp",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "tốt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bad / ugly",
+      "target_text": "xấu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big",
+      "target_text": "to",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "nhỏ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hot",
+      "target_text": "nóng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "cold",
+      "target_text": "lạnh",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "happy",
+      "target_text": "vui",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "sad",
+      "target_text": "buồn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "difficult",
+      "target_text": "khó",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "easy",
+      "target_text": "dễ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "expensive",
+      "target_text": "đắt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "cheap",
+      "target_text": "rẻ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new (object) / just (adverb)",
+      "target_text": "mới",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old (object)",
+      "target_text": "cũ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "nhiều",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "ít",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "tall / high",
+      "target_text": "cao",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "short / low",
+      "target_text": "thấp",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "far",
+      "target_text": "xa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "near",
+      "target_text": "gần",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "clean",
+      "target_text": "sạch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "correct",
+      "target_text": "đúng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "wrong",
+      "target_text": "sai",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / then (particle)",
+      "target_text": "rồi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "currently / in progress (marker)",
+      "target_text": "đang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "will / future marker",
+      "target_text": "sẽ",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / past marker",
+      "target_text": "đã",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not yet / not (question/negative)",
+      "target_text": "chưa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "too / excessively",
+      "target_text": "quá",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "like / as",
+      "target_text": "như",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "đây",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "nhưng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or / good (adj)",
+      "target_text": "hay",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "because",
+      "target_text": "vì",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "với",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

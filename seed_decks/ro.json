@@ -1,0 +1,601 @@
+{
+  "lang": "ro",
+  "name": "Top 100 Romanian Words",
+  "description": "The 99 most common words in Romanian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be",
+      "target_text": "a fi",
+      "romanization": "",
+      "notes": "Infinitive form of the verb 'to be'."
+    },
+    {
+      "source_text": "and",
+      "target_text": "și",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "a avea",
+      "romanization": "",
+      "notes": "Infinitive form of the verb 'to have'."
+    },
+    {
+      "source_text": "of, from, by",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "Common preposition with multiple meanings."
+    },
+    {
+      "source_text": "not, no",
+      "target_text": "nu",
+      "romanization": "",
+      "notes": "Negation particle and interjection 'no'."
+    },
+    {
+      "source_text": "in, into",
+      "target_text": "în",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "at, to",
+      "target_text": "la",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "eu",
+      "romanization": "",
+      "notes": "Subject pronoun."
+    },
+    {
+      "source_text": "he, it",
+      "target_text": "el",
+      "romanization": "",
+      "notes": "Subject pronoun (masculine singular)."
+    },
+    {
+      "source_text": "a, an (masc.)",
+      "target_text": "un",
+      "romanization": "",
+      "notes": "Indefinite article (masculine singular)."
+    },
+    {
+      "source_text": "a, an (fem.)",
+      "target_text": "o",
+      "romanization": "",
+      "notes": "Indefinite article (feminine singular)."
+    },
+    {
+      "source_text": "on, upon, over",
+      "target_text": "pe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "cu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more, still",
+      "target_text": "mai",
+      "romanization": "",
+      "notes": "Adverb, also used to form comparatives."
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "a face",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "but",
+      "target_text": "dar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "a zice",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "himself/herself/itself/themselves",
+      "target_text": "se",
+      "romanization": "",
+      "notes": "Reflexive or impersonal pronoun."
+    },
+    {
+      "source_text": "to come",
+      "target_text": "a veni",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to go, to walk",
+      "target_text": "a merge",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to want",
+      "target_text": "a vrea",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to be able to, can",
+      "target_text": "a putea",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "as, like, so that",
+      "target_text": "ca",
+      "romanization": "",
+      "notes": "Conjunction/preposition."
+    },
+    {
+      "source_text": "to, that",
+      "target_text": "să",
+      "romanization": "",
+      "notes": "Subjunctive particle."
+    },
+    {
+      "source_text": "for",
+      "target_text": "pentru",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "from, out of",
+      "target_text": "din",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "acolo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "aici",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "când",
+      "romanization": "",
+      "notes": "Adverb/conjunction."
+    },
+    {
+      "source_text": "how, as",
+      "target_text": "cum",
+      "romanization": "",
+      "notes": "Adverb/conjunction."
+    },
+    {
+      "source_text": "what, which",
+      "target_text": "ce",
+      "romanization": "",
+      "notes": "Interrogative/relative pronoun/adjective."
+    },
+    {
+      "source_text": "who",
+      "target_text": "cine",
+      "romanization": "",
+      "notes": "Interrogative/relative pronoun."
+    },
+    {
+      "source_text": "all, whole",
+      "target_text": "tot",
+      "romanization": "",
+      "notes": "Adjective/adverb."
+    },
+    {
+      "source_text": "much, many",
+      "target_text": "mult",
+      "romanization": "",
+      "notes": "Adjective/adverb."
+    },
+    {
+      "source_text": "very",
+      "target_text": "foarte",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "acum",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "again, and, while",
+      "target_text": "iar",
+      "romanization": "",
+      "notes": "Adverb/conjunction."
+    },
+    {
+      "source_text": "we",
+      "target_text": "noi",
+      "romanization": "",
+      "notes": "Subject pronoun."
+    },
+    {
+      "source_text": "you (plural)",
+      "target_text": "voi",
+      "romanization": "",
+      "notes": "Subject pronoun."
+    },
+    {
+      "source_text": "they (masc.)",
+      "target_text": "ei",
+      "romanization": "",
+      "notes": "Subject pronoun (masculine plural)."
+    },
+    {
+      "source_text": "she, it",
+      "target_text": "ea",
+      "romanization": "",
+      "notes": "Subject pronoun (feminine singular)."
+    },
+    {
+      "source_text": "they (fem.)",
+      "target_text": "ele",
+      "romanization": "",
+      "notes": "Subject pronoun (feminine plural)."
+    },
+    {
+      "source_text": "you (sing.)",
+      "target_text": "tu",
+      "romanization": "",
+      "notes": "Subject pronoun."
+    },
+    {
+      "source_text": "you (sing. acc.)",
+      "target_text": "te",
+      "romanization": "",
+      "notes": "Direct object pronoun."
+    },
+    {
+      "source_text": "me (acc.)",
+      "target_text": "mă",
+      "romanization": "",
+      "notes": "Direct object pronoun."
+    },
+    {
+      "source_text": "him, it (masc. acc.)",
+      "target_text": "îl",
+      "romanization": "",
+      "notes": "Direct object pronoun."
+    },
+    {
+      "source_text": "them (acc.)",
+      "target_text": "le",
+      "romanization": "",
+      "notes": "Direct object pronoun (plural)."
+    },
+    {
+      "source_text": "him (dat.), them (masc. dat.)",
+      "target_text": "îi",
+      "romanization": "",
+      "notes": "Indirect object pronoun."
+    },
+    {
+      "source_text": "us (acc./dat.)",
+      "target_text": "ne",
+      "romanization": "",
+      "notes": "Direct or indirect object pronoun."
+    },
+    {
+      "source_text": "you (pl. acc./dat.)",
+      "target_text": "vă",
+      "romanization": "",
+      "notes": "Direct or indirect object pronoun."
+    },
+    {
+      "source_text": "himself/herself/itself/themselves",
+      "target_text": "își",
+      "romanization": "",
+      "notes": "Dative reflexive pronoun."
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "a ști",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to give",
+      "target_text": "a da",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to see",
+      "target_text": "a vedea",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to take",
+      "target_text": "a lua",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "a spune",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to believe, to think",
+      "target_text": "a crede",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to remain, to stay",
+      "target_text": "a rămâne",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to find out",
+      "target_text": "a afla",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to ask for, to request",
+      "target_text": "a cere",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to put",
+      "target_text": "a pune",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to exit, to go out",
+      "target_text": "a ieși",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to enter, to come in",
+      "target_text": "a intra",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to work",
+      "target_text": "a lucra",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "a vorbi",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to write",
+      "target_text": "a scrie",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to read",
+      "target_text": "a citi",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to listen",
+      "target_text": "a asculta",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "a înțelege",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to begin, to start",
+      "target_text": "a începe",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to finish",
+      "target_text": "a termina",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to wait",
+      "target_text": "a aștepta",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to look for, to search",
+      "target_text": "a căuta",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "to feel",
+      "target_text": "a simți",
+      "romanization": "",
+      "notes": "Infinitive form."
+    },
+    {
+      "source_text": "man, person",
+      "target_text": "om",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "timp",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "place",
+      "target_text": "loc",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "zi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world, people",
+      "target_text": "lume",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "lucru",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "apă",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "casă",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "road, way",
+      "target_text": "drum",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "mână",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "head, end",
+      "target_text": "cap",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "eye",
+      "target_text": "ochi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "life",
+      "target_text": "viață",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "bani",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big, great",
+      "target_text": "mare",
+      "romanization": "",
+      "notes": "Adjective, often invariant for gender."
+    },
+    {
+      "source_text": "small",
+      "target_text": "mic",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "bun",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "nou",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "vechi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "frumos",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bad, evil",
+      "target_text": "rău",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "da",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "unu",
+      "romanization": "",
+      "notes": "Cardinal number (masculine)."
+    },
+    {
+      "source_text": "two",
+      "target_text": "doi",
+      "romanization": "",
+      "notes": "Cardinal number (masculine)."
+    },
+    {
+      "source_text": "three",
+      "target_text": "trei",
+      "romanization": "",
+      "notes": "Cardinal number."
+    }
+  ]
+}

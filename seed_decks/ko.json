@@ -1,0 +1,607 @@
+{
+  "lang": "ko",
+  "name": "Top 100 Korean Words",
+  "description": "The 100 most common words in Korean — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be / is",
+      "target_text": "이다",
+      "romanization": "ida",
+      "notes": null
+    },
+    {
+      "source_text": "to do",
+      "target_text": "하다",
+      "romanization": "hada",
+      "notes": null
+    },
+    {
+      "source_text": "topic particle",
+      "target_text": "-은/는",
+      "romanization": "eun neun",
+      "notes": "alternates based on preceding syllable ending"
+    },
+    {
+      "source_text": "subject particle",
+      "target_text": "-이/가",
+      "romanization": "i ga",
+      "notes": "alternates based on preceding syllable ending"
+    },
+    {
+      "source_text": "object particle",
+      "target_text": "-을/를",
+      "romanization": "eul reul",
+      "notes": "alternates based on preceding syllable ending"
+    },
+    {
+      "source_text": "to exist / to have",
+      "target_text": "있다",
+      "romanization": "itda",
+      "notes": null
+    },
+    {
+      "source_text": "to not exist / to not have",
+      "target_text": "없다",
+      "romanization": "eopda",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "가다",
+      "romanization": "gada",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "오다",
+      "romanization": "oda",
+      "notes": null
+    },
+    {
+      "source_text": "to see / to look / to watch",
+      "target_text": "보다",
+      "romanization": "boda",
+      "notes": null
+    },
+    {
+      "source_text": "location/time particle",
+      "target_text": "-에",
+      "romanization": "e",
+      "notes": "at, in, to"
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "나",
+      "romanization": "na",
+      "notes": null
+    },
+    {
+      "source_text": "we / our",
+      "target_text": "우리",
+      "romanization": "uri",
+      "notes": null
+    },
+    {
+      "source_text": "that / he / it",
+      "target_text": "그",
+      "romanization": "geu",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "이",
+      "romanization": "i",
+      "notes": null
+    },
+    {
+      "source_text": "that (far away)",
+      "target_text": "저",
+      "romanization": "jeo",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "것",
+      "romanization": "geot",
+      "notes": null
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "사람",
+      "romanization": "saram",
+      "notes": null
+    },
+    {
+      "source_text": "to be good",
+      "target_text": "좋다",
+      "romanization": "jota",
+      "notes": null
+    },
+    {
+      "source_text": "to not be",
+      "target_text": "아니다",
+      "romanization": "anida",
+      "notes": null
+    },
+    {
+      "source_text": "to be many / much",
+      "target_text": "많다",
+      "romanization": "manta",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "먹다",
+      "romanization": "meokda",
+      "notes": null
+    },
+    {
+      "source_text": "to speak / to say",
+      "target_text": "말하다",
+      "romanization": "malhada",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "알다",
+      "romanization": "alda",
+      "notes": null
+    },
+    {
+      "source_text": "to not know",
+      "target_text": "모르다",
+      "romanization": "moreuda",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "주다",
+      "romanization": "juda",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "시간",
+      "romanization": "sigan",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "지금",
+      "romanization": "jigeum",
+      "notes": null
+    },
+    {
+      "source_text": "to be how",
+      "target_text": "어떻다",
+      "romanization": "eotteota",
+      "notes": null
+    },
+    {
+      "source_text": "location particle",
+      "target_text": "-에서",
+      "romanization": "eseo",
+      "notes": "at, in (action); from (origin)"
+    },
+    {
+      "source_text": "and / with particle",
+      "target_text": "-와/과",
+      "romanization": "wa gwa",
+      "notes": "alternates based on preceding syllable ending"
+    },
+    {
+      "source_text": "also / too particle",
+      "target_text": "-도",
+      "romanization": "do",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "네",
+      "romanization": "ne",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "아니요",
+      "romanization": "aniyo",
+      "notes": null
+    },
+    {
+      "source_text": "not (adverb)",
+      "target_text": "안",
+      "romanization": "an",
+      "notes": null
+    },
+    {
+      "source_text": "cannot (adverb)",
+      "target_text": "못",
+      "romanization": "mot",
+      "notes": null
+    },
+    {
+      "source_text": "more (adverb)",
+      "target_text": "더",
+      "romanization": "deo",
+      "notes": null
+    },
+    {
+      "source_text": "really / truly (adverb)",
+      "target_text": "정말",
+      "romanization": "jeongmal",
+      "notes": null
+    },
+    {
+      "source_text": "very / so (adverb)",
+      "target_text": "아주",
+      "romanization": "aju",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "오늘",
+      "romanization": "oneul",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "내일",
+      "romanization": "naeil",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "어제",
+      "romanization": "eoje",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "돈",
+      "romanization": "don",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "집",
+      "romanization": "jip",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "친구",
+      "romanization": "chingu",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "이름",
+      "romanization": "ireum",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "나라",
+      "romanization": "nara",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "물",
+      "romanization": "mul",
+      "notes": null
+    },
+    {
+      "source_text": "rice / meal",
+      "target_text": "밥",
+      "romanization": "bap",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "책",
+      "romanization": "chaek",
+      "notes": null
+    },
+    {
+      "source_text": "school",
+      "target_text": "학교",
+      "romanization": "hakgyo",
+      "notes": null
+    },
+    {
+      "source_text": "study",
+      "target_text": "공부",
+      "romanization": "gongbu",
+      "notes": null
+    },
+    {
+      "source_text": "work / day / one",
+      "target_text": "일",
+      "romanization": "il",
+      "notes": "also 'one' (Sino-Korean)"
+    },
+    {
+      "source_text": "to make",
+      "target_text": "만들다",
+      "romanization": "mandeulda",
+      "notes": null
+    },
+    {
+      "source_text": "to receive",
+      "target_text": "받다",
+      "romanization": "batda",
+      "notes": null
+    },
+    {
+      "source_text": "to write / to use / to wear",
+      "target_text": "쓰다",
+      "romanization": "sseuda",
+      "notes": null
+    },
+    {
+      "source_text": "to read",
+      "target_text": "읽다",
+      "romanization": "ikda",
+      "notes": null
+    },
+    {
+      "source_text": "to listen / to hear",
+      "target_text": "듣다",
+      "romanization": "deutda",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "앉다",
+      "romanization": "anda",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "서다",
+      "romanization": "seoda",
+      "notes": null
+    },
+    {
+      "source_text": "to be big / large",
+      "target_text": "크다",
+      "romanization": "keuda",
+      "notes": null
+    },
+    {
+      "source_text": "to be small",
+      "target_text": "작다",
+      "romanization": "jakda",
+      "notes": null
+    },
+    {
+      "source_text": "to be new",
+      "target_text": "새롭다",
+      "romanization": "saeropda",
+      "notes": null
+    },
+    {
+      "source_text": "to be old (object)",
+      "target_text": "오래되다",
+      "romanization": "oraedoeda",
+      "notes": null
+    },
+    {
+      "source_text": "to be pretty",
+      "target_text": "예쁘다",
+      "romanization": "yeppeuda",
+      "notes": null
+    },
+    {
+      "source_text": "to be delicious",
+      "target_text": "맛있다",
+      "romanization": "masitda",
+      "notes": null
+    },
+    {
+      "source_text": "to be cold (weather)",
+      "target_text": "춥다",
+      "romanization": "chupda",
+      "notes": null
+    },
+    {
+      "source_text": "to be hot (weather)",
+      "target_text": "덥다",
+      "romanization": "deopda",
+      "notes": null
+    },
+    {
+      "source_text": "to be easy",
+      "target_text": "쉽다",
+      "romanization": "swipda",
+      "notes": null
+    },
+    {
+      "source_text": "to be difficult",
+      "target_text": "어렵다",
+      "romanization": "eoryeopda",
+      "notes": null
+    },
+    {
+      "source_text": "to be far",
+      "target_text": "멀다",
+      "romanization": "meolda",
+      "notes": null
+    },
+    {
+      "source_text": "to be close",
+      "target_text": "가깝다",
+      "romanization": "gakkapda",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "하나",
+      "romanization": "hana",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "two",
+      "target_text": "둘",
+      "romanization": "dul",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "three",
+      "target_text": "셋",
+      "romanization": "set",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "four",
+      "target_text": "넷",
+      "romanization": "net",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "five",
+      "target_text": "다섯",
+      "romanization": "daseot",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "six",
+      "target_text": "여섯",
+      "romanization": "yeoseot",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "seven",
+      "target_text": "일곱",
+      "romanization": "ilgop",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "eight",
+      "target_text": "여덟",
+      "romanization": "yeodeol",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "nine",
+      "target_text": "아홉",
+      "romanization": "ahop",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "ten",
+      "target_text": "열",
+      "romanization": "yeol",
+      "notes": "native Korean number"
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "백",
+      "romanization": "baek",
+      "notes": "Sino-Korean number"
+    },
+    {
+      "source_text": "thousand",
+      "target_text": "천",
+      "romanization": "cheon",
+      "notes": "Sino-Korean number"
+    },
+    {
+      "source_text": "where",
+      "target_text": "어디",
+      "romanization": "eodi",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "언제",
+      "romanization": "eonje",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "무엇",
+      "romanization": "mueot",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "누구",
+      "romanization": "nugu",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "왜",
+      "romanization": "wae",
+      "notes": null
+    },
+    {
+      "source_text": "bus",
+      "target_text": "버스",
+      "romanization": "beoseu",
+      "notes": null
+    },
+    {
+      "source_text": "car / tea",
+      "target_text": "차",
+      "romanization": "cha",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "음식",
+      "romanization": "eumsik",
+      "notes": null
+    },
+    {
+      "source_text": "road / way",
+      "target_text": "길",
+      "romanization": "gil",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "손",
+      "romanization": "son",
+      "notes": null
+    },
+    {
+      "source_text": "foot",
+      "target_text": "발",
+      "romanization": "bal",
+      "notes": null
+    },
+    {
+      "source_text": "eye / snow",
+      "target_text": "눈",
+      "romanization": "nun",
+      "notes": null
+    },
+    {
+      "source_text": "mouth",
+      "target_text": "입",
+      "romanization": "ip",
+      "notes": null
+    },
+    {
+      "source_text": "head / hair",
+      "target_text": "머리",
+      "romanization": "meori",
+      "notes": null
+    },
+    {
+      "source_text": "love (noun)",
+      "target_text": "사랑",
+      "romanization": "sarang",
+      "notes": null
+    },
+    {
+      "source_text": "and (conjunction)",
+      "target_text": "그리고",
+      "romanization": "geurigo",
+      "notes": null
+    }
+  ]
+}

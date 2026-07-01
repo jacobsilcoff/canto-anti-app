@@ -1,0 +1,595 @@
+{
+  "lang": "ja",
+  "name": "Top 100 Japanese Words",
+  "description": "The 98 most common words in Japanese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to do",
+      "target_text": "する",
+      "romanization": "suru",
+      "notes": null
+    },
+    {
+      "source_text": "to be (animate)",
+      "target_text": "いる",
+      "romanization": "iru",
+      "notes": null
+    },
+    {
+      "source_text": "to be (inanimate)",
+      "target_text": "ある",
+      "romanization": "aru",
+      "notes": null
+    },
+    {
+      "source_text": "is / am / are",
+      "target_text": "です",
+      "romanization": "desu",
+      "notes": "polite copula"
+    },
+    {
+      "source_text": "polite verb ending",
+      "target_text": "ます",
+      "romanization": "masu",
+      "notes": "auxiliary verb"
+    },
+    {
+      "source_text": "topic particle",
+      "target_text": "は",
+      "romanization": "ha",
+      "notes": null
+    },
+    {
+      "source_text": "subject particle",
+      "target_text": "が",
+      "romanization": "ga",
+      "notes": null
+    },
+    {
+      "source_text": "direct object particle",
+      "target_text": "を",
+      "romanization": "wo",
+      "notes": null
+    },
+    {
+      "source_text": "locative / direction particle",
+      "target_text": "に",
+      "romanization": "ni",
+      "notes": null
+    },
+    {
+      "source_text": "means / location particle",
+      "target_text": "で",
+      "romanization": "de",
+      "notes": null
+    },
+    {
+      "source_text": "and / with particle",
+      "target_text": "と",
+      "romanization": "to",
+      "notes": null
+    },
+    {
+      "source_text": "possessive particle",
+      "target_text": "の",
+      "romanization": "no",
+      "notes": null
+    },
+    {
+      "source_text": "also / too particle",
+      "target_text": "も",
+      "romanization": "mo",
+      "notes": null
+    },
+    {
+      "source_text": "from / because particle",
+      "target_text": "から",
+      "romanization": "kara",
+      "notes": null
+    },
+    {
+      "source_text": "until / to particle",
+      "target_text": "まで",
+      "romanization": "made",
+      "notes": null
+    },
+    {
+      "source_text": "direction particle",
+      "target_text": "へ",
+      "romanization": "he",
+      "notes": null
+    },
+    {
+      "source_text": "question particle",
+      "target_text": "か",
+      "romanization": "ka",
+      "notes": null
+    },
+    {
+      "source_text": "confirmation particle",
+      "target_text": "ね",
+      "romanization": "ne",
+      "notes": null
+    },
+    {
+      "source_text": "emphasis particle",
+      "target_text": "よ",
+      "romanization": "yo",
+      "notes": null
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "私",
+      "romanization": "watashi",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "これ",
+      "romanization": "kore",
+      "notes": "near speaker"
+    },
+    {
+      "source_text": "that",
+      "target_text": "それ",
+      "romanization": "sore",
+      "notes": "near listener"
+    },
+    {
+      "source_text": "that (over there)",
+      "target_text": "あれ",
+      "romanization": "are",
+      "notes": "far from both"
+    },
+    {
+      "source_text": "which",
+      "target_text": "どれ",
+      "romanization": "dore",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "何",
+      "romanization": "nani",
+      "notes": null
+    },
+    {
+      "source_text": "person",
+      "target_text": "人",
+      "romanization": "nin",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "はい",
+      "romanization": "hai",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "いいえ",
+      "romanization": "iie",
+      "notes": null
+    },
+    {
+      "source_text": "time / when",
+      "target_text": "時",
+      "romanization": "toki",
+      "notes": null
+    },
+    {
+      "source_text": "day / sun",
+      "target_text": "日",
+      "romanization": "nichi",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "行く",
+      "romanization": "iku",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "来る",
+      "romanization": "kuru",
+      "notes": null
+    },
+    {
+      "source_text": "to say",
+      "target_text": "言う",
+      "romanization": "iu",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "見る",
+      "romanization": "miru",
+      "notes": null
+    },
+    {
+      "source_text": "to hear / ask",
+      "target_text": "聞く",
+      "romanization": "kiku",
+      "notes": null
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "分かる",
+      "romanization": "waka ru",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "食べる",
+      "romanization": "tabe ru",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "飲む",
+      "romanization": "nomu",
+      "notes": null
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "買う",
+      "romanization": "kau",
+      "notes": null
+    },
+    {
+      "source_text": "to have / hold",
+      "target_text": "持つ",
+      "romanization": "motsu",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "知る",
+      "romanization": "shiru",
+      "notes": null
+    },
+    {
+      "source_text": "to wait",
+      "target_text": "待つ",
+      "romanization": "matsu",
+      "notes": null
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "話す",
+      "romanization": "hanasu",
+      "notes": null
+    },
+    {
+      "source_text": "to read",
+      "target_text": "読む",
+      "romanization": "yomu",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "書く",
+      "romanization": "kaku",
+      "notes": null
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "寝る",
+      "romanization": "neru",
+      "notes": null
+    },
+    {
+      "source_text": "to wake up",
+      "target_text": "起きる",
+      "romanization": "oki ru",
+      "notes": null
+    },
+    {
+      "source_text": "to make",
+      "target_text": "作る",
+      "romanization": "tsukuru",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "良い",
+      "romanization": "yoi",
+      "notes": null
+    },
+    {
+      "source_text": "big",
+      "target_text": "大きい",
+      "romanization": "ookii",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "小さい",
+      "romanization": "chiisai",
+      "notes": null
+    },
+    {
+      "source_text": "high / expensive",
+      "target_text": "高い",
+      "romanization": "takai",
+      "notes": null
+    },
+    {
+      "source_text": "cheap",
+      "target_text": "安い",
+      "romanization": "yasui",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "新しい",
+      "romanization": "atarashii",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "古い",
+      "romanization": "furui",
+      "notes": "for objects"
+    },
+    {
+      "source_text": "cold (weather)",
+      "target_text": "寒い",
+      "romanization": "samui",
+      "notes": null
+    },
+    {
+      "source_text": "hot (weather)",
+      "target_text": "暑い",
+      "romanization": "atsui",
+      "notes": null
+    },
+    {
+      "source_text": "healthy / energetic",
+      "target_text": "元気",
+      "romanization": "genki",
+      "notes": "na-adjective"
+    },
+    {
+      "source_text": "pretty / clean",
+      "target_text": "綺麗",
+      "romanization": "kirei",
+      "notes": "na-adjective"
+    },
+    {
+      "source_text": "liked / favorite",
+      "target_text": "好き",
+      "romanization": "suki",
+      "notes": "na-adjective"
+    },
+    {
+      "source_text": "disliked / hate",
+      "target_text": "嫌い",
+      "romanization": "kirai",
+      "notes": "na-adjective"
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "たくさん",
+      "romanization": "takusan",
+      "notes": null
+    },
+    {
+      "source_text": "a little / few",
+      "target_text": "少し",
+      "romanization": "sukoshi",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "とても",
+      "romanization": "totemo",
+      "notes": null
+    },
+    {
+      "source_text": "again / also",
+      "target_text": "また",
+      "romanization": "mata",
+      "notes": null
+    },
+    {
+      "source_text": "already / another",
+      "target_text": "もう",
+      "romanization": "mou",
+      "notes": null
+    },
+    {
+      "source_text": "and then",
+      "target_text": "そして",
+      "romanization": "soshite",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "でも",
+      "romanization": "demo",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "いつ",
+      "romanization": "itsu",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "どこ",
+      "romanization": "doko",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "誰",
+      "romanization": "dare",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "どう",
+      "romanization": "dou",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "一",
+      "romanization": "ichi",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "二",
+      "romanization": "ni",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "三",
+      "romanization": "san",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "四",
+      "romanization": "shi",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "五",
+      "romanization": "go",
+      "notes": null
+    },
+    {
+      "source_text": "six",
+      "target_text": "六",
+      "romanization": "roku",
+      "notes": null
+    },
+    {
+      "source_text": "seven",
+      "target_text": "七",
+      "romanization": "shichi",
+      "notes": null
+    },
+    {
+      "source_text": "eight",
+      "target_text": "八",
+      "romanization": "hachi",
+      "notes": null
+    },
+    {
+      "source_text": "nine",
+      "target_text": "九",
+      "romanization": "kyuu",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "十",
+      "romanization": "juu",
+      "notes": null
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "百",
+      "romanization": "hyaku",
+      "notes": null
+    },
+    {
+      "source_text": "thousand",
+      "target_text": "千",
+      "romanization": "sen",
+      "notes": null
+    },
+    {
+      "source_text": "ten thousand",
+      "target_text": "万",
+      "romanization": "man",
+      "notes": null
+    },
+    {
+      "source_text": "Japan",
+      "target_text": "日本",
+      "romanization": "nippon",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "お金",
+      "romanization": "o kin",
+      "notes": null
+    },
+    {
+      "source_text": "time (duration)",
+      "target_text": "時間",
+      "romanization": "jikan",
+      "notes": null
+    },
+    {
+      "source_text": "school",
+      "target_text": "学校",
+      "romanization": "gakkou",
+      "notes": null
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "先生",
+      "romanization": "sensei",
+      "notes": null
+    },
+    {
+      "source_text": "student",
+      "target_text": "学生",
+      "romanization": "gakusei",
+      "notes": null
+    },
+    {
+      "source_text": "job / work",
+      "target_text": "仕事",
+      "romanization": "shigoto",
+      "notes": null
+    },
+    {
+      "source_text": "room",
+      "target_text": "部屋",
+      "romanization": "heya",
+      "notes": null
+    },
+    {
+      "source_text": "shop",
+      "target_text": "店",
+      "romanization": "mise",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "本",
+      "romanization": "hon",
+      "notes": null
+    },
+    {
+      "source_text": "car",
+      "target_text": "車",
+      "romanization": "kuruma",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "家",
+      "romanization": "ie",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "友達",
+      "romanization": "tomodachi",
+      "notes": null
+    }
+  ]
+}

@@ -1,29 +1,77 @@
-"""Shared logic for the official per-language "Top 100 Words" community decks.
+"""Official per-language "Top 100 Words" community decks.
 
-Used by both the one-off CLI (`scripts/generate_common_decks.py`) and the
-admin-only endpoint (`POST /api/admin/generate-common-decks`). The decks are
-public shared decks owned by the system user (`db.SYSTEM_USERNAME`); "official"
-purely by `creator_id == system_user_id`.
+Two distinct phases, deliberately decoupled so the SAME reviewed cards ship to
+every environment (generate once, seed everywhere — no per-env LLM regeneration):
 
-Generation asks Gemini for the N most common words in a language, then recomputes
-romanization with the offline oracle (`tokenizer.romanize_text`) for consistency
-with the rest of the app. Idempotent per language (skips an existing deck unless
-`force`).
+1. **Generation (LLM, dev-only)** — `generate_seed_file` asks Gemini for the N
+   most common words in a language, recomputes romanization with the offline
+   oracle (`tokenizer.romanize_text`), and writes a reviewable JSON file to
+   `seed_decks/<lang>.json`. Run via `scripts/generate_common_decks.py`, then the
+   file is committed to the repo. This is the ONLY step that calls an LLM.
+
+2. **Seeding (deterministic)** — `seed_all` loads the committed `seed_decks/*.json`
+   and upserts them into the DB as public decks owned by the system user
+   (`db.SYSTEM_USERNAME`), IN PLACE (`db.upsert_featured_deck` preserves deck_id
+   so importers' imports/ratings survive edits). Runs at startup (create-missing)
+   and via the admin endpoint (with `force` to push edits). No LLM, so dev and
+   prod converge on identical cards.
+
+A deck is "official" purely by `creator_id == system_user_id`.
 """
-import asyncio
+import json
+import os
+import re
 
 import db
 import tokenizer
 import translation
 
+# Some models append romanization to the native word, e.g. "का (kā)" / "する (suru)".
+# Strip a trailing parenthetical so target_text is the bare word (romanization is
+# recomputed separately by the offline oracle).
+_TRAILING_PAREN = re.compile(r"\s*[\(（][^)）]*[\)）]\s*$")
+
+
+def _clean_target(text: str) -> str:
+    return _TRAILING_PAREN.sub("", (text or "").strip()).strip()
+
 WORDS_PER_DECK = 100
 DEFAULT_MODEL = "gemini-2.5-flash"
 MIN_VALID_ITEMS = 20
+
+SEED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_decks")
 
 
 def deck_name(info: dict) -> str:
     return f"Top {WORDS_PER_DECK} {info['name']} Words"
 
+
+def deck_description(info: dict, count: int) -> str:
+    return f"The {count} most common words in {info['name']} — a fast start for beginners."
+
+
+def seed_path(lang: str) -> str:
+    return os.path.join(SEED_DIR, f"{lang}.json")
+
+
+def list_seed_langs() -> list[str]:
+    if not os.path.isdir(SEED_DIR):
+        return []
+    return sorted(
+        f[:-5] for f in os.listdir(SEED_DIR)
+        if f.endswith(".json") and f[:-5] in translation.LANG_INFO
+    )
+
+
+def load_seed(lang: str) -> dict | None:
+    path = seed_path(lang)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+# ── Phase 1: LLM generation → committed seed file ────────────────────────────
 
 def _build_prompt(info: dict) -> str:
     return (
@@ -45,7 +93,7 @@ def _build_prompt(info: dict) -> str:
     )
 
 
-def generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dict]:
+def _generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dict]:
     """Blocking — call the LLM and build validated deck items. Run in a thread."""
     raw = translation._call(_build_prompt(info), api_key, model=model)
     data = translation._parse_json(raw)
@@ -56,7 +104,7 @@ def generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dict
     for entry in data:
         if not isinstance(entry, dict):
             continue
-        target = (entry.get("target_text") or "").strip()
+        target = _clean_target(entry.get("target_text"))
         source = (entry.get("source_text") or "").strip()
         if not target or not source or target in seen:
             continue
@@ -69,60 +117,79 @@ def generate_items(lang: str, info: dict, api_key: str, model: str) -> list[dict
             "target_text": target,
             "romanization": roman,
             "notes": (entry.get("notes") or "").strip() or None,
-            "target_lang": lang,
         })
         if len(items) >= WORDS_PER_DECK:
             break
     return items
 
 
-async def _existing_deck_id(lang: str, name: str) -> int | None:
-    for d in await db.list_featured_decks(target_lang=lang):
-        if d["name"] == name:
-            return d["id"]
-    return None
+def generate_seed_file(lang: str, api_key: str, *, model: str = DEFAULT_MODEL) -> dict:
+    """LLM-generate a language's word list and write seed_decks/<lang>.json.
+    Blocking (LLM call) — call via asyncio.to_thread. Returns {lang, count, path}."""
+    info = translation.LANG_INFO.get(lang)
+    if not info:
+        raise ValueError(f"{lang}: not in LANG_INFO")
+    items = _generate_items(lang, info, api_key, model)
+    if len(items) < MIN_VALID_ITEMS:
+        raise ValueError(f"{lang}: only {len(items)} valid items")
+    os.makedirs(SEED_DIR, exist_ok=True)
+    payload = {
+        "lang": lang,
+        "name": deck_name(info),
+        "description": deck_description(info, len(items)),
+        "items": items,
+    }
+    path = seed_path(lang)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return {"lang": lang, "count": len(items), "path": path}
 
 
-async def generate_deck(
-    system_id: int, lang: str, api_key: str, *,
-    model: str = DEFAULT_MODEL, force: bool = False,
-) -> dict:
-    """Generate (or regenerate) one language's Top-100 deck.
+# ── Phase 2: deterministic seed (committed file → DB) ────────────────────────
 
-    Returns {lang, status, deck_id?, count?, error?} where status is one of
-    'created' | 'skipped' | 'error'.
+async def seed_deck(system_id: int, lang: str, *, force: bool = False) -> dict:
+    """Load seed_decks/<lang>.json and upsert it as the system deck for that lang.
+
+    Without `force`, an already-present deck is left untouched (create-missing);
+    with `force` its items/description are refreshed from the file in place.
+    Returns {lang, status: created|updated|skipped|missing|error, deck_id?}.
     """
+    data = load_seed(lang)
+    if not data:
+        return {"lang": lang, "status": "missing"}
     info = translation.LANG_INFO.get(lang)
     if not info:
         return {"lang": lang, "status": "error", "error": "not in LANG_INFO"}
-    name = deck_name(info)
-    existing = await _existing_deck_id(lang, name)
+    name = data.get("name") or deck_name(info)
+    items = data.get("items") or []
+    if len(items) < MIN_VALID_ITEMS:
+        return {"lang": lang, "status": "error", "error": f"only {len(items)} items"}
+    existing = None
+    for d in await db.list_featured_decks(target_lang=lang):
+        if d["name"] == name:
+            existing = d["id"]
+            break
     if existing and not force:
         return {"lang": lang, "status": "skipped", "deck_id": existing}
-    try:
-        items = await asyncio.to_thread(generate_items, lang, info, api_key, model)
-    except Exception as e:  # noqa: BLE001 — surface any LLM/parse failure per lang
-        return {"lang": lang, "status": "error", "error": str(e)}
-    if len(items) < MIN_VALID_ITEMS:
-        return {"lang": lang, "status": "error",
-                "error": f"only {len(items)} valid items"}
-    if existing:
-        await db.delete_shared_deck(system_id, existing)
-    deck_id = await db.create_shared_deck(
+    deck_id, action = await db.upsert_featured_deck(
         system_id, name,
-        f"The {len(items)} most common words in {info['name']} — a fast start for beginners.",
-        lang, "public", items,
+        data.get("description") or deck_description(info, len(items)),
+        lang, items,
     )
-    return {"lang": lang, "status": "created", "deck_id": deck_id, "count": len(items)}
+    return {"lang": lang, "status": action, "deck_id": deck_id, "count": len(items)}
 
 
-async def generate_decks(
-    langs: list[str], api_key: str, *, system_id: int,
-    model: str = DEFAULT_MODEL, force: bool = False,
+async def seed_all(
+    system_id: int, *, langs: list[str] | None = None, force: bool = False,
 ) -> list[dict]:
-    """Generate decks for each language in turn. Best-effort — a failure on one
-    language never aborts the rest."""
+    """Seed every committed seed file (or a subset). Best-effort — one bad file
+    never aborts the rest."""
+    codes = langs if langs is not None else list_seed_langs()
     results = []
-    for lang in langs:
-        results.append(await generate_deck(system_id, lang, api_key, model=model, force=force))
+    for lang in codes:
+        try:
+            results.append(await seed_deck(system_id, lang, force=force))
+        except Exception as e:  # noqa: BLE001 — never let one file break seeding
+            results.append({"lang": lang, "status": "error", "error": str(e)})
     return results

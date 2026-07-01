@@ -1,0 +1,607 @@
+{
+  "lang": "es",
+  "name": "Top 100 Spanish Words",
+  "description": "The 100 most common words in Spanish — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (masc. sing.)",
+      "target_text": "el",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "of / from",
+      "target_text": "de",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that / which",
+      "target_text": "que",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (fem. sing.)",
+      "target_text": "la",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "y",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / at",
+      "target_text": "a",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / on",
+      "target_text": "en",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an (masc.)",
+      "target_text": "un",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be (permanent)",
+      "target_text": "ser",
+      "romanization": "",
+      "notes": "Used for identity, origin, characteristics, time."
+    },
+    {
+      "source_text": "reflexive / impersonal",
+      "target_text": "se",
+      "romanization": "",
+      "notes": "Used for reflexive actions, passive voice, or impersonal statements."
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "no",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have (auxiliary)",
+      "target_text": "haber",
+      "romanization": "",
+      "notes": "Used to form compound tenses ('he comido'); also 'hay' (there is/are)."
+    },
+    {
+      "source_text": "for / by",
+      "target_text": "por",
+      "romanization": "",
+      "notes": "Used for cause, duration, means, exchange."
+    },
+    {
+      "source_text": "with",
+      "target_text": "con",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "his/her/its/their",
+      "target_text": "su",
+      "romanization": "",
+      "notes": "Also 'your' (formal)."
+    },
+    {
+      "source_text": "for / to",
+      "target_text": "para",
+      "romanization": "",
+      "notes": "Used for purpose, destination, recipient, deadline."
+    },
+    {
+      "source_text": "as / like",
+      "target_text": "como",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be (temporary)",
+      "target_text": "estar",
+      "romanization": "",
+      "notes": "Used for location, temporary states, emotions."
+    },
+    {
+      "source_text": "to have / possess",
+      "target_text": "tener",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (masc. plural)",
+      "target_text": "los",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "him/her (indirect obj.)",
+      "target_text": "le",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "me (direct/indirect obj.)",
+      "target_text": "me",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "si",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more / most",
+      "target_text": "más",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "o",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "pero",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "ir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "yo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "it / him (direct obj.)",
+      "target_text": "lo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (fem. plural)",
+      "target_text": "las",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an (fem.)",
+      "target_text": "una",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "todo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he",
+      "target_text": "él",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / make",
+      "target_text": "hacer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be able to / can",
+      "target_text": "poder",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say / tell",
+      "target_text": "decir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this (masc.)",
+      "target_text": "este",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "other",
+      "target_text": "otro",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "same",
+      "target_text": "mismo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "well / good",
+      "target_text": "bien",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "without",
+      "target_text": "sin",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "neither / nor",
+      "target_text": "ni",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / now",
+      "target_text": "ya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "ver",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "dar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "cuando",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "siempre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only / alone",
+      "target_text": "solo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "between / among",
+      "target_text": "entre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "muy",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts/how-to)",
+      "target_text": "saber",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want / love",
+      "target_text": "querer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to arrive",
+      "target_text": "llegar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to pass / happen",
+      "target_text": "pasar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "should / must",
+      "target_text": "deber",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to put",
+      "target_text": "poner",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "from / since",
+      "target_text": "desde",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "each",
+      "target_text": "cada",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thus / so",
+      "target_text": "así",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what (interrogative)",
+      "target_text": "qué",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "donde",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time / weather",
+      "target_text": "tiempo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "life",
+      "target_text": "vida",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "much / many",
+      "target_text": "mucho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "something",
+      "target_text": "algo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one / a",
+      "target_text": "uno",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "dos",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "día",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "cosa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man",
+      "target_text": "hombre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman",
+      "target_text": "mujer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world",
+      "target_text": "mundo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "país",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / great",
+      "target_text": "grande",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "nuevo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "bueno",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "pequeño",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "better / best",
+      "target_text": "mejor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "trabajo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "amigo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "dinero",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "family",
+      "target_text": "familia",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "problem",
+      "target_text": "problema",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "noche",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hour / time",
+      "target_text": "hora",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "people",
+      "target_text": "gente",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "ahora",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after / then",
+      "target_text": "después",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "antes",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "nunca",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (formal sing.)",
+      "target_text": "usted",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we",
+      "target_text": "nosotros",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "they (masc./mixed)",
+      "target_text": "ellos",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she",
+      "target_text": "ella",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "my",
+      "target_text": "mi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "your (informal)",
+      "target_text": "tu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who (interrogative)",
+      "target_text": "quién",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also",
+      "target_text": "también",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "hoy",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+{
+  "lang": "te",
+  "name": "Top 100 Telugu Words",
+  "description": "The 100 most common words in Telugu — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "నేను",
+      "romanization": "nenu",
+      "notes": null
+    },
+    {
+      "source_text": "you",
+      "target_text": "మీరు",
+      "romanization": "mīru",
+      "notes": "plural / formal"
+    },
+    {
+      "source_text": "you",
+      "target_text": "నువ్వు",
+      "romanization": "nuvvu",
+      "notes": "singular / informal"
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "అతను",
+      "romanization": "atanu",
+      "notes": null
+    },
+    {
+      "source_text": "she / her",
+      "target_text": "ఆమె",
+      "romanization": "āmè",
+      "notes": null
+    },
+    {
+      "source_text": "it / that",
+      "target_text": "అది",
+      "romanization": "adi",
+      "notes": "neuter / non-human"
+    },
+    {
+      "source_text": "it / this",
+      "target_text": "ఇది",
+      "romanization": "idi",
+      "notes": "neuter / non-human"
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "వారు",
+      "romanization": "vāru",
+      "notes": "human"
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "అవి",
+      "romanization": "avi",
+      "notes": "non-human"
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "మేము",
+      "romanization": "memu",
+      "notes": "exclusive"
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "మనం",
+      "romanization": "manaṃ",
+      "notes": "inclusive"
+    },
+    {
+      "source_text": "to be / to exist",
+      "target_text": "ఉండటం",
+      "romanization": "uṃḍaṭaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "చేయడం",
+      "romanization": "ceyaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "వెళ్ళడం",
+      "romanization": "vèḻḻaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "రావడం",
+      "romanization": "rāvaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "చెప్పడం",
+      "romanization": "cèppaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "ఇవ్వడం",
+      "romanization": "ivvaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "తీసుకోవడం",
+      "romanization": "tīsukovaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to see / to look",
+      "target_text": "చూడటం",
+      "romanization": "cūḍaṭaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to hear / to listen",
+      "target_text": "వినడం",
+      "romanization": "vinaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "తినడం",
+      "romanization": "tinaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "తాగడం",
+      "romanization": "tāgaḍaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "అవును",
+      "romanization": "avunu",
+      "notes": null
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "కాదు",
+      "romanization": "kādu",
+      "notes": null
+    },
+    {
+      "source_text": "with / by",
+      "target_text": "తో",
+      "romanization": "to",
+      "notes": "postposition (instrumental)"
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "కు",
+      "romanization": "ku",
+      "notes": "postposition (dative)"
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "లో",
+      "romanization": "lo",
+      "notes": "postposition"
+    },
+    {
+      "source_text": "and",
+      "target_text": "మరియు",
+      "romanization": "mariyu",
+      "notes": null
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "కానీ",
+      "romanization": "kānī",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "లేదా",
+      "romanization": "ledā",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "ఇప్పుడు",
+      "romanization": "ippuḍu",
+      "notes": null
+    },
+    {
+      "source_text": "then",
+      "target_text": "అప్పుడు",
+      "romanization": "appuḍu",
+      "notes": null
+    },
+    {
+      "source_text": "when?",
+      "target_text": "ఎప్పుడు",
+      "romanization": "èppuḍu",
+      "notes": null
+    },
+    {
+      "source_text": "where?",
+      "target_text": "ఎక్కడ",
+      "romanization": "èkkaḍa",
+      "notes": null
+    },
+    {
+      "source_text": "how?",
+      "target_text": "ఎలా",
+      "romanization": "èlā",
+      "notes": null
+    },
+    {
+      "source_text": "what?",
+      "target_text": "ఏమిటి",
+      "romanization": "emiṭi",
+      "notes": null
+    },
+    {
+      "source_text": "who?",
+      "target_text": "ఎవరు",
+      "romanization": "èvaru",
+      "notes": null
+    },
+    {
+      "source_text": "which (one)?",
+      "target_text": "ఏది",
+      "romanization": "edi",
+      "notes": null
+    },
+    {
+      "source_text": "why?",
+      "target_text": "ఎందుకు",
+      "romanization": "èṃduku",
+      "notes": null
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "చాలా",
+      "romanization": "cālā",
+      "notes": null
+    },
+    {
+      "source_text": "also / even",
+      "target_text": "కూడా",
+      "romanization": "kūḍā",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "మంచి",
+      "romanization": "maṃci",
+      "notes": null
+    },
+    {
+      "source_text": "big / large / old",
+      "target_text": "పెద్ద",
+      "romanization": "pèdda",
+      "notes": "for people, or inanimate objects"
+    },
+    {
+      "source_text": "small / little / young",
+      "target_text": "చిన్న",
+      "romanization": "cinna",
+      "notes": "for people, or inanimate objects"
+    },
+    {
+      "source_text": "new",
+      "target_text": "కొత్త",
+      "romanization": "kòtta",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "పాత",
+      "romanization": "pāta",
+      "notes": "for inanimate objects"
+    },
+    {
+      "source_text": "more / ample",
+      "target_text": "ఎక్కువ",
+      "romanization": "èkkuva",
+      "notes": null
+    },
+    {
+      "source_text": "less / few",
+      "target_text": "తక్కువ",
+      "romanization": "takkuva",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "ఒకటి",
+      "romanization": "òkaṭi",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "రెండు",
+      "romanization": "rèṃḍu",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "మూడు",
+      "romanization": "mūḍu",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "నాలుగు",
+      "romanization": "nālugu",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "ఐదు",
+      "romanization": "aidu",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "రోజు",
+      "romanization": "roju",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "సమయం",
+      "romanization": "samayaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "పేరు",
+      "romanization": "peru",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "పని",
+      "romanization": "pani",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "నీళ్ళు",
+      "romanization": "nīḻḻu",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "ఆహారం",
+      "romanization": "āhāraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "ఇల్లు",
+      "romanization": "illu",
+      "notes": null
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "మనిషి",
+      "romanization": "maniṣi",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "డబ్బు",
+      "romanization": "ḍabbu",
+      "notes": null
+    },
+    {
+      "source_text": "please",
+      "target_text": "దయచేసి",
+      "romanization": "dayacesi",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "ధన్యవాదాలు",
+      "romanization": "dhanyavādālu",
+      "notes": null
+    },
+    {
+      "source_text": "hello / greetings",
+      "target_text": "నమస్కారం",
+      "romanization": "namaskāraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "excuse me / sorry",
+      "target_text": "క్షమించండి",
+      "romanization": "kṣamiṃcaṃḍi",
+      "notes": null
+    },
+    {
+      "source_text": "market",
+      "target_text": "మార్కెట్",
+      "romanization": "mārkèṭ",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "పుస్తకం",
+      "romanization": "pustakaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "phone",
+      "target_text": "ఫోన్",
+      "romanization": "phon",
+      "notes": null
+    },
+    {
+      "source_text": "language",
+      "target_text": "భాష",
+      "romanization": "bhāṣa",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "దేశం",
+      "romanization": "deśaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "village / town",
+      "target_text": "ఊరు",
+      "romanization": "ūru",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "నగరం",
+      "romanization": "nagaraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "mother",
+      "target_text": "తల్లి",
+      "romanization": "talli",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "తండ్రి",
+      "romanization": "taṃḍri",
+      "notes": null
+    },
+    {
+      "source_text": "elder brother",
+      "target_text": "అన్న",
+      "romanization": "anna",
+      "notes": null
+    },
+    {
+      "source_text": "elder sister",
+      "target_text": "అక్క",
+      "romanization": "akka",
+      "notes": null
+    },
+    {
+      "source_text": "younger brother",
+      "target_text": "తమ్ముడు",
+      "romanization": "tammuḍu",
+      "notes": null
+    },
+    {
+      "source_text": "younger sister",
+      "target_text": "చెల్లి",
+      "romanization": "cèlli",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "స్నేహితుడు",
+      "romanization": "snehituḍu",
+      "notes": "masculine"
+    },
+    {
+      "source_text": "friend",
+      "target_text": "స్నేహితురాలు",
+      "romanization": "snehiturālu",
+      "notes": "feminine"
+    },
+    {
+      "source_text": "student",
+      "target_text": "విద్యార్థి",
+      "romanization": "vidyārthi",
+      "notes": null
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "ఉపాధ్యాయుడు",
+      "romanization": "upādhyāyuḍu",
+      "notes": "masculine"
+    },
+    {
+      "source_text": "teacher",
+      "target_text": "ఉపాధ్యాయురాలు",
+      "romanization": "upādhyāyurālu",
+      "notes": "feminine"
+    },
+    {
+      "source_text": "happiness / happy",
+      "target_text": "సంతోషం",
+      "romanization": "saṃtoṣaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "sadness / sad",
+      "target_text": "దుఃఖం",
+      "romanization": "duḥkhaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "అందమైన",
+      "romanization": "aṃdamaina",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "ఈరోజు",
+      "romanization": "īroju",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "రేపు",
+      "romanization": "repu",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "నిన్న",
+      "romanization": "ninna",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "ఉదయం",
+      "romanization": "udayaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "evening",
+      "target_text": "సాయంత్రం",
+      "romanization": "sāyaṃtraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "రాత్రి",
+      "romanization": "rātri",
+      "notes": null
+    },
+    {
+      "source_text": "week",
+      "target_text": "వారం",
+      "romanization": "vāraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "month",
+      "target_text": "నెల",
+      "romanization": "nèla",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "సంవత్సరం",
+      "romanization": "saṃvatsaraṃ",
+      "notes": null
+    },
+    {
+      "source_text": "question",
+      "target_text": "ప్రశ్న",
+      "romanization": "praśna",
+      "notes": null
+    },
+    {
+      "source_text": "answer",
+      "target_text": "సమాధానం",
+      "romanization": "samādhānaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "matter / thing / topic",
+      "target_text": "విషయం",
+      "romanization": "viṣayaṃ",
+      "notes": null
+    },
+    {
+      "source_text": "meaning / half",
+      "target_text": "అర్థం",
+      "romanization": "arthaṃ",
+      "notes": null
+    }
+  ]
+}

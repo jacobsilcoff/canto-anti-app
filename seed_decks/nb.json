@@ -1,0 +1,601 @@
+{
+  "lang": "nb",
+  "name": "Top 100 Norwegian Words",
+  "description": "The 99 most common words in Norwegian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "og",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "å være",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "jeg",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "it / that",
+      "target_text": "det",
+      "romanization": "",
+      "notes": "pronoun or demonstrative"
+    },
+    {
+      "source_text": "in / at",
+      "target_text": "i",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an",
+      "target_text": "en",
+      "romanization": "",
+      "notes": "indefinite article (masc./fem.); neuter is 'et'"
+    },
+    {
+      "source_text": "not",
+      "target_text": "ikke",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "on / at",
+      "target_text": "på",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "å ha",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "til",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who / which / as",
+      "target_text": "som",
+      "romanization": "",
+      "notes": "relative pronoun / conjunction"
+    },
+    {
+      "source_text": "for / before",
+      "target_text": "for",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "med",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (sing.)",
+      "target_text": "du",
+      "romanization": "",
+      "notes": "subject pronoun"
+    },
+    {
+      "source_text": "he / him",
+      "target_text": "han",
+      "romanization": "",
+      "notes": "subject / object pronoun"
+    },
+    {
+      "source_text": "she",
+      "target_text": "hun",
+      "romanization": "",
+      "notes": "subject pronoun"
+    },
+    {
+      "source_text": "we",
+      "target_text": "vi",
+      "romanization": "",
+      "notes": "subject pronoun"
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "subject pronoun"
+    },
+    {
+      "source_text": "me",
+      "target_text": "meg",
+      "romanization": "",
+      "notes": "object pronoun"
+    },
+    {
+      "source_text": "you (obj. sing.)",
+      "target_text": "deg",
+      "romanization": "",
+      "notes": "object pronoun"
+    },
+    {
+      "source_text": "us",
+      "target_text": "oss",
+      "romanization": "",
+      "notes": "object pronoun"
+    },
+    {
+      "source_text": "them",
+      "target_text": "dem",
+      "romanization": "",
+      "notes": "object pronoun"
+    },
+    {
+      "source_text": "that",
+      "target_text": "at",
+      "romanization": "",
+      "notes": "subordinating conjunction"
+    },
+    {
+      "source_text": "from",
+      "target_text": "fra",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "når",
+      "romanization": "",
+      "notes": "interrogative / conjunction"
+    },
+    {
+      "source_text": "about / if",
+      "target_text": "om",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "eller",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "men",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "so / then",
+      "target_text": "så",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "her",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "der",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "nå",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / to be able to",
+      "target_text": "å kunne",
+      "romanization": "",
+      "notes": "modal verb"
+    },
+    {
+      "source_text": "must / to have to",
+      "target_text": "å måtte",
+      "romanization": "",
+      "notes": "modal verb"
+    },
+    {
+      "source_text": "will / to want to",
+      "target_text": "å ville",
+      "romanization": "",
+      "notes": "modal verb"
+    },
+    {
+      "source_text": "shall / to be going to",
+      "target_text": "å skulle",
+      "romanization": "",
+      "notes": "modal verb"
+    },
+    {
+      "source_text": "to do / make",
+      "target_text": "å gjøre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say",
+      "target_text": "å si",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "å komme",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go / walk",
+      "target_text": "å gå",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "å se",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "å ta",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "å gi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "å vite",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to find",
+      "target_text": "å finne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "under / during",
+      "target_text": "under",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "over / above",
+      "target_text": "over",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after",
+      "target_text": "etter",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "før",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "between",
+      "target_text": "mellom",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "hva",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "hvem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "hvor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "hvordan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "hvorfor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "nei",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "også",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "bare",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a little / some",
+      "target_text": "litt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "much / a lot",
+      "target_text": "mye",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "alltid",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "aldri",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "often",
+      "target_text": "ofte",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "perhaps / maybe",
+      "target_text": "kanskje",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "almost",
+      "target_text": "nesten",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "again",
+      "target_text": "igjen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "out",
+      "target_text": "ut",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in",
+      "target_text": "inn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "up",
+      "target_text": "opp",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "down",
+      "target_text": "ned",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "gladly",
+      "target_text": "gjerne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "tid",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "år",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "dag",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "people",
+      "target_text": "folk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "place",
+      "target_text": "sted",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "home",
+      "target_text": "hjem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to work",
+      "target_text": "å jobbe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "penger",
+      "romanization": "",
+      "notes": "plural form, common dictionary entry"
+    },
+    {
+      "source_text": "country",
+      "target_text": "land",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "by",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "room",
+      "target_text": "rom",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "barn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man / husband",
+      "target_text": "mann",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman / wife",
+      "target_text": "kvinne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "venn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "navn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "problem",
+      "target_text": "problem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "road / way",
+      "target_text": "vei",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "ting",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "bra",
+      "romanization": "",
+      "notes": "uninflected adjective/adverb"
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "stor",
+      "romanization": "",
+      "notes": "dictionary form (masc./fem. singular indefinite)"
+    },
+    {
+      "source_text": "small",
+      "target_text": "liten",
+      "romanization": "",
+      "notes": "dictionary form (masc./fem. singular indefinite)"
+    },
+    {
+      "source_text": "good",
+      "target_text": "god",
+      "romanization": "",
+      "notes": "dictionary form (masc./fem. singular indefinite)"
+    },
+    {
+      "source_text": "new",
+      "target_text": "ny",
+      "romanization": "",
+      "notes": "dictionary form (masc./fem. singular indefinite)"
+    },
+    {
+      "source_text": "old",
+      "target_text": "gammel",
+      "romanization": "",
+      "notes": "dictionary form (masc./fem. singular indefinite)"
+    },
+    {
+      "source_text": "two",
+      "target_text": "to",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "tre",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

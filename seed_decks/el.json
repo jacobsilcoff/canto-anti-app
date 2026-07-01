@@ -1,0 +1,607 @@
+{
+  "lang": "el",
+  "name": "Top 100 Greek Words",
+  "description": "The 100 most common words in Greek — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (masc.)",
+      "target_text": "ο",
+      "romanization": "o",
+      "notes": "definite article"
+    },
+    {
+      "source_text": "the (fem.)",
+      "target_text": "η",
+      "romanization": "i",
+      "notes": "definite article"
+    },
+    {
+      "source_text": "the (neut.)",
+      "target_text": "το",
+      "romanization": "to",
+      "notes": "definite article"
+    },
+    {
+      "source_text": "and",
+      "target_text": "και",
+      "romanization": "kai",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "I am / to be",
+      "target_text": "είμαι",
+      "romanization": "eimai",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "a / an / one (masc.)",
+      "target_text": "ένας",
+      "romanization": "enas",
+      "notes": "indefinite article / number"
+    },
+    {
+      "source_text": "a / an / one (fem.)",
+      "target_text": "μια",
+      "romanization": "mia",
+      "notes": "indefinite article / number"
+    },
+    {
+      "source_text": "a / an / one (neut.)",
+      "target_text": "ένα",
+      "romanization": "ena",
+      "notes": "indefinite article / number"
+    },
+    {
+      "source_text": "with / me",
+      "target_text": "με",
+      "romanization": "me",
+      "notes": "preposition / pronoun (accusative)"
+    },
+    {
+      "source_text": "not",
+      "target_text": "δεν",
+      "romanization": "den",
+      "notes": "negative particle"
+    },
+    {
+      "source_text": "to (particle)",
+      "target_text": "να",
+      "romanization": "na",
+      "notes": "subjunctive / purpose particle"
+    },
+    {
+      "source_text": "in / to / at / you",
+      "target_text": "σε",
+      "romanization": "se",
+      "notes": "preposition / pronoun (accusative)"
+    },
+    {
+      "source_text": "for / about",
+      "target_text": "για",
+      "romanization": "gia",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "my / to me",
+      "target_text": "μου",
+      "romanization": "moy",
+      "notes": "pronoun (genitive)"
+    },
+    {
+      "source_text": "what",
+      "target_text": "τι",
+      "romanization": "ti",
+      "notes": "interrogative pronoun"
+    },
+    {
+      "source_text": "from / by",
+      "target_text": "από",
+      "romanization": "apo",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "no",
+      "target_text": "όχι",
+      "romanization": "ochi",
+      "notes": "particle"
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ναι",
+      "romanization": "nai",
+      "notes": "particle"
+    },
+    {
+      "source_text": "I have / to have",
+      "target_text": "έχω",
+      "romanization": "echo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "will (particle)",
+      "target_text": "θα",
+      "romanization": "tha",
+      "notes": "future tense particle"
+    },
+    {
+      "source_text": "but",
+      "target_text": "μα",
+      "romanization": "ma",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "very / much",
+      "target_text": "πολύ",
+      "romanization": "poly",
+      "notes": "adverb / adjective"
+    },
+    {
+      "source_text": "all / whole (masc.)",
+      "target_text": "όλος",
+      "romanization": "olos",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "how",
+      "target_text": "πώς",
+      "romanization": "pos",
+      "notes": "interrogative adverb"
+    },
+    {
+      "source_text": "where",
+      "target_text": "πού",
+      "romanization": "poy",
+      "notes": "interrogative adverb"
+    },
+    {
+      "source_text": "who / which / that",
+      "target_text": "που",
+      "romanization": "poy",
+      "notes": "relative pronoun / conjunction"
+    },
+    {
+      "source_text": "more (particle)",
+      "target_text": "πιο",
+      "romanization": "pio",
+      "notes": "comparative particle"
+    },
+    {
+      "source_text": "or",
+      "target_text": "ή",
+      "romanization": "i",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "that (conjunction)",
+      "target_text": "ότι",
+      "romanization": "oti",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "to / towards",
+      "target_text": "προς",
+      "romanization": "pros",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "of the / his (masc. gen.)",
+      "target_text": "του",
+      "romanization": "toy",
+      "notes": "article / pronoun"
+    },
+    {
+      "source_text": "of the / her (fem. gen.)",
+      "target_text": "της",
+      "romanization": "tis",
+      "notes": "article / pronoun"
+    },
+    {
+      "source_text": "your / to you (sing.)",
+      "target_text": "σου",
+      "romanization": "soy",
+      "notes": "pronoun (genitive)"
+    },
+    {
+      "source_text": "their / them",
+      "target_text": "τους",
+      "romanization": "toys",
+      "notes": "pronoun (genitive/accusative pl.) / article"
+    },
+    {
+      "source_text": "our / to us",
+      "target_text": "μας",
+      "romanization": "mas",
+      "notes": "pronoun (genitive/accusative pl.)"
+    },
+    {
+      "source_text": "your (pl) / to you (pl)",
+      "target_text": "σας",
+      "romanization": "sas",
+      "notes": "pronoun (genitive/accusative pl.)"
+    },
+    {
+      "source_text": "I",
+      "target_text": "εγώ",
+      "romanization": "ego",
+      "notes": "personal pronoun"
+    },
+    {
+      "source_text": "you (sing.)",
+      "target_text": "εσύ",
+      "romanization": "esy",
+      "notes": "personal pronoun"
+    },
+    {
+      "source_text": "he / this (masc.)",
+      "target_text": "αυτός",
+      "romanization": "aytos",
+      "notes": "demonstrative pronoun"
+    },
+    {
+      "source_text": "she / this (fem.)",
+      "target_text": "αυτή",
+      "romanization": "ayti",
+      "notes": "demonstrative pronoun"
+    },
+    {
+      "source_text": "it / this (neut.)",
+      "target_text": "αυτό",
+      "romanization": "ayto",
+      "notes": "demonstrative pronoun"
+    },
+    {
+      "source_text": "no one / any (masc.)",
+      "target_text": "κανένας",
+      "romanization": "kanenas",
+      "notes": "indefinite pronoun"
+    },
+    {
+      "source_text": "something",
+      "target_text": "κάτι",
+      "romanization": "kati",
+      "notes": "indefinite pronoun"
+    },
+    {
+      "source_text": "every / each",
+      "target_text": "κάθε",
+      "romanization": "kathe",
+      "notes": "indefinite pronoun"
+    },
+    {
+      "source_text": "only / alone",
+      "target_text": "μόνο",
+      "romanization": "mono",
+      "notes": "adverb / adjective"
+    },
+    {
+      "source_text": "now",
+      "target_text": "τώρα",
+      "romanization": "tora",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "then",
+      "target_text": "τότε",
+      "romanization": "tote",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "outside",
+      "target_text": "έξω",
+      "romanization": "exo",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "inside",
+      "target_text": "μέσα",
+      "romanization": "mesa",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "always",
+      "target_text": "πάντα",
+      "romanization": "panta",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "never",
+      "target_text": "ποτέ",
+      "romanization": "pote",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "before",
+      "target_text": "πριν",
+      "romanization": "prin",
+      "notes": "adverb / preposition"
+    },
+    {
+      "source_text": "after",
+      "target_text": "μετά",
+      "romanization": "meta",
+      "notes": "adverb / preposition"
+    },
+    {
+      "source_text": "first (masc.)",
+      "target_text": "πρώτος",
+      "romanization": "protos",
+      "notes": "ordinal number / adjective"
+    },
+    {
+      "source_text": "second (masc.)",
+      "target_text": "δεύτερος",
+      "romanization": "deyteros",
+      "notes": "ordinal number / adjective"
+    },
+    {
+      "source_text": "two",
+      "target_text": "δύο",
+      "romanization": "dyo",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "three",
+      "target_text": "τρεις",
+      "romanization": "treis",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "four",
+      "target_text": "τέσσερις",
+      "romanization": "tesseris",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "five",
+      "target_text": "πέντε",
+      "romanization": "pente",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "six",
+      "target_text": "έξι",
+      "romanization": "exi",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "seven",
+      "target_text": "επτά",
+      "romanization": "epta",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "eight",
+      "target_text": "οκτώ",
+      "romanization": "okto",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "nine",
+      "target_text": "εννιά",
+      "romanization": "ennia",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "ten",
+      "target_text": "δέκα",
+      "romanization": "deka",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "εκατό",
+      "romanization": "ekato",
+      "notes": "cardinal number"
+    },
+    {
+      "source_text": "I come / to come",
+      "target_text": "έρχομαι",
+      "romanization": "erchomai",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I go / to go",
+      "target_text": "πηγαίνω",
+      "romanization": "pigaino",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I say / to say",
+      "target_text": "λέω",
+      "romanization": "leo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I do / make",
+      "target_text": "κάνω",
+      "romanization": "kano",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I see / to see",
+      "target_text": "βλέπω",
+      "romanization": "vlepo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I want / to want",
+      "target_text": "θέλω",
+      "romanization": "thelo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I know / to know",
+      "target_text": "ξέρω",
+      "romanization": "xero",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I can / to be able",
+      "target_text": "μπορώ",
+      "romanization": "mporo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I give / to give",
+      "target_text": "δίνω",
+      "romanization": "dino",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I take / to take",
+      "target_text": "παίρνω",
+      "romanization": "pairno",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I find / to find",
+      "target_text": "βρίσκω",
+      "romanization": "vrisko",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I put / to put",
+      "target_text": "βάζω",
+      "romanization": "vazo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I eat / to eat",
+      "target_text": "τρώω",
+      "romanization": "troo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I drink / to drink",
+      "target_text": "πίνω",
+      "romanization": "pino",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I stay / live",
+      "target_text": "μένω",
+      "romanization": "meno",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I work / to work",
+      "target_text": "δουλεύω",
+      "romanization": "doyleyo",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "I speak / to speak",
+      "target_text": "μιλάω",
+      "romanization": "milao",
+      "notes": "verb (1st pers. sing.)"
+    },
+    {
+      "source_text": "good (masc.)",
+      "target_text": "καλός",
+      "romanization": "kalos",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "bad (masc.)",
+      "target_text": "κακός",
+      "romanization": "kakos",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "big / large (masc.)",
+      "target_text": "μεγάλος",
+      "romanization": "megalos",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "small / little (masc.)",
+      "target_text": "μικρός",
+      "romanization": "mikros",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "new / young (masc.)",
+      "target_text": "νέος",
+      "romanization": "neos",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "old (masc.)",
+      "target_text": "παλιός",
+      "romanization": "palios",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "other (masc.)",
+      "target_text": "άλλος",
+      "romanization": "allos",
+      "notes": "adjective / pronoun"
+    },
+    {
+      "source_text": "same (masc.)",
+      "target_text": "ίδιος",
+      "romanization": "idios",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "person / man",
+      "target_text": "άνθρωπος",
+      "romanization": "anthropos",
+      "notes": "noun"
+    },
+    {
+      "source_text": "woman",
+      "target_text": "γυναίκα",
+      "romanization": "gynaika",
+      "notes": "noun"
+    },
+    {
+      "source_text": "child",
+      "target_text": "παιδί",
+      "romanization": "paidi",
+      "notes": "noun"
+    },
+    {
+      "source_text": "day",
+      "target_text": "ημέρα",
+      "romanization": "imera",
+      "notes": "noun"
+    },
+    {
+      "source_text": "night",
+      "target_text": "νύχτα",
+      "romanization": "nychta",
+      "notes": "noun"
+    },
+    {
+      "source_text": "time / year",
+      "target_text": "χρόνος",
+      "romanization": "chronos",
+      "notes": "noun"
+    },
+    {
+      "source_text": "water",
+      "target_text": "νερό",
+      "romanization": "nero",
+      "notes": "noun"
+    },
+    {
+      "source_text": "house",
+      "target_text": "σπίτι",
+      "romanization": "spiti",
+      "notes": "noun"
+    },
+    {
+      "source_text": "money",
+      "target_text": "χρήματα",
+      "romanization": "chrimata",
+      "notes": "noun (usually plural for general money)"
+    },
+    {
+      "source_text": "city",
+      "target_text": "πόλη",
+      "romanization": "poli",
+      "notes": "noun"
+    }
+  ]
+}

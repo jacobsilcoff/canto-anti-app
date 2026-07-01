@@ -1,0 +1,601 @@
+{
+  "lang": "uk",
+  "name": "Top 100 Ukrainian Words",
+  "description": "The 99 most common words in Ukrainian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "і",
+      "romanization": "i",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "бути",
+      "romanization": "buty",
+      "notes": null
+    },
+    {
+      "source_text": "in, at",
+      "target_text": "в",
+      "romanization": "v",
+      "notes": "phonetic variant 'у' often used before vowels or certain consonants"
+    },
+    {
+      "source_text": "not",
+      "target_text": "не",
+      "romanization": "ne",
+      "notes": null
+    },
+    {
+      "source_text": "on, at, to",
+      "target_text": "на",
+      "romanization": "na",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "я",
+      "romanization": "ja",
+      "notes": null
+    },
+    {
+      "source_text": "that, what",
+      "target_text": "що",
+      "romanization": "shcho",
+      "notes": null
+    },
+    {
+      "source_text": "he",
+      "target_text": "він",
+      "romanization": "vin",
+      "notes": null
+    },
+    {
+      "source_text": "with, from",
+      "target_text": "з",
+      "romanization": "z",
+      "notes": "phonetic variants 'із', 'зі' often used before vowels or certain consonants"
+    },
+    {
+      "source_text": "this is, it is",
+      "target_text": "це",
+      "romanization": "tse",
+      "notes": null
+    },
+    {
+      "source_text": "how, as",
+      "target_text": "як",
+      "romanization": "jak",
+      "notes": null
+    },
+    {
+      "source_text": "to, until",
+      "target_text": "до",
+      "romanization": "do",
+      "notes": null
+    },
+    {
+      "source_text": "we",
+      "target_text": "ми",
+      "romanization": "my",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular, informal)",
+      "target_text": "ти",
+      "romanization": "ty",
+      "notes": null
+    },
+    {
+      "source_text": "she",
+      "target_text": "вона",
+      "romanization": "vona",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "мати",
+      "romanization": "maty",
+      "notes": null
+    },
+    {
+      "source_text": "but, and",
+      "target_text": "а",
+      "romanization": "a",
+      "notes": null
+    },
+    {
+      "source_text": "for",
+      "target_text": "для",
+      "romanization": "dlja",
+      "notes": null
+    },
+    {
+      "source_text": "from, since",
+      "target_text": "від",
+      "romanization": "vid",
+      "notes": null
+    },
+    {
+      "source_text": "or; interrogative particle",
+      "target_text": "чи",
+      "romanization": "chy",
+      "notes": null
+    },
+    {
+      "source_text": "and, but",
+      "target_text": "та",
+      "romanization": "ta",
+      "notes": null
+    },
+    {
+      "source_text": "to say, to tell",
+      "target_text": "сказати",
+      "romanization": "skazaty",
+      "notes": "(perfective aspect)"
+    },
+    {
+      "source_text": "but",
+      "target_text": "але",
+      "romanization": "ale",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "цей",
+      "romanization": "tsej",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "they",
+      "target_text": "вони",
+      "romanization": "vony",
+      "notes": null
+    },
+    {
+      "source_text": "all, everything",
+      "target_text": "все",
+      "romanization": "vse",
+      "notes": null
+    },
+    {
+      "source_text": "yes, so",
+      "target_text": "так",
+      "romanization": "tak",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "один",
+      "romanization": "odyn",
+      "notes": "(masculine)"
+    },
+    {
+      "source_text": "about, concerning",
+      "target_text": "про",
+      "romanization": "pro",
+      "notes": null
+    },
+    {
+      "source_text": "then, that",
+      "target_text": "то",
+      "romanization": "to",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "час",
+      "romanization": "chas",
+      "notes": null
+    },
+    {
+      "source_text": "needed, must",
+      "target_text": "треба",
+      "romanization": "treba",
+      "notes": "(impersonal verb/adverb)"
+    },
+    {
+      "source_text": "you (plural, formal)",
+      "target_text": "ви",
+      "romanization": "vy",
+      "notes": null
+    },
+    {
+      "source_text": "still, yet, more",
+      "target_text": "ще",
+      "romanization": "shche",
+      "notes": null
+    },
+    {
+      "source_text": "to be able to, can",
+      "target_text": "могти",
+      "romanization": "mohty",
+      "notes": "common form 'може' (can/maybe)"
+    },
+    {
+      "source_text": "to see",
+      "target_text": "бачити",
+      "romanization": "bachyty",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "рік",
+      "romanization": "rik",
+      "notes": null
+    },
+    {
+      "source_text": "person, human",
+      "target_text": "людина",
+      "romanization": "ljudyna",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "коли",
+      "romanization": "koly",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "хотіти",
+      "romanization": "khotity",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "день",
+      "romanization": "den'",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "знати",
+      "romanization": "znaty",
+      "notes": null
+    },
+    {
+      "source_text": "well, good",
+      "target_text": "добре",
+      "romanization": "dobre",
+      "notes": null
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "робити",
+      "romanization": "robyty",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "дати",
+      "romanization": "daty",
+      "notes": "(perfective aspect)"
+    },
+    {
+      "source_text": "without",
+      "target_text": "без",
+      "romanization": "bez",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "тут",
+      "romanization": "tut",
+      "notes": null
+    },
+    {
+      "source_text": "other, another",
+      "target_text": "інший",
+      "romanization": "inshyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "one's own",
+      "target_text": "свій",
+      "romanization": "svij",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "then, afterwards",
+      "target_text": "потім",
+      "romanization": "potim",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "зараз",
+      "romanization": "zaraz",
+      "notes": null
+    },
+    {
+      "source_text": "exactly, precisely",
+      "target_text": "саме",
+      "romanization": "same",
+      "notes": null
+    },
+    {
+      "source_text": "more",
+      "target_text": "більше",
+      "romanization": "bil'she",
+      "notes": "(comparative)"
+    },
+    {
+      "source_text": "here is/are, behold",
+      "target_text": "ось",
+      "romanization": "os'",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "два",
+      "romanization": "dva",
+      "notes": "(masculine/neuter)"
+    },
+    {
+      "source_text": "before, in front of",
+      "target_text": "перед",
+      "romanization": "pered",
+      "notes": null
+    },
+    {
+      "source_text": "after",
+      "target_text": "після",
+      "romanization": "pislja",
+      "notes": null
+    },
+    {
+      "source_text": "no, neither",
+      "target_text": "ні",
+      "romanization": "ni",
+      "notes": null
+    },
+    {
+      "source_text": "to go, to walk",
+      "target_text": "йти",
+      "romanization": "jty",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "новий",
+      "romanization": "novyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "father",
+      "target_text": "батько",
+      "romanization": "bat'ko",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "дитина",
+      "romanization": "dytyna",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "вода",
+      "romanization": "voda",
+      "notes": null
+    },
+    {
+      "source_text": "hand, arm",
+      "target_text": "рука",
+      "romanization": "ruka",
+      "notes": null
+    },
+    {
+      "source_text": "head",
+      "target_text": "голова",
+      "romanization": "holova",
+      "notes": null
+    },
+    {
+      "source_text": "eye",
+      "target_text": "око",
+      "romanization": "oko",
+      "notes": null
+    },
+    {
+      "source_text": "word",
+      "target_text": "слово",
+      "romanization": "slovo",
+      "notes": null
+    },
+    {
+      "source_text": "city, town",
+      "target_text": "місто",
+      "romanization": "misto",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "країна",
+      "romanization": "krayina",
+      "notes": null
+    },
+    {
+      "source_text": "big, large, great",
+      "target_text": "великий",
+      "romanization": "velykyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "small, little",
+      "target_text": "малий",
+      "romanization": "malyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "good, kind",
+      "target_text": "добрий",
+      "romanization": "dobryj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "beautiful, nice",
+      "target_text": "гарний",
+      "romanization": "harnyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "first",
+      "target_text": "перший",
+      "romanization": "pershyj",
+      "notes": "(masculine singular)"
+    },
+    {
+      "source_text": "three",
+      "target_text": "три",
+      "romanization": "try",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "чотири",
+      "romanization": "chotyry",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "п'ять",
+      "romanization": "p'jat'",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "десять",
+      "romanization": "desjat'",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "дякую",
+      "romanization": "djakuju",
+      "notes": null
+    },
+    {
+      "source_text": "please, I ask",
+      "target_text": "прошу",
+      "romanization": "proshu",
+      "notes": "can also mean 'you're welcome'"
+    },
+    {
+      "source_text": "at least, though",
+      "target_text": "хоч",
+      "romanization": "khoch",
+      "notes": null
+    },
+    {
+      "source_text": "even",
+      "target_text": "навіть",
+      "romanization": "navit'",
+      "notes": null
+    },
+    {
+      "source_text": "only, just",
+      "target_text": "тільки",
+      "romanization": "til'ky",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "завжди",
+      "romanization": "zavzhdy",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "ніколи",
+      "romanization": "nikoly",
+      "notes": null
+    },
+    {
+      "source_text": "world, light",
+      "target_text": "світ",
+      "romanization": "svit",
+      "notes": null
+    },
+    {
+      "source_text": "earth, land, soil",
+      "target_text": "земля",
+      "romanization": "zemlja",
+      "notes": null
+    },
+    {
+      "source_text": "sun",
+      "target_text": "сонце",
+      "romanization": "sontse",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "ніч",
+      "romanization": "nich",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "ранок",
+      "romanization": "ranok",
+      "notes": null
+    },
+    {
+      "source_text": "evening",
+      "target_text": "вечір",
+      "romanization": "vechir",
+      "notes": null
+    },
+    {
+      "source_text": "to speak, to talk",
+      "target_text": "говорити",
+      "romanization": "hovoryty",
+      "notes": "(imperfective aspect)"
+    },
+    {
+      "source_text": "to live",
+      "target_text": "жити",
+      "romanization": "zhyty",
+      "notes": null
+    },
+    {
+      "source_text": "to work",
+      "target_text": "працювати",
+      "romanization": "pratsjuvaty",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "їсти",
+      "romanization": "yisty",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "пити",
+      "romanization": "pyty",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "сидіти",
+      "romanization": "sydity",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "стояти",
+      "romanization": "stojaty",
+      "notes": null
+    },
+    {
+      "source_text": "to lie, to be lying",
+      "target_text": "лежати",
+      "romanization": "lezhaty",
+      "notes": null
+    }
+  ]
+}

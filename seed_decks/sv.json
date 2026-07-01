@@ -1,0 +1,607 @@
+{
+  "lang": "sv",
+  "name": "Top 100 Swedish Words",
+  "description": "The 100 most common words in Swedish — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to / that",
+      "target_text": "att",
+      "romanization": "",
+      "notes": "infinitive marker, conjunction"
+    },
+    {
+      "source_text": "and",
+      "target_text": "och",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "is / are",
+      "target_text": "är",
+      "romanization": "",
+      "notes": "present tense of 'vara' (to be)"
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "en",
+      "romanization": "",
+      "notes": "indefinite article (common gender), number"
+    },
+    {
+      "source_text": "I",
+      "target_text": "jag",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "it / that",
+      "target_text": "det",
+      "romanization": "",
+      "notes": "pronoun (neuter), definite article"
+    },
+    {
+      "source_text": "have / has",
+      "target_text": "har",
+      "romanization": "",
+      "notes": "present tense of 'ha' (to have)"
+    },
+    {
+      "source_text": "on / at / in",
+      "target_text": "på",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for / because",
+      "target_text": "för",
+      "romanization": "",
+      "notes": "preposition, conjunction"
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "till",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "med",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the / it / that",
+      "target_text": "den",
+      "romanization": "",
+      "notes": "definite article (common gender), pronoun"
+    },
+    {
+      "source_text": "not",
+      "target_text": "inte",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who / which / as",
+      "target_text": "som",
+      "romanization": "",
+      "notes": "relative pronoun, conjunction"
+    },
+    {
+      "source_text": "from",
+      "target_text": "från",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one (impersonal)",
+      "target_text": "man",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can",
+      "target_text": "kan",
+      "romanization": "",
+      "notes": "present tense of 'kunna' (to be able to)"
+    },
+    {
+      "source_text": "so / then",
+      "target_text": "så",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / even",
+      "target_text": "även",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "nu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "be",
+      "target_text": "vara",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "he",
+      "target_text": "han",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "ett",
+      "romanization": "",
+      "notes": "indefinite article (neuter gender), number"
+    },
+    {
+      "source_text": "me",
+      "target_text": "mig",
+      "romanization": "",
+      "notes": "object pronoun of 'jag'"
+    },
+    {
+      "source_text": "we",
+      "target_text": "vi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "would / should",
+      "target_text": "skulle",
+      "romanization": "",
+      "notes": "past conditional of 'ska' (shall)"
+    },
+    {
+      "source_text": "more",
+      "target_text": "mer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there / where",
+      "target_text": "där",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "much / very",
+      "target_text": "mycket",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / everything",
+      "target_text": "allt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "när",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "come",
+      "target_text": "komma",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "do / make",
+      "target_text": "gör",
+      "romanization": "",
+      "notes": "present tense of 'göra' (to do)"
+    },
+    {
+      "source_text": "all",
+      "target_text": "alla",
+      "romanization": "",
+      "notes": "plural form"
+    },
+    {
+      "source_text": "under / during",
+      "target_text": "under",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "get / may",
+      "target_text": "får",
+      "romanization": "",
+      "notes": "present tense of 'få' (to get, to be allowed to)"
+    },
+    {
+      "source_text": "other / second",
+      "target_text": "andra",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "eller",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she",
+      "target_text": "hon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "out / outside",
+      "target_text": "ut",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "in",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "up / upwards",
+      "target_text": "upp",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "down / downwards",
+      "target_text": "ner",
+      "romanization": "",
+      "notes": "common variant of 'ned'"
+    },
+    {
+      "source_text": "if / about / around",
+      "target_text": "om",
+      "romanization": "",
+      "notes": "conjunction, preposition"
+    },
+    {
+      "source_text": "then / when",
+      "target_text": "då",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no one / no",
+      "target_text": "ingen",
+      "romanization": "",
+      "notes": "common gender"
+    },
+    {
+      "source_text": "someone / some",
+      "target_text": "någon",
+      "romanization": "",
+      "notes": "common gender"
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "bara",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "också",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "vad",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "hur",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "var",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "want",
+      "target_text": "vill",
+      "romanization": "",
+      "notes": "present tense of 'vilja' (to want)"
+    },
+    {
+      "source_text": "do / make",
+      "target_text": "göra",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "see",
+      "target_text": "se",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "say / tell",
+      "target_text": "säga",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "can / be able to",
+      "target_text": "kunna",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "get / receive / allowed",
+      "target_text": "få",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "self / -self",
+      "target_text": "själv",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "aldrig",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "alltid",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "soon",
+      "target_text": "snart",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "dag",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "år",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "tid",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "life",
+      "target_text": "liv",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "people",
+      "target_text": "folk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country / land",
+      "target_text": "land",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "stad",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "home",
+      "target_text": "hem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "hand",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "vatten",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "hus",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "barn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "human being / person",
+      "target_text": "människa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world",
+      "target_text": "värld",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "stor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "liten",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "bra",
+      "romanization": "",
+      "notes": "general meaning of good"
+    },
+    {
+      "source_text": "new",
+      "target_text": "ny",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "gammal",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / kind",
+      "target_text": "god",
+      "romanization": "",
+      "notes": "often for taste or moral good"
+    },
+    {
+      "source_text": "long",
+      "target_text": "lång",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "Swedish",
+      "target_text": "svensk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "something / anything",
+      "target_text": "något",
+      "romanization": "",
+      "notes": "neuter form of 'någon'"
+    },
+    {
+      "source_text": "three",
+      "target_text": "tre",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "fyra",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "fem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "six",
+      "target_text": "sex",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "since / then",
+      "target_text": "sedan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "these",
+      "target_text": "dessa",
+      "romanization": "",
+      "notes": "plural demonstrative pronoun"
+    },
+    {
+      "source_text": "must",
+      "target_text": "måste",
+      "romanization": "",
+      "notes": "modal verb"
+    },
+    {
+      "source_text": "back / backwards",
+      "target_text": "tillbaka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "really / truly",
+      "target_text": "verkligen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "same",
+      "target_text": "samma",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "nej",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "tack",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hi / hello",
+      "target_text": "hej",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "please / kindly",
+      "target_text": "snälla",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

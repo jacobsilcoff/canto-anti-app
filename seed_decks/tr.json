@@ -1,0 +1,607 @@
+{
+  "lang": "tr",
+  "name": "Top 100 Turkish Words",
+  "description": "The 100 most common words in Turkish — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "to be / to become",
+      "target_text": "olmak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "ve",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this / these",
+      "target_text": "bu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "bir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "ben",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it / that",
+      "target_text": "o",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "ne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there is / exists",
+      "target_text": "var",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there isn't / doesn't exist",
+      "target_text": "yok",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "çok",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make (auxiliary)",
+      "target_text": "etmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "de",
+      "romanization": "",
+      "notes": "Vowel harmony applies (da)."
+    },
+    {
+      "source_text": "for / in order to",
+      "target_text": "için",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "like / as",
+      "target_text": "gibi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with / and",
+      "target_text": "ile",
+      "romanization": "",
+      "notes": "Often suffixed as -(y)le/-(y)la."
+    },
+    {
+      "source_text": "to come",
+      "target_text": "gelmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "gitmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "yapmak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to take / to buy",
+      "target_text": "almak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "vermek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "sen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "görmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "bilmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say",
+      "target_text": "demek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "istemek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "zaman",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "gün",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "iyi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "nasıl",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "kim",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "ama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "every / each",
+      "target_text": "her",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "yeni",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "büyük",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "küçük",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful / nice",
+      "target_text": "güzel",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person / human",
+      "target_text": "insan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "şey",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "place / ground",
+      "target_text": "yer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "su",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "yıl",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand / arm",
+      "target_text": "el",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "eye",
+      "target_text": "göz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job / business",
+      "target_text": "iş",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "para",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "çocuk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "ev",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "mother",
+      "target_text": "anne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "baba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "arkadaş",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "other / another",
+      "target_text": "başka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "şimdi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after / later",
+      "target_text": "sonra",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before / first",
+      "target_text": "önce",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always / all the time",
+      "target_text": "hep",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "sadece",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "even",
+      "target_text": "bile",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "because",
+      "target_text": "çünkü",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "eğer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hello",
+      "target_text": "merhaba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "evet",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "hayır",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thanks",
+      "target_text": "teşekkür",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "please",
+      "target_text": "lütfen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "biz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (plural/formal)",
+      "target_text": "siz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "onlar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "self / own",
+      "target_text": "kendi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "first",
+      "target_text": "ilk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "last / end",
+      "target_text": "son",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "few / little",
+      "target_text": "az",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / whole",
+      "target_text": "bütün",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a little / some",
+      "target_text": "biraz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "food / to eat",
+      "target_text": "yemek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "içmek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to open",
+      "target_text": "açmak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to close",
+      "target_text": "kapatmak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "correct / right / straight",
+      "target_text": "doğru",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "wrong / incorrect",
+      "target_text": "yanlış",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "excuse me / pardon me",
+      "target_text": "affedersiniz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bad",
+      "target_text": "kötü",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "eski",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "söylemek",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world",
+      "target_text": "dünya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "iki",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "üç",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "dört",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "beş",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "on",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "door",
+      "target_text": "kapı",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "window",
+      "target_text": "pencere",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "table",
+      "target_text": "masa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "chair",
+      "target_text": "sandalye",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "kitap",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "pen / pencil",
+      "target_text": "kalem",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "phone",
+      "target_text": "telefon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "car",
+      "target_text": "araba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city",
+      "target_text": "şehir",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "ülke",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "lesson / class",
+      "target_text": "ders",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

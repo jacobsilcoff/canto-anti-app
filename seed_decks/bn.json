@@ -1,0 +1,607 @@
+{
+  "lang": "bn",
+  "name": "Top 100 Bengali Words",
+  "description": "The 100 most common words in Bengali — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "আমি",
+      "romanization": "āmi",
+      "notes": null
+    },
+    {
+      "source_text": "you (familiar)",
+      "target_text": "তুমি",
+      "romanization": "tumi",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it / that",
+      "target_text": "সে",
+      "romanization": "se",
+      "notes": null
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "না",
+      "romanization": "nā",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "হ্যাঁ",
+      "romanization": "hyā~",
+      "notes": null
+    },
+    {
+      "source_text": "is (general fact)",
+      "target_text": "হয়",
+      "romanization": "haẏa",
+      "notes": null
+    },
+    {
+      "source_text": "is / has (existential)",
+      "target_text": "আছে",
+      "romanization": "āche",
+      "notes": null
+    },
+    {
+      "source_text": "is not (copula negation)",
+      "target_text": "নয়",
+      "romanization": "naẏa",
+      "notes": null
+    },
+    {
+      "source_text": "to do",
+      "target_text": "করা",
+      "romanization": "karā",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "যাওয়া",
+      "romanization": "yāoẏā",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "আসা",
+      "romanization": "āsā",
+      "notes": null
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "ভালো",
+      "romanization": "bhālo",
+      "notes": null
+    },
+    {
+      "source_text": "interrogative particle (yes/no)",
+      "target_text": "কি",
+      "romanization": "ki",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "কী",
+      "romanization": "kī",
+      "notes": null
+    },
+    {
+      "source_text": "and / more",
+      "target_text": "আর",
+      "romanization": "āra",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "এই",
+      "romanization": "ei",
+      "notes": null
+    },
+    {
+      "source_text": "and / also / that (person/thing)",
+      "target_text": "ও",
+      "romanization": "o",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "কে",
+      "romanization": "ke",
+      "notes": null
+    },
+    {
+      "source_text": "which / any",
+      "target_text": "কোন",
+      "romanization": "kona",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "কোথায়",
+      "romanization": "kothāẏa",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "কখন",
+      "romanization": "kakhana",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "কেন",
+      "romanization": "kena",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "কেমন",
+      "romanization": "kemana",
+      "notes": null
+    },
+    {
+      "source_text": "how much / many",
+      "target_text": "কত",
+      "romanization": "kata",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "দেওয়া",
+      "romanization": "deoẏā",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "নেওয়া",
+      "romanization": "neoẏā",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "দেখা",
+      "romanization": "dekhā",
+      "notes": null
+    },
+    {
+      "source_text": "to say",
+      "target_text": "বলা",
+      "romanization": "valā",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "জানা",
+      "romanization": "jānā",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "খাওয়া",
+      "romanization": "khāoẏā",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "এখন",
+      "romanization": "ekhana",
+      "notes": null
+    },
+    {
+      "source_text": "after / later",
+      "target_text": "পরে",
+      "romanization": "pare",
+      "notes": null
+    },
+    {
+      "source_text": "all / every",
+      "target_text": "সব",
+      "romanization": "sava",
+      "notes": null
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "অনেক",
+      "romanization": "aneka",
+      "notes": null
+    },
+    {
+      "source_text": "some / a little / something",
+      "target_text": "কিছু",
+      "romanization": "kichu",
+      "notes": null
+    },
+    {
+      "source_text": "in / among / inside",
+      "target_text": "মধ্যে",
+      "romanization": "madhye",
+      "notes": null
+    },
+    {
+      "source_text": "from",
+      "target_text": "থেকে",
+      "romanization": "theke",
+      "notes": null
+    },
+    {
+      "source_text": "for",
+      "target_text": "জন্য",
+      "romanization": "janya",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "সাথে",
+      "romanization": "sāthe",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "কিন্তু",
+      "romanization": "kintu",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "যদি",
+      "romanization": "yadi",
+      "notes": null
+    },
+    {
+      "source_text": "then",
+      "target_text": "তবে",
+      "romanization": "tave",
+      "notes": null
+    },
+    {
+      "source_text": "so / therefore",
+      "target_text": "তাই",
+      "romanization": "tāi",
+      "notes": null
+    },
+    {
+      "source_text": "only",
+      "target_text": "শুধু",
+      "romanization": "śudhu",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "খুব",
+      "romanization": "khuva",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "দিন",
+      "romanization": "dina",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "সময়",
+      "romanization": "samaẏa",
+      "notes": null
+    },
+    {
+      "source_text": "money / Taka",
+      "target_text": "টাকা",
+      "romanization": "ṭākā",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "বাড়ি",
+      "romanization": "vār̤i",
+      "notes": null
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "মানুষ",
+      "romanization": "mānuṣa",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "কাজ",
+      "romanization": "kāja",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "জল",
+      "romanization": "jala",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "খাবার",
+      "romanization": "khāvāra",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "নতুন",
+      "romanization": "natuna",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "পুরোনো",
+      "romanization": "purono",
+      "notes": null
+    },
+    {
+      "source_text": "big",
+      "target_text": "বড়",
+      "romanization": "var̤a",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "ছোট",
+      "romanization": "choṭa",
+      "notes": null
+    },
+    {
+      "source_text": "bad",
+      "target_text": "খারাপ",
+      "romanization": "khārāpa",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "বই",
+      "romanization": "vai",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "নাম",
+      "romanization": "nāma",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "বাবা",
+      "romanization": "vāvā",
+      "notes": null
+    },
+    {
+      "source_text": "mother",
+      "target_text": "মা",
+      "romanization": "mā",
+      "notes": null
+    },
+    {
+      "source_text": "brother",
+      "target_text": "ভাই",
+      "romanization": "bhāi",
+      "notes": null
+    },
+    {
+      "source_text": "sister",
+      "target_text": "বোন",
+      "romanization": "vona",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "বন্ধু",
+      "romanization": "vandhu",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "বছর",
+      "romanization": "vachara",
+      "notes": null
+    },
+    {
+      "source_text": "month",
+      "target_text": "মাস",
+      "romanization": "māsa",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "আজ",
+      "romanization": "āja",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow / yesterday",
+      "target_text": "কাল",
+      "romanization": "kāla",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "সকাল",
+      "romanization": "sakāla",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "রাত",
+      "romanization": "rāta",
+      "notes": null
+    },
+    {
+      "source_text": "room / house",
+      "target_text": "ঘর",
+      "romanization": "ghara",
+      "notes": null
+    },
+    {
+      "source_text": "road / path",
+      "target_text": "রাস্তা",
+      "romanization": "rāstā",
+      "notes": null
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "শহর",
+      "romanization": "śahara",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "দেশ",
+      "romanization": "deśa",
+      "notes": null
+    },
+    {
+      "source_text": "language",
+      "target_text": "ভাষা",
+      "romanization": "bhāṣā",
+      "notes": null
+    },
+    {
+      "source_text": "question",
+      "target_text": "প্রশ্ন",
+      "romanization": "praśna",
+      "notes": null
+    },
+    {
+      "source_text": "answer",
+      "target_text": "উত্তর",
+      "romanization": "uttara",
+      "notes": null
+    },
+    {
+      "source_text": "problem",
+      "target_text": "সমস্যা",
+      "romanization": "samasyā",
+      "notes": null
+    },
+    {
+      "source_text": "help (noun)",
+      "target_text": "সাহায্য",
+      "romanization": "sāhāyya",
+      "notes": null
+    },
+    {
+      "source_text": "love (noun)",
+      "target_text": "ভালোবাসা",
+      "romanization": "bhālovāsā",
+      "notes": null
+    },
+    {
+      "source_text": "mind / heart",
+      "target_text": "মন",
+      "romanization": "mana",
+      "notes": null
+    },
+    {
+      "source_text": "life",
+      "target_text": "জীবন",
+      "romanization": "jīvana",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "সুন্দর",
+      "romanization": "sundara",
+      "notes": null
+    },
+    {
+      "source_text": "to hear / listen",
+      "target_text": "শোনা",
+      "romanization": "śonā",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "বসা",
+      "romanization": "vasā",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "দাঁড়ানো",
+      "romanization": "dā~r̤āno",
+      "notes": null
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "বোঝা",
+      "romanization": "vojhā",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "এক",
+      "romanization": "eka",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "দুই",
+      "romanization": "dui",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "তিন",
+      "romanization": "tina",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "চার",
+      "romanization": "cāra",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "পাঁচ",
+      "romanization": "pā~ca",
+      "notes": null
+    },
+    {
+      "source_text": "other",
+      "target_text": "অন্য",
+      "romanization": "anya",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "এখানে",
+      "romanization": "ekhāne",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "সেখানে",
+      "romanization": "sekhāne",
+      "notes": null
+    },
+    {
+      "source_text": "he / she (respectful)",
+      "target_text": "তিনি",
+      "romanization": "tini",
+      "notes": null
+    },
+    {
+      "source_text": "you (plural / respectful)",
+      "target_text": "আপনারা",
+      "romanization": "āpanārā",
+      "notes": null
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "আমরা",
+      "romanization": "āmarā",
+      "notes": null
+    },
+    {
+      "source_text": "they (general / far)",
+      "target_text": "তারা",
+      "romanization": "tārā",
+      "notes": null
+    }
+  ]
+}

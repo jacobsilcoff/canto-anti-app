@@ -1,0 +1,607 @@
+{
+  "lang": "de",
+  "name": "Top 100 German Words",
+  "description": "The 100 most common words in German — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (masc. definite article)",
+      "target_text": "der",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (fem. / plural definite article)",
+      "target_text": "die",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "the (neuter definite article)",
+      "target_text": "das",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "und",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "sein",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in",
+      "target_text": "in",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / at",
+      "target_text": "zu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "haben",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "ich",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he",
+      "target_text": "er",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "she / they",
+      "target_text": "sie",
+      "romanization": "",
+      "notes": "also 'Sie' (formal 'you')"
+    },
+    {
+      "source_text": "it",
+      "target_text": "es",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not",
+      "target_text": "nicht",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "mit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "on / upon",
+      "target_text": "auf",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "a / an / one",
+      "target_text": "ein",
+      "romanization": "",
+      "notes": "indefinite article / number"
+    },
+    {
+      "source_text": "how / as",
+      "target_text": "wie",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "auch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "as / than / when",
+      "target_text": "als",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "on / at",
+      "target_text": "an",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "out of / from",
+      "target_text": "aus",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that (conjunction)",
+      "target_text": "dass",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "around / about / at",
+      "target_text": "um",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one / you (impersonal)",
+      "target_text": "man",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but / however",
+      "target_text": "aber",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only",
+      "target_text": "nur",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "so / such",
+      "target_text": "so",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "before / in front of",
+      "target_text": "vor",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to become / will (auxiliary)",
+      "target_text": "werden",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "after / to",
+      "target_text": "nach",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / to be able to",
+      "target_text": "können",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "must / to have to",
+      "target_text": "müssen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "sagen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "oder",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go / to walk",
+      "target_text": "gehen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yet / however / still",
+      "target_text": "doch",
+      "romanization": "",
+      "notes": "emphasis particle"
+    },
+    {
+      "source_text": "to want",
+      "target_text": "wollen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if / when",
+      "target_text": "wenn",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "gut",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "through",
+      "target_text": "durch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "much / many",
+      "target_text": "viel",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "then",
+      "target_text": "dann",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more",
+      "target_text": "mehr",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time / once",
+      "target_text": "mal",
+      "romanization": "",
+      "notes": "also common as a particle"
+    },
+    {
+      "source_text": "already / yet",
+      "target_text": "schon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now / well",
+      "target_text": "nun",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "under / among",
+      "target_text": "unter",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "sehr",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "nein",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "hier",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "whole / entirely / quite",
+      "target_text": "ganz",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "oneself / reflexive pronoun",
+      "target_text": "sich",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "immer",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to let / to leave",
+      "target_text": "lassen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "stehen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "still / yet / another",
+      "target_text": "noch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "German (language/nationality)",
+      "target_text": "Deutsch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "again",
+      "target_text": "wieder",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to find",
+      "target_text": "finden",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "geben",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "kommen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know (facts)",
+      "target_text": "wissen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "sehen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to make / to do",
+      "target_text": "machen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to think",
+      "target_text": "denken",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "nehmen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "tun",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "nothing",
+      "target_text": "nichts",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "groß",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "klein",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old",
+      "target_text": "alt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "neu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "Haus",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "Zeit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "Mr. / gentleman",
+      "target_text": "Herr",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "God",
+      "target_text": "Gott",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "Jahr",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "human being / person",
+      "target_text": "Mensch",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "Kind",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand",
+      "target_text": "Hand",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "Arbeit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "world",
+      "target_text": "Welt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "Tag",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman / wife / Ms.",
+      "target_text": "Frau",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man / husband",
+      "target_text": "Mann",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend (male)",
+      "target_text": "Freund",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "Wasser",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country / land",
+      "target_text": "Land",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "Stadt",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "Geld",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "Name",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "question",
+      "target_text": "Frage",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "answer",
+      "target_text": "Antwort",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "help (noun)",
+      "target_text": "Hilfe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to live",
+      "target_text": "leben",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to show",
+      "target_text": "zeigen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to speak",
+      "target_text": "sprechen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to read",
+      "target_text": "lesen",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "schreiben",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

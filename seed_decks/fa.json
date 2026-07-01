@@ -1,0 +1,601 @@
+{
+  "lang": "fa",
+  "name": "Top 100 Farsi Words",
+  "description": "The 99 most common words in Farsi — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "و",
+      "romanization": "w",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "to / for",
+      "target_text": "به",
+      "romanization": "bh",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "in / at",
+      "target_text": "در",
+      "romanization": "dr",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "is (enclitic)",
+      "target_text": "است",
+      "romanization": "ast",
+      "notes": "shortened form of هست"
+    },
+    {
+      "source_text": "that / who / which",
+      "target_text": "که",
+      "romanization": "kh",
+      "notes": "conjunction, relative pronoun"
+    },
+    {
+      "source_text": "from / of",
+      "target_text": "از",
+      "romanization": "az",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "direct object marker",
+      "target_text": "را",
+      "romanization": "ra",
+      "notes": null
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "من",
+      "romanization": "mn",
+      "notes": null
+    },
+    {
+      "source_text": "you (sg. informal)",
+      "target_text": "تو",
+      "romanization": "tw",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "او",
+      "romanization": "aw",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "با",
+      "romanization": "ba",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "ما",
+      "romanization": "ma",
+      "notes": null
+    },
+    {
+      "source_text": "you (pl. / formal)",
+      "target_text": "شما",
+      "romanization": "shma",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "این",
+      "romanization": "ayn",
+      "notes": "demonstrative pronoun"
+    },
+    {
+      "source_text": "that",
+      "target_text": "آن",
+      "romanization": "aan",
+      "notes": "demonstrative pronoun"
+    },
+    {
+      "source_text": "is / exists",
+      "target_text": "هست",
+      "romanization": "hst",
+      "notes": "standalone verb"
+    },
+    {
+      "source_text": "good",
+      "target_text": "خوب",
+      "romanization": "khwb",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "بله",
+      "romanization": "blh",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "نه",
+      "romanization": "nh",
+      "notes": null
+    },
+    {
+      "source_text": "must / should",
+      "target_text": "باید",
+      "romanization": "bayd",
+      "notes": null
+    },
+    {
+      "source_text": "for",
+      "target_text": "برای",
+      "romanization": "bray",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "also / too / together",
+      "target_text": "هم",
+      "romanization": "hm",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "چه",
+      "romanization": "chh",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "کجا",
+      "romanization": "kja",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "چگونه",
+      "romanization": "chgwnh",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "کی",
+      "romanization": "ky",
+      "notes": null
+    },
+    {
+      "source_text": "which",
+      "target_text": "کدام",
+      "romanization": "kdam",
+      "notes": null
+    },
+    {
+      "source_text": "very / a lot",
+      "target_text": "خیلی",
+      "romanization": "khyly",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "روز",
+      "romanization": "rwz",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "سال",
+      "romanization": "sal",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "کار",
+      "romanization": "kar",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "خانه",
+      "romanization": "khanh",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "آب",
+      "romanization": "aab",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "پول",
+      "romanization": "pwl",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "زمان",
+      "romanization": "zman",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "آمدن",
+      "romanization": "aamdn",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "رفتن",
+      "romanization": "rftn",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "گفتن",
+      "romanization": "gftn",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "کردن",
+      "romanization": "krdn",
+      "notes": null
+    },
+    {
+      "source_text": "to have",
+      "target_text": "داشتن",
+      "romanization": "dashtn",
+      "notes": null
+    },
+    {
+      "source_text": "to be",
+      "target_text": "بودن",
+      "romanization": "bwdn",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "خواستن",
+      "romanization": "khwastn",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "دادن",
+      "romanization": "dadn",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "دیدن",
+      "romanization": "dydn",
+      "notes": null
+    },
+    {
+      "source_text": "to become",
+      "target_text": "شدن",
+      "romanization": "shdn",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "دانستن",
+      "romanization": "danstn",
+      "notes": null
+    },
+    {
+      "source_text": "to read / to sing",
+      "target_text": "خواندن",
+      "romanization": "khwandn",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "نوشتن",
+      "romanization": "nwshtn",
+      "notes": null
+    },
+    {
+      "source_text": "to eat / to drink",
+      "target_text": "خوردن",
+      "romanization": "khwrdn",
+      "notes": null
+    },
+    {
+      "source_text": "to take / to carry",
+      "target_text": "بردن",
+      "romanization": "brdn",
+      "notes": null
+    },
+    {
+      "source_text": "to bring",
+      "target_text": "آوردن",
+      "romanization": "aawrdn",
+      "notes": null
+    },
+    {
+      "source_text": "to hear",
+      "target_text": "شنیدن",
+      "romanization": "shnydn",
+      "notes": null
+    },
+    {
+      "source_text": "to understand",
+      "target_text": "فهمیدن",
+      "romanization": "fhmydn",
+      "notes": null
+    },
+    {
+      "source_text": "to be able to",
+      "target_text": "توانستن",
+      "romanization": "twanstn",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "نشستن",
+      "romanization": "nshstn",
+      "notes": null
+    },
+    {
+      "source_text": "to stand",
+      "target_text": "ایستادن",
+      "romanization": "aystadn",
+      "notes": null
+    },
+    {
+      "source_text": "to sleep",
+      "target_text": "خوابیدن",
+      "romanization": "khwabydn",
+      "notes": null
+    },
+    {
+      "source_text": "to stay / to remain",
+      "target_text": "ماندن",
+      "romanization": "mandn",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "یک",
+      "romanization": "yk",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "دو",
+      "romanization": "dw",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "سه",
+      "romanization": "sh",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "چهار",
+      "romanization": "chhar",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "پنج",
+      "romanization": "pnj",
+      "notes": null
+    },
+    {
+      "source_text": "six",
+      "target_text": "شش",
+      "romanization": "shsh",
+      "notes": null
+    },
+    {
+      "source_text": "seven",
+      "target_text": "هفت",
+      "romanization": "hft",
+      "notes": null
+    },
+    {
+      "source_text": "eight",
+      "target_text": "هشت",
+      "romanization": "hsht",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "ده",
+      "romanization": "dh",
+      "notes": null
+    },
+    {
+      "source_text": "thankful / thank you",
+      "target_text": "ممنون",
+      "romanization": "mmnwn",
+      "notes": null
+    },
+    {
+      "source_text": "please",
+      "target_text": "لطفاً",
+      "romanization": "lṭfaan",
+      "notes": null
+    },
+    {
+      "source_text": "hello",
+      "target_text": "سلام",
+      "romanization": "slam",
+      "notes": null
+    },
+    {
+      "source_text": "goodbye",
+      "target_text": "خداحافظ",
+      "romanization": "khdaḥafẓ",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "الان",
+      "romanization": "alan",
+      "notes": null
+    },
+    {
+      "source_text": "always",
+      "target_text": "همیشه",
+      "romanization": "hmyshh",
+      "notes": null
+    },
+    {
+      "source_text": "after / then",
+      "target_text": "بعد",
+      "romanization": "b'd",
+      "notes": null
+    },
+    {
+      "source_text": "before",
+      "target_text": "قبل",
+      "romanization": "qbl",
+      "notes": null
+    },
+    {
+      "source_text": "other / another",
+      "target_text": "دیگر",
+      "romanization": "dygr",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "اما",
+      "romanization": "ama",
+      "notes": null
+    },
+    {
+      "source_text": "if",
+      "target_text": "اگر",
+      "romanization": "agr",
+      "notes": null
+    },
+    {
+      "source_text": "only",
+      "target_text": "فقط",
+      "romanization": "fqṭ",
+      "notes": null
+    },
+    {
+      "source_text": "maybe / perhaps",
+      "target_text": "شاید",
+      "romanization": "shayd",
+      "notes": null
+    },
+    {
+      "source_text": "no / any (with negative)",
+      "target_text": "هیچ",
+      "romanization": "hych",
+      "notes": null
+    },
+    {
+      "source_text": "never",
+      "target_text": "هرگز",
+      "romanization": "hrgz",
+      "notes": null
+    },
+    {
+      "source_text": "up / above",
+      "target_text": "بالا",
+      "romanization": "bala",
+      "notes": null
+    },
+    {
+      "source_text": "down / below",
+      "target_text": "پایین",
+      "romanization": "payyn",
+      "notes": null
+    },
+    {
+      "source_text": "inside",
+      "target_text": "داخل",
+      "romanization": "dakhl",
+      "notes": null
+    },
+    {
+      "source_text": "outside",
+      "target_text": "بیرون",
+      "romanization": "byrwn",
+      "notes": null
+    },
+    {
+      "source_text": "far",
+      "target_text": "دور",
+      "romanization": "dwr",
+      "notes": null
+    },
+    {
+      "source_text": "near",
+      "target_text": "نزدیک",
+      "romanization": "nzdyk",
+      "notes": null
+    },
+    {
+      "source_text": "much / many",
+      "target_text": "زیاد",
+      "romanization": "zyad",
+      "notes": null
+    },
+    {
+      "source_text": "little / few",
+      "target_text": "کم",
+      "romanization": "km",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "بزرگ",
+      "romanization": "bzrg",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "کوچک",
+      "romanization": "kwchk",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "جدید",
+      "romanization": "jdyd",
+      "notes": null
+    },
+    {
+      "source_text": "old (things)",
+      "target_text": "قدیمی",
+      "romanization": "qdymy",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "کتاب",
+      "romanization": "ktab",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "اسم",
+      "romanization": "asm",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "دوست",
+      "romanization": "dwst",
+      "notes": null
+    },
+    {
+      "source_text": "man",
+      "target_text": "مرد",
+      "romanization": "mrd",
+      "notes": null
+    },
+    {
+      "source_text": "woman",
+      "target_text": "زن",
+      "romanization": "zn",
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+{
+  "lang": "ms",
+  "name": "Top 100 Malay Words",
+  "description": "The 100 most common words in Malay — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "saya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular, informal)",
+      "target_text": "awak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "dia",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we (inclusive)",
+      "target_text": "kita",
+      "romanization": "",
+      "notes": "Includes the listener"
+    },
+    {
+      "source_text": "we (exclusive)",
+      "target_text": "kami",
+      "romanization": "",
+      "notes": "Excludes the listener"
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "mereka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "ini",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that",
+      "target_text": "itu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "dan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "at / in / on",
+      "target_text": "di",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / towards",
+      "target_text": "ke",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "apa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not (for verbs/adjectives)",
+      "target_text": "tidak",
+      "romanization": "",
+      "notes": "Use for verbs, adjectives, adverbs"
+    },
+    {
+      "source_text": "to have / there is / exist",
+      "target_text": "ada",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for",
+      "target_text": "untuk",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "dengan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "will / shall (future marker)",
+      "target_text": "akan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / may",
+      "target_text": "boleh",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "from",
+      "target_text": "dari",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "mana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "again / more / still",
+      "target_text": "lagi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "juga",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "already / past tense marker",
+      "target_text": "sudah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "bila",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all",
+      "target_text": "semua",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very",
+      "target_text": "sangat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "must",
+      "target_text": "mesti",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "atau",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "tetapi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "banyak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "go",
+      "target_text": "pergi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "come",
+      "target_text": "datang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "eat / food",
+      "target_text": "makan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "do / make",
+      "target_text": "buat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "know",
+      "target_text": "tahu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "want",
+      "target_text": "mahu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "see / watch",
+      "target_text": "tengok",
+      "romanization": "",
+      "notes": "Common in colloquial Malaysian Malay"
+    },
+    {
+      "source_text": "get / can / obtain",
+      "target_text": "dapat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "give",
+      "target_text": "beri",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "sleep",
+      "target_text": "tidur",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "drink",
+      "target_text": "minum",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "kerja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "orang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "masa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "hari",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "tahun",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "rumah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "air",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "nama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "place",
+      "target_text": "tempat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "duit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "road / walk",
+      "target_text": "jalan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "baik",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big",
+      "target_text": "besar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "kecil",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "baru",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old (for things/time)",
+      "target_text": "lama",
+      "romanization": "",
+      "notes": "Not for living beings (use 'tua')"
+    },
+    {
+      "source_text": "other / different",
+      "target_text": "lain",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "more",
+      "target_text": "lebih",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "less",
+      "target_text": "kurang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "easy",
+      "target_text": "mudah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "difficult",
+      "target_text": "susah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "correct / true",
+      "target_text": "betul",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "wrong / false",
+      "target_text": "salah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "satu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "dua",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "tiga",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "empat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "lima",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "six",
+      "target_text": "enam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "seven",
+      "target_text": "tujuh",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "eight",
+      "target_text": "lapan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "nine",
+      "target_text": "sembilan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "sepuluh",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "sekarang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "later",
+      "target_text": "nanti",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "sini",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there (far)",
+      "target_text": "sana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "above / on",
+      "target_text": "atas",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "below / under",
+      "target_text": "bawah",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "front",
+      "target_text": "depan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "back",
+      "target_text": "belakang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / inside",
+      "target_text": "dalam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "outside",
+      "target_text": "luar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "pagi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "malam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "esok",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "semalam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "week",
+      "target_text": "minggu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "month",
+      "target_text": "bulan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hour / clock",
+      "target_text": "jam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "please (requesting)",
+      "target_text": "sila",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "help / please",
+      "target_text": "tolong",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "kenapa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "bagaimana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "self / own",
+      "target_text": "sendiri",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "same / together",
+      "target_text": "sama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "not (for nouns/pronouns)",
+      "target_text": "bukan",
+      "romanization": "",
+      "notes": "Use for nouns, pronouns, or prepositional phrases"
+    },
+    {
+      "source_text": "not yet",
+      "target_text": "belum",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+{
+  "lang": "hi",
+  "name": "Top 100 Hindi Words",
+  "description": "The 100 most common words in Hindi — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "of, 's",
+      "target_text": "का",
+      "romanization": "kā",
+      "notes": "Possessive marker (masc. sg.)"
+    },
+    {
+      "source_text": "of, 's",
+      "target_text": "की",
+      "romanization": "kī",
+      "notes": "Possessive marker (fem. sg/pl, masc. pl. oblique)"
+    },
+    {
+      "source_text": "of, 's, for",
+      "target_text": "के",
+      "romanization": "ke",
+      "notes": "Possessive marker (masc. pl. oblique); also a postposition 'for'"
+    },
+    {
+      "source_text": "in, into",
+      "target_text": "में",
+      "romanization": "meṃ",
+      "notes": null
+    },
+    {
+      "source_text": "on, at",
+      "target_text": "पर",
+      "romanization": "para",
+      "notes": null
+    },
+    {
+      "source_text": "from, by, with, than",
+      "target_text": "से",
+      "romanization": "se",
+      "notes": null
+    },
+    {
+      "source_text": "to, for (DO marker)",
+      "target_text": "को",
+      "romanization": "ko",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "और",
+      "romanization": "aura",
+      "notes": null
+    },
+    {
+      "source_text": "I, me",
+      "target_text": "मैं",
+      "romanization": "maiṃ",
+      "notes": null
+    },
+    {
+      "source_text": "no, not",
+      "target_text": "नहीं",
+      "romanization": "nahīṃ",
+      "notes": null
+    },
+    {
+      "source_text": "what?, question particle",
+      "target_text": "क्या",
+      "romanization": "kyā",
+      "notes": null
+    },
+    {
+      "source_text": "to be, happen",
+      "target_text": "होना",
+      "romanization": "honā",
+      "notes": null
+    },
+    {
+      "source_text": "to do, make",
+      "target_text": "करना",
+      "romanization": "karanā",
+      "notes": null
+    },
+    {
+      "source_text": "you (informal, singular)",
+      "target_text": "तुम",
+      "romanization": "tuma",
+      "notes": null
+    },
+    {
+      "source_text": "you (formal, sg/pl)",
+      "target_text": "आप",
+      "romanization": "āpa",
+      "notes": null
+    },
+    {
+      "source_text": "he, she, it, that (distant)",
+      "target_text": "वह",
+      "romanization": "vaha",
+      "notes": null
+    },
+    {
+      "source_text": "he, she, it, this (near)",
+      "target_text": "यह",
+      "romanization": "yaha",
+      "notes": null
+    },
+    {
+      "source_text": "we, us",
+      "target_text": "हम",
+      "romanization": "hama",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "जाना",
+      "romanization": "jānā",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "आना",
+      "romanization": "ānā",
+      "notes": null
+    },
+    {
+      "source_text": "one, a, an",
+      "target_text": "एक",
+      "romanization": "eka",
+      "notes": null
+    },
+    {
+      "source_text": "very, much, many",
+      "target_text": "बहुत",
+      "romanization": "bahuta",
+      "notes": null
+    },
+    {
+      "source_text": "good, well, okay",
+      "target_text": "अच्छा",
+      "romanization": "acchā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "who?",
+      "target_text": "कौन",
+      "romanization": "kauna",
+      "notes": null
+    },
+    {
+      "source_text": "some, any, a little",
+      "target_text": "कुछ",
+      "romanization": "kucha",
+      "notes": null
+    },
+    {
+      "source_text": "any, some, someone",
+      "target_text": "कोई",
+      "romanization": "koī",
+      "notes": null
+    },
+    {
+      "source_text": "to give",
+      "target_text": "देना",
+      "romanization": "denā",
+      "notes": null
+    },
+    {
+      "source_text": "to take",
+      "target_text": "लेना",
+      "romanization": "lenā",
+      "notes": null
+    },
+    {
+      "source_text": "to see, watch",
+      "target_text": "देखना",
+      "romanization": "dekhanā",
+      "notes": null
+    },
+    {
+      "source_text": "also, too, even",
+      "target_text": "भी",
+      "romanization": "bhī",
+      "notes": null
+    },
+    {
+      "source_text": "to speak, say",
+      "target_text": "बोलना",
+      "romanization": "bolanā",
+      "notes": null
+    },
+    {
+      "source_text": "to say, tell",
+      "target_text": "कहना",
+      "romanization": "kahanā",
+      "notes": null
+    },
+    {
+      "source_text": "to know (fact/info)",
+      "target_text": "जानना",
+      "romanization": "jānanā",
+      "notes": null
+    },
+    {
+      "source_text": "when (conjunction)",
+      "target_text": "जब",
+      "romanization": "jaba",
+      "notes": null
+    },
+    {
+      "source_text": "then",
+      "target_text": "तब",
+      "romanization": "taba",
+      "notes": null
+    },
+    {
+      "source_text": "right now, just now",
+      "target_text": "अभी",
+      "romanization": "abhī",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "आज",
+      "romanization": "āja",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday, tomorrow",
+      "target_text": "कल",
+      "romanization": "kala",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "अब",
+      "romanization": "aba",
+      "notes": null
+    },
+    {
+      "source_text": "again, then, afterwards",
+      "target_text": "फिर",
+      "romanization": "phira",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "यहाँ",
+      "romanization": "yahā~",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "वहाँ",
+      "romanization": "vahā~",
+      "notes": null
+    },
+    {
+      "source_text": "up, above, on",
+      "target_text": "ऊपर",
+      "romanization": "ūpara",
+      "notes": null
+    },
+    {
+      "source_text": "down, below, under",
+      "target_text": "नीचे",
+      "romanization": "nīce",
+      "notes": null
+    },
+    {
+      "source_text": "inside",
+      "target_text": "अंदर",
+      "romanization": "aṃdara",
+      "notes": null
+    },
+    {
+      "source_text": "big, large, old",
+      "target_text": "बड़ा",
+      "romanization": "bar̤ā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "small, little, young",
+      "target_text": "छोटा",
+      "romanization": "choṭā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "new",
+      "target_text": "नया",
+      "romanization": "nayā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "old (for things)",
+      "target_text": "पुराना",
+      "romanization": "purānā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "सुंदर",
+      "romanization": "suṃdara",
+      "notes": null
+    },
+    {
+      "source_text": "hot",
+      "target_text": "गरम",
+      "romanization": "garama",
+      "notes": null
+    },
+    {
+      "source_text": "cold",
+      "target_text": "ठंडा",
+      "romanization": "ṭhaṃḍā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "less, few",
+      "target_text": "कम",
+      "romanization": "kama",
+      "notes": null
+    },
+    {
+      "source_text": "more, much, too much",
+      "target_text": "ज़्यादा",
+      "romanization": "zyādā",
+      "notes": null
+    },
+    {
+      "source_text": "slowly, gently",
+      "target_text": "धीरे",
+      "romanization": "dhīre",
+      "notes": null
+    },
+    {
+      "source_text": "quickly, fast, soon",
+      "target_text": "जल्दी",
+      "romanization": "jaldī",
+      "notes": null
+    },
+    {
+      "source_text": "they, those (distant)",
+      "target_text": "वे",
+      "romanization": "ve",
+      "notes": null
+    },
+    {
+      "source_text": "they, these (near)",
+      "target_text": "ये",
+      "romanization": "ye",
+      "notes": null
+    },
+    {
+      "source_text": "one's own",
+      "target_text": "अपना",
+      "romanization": "apanā",
+      "notes": "(reflexive possessive, masc. sg. form)"
+    },
+    {
+      "source_text": "talk, word, matter",
+      "target_text": "बात",
+      "romanization": "bāta",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "नाम",
+      "romanization": "nāma",
+      "notes": null
+    },
+    {
+      "source_text": "house, home",
+      "target_text": "घर",
+      "romanization": "ghara",
+      "notes": null
+    },
+    {
+      "source_text": "man, person",
+      "target_text": "आदमी",
+      "romanization": "ādamī",
+      "notes": null
+    },
+    {
+      "source_text": "woman",
+      "target_text": "औरत",
+      "romanization": "aurata",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "बच्चा",
+      "romanization": "baccā",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "दोस्त",
+      "romanization": "dosta",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "पानी",
+      "romanization": "pānī",
+      "notes": null
+    },
+    {
+      "source_text": "food, to eat",
+      "target_text": "खाना",
+      "romanization": "khānā",
+      "notes": "Can be noun 'food' or verb 'to eat'"
+    },
+    {
+      "source_text": "book",
+      "target_text": "किताब",
+      "romanization": "kitāba",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "दिन",
+      "romanization": "dina",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "रात",
+      "romanization": "rāta",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "सुबह",
+      "romanization": "subaha",
+      "notes": null
+    },
+    {
+      "source_text": "evening",
+      "target_text": "शाम",
+      "romanization": "śāma",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "समय",
+      "romanization": "samaya",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "पैसा",
+      "romanization": "paisā",
+      "notes": null
+    },
+    {
+      "source_text": "work, job",
+      "target_text": "काम",
+      "romanization": "kāma",
+      "notes": null
+    },
+    {
+      "source_text": "city, town",
+      "target_text": "शहर",
+      "romanization": "śahara",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "देश",
+      "romanization": "deśa",
+      "notes": null
+    },
+    {
+      "source_text": "place, space",
+      "target_text": "जगह",
+      "romanization": "jagaha",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "हाँ",
+      "romanization": "hā~",
+      "notes": null
+    },
+    {
+      "source_text": "yes (honorific), particle",
+      "target_text": "जी",
+      "romanization": "jī",
+      "notes": null
+    },
+    {
+      "source_text": "thanks, thank you",
+      "target_text": "धन्यवाद",
+      "romanization": "dhanyavāda",
+      "notes": null
+    },
+    {
+      "source_text": "hello, greetings",
+      "target_text": "नमस्कार",
+      "romanization": "namaskāra",
+      "notes": null
+    },
+    {
+      "source_text": "to keep, put",
+      "target_text": "रखना",
+      "romanization": "rakhanā",
+      "notes": null
+    },
+    {
+      "source_text": "to meet, get, find",
+      "target_text": "मिलना",
+      "romanization": "milanā",
+      "notes": null
+    },
+    {
+      "source_text": "to sit",
+      "target_text": "बैठना",
+      "romanization": "baiṭhanā",
+      "notes": null
+    },
+    {
+      "source_text": "to get up, rise",
+      "target_text": "उठना",
+      "romanization": "uṭhanā",
+      "notes": null
+    },
+    {
+      "source_text": "when? (interrogative)",
+      "target_text": "कब",
+      "romanization": "kaba",
+      "notes": null
+    },
+    {
+      "source_text": "where?",
+      "target_text": "कहाँ",
+      "romanization": "kahā~",
+      "notes": null
+    },
+    {
+      "source_text": "how?",
+      "target_text": "कैसे",
+      "romanization": "kaise",
+      "notes": null
+    },
+    {
+      "source_text": "why?",
+      "target_text": "क्यों",
+      "romanization": "kyoṃ",
+      "notes": null
+    },
+    {
+      "source_text": "how much/many?",
+      "target_text": "कितना",
+      "romanization": "kitanā",
+      "notes": "(masc. sg. form)"
+    },
+    {
+      "source_text": "two",
+      "target_text": "दो",
+      "romanization": "do",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "तीन",
+      "romanization": "tīna",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "चार",
+      "romanization": "cāra",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "पाँच",
+      "romanization": "pā~ca",
+      "notes": null
+    },
+    {
+      "source_text": "up to, until",
+      "target_text": "तक",
+      "romanization": "taka",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "या",
+      "romanization": "yā",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "लेकिन",
+      "romanization": "lekina",
+      "notes": null
+    },
+    {
+      "source_text": "then, so, indeed",
+      "target_text": "तो",
+      "romanization": "to",
+      "notes": "Emphatic particle"
+    }
+  ]
+}

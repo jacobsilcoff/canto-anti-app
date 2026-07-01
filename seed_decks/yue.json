@@ -1,0 +1,601 @@
+{
+  "lang": "yue",
+  "name": "Top 100 Cantonese Words",
+  "description": "The 99 most common words in Cantonese — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "I / me",
+      "target_text": "我",
+      "romanization": "ngo5",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "你",
+      "romanization": "nei5",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "佢",
+      "romanization": "keoi5",
+      "notes": null
+    },
+    {
+      "source_text": "to be (is/am/are)",
+      "target_text": "係",
+      "romanization": "hai6",
+      "notes": null
+    },
+    {
+      "source_text": "not, no",
+      "target_text": "唔",
+      "romanization": "m4",
+      "notes": "Used to negate verbs/adjectives (e.g., 唔食, 唔好). Forms A-唔-A questions (e.g., 食唔食)."
+    },
+    {
+      "source_text": "to have, there is/are",
+      "target_text": "有",
+      "romanization": "jau5",
+      "notes": null
+    },
+    {
+      "source_text": "good, well, very",
+      "target_text": "好",
+      "romanization": "hou2",
+      "notes": null
+    },
+    {
+      "source_text": "this, these",
+      "target_text": "呢",
+      "romanization": "ne1",
+      "notes": null
+    },
+    {
+      "source_text": "that, those",
+      "target_text": "嗰",
+      "romanization": "go2",
+      "notes": null
+    },
+    {
+      "source_text": "to be at/in/on",
+      "target_text": "喺",
+      "romanization": "hai2",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "去",
+      "romanization": "heoi3",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "嚟",
+      "romanization": "lai4",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "食",
+      "romanization": "sik6",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "飲",
+      "romanization": "jam2",
+      "notes": null
+    },
+    {
+      "source_text": "to want, to need, must",
+      "target_text": "要",
+      "romanization": "jiu3",
+      "notes": null
+    },
+    {
+      "source_text": "to want, to think",
+      "target_text": "想",
+      "romanization": "soeng2",
+      "notes": null
+    },
+    {
+      "source_text": "to speak, to say",
+      "target_text": "講",
+      "romanization": "gong2",
+      "notes": null
+    },
+    {
+      "source_text": "to see, to look, to read",
+      "target_text": "睇",
+      "romanization": "tai2",
+      "notes": null
+    },
+    {
+      "source_text": "to do, to make",
+      "target_text": "做",
+      "romanization": "zou6",
+      "notes": null
+    },
+    {
+      "source_text": "what",
+      "target_text": "乜",
+      "romanization": "mat1",
+      "notes": "Often followed by 嘢 (mat1 je5) for 'what thing'."
+    },
+    {
+      "source_text": "person, people",
+      "target_text": "人",
+      "romanization": "jan4",
+      "notes": null
+    },
+    {
+      "source_text": "thing, stuff",
+      "target_text": "嘢",
+      "romanization": "je5",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "錢",
+      "romanization": "cin2",
+      "notes": null
+    },
+    {
+      "source_text": "not have, there isn't",
+      "target_text": "冇",
+      "romanization": "mou5",
+      "notes": "Negative of 有. Used in 有冇 for 'do you have'."
+    },
+    {
+      "source_text": "to know (skill/ability), can",
+      "target_text": "識",
+      "romanization": "sik1",
+      "notes": null
+    },
+    {
+      "source_text": "to know (a fact)",
+      "target_text": "知",
+      "romanization": "zi1",
+      "notes": null
+    },
+    {
+      "source_text": "can, may, to be able to",
+      "target_text": "可以",
+      "romanization": "ho2ji5",
+      "notes": null
+    },
+    {
+      "source_text": "how many/much, a few",
+      "target_text": "幾",
+      "romanization": "gei2",
+      "notes": null
+    },
+    {
+      "source_text": "many, much, more",
+      "target_text": "多",
+      "romanization": "do1",
+      "notes": null
+    },
+    {
+      "source_text": "few, little, less",
+      "target_text": "少",
+      "romanization": "siu2",
+      "notes": null
+    },
+    {
+      "source_text": "big, large",
+      "target_text": "大",
+      "romanization": "daai6",
+      "notes": null
+    },
+    {
+      "source_text": "small, thin",
+      "target_text": "細",
+      "romanization": "sai3",
+      "notes": null
+    },
+    {
+      "source_text": "hot (temperature)",
+      "target_text": "熱",
+      "romanization": "jit6",
+      "notes": null
+    },
+    {
+      "source_text": "cold (temperature)",
+      "target_text": "凍",
+      "romanization": "dung3",
+      "notes": null
+    },
+    {
+      "source_text": "happy",
+      "target_text": "開心",
+      "romanization": "hoi1sam1",
+      "notes": null
+    },
+    {
+      "source_text": "busy",
+      "target_text": "忙",
+      "romanization": "mong4",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful, pretty",
+      "target_text": "靚",
+      "romanization": "leng3",
+      "notes": null
+    },
+    {
+      "source_text": "fast, quickly",
+      "target_text": "快",
+      "romanization": "faai3",
+      "notes": null
+    },
+    {
+      "source_text": "slow, slowly",
+      "target_text": "慢",
+      "romanization": "maan6",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "而家",
+      "romanization": "ji4gaa1",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "今日",
+      "romanization": "gam1jat6",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "聽日",
+      "romanization": "ting1jat6",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "尋日",
+      "romanization": "cam4jat6",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "時間",
+      "romanization": "si4gaan3",
+      "notes": null
+    },
+    {
+      "source_text": "hour (o'clock), how, point",
+      "target_text": "點",
+      "romanization": "dim2",
+      "notes": "Used for 'o'clock' (e.g., 三點 = 3 o'clock) or as a question word 'how' (e.g., 點樣 = how)."
+    },
+    {
+      "source_text": "which, where",
+      "target_text": "邊",
+      "romanization": "bin1",
+      "notes": null
+    },
+    {
+      "source_text": "place, location suffix",
+      "target_text": "度",
+      "romanization": "dou6",
+      "notes": "Can combine with 呢/嗰/邊 (e.g., 呢度 = here, 邊度 = where)."
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "佢哋",
+      "romanization": "keoi5dei6",
+      "notes": null
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "買",
+      "romanization": "maai5",
+      "notes": null
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "賣",
+      "romanization": "maai6",
+      "notes": null
+    },
+    {
+      "source_text": "to give, to let",
+      "target_text": "俾",
+      "romanization": "bei2",
+      "notes": null
+    },
+    {
+      "source_text": "to take, to hold",
+      "target_text": "拎",
+      "romanization": "ling1",
+      "notes": null
+    },
+    {
+      "source_text": "to like, to love",
+      "target_text": "鍾意",
+      "romanization": "zung1ji3",
+      "notes": null
+    },
+    {
+      "source_text": "and, with, same",
+      "target_text": "同",
+      "romanization": "tung4",
+      "notes": null
+    },
+    {
+      "source_text": "but, however",
+      "target_text": "但係",
+      "romanization": "daan6hai6",
+      "notes": null
+    },
+    {
+      "source_text": "because",
+      "target_text": "因為",
+      "romanization": "jan1wai6",
+      "notes": null
+    },
+    {
+      "source_text": "so, therefore",
+      "target_text": "所以",
+      "romanization": "so2ji5",
+      "notes": null
+    },
+    {
+      "source_text": "possessive particle, nominalizer",
+      "target_text": "嘅",
+      "romanization": "ge3",
+      "notes": "Similar to 's or 'of'. Can also turn a phrase into a noun."
+    },
+    {
+      "source_text": "changed state particle",
+      "target_text": "喇",
+      "romanization": "laa3",
+      "notes": "Indicates a new situation or change of state, 'now'."
+    },
+    {
+      "source_text": "softener, question particle",
+      "target_text": "呀",
+      "romanization": "aa4",
+      "notes": "Softens a statement or forms a simple question."
+    },
+    {
+      "source_text": "assertion particle",
+      "target_text": "㗎",
+      "romanization": "ga3",
+      "notes": "Used to emphasize or assert a statement."
+    },
+    {
+      "source_text": "obviousness particle",
+      "target_text": "囉",
+      "romanization": "lo1",
+      "notes": "Indicates something is obvious or self-evident."
+    },
+    {
+      "source_text": "hearsay, surprise particle",
+      "target_text": "喎",
+      "romanization": "wo3",
+      "notes": "Indicates something learned from others or surprise."
+    },
+    {
+      "source_text": "completion aspect marker",
+      "target_text": "咗",
+      "romanization": "zo2",
+      "notes": "Indicates an action has been completed."
+    },
+    {
+      "source_text": "progressive aspect marker",
+      "target_text": "緊",
+      "romanization": "gan2",
+      "notes": "Indicates an action is ongoing."
+    },
+    {
+      "source_text": "experiential aspect marker",
+      "target_text": "過",
+      "romanization": "gwo3",
+      "notes": "Indicates having experienced an action."
+    },
+    {
+      "source_text": "one, a/an",
+      "target_text": "一",
+      "romanization": "jat1",
+      "notes": null
+    },
+    {
+      "source_text": "two (for counting)",
+      "target_text": "二",
+      "romanization": "ji6",
+      "notes": "Used when counting numbers in sequence."
+    },
+    {
+      "source_text": "two (with measure words)",
+      "target_text": "兩",
+      "romanization": "loeng5",
+      "notes": "Used before measure words (e.g., 兩個人 = two people)."
+    },
+    {
+      "source_text": "three",
+      "target_text": "三",
+      "romanization": "saam1",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "四",
+      "romanization": "sei3",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "五",
+      "romanization": "ng5",
+      "notes": null
+    },
+    {
+      "source_text": "six",
+      "target_text": "六",
+      "romanization": "luk6",
+      "notes": null
+    },
+    {
+      "source_text": "seven",
+      "target_text": "七",
+      "romanization": "cat1",
+      "notes": null
+    },
+    {
+      "source_text": "eight",
+      "target_text": "八",
+      "romanization": "baat3",
+      "notes": null
+    },
+    {
+      "source_text": "nine",
+      "target_text": "九",
+      "romanization": "gau2",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "十",
+      "romanization": "sap6",
+      "notes": null
+    },
+    {
+      "source_text": "hundred",
+      "target_text": "百",
+      "romanization": "baak3",
+      "notes": null
+    },
+    {
+      "source_text": "thousand",
+      "target_text": "千",
+      "romanization": "cin1",
+      "notes": null
+    },
+    {
+      "source_text": "ten thousand",
+      "target_text": "萬",
+      "romanization": "maan6",
+      "notes": null
+    },
+    {
+      "source_text": "Hong Kong",
+      "target_text": "香港",
+      "romanization": "hoeng1gong2",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "朋友",
+      "romanization": "pang4jau5",
+      "notes": null
+    },
+    {
+      "source_text": "home, house",
+      "target_text": "屋企",
+      "romanization": "uk1kei2",
+      "notes": null
+    },
+    {
+      "source_text": "company, office",
+      "target_text": "公司",
+      "romanization": "gung1si1",
+      "notes": null
+    },
+    {
+      "source_text": "school",
+      "target_text": "學校",
+      "romanization": "hok6haau6",
+      "notes": null
+    },
+    {
+      "source_text": "shop, store",
+      "target_text": "店",
+      "romanization": "dim3",
+      "notes": null
+    },
+    {
+      "source_text": "street",
+      "target_text": "街",
+      "romanization": "gaai1",
+      "notes": null
+    },
+    {
+      "source_text": "telephone, phone",
+      "target_text": "電話",
+      "romanization": "din6waa2",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "水",
+      "romanization": "seoi2",
+      "notes": null
+    },
+    {
+      "source_text": "tea",
+      "target_text": "茶",
+      "romanization": "caa4",
+      "notes": null
+    },
+    {
+      "source_text": "coffee",
+      "target_text": "咖啡",
+      "romanization": "gaa3fe1",
+      "notes": null
+    },
+    {
+      "source_text": "cooked rice, meal",
+      "target_text": "飯",
+      "romanization": "faan6",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "年",
+      "romanization": "nin4",
+      "notes": null
+    },
+    {
+      "source_text": "month",
+      "target_text": "月",
+      "romanization": "jyut6",
+      "notes": null
+    },
+    {
+      "source_text": "week",
+      "target_text": "星期",
+      "romanization": "sing1kei4",
+      "notes": null
+    },
+    {
+      "source_text": "early, morning",
+      "target_text": "早",
+      "romanization": "zou2",
+      "notes": null
+    },
+    {
+      "source_text": "night, late",
+      "target_text": "夜",
+      "romanization": "je6",
+      "notes": null
+    },
+    {
+      "source_text": "Mr., teacher",
+      "target_text": "先生",
+      "romanization": "sin1saang1",
+      "notes": null
+    },
+    {
+      "source_text": "Ms., young lady",
+      "target_text": "小姐",
+      "romanization": "siu2ze2",
+      "notes": null
+    }
+  ]
+}

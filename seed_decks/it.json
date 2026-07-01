@@ -1,0 +1,607 @@
+{
+  "lang": "it",
+  "name": "Top 100 Italian Words",
+  "description": "The 100 most common words in Italian — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the",
+      "target_text": "il",
+      "romanization": "",
+      "notes": "masc. sg. definite article"
+    },
+    {
+      "source_text": "of / from",
+      "target_text": "di",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "and",
+      "target_text": "e",
+      "romanization": "",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "to be",
+      "target_text": "essere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "to / at",
+      "target_text": "a",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "that / which / who",
+      "target_text": "che",
+      "romanization": "",
+      "notes": "conjunction or pronoun"
+    },
+    {
+      "source_text": "in / into / on",
+      "target_text": "in",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "not",
+      "target_text": "non",
+      "romanization": "",
+      "notes": "negation adverb"
+    },
+    {
+      "source_text": "a / an",
+      "target_text": "un",
+      "romanization": "",
+      "notes": "masc. sg. indefinite article"
+    },
+    {
+      "source_text": "to have",
+      "target_text": "avere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "for / by / through",
+      "target_text": "per",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "with",
+      "target_text": "con",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "I",
+      "target_text": "io",
+      "romanization": "",
+      "notes": "personal pronoun"
+    },
+    {
+      "source_text": "oneself / itself / one",
+      "target_text": "si",
+      "romanization": "",
+      "notes": "reflexive or impersonal pronoun"
+    },
+    {
+      "source_text": "the / her / it",
+      "target_text": "la",
+      "romanization": "",
+      "notes": "fem. sg. def. article or direct object pronoun"
+    },
+    {
+      "source_text": "from / by",
+      "target_text": "da",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "how / as / like",
+      "target_text": "come",
+      "romanization": "",
+      "notes": "adverb or conjunction"
+    },
+    {
+      "source_text": "me / to me",
+      "target_text": "mi",
+      "romanization": "",
+      "notes": "direct or indirect object pronoun"
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "fare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "more / plus",
+      "target_text": "più",
+      "romanization": "",
+      "notes": "adverb or adjective"
+    },
+    {
+      "source_text": "but",
+      "target_text": "ma",
+      "romanization": "",
+      "notes": "conjunction"
+    },
+    {
+      "source_text": "this",
+      "target_text": "questo",
+      "romanization": "",
+      "notes": "demonstrative pronoun or adjective"
+    },
+    {
+      "source_text": "to say / to tell",
+      "target_text": "dire",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "what / thing",
+      "target_text": "cosa",
+      "romanization": "",
+      "notes": "interrogative pronoun or noun"
+    },
+    {
+      "source_text": "to want",
+      "target_text": "volere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "to be able to / can",
+      "target_text": "potere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "you",
+      "target_text": "tu",
+      "romanization": "",
+      "notes": "sg. informal personal pronoun"
+    },
+    {
+      "source_text": "when",
+      "target_text": "quando",
+      "romanization": "",
+      "notes": "adverb or conjunction"
+    },
+    {
+      "source_text": "also / too / even",
+      "target_text": "anche",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "now / hour",
+      "target_text": "ora",
+      "romanization": "",
+      "notes": "adverb or noun"
+    },
+    {
+      "source_text": "the / him / it",
+      "target_text": "lo",
+      "romanization": "",
+      "notes": "masc. sg. def. article or direct obj. pronoun"
+    },
+    {
+      "source_text": "that",
+      "target_text": "quello",
+      "romanization": "",
+      "notes": "demonstrative pronoun or adjective"
+    },
+    {
+      "source_text": "on / upon / up",
+      "target_text": "su",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "to go",
+      "target_text": "andare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "there / here / to us / us",
+      "target_text": "ci",
+      "romanization": "",
+      "notes": "locative adverb or pronoun"
+    },
+    {
+      "source_text": "without",
+      "target_text": "senza",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "well",
+      "target_text": "bene",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "so / thus",
+      "target_text": "così",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "why / because",
+      "target_text": "perché",
+      "romanization": "",
+      "notes": "interrogative adverb or conjunction"
+    },
+    {
+      "source_text": "only / alone",
+      "target_text": "solo",
+      "romanization": "",
+      "notes": "adverb or adjective"
+    },
+    {
+      "source_text": "you",
+      "target_text": "te",
+      "romanization": "",
+      "notes": "stressed object pronoun (sg. informal)"
+    },
+    {
+      "source_text": "we",
+      "target_text": "noi",
+      "romanization": "",
+      "notes": "personal pronoun"
+    },
+    {
+      "source_text": "then / afterwards",
+      "target_text": "poi",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "two",
+      "target_text": "due",
+      "romanization": "",
+      "notes": "number"
+    },
+    {
+      "source_text": "all / whole / everything",
+      "target_text": "tutto",
+      "romanization": "",
+      "notes": "pronoun or adjective"
+    },
+    {
+      "source_text": "yes",
+      "target_text": "sì",
+      "romanization": "",
+      "notes": "affirmation"
+    },
+    {
+      "source_text": "to find",
+      "target_text": "trovare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "way / street / away",
+      "target_text": "via",
+      "romanization": "",
+      "notes": "noun or adverb"
+    },
+    {
+      "source_text": "you / to you",
+      "target_text": "ti",
+      "romanization": "",
+      "notes": "direct or indirect obj. pronoun (sg. informal)"
+    },
+    {
+      "source_text": "one / a, an",
+      "target_text": "uno",
+      "romanization": "",
+      "notes": "number or masc. sg. indefinite article"
+    },
+    {
+      "source_text": "to have to / must",
+      "target_text": "dovere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "loro",
+      "romanization": "",
+      "notes": "personal pronoun"
+    },
+    {
+      "source_text": "time / weather",
+      "target_text": "tempo",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "man",
+      "target_text": "uomo",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "the / to him / to them",
+      "target_text": "gli",
+      "romanization": "",
+      "notes": "masc. pl. def. article or indirect obj. pronoun"
+    },
+    {
+      "source_text": "always",
+      "target_text": "sempre",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "life",
+      "target_text": "vita",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "to see",
+      "target_text": "vedere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "already",
+      "target_text": "già",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "to know",
+      "target_text": "sapere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "still / yet / again",
+      "target_text": "ancora",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "to take / to get",
+      "target_text": "prendere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "to come",
+      "target_text": "venire",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "very / much / many",
+      "target_text": "molto",
+      "romanization": "",
+      "notes": "adverb or adjective"
+    },
+    {
+      "source_text": "where",
+      "target_text": "dove",
+      "romanization": "",
+      "notes": "adverb or conjunction"
+    },
+    {
+      "source_text": "nothing",
+      "target_text": "niente",
+      "romanization": "",
+      "notes": "pronoun"
+    },
+    {
+      "source_text": "new",
+      "target_text": "nuovo",
+      "romanization": "",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "other / another",
+      "target_text": "altro",
+      "romanization": "",
+      "notes": "adjective or pronoun"
+    },
+    {
+      "source_text": "to give",
+      "target_text": "dare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "day",
+      "target_text": "giorno",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "casa",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "woman",
+      "target_text": "donna",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "to speak / to talk",
+      "target_text": "parlare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "you",
+      "target_text": "voi",
+      "romanization": "",
+      "notes": "plural or formal personal pronoun"
+    },
+    {
+      "source_text": "the / her / them",
+      "target_text": "le",
+      "romanization": "",
+      "notes": "fem. pl. def. article or direct obj. pronoun"
+    },
+    {
+      "source_text": "the",
+      "target_text": "i",
+      "romanization": "",
+      "notes": "masc. pl. definite article"
+    },
+    {
+      "source_text": "year",
+      "target_text": "anno",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "less / minus",
+      "target_text": "meno",
+      "romanization": "",
+      "notes": "adverb or adjective"
+    },
+    {
+      "source_text": "big / large / great",
+      "target_text": "grande",
+      "romanization": "",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "own / proper / really",
+      "target_text": "proprio",
+      "romanization": "",
+      "notes": "adjective or adverb"
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "lavoro",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "world",
+      "target_text": "mondo",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "to put / to place",
+      "target_text": "mettere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "family",
+      "target_text": "famiglia",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "three",
+      "target_text": "tre",
+      "romanization": "",
+      "notes": "number"
+    },
+    {
+      "source_text": "city",
+      "target_text": "città",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "country / village",
+      "target_text": "paese",
+      "romanization": "",
+      "notes": "noun"
+    },
+    {
+      "source_text": "same",
+      "target_text": "stesso",
+      "romanization": "",
+      "notes": "adjective or pronoun"
+    },
+    {
+      "source_text": "between / among",
+      "target_text": "tra",
+      "romanization": "",
+      "notes": "preposition"
+    },
+    {
+      "source_text": "before / first",
+      "target_text": "prima",
+      "romanization": "",
+      "notes": "adverb or adjective"
+    },
+    {
+      "source_text": "which / what",
+      "target_text": "quale",
+      "romanization": "",
+      "notes": "interrogative or relative pronoun"
+    },
+    {
+      "source_text": "to believe / to think",
+      "target_text": "credere",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "to hear / to feel",
+      "target_text": "sentire",
+      "romanization": "",
+      "notes": "infinitive verb"
+    },
+    {
+      "source_text": "beautiful / nice",
+      "target_text": "bello",
+      "romanization": "",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "small / little",
+      "target_text": "piccolo",
+      "romanization": "",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "grazie",
+      "romanization": "",
+      "notes": "interjection or noun"
+    },
+    {
+      "source_text": "immediately / at once",
+      "target_text": "subito",
+      "romanization": "",
+      "notes": "adverb"
+    },
+    {
+      "source_text": "true / real",
+      "target_text": "vero",
+      "romanization": "",
+      "notes": "adjective"
+    },
+    {
+      "source_text": "no",
+      "target_text": "no",
+      "romanization": "",
+      "notes": "negation"
+    },
+    {
+      "source_text": "to stay / to be",
+      "target_text": "stare",
+      "romanization": "",
+      "notes": "infinitive verb"
+    }
+  ]
+}

@@ -4041,6 +4041,50 @@ async def create_shared_deck(
         return deck_id
 
 
+async def upsert_featured_deck(
+    creator_id: int, name: str, description: str,
+    target_lang: str, items: list[dict],
+) -> tuple[int, str]:
+    """Create or update an official (system-owned) deck for a language IN PLACE.
+
+    Matches an existing deck by (creator_id, target_lang) so re-seeding preserves
+    the deck_id — importers' `deck_imports` and `deck_ratings` rows stay valid.
+    Items are a content snapshot (importers already copied them to their own
+    cards), so replacing them never affects existing importers. Returns
+    (deck_id, "created"|"updated")."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM shared_decks WHERE creator_id=? AND target_lang=? AND name=?",
+            (creator_id, target_lang, name),
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            deck_id, action = row[0], "updated"
+            await db.execute(
+                "UPDATE shared_decks SET description=?, visibility='public' WHERE id=?",
+                (description, deck_id),
+            )
+            await db.execute("DELETE FROM shared_deck_items WHERE deck_id=?", (deck_id,))
+        else:
+            cur = await db.execute(
+                """INSERT INTO shared_decks (creator_id, name, description, target_lang, visibility)
+                   VALUES (?, ?, ?, ?, 'public')""",
+                (creator_id, name, description, target_lang),
+            )
+            deck_id, action = cur.lastrowid, "created"
+        for i, item in enumerate(items):
+            await db.execute(
+                """INSERT INTO shared_deck_items
+                   (deck_id, source_text, target_text, romanization, notes, sort_order, target_lang)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (deck_id, item["source_text"], item["target_text"],
+                 item.get("romanization"), item.get("notes"), i,
+                 item.get("target_lang") or target_lang),
+            )
+        await db.commit()
+        return deck_id, action
+
+
 async def update_shared_deck(
     user_id: int, deck_id: int,
     name: str | None = None, description: str | None = None,

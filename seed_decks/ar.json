@@ -1,0 +1,607 @@
+{
+  "lang": "ar",
+  "name": "Top 100 Arabic Words",
+  "description": "The 100 most common words in Arabic — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and",
+      "target_text": "وَ",
+      "romanization": "wa",
+      "notes": null
+    },
+    {
+      "source_text": "in, at",
+      "target_text": "في",
+      "romanization": "fy",
+      "notes": null
+    },
+    {
+      "source_text": "from, of",
+      "target_text": "مِنْ",
+      "romanization": "min",
+      "notes": null
+    },
+    {
+      "source_text": "to, towards",
+      "target_text": "إلى",
+      "romanization": "ila",
+      "notes": null
+    },
+    {
+      "source_text": "on, upon, over",
+      "target_text": "عَلَى",
+      "romanization": "'alaa",
+      "notes": null
+    },
+    {
+      "source_text": "was, to be",
+      "target_text": "كانَ",
+      "romanization": "kana",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "that, to (subjunctive)",
+      "target_text": "أَنْ",
+      "romanization": "aan",
+      "notes": null
+    },
+    {
+      "source_text": "he, it (m)",
+      "target_text": "هُوَ",
+      "romanization": "huwa",
+      "notes": null
+    },
+    {
+      "source_text": "she, it (f)",
+      "target_text": "هِيَ",
+      "romanization": "hiya",
+      "notes": null
+    },
+    {
+      "source_text": "no, not",
+      "target_text": "لا",
+      "romanization": "la",
+      "notes": null
+    },
+    {
+      "source_text": "what (negation)",
+      "target_text": "ما",
+      "romanization": "ma",
+      "notes": null
+    },
+    {
+      "source_text": "except, but",
+      "target_text": "إِلَّا",
+      "romanization": "iilaa",
+      "notes": null
+    },
+    {
+      "source_text": "I",
+      "target_text": "أَنا",
+      "romanization": "aana",
+      "notes": null
+    },
+    {
+      "source_text": "with",
+      "target_text": "مَعَ",
+      "romanization": "ma'a",
+      "notes": null
+    },
+    {
+      "source_text": "certainly, already",
+      "target_text": "قَدْ",
+      "romanization": "qad",
+      "notes": "Often indicates perfect tense or possibility"
+    },
+    {
+      "source_text": "said, to say",
+      "target_text": "قالَ",
+      "romanization": "qala",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "O, hey",
+      "target_text": "يا",
+      "romanization": "ya",
+      "notes": "Vocative particle"
+    },
+    {
+      "source_text": "for, to (preposition)",
+      "target_text": "لِـ",
+      "romanization": "li",
+      "notes": "Prefix to nouns"
+    },
+    {
+      "source_text": "this (m, sg)",
+      "target_text": "هٰذا",
+      "romanization": "hdha",
+      "notes": null
+    },
+    {
+      "source_text": "this (f, sg)",
+      "target_text": "هٰذِهِ",
+      "romanization": "hdhihi",
+      "notes": null
+    },
+    {
+      "source_text": "that (m, sg)",
+      "target_text": "ذٰلِكَ",
+      "romanization": "dhlika",
+      "notes": null
+    },
+    {
+      "source_text": "that (f, sg)",
+      "target_text": "تِلْكَ",
+      "romanization": "tilka",
+      "notes": null
+    },
+    {
+      "source_text": "or",
+      "target_text": "أَوْ",
+      "romanization": "aaw",
+      "notes": null
+    },
+    {
+      "source_text": "if, when (conditional)",
+      "target_text": "إذا",
+      "romanization": "idha",
+      "notes": null
+    },
+    {
+      "source_text": "is, to be (imperfect)",
+      "target_text": "يَكُونُ",
+      "romanization": "yakuwnu",
+      "notes": "Present tense, he form"
+    },
+    {
+      "source_text": "indeed, that (emphasizer)",
+      "target_text": "إنَّ",
+      "romanization": "ina",
+      "notes": "Takes accusative object"
+    },
+    {
+      "source_text": "who, which (m, sg)",
+      "target_text": "الَّذي",
+      "romanization": "aladhy",
+      "notes": "Relative pronoun"
+    },
+    {
+      "source_text": "who, which (f, sg)",
+      "target_text": "الَّتي",
+      "romanization": "alaty",
+      "notes": "Relative pronoun"
+    },
+    {
+      "source_text": "then, next",
+      "target_text": "ثُمَّ",
+      "romanization": "thuma",
+      "notes": null
+    },
+    {
+      "source_text": "but, however",
+      "target_text": "لٰكِنْ",
+      "romanization": "lkin",
+      "notes": null
+    },
+    {
+      "source_text": "you (m, sg)",
+      "target_text": "أَنْتَ",
+      "romanization": "aanta",
+      "notes": null
+    },
+    {
+      "source_text": "you (f, sg)",
+      "target_text": "أَنْتِ",
+      "romanization": "aanti",
+      "notes": null
+    },
+    {
+      "source_text": "we",
+      "target_text": "نَحْنُ",
+      "romanization": "naḥnu",
+      "notes": null
+    },
+    {
+      "source_text": "they (m, pl)",
+      "target_text": "هُمْ",
+      "romanization": "hum",
+      "notes": null
+    },
+    {
+      "source_text": "all, every",
+      "target_text": "كُلّ",
+      "romanization": "kul",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "يَوْم",
+      "romanization": "yawm",
+      "notes": null
+    },
+    {
+      "source_text": "time",
+      "target_text": "وَقْت",
+      "romanization": "waqt",
+      "notes": null
+    },
+    {
+      "source_text": "people",
+      "target_text": "ناس",
+      "romanization": "nas",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "شَيْء",
+      "romanization": "shay'",
+      "notes": null
+    },
+    {
+      "source_text": "God",
+      "target_text": "اللّٰه",
+      "romanization": "allh",
+      "notes": null
+    },
+    {
+      "source_text": "came, to come",
+      "target_text": "جاءَ",
+      "romanization": "ja'a",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "went, to go",
+      "target_text": "ذَهَبَ",
+      "romanization": "dhahaba",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "worked, to do/make",
+      "target_text": "عَمِلَ",
+      "romanization": "'amila",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "knew, to know",
+      "target_text": "عَرَفَ",
+      "romanization": "'arafa",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "wanted, to want",
+      "target_text": "أَرادَ",
+      "romanization": "aarada",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "found, to find",
+      "target_text": "وَجَدَ",
+      "romanization": "wajada",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "saw, to see",
+      "target_text": "رَأى",
+      "romanization": "raaa",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "became, to become",
+      "target_text": "أَصْبَحَ",
+      "romanization": "aaṣbaḥa",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "gave, to give",
+      "target_text": "أَعْطى",
+      "romanization": "aa'ṭa",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "took, to take",
+      "target_text": "أَخَذَ",
+      "romanization": "aakhadha",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "did, to do",
+      "target_text": "فَعَلَ",
+      "romanization": "fa'ala",
+      "notes": "Past tense, he form"
+    },
+    {
+      "source_text": "name",
+      "target_text": "اِسْم",
+      "romanization": "aism",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "بَيْت",
+      "romanization": "bayt",
+      "notes": null
+    },
+    {
+      "source_text": "door",
+      "target_text": "باب",
+      "romanization": "bab",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "كِتاب",
+      "romanization": "kitab",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "ماء",
+      "romanization": "ma'",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "طَعام",
+      "romanization": "ṭa'am",
+      "notes": null
+    },
+    {
+      "source_text": "man",
+      "target_text": "رَجُل",
+      "romanization": "rajul",
+      "notes": null
+    },
+    {
+      "source_text": "woman",
+      "target_text": "اِمْرَأَة",
+      "romanization": "aimraaaa",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "طِفْل",
+      "romanization": "ṭifl",
+      "notes": null
+    },
+    {
+      "source_text": "big, large",
+      "target_text": "كَبِير",
+      "romanization": "kabiyr",
+      "notes": null
+    },
+    {
+      "source_text": "small, little",
+      "target_text": "صَغِير",
+      "romanization": "ṣaghiyr",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "جَدِيد",
+      "romanization": "jadiyd",
+      "notes": null
+    },
+    {
+      "source_text": "old (thing)",
+      "target_text": "قَدِيم",
+      "romanization": "qadiym",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful",
+      "target_text": "جَمِيل",
+      "romanization": "jamiyl",
+      "notes": null
+    },
+    {
+      "source_text": "good",
+      "target_text": "جَيِّد",
+      "romanization": "jayid",
+      "notes": null
+    },
+    {
+      "source_text": "many, much",
+      "target_text": "كَثِير",
+      "romanization": "kathiyr",
+      "notes": null
+    },
+    {
+      "source_text": "few, little",
+      "target_text": "قَلِيل",
+      "romanization": "qaliyl",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "هُنا",
+      "romanization": "huna",
+      "notes": null
+    },
+    {
+      "source_text": "there",
+      "target_text": "هُناكَ",
+      "romanization": "hunaka",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "الْيَوْم",
+      "romanization": "alyawm",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "الْآن",
+      "romanization": "alaan",
+      "notes": null
+    },
+    {
+      "source_text": "when (interrogative)",
+      "target_text": "مَتَى",
+      "romanization": "mataa",
+      "notes": null
+    },
+    {
+      "source_text": "where (interrogative)",
+      "target_text": "أَيْنَ",
+      "romanization": "aayna",
+      "notes": null
+    },
+    {
+      "source_text": "how (interrogative)",
+      "target_text": "كَيْفَ",
+      "romanization": "kayfa",
+      "notes": null
+    },
+    {
+      "source_text": "what (interrogative)",
+      "target_text": "ماذا",
+      "romanization": "madha",
+      "notes": null
+    },
+    {
+      "source_text": "who (interrogative)",
+      "target_text": "مَنْ",
+      "romanization": "man",
+      "notes": null
+    },
+    {
+      "source_text": "how much/many (interrogative)",
+      "target_text": "كَمْ",
+      "romanization": "kam",
+      "notes": null
+    },
+    {
+      "source_text": "why (interrogative)",
+      "target_text": "لِماذا",
+      "romanization": "limadha",
+      "notes": null
+    },
+    {
+      "source_text": "interrogative particle",
+      "target_text": "هَلْ",
+      "romanization": "hal",
+      "notes": "For yes/no questions"
+    },
+    {
+      "source_text": "one (m)",
+      "target_text": "واحِد",
+      "romanization": "waḥid",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "اِثْنَينِ",
+      "romanization": "aithnayni",
+      "notes": "Accusative/Genitive form, common for general use"
+    },
+    {
+      "source_text": "three (for masc. nouns)",
+      "target_text": "ثَلاثَة",
+      "romanization": "thalathaa",
+      "notes": null
+    },
+    {
+      "source_text": "four (for masc. nouns)",
+      "target_text": "أَرْبَعَة",
+      "romanization": "aarba'aa",
+      "notes": null
+    },
+    {
+      "source_text": "five (for masc. nouns)",
+      "target_text": "خَمْسَة",
+      "romanization": "khamsaa",
+      "notes": null
+    },
+    {
+      "source_text": "first (m)",
+      "target_text": "أَوَّل",
+      "romanization": "aawal",
+      "notes": null
+    },
+    {
+      "source_text": "other, last (m)",
+      "target_text": "آخَر",
+      "romanization": "aakhar",
+      "notes": null
+    },
+    {
+      "source_text": "after",
+      "target_text": "بَعْدَ",
+      "romanization": "ba'da",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "before",
+      "target_text": "قَبْلَ",
+      "romanization": "qabla",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "above, over",
+      "target_text": "فَوْقَ",
+      "romanization": "fawqa",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "under, below",
+      "target_text": "تَحْتَ",
+      "romanization": "taḥta",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "at, with, near",
+      "target_text": "عِنْدَ",
+      "romanization": "'inda",
+      "notes": "Preposition, takes genitive; also for possession"
+    },
+    {
+      "source_text": "without, below",
+      "target_text": "دُونَ",
+      "romanization": "duwna",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "in front of",
+      "target_text": "أَمامَ",
+      "romanization": "aamama",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "behind",
+      "target_text": "خَلْفَ",
+      "romanization": "khalfa",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "between",
+      "target_text": "بَيْنَ",
+      "romanization": "bayna",
+      "notes": "Preposition, takes genitive"
+    },
+    {
+      "source_text": "together",
+      "target_text": "مَعًا",
+      "romanization": "ma'ana",
+      "notes": "Adverb"
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "شُكْرًا",
+      "romanization": "shukrana",
+      "notes": "Adverbial accusative"
+    },
+    {
+      "source_text": "you're welcome, excuse me",
+      "target_text": "عَفْوًا",
+      "romanization": "'afwana",
+      "notes": "Adverbial accusative"
+    },
+    {
+      "source_text": "yes",
+      "target_text": "نَعَمْ",
+      "romanization": "na'am",
+      "notes": null
+    }
+  ]
+}

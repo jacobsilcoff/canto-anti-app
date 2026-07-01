@@ -1,0 +1,607 @@
+{
+  "lang": "sw",
+  "name": "Top 100 Swahili Words",
+  "description": "The 100 most common words in Swahili — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "and / with",
+      "target_text": "na",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "is / am / are",
+      "target_text": "ni",
+      "romanization": "",
+      "notes": "Copula"
+    },
+    {
+      "source_text": "to be / to have",
+      "target_text": "kuwa",
+      "romanization": "",
+      "notes": "Infinitive verb"
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "mimi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "wewe",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "yeye",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we / us",
+      "target_text": "sisi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (plural)",
+      "target_text": "nyinyi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "they / them",
+      "target_text": "wao",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "for / by / with / to",
+      "target_text": "kwa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "in / on / at",
+      "target_text": "katika",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to do / to make",
+      "target_text": "kufanya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to go",
+      "target_text": "kwenda",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to come",
+      "target_text": "kuja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to say / to speak",
+      "target_text": "kusema",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to know",
+      "target_text": "kujua",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to want",
+      "target_text": "kutaka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to give / to take out",
+      "target_text": "kutoa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to get / to obtain",
+      "target_text": "kupata",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "very / much",
+      "target_text": "sana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "pia",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "lakini",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if / like / as",
+      "target_text": "kama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "ndiyo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no",
+      "target_text": "hapana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "what?",
+      "target_text": "nini",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where?",
+      "target_text": "wapi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how?",
+      "target_text": "vipi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who?",
+      "target_text": "nani",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "person",
+      "target_text": "mtu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day",
+      "target_text": "siku",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "kazi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "maji",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "chakula",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house",
+      "target_text": "nyumba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "pesa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "mtoto",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "book",
+      "target_text": "kitabu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "school",
+      "target_text": "shule",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "language",
+      "target_text": "lugha",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "rafiki",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "car",
+      "target_text": "gari",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "phone",
+      "target_text": "simu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / beautiful",
+      "target_text": "nzuri",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "kubwa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "ndogo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "nyingi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "all / entire",
+      "target_text": "yote",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one / a / single",
+      "target_text": "moja",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "this",
+      "target_text": "hii",
+      "romanization": "",
+      "notes": "Demonstrative"
+    },
+    {
+      "source_text": "that",
+      "target_text": "ile",
+      "romanization": "",
+      "notes": "Demonstrative"
+    },
+    {
+      "source_text": "now",
+      "target_text": "sasa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "today",
+      "target_text": "leo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow",
+      "target_text": "kesho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "jana",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "asubuhi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "evening",
+      "target_text": "jioni",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "usiku",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "mwaka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "week",
+      "target_text": "wiki",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hour / clock / time",
+      "target_text": "saa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "minute",
+      "target_text": "dakika",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "mbili",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "three",
+      "target_text": "tatu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "four",
+      "target_text": "nne",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "five",
+      "target_text": "tano",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "ten",
+      "target_text": "kumi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to eat",
+      "target_text": "kula",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to drink",
+      "target_text": "kunywa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to live",
+      "target_text": "kuishi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to see",
+      "target_text": "kuona",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to buy",
+      "target_text": "kununua",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to sell",
+      "target_text": "kuuza",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to read",
+      "target_text": "kusoma",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to write",
+      "target_text": "kuandika",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to like / to love",
+      "target_text": "kupenda",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to help",
+      "target_text": "kusaidia",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to need",
+      "target_text": "kuhitaji",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to be able",
+      "target_text": "kuweza",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "country",
+      "target_text": "nchi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "city / town",
+      "target_text": "mji",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "jina",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "hand / arm",
+      "target_text": "mkono",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "head",
+      "target_text": "kichwa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "baba",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "mother",
+      "target_text": "mama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "down / below",
+      "target_text": "chini",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "up / above",
+      "target_text": "juu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "outside",
+      "target_text": "nje",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "inside",
+      "target_text": "ndani",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old (person/adj.)",
+      "target_text": "mzee",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new",
+      "target_text": "mpya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "quickly / fast",
+      "target_text": "haraka",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "slowly",
+      "target_text": "polepole",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "easy",
+      "target_text": "rahisi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "difficult",
+      "target_text": "ngumu",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "reason",
+      "target_text": "sababu",
+      "romanization": "",
+      "notes": "Often used in 'kwa sababu' (because)"
+    },
+    {
+      "source_text": "first",
+      "target_text": "kwanza",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "end / last",
+      "target_text": "mwisho",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how many/much?",
+      "target_text": "ngapi",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}

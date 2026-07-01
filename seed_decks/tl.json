@@ -1,0 +1,607 @@
+{
+  "lang": "tl",
+  "name": "Top 100 Tagalog Words",
+  "description": "The 100 most common words in Tagalog — a fast start for beginners.",
+  "items": [
+    {
+      "source_text": "the (topic marker)",
+      "target_text": "Ang",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "of / genitive marker",
+      "target_text": "Ng",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "to / at / in / on / for",
+      "target_text": "Sa",
+      "romanization": "",
+      "notes": "Location/direction marker"
+    },
+    {
+      "source_text": "linker / already / now",
+      "target_text": "Na",
+      "romanization": "",
+      "notes": "Very versatile particle"
+    },
+    {
+      "source_text": "predicate marker / linker",
+      "target_text": "Ay",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "I / me",
+      "target_text": "Ako",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "you (singular)",
+      "target_text": "Ikaw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "he / she / it",
+      "target_text": "Siya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "we (exclusive)",
+      "target_text": "Kami",
+      "romanization": "",
+      "notes": "Speaker and others, but not listener"
+    },
+    {
+      "source_text": "we (inclusive)",
+      "target_text": "Tayo",
+      "romanization": "",
+      "notes": "Speaker, listener, and others"
+    },
+    {
+      "source_text": "they",
+      "target_text": "Sila",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "my / by me",
+      "target_text": "Ko",
+      "romanization": "",
+      "notes": "Clitic genitive pronoun"
+    },
+    {
+      "source_text": "your / by you",
+      "target_text": "Mo",
+      "romanization": "",
+      "notes": "Clitic genitive pronoun"
+    },
+    {
+      "source_text": "his / her / by him/her",
+      "target_text": "Niya",
+      "romanization": "",
+      "notes": "Clitic genitive pronoun"
+    },
+    {
+      "source_text": "their / by them",
+      "target_text": "Nila",
+      "romanization": "",
+      "notes": "Clitic genitive pronoun"
+    },
+    {
+      "source_text": "this",
+      "target_text": "Ito",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that (near listener)",
+      "target_text": "Iyan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "that (far from both)",
+      "target_text": "Iyon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "no / not",
+      "target_text": "Hindi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yes",
+      "target_text": "Oo",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "none / nothing / don't have",
+      "target_text": "Wala",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there is/are / has/have",
+      "target_text": "May",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "and",
+      "target_text": "At",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "but",
+      "target_text": "Pero",
+      "romanization": "",
+      "notes": "Common English/Spanish loanword"
+    },
+    {
+      "source_text": "or",
+      "target_text": "O",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "if / when",
+      "target_text": "Kung",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "because",
+      "target_text": "Kasi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "only / just",
+      "target_text": "Lang",
+      "romanization": "",
+      "notes": "Clitic particle"
+    },
+    {
+      "source_text": "also / too",
+      "target_text": "Din / Rin",
+      "romanization": "",
+      "notes": "Allomorphs, 'Rin' after vowels/y/w"
+    },
+    {
+      "source_text": "still / yet / more",
+      "target_text": "Pa",
+      "romanization": "",
+      "notes": "Clitic particle"
+    },
+    {
+      "source_text": "question particle",
+      "target_text": "Ba",
+      "romanization": "",
+      "notes": "Clitic particle, indicates a question"
+    },
+    {
+      "source_text": "politeness marker",
+      "target_text": "Po",
+      "romanization": "",
+      "notes": "Clitic particle, for deference"
+    },
+    {
+      "source_text": "hopefully / wish",
+      "target_text": "Sana",
+      "romanization": "",
+      "notes": "Particle expressing hope or desire"
+    },
+    {
+      "source_text": "indeed / emphasis",
+      "target_text": "Nga",
+      "romanization": "",
+      "notes": "Clitic particle"
+    },
+    {
+      "source_text": "reportedly / they say",
+      "target_text": "Daw / Raw",
+      "romanization": "",
+      "notes": "Allomorphs, 'Raw' after vowels/y/w"
+    },
+    {
+      "source_text": "what",
+      "target_text": "Ano",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "who",
+      "target_text": "Sino",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "where",
+      "target_text": "Saan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "when",
+      "target_text": "Kailan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "why",
+      "target_text": "Bakit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "how",
+      "target_text": "Paano",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "like / want",
+      "target_text": "Gusto",
+      "romanization": "",
+      "notes": "Common Spanish loanword"
+    },
+    {
+      "source_text": "should / must",
+      "target_text": "Dapat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "can / may",
+      "target_text": "Pwede",
+      "romanization": "",
+      "notes": "Common Spanish loanword (puede)"
+    },
+    {
+      "source_text": "know",
+      "target_text": "Alam",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "said / says",
+      "target_text": "Sabi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "look / gaze (root)",
+      "target_text": "Tingin",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "do / make / work (root)",
+      "target_text": "Gawa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "go / to go (root)",
+      "target_text": "Punta",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "eat / food (root)",
+      "target_text": "Kain",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "sleep (root)",
+      "target_text": "Tulog",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "read / wet (root)",
+      "target_text": "Basa",
+      "romanization": "",
+      "notes": "Context-dependent: 'wet' is common meaning"
+    },
+    {
+      "source_text": "write / letter (root)",
+      "target_text": "Sulat",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "give / to give (root)",
+      "target_text": "Bigay",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "get / take (root)",
+      "target_text": "Kuha",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "here",
+      "target_text": "Dito",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there (near listener)",
+      "target_text": "Diyan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "there (far from both)",
+      "target_text": "Doon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "now",
+      "target_text": "Ngayon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "tomorrow / open",
+      "target_text": "Bukas",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "yesterday",
+      "target_text": "Kahapon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "day / sun",
+      "target_text": "Araw",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "night",
+      "target_text": "Gabi",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "morning",
+      "target_text": "Umaga",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "afternoon",
+      "target_text": "Hapon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "year",
+      "target_text": "Taon",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "month / moon",
+      "target_text": "Buwan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "time / hour",
+      "target_text": "Oras",
+      "romanization": "",
+      "notes": "Common Spanish loanword (horas)"
+    },
+    {
+      "source_text": "person / people",
+      "target_text": "Tao",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "house / home",
+      "target_text": "Bahay",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "water",
+      "target_text": "Tubig",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "food",
+      "target_text": "Pagkain",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "money",
+      "target_text": "Pera",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "work / job",
+      "target_text": "Trabaho",
+      "romanization": "",
+      "notes": "Common Spanish loanword (trabajo)"
+    },
+    {
+      "source_text": "place",
+      "target_text": "Lugar",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thing",
+      "target_text": "Bagay",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "name",
+      "target_text": "Pangalan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "word",
+      "target_text": "Salita",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "child",
+      "target_text": "Bata",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "friend",
+      "target_text": "Kaibigan",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "family",
+      "target_text": "Pamilya",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "father",
+      "target_text": "Tatay",
+      "romanization": "",
+      "notes": "Common informal term"
+    },
+    {
+      "source_text": "mother",
+      "target_text": "Nanay",
+      "romanization": "",
+      "notes": "Common informal term"
+    },
+    {
+      "source_text": "child / offspring",
+      "target_text": "Anak",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "sibling",
+      "target_text": "Kapatid",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "spouse",
+      "target_text": "Asawa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "man / male",
+      "target_text": "Lalaki",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "woman / female",
+      "target_text": "Babae",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "beautiful / good",
+      "target_text": "Maganda",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "good / well",
+      "target_text": "Mabuti",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "bad / evil",
+      "target_text": "Masama",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "big / large",
+      "target_text": "Malaki",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "small",
+      "target_text": "Maliit",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "new / before",
+      "target_text": "Bago",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "old (for things)",
+      "target_text": "Luma",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "many / much",
+      "target_text": "Marami",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "few / a little",
+      "target_text": "Kaunti",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "one",
+      "target_text": "Isa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "two",
+      "target_text": "Dalawa",
+      "romanization": "",
+      "notes": null
+    },
+    {
+      "source_text": "thank you",
+      "target_text": "Salamat",
+      "romanization": "",
+      "notes": null
+    }
+  ]
+}
