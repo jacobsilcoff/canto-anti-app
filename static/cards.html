@@ -1298,14 +1298,19 @@
     }
 
     if (item.labels && item.labels.length) {
-      const row = document.createElement('div');
-      row.className = 'review-labels';
-      item.labels.forEach(lbl => {
-        const chip = document.createElement('span');
-        chip.className = 'label-chip-static'; chip.textContent = lbl.name;
-        row.appendChild(chip);
-      });
-      answerEl.appendChild(row);
+      const activeDeck = _activeDeck();
+      const deckLabelName = activeDeck ? `📦 ${activeDeck.name}` : null;
+      const visibleLabels = item.labels.filter(lbl => lbl.name !== deckLabelName);
+      if (visibleLabels.length) {
+        const row = document.createElement('div');
+        row.className = 'review-labels';
+        visibleLabels.forEach(lbl => {
+          const chip = document.createElement('span');
+          chip.className = 'label-chip-static'; chip.textContent = lbl.name;
+          row.appendChild(chip);
+        });
+        answerEl.appendChild(row);
+      }
     }
 
     if (item.cefr_level) {
