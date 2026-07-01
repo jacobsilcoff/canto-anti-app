@@ -78,15 +78,17 @@ async def lifespan(app: FastAPI):
     if _BOOTSTRAP_PASSWORD:
         await db.bootstrap_admin(_BOOTSTRAP_USERNAME, auth.hash_password(_BOOTSTRAP_PASSWORD), email=_BOOTSTRAP_EMAIL)
     # Owner of official community decks (Top-100 word decks). Never logs in —
-    # seeded with an unusable random password. Then deterministically seed the
-    # committed seed_decks/*.json into this DB (create-missing; edits are pushed
-    # via the admin endpoint with force). Best-effort — never block startup.
+    # seeded with an unusable random password. Then deterministically SYNC the
+    # committed seed_decks/*.json into this DB: create missing decks and refresh
+    # any whose seed file changed since last boot (content-fingerprinted, so
+    # unchanged decks aren't rewritten). Keeps deployed decks matching the
+    # committed files on every deploy — no manual step. Best-effort.
     try:
         _system_id = await db.get_or_create_system_user(auth.hash_password(secrets.token_urlsafe(32)))
-        _seed_results = await common_decks.seed_all(_system_id)
+        _seed_results = await common_decks.seed_all(_system_id, sync=True)
         _new = [r for r in _seed_results if r["status"] in ("created", "updated")]
         if _new:
-            logging.info("Seeded %d official Top-100 decks", len(_new))
+            logging.info("Synced %d official Top-100 decks", len(_new))
     except Exception:
         logging.exception("Failed to seed official decks at startup")
     if _TEST_USERS:

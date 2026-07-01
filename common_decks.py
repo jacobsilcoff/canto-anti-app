@@ -18,6 +18,7 @@ every environment (generate once, seed everywhere — no per-env LLM regeneratio
 
 A deck is "official" purely by `creator_id == system_user_id`.
 """
+import hashlib
 import json
 import os
 import re
@@ -191,12 +192,25 @@ def generate_seed_file(lang: str, api_key: str, *, model: str = DEFAULT_MODEL) -
 
 # ── Phase 2: deterministic seed (committed file → DB) ────────────────────────
 
-async def seed_deck(system_id: int, lang: str, *, force: bool = False) -> dict:
+def _fingerprint(name: str, description: str, items: list) -> str:
+    return hashlib.sha1(
+        json.dumps([name, description, items], sort_keys=True, ensure_ascii=False)
+        .encode("utf-8")
+    ).hexdigest()
+
+
+async def seed_deck(
+    system_id: int, lang: str, *, force: bool = False, sync: bool = False,
+) -> dict:
     """Load seed_decks/<lang>.json and upsert it as the system deck for that lang.
 
-    Without `force`, an already-present deck is left untouched (create-missing);
-    with `force` its items/description are refreshed from the file in place.
-    Returns {lang, status: created|updated|skipped|missing|error, deck_id?}.
+    - default (create-missing): skip if a deck already exists.
+    - `sync=True`: upsert only if the deck is missing OR the seed file changed
+      since last seed (tracked by a content fingerprint in user_settings), so
+      startup keeps deployed decks matching the committed files without rewriting
+      unchanged ones every boot.
+    - `force=True`: always upsert (used by the admin endpoint / CLI).
+    Returns {lang, status: created|updated|unchanged|skipped|missing|error}.
     """
     data = load_seed(lang)
     if not data:
@@ -208,23 +222,29 @@ async def seed_deck(system_id: int, lang: str, *, force: bool = False) -> dict:
     items = data.get("items") or []
     if len(items) < MIN_VALID_ITEMS:
         return {"lang": lang, "status": "error", "error": f"only {len(items)} items"}
+    description = data.get("description") or deck_description(info, len(items))
     existing = None
     for d in await db.list_featured_decks(target_lang=lang):
         if d["name"] == name:
             existing = d["id"]
             break
     if existing and not force:
-        return {"lang": lang, "status": "skipped", "deck_id": existing}
+        if not sync:
+            return {"lang": lang, "status": "skipped", "deck_id": existing}
+        fp = _fingerprint(name, description, items)
+        if await db.get_setting(system_id, f"seedhash:{lang}") == fp:
+            return {"lang": lang, "status": "unchanged", "deck_id": existing}
     deck_id, action = await db.upsert_featured_deck(
-        system_id, name,
-        data.get("description") or deck_description(info, len(items)),
-        lang, items,
+        system_id, name, description, lang, items,
     )
+    await db.set_setting(system_id, f"seedhash:{lang}",
+                         _fingerprint(name, description, items))
     return {"lang": lang, "status": action, "deck_id": deck_id, "count": len(items)}
 
 
 async def seed_all(
-    system_id: int, *, langs: list[str] | None = None, force: bool = False,
+    system_id: int, *, langs: list[str] | None = None,
+    force: bool = False, sync: bool = False,
 ) -> list[dict]:
     """Seed every committed seed file (or a subset). Best-effort — one bad file
     never aborts the rest."""
@@ -232,7 +252,7 @@ async def seed_all(
     results = []
     for lang in codes:
         try:
-            results.append(await seed_deck(system_id, lang, force=force))
+            results.append(await seed_deck(system_id, lang, force=force, sync=sync))
         except Exception as e:  # noqa: BLE001 — never let one file break seeding
             results.append({"lang": lang, "status": "error", "error": str(e)})
     return results
