@@ -3115,8 +3115,10 @@
         btn.disabled = true; btn.textContent = 'Importing…';
         try {
           const r = await fetch('/api/decks/' + d.id + '/import', { method: 'POST' });
-          if (!r.ok) throw new Error();
           const out = await r.json().catch(() => ({}));
+          // Surface the server's actual error (matches /browse) instead of a
+          // generic message, so import failures are diagnosable.
+          if (!r.ok) throw new Error(out.detail || 'Could not import deck.');
           _cdImported.add(d.id);
           d.imported = true;
           d.import_label_id = out.label_id || null;
@@ -3125,7 +3127,7 @@
           const switched = await _maybeSwitchLang(d.target_lang);
           const langMsg = switched ? ` · switched to ${langInfo(d.target_lang).name || d.target_lang}` : '';
           showToast((n ? `Imported — ${n} new card${n === 1 ? '' : 's'} added to your deck` : 'Imported — cards already in your deck') + langMsg);
-        } catch { btn.disabled = false; btn.textContent = 'Import Deck'; showToast('Could not import deck.'); }
+        } catch (e) { btn.disabled = false; btn.textContent = 'Import Deck'; showToast(e.message || 'Could not import deck.'); }
       };
       actions.appendChild(btn);
     }

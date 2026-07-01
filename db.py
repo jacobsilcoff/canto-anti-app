@@ -148,11 +148,44 @@ async def init():
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
-        # Drop legacy UNIQUE(name) if present by recreating the table when needed.
         if not await _column_exists(db, "labels", "user_id"):
             await db.execute("ALTER TABLE labels ADD COLUMN user_id INTEGER")
         if not await _column_exists(db, "labels", "is_story_label"):
             await db.execute("ALTER TABLE labels ADD COLUMN is_story_label INTEGER NOT NULL DEFAULT 0")
+        # The legacy single-user labels table had a GLOBAL UNIQUE(name). The
+        # multi-user model needs uniqueness PER USER (idx_labels_user_name below).
+        # The global constraint breaks deck import: two users can't both own a
+        # "📦 Deck" label, so the importer's INSERT is silently ignored and the
+        # follow-up per-user lookup finds nothing → crash. Earlier code only ADDed
+        # columns and never actually dropped the constraint (you can't via ALTER),
+        # so rebuild the table when the legacy auto-index from UNIQUE is still present.
+        async with db.execute("PRAGMA index_list(labels)") as cur:
+            _label_idx = await cur.fetchall()
+        if any(r[3] == "u" for r in _label_idx):  # origin 'u' = a UNIQUE constraint
+            await db.commit()  # close the implicit txn so the PRAGMA takes effect
+            await db.execute("PRAGMA foreign_keys=OFF")
+            await db.execute("""
+                CREATE TABLE labels_rebuild (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL COLLATE NOCASE,
+                    is_story_label INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+            # Preserve ids so existing card_labels references stay valid; assign
+            # any legacy NULL-user labels to the bootstrap admin (user 1), matching
+            # bootstrap_admin's legacy-data migration.
+            await db.execute("""
+                INSERT INTO labels_rebuild (id, user_id, name, is_story_label, created_at)
+                SELECT id, COALESCE(user_id, 1), name, COALESCE(is_story_label, 0),
+                       COALESCE(created_at, datetime('now'))
+                FROM labels
+            """)
+            await db.execute("DROP TABLE labels")
+            await db.execute("ALTER TABLE labels_rebuild RENAME TO labels")
+            await db.commit()
+            await db.execute("PRAGMA foreign_keys=ON")
         if await _table_exists(db, "reader_sentences") and not await _column_exists(db, "reader_sentences", "romanization"):
             await db.execute("ALTER TABLE reader_sentences ADD COLUMN romanization TEXT")
         # can_use_shared_key was superseded by the plan/billing system and is never read.
@@ -4388,18 +4421,22 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
                 return {"ok": False, "error": "Deck not found"}
         deck_name, target_lang = deck_row["name"], deck_row["target_lang"]
         label_name = f"📦 {deck_name}"
-        cur = await db.execute(
-            """INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)""",
+        # Get-or-create the importer's own deck label. (Don't rely on INSERT OR
+        # IGNORE + lastrowid: with the legacy global UNIQUE(name) an ignored insert
+        # left lastrowid stale and the per-user lookup empty → NoneType crash.)
+        async with db.execute(
+            "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
             (user_id, label_name),
-        )
-        if cur.lastrowid:
-            label_id = cur.lastrowid
+        ) as cur:
+            lrow = await cur.fetchone()
+        if lrow:
+            label_id = lrow[0]
         else:
-            async with db.execute(
-                "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
+            cur = await db.execute(
+                "INSERT INTO labels (user_id, name) VALUES (?, ?)",
                 (user_id, label_name),
-            ) as cur2:
-                label_id = (await cur2.fetchone())[0]
+            )
+            label_id = cur.lastrowid
         async with db.execute(
             """SELECT source_text, target_text, romanization, notes, target_lang, cefr_level, labels
                FROM shared_deck_items WHERE deck_id=? ORDER BY sort_order""",
@@ -4433,7 +4470,9 @@ async def import_deck(user_id: int, deck_id: int) -> dict:
                 cefr = None
             new_rows.append((
                 user_id, it["source_text"], it["target_text"],
-                it.get("romanization"), key[1], it.get("notes"), cefr,
+                # cards.romanization is NOT NULL DEFAULT '' — a deck item with
+                # no romanization (None) would otherwise fail the bulk insert.
+                it.get("romanization") or "", key[1], it.get("notes"), cefr,
             ))
 
         created_ids: list[int] = []
