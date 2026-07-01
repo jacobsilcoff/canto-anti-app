@@ -2540,6 +2540,9 @@
         document.getElementById('tr-char-count').textContent = '0';
         trUpdateDirectionButtons();
       }
+      if (document.getElementById('community-panel').classList.contains('open')) {
+        _cdLoadDecks();
+      }
     }).catch(() => {});
   });
 </script>
