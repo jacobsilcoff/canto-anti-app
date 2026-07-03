@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
@@ -67,12 +67,12 @@
       box-shadow: 0 -2px 8px var(--shadow); transition: transform 0.2s; }
     /* Sit above the mobile bottom tab bar when it's present */
     @media (max-width: 1199px) {
-      .selection-bar { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+      .selection-bar { bottom: max(66px, calc(62px + env(safe-area-inset-bottom, 0px))); }
     }
     /* Hidden = slid fully off-screen. The extra 64px+safe-area clears the lifted
        mobile position (above the tab bar) — translateY(100%) alone would leave
        it hovering exactly over the tab bar. */
-    .selection-bar.hidden { transform: translateY(calc(100% + 64px + env(safe-area-inset-bottom, 0px))); pointer-events: none; }
+    .selection-bar.hidden { transform: translateY(calc(100% + 74px + env(safe-area-inset-bottom, 0px))); pointer-events: none; }
     .selection-bar .sel-count { font-size: 0.88rem; font-weight: 600; color: var(--text); }
     .selection-bar .sel-action { background: var(--primary); color: #fff; border: none; border-radius: 9px;
       padding: 8px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }

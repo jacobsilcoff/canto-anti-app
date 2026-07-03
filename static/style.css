@@ -1463,7 +1463,10 @@ textarea.edit-input {
   z-index: 90;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding: 4px 4px calc(6px + env(safe-area-inset-bottom));
+  /* max() guarantees breathing room above the iPhone home indicator even when
+     env() reports 0 (e.g. in-browser with the toolbar visible). Requires
+     viewport-fit=cover in each page's viewport meta or env() is always 0. */
+  padding: 4px 4px max(14px, calc(10px + env(safe-area-inset-bottom)));
 }
 .tabbar .tab {
   flex: 1;
@@ -1488,7 +1491,7 @@ textarea.edit-input {
 }
 @media (max-width: 1199px) {
   .tabbar { display: flex; }
-  body:has(nav.tabbar) { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  body:has(nav.tabbar) { padding-bottom: max(66px, calc(62px + env(safe-area-inset-bottom))); }
   body.hide-tabbar { padding-bottom: 0; }
   body.hide-tabbar .tabbar { display: none; }
 }

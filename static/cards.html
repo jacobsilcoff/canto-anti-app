@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
@@ -477,8 +477,8 @@
     .add-fab-menu.open { display: block; }
     /* Lift the FAB clear of the mobile bottom tab bar */
     @media (max-width: 1199px) {
-      body:not(.hide-tabbar) .add-fab { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
-      body:not(.hide-tabbar) .add-fab-menu { bottom: calc(134px + env(safe-area-inset-bottom, 0px)); }
+      body:not(.hide-tabbar) .add-fab { bottom: max(80px, calc(76px + env(safe-area-inset-bottom, 0px))); }
+      body:not(.hide-tabbar) .add-fab-menu { bottom: max(140px, calc(136px + env(safe-area-inset-bottom, 0px))); }
     }
     .add-fab-menu a { display: flex; align-items: center; gap: 10px;
       padding: 13px 18px; color: var(--text); text-decoration: none;

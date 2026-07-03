@@ -338,17 +338,25 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         return (f'    <a href="{href}" class="nav-link nav-admin"'
                 f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
 
-    nav_links = [
+    primary_links = [
         link("/",         "Home",       "home"),
         link("/learn",    "Learn",      "learn"),
         link("/cards",    "Flashcards", "cards",    badge=True),
         link("/messages", "Chat",       "tutor",    notif=True),
         link("/reader",   "Reader",     "reader"),
+    ]
+    secondary_links = [
         link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
         admin_link("/admin/dashboard", "Dashboard", "dashboard"),
     ]
+    nav_links = primary_links + secondary_links
+    # The hamburger dropdown only opens below the collapse breakpoint, where the
+    # bottom tab bar already carries the five primary destinations — so it lists
+    # ONLY the secondary items (no redundant navigation). The tutor page has no
+    # tab bar (tabbar=False) and keeps the full list.
+    dropdown_links = secondary_links if tabbar else nav_links
     signout_btn = (
         '    <button class="nav-link" onclick="doLogout()" '
         'style="border:none;cursor:pointer;background:none" title="Sign out">\n'
@@ -391,7 +399,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         "    </button>\n"
         "  </div>\n"
         "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
-        + "\n".join(nav_links) + "\n"
+        + "\n".join(dropdown_links) + "\n"
         + signout_dropdown + "\n"
         "  </nav>\n"
         + tabbar_html +
