@@ -378,7 +378,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
     ) if tabbar else ""
 
     return (
-        "  <h1>{{APP_NAME_HTML}}</h1>\n"
+        "  <h1><a class=\"logo-text\" href=\"/\">{{APP_NAME_HTML}}</a></h1>\n"
         "  <nav class=\"nav-desktop\">\n"
         + "\n".join(nav_links) + "\n"
         "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
@@ -409,6 +409,22 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         "if(!d)return;var n=d.count||0;"
         "document.querySelectorAll('.due-badge').forEach(function(b){"
         "b.textContent=n>99?'99+':String(n);b.classList.toggle('visible',n>0)})"
+        "}).catch(function(){});\n"
+        # Single renderer for the header streak/XP pills. Pages call this from
+        # their loadStreak (to refresh after earning XP); the nav also fetches
+        # once on load so every page shows the pills without page-side code.
+        "window.renderHeaderStats=function(streak,points){"
+        "var flame='<svg viewBox=\"0 0 16 20\" width=\"12\" height=\"15\" aria-hidden=\"true\"><path fill=\"#f4702a\" d=\"M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z\"/></svg>';"
+        "var star='<svg viewBox=\"0 0 20 20\" width=\"12\" height=\"12\" aria-hidden=\"true\"><path fill=\"#f0b429\" d=\"M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z\"/></svg>';"
+        "function fmt(n){return n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n)}"
+        "var h='';"
+        "if(streak>0)h+='<span class=\"hstat hstat-streak\" title=\"'+streak.toLocaleString()+'-day streak\">'+flame+fmt(streak)+'</span>';"
+        "if(points>0)h+='<span class=\"hstat hstat-xp\" title=\"'+points.toLocaleString()+' XP\">'+star+fmt(points)+'</span>';"
+        "if(!h)return;"
+        "document.querySelectorAll('.streak-display').forEach(function(el){el.innerHTML=h;el.style.display=''});"
+        "};\n"
+        "fetch('/api/streak').then(function(r){return r.ok?r.json():null}).then(function(d){"
+        "if(d)window.renderHeaderStats(d.streak||0,d.points||0)"
         "}).catch(function(){});"
         "</script>\n"
     )

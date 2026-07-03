@@ -1998,13 +1998,13 @@ async def list_reader_texts(user_id: int, target_lang: str | None = None) -> lis
         await _ensure_reader_cols(db)
         if target_lang is not None:
             async with db.execute(
-                """SELECT id, title, prompt, target_lang, created_at, visibility
+                """SELECT id, title, prompt, target_lang, created_at, visibility, difficulty
                    FROM reader_texts WHERE user_id=? AND target_lang=? ORDER BY created_at DESC""",
                 (user_id, target_lang),
             ) as cur:
                 return [dict(r) for r in await cur.fetchall()]
         async with db.execute(
-            """SELECT id, title, prompt, target_lang, created_at, visibility
+            """SELECT id, title, prompt, target_lang, created_at, visibility, difficulty
                FROM reader_texts WHERE user_id=? ORDER BY created_at DESC""",
             (user_id,),
         ) as cur:

@@ -374,10 +374,7 @@
   async function loadStreak() {
     try {
       const d = await fetch('/api/streak').then(r => r.json());
-      const el = document.getElementById('streak-display');
-      const el2 = document.getElementById('streak-display-mobile');
-      if (el && d.streak > 0) { el.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el.style.display = ''; }
-      if (el2 && d.streak > 0) { el2.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el2.style.display = ''; }
+      if (window.renderHeaderStats) window.renderHeaderStats(d.streak || 0, d.points || 0);
     } catch {}
   }
 
