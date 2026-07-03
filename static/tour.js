@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 14;
+  var TOUR_VERSION = 15;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -39,6 +39,8 @@
       body: 'Every language now has a ready-made "Top 100 Words" deck. New learners can add it in one tap at signup, or find it any time in Browse → Community to jump-start a real deck.', v: 14 },
     { icon: '⭐', title: 'Rate the decks you study',
       body: 'Studying an imported community deck? You can now rate it right from the Flashcards page — and we\'ll nudge you once you\'ve worked through a good chunk, so other learners know which decks are worth it.', v: 14 },
+    { icon: '🎯', title: 'Smoother lesson drills',
+      body: 'The Check button and feedback now stay pinned to the bottom of the screen in lessons — no more scrolling past a long word bank. On desktop, press 1–9 to pick an answer and Enter to check.', v: 15 },
   ];
 
   var steps, stepIdx;

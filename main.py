@@ -3648,9 +3648,9 @@ class LessonDrillRequest(BaseModel):
 @limiter.limit("60/minute;800/day")
 async def lesson_drill(request: Request, req: LessonDrillRequest,
                        user: dict = Depends(current_user)):
-    """One turn of an inline lesson construction-drill. Deterministic-first
-    judging: exact match against the plan's expected answer = instant correct;
-    LLM only called when the answer differs. 1 metered call/turn."""
+    """One turn of an inline lesson construction-drill. PLAN turn (no answer)
+    generates the sentence plan; JUDGE turns grade the learner's translation
+    with one liberal LLM call from the English meaning. 1 metered call/turn."""
     construction = (req.construction or "").strip()[:80]
     if not construction:
         raise HTTPException(400, "construction required")

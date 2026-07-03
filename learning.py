@@ -640,8 +640,7 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
             return None
         return {"type": "choice", "concept_key": key, "grammar": is_grammar,
                 "instruction": "How do you say this?", "prompt": gloss,
-                "prompt_lang": "english", "options": opts,
-                "options_roman": [rom(o) for o in opts], "answer": ans, "tip": ""}
+                "prompt_lang": "english", "options": opts, "answer": ans, "tip": ""}
 
     if kind == "listening":
         if not target:
@@ -660,8 +659,7 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
             return None
         return {"type": "listening", "concept_key": key, "grammar": is_grammar,
                 "instruction": "What did you hear?", "audio": target,
-                "audio_roman": rom(target), "options": opts,
-                "options_roman": [rom(o) for o in opts], "answer": ans, "tip": gloss}
+                "audio_roman": rom(target), "options": opts, "answer": ans, "tip": gloss}
 
     if kind == "cloze":
         sentence = (d.get("sentence") or "").strip()
