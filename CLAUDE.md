@@ -221,7 +221,7 @@ Every `db.py` function filters by `user_id`. Admin bootstrap (`db.bootstrap_admi
 
 ## Design mockups (`mockups/`)
 
-Static, self-contained HTML mockups for the proposed site-wide redesign ("Field Notes" direction — bottom tab bar, "Today" home, viridian/persimmon/gold palette). `mockups/index.html` presents every screen in phone frames with a light/dark toggle; screens share `mockups/mock.css` design tokens. **Pure design artifacts** — nothing in the app imports or serves them; safe to edit or delete without touching product code.
+Static, self-contained HTML mockups for the proposed site-wide redesign ("Field Notes" direction — bottom tab bar, "Today" home, viridian/persimmon/gold palette). `mockups/index.html` presents every screen in phone frames with a light/dark toggle; screens share `mockups/mock.css` design tokens. **Pure design artifacts** — nothing in the app *imports* them; product code stays untouched. **Dev-only preview route:** `main.py` mounts `/mockups` as a no-auth static dir (`StaticFiles(html=True)`, exempted in `auth_middleware` alongside `/static/`) gated behind `IS_DEV`, so on the dev site anyone can open `https://dev.canto-ank.silcoff-labs.ca/mockups/` (phone-friendly, no login) — never mounted in production.
 
 ## Feature Tracking & doc upkeep
 

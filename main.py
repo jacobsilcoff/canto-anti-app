@@ -128,7 +128,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    if request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/"):
+    if (request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/")
+            or request.url.path.startswith("/mockups/") or request.url.path == "/mockups"):
         return await call_next(request)
 
     user_id = None
@@ -206,6 +207,12 @@ APP_NAME = "廣東卡"
 _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
 
 IS_DEV = os.getenv("ENVIRONMENT", "").lower() == "dev"
+
+# Design mockups (mockups/index.html) — dev-only, no-auth static preview of the
+# proposed redesign so it's tappable from a phone without logging in. Never
+# mounted in production (see CLAUDE.md "Design mockups").
+if IS_DEV and Path("mockups").is_dir():
+    app.mount("/mockups", StaticFiles(directory="mockups", html=True), name="mockups")
 
 # ── VAPID keys for Web Push ───────────────────────────────────────────────────
 
