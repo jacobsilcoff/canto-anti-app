@@ -294,11 +294,16 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _build_nav(active: str = "") -> str:
-    """Return the full <header> inner HTML with the active page highlighted."""
+def _build_nav(active: str = "", tabbar: bool = True) -> str:
+    """Return the full <header> inner HTML with the active page highlighted.
+
+    `tabbar` also appends the mobile bottom tab bar (fixed nav for the five
+    daily destinations); pages that manage their own fixed viewport (tutor
+    chat) opt out and rely on an in-page back affordance instead."""
     _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
     svgs = {
+        "home":      f'<svg {_i}><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>',
         "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
@@ -334,11 +339,11 @@ def _build_nav(active: str = "") -> str:
                 f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
 
     nav_links = [
-        link("/",         "Flashcards", "cards",    badge=True),
-        link("/reader",   "Reader",     "reader"),
+        link("/",         "Home",       "home"),
         link("/learn",    "Learn",      "learn"),
-        link("/tutor",    "Tutor",      "tutor"),
-        link("/messages", "Messages",   "messages", notif=True),
+        link("/cards",    "Flashcards", "cards",    badge=True),
+        link("/messages", "Chat",       "tutor",    notif=True),
+        link("/reader",   "Reader",     "reader"),
         link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
@@ -354,6 +359,24 @@ def _build_nav(active: str = "") -> str:
         'style="border:none;cursor:pointer;background:none">\n'
         f'      {svgs["signout"]}\n      Sign out\n    </button>'
     )
+
+    def tab(href: str, label: str, icon: str, badge: str = "") -> str:
+        on = " active" if href == active else ""
+        bdg = f' <span class="badge {badge}"></span>' if badge else ""
+        return (f'    <a href="{href}" class="tab{on}">'
+                f'<span class="tab-ico">{svgs[icon]}{bdg}</span>{label}</a>')
+
+    tabbar_html = (
+        "  <nav class=\"tabbar\" aria-label=\"Main\">\n"
+        + "\n".join([
+            tab("/",         "Home",   "home"),
+            tab("/learn",    "Learn",  "learn"),
+            tab("/cards",    "Cards",  "cards", badge="due-badge"),
+            tab("/messages", "Chat",   "tutor", badge="notif-badge"),
+            tab("/reader",   "Reader", "reader"),
+        ]) + "\n  </nav>\n"
+    ) if tabbar else ""
+
     return (
         "  <h1>{{APP_NAME_HTML}}</h1>\n"
         "  <nav class=\"nav-desktop\">\n"
@@ -371,6 +394,7 @@ def _build_nav(active: str = "") -> str:
         + "\n".join(nav_links) + "\n"
         + signout_dropdown + "\n"
         "  </nav>\n"
+        + tabbar_html +
         "  <script>"
         "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}\n"
         "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}\n"
@@ -380,6 +404,11 @@ def _build_nav(active: str = "") -> str:
         "});\n"
         "fetch('/api/me').then(function(r){return r.json()}).then(function(u){"
         "if(u.is_admin)document.querySelectorAll('.nav-admin').forEach(function(el){el.style.display=''})"
+        "}).catch(function(){});\n"
+        "fetch('/api/cards/due-count').then(function(r){return r.ok?r.json():null}).then(function(d){"
+        "if(!d)return;var n=d.count||0;"
+        "document.querySelectorAll('.due-badge').forEach(function(b){"
+        "b.textContent=n>99?'99+':String(n);b.classList.toggle('visible',n>0)})"
         "}).catch(function(){});"
         "</script>\n"
     )
@@ -819,7 +848,9 @@ _PWA_INSTALL_WIDGET = """
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    content = content.replace("{{NAV}}", _build_nav(active), 1)
+    # The tutor page manages its own fixed viewport (mobile-keyboard handling),
+    # so it opts out of the bottom tab bar and shows a back button instead.
+    content = content.replace("{{NAV}}", _build_nav(active, tabbar=name != "tutor.html"), 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("{{TURNSTILE_SITE_KEY}}", _TURNSTILE_SITE_KEY)
@@ -1013,12 +1044,12 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return _html("cards.html", active="/")
+    return _html("today.html", active="/")
 
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/")
+    return _html("cards.html", active="/cards")
 
 
 @app.get("/translate", response_class=HTMLResponse)

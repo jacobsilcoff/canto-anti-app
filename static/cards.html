@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Flashcards</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -475,6 +475,11 @@
       box-shadow: var(--shadow-pop); z-index: 91; min-width: 180px; overflow: hidden;
       display: none; }
     .add-fab-menu.open { display: block; }
+    /* Lift the FAB clear of the mobile bottom tab bar */
+    @media (max-width: 1199px) {
+      body:not(.hide-tabbar) .add-fab { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+      body:not(.hide-tabbar) .add-fab-menu { bottom: calc(134px + env(safe-area-inset-bottom, 0px)); }
+    }
     .add-fab-menu a { display: flex; align-items: center; gap: 10px;
       padding: 13px 18px; color: var(--text); text-decoration: none;
       font-size: 0.92rem; font-weight: 500; transition: background 0.1s; }

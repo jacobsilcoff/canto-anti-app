@@ -11,3 +11,4 @@ spike_output/
 *.pem
 .mcp.json
 verbecc.log
+data/vapid_keys.json

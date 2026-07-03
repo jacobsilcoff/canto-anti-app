@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 15;
+  var TOUR_VERSION = 16;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -41,6 +41,8 @@
       body: 'Studying an imported community deck? You can now rate it right from the Flashcards page — and we\'ll nudge you once you\'ve worked through a good chunk, so other learners know which decks are worth it.', v: 14 },
     { icon: '🎯', title: 'Smoother lesson drills',
       body: 'The Check button and feedback now stay pinned to the bottom of the screen in lessons — no more scrolling past a long word bank. On desktop, press 1–9 to pick an answer and Enter to check.', v: 15 },
+    { icon: '🧭', title: 'A fresh look + new navigation',
+      body: 'The app has a new design and a bottom tab bar: Home, Learn, Cards, Chat, and Reader are always one tap away. Home shows your daily goal and what to do next, and your AI tutor now lives at the top of Chat alongside your friends.', v: 16 },
   ];
 
   var steps, stepIdx;

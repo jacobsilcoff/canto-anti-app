@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Reader</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -836,6 +836,7 @@
   let sentenceCache = {};
 
   function showReaderView(data) {
+    document.body.classList.add('hide-tabbar');   // open story = full-focus view
     currentTextId = data.id;
     _canPreload = !_isCommunityStory;
     currentTargetLang = data.target_lang;
@@ -1018,6 +1019,7 @@
   }
 
   function showHome() {
+    document.body.classList.remove('hide-tabbar');
     if (audioMode) audioStop();
     document.getElementById('reader-view').style.display = 'none';
     document.getElementById('loading-view').style.display = 'none';
@@ -1041,6 +1043,7 @@
     document.getElementById('home-view').style.display = tab === 'mine' ? 'block' : 'none';
     document.getElementById('community-view').style.display = tab === 'community' ? 'block' : 'none';
     document.getElementById('reader-view').style.display = 'none';
+    document.body.classList.remove('hide-tabbar');
     if (tab === 'community') loadCommunity();
   }
 

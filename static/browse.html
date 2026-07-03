@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Browse</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -61,11 +61,18 @@
       accent-color: var(--primary); }
     .card-list-item { display: flex; gap: 10px; align-items: flex-start; }
     .card-list-item .card-display { flex: 1; min-width: 0; }
-    .selection-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+    .selection-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 92;
       background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       box-shadow: 0 -2px 8px var(--shadow); transition: transform 0.2s; }
-    .selection-bar.hidden { transform: translateY(100%); pointer-events: none; }
+    /* Sit above the mobile bottom tab bar when it's present */
+    @media (max-width: 1199px) {
+      .selection-bar { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+    }
+    /* Hidden = slid fully off-screen. The extra 64px+safe-area clears the lifted
+       mobile position (above the tab bar) — translateY(100%) alone would leave
+       it hovering exactly over the tab bar. */
+    .selection-bar.hidden { transform: translateY(calc(100% + 64px + env(safe-area-inset-bottom, 0px))); pointer-events: none; }
     .selection-bar .sel-count { font-size: 0.88rem; font-weight: 600; color: var(--text); }
     .selection-bar .sel-action { background: var(--primary); color: #fff; border: none; border-radius: 9px;
       padding: 8px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }

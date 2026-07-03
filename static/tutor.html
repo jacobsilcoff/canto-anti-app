@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Tutor</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -36,6 +36,11 @@
 
     /* Top bar: current chat + new chat + points */
     .tutor-top { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; flex-shrink: 0; }
+    /* Back to the unified Chat list (the tutor page has no bottom tab bar). */
+    .tutor-back { display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 999px; color: var(--text-muted);
+      text-decoration: none; flex-shrink: 0; }
+    .tutor-back:hover { background: var(--surface-alt); color: var(--primary); }
     .chats-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; color: var(--text); flex: 1; min-width: 0; max-width: 100%; }
     .chats-btn .cb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; text-align: left; }
     .chats-btn .cb-chevron { color: var(--text-muted); flex-shrink: 0; }
@@ -205,8 +210,12 @@
 <main>
   <div class="tutor-page">
     <div class="tutor-top">
+      <a class="tutor-back" href="/messages" title="Back to chats" aria-label="Back to chats">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </a>
       <button class="chats-btn" id="chats-btn" title="Your conversations">
-        💬 <span class="cb-title" id="current-chat-title">New chat</span> <span class="cb-chevron">▾</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="cb-title" id="current-chat-title">New chat</span> <span class="cb-chevron">▾</span>
       </button>
       <button class="new-chat-btn" id="new-chat-btn" title="New conversation">＋</button>
       <span class="tutor-points" id="tutor-points" style="display:none"></span>
@@ -214,7 +223,7 @@
     <div class="thread" id="thread"></div>
     <div class="composer">
       <textarea id="composer-input" rows="1" placeholder="Say something…" enterkeyhint="send"></textarea>
-      <button id="composer-send" title="Send" disabled>➤</button>
+      <button id="composer-send" title="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
     </div>
   </div>
 </main>
