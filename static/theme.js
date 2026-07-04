@@ -4,7 +4,7 @@
 //  • keeps the browser-chrome <meta name="theme-color"> matching --bg,
 //  • exposes setThemePref()/getThemePref() for the Settings page control.
 (function () {
-  const META_COLORS = { light: '#f8f9fa', dark: '#17181c' };
+  const META_COLORS = { light: '#f5f4ef', dark: '#14181b' };
 
   function resolve(pref) {
     return (!pref || pref === 'auto')

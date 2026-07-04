@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Desktop layout (left rail)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  /* Desktop: persistent left rail replaces both the top nav and the hamburger. */
+  body { display: flex; min-height: 100dvh; }
+  .rail { width: 232px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--surface); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100dvh; }
+  .brand-row { display: flex; align-items: center; gap: 9px; padding: 4px 10px 16px; }
+  .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: var(--on-brand); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 800; }
+  .brand-row b { font-family: var(--display); font-size: 1.02rem; }
+  .rlink { display: flex; align-items: center; gap: 11px; border-radius: 12px; padding: 10px 12px; font-weight: 600; font-size: .92rem; color: var(--muted); }
+  .rlink.on { background: var(--brand-soft); color: var(--brand); }
+  .rlink:hover:not(.on) { background: var(--surface-alt); }
+  .rlink .ico { font-size: 1.05rem; width: 22px; text-align: center; }
+  .rail .sect { margin-top: 14px; padding: 0 12px 6px; font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--faint); }
+  .rail-foot { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .rail-foot .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--energy); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; }
+  .rail-foot small { color: var(--muted); display: block; font-size: .7rem; }
+
+  .main { flex: 1; display: flex; gap: 26px; padding: 22px 32px; max-width: 1100px; }
+  .col-main { flex: 1; max-width: 560px; }
+  .col-side { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+  .pagehead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .pagehead h1 { font-size: 1.4rem; }
+  .pagehead .lang-chip { margin-left: auto; }
+
+  .unit-head { background: var(--brand); color: var(--on-brand); border-radius: var(--radius); padding: 14px 18px; box-shadow: 0 4px 0 var(--brand-strong), var(--shadow); margin-bottom: 20px; }
+  .unit-head .kicker { color: color-mix(in srgb, var(--on-brand) 72%, transparent); }
+  .lesson-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; padding: 13px 16px; }
+  .dot { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; flex-shrink: 0; }
+  .dot.done { background: var(--gold); } .dot.next { background: var(--brand); } .dot.lock { background: var(--surface-alt); color: var(--faint); }
+  .lesson-row b { display: block; font-size: .95rem; }
+  .lesson-row small { color: var(--muted); }
+  .lesson-row .go { margin-left: auto; color: var(--brand); font-weight: 800; font-size: .82rem; flex-shrink: 0; }
+
+  .side-title { font-size: .8rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+  .stat-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: .88rem; }
+  .stat-line:last-child { border: none; }
+  .stat-line b { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <nav class="rail">
+    <div class="brand-row"><span class="logo">語</span><b>Silcoff Labs</b></div>
+    <a class="rlink" href="#"><span class="ico">🏠</span>Home</a>
+    <a class="rlink on" href="#"><span class="ico">🗺️</span>Learn</a>
+    <a class="rlink" href="#"><span class="ico">🗂️</span>Flashcards</a>
+    <a class="rlink" href="#"><span class="ico">💬</span>Tutor</a>
+    <a class="rlink" href="#"><span class="ico">📖</span>Reader</a>
+    <div class="sect">More</div>
+    <a class="rlink" href="#"><span class="ico">🌐</span>Community</a>
+    <a class="rlink" href="#"><span class="ico">✉️</span>Messages</a>
+    <a class="rlink" href="#"><span class="ico">⚙️</span>Settings</a>
+    <div class="rail-foot">
+      <span class="avatar">J</span>
+      <span><b style="font-size:.85rem">Jacob</b><small>🔥 12 · ★ 4,310 XP</small></span>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="col-main">
+      <div class="pagehead">
+        <h1>Learn</h1>
+        <span class="lang-chip">🇭🇰 Cantonese ▾</span>
+      </div>
+      <div class="unit-head">
+        <div class="kicker">Unit 3 · 2 of 5 complete</div>
+        <h2 style="font-size:1.1rem">Getting around Hong Kong</h2>
+      </div>
+      <div class="card lesson-row"><span class="dot done">✓</span><span><b>Taking the MTR</b><small>👑👑👑 · 100%</small></span><span class="go">Replay</span></div>
+      <div class="card lesson-row"><span class="dot done">✓</span><span><b>Asking for directions</b><small>👑 · 85%</small></span><span class="go">Replay</span></div>
+      <div class="card lesson-row" style="border-color:var(--brand)"><span class="dot next">★</span><span><b>Comparisons with 過</b><small>grammar · ~5 min</small></span><span class="go">Start →</span></div>
+      <div class="card lesson-row" style="opacity:.6"><span class="dot lock">🔒</span><span><b>Taxi phrases</b><small>unlocks next</small></span></div>
+    </div>
+    <aside class="col-side">
+      <div class="card">
+        <div class="side-title">Today</div>
+        <div class="stat-line"><span>Daily goal</span><b style="color:var(--gold)">30 / 50 XP</b></div>
+        <div class="stat-line"><span>Streak</span><b style="color:var(--energy)">🔥 12 days</b></div>
+        <div class="stat-line"><span>Cards due</span><b>23</b></div>
+      </div>
+      <div class="card">
+        <div class="side-title">Weak skills</div>
+        <div class="stat-line"><span>measure words</span><b style="color:var(--bad)">54%</b></div>
+        <div class="stat-line"><span>tone 5 vs 2</span><b style="color:var(--bad)">61%</b></div>
+        <div class="stat-line"><span>過 comparisons</span><b>—</b></div>
+      </div>
+      <div class="card" style="background:var(--grammar-soft);border-color:transparent">
+        <div class="side-title" style="color:var(--grammar)">Tutor says</div>
+        <p style="font-size:.86rem;margin-top:6px">You've been mixing up 唔該 and 多謝 — want a two-minute drill?</p>
+        <button class="btn ghost" style="margin-top:10px;padding:8px 14px;font-size:.82rem">🎯 Quick drill</button>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

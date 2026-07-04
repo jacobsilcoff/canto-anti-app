@@ -127,8 +127,24 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.middleware("http")
+async def static_cache_middleware(request: Request, call_next):
+    """Fingerprinted /static assets (?v=<hash>) are immutable — cache forever.
+    Un-fingerprinted static files (icons, fonts) get an hour. Without this,
+    StaticFiles sends no Cache-Control and every page navigation revalidates
+    css/js with a 304 round-trip each, which reads as sluggish nav on mobile."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        if "v" in request.query_params:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers.setdefault("Cache-Control", "public, max-age=3600")
+    return response
+
+
+@app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    if request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/"):
+    if (request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/")
+            or request.url.path.startswith("/mockups/") or request.url.path == "/mockups"):
         return await call_next(request)
 
     user_id = None
@@ -206,6 +222,12 @@ APP_NAME = "廣東卡"
 _APP_NAME_HTML = '廣東<span class="logo-accent">卡</span>'
 
 IS_DEV = os.getenv("ENVIRONMENT", "").lower() == "dev"
+
+# Design mockups (mockups/index.html) — dev-only, no-auth static preview of the
+# proposed redesign so it's tappable from a phone without logging in. Never
+# mounted in production (see CLAUDE.md "Design mockups").
+if IS_DEV and Path("mockups").is_dir():
+    app.mount("/mockups", StaticFiles(directory="mockups", html=True), name="mockups")
 
 # ── VAPID keys for Web Push ───────────────────────────────────────────────────
 
@@ -287,11 +309,18 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _build_nav(active: str = "") -> str:
-    """Return the full <header> inner HTML with the active page highlighted."""
+def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
+    """Return (header inner HTML, tab-bar HTML) with the active page marked.
+
+    The header is desktop chrome (display:none below 1200px — mobile has no
+    top bar at all; Home hosts the stats/language/menu instead). The tab bar
+    is injected as a direct <body> child by _html; pages that manage their
+    own fixed viewport (tutor chat) pass tabbar=False and rely on an in-page
+    back affordance instead."""
     _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
     svgs = {
+        "home":      f'<svg {_i}><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>',
         "translate": f'<svg {_i}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
         "cards":     f'<svg {_i}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
         "reader":    f'<svg {_i}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
@@ -312,78 +341,141 @@ def _build_nav(active: str = "") -> str:
         "dashboard": f'<svg {_i}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
         "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-        "hamburger": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
     }
 
     def link(href: str, label: str, icon: str, badge: bool = False, notif: bool = False) -> str:
-        hl = ' style="color:var(--primary)"' if href == active else ""
+        on = " nav-active" if href == active else ""
         bdg = ' <span class="badge due-badge"></span>' if badge else ""
         nbd = ' <span class="badge notif-badge"></span>' if notif else ""
-        return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
+        return f'    <a href="{href}" class="nav-link{on}">\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
 
     def admin_link(href: str, label: str, icon: str) -> str:
-        extra = "color:var(--primary);" if href == active else ""
-        return (f'    <a href="{href}" class="nav-link nav-admin"'
-                f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
+        on = " nav-active" if href == active else ""
+        return (f'    <a href="{href}" class="nav-link nav-admin{on}"'
+                f' style="display:none">\n      {svgs[icon]}\n      {label}\n    </a>')
 
-    nav_links = [
-        link("/",         "Flashcards", "cards",    badge=True),
-        link("/reader",   "Reader",     "reader"),
+    primary_links = [
+        link("/",         "Home",       "home"),
         link("/learn",    "Learn",      "learn"),
-        link("/tutor",    "Tutor",      "tutor"),
-        link("/messages", "Messages",   "messages", notif=True),
+        link("/cards",    "Flashcards", "cards",    badge=True),
+        link("/messages", "Chat",       "tutor",    notif=True),
+        link("/reader",   "Reader",     "reader"),
+    ]
+    secondary_links = [
         link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
         admin_link("/admin/dashboard", "Dashboard", "dashboard"),
     ]
+    nav_links = primary_links + secondary_links
     signout_btn = (
         '    <button class="nav-link" onclick="doLogout()" '
         'style="border:none;cursor:pointer;background:none" title="Sign out">\n'
         f'      {svgs["signout"]}\n      Sign out\n    </button>'
     )
-    signout_dropdown = (
-        '    <button class="nav-link nav-signout" onclick="doLogout()" '
-        'style="border:none;cursor:pointer;background:none">\n'
-        f'      {svgs["signout"]}\n      Sign out\n    </button>'
-    )
-    return (
-        "  <h1>{{APP_NAME_HTML}}</h1>\n"
+    def tab(href: str, label: str, icon: str, badge: str = "") -> str:
+        on = " active" if href == active else ""
+        bdg = f' <span class="badge {badge}"></span>' if badge else ""
+        return (f'    <a href="{href}" class="tab{on}">'
+                f'<span class="tab-ico">{svgs[icon]}{bdg}</span>{label}</a>')
+
+    # Injected as a direct <body> child by _html (NOT inside <header> — the
+    # header is display:none on mobile, which would take the tab bar with it).
+    tabbar_html = (
+        "\n<nav class=\"tabbar\" aria-label=\"Main\">\n"
+        + "\n".join([
+            tab("/",         "Home",   "home"),
+            tab("/learn",    "Learn",  "learn"),
+            tab("/cards",    "Cards",  "cards", badge="due-badge"),
+            tab("/messages", "Chat",   "tutor", badge="notif-badge"),
+            tab("/reader",   "Reader", "reader"),
+        ]) + "\n</nav>\n"
+    ) if tabbar else ""
+
+    # On desktop (≥1200px) the header is a fixed LEFT RAIL (see style.css): logo
+    # at the top, primary links, a "More" group of secondary links, then a
+    # footer pinned to the bottom with the language pill, streak/XP stats and
+    # sign-out. Below 1200px the whole header is display:none (mobile uses the
+    # bottom tab bar + the Home ⋯ sheet). Same markup drives both.
+    header_html = (
+        "  <h1><a class=\"logo-text\" href=\"/\">{{APP_NAME_HTML}}</a></h1>\n"
         "  <nav class=\"nav-desktop\">\n"
-        + "\n".join(nav_links) + "\n"
-        "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
+        "    <div class=\"nav-group\">\n"
+        + "\n".join(primary_links) + "\n"
+        "    </div>\n"
+        "    <div class=\"nav-more-label\">More</div>\n"
+        "    <div class=\"nav-group\">\n"
+        + "\n".join(secondary_links) + "\n"
+        "    </div>\n"
+        "    <div class=\"nav-foot\">\n"
+        "      <span class=\"nav-lang-slot\" data-lang-slot-rail></span>\n"
+        "      <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
         + signout_btn + "\n"
-        "  </nav>\n"
-        "  <div class=\"nav-mobile\">\n"
-        "    <span class=\"streak-display\" id=\"streak-display-mobile\" style=\"display:none\"></span>\n"
-        "    <button class=\"nav-hamburger\" onclick=\"toggleMobileMenu()\" aria-label=\"Menu\">\n"
-        f"      {svgs['hamburger']}\n"
-        "    </button>\n"
-        "  </div>\n"
-        "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
-        + "\n".join(nav_links) + "\n"
-        + signout_dropdown + "\n"
+        "    </div>\n"
         "  </nav>\n"
         "  <script>"
-        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}\n"
-        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}\n"
-        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
-        "document.addEventListener('click',function(e){"
-        "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
+        "function doLogout(){try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('nav:')===0)sessionStorage.removeItem(k)})}catch(e){};fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
+        # Stale-while-revalidate: render cached values instantly on every page
+        # load (rapid tab switching costs zero network inside the TTL), refresh
+        # in the background past it. Keyed in sessionStorage.
+        "function navSWR(key,url,ttl,apply){var hit=null;"
+        "try{hit=JSON.parse(sessionStorage.getItem(key)||'null')}catch(e){}"
+        "if(hit&&hit.d!=null){apply(hit.d);if(Date.now()-hit.t<ttl)return;}"
+        "fetch(url).then(function(r){return r.ok?r.json():null}).then(function(d){"
+        "if(d==null)return;"
+        "try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:d}))}catch(e){}"
+        "apply(d);}).catch(function(){});}\n"
+        "navSWR('nav:me','/api/me',300000,function(u){"
+        "if(u.is_admin)document.querySelectorAll('.nav-admin,.more-admin').forEach(function(el){el.style.display=''})"
         "});\n"
-        "fetch('/api/me').then(function(r){return r.json()}).then(function(u){"
-        "if(u.is_admin)document.querySelectorAll('.nav-admin').forEach(function(el){el.style.display=''})"
-        "}).catch(function(){});"
+        "navSWR('nav:due','/api/cards/due-count',60000,function(d){var n=d.count||0;"
+        "document.querySelectorAll('.due-badge').forEach(function(b){"
+        "b.textContent=n>99?'99+':String(n);b.classList.toggle('visible',n>0)})"
+        "});\n"
+        # Single renderer for the header streak/XP pills. Pages call this from
+        # their loadStreak (to refresh after earning XP); the nav also fetches
+        # once on load so every page shows the pills without page-side code.
+        "window.renderHeaderStats=function(streak,points){"
+        "try{sessionStorage.setItem('nav:streak',JSON.stringify({t:Date.now(),d:{streak:streak,points:points}}))}catch(e){}"
+        "var flame='<svg viewBox=\"0 0 16 20\" width=\"12\" height=\"15\" aria-hidden=\"true\"><path fill=\"#f4702a\" d=\"M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z\"/></svg>';"
+        "var star='<svg viewBox=\"0 0 20 20\" width=\"12\" height=\"12\" aria-hidden=\"true\"><path fill=\"#f0b429\" d=\"M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z\"/></svg>';"
+        "function fmt(n){return n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n)}"
+        "var h='';"
+        "if(streak>0)h+='<span class=\"hstat hstat-streak\" title=\"'+streak.toLocaleString()+'-day streak\">'+flame+fmt(streak)+'</span>';"
+        "if(points>0)h+='<span class=\"hstat hstat-xp\" title=\"'+points.toLocaleString()+' XP\">'+star+fmt(points)+'</span>';"
+        "if(!h)return;"
+        "document.querySelectorAll('.streak-display').forEach(function(el){el.innerHTML=h;el.style.display=''});"
+        "};\n"
+        "(function(){var hit=null;"
+        "try{hit=JSON.parse(sessionStorage.getItem('nav:streak')||'null')}catch(e){}"
+        "if(hit&&hit.d){window.renderHeaderStats(hit.d.streak||0,hit.d.points||0);"
+        "if(Date.now()-hit.t<60000)return;}"
+        "fetch('/api/streak').then(function(r){return r.ok?r.json():null}).then(function(d){"
+        "if(d)window.renderHeaderStats(d.streak||0,d.points||0)"
+        "}).catch(function(){});})();"
         "</script>\n"
     )
+    return header_html, tabbar_html
 
 
 _LANG_WIDGET = """
 <script>
 (function () {
+  // Cached fetches: the language list only changes on deploy (keyed by asset
+  // version), settings get a short TTL. Cuts two blocking round-trips from
+  // every page navigation; applyLang invalidates the settings entry.
+  function cachedJson(key, url, ttl) {
+    var hit = null;
+    try { hit = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) {}
+    if (hit && hit.d != null && (Date.now() - hit.t < ttl)) return Promise.resolve(hit.d);
+    return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (d != null) { try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {} }
+      return d;
+    });
+  }
   Promise.all([
-    fetch('/api/languages').then(function (r) { return r.ok ? r.json() : null; }),
-    fetch('/api/settings').then(function (r) { return r.ok ? r.json() : null; }),
+    cachedJson('nav:langs:' + (window.__VERSION__ || ''), '/api/languages', 86400000),
+    cachedJson('nav:settings', '/api/settings', 60000),
   ]).then(function (results) {
     var langRes = results[0]; var settingsRes = results[1];
     if (!langRes || !settingsRes) return;
@@ -431,6 +523,7 @@ _LANG_WIDGET = """
     // every page react via the 'langchange' event. Shared by the dropdown and
     // window.setAppLanguage (called when e.g. importing a deck in another lang).
     function applyLang(l) {
+      try { sessionStorage.removeItem('nav:settings'); sessionStorage.removeItem('nav:due'); } catch (e) {}
       return fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -518,6 +611,13 @@ _LANG_WIDGET = """
         var centerX = pr.left + pr.width / 2 - dr.width / 2;
         var clampedX = Math.max(8, Math.min(centerX, window.innerWidth - dr.width - 8));
         dd.style.left = clampedX + 'px';
+        // Clamp vertically too: the pill can sit near the bottom of the
+        // viewport (e.g. the desktop left-rail footer), where anchoring
+        // purely below the pill would push the dropdown off the bottom of
+        // the page. Prefer opening upward in that case.
+        var maxTop = window.innerHeight - dr.height - 8;
+        var clampedY = Math.max(8, Math.min(pr.bottom + 6, maxTop));
+        dd.style.top = clampedY + 'px';
       } else {
         dd.style.display = 'none';
       }
@@ -527,8 +627,22 @@ _LANG_WIDGET = """
     wrap.appendChild(pill);
     wrap.appendChild(dd);
 
-    var h1 = document.querySelector('header h1');
-    if (h1) h1.appendChild(wrap);
+    // Mobile (<1200px): the top bar is gone, so a page hosts the pill in its
+    // own content via [data-lang-slot] (the Home greeting row). Desktop: the
+    // pill lives in the left-rail footer ([data-lang-slot-rail]). Fallback to
+    // the header h1 if neither slot exists.
+    var mobile = matchMedia('(max-width: 1199px)').matches;
+    var slot = mobile ? document.querySelector('[data-lang-slot]')
+                      : document.querySelector('[data-lang-slot-rail]');
+    if (slot) {
+      pill.style.marginLeft = '0';
+      pill.style.fontSize = '0.82rem';
+      pill.style.padding = '5px 12px 5px 9px';
+      slot.appendChild(wrap);
+    } else {
+      var h1 = document.querySelector('header h1');
+      if (h1) h1.appendChild(wrap);
+    }
   }).catch(function () {});
 })();
 </script>
@@ -608,7 +722,8 @@ _NOTIF_WIDGET = """
       .catch(function () {});
   }
   _loadNotifCounts();
-  setInterval(_loadNotifCounts, 60000);
+  setInterval(function () { if (!document.hidden) _loadNotifCounts(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) _loadNotifCounts(); });
   window._refreshNotifCounts = _loadNotifCounts;
 })();
 
@@ -812,10 +927,20 @@ _PWA_INSTALL_WIDGET = """
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
-    content = content.replace("{{NAV}}", _build_nav(active), 1)
+    # The tutor page manages its own fixed viewport (mobile-keyboard handling),
+    # so it opts out of the bottom tab bar and shows a back button instead.
+    header_html, tabbar_html = _build_nav(active, tabbar=name != "tutor.html")
+    content = content.replace("{{NAV}}", header_html, 1)
+    if has_nav and tabbar_html:
+        # Direct <body> child — the <header> is display:none on mobile, so the
+        # tab bar cannot live inside it.
+        content = content.replace("</body>", tabbar_html + "</body>", 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("{{TURNSTILE_SITE_KEY}}", _TURNSTILE_SITE_KEY)
+    content = content.replace(
+        '<link rel="stylesheet" href="/static/style.css">',
+        '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/static/style.css">', 1)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
@@ -1006,12 +1131,12 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return _html("cards.html", active="/")
+    return _html("today.html", active="/")
 
 
 @app.get("/cards", response_class=HTMLResponse)
 async def cards_page():
-    return _html("cards.html", active="/")
+    return _html("cards.html", active="/cards")
 
 
 @app.get("/translate", response_class=HTMLResponse)
@@ -3648,9 +3773,9 @@ class LessonDrillRequest(BaseModel):
 @limiter.limit("60/minute;800/day")
 async def lesson_drill(request: Request, req: LessonDrillRequest,
                        user: dict = Depends(current_user)):
-    """One turn of an inline lesson construction-drill. Deterministic-first
-    judging: exact match against the plan's expected answer = instant correct;
-    LLM only called when the answer differs. 1 metered call/turn."""
+    """One turn of an inline lesson construction-drill. PLAN turn (no answer)
+    generates the sentence plan; JUDGE turns grade the learner's translation
+    with one liberal LLM call from the English meaning. 1 metered call/turn."""
     construction = (req.construction or "").strip()[:80]
     if not construction:
         raise HTTPException(400, "construction required")

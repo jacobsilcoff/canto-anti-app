@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Learn path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  /* Sticky unit header: always tells you WHERE you are in the course */
+  .unit-head { position: sticky; top: 0; z-index: 10; background: var(--brand); color: var(--on-brand); border-radius: var(--radius); padding: 14px 16px; box-shadow: 0 4px 0 var(--brand-strong), var(--shadow); display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .unit-head .kicker { color: color-mix(in srgb, var(--on-brand) 72%, transparent); }
+  .unit-head h2 { font-size: 1.05rem; }
+  .unit-head .guide { margin-left: auto; background: color-mix(in srgb, var(--on-brand) 16%, transparent); border-radius: 12px; padding: 8px 12px; font-size: .78rem; font-weight: 700; color: var(--on-brand); }
+
+  .path { position: relative; max-width: 340px; margin: 0 auto; }
+  .prow { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; position: relative; z-index: 1; }
+  .prow.w1 { transform: translateX(52px); } .prow.w3 { transform: translateX(-52px); }
+  .node { width: 68px; height: 68px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.45rem; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.18); position: relative; }
+  .node.done { background: var(--gold); }
+  .node.done::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+  .node.next { background: var(--brand); box-shadow: 0 5px 0 var(--brand-strong); }
+  .node.next .pulse { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--brand); animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { from { opacity: .5; transform: scale(1); } to { opacity: 0; transform: scale(1.3); } }
+  .node.locked { background: var(--surface-alt); color: var(--faint); box-shadow: 0 5px 0 var(--border); }
+  .crowns { position: absolute; bottom: -8px; display: flex; gap: 1px; font-size: .62rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+  .ncap { margin-top: 10px; font-weight: 700; font-size: .84rem; text-align: center; max-width: 150px; }
+  .prow.locked .ncap { color: var(--faint); }
+  .nmeta { font-size: .7rem; color: var(--muted); font-weight: 500; }
+  .start-flag { position: absolute; top: -26px; background: var(--energy); color: #fff; font-size: .64rem; font-weight: 800; letter-spacing: .06em; border-radius: 8px; padding: 4px 10px; }
+  .start-flag::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: var(--energy); transform: translateX(-50%) rotate(45deg); }
+  .practice-chips { display: flex; gap: 6px; margin-top: 6px; }
+  .practice-chips .chip { background: var(--surface); border: 1px solid var(--border); color: var(--brand); }
+
+  .trail { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .trail path { stroke: var(--border); stroke-width: 5; stroke-dasharray: 1 12; stroke-linecap: round; fill: none; }
+
+  .reading-card { display: flex; align-items: center; gap: 12px; margin: 4px 0 20px; }
+  .reading-card .emoji { font-size: 1.5rem; }
+  .reading-card b { display: block; font-size: .92rem; }
+  .reading-card small { color: var(--muted); }
+  .reading-card .pct { margin-left: auto; font-weight: 800; color: var(--brand); font-family: var(--display); }
+</style>
+</head>
+<body data-tab="learn">
+<div class="screen">
+  <div class="topstrip">
+    <span class="lang-chip">🇭🇰 Cantonese <span style="color:var(--faint)">▾</span></span>
+    <span class="stat-pills">
+      <span class="pill streak">🔥 12</span>
+      <span class="pill xp">★ 4,310</span>
+    </span>
+  </div>
+  <div class="content">
+    <div class="card reading-card">
+      <span class="emoji">📖</span>
+      <span><b>Reading: tones &amp; jyutping</b><small>Optional foundations track</small></span>
+      <span class="pct">78%</span>
+    </div>
+
+    <div class="unit-head">
+      <div>
+        <div class="kicker">Unit 3</div>
+        <h2>Getting around Hong Kong</h2>
+      </div>
+      <button class="guide">📓 Guide</button>
+    </div>
+
+    <div class="path">
+      <svg class="trail" width="340" height="560" viewBox="0 0 340 560" aria-hidden="true">
+        <path d="M170,40 C230,80 230,120 170,160 C110,200 110,240 170,280 C230,320 230,360 170,400 C110,440 110,480 170,520"/>
+      </svg>
+      <div class="prow w0">
+        <div class="node done"><span class="crowns">👑👑👑</span></div>
+        <div class="ncap">Taking the MTR</div>
+      </div>
+      <div class="prow w1">
+        <div class="node done"><span class="crowns">👑</span></div>
+        <div class="ncap">Asking for directions</div>
+      </div>
+      <div class="prow w0" style="position:relative">
+        <div class="node next"><span class="pulse"></span>★
+          <span class="start-flag" style="left:50%;transform:translateX(-50%)">START</span>
+        </div>
+        <div class="ncap">Comparisons with 過<div class="nmeta">grammar · 5 min</div></div>
+        <div class="practice-chips">
+          <span class="chip">⚡ Practice</span><span class="chip">🎯 AI drills</span>
+        </div>
+      </div>
+      <div class="prow w3">
+        <div class="node locked">🔒</div>
+        <div class="ncap">Taxi phrases</div>
+      </div>
+      <div class="prow w0">
+        <div class="node locked">🔒</div>
+        <div class="ncap">Buying an Octopus card</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

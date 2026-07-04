@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Home (Today)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  .greet { padding: 10px 2px 14px; }
+  .greet h1 { font-size: 1.45rem; font-weight: 800; text-wrap: balance; }
+  .greet p { color: var(--muted); font-size: .88rem; margin-top: 2px; }
+
+  /* Daily goal hero: ring + streak in one card, the day's single summary */
+  .goal { display: flex; align-items: center; gap: 16px; }
+  .ring { position: relative; width: 74px; height: 74px; flex-shrink: 0; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); font-weight: 800; font-size: 1.05rem; line-height: 1; }
+  .ring .num small { font-size: .58rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .goal-txt { flex: 1; }
+  .goal-txt .kicker { color: var(--gold); }
+  .goal-txt h2 { font-size: 1.02rem; margin: 3px 0 4px; }
+  .goal-txt p { font-size: .8rem; color: var(--muted); }
+  .streak-badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; background: var(--energy-soft); color: var(--energy); border-radius: 999px; padding: 4px 11px; font-weight: 800; font-size: .8rem; }
+
+  /* Next-action cards: ONE primary, everything else quieter */
+  .next { margin-top: 14px; border: none; background: var(--brand); color: var(--on-brand); box-shadow: 0 4px 0 var(--brand-strong), var(--shadow); }
+  .next .kicker { color: color-mix(in srgb, var(--on-brand) 72%, transparent); }
+  .next h2 { font-size: 1.15rem; margin: 4px 0 2px; }
+  .next p { font-size: .82rem; opacity: .85; }
+  .next .go { margin-top: 12px; background: var(--surface); color: var(--brand); border-radius: 12px; padding: 10px 18px; font-weight: 800; display: inline-flex; gap: 6px; box-shadow: none; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .mini { padding: 13px 14px; }
+  .mini .n { font-family: var(--display); font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+  .mini .lbl { font-size: .76rem; color: var(--muted); font-weight: 600; margin-top: 1px; }
+  .mini .cta { margin-top: 8px; font-size: .78rem; font-weight: 700; color: var(--brand); }
+
+  .quick { margin-top: 18px; }
+  .quick h3 { font-size: .95rem; margin-bottom: 8px; }
+  .quick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .quick-chip { display: inline-flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 9px 15px; font-weight: 600; font-size: .84rem; box-shadow: var(--shadow); }
+</style>
+</head>
+<body data-tab="home">
+<div class="screen">
+  <div class="topstrip">
+    <span class="lang-chip">🇭🇰 Cantonese <span style="color:var(--faint)">▾</span></span>
+    <span class="stat-pills">
+      <span class="pill streak">🔥 12</span>
+      <span class="pill xp">★ 4,310</span>
+    </span>
+  </div>
+  <div class="content">
+    <div class="greet">
+      <h1>Good evening, Jacob</h1>
+      <p>Thursday · you're 20 XP from today's goal</p>
+    </div>
+
+    <div class="card goal">
+      <div class="ring">
+        <svg width="74" height="74" viewBox="0 0 74 74">
+          <circle cx="37" cy="37" r="31" fill="none" stroke="var(--surface-alt)" stroke-width="8"/>
+          <circle cx="37" cy="37" r="31" fill="none" stroke="var(--gold)" stroke-width="8"
+                  stroke-linecap="round" stroke-dasharray="194.8" stroke-dashoffset="58"/>
+        </svg>
+        <div class="num">30<small>/ 50 XP</small></div>
+      </div>
+      <div class="goal-txt">
+        <div class="kicker">Daily goal</div>
+        <h2>Almost there</h2>
+        <p>One more lesson or a quick review finishes the day.</p>
+        <span class="streak-badge">🔥 12-day streak — keep it alive</span>
+      </div>
+    </div>
+
+    <div class="card next">
+      <div class="kicker">Continue learning</div>
+      <h2>Comparisons with 過</h2>
+      <p>Lesson 4 of “Getting around Hong Kong” · ~5 min</p>
+      <button class="go">Start lesson →</button>
+    </div>
+
+    <div class="row2">
+      <div class="card mini">
+        <div class="n">23</div>
+        <div class="lbl">cards due for review</div>
+        <div class="cta">Review now →</div>
+      </div>
+      <div class="card mini">
+        <div class="n">7</div>
+        <div class="lbl">new words this week</div>
+        <div class="cta">See words →</div>
+      </div>
+    </div>
+
+    <div class="quick">
+      <h3>Quick actions</h3>
+      <div class="quick-row">
+        <button class="quick-chip">＋ Translate a word</button>
+        <button class="quick-chip">💬 Chat with tutor</button>
+        <button class="quick-chip">📖 New story</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

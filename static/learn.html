@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Learn</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -156,6 +156,7 @@
     .opt-list { display: flex; flex-direction: column; gap: 10px; }
     .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); width: 100%; box-sizing: border-box; touch-action: manipulation; }
     .opt.english { font-family: inherit; }
+    @media (hover: hover) { .opt:not(:disabled):not(.selected):hover { border-color: var(--primary); } }
     .opt.selected { border-color: var(--primary); background: var(--primary-soft); }
     .opt.correct { border-color: var(--good); background: var(--good-soft); }
     .opt.wrong { border-color: var(--again); background: var(--danger-soft); }
@@ -215,12 +216,20 @@
     .grammar-badge { align-self: flex-start; background: var(--grammar-soft); color: var(--grammar-strong); border: 1px solid var(--grammar-border); border-radius: 999px; padding: 3px 11px; font-size: 0.76rem; font-weight: 600; margin-bottom: 12px; }
     .teach-tag { display: inline-block; background: var(--grammar-soft); color: var(--grammar-strong); border-radius: 6px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; vertical-align: middle; }
 
-    /* feedback + action */
+    /* feedback + action — a sticky footer pinned to the viewport bottom (Duolingo-
+       style) so Check/Continue never sits below the fold on long exercises. */
+    .player-footer { position: sticky; bottom: 0; z-index: 5; background: var(--bg);
+      margin-top: 12px; padding: 8px 0 calc(10px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border); }
     /* always block + reserved min-height so showing feedback never shifts the button.
        width:100% + overflow:hidden stop feedback text from widening the column. */
-    .feedback { border-radius: 12px; padding: 14px 16px; margin: 16px 0 0; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
+    .feedback { position: relative; border-radius: 12px; padding: 14px 16px; margin: 0 0 10px; font-weight: 600; min-height: 58px; box-sizing: border-box; width: 100%; overflow: hidden; word-break: break-word; }
     .feedback.correct { background: var(--good-soft); color: var(--good-strong); }
     .feedback.wrong { background: var(--danger-soft); color: var(--danger-strong); }
+    /* replay-audio button inside the feedback banner (listening / audio drills) */
+    .fb-replay { position: absolute; top: 10px; right: 10px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px;
+      font-size: 0.9rem; cursor: pointer; line-height: 1; }
     /* exercise root: never let content overflow and widen the page */
     #exercise-root { width: 100%; overflow: hidden; }
     .feedback small { display: block; font-weight: 400; margin-top: 4px; }
@@ -242,6 +251,7 @@
     #state-player.cd-drilling #exercise-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #state-player.cd-drilling .cd-wrap { flex: 1; min-height: 0; }
     .cd-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-shrink: 0; }
+    .cd-kicker { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--grammar-strong, var(--primary)); }
     .cd-construction { font-size: 1rem; font-weight: 700; overflow-wrap: break-word; flex: 1; min-width: 0; }
     .cd-progress { font-size: 0.8rem; font-weight: 700; color: var(--grammar-strong, var(--primary)); flex-shrink: 0; }
     /* Scrollable conversation area (history + current prompt + current feedback) */
@@ -611,8 +621,10 @@
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
     <div id="exercise-root"></div>
-    <div class="feedback" id="feedback"></div>
-    <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
+    <div class="player-footer" id="player-footer">
+      <div class="feedback" id="feedback"></div>
+      <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>
+    </div>
   </div>
 
   <!-- Results -->
@@ -644,6 +656,8 @@
 
   function show(state) {
     _currentState = state;
+    // Full-focus lesson states reclaim the mobile tab bar's space.
+    document.body.classList.toggle('hide-tabbar', state === 'teach' || state === 'player');
     ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
     // The path connectors need real layout geometry, so (re)draw once the course
@@ -686,6 +700,12 @@
       const { course } = await fetch('/api/courses/active').then(r => r.json());
       if (course) { renderCourse(course); show('course'); }
       else { show('empty'); }
+      // Deep link from Home's "Start lesson": open the player immediately.
+      const lessonParam = new URLSearchParams(location.search).get('lesson');
+      if (course && lessonParam) {
+        history.replaceState(null, '', '/learn');   // refresh returns to the map
+        openLesson(parseInt(lessonParam, 10));
+      }
     } catch {
       show('empty');
     }
@@ -697,6 +717,7 @@
     try {
       const info = await fetch('/api/streak').then(r => r.json());
       _streakInfo = info;
+      if (window.renderHeaderStats) { window.renderHeaderStats(info.streak || 0, info.points || 0); renderDailyRing(); return; }
       const fmtN = n => n >= 10000 ? Math.round(n/1000)+'k' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n);
       const numSpan = n => { const s=fmtN(n),f=n.toLocaleString(); return s===f?s:`<span style="cursor:pointer" title="${f}" onclick="this.textContent=this.textContent==='${s}'?'${f}':'${s}'">${s}</span>`; };
       const ic = n => `<span style="display:inline-flex;align-items:center;gap:3px">${n}</span>`;
@@ -1175,7 +1196,11 @@
   let _cdDrillCleanup = null;
 
   function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-  function joinSep(lang) { return (lang === 'yue' || lang === 'cmn') ? '' : ' '; }
+  // No space between word-bank tokens for scripts written without word spaces.
+  const NO_SPACE_LANGS = new Set(['yue', 'cmn', 'ja', 'th']);
+  function joinSep(lang) { return NO_SPACE_LANGS.has(lang) ? '' : ' '; }
+  // Exercise types that run their own loop/submit (no standard Check/Continue).
+  const SELF_MANAGED = new Set(['construction_drill', 'speed_round', 'audio_blitz', 'memory_match']);
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
   // TTS pre-load cache: key → Audio element (preload='auto').
@@ -1306,7 +1331,10 @@
         let currentPhrase = null, lastFeedback = null, lastAnswer = null;
         root.innerHTML = `<div class="cd-wrap">
             <div class="cd-topbar">
-              <div class="cd-construction">${esc(construction)}</div>
+              <div style="flex:1;min-width:0">
+                <div class="cd-kicker">🎯 Construction practice</div>
+                <div class="cd-construction">${esc(construction)}</div>
+              </div>
               <div class="cd-progress" id="cd-progress"></div>
             </div>
             <div class="cd-scroll" id="cd-scroll">
@@ -1491,19 +1519,14 @@
         }
 
         function finish() {
-          const hadFeedback = lastFeedback || lastAnswer;
+          // Fold the final exchange into the compact history (it shows the phrase,
+          // the learner's answer and the correction), then clear the live feedback
+          // box — otherwise the same feedback appeared twice, once in each place.
           appendHistory(currentPhrase, lastFeedback, lastAnswer);
           currentPhrase = null; lastFeedback = null; lastAnswer = null;
           if (_cdDrillCleanup) _cdDrillCleanup();
           inputWrap.style.display = 'none'; promptEl.innerHTML = '';
-          if (!hadFeedback) {
-            feedEl.innerHTML = `<div class="cd-done">Drill complete!</div>`;
-          } else {
-            const done = document.createElement('div');
-            done.className = 'cd-done';
-            done.textContent = 'Drill complete!';
-            feedEl.appendChild(done);
-          }
+          feedEl.innerHTML = `<div class="cd-done">Drill complete!</div>`;
           contEl.style.display = ''; contEl.onclick = () => onDone();
           scrollEl.scrollTop = scrollEl.scrollHeight;
           try { sfx.complete(); } catch {}
@@ -1557,7 +1580,9 @@
           <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
           <div class="opt-list" id="opts"></div>`;
         document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
-        setTimeout(() => playTTS(ex.audio, lang), 300);
+        // Guard the delayed auto-play: don't speak a stale exercise if the learner
+        // already advanced (or quit) before the timer fired.
+        setTimeout(() => { if (player && player.queue[player.idx] === ex) playTTS(ex.audio, lang); }, 300);
         const list = document.getElementById('opts');
         (ex.options || []).forEach((o, i) => {
           const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
@@ -1684,7 +1709,7 @@
           <div class="bb-label">Vowels</div><div class="opt-list bb-row" id="bb-vows"></div>
           <button class="course-regen" type="button" id="bb-back" style="margin-top:14px">⌫ Backspace</button>`;
         document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
-        setTimeout(() => playTTS(ex.audio, lang), 300);
+        setTimeout(() => { if (player && player.queue[player.idx] === ex) playTTS(ex.audio, lang); }, 300);
         const preview = document.getElementById('bb-preview');
         const typedEl = document.getElementById('bb-typed');
         const refresh = () => {
@@ -1768,7 +1793,7 @@
 
         function finish() {
           if (iv) { clearInterval(iv); iv = null; }
-          player._mgCleanup = null;
+          if (player) player._mgCleanup = null;
           const pct = total ? Math.round(score / total * 100) : 0;
           root.innerHTML = '<div class="mg-results">' +
             '<div style="font-size:2.5rem">' + (pct >= 80 ? '🏆' : pct >= 50 ? '🎉' : '💪') + '</div>' +
@@ -1847,7 +1872,7 @@
 
         function finish() {
           if (iv) { clearInterval(iv); iv = null; }
-          player._mgCleanup = null;
+          if (player) player._mgCleanup = null;
           const pct = total ? Math.round(score / total * 100) : 0;
           root.innerHTML = '<div class="mg-results">' +
             '<div style="font-size:2.5rem">' + (pct >= 80 ? '🏆' : pct >= 50 ? '🎉' : '💪') + '</div>' +
@@ -1885,13 +1910,6 @@
         for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
 
         const cols = cards.length <= 6 ? 3 : 4;
-
-        function cardFace(c, flipped) {
-          if (!flipped) return '?';
-          if (c.type === 'audio') return '🔊';
-          if (c.matched && c.type === 'audio') return c.label;
-          return c.text;
-        }
 
         function render() {
           const elapsed = Math.floor((performance.now() - startTime) / 1000);
@@ -1963,7 +1981,7 @@
 
         function finish() {
           if (iv) { clearInterval(iv); iv = null; }
-          player._mgCleanup = null;
+          if (player) player._mgCleanup = null;
           const elapsed = Math.floor((performance.now() - startTime) / 1000);
           const perfect = flips === totalPairs * 2;
           root.innerHTML = '<div class="mg-results">' +
@@ -2103,7 +2121,14 @@
       // Normalise to segments (back-compat with old single-block lessons).
       let segments = content.segments;
       if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
-      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      // Count only the exercises this mode will actually play — 'llm' filters to
+      // self-managed drills, so an unfiltered total would deflate the score/bar.
+      const total = segments.reduce((s, sg) => s + (sg.exercises || [])
+        .filter(e => mode !== 'llm' || SELF_MANAGED.has(e.type)).length, 0);
+      if (mode === 'llm' && !total) {
+        alert('This lesson has no AI practice drills — they\'re added for grammar lessons.');
+        show('course'); return;
+      }
       // Allow info-only lessons (teach with no exercises); only fail if truly empty.
       const hasContent = segments.some(sg => (sg.exercises || []).length ||
         (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
@@ -2122,6 +2147,7 @@
         vocabGlossary: content.vocab_glossary || {},
         concepts: lesson.concepts || [],   // for the results "Add to deck" panel
         theme: lesson.theme || '',         // 'foundations' → no live word lookup
+        mode,                             // remembered so "Practice again" replays the same mode
         skipTeach: mode === 'skip' || mode === 'llm',
         drillsOnly: mode === 'llm',       // LLM drills only: filter to self-managed exercises
       };
@@ -2519,8 +2545,7 @@
     const seg = player.segments[player.segIdx];
     let exs = (seg.exercises || []).map(e => ({ ...e }));
     // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
-    const _selfManaged = new Set(['construction_drill', 'speed_round', 'audio_blitz', 'memory_match']);
-    if (player.drillsOnly) exs = exs.filter(e => _selfManaged.has(e.type));
+    if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
     player.queue = exs;
     player.idx = 0;
     if (!player.queue.length) { afterSegment(); return; }
@@ -2537,11 +2562,12 @@
     player.graded = false;
     updateComboChip();
     const action = document.getElementById('player-action');
+    const footer = document.getElementById('player-footer');
     // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
-    // hide the standard Check/Continue button and let it advance via onDone.
+    // hide the standard footer (feedback + Check/Continue) and advance via onDone.
     if (player._mgCleanup) { player._mgCleanup(); player._mgCleanup = null; }
-    if (ex.type === 'construction_drill' || ex.type === 'speed_round' || ex.type === 'audio_blitz' || ex.type === 'memory_match') {
-      action.style.display = 'none';
+    if (SELF_MANAGED.has(ex.type)) {
+      footer.style.display = 'none';
       player.controller = EXERCISE_TYPES[ex.type].render(ex, root, player.lang, () => {
         if (!ex._review) player.firstPassCorrect++;
         advanceExercise();
@@ -2549,7 +2575,7 @@
       updateBar();
       return;
     }
-    action.style.display = '';
+    footer.style.display = '';
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
     // Always hide inline ruby in exercises — romanization goes into the hover/tap
     // .gl tooltip on each word. NEVER pass the vocab glossary here: a recognition
@@ -2603,6 +2629,14 @@
         sfx.wrong();
         const root = document.getElementById('exercise-root');
         root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
+      }
+      // Replay button so the learner can re-hear the audio while reading feedback.
+      if (ex.audio) {
+        const rp = document.createElement('button');
+        rp.className = 'fb-replay'; rp.type = 'button'; rp.title = 'Replay audio';
+        rp.textContent = '🔊';
+        rp.onclick = () => playTTS(ex.audio, player.lang);
+        fb.appendChild(rp);
       }
       try { if (navigator.vibrate) navigator.vibrate(correct ? 15 : [0, 30, 30, 30]); } catch {}
       const lastSeg = player.segIdx >= player.segments.length - 1;
@@ -2748,13 +2782,16 @@
   function quitLesson() {
     if (confirm('Quit this lesson? This attempt won\'t be saved.')) {
       if (_cdDrillCleanup) _cdDrillCleanup();
+      // Stop any running mini-game timer — a leaked interval would keep ticking
+      // (and crash on a null player) after the lesson is gone.
+      if (player && player._mgCleanup) { player._mgCleanup(); player._mgCleanup = null; }
       player = null; refreshAndShowCourse();
     }
   }
   function retryLesson() {
     if (!player) return;
     if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
-    else openLesson(player.lessonId);
+    else openLesson(player.lessonId, player.mode || '');
   }
   function backToMap() { player = null; refreshAndShowCourse(); }
 
@@ -2853,6 +2890,31 @@
   })();
 
   init();
+  // ── Keyboard shortcuts (desktop QoL): 1–9 pick an option, Enter = Check/Continue ──
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (_currentState === 'teach' && e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('teach-action').click();
+      return;
+    }
+    if (_currentState !== 'player' || !player) return;
+    const ex = player.queue[player.idx];
+    if (!ex || SELF_MANAGED.has(ex.type)) return;   // self-managed drills own their input
+    if (e.key === 'Enter') {
+      // Let a focused non-action button keep its native Enter behaviour (a11y),
+      // but make Enter anywhere else act as Check/Continue.
+      if (t && t.tagName === 'BUTTON' && t.id !== 'player-action') return;
+      e.preventDefault(); onAction(); return;
+    }
+    if (!player.graded && /^[1-9]$/.test(e.key)) {
+      const opts = document.querySelectorAll('#exercise-root .opt');
+      const b = opts[+e.key - 1];
+      if (b) b.click();
+    }
+  });
+
   document.addEventListener('langchange', function () { init(); });
 </script>
 </body>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Reader library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  .seg { display: flex; background: var(--surface-alt); border-radius: 999px; padding: 4px; margin: 8px 0 16px; }
+  .seg button { flex: 1; border-radius: 999px; padding: 8px; font-weight: 700; font-size: .85rem; color: var(--muted); }
+  .seg .on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+  .new-story { display: flex; align-items: center; gap: 12px; background: var(--brand); color: var(--on-brand); border: none; box-shadow: 0 4px 0 var(--brand-strong), var(--shadow); margin-bottom: 16px; }
+  .new-story .plus { width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--on-brand) 18%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+  .new-story b { display: block; font-size: .98rem; }
+  .new-story small { opacity: .8; font-size: .78rem; }
+
+  .stories { display: flex; flex-direction: column; gap: 10px; }
+  .story { display: flex; gap: 12px; padding: 12px; align-items: center; }
+  .cover { width: 56px; height: 72px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #fff; font-family: var(--display); }
+  .story-body { flex: 1; min-width: 0; }
+  .story-body b { font-size: .95rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .story-meta { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .prog { height: 5px; border-radius: 3px; background: var(--surface-alt); margin-top: 8px; overflow: hidden; }
+  .prog span { display: block; height: 100%; background: var(--brand); border-radius: 3px; }
+  .story .resume { color: var(--brand); font-weight: 800; font-size: .78rem; flex-shrink: 0; }
+  .stars { color: var(--gold); font-size: .78rem; letter-spacing: .05em; }
+</style>
+</head>
+<body data-tab="read">
+<div class="screen">
+  <div class="topstrip">
+    <span class="lang-chip">🇭🇰 Cantonese <span style="color:var(--faint)">▾</span></span>
+    <span class="stat-pills">
+      <span class="pill streak">🔥 12</span>
+      <span class="pill xp">★ 4,310</span>
+    </span>
+  </div>
+  <div class="content">
+    <h1 style="font-size:1.35rem;padding:4px 2px 0">Reader</h1>
+    <div class="seg">
+      <button class="on">My stories</button>
+      <button>Community</button>
+    </div>
+
+    <button class="card new-story">
+      <span class="plus">＋</span>
+      <span style="text-align:left"><b>New reading</b><small>AI story · from URL · PDF · photo</small></span>
+    </button>
+
+    <div class="stories">
+      <div class="card story">
+        <div class="cover" style="background:linear-gradient(160deg,#146b5c,#3fa98f)">茶</div>
+        <div class="story-body">
+          <b>飲茶初體驗 — First time at dim sum</b>
+          <div class="story-meta"><span class="chip">B1</span><span class="chip">12 sentences</span><span class="chip" style="background:var(--good-soft);color:var(--good)">14 words known</span></div>
+          <div class="prog"><span style="width:65%"></span></div>
+        </div>
+        <span class="resume">Resume →</span>
+      </div>
+      <div class="card story">
+        <div class="cover" style="background:linear-gradient(160deg,#e4572e,#dfa32e)">島</div>
+        <div class="story-body">
+          <b>長洲一日遊 — A day on Cheung Chau</b>
+          <div class="story-meta"><span class="chip">A2</span><span class="chip">9 sentences</span><span class="stars">★★★★☆</span></div>
+          <div class="prog"><span style="width:100%"></span></div>
+        </div>
+        <span class="resume">Re-read</span>
+      </div>
+      <div class="card story">
+        <div class="cover" style="background:linear-gradient(160deg,#4f46a5,#9a92e8)">新</div>
+        <div class="story-body">
+          <b>RTHK 新聞：颱風消息 (from URL)</b>
+          <div class="story-meta"><span class="chip">Original</span><span class="chip">31 sentences</span></div>
+          <div class="prog"><span style="width:10%"></span></div>
+        </div>
+        <span class="resume">Resume →</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

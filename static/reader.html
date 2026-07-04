@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Reader</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -20,7 +20,21 @@
     .reader-page { max-width: 720px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px 16px 60px; overflow: hidden; }
 
     /* ── Generate form ── */
-    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+    /* "New reading" entry card — the generate form expands beneath it */
+    .new-reading-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      background: var(--primary); color: var(--on-primary); border: none; border-radius: var(--radius);
+      padding: 14px 16px; cursor: pointer; box-shadow: 0 4px 0 var(--primary-strong), var(--shadow);
+      margin-bottom: 14px; font-family: inherit; }
+    .new-reading-card:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--primary-strong), var(--shadow); }
+    .new-reading-card .nr-plus { display: flex; align-items: center; justify-content: center;
+      width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.18); flex-shrink: 0; }
+    .new-reading-card .nr-txt b { display: block; font-size: 0.98rem; }
+    .new-reading-card .nr-txt small { opacity: 0.8; font-size: 0.78rem; }
+    .new-reading-card .nr-chev { margin-left: auto; transition: transform 0.2s; flex-shrink: 0; display: flex; }
+    .new-reading-card.open .nr-chev { transform: rotate(180deg); }
+    .gen-form { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 24px; display: none; flex-direction: column; gap: 12px; }
+    .gen-form.open { display: flex; }
+    .gen-form > h2 { display: none; }  /* the New-reading card is the header */
     .gen-form h2 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--text); }
     .gen-prompt-wrap textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); padding: 9px 12px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 72px; }
     .gen-prompt-wrap textarea:focus { outline: none; border-color: var(--primary); }
@@ -61,6 +75,13 @@
     .reader-h3, .reader-h4, .reader-h5, .reader-h6 { font-size: 1.05em; }
 
     /* ── Saved texts list ── */
+    .saved-cover { width: 46px; height: 58px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+      color: #fff; font-family: var(--display-font); font-weight: 700; }
+    .saved-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+    .schip { display: inline-flex; align-items: center; border-radius: 999px; background: var(--surface-alt);
+      color: var(--text-muted); font-size: 0.7rem; font-weight: 600; padding: 2px 8px; }
+    .schip-cefr { background: var(--gold-soft); color: var(--gold); }
     .saved-section { margin-bottom: 24px; }
     .saved-section h3 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
     .saved-list { display: flex; flex-direction: column; gap: 6px; }
@@ -223,11 +244,12 @@
     .quiz-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
 
     /* ── Tab switcher ── */
-    .reader-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
-    .reader-tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.88rem; font-weight: 600;
-      color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
-      background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
-    .reader-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .reader-tabs { display: flex; background: var(--surface-alt); border-radius: 999px; padding: 4px;
+      margin-bottom: 16px; }
+    .reader-tab { flex: 1; text-align: center; padding: 8px; font-size: 0.88rem; font-weight: 700;
+      color: var(--text-muted); cursor: pointer; background: none; border: none; border-radius: 999px;
+      font-family: inherit; }
+    .reader-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 
     /* ── Community filters ── */
     .community-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -275,7 +297,12 @@
 
   <!-- Home: generate + saved list -->
   <div id="home-view">
-    <div class="gen-form">
+    <button class="new-reading-card" id="new-reading-card" type="button" onclick="toggleGenForm()">
+      <span class="nr-plus"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+      <span class="nr-txt"><b>New reading</b><small>AI story · from URL · PDF · photo</small></span>
+      <span class="nr-chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </button>
+    <div class="gen-form" id="gen-form">
       <h2>Add a reading</h2>
       <div class="gen-mode-tabs">
         <button class="gen-mode-tab active" data-mode="ai" onclick="setGenMode('ai')">✨ AI Story</button>
@@ -384,7 +411,7 @@
       </div>
     </div>
     <div class="saved-section" id="saved-section" style="display:none">
-      <h3>Saved texts</h3>
+      <h3>Your stories</h3>
       <div class="saved-list" id="saved-list"></div>
     </div>
   </div>
@@ -557,6 +584,12 @@
     populateCommLangFilter();
     loadSavedTexts();
     loadStreak();
+    // Deep link from Home's "New story": open the generate form directly.
+    if (new URLSearchParams(location.search).get('new') === '1') {
+      history.replaceState(null, '', '/reader');
+      toggleGenForm(true);
+      document.getElementById('gen-prompt').focus();
+    }
   }
 
   async function loadDefaultLang() {
@@ -615,11 +648,19 @@
 
 
   // ── Saved texts ────────────────────────────────────────────────────────────
+  function toggleGenForm(force) {
+    const form = document.getElementById('gen-form');
+    const card = document.getElementById('new-reading-card');
+    const open = force !== undefined ? force : !form.classList.contains('open');
+    form.classList.toggle('open', open);
+    card.classList.toggle('open', open);
+  }
+
   async function loadSavedTexts() {
     const res = await fetch('/api/reader/texts').then(r => r.json());
     const texts = res.texts || [];
     const section = document.getElementById('saved-section');
-    if (!texts.length) { section.style.display = 'none'; return; }
+    if (!texts.length) { section.style.display = 'none'; toggleGenForm(true); return; }
     section.style.display = '';
     const list = document.getElementById('saved-list');
     list.innerHTML = '';
@@ -630,10 +671,18 @@
       const vis = t.visibility || 'private';
       const item = document.createElement('div');
       item.className = 'saved-item';
+      const grads = ['linear-gradient(160deg,#146b5c,#3fa98f)', 'linear-gradient(160deg,#e4572e,#dfa32e)',
+                     'linear-gradient(160deg,#4f46a5,#9a92e8)', 'linear-gradient(160deg,#2c7fb8,#7cc1e8)'];
+      const coverCh = (t.title || '?').trim().charAt(0) || '?';
       item.innerHTML = `
+        <div class="saved-cover" style="background:${grads[t.id % 4]}">${esc(coverCh)}</div>
         <div class="saved-item-info">
           <div class="saved-item-title">${esc(t.title)}</div>
-          <div class="saved-item-meta">${flag} ${langInfo?.name || t.target_lang} · ${date}</div>
+          <div class="saved-chips">
+            <span class="schip">${flag} ${langInfo?.name || t.target_lang}</span>
+            ${t.difficulty ? `<span class="schip schip-cefr">${esc(t.difficulty)}</span>` : ''}
+            <span class="schip">${date}</span>
+          </div>
         </div>
         <div class="saved-item-actions">
           <select class="settings-select saved-item-share${vis !== 'private' ? ' shared' : ''}" title="Sharing"
@@ -647,6 +696,7 @@
           </button>
         </div>`;
       item.querySelector('.saved-item-info').onclick = () => openSavedText(t.id);
+      item.querySelector('.saved-cover').onclick = () => openSavedText(t.id);
       list.appendChild(item);
     });
   }
@@ -836,6 +886,7 @@
   let sentenceCache = {};
 
   function showReaderView(data) {
+    document.body.classList.add('hide-tabbar');   // open story = full-focus view
     currentTextId = data.id;
     _canPreload = !_isCommunityStory;
     currentTargetLang = data.target_lang;
@@ -1018,6 +1069,7 @@
   }
 
   function showHome() {
+    document.body.classList.remove('hide-tabbar');
     if (audioMode) audioStop();
     document.getElementById('reader-view').style.display = 'none';
     document.getElementById('loading-view').style.display = 'none';
@@ -1041,6 +1093,7 @@
     document.getElementById('home-view').style.display = tab === 'mine' ? 'block' : 'none';
     document.getElementById('community-view').style.display = tab === 'community' ? 'block' : 'none';
     document.getElementById('reader-view').style.display = 'none';
+    document.body.classList.remove('hide-tabbar');
     if (tab === 'community') loadCommunity();
   }
 
@@ -1634,6 +1687,7 @@
   async function loadStreak() {
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      if (window.renderHeaderStats) { window.renderHeaderStats(streak || 0, points || 0); return; }
       const parts = [];
       const _flame = `<svg viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
       const _star  = `<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
