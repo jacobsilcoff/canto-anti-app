@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Translate</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -587,6 +587,7 @@
   async function loadStreak() {
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      if (window.renderHeaderStats) { window.renderHeaderStats(streak || 0, points || 0); return; }
       const _flame = `<svg viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
       const _star  = `<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
       const fmtN = n => n >= 10000 ? Math.round(n/1000)+'k' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n);

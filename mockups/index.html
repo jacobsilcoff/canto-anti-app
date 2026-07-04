@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redesign mockups — Field Notes direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script>
+(function () {
+  var t = localStorage.getItem('mock-theme') || 'auto';
+  if (t === 'auto') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+<style>
+  body { padding: 34px 20px 80px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header.hero { max-width: 660px; margin-bottom: 8px; }
+  .hero .kicker { color: var(--energy); }
+  .hero h1 { font-size: 2rem; margin: 6px 0 10px; text-wrap: balance; }
+  .hero p { color: var(--muted); line-height: 1.6; }
+  .theme-toggle { position: fixed; top: 18px; right: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; font-weight: 700; font-size: .84rem; box-shadow: var(--shadow); z-index: 50; }
+
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; }
+  .sw { width: 132px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+  .sw .c { height: 56px; }
+  .sw .t { padding: 8px 10px; font-size: .72rem; font-weight: 700; }
+  .sw .t small { display: block; color: var(--muted); font-weight: 500; }
+
+  h2.sect { font-size: 1.25rem; margin: 44px 0 6px; }
+  .sect-sub { color: var(--muted); max-width: 640px; line-height: 1.6; margin-bottom: 20px; }
+
+  .frames { display: flex; gap: 26px; flex-wrap: wrap; }
+  .frame-block { width: 300px; }
+  .phone { width: 300px; height: 620px; border-radius: 34px; border: 10px solid #1b1f24; background: var(--bg); overflow: hidden; box-shadow: var(--shadow-pop); position: relative; }
+  [data-theme="dark"] .phone { border-color: #000; }
+  .phone iframe { width: 390px; height: 793px; border: none; transform: scale(.718); transform-origin: 0 0; }
+  .frame-cap { margin: 12px 4px 0; }
+  .frame-cap b { font-family: var(--display); font-size: .95rem; }
+  .frame-cap p { color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: 3px; }
+  .frame-cap a { color: var(--brand); font-weight: 700; font-size: .78rem; }
+
+  .desk-frame { border-radius: 18px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-pop); max-width: 1100px; }
+  .desk-frame .bar { display: flex; gap: 6px; padding: 10px 14px; background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+  .desk-frame .bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+  .desk-frame iframe { width: 100%; height: 640px; border: none; }
+
+  .principles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .principles .card h3 { font-size: .98rem; margin-bottom: 5px; }
+  .principles .card p { color: var(--muted); font-size: .86rem; line-height: 1.55; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="tt">🌙 Dark</button>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Redesign proposal · “Field Notes”</div>
+    <h1>A warmer, app-like identity for the language app</h1>
+    <p>Six tappable mockups. The core moves: a <b>bottom tab bar</b> for the five daily
+    destinations, a <b>“Today” home</b> that always offers one clear next action, and a
+    palette of deep viridian, persimmon and harvest gold replacing the default blue.
+    Toggle dark mode (top right) — every screen is designed for both themes.</p>
+  </header>
+
+  <div class="swatches">
+    <div class="sw"><div class="c" style="background:#146b5c"></div><div class="t">Viridian<small>primary · actions, nav</small></div></div>
+    <div class="sw"><div class="c" style="background:#e4572e"></div><div class="t">Persimmon<small>streaks, energy</small></div></div>
+    <div class="sw"><div class="c" style="background:#dfa32e"></div><div class="t">Harvest gold<small>XP, crowns</small></div></div>
+    <div class="sw"><div class="c" style="background:#202a33"></div><div class="t">Ink<small>text</small></div></div>
+    <div class="sw"><div class="c" style="background:#f5f4ef;border-bottom:1px solid var(--border)"></div><div class="t">Bone<small>background</small></div></div>
+    <div class="sw"><div class="c" style="background:linear-gradient(90deg,#4f46a5,#3a8a3f 50%,#c73f3f)"></div><div class="t">Semantics<small>grammar · good · wrong</small></div></div>
+  </div>
+
+  <h2 class="sect">Mobile screens</h2>
+  <p class="sect-sub">Rendered live in phone frames — each one opens standalone too
+  (link under each frame) so you can tap through it full-size on your phone.</p>
+
+  <div class="frames">
+    <div class="frame-block">
+      <div class="phone"><iframe src="home.html" title="Home mockup"></iframe></div>
+      <div class="frame-cap"><b>1 · Home — “Today”</b>
+        <p>New screen. Daily goal + streak up top, ONE primary “continue” card, due-card counts and quick actions below. Replaces landing straight in a review session.</p>
+        <a href="home.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="learn.html" title="Learn path mockup"></iframe></div>
+      <div class="frame-cap"><b>2 · Learn path</b>
+        <p>Sticky unit banner so you always know the chapter; gold crowns on done nodes; practice chips under the active lesson; reading track collapsed to one card.</p>
+        <a href="learn.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="lesson.html" title="Lesson player mockup"></iframe></div>
+      <div class="frame-cap"><b>3 · Lesson player</b>
+        <p>Full-focus mode (no tabs), gradient progress, combo chip, tiles with press-down depth — and the sticky Check/feedback footer that just shipped for real.</p>
+        <a href="lesson.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="cards.html" title="Flashcards mockup"></iframe></div>
+      <div class="frame-cap"><b>4 · Flashcards</b>
+        <p>Session progress on top, face tag on the card, bigger SRS buttons with interval previews, CEFR/label chips and the tutor pill anchored to the card.</p>
+        <a href="cards.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="tutor.html" title="Tutor chat mockup"></iframe></div>
+      <div class="frame-cap"><b>5 · Tutor chat</b>
+        <p>Named persona with “knows your 214 words” trust line; corrections as a gold card under YOUR bubble; grammar-purple drill chip; add-word row as its own card.</p>
+        <a href="tutor.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="reader.html" title="Reader mockup"></iframe></div>
+      <div class="frame-cap"><b>6 · Reader library</b>
+        <p>Stories as covers with progress bars and “words known” chips; one prominent “New reading” entry covering all four generation sources.</p>
+        <a href="reader.html">Open full-size →</a></div>
+    </div>
+  </div>
+
+  <h2 class="sect">Desktop — left rail</h2>
+  <p class="sect-sub">Above 1040&nbsp;px the tab bar becomes a persistent left rail (no more hamburger),
+  freeing the content column plus a right sidebar for stats and tutor nudges.</p>
+  <div class="desk-frame">
+    <div class="bar"><span></span><span></span><span></span></div>
+    <iframe src="desktop.html" title="Desktop mockup"></iframe>
+  </div>
+
+  <h2 class="sect">The ten UX moves</h2>
+  <div class="principles">
+    <div class="card"><h3>1 · Bottom tab bar</h3><p>Home, Learn, Cards, Tutor, Reader — always one tap away. Hamburger keeps only Settings/Community/Messages/Admin. Today 4 of 5 core loops hide behind the menu.</p></div>
+    <div class="card"><h3>2 · A real Home</h3><p>“Today” answers “what should I do now?” with one primary action + goal ring. Landing directly in a review session is efficient but disorienting for returning users.</p></div>
+    <div class="card"><h3>3 · One brand palette</h3><p>Viridian/persimmon/gold replaces default Google-blue. Semantic colors (correct green, wrong red, grammar purple) stay separate from brand so feedback reads instantly.</p></div>
+    <div class="card"><h3>4 · Display typeface</h3><p>Bricolage Grotesque for headings, numbers and stats gives the app a voice; Public Sans keeps UI text quiet. Numbers use tabular figures everywhere they align.</p></div>
+    <div class="card"><h3>5 · Focus mode for lessons</h3><p>The player drops the tab bar entirely — progress, combo and a sticky action footer only. (The sticky footer is already shipped in this branch.)</p></div>
+    <div class="card"><h3>6 · Consistent card language</h3><p>16px radius, 1px hairline + soft shadow, press-down “3D” buttons for primary actions. Every surface — flashcard, deck, story, correction — is the same component family.</p></div>
+    <div class="card"><h3>7 · Gamification in one place</h3><p>Streak 🔥 and XP ★ live in the top strip on every tab, in brand colors (persimmon/gold), instead of varying pills per page.</p></div>
+    <div class="card"><h3>8 · Interval previews on SRS buttons</h3><p>Again/Hard/Good/Easy show when the card will return (1&nbsp;min / 2&nbsp;d / 4&nbsp;d / 8&nbsp;d) — the single most-requested Anki affordance.</p></div>
+    <div class="card"><h3>9 · Trust lines for AI</h3><p>“Knows your 214 words” under the tutor's name, “14 words known” on stories — surfacing WHY the AI content fits you builds confidence in it.</p></div>
+    <div class="card"><h3>10 · Desktop rail + sidebar</h3><p>Left rail navigation and a stats/tutor-nudge sidebar make desktop feel intentional instead of a stretched phone layout.</p></div>
+  </div>
+</div>
+<script>
+  const tt = document.getElementById('tt');
+  function label() { tt.textContent = document.documentElement.dataset.theme === 'dark' ? '☀️ Light' : '🌙 Dark'; }
+  tt.onclick = () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('mock-theme', next);
+    document.querySelectorAll('iframe').forEach(f => {
+      try { f.contentWindow.postMessage({ mockTheme: next }, '*'); } catch {}
+    });
+    label();
+  };
+  label();
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Tutor chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  .chat-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; }
+  .chat-head b { font-family: var(--display); }
+  .chat-head small { display: block; color: var(--muted); font-size: .72rem; }
+  .chat-head .hist { margin-left: auto; color: var(--muted); font-size: 1.1rem; }
+
+  .thread { padding: 14px 14px 120px; display: flex; flex-direction: column; gap: 10px; }
+  .b { max-width: 84%; border-radius: 18px; padding: 11px 14px; line-height: 1.55; }
+  .b.tutor { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 6px; align-self: flex-start; box-shadow: var(--shadow); }
+  .b.me { background: var(--brand); color: var(--on-brand); border-bottom-right-radius: 6px; align-self: flex-end; }
+  .b .hanzi { font-size: 1.08rem; }
+  .tools { display: flex; gap: 10px; margin-top: 8px; color: var(--faint); font-size: .86rem; }
+  .tools button { padding: 2px 4px; }
+  .tools .drill { margin-left: auto; color: var(--grammar); background: var(--grammar-soft); border-radius: 999px; padding: 3px 11px; font-weight: 700; font-size: .76rem; }
+
+  /* Correction sits under the learner's own message */
+  .corr { align-self: flex-end; max-width: 84%; background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); border-radius: 14px; padding: 10px 13px; font-size: .86rem; }
+  .corr .k { font-size: .66rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--gold); display: flex; gap: 6px; align-items: center; }
+  .corr .was { text-decoration: line-through; color: var(--muted); }
+  .corr .now { font-weight: 700; }
+  .corr .pill-form { display: inline-flex; background: var(--grammar-soft); color: var(--grammar); border-radius: 999px; font-size: .7rem; font-weight: 700; padding: 2px 9px; margin-top: 6px; }
+
+  .newword { align-self: flex-start; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 9px 12px; box-shadow: var(--shadow); font-size: .9rem; }
+  .newword .add { background: var(--brand-soft); color: var(--brand); font-weight: 800; border-radius: 999px; padding: 5px 12px; font-size: .78rem; }
+
+  .composer { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 420px; background: var(--surface); border-top: 1px solid var(--border); padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: flex-end; z-index: 30; }
+  .composer .input { flex: 1; border: 1.5px solid var(--border); border-radius: 22px; padding: 11px 16px; color: var(--faint); font-size: .95rem; background: var(--bg); }
+  .composer .send { width: 42px; height: 42px; border-radius: 50%; background: var(--brand); color: var(--on-brand); font-size: 1.05rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 0 var(--brand-strong); }
+</style>
+</head>
+<body data-tab="tutor">
+<div class="screen">
+  <div class="chat-head">
+    <span class="avatar">語</span>
+    <span><b>Ah Ming · tutor</b><small>knows your 214 words</small></span>
+    <button class="hist">☰</button>
+  </div>
+  <div class="thread">
+    <div class="b tutor">
+      <span class="hanzi"><ruby>你<rt>nei5</rt></ruby><ruby>週<rt>zau1</rt></ruby><ruby>末<rt>mut6</rt></ruby><ruby>想<rt>soeng2</rt></ruby><ruby>去<rt>heoi3</rt></ruby><ruby>邊<rt>bin1</rt></ruby><ruby>度<rt>dou6</rt></ruby>玩？</span>
+      <div class="tools"><button>🔊</button><button>Aa</button><button>あ</button></div>
+    </div>
+    <div class="b me">我想去山頂，因為佢高過城市</div>
+    <div class="corr">
+      <div class="k">✏️ One fix</div>
+      <div><span class="was">佢高過城市</span> → <span class="now hanzi">山頂高過市區</span></div>
+      <div style="margin-top:3px;color:var(--muted)">Use 市區 for “the city (area)” — 城市 is the abstract word.</div>
+      <span class="pill-form">📐 comparative with 過</span>
+    </div>
+    <div class="b tutor">
+      <span class="hanzi"><ruby>好<rt>hou2</rt></ruby><ruby>主<rt>zyu2</rt></ruby><ruby>意<rt>ji3</rt></ruby>！<ruby>山<rt>saan1</rt></ruby><ruby>頂<rt>deng2</rt></ruby><ruby>風<rt>fung1</rt></ruby><ruby>景<rt>ging2</rt></ruby><ruby>靚<rt>leng3</rt></ruby><ruby>過<rt>gwo3</rt></ruby><ruby>維<rt>wai4</rt></ruby><ruby>港<rt>gong2</rt></ruby>…</span>
+      <div class="tools"><button>🔊</button><button>Aa</button><button>あ</button><button class="drill">🎯 Drill: 過 comparisons</button></div>
+    </div>
+    <div class="newword">
+      <span class="hanzi"><b>風景</b> fung1 ging2 · scenery</span>
+      <button class="add">＋ Add</button>
+    </div>
+  </div>
+  <div class="composer">
+    <span class="input">Message Ah Ming…</span>
+    <button class="send">➤</button>
+  </div>
+</div>
+</body>
+</html>

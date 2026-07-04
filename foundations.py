@@ -214,7 +214,7 @@ def _listen_word(word: str, word_pool: list[str], lang: str = "ko") -> dict:
     return {
         "type": "listening", "instruction": "What did you hear?", "hide_roman": True,
         "audio": word, "audio_roman": _romanize(word, lang),
-        "options": opts, "options_roman": [_romanize(o, lang) for o in opts], "answer": ans,
+        "options": opts, "answer": ans,
     }
 
 
@@ -1123,7 +1123,7 @@ def _build_tonal_lesson_content(lesson: dict, lang: str) -> dict:
             exs.append({
                 "type": "listening", "instruction": "What did you hear?", "hide_roman": True,
                 "audio": item["audio"], "audio_roman": item["roman"],
-                "options": opts, "options_roman": ["" for _ in opts], "answer": ans,
+                "options": opts, "answer": ans,
             })
 
         random.shuffle(exs)

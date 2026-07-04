@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Messages</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -32,6 +32,15 @@
       border-radius: 8px; padding: 5px 7px; display: flex; align-items: center;
       transition: color 0.15s; }
     .msg-convs { flex: 1; overflow-y: auto; }
+
+    /* Pinned AI-tutor contact at the top of the list */
+    .msg-tutor-row { border-bottom: 1px solid var(--border); background: var(--primary-soft); }
+    .msg-tutor-row:hover { background: var(--primary-soft-2, var(--primary-soft)); }
+    .tutor-avatar { background: var(--primary) !important; color: var(--on-primary, #fff); }
+    .tutor-ai-badge { display: inline-block; background: var(--primary); color: var(--on-primary, #fff);
+      font-size: 0.6rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 5px;
+      padding: 1px 5px; vertical-align: 1px; margin-left: 4px; }
+    .msg-tutor-arrow { color: var(--text-faint); font-size: 1.2rem; line-height: 1; }
     .msg-conv-row { padding: 11px 14px; cursor: pointer; display: flex; align-items: center;
       gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
     .msg-conv-row:hover { background: var(--surface-alt); }
@@ -506,7 +515,7 @@
   <!-- Main -->
   <div class="msg-main" id="msg-main">
     <div class="msg-placeholder" id="msg-placeholder">
-      <div class="msg-placeholder-icon">💬</div>
+      <div class="msg-placeholder-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
       <p>Select a conversation to start chatting</p>
     </div>
 
@@ -529,7 +538,7 @@
           <textarea class="msg-input" id="msg-input" placeholder="Type a message…" rows="1"
             autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
           <button class="msg-send-btn" id="msg-send-btn" onclick="sendMessage()">
-            <span class="msg-send-icon">➤</span>
+            <span class="msg-send-icon" style="display:inline-flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span>
           </button>
         </div>
       </div>
@@ -843,13 +852,27 @@
     } catch {}
   }
 
+  // The AI tutor is pinned above friend conversations as a special contact —
+  // one "Chat" destination covers both practice (tutor) and social messaging.
+  const TUTOR_ROW = `<div class="msg-conv-row msg-tutor-row" onclick="location.href='/tutor'">
+      <div class="msg-conv-avatar tutor-avatar">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>
+      </div>
+      <div class="msg-conv-info">
+        <div class="msg-conv-name">Language Tutor <span class="tutor-ai-badge">AI</span></div>
+        <div class="msg-conv-preview">Practice conversation — corrections &amp; new words</div>
+      </div>
+      <div class="msg-conv-meta"><span class="msg-tutor-arrow">›</span></div>
+    </div>`;
+
   function renderConvList() {
     const el = document.getElementById('msg-convs');
     if (!_convs.length) {
-      el.innerHTML = '<div class="msg-conv-empty">No conversations yet.<br>Add friends to start chatting.</div>';
+      el.innerHTML = TUTOR_ROW +
+        '<div class="msg-conv-empty">No conversations yet.<br>Add friends to start chatting.</div>';
       return;
     }
-    el.innerHTML = _convs.map(c => {
+    el.innerHTML = TUTOR_ROW + _convs.map(c => {
       const name = c.name || c.last_sender_name || '(unknown)';
       const initials = name.slice(0, 2).toUpperCase();
       const isActive = c.id === _activeConvId;
@@ -1960,6 +1983,7 @@
   let _activeConvSeenAt = null;
   function startPolling() {
     _pollTimer = setInterval(async () => {
+      if (document.hidden) return;   // don't burn radio/battery in a background tab
       await loadConvs();
       if (!_activeConvId) return;
       const conv = _convs.find(c => c.id === _activeConvId);
@@ -2221,6 +2245,9 @@
     document.getElementById('msg-placeholder').style.display = 'none';
     const chat = document.getElementById('msg-chat');
     chat.style.display = 'flex';
+    // Phone layout: an open thread is a full-focus view — reclaim the tab bar's
+    // space so the composer sits at the true bottom (back button returns to list).
+    if (matchMedia('(max-width: 600px)').matches) document.body.classList.add('hide-tabbar');
   }
 
   function showSidebar() {
@@ -2228,6 +2255,7 @@
     document.getElementById('msg-placeholder').style.display = '';
     document.getElementById('msg-chat').style.display = 'none';
     _activeConvId = null;
+    document.body.classList.remove('hide-tabbar');
   }
   function hideSidebar() {
     document.getElementById('msg-sidebar').classList.add('hidden');

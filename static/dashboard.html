@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Admin Dashboard</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -374,10 +374,7 @@
   async function loadStreak() {
     try {
       const d = await fetch('/api/streak').then(r => r.json());
-      const el = document.getElementById('streak-display');
-      const el2 = document.getElementById('streak-display-mobile');
-      if (el && d.streak > 0) { el.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el.style.display = ''; }
-      if (el2 && d.streak > 0) { el2.textContent = '🔥 ' + d.streak + ' · ⭐ ' + (d.points||0); el2.style.display = ''; }
+      if (window.renderHeaderStats) window.renderHeaderStats(d.streak || 0, d.points || 0);
     } catch {}
   }
 

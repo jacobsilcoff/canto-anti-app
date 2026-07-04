@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Login</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -61,6 +61,8 @@
   </style>
 </head>
 <body>
+<script>/* a fresh login must not inherit the previous user's cached nav state */
+try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('nav:') === 0) sessionStorage.removeItem(k); }); } catch (e) {}</script>
 <header>
   <h1>{{APP_NAME_HTML}}</h1>
 </header>

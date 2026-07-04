@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Lesson player (drill)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  /* Full-focus player: no tab bar, just progress + close. */
+  .ptop { display: flex; align-items: center; gap: 12px; padding: 14px 16px 8px; }
+  .pclose { color: var(--faint); font-size: 1.3rem; padding: 2px 6px; }
+  .pbar { flex: 1; height: 14px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+  .pfill { width: 60%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), color-mix(in srgb, var(--brand) 70%, var(--gold))); position: relative; }
+  .pfill::after { content: ''; position: absolute; inset: 3px 4px auto 4px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.35); }
+  .combo { display: inline-flex; align-items: center; gap: 3px; background: var(--energy-soft); color: var(--energy); font-weight: 800; font-size: .82rem; border-radius: 999px; padding: 4px 10px; }
+
+  .ex { padding: 12px 18px 0; }
+  .badge-grammar { display: inline-flex; background: var(--grammar-soft); color: var(--grammar); font-size: .7rem; font-weight: 800; border-radius: 999px; padding: 4px 11px; letter-spacing: .03em; }
+  .ex h2 { font-size: 1.2rem; margin: 10px 0 4px; }
+  .ex .eng { color: var(--muted); font-size: 1.02rem; margin-bottom: 14px; }
+
+  .answer-row { min-height: 56px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 10px; margin-bottom: 18px; }
+  .bank { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 1.15rem; box-shadow: 0 2px 0 var(--border); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.3; }
+  .tile:active { transform: translateY(2px); box-shadow: none; }
+  .tile small { font-size: .6rem; color: var(--muted); font-family: var(--body); }
+  .tile.ghost { background: var(--surface-alt); border-style: dashed; color: transparent; box-shadow: none; }
+
+  /* THE fix being shipped: sticky footer — Check + feedback never below the fold */
+  .pfooter { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 420px; background: var(--bg); border-top: 1px solid var(--border); padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); z-index: 30; }
+  .fb { border-radius: 14px; background: var(--good-soft); color: var(--good); font-weight: 700; padding: 12px 14px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; }
+  .fb .ico { font-size: 1.15rem; }
+  .fb small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .fb .replay { margin-left: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; }
+  .check { width: 100%; background: var(--good); color: #fff; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 1rem; box-shadow: 0 3px 0 color-mix(in srgb, var(--good) 60%, black); }
+</style>
+</head>
+<body data-tab="learn">
+<div class="screen">
+  <div class="ptop">
+    <button class="pclose">✕</button>
+    <div class="pbar"><div class="pfill"></div></div>
+    <span class="combo">⚡ ×4</span>
+  </div>
+
+  <div class="ex">
+    <span class="badge-grammar">📘 GRAMMAR · comparisons with 過</span>
+    <h2>Build the sentence</h2>
+    <div class="eng">“The MTR is faster than the bus.”</div>
+
+    <div class="answer-row">
+      <span class="tile hanzi">地鐵<small>dei6 tit3</small></span>
+      <span class="tile hanzi">快<small>faai3</small></span>
+      <span class="tile hanzi">過<small>gwo3</small></span>
+      <span class="tile hanzi">巴士<small>baa1 si2</small></span>
+    </div>
+    <div class="bank">
+      <span class="tile ghost hanzi">地鐵</span>
+      <span class="tile hanzi">慢<small>maan6</small></span>
+      <span class="tile ghost hanzi">快</span>
+      <span class="tile hanzi">好<small>hou2</small></span>
+      <span class="tile ghost hanzi">過</span>
+      <span class="tile ghost hanzi">巴士</span>
+    </div>
+  </div>
+
+  <div class="pfooter">
+    <div class="fb">
+      <span class="ico">✅</span>
+      <span>Correct!<small>地鐵快過巴士 — adjective + 過 + the thing it beats.</small></span>
+      <button class="replay" title="Replay audio">🔊</button>
+    </div>
+    <button class="check">Continue</button>
+  </div>
+</div>
+</body>
+</html>

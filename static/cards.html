@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
-  <meta name="theme-color" content="#f8f9fa">
+  <meta name="theme-color" content="#f5f4ef">
   <script src="/static/theme.js" defer></script>
   <title>{{APP_NAME}} — Flashcards</title>
   <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
@@ -475,6 +475,11 @@
       box-shadow: var(--shadow-pop); z-index: 91; min-width: 180px; overflow: hidden;
       display: none; }
     .add-fab-menu.open { display: block; }
+    /* Lift the FAB clear of the mobile bottom tab bar */
+    @media (max-width: 1199px) {
+      body:not(.hide-tabbar) .add-fab { bottom: max(80px, calc(76px + env(safe-area-inset-bottom, 0px))); }
+      body:not(.hide-tabbar) .add-fab-menu { bottom: max(140px, calc(136px + env(safe-area-inset-bottom, 0px))); }
+    }
     .add-fab-menu a { display: flex; align-items: center; gap: 10px;
       padding: 13px 18px; color: var(--text); text-decoration: none;
       font-size: 0.92rem; font-weight: 500; transition: background 0.1s; }
@@ -993,6 +998,7 @@
   async function loadStreak() {
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
+      if (window.renderHeaderStats) { window.renderHeaderStats(streak || 0, points || 0); return; }
       const parts = [];
       const _flame = `<svg viewBox="0 0 16 20" width="13" height="16" aria-hidden="true"><path fill="#f4702a" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>`;
       const _star  = `<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>`;
@@ -1125,7 +1131,7 @@
     // Poll every 30 s. Learning cards can come due in as little as 1 min, so
     // 30 s means at most a 30-second delay before the session auto-resumes.
     _duePoller = setInterval(async () => {
-      if (!isOnline) return;
+      if (!isOnline || document.hidden) return;
       try {
         const url = '/api/cards/due-count' + filterQuery();
         const { count } = await fetch(url).then(r => r.json());

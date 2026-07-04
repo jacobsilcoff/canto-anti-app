@@ -914,18 +914,15 @@ async def start_drill(
 # ── Inline lesson construction-drill ──────────────────────────────────────────
 # A tight, LLM-graded drill embedded in the lesson player: each turn poses ONE
 # English phrase to translate into the target language, exercising one construction
-# with vocabulary the learner knows, judging the previous attempt. Same trust model
-# as the rest of tutor — romanization recomputed by the oracle, fields normalized,
-# never hard-fails. One call per turn (start = no answer; then judge-and-advance).
-
-# ── Inline lesson construction-drill ──────────────────────────────────────────
-# Architecture: PLAN call generates English phrases WITH expected translations.
-# Judging is deterministic-first: if the learner's answer matches the expected
-# translation (after normalization), it's correct — no LLM needed. The LLM is
-# only called when the deterministic check fails, to decide if the answer is an
-# acceptable alternative or genuinely wrong. If the LLM call fails, the turn is
-# SKIPPED (not marked right or wrong) — the user sees "couldn't check" and moves
-# on. This makes the drill reliable even when the LLM is flaky.
+# with vocabulary the learner knows. Architecture: the PLAN call generates
+# target-language sentences that use the construction + their English renderings
+# (the target is a reference example, NOT a match oracle). Judging is ALWAYS one
+# liberal LLM call graded from the English meaning — any valid translation passes,
+# even without the construction (an `alt` then shows the construction-using form).
+# A mechanical same-answer override catches the judge marking wrong an answer that
+# equals its own correction. If the LLM call fails, the turn is SKIPPED (not marked
+# right or wrong) — the user sees "couldn't check" and moves on. Same trust model
+# as the rest of tutor — romanization recomputed by the oracle, never hard-fails.
 
 
 def build_lesson_drill_plan_prompt(

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Flashcards (study)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js"></script>
+<style>
+  .sess-head { display: flex; align-items: center; gap: 10px; padding: 6px 2px 12px; }
+  .sess-bar { flex: 1; height: 10px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+  .sess-fill { width: 46%; height: 100%; background: var(--brand); border-radius: 999px; }
+  .sess-count { font-size: .78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .study-card { position: relative; text-align: center; padding: 34px 20px 26px; }
+  .face-tag { position: absolute; top: 12px; left: 12px; font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); background: var(--surface-alt); border-radius: 999px; padding: 3px 9px; }
+  .card-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+  .card-tools button { color: var(--faint); font-size: .95rem; padding: 5px 7px; border-radius: 8px; }
+  .target { font-size: 2.6rem; line-height: 1.25; }
+  .roman { color: var(--muted); font-size: 1rem; margin-top: 4px; }
+  .speak { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; background: var(--brand-soft); color: var(--brand); border-radius: 999px; padding: 8px 16px; font-weight: 700; font-size: .85rem; }
+  .reveal-zone { margin-top: 18px; border-top: 1px dashed var(--border); padding-top: 16px; }
+  .meaning { font-size: 1.25rem; font-weight: 700; }
+  .note { color: var(--muted); font-size: .84rem; margin-top: 6px; line-height: 1.5; }
+  .labels { margin-top: 12px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+
+  .ask-tutor { position: absolute; bottom: -14px; right: 14px; background: var(--grammar-soft); color: var(--grammar); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: .8rem; box-shadow: var(--shadow); }
+
+  /* Rating row — bigger targets, interval preview under each label */
+  .rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 30px; }
+  .rate button { border-radius: 14px; padding: 12px 4px 9px; font-weight: 800; font-size: .9rem; color: #fff; display: flex; flex-direction: column; gap: 2px; align-items: center; box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  .rate button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+  .rate small { font-weight: 600; font-size: .64rem; opacity: .85; }
+  .r-again { background: #c73f3f; } .r-hard { background: #d98324; }
+  .r-good { background: #3a8a3f; } .r-easy { background: #2c7fb8; }
+</style>
+</head>
+<body data-tab="cards">
+<div class="screen">
+  <div class="topstrip">
+    <span class="lang-chip">🇭🇰 Cantonese <span style="color:var(--faint)">▾</span></span>
+    <span class="stat-pills">
+      <span class="pill streak">🔥 12</span>
+      <span class="pill xp">★ 4,310</span>
+    </span>
+  </div>
+  <div class="content">
+    <div class="sess-head">
+      <span class="sess-bar"><span class="sess-fill"></span></span>
+      <span class="sess-count">11 / 24</span>
+    </div>
+
+    <div class="card study-card">
+      <span class="face-tag">Reading</span>
+      <div class="card-tools">
+        <button title="Flag for tutor">⚑</button>
+        <button title="Edit card">✎</button>
+      </div>
+      <div class="target hanzi"><ruby>唔<rt>m4</rt></ruby><ruby>該<rt>goi1</rt></ruby></div>
+      <button class="speak">🔊 Listen</button>
+      <div class="reveal-zone">
+        <div class="meaning">excuse me / please</div>
+        <p class="note">Politeness word for requests and getting attention — 多謝 (do1 ze6) is for gifts, 唔該 for favours.</p>
+        <div class="labels">
+          <span class="chip">politeness</span><span class="chip">essentials</span>
+          <span class="chip" style="background:var(--gold-soft);color:var(--gold)">A1</span>
+        </div>
+      </div>
+      <button class="ask-tutor">💬 Ask tutor</button>
+    </div>
+
+    <div class="rate">
+      <button class="r-again">Again<small>1 min</small></button>
+      <button class="r-hard">Hard<small>2 d</small></button>
+      <button class="r-good">Good<small>4 d</small></button>
+      <button class="r-easy">Easy<small>8 d</small></button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

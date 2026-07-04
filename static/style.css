@@ -1,43 +1,52 @@
 /* ── Reset & Variables ─────────────────────────────────────────────────── */
+/* "Field Notes" identity — deep viridian primary, persimmon energy accent,
+   harvest gold XP, ink text on a warm bone ground (see mockups/). Fonts are
+   loaded via <link> tags injected by main._html — NOT @import here, which
+   would serialize style.css → fonts CSS → font files on every navigation. */
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f8f9fa;
+  --bg: #f5f4ef;
   --surface: #ffffff;
-  --surface-alt: #f7f8fc;           /* example cards, subtle panels */
+  --surface-alt: #f0efe8;           /* example cards, subtle panels */
   --surface-raised: #ffffff;        /* chips/badges sitting on a surface */
-  --surface-hover: #e0e0e0;
-  --border: #e0e0e0;
-  --primary: #1a73e8;
-  --primary-hover: #1557b0;
+  --surface-hover: #e7e5dc;
+  --border: #e3e1d8;
+  --primary: #146b5c;
+  --primary-hover: #0f574b;
   --on-primary: #ffffff;            /* text/icons on a --primary background */
-  --primary-soft: #e8f0fe;          /* selected/active tint */
-  --primary-soft-2: #e0ecfd;        /* slightly stronger tint (status badges) */
-  --primary-strong: #1a4fa0;        /* readable primary text on soft tint */
-  --text: #202124;
-  --text-muted: #5f6368;
-  --text-faint: #b8b8b8;            /* faint icon buttons, disabled fills */
-  --good-soft: #e7f6ec;             /* correct-answer backgrounds */
-  --good-strong: #166534;           /* readable green text on soft tint */
-  --warn-soft: #fffbeb;             /* note/callout backgrounds */
-  --warn-border: #fde68a;
-  --warn-accent: #f59e0b;
-  --warn-strong: #92400e;
-  --danger: #d32f2f;
-  --danger-soft: #fdecea;           /* wrong-answer backgrounds */
+  --primary-soft: #e2efeb;          /* selected/active tint */
+  --primary-soft-2: #d3e7e0;        /* slightly stronger tint (status badges) */
+  --primary-strong: #0c4a40;        /* readable primary text on soft tint */
+  --text: #202a33;
+  --text-muted: #5c6b77;
+  --text-faint: #a7b0b7;            /* faint icon buttons, disabled fills */
+  --energy: #e4572e;                /* streaks, combo, "hot" accents */
+  --energy-soft: #fbe9e1;
+  --gold: #a8770e;                  /* XP / crowns text (icon fills stay #f0b429) */
+  --gold-soft: #faf0da;
+  --good-soft: #e5f2e4;             /* correct-answer backgrounds */
+  --good-strong: #1d6b2e;           /* readable green text on soft tint */
+  --warn-soft: #faf3e0;             /* note/callout backgrounds */
+  --warn-border: #ecd9a8;
+  --warn-accent: #dfa32e;
+  --warn-strong: #8a6116;
+  --danger: #c73f3f;
+  --danger-soft: #f9e7e6;           /* wrong-answer backgrounds */
   --danger-strong: #9b1c1c;
-  --grammar-soft: #eef2ff;          /* grammar badges/tags */
-  --grammar-border: #c7d2fe;
-  --grammar-strong: #3730a3;
-  --neutral-soft: #f1f3f4;          /* locked/disabled badges */
-  --neutral-strong: #80868b;
-  --reader-known: #16a34a;          /* reader word-status: in deck & strong */
+  --grammar-soft: #ebeafa;          /* grammar badges/tags */
+  --grammar-border: #c9c6ef;
+  --grammar-strong: #443c96;
+  --neutral-soft: #eceae2;          /* locked/disabled badges */
+  --neutral-strong: #7d8891;
+  --reader-known: #1d8a48;          /* reader word-status: in deck & strong */
   --reader-weak: #b45309;           /* reader word-status: in deck but shaky */
-  --sentence-active: rgba(99,102,241,.07);
-  --word-hover: rgba(99,102,241,.15);
-  --focus-ring: rgba(26,115,232,0.12);
-  --overlay: rgba(0,0,0,0.5);       /* modal scrims */
-  --tooltip-bg: #333333;            /* toasts + tooltips (light text on top) */
+  --sentence-active: rgba(20,107,92,.08);
+  --word-hover: rgba(20,107,92,.14);
+  --focus-ring: rgba(20,107,92,0.18);
+  --overlay: rgba(32,42,51,0.5);    /* modal scrims */
+  --tooltip-bg: #2b333a;            /* toasts + tooltips (light text on top) */
   --chinese-font: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', serif;
   --devanagari-font: 'Noto Sans Devanagari', 'Nirmala UI', sans-serif;
   --telugu-font: 'Noto Sans Telugu', 'Gautami', sans-serif;
@@ -49,13 +58,14 @@
   --greek-font: 'Noto Sans', 'Segoe UI', sans-serif;
   --thai-font: 'Noto Sans Thai', 'Tahoma', 'Leelawadee UI', sans-serif;
   --hebrew-font: 'Noto Sans Hebrew', 'Arial Hebrew', 'Tahoma', sans-serif;
-  --radius: 12px;
-  --shadow: 0 1px 3px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
-  --shadow-pop: 0 6px 24px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
-  --again: #d32f2f;
-  --hard: #f57c00;
-  --good: #388e3c;
-  --easy: #1976d2;
+  --display-font: 'Bricolage Grotesque', 'Avenir Next', 'Trebuchet MS', sans-serif;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(32,42,51,.06), 0 4px 14px rgba(32,42,51,.07);
+  --shadow-pop: 0 8px 30px rgba(32,42,51,.16), 0 2px 8px rgba(32,42,51,.08);
+  --again: #c73f3f;
+  --hard: #d98324;
+  --good: #3a8a3f;
+  --easy: #2c7fb8;
 }
 
 /* ── Dark theme ──────────────────────────────────────────────────────────
@@ -66,48 +76,52 @@
    surface; the four SRS rating hues stay saturated (white-text buttons). */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #17181c;
-  --surface: #202127;
-  --surface-alt: #26272e;
-  --surface-raised: #2a2b32;
-  --surface-hover: #33353c;
-  --border: #3a3c44;
-  --primary: #5b9bf8;
-  --primary-hover: #7ab0ff;
-  --primary-soft: rgba(91,155,248,.16);
-  --primary-soft-2: rgba(91,155,248,.26);
-  --primary-strong: #9ec3ff;
-  --text: #e8eaed;
-  --text-muted: #9aa0a6;
-  --text-faint: #5f6368;
-  --good: #43a047;
-  --good-soft: rgba(91,185,116,.16);
-  --good-strong: #81c995;
-  --warn-soft: rgba(245,158,11,.12);
-  --warn-border: rgba(245,158,11,.35);
-  --warn-accent: #fbbc04;
-  --warn-strong: #fdd663;
-  --danger: #f28b82;
-  --danger-soft: rgba(242,139,130,.14);
-  --danger-strong: #f6aea9;
-  --grammar-soft: rgba(140,150,255,.14);
-  --grammar-border: rgba(140,150,255,.35);
-  --grammar-strong: #bcc4ff;
-  --neutral-soft: #2a2b32;
-  --neutral-strong: #9aa0a6;
-  --reader-known: #81c995;
+  --bg: #14181b;
+  --surface: #1e2429;
+  --surface-alt: #262d33;
+  --surface-raised: #2a3138;
+  --surface-hover: #333c43;
+  --border: #333c43;
+  --primary: #35907b;
+  --primary-hover: #3fa98f;
+  --primary-soft: rgba(63,169,143,.16);
+  --primary-soft-2: rgba(63,169,143,.28);
+  --primary-strong: #8ed9c6;
+  --text: #e8ebed;
+  --text-muted: #9db0ba;
+  --text-faint: #64737d;
+  --energy: #f0764f;
+  --energy-soft: rgba(228,87,46,.18);
+  --gold: #e7b656;
+  --gold-soft: rgba(223,163,46,.16);
+  --good: #4a9d50;
+  --good-soft: rgba(88,168,93,.17);
+  --good-strong: #8fd096;
+  --warn-soft: rgba(223,163,46,.12);
+  --warn-border: rgba(223,163,46,.38);
+  --warn-accent: #e7b656;
+  --warn-strong: #ecc880;
+  --danger: #e07070;
+  --danger-soft: rgba(224,112,112,.15);
+  --danger-strong: #efa9a3;
+  --grammar-soft: rgba(154,146,232,.15);
+  --grammar-border: rgba(154,146,232,.4);
+  --grammar-strong: #b7b1f2;
+  --neutral-soft: #2a3138;
+  --neutral-strong: #9aa7b0;
+  --reader-known: #8fd096;
   --reader-weak: #ecb45f;
-  --sentence-active: rgba(140,150,255,.10);
-  --word-hover: rgba(140,150,255,.22);
-  --focus-ring: rgba(91,155,248,.30);
+  --sentence-active: rgba(63,169,143,.12);
+  --word-hover: rgba(63,169,143,.22);
+  --focus-ring: rgba(63,169,143,.30);
   --overlay: rgba(0,0,0,.62);
-  --tooltip-bg: #3c4043;
+  --tooltip-bg: #37414a;
   --shadow: 0 1px 3px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.35);
   --shadow-pop: 0 6px 24px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
@@ -115,6 +129,9 @@ body {
   flex-direction: column;
   overflow-x: hidden; /* prevent horizontal scroll on narrow phones */
 }
+
+/* Display face for headings & big numbers (the h1 logo keeps --chinese-font). */
+h2, h3, .display-font { font-family: var(--display-font); letter-spacing: -0.01em; }
 
 /* Script-family overrides: set --script-font on a container and every target-text
    element inside it (.is-chinese, .chinese, .output-chinese, .reader-text, …)
@@ -184,6 +201,7 @@ header h1 {
 header h1 .logo-accent {
   color: var(--primary);
 }
+header h1 a.logo-text { color: inherit; text-decoration: none; }
 
 /* ── Inline icons (SVG only) ────────────────────────────────────────────── */
 svg.icon {
@@ -210,15 +228,16 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .nav-link svg.icon { vertical-align: 0; }
 .nav-link:hover { background: var(--bg); color: var(--primary); }
-.streak-display {
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--text);
-  letter-spacing: 0.01em;
+/* Streak/XP pills — rendered by window.renderHeaderStats (nav script), the
+   single source; pages call it from loadStreak to refresh after earning XP. */
+.streak-display { display: inline-flex; gap: 6px; align-items: center; }
+.hstat {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 999px; padding: 4px 10px;
+  font-weight: 700; font-size: 0.8rem; font-variant-numeric: tabular-nums;
 }
+.hstat-streak { background: var(--energy-soft); color: var(--energy); }
+.hstat-xp { background: var(--gold-soft); color: var(--gold); }
 
 .badge {
   background: var(--primary);
@@ -1400,21 +1419,107 @@ textarea.edit-input {
   .lp-search { font-size: 1rem; }
 }
 
-/* The lang pill name adds ~95px to the h1. Hide it below 1100px so the h1
-   stays compact at every width where the desktop nav is visible, keeping
-   the total header content (h1 ~135px + nav ~770px incl. all 8 items)
-   well within bounds. Above 1100px the full name fits with room to spare. */
-@media (max-width: 1199px) {
-  .lang-pill-name { display: none; }
+/* ── Desktop left rail (≥1200px) ──────────────────────────────────────────
+   The header becomes a fixed vertical sidebar: logo on top, primary links, a
+   "More" group of secondary links, and a footer (language pill, streak/XP,
+   sign out) pinned to the bottom. Vertical means no horizontal overflow, so
+   the old pill-hiding hacks are gone. Below 1200px the header is display:none
+   (mobile bottom tab bar). Gated on `.nav-desktop` so auth pages (which have a
+   bare <header> logo but no nav) don't get the rail gutter. */
+:root { --rail-w: 236px; }
+@media (min-width: 1200px) {
+  body:has(header .nav-desktop) { padding-left: var(--rail-w); }
+  body:has(header .nav-desktop) > header {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail-w);
+    flex-direction: column; align-items: stretch; justify-content: flex-start;
+    gap: 0; padding: 20px 14px 16px;
+    border-bottom: none; border-right: 1px solid var(--border);
+    overflow-y: auto; overflow-x: hidden; z-index: 20;
+  }
+  header .nav-desktop {
+    display: flex; flex-direction: column; align-items: stretch;
+    gap: 2px; flex: 1; min-height: 0; width: 100%;
+  }
+  body:has(header .nav-desktop) header h1 { font-size: 1.35rem; padding: 2px 10px 18px; }
+  .nav-group { display: flex; flex-direction: column; gap: 2px; }
+  .nav-more-label {
+    font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-faint);
+    padding: 16px 12px 6px;
+  }
+  header .nav-link {
+    justify-content: flex-start; width: 100%; gap: 12px;
+    padding: 10px 12px; border-radius: 12px; font-size: 0.95rem;
+  }
+  header .nav-link svg.icon { width: 20px; height: 20px; }
+  header .nav-link .badge { margin-left: auto; }
+  .nav-link.nav-active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+  .nav-link.nav-active:hover { background: var(--primary-soft); }
+  .nav-foot {
+    margin-top: auto; display: flex; flex-direction: column; align-items: flex-start;
+    gap: 8px; padding-top: 14px; border-top: 1px solid var(--border);
+  }
+  .nav-foot .streak-display { padding: 2px 2px; }
+  .nav-foot .nav-link { color: var(--text-muted); }
 }
 
-/* Nav collapses to hamburger at 1040px (raised from 960px when Browse was
-   added as the 9th nav item — h1 ~135px + nav ~860px + 32px margin must fit).
-   Below this only the compact h1 (logo + flag emoji + plan pill) and the
-   hamburger button remain visible in the header. */
-@media (max-width: 1039px) {
-  .nav-desktop { display: none; }
-  .nav-mobile  { display: flex; }
+/* Nav collapses to hamburger at 1200px (raised from 1040px when Home joined
+   the nav — h1 ~145px + nav ~985px + 32px margin must fit; admins see the
+   Dashboard link too). Below this the header shows the compact h1 + hamburger,
+   and the bottom tab bar carries the five daily destinations. */
+@media (max-width: 1199px) {
+  /* No top bar on mobile at all — the bottom tab bar is the only fixed
+     chrome. The header's jobs move into the Home page (streak/XP pills,
+     language pill via [data-lang-slot], and the ⋯ More sheet for Browse/
+     Feedback/Settings/Dashboard/Sign out). The header element stays in the
+     DOM because the shared nav <script> lives inside it. */
+  header { display: none; }
+}
+
+/* ── Bottom tab bar (mobile) ─────────────────────────────────────────────
+   The five daily destinations, always one tap away below the collapse
+   breakpoint. Injected by _build_nav for every nav page except the tutor
+   chat (which manages its own fixed viewport and shows a back button).
+   Pages that enter a full-focus state (lesson player, open reader story,
+   open message thread) toggle body.hide-tabbar to reclaim the space. */
+.tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 90;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  /* max() guarantees breathing room above the iPhone home indicator even when
+     env() reports 0 (e.g. in-browser with the toolbar visible). Requires
+     viewport-fit=cover in each page's viewport meta or env() is always 0. */
+  padding: 4px 4px max(14px, calc(10px + env(safe-area-inset-bottom)));
+}
+.tabbar .tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  color: var(--text-faint);
+  font-size: 0.64rem; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none;
+  padding: 3px 0 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar .tab-ico {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 28px; border-radius: 999px;
+}
+.tabbar .tab svg.icon { width: 22px; height: 22px; }
+.tabbar .tab.active { color: var(--primary); }
+.tabbar .tab.active .tab-ico { background: var(--primary-soft); }
+.tabbar .badge {
+  position: absolute; top: -3px; right: 2px;
+  font-size: 0.62rem; padding: 0 4px; min-width: 15px; line-height: 15px;
+}
+@media (max-width: 1199px) {
+  .tabbar { display: flex; }
+  body:has(nav.tabbar) { padding-bottom: max(66px, calc(62px + env(safe-area-inset-bottom))); }
+  body.hide-tabbar { padding-bottom: 0; }
+  body.hide-tabbar .tabbar { display: none; }
 }
 
 /* ── Onboarding tour overlay ─────────────────────────────────────────── */
