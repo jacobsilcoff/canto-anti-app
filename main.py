@@ -611,6 +611,13 @@ _LANG_WIDGET = """
         var centerX = pr.left + pr.width / 2 - dr.width / 2;
         var clampedX = Math.max(8, Math.min(centerX, window.innerWidth - dr.width - 8));
         dd.style.left = clampedX + 'px';
+        // Clamp vertically too: the pill can sit near the bottom of the
+        // viewport (e.g. the desktop left-rail footer), where anchoring
+        // purely below the pill would push the dropdown off the bottom of
+        // the page. Prefer opening upward in that case.
+        var maxTop = window.innerHeight - dr.height - 8;
+        var clampedY = Math.max(8, Math.min(pr.bottom + 6, maxTop));
+        dd.style.top = clampedY + 'px';
       } else {
         dd.style.display = 'none';
       }
