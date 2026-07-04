@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Lesson intro sheet (steps, length, test-out)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script src="../mock.js"></script>
+<style>
+  /* Dimmed path behind the sheet */
+  .backdrop { position: absolute; inset: 0; background: var(--bg); filter: blur(1px); opacity: .45; pointer-events: none; padding: 60px 16px; text-align: center; }
+  .ghost-node { width: 64px; height: 64px; border-radius: 50%; background: var(--good); margin: 24px auto; opacity: .8; }
+  .ghost-node.b { background: var(--brand); }
+  .scrim { position: absolute; inset: 0; background: rgba(20,24,27,.35); }
+
+  /* The sheet (D3) */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-pop); padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .grab { width: 40px; height: 4px; border-radius: 4px; background: var(--border); margin: 0 auto 14px; }
+  .sheet .kicker { color: var(--brand); }
+  .sheet h2 { font-size: 1.3rem; margin: 5px 0 3px; }
+  .sheet .obj { color: var(--muted); font-size: .88rem; line-height: 1.5; margin-bottom: 14px; }
+
+  .steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 14px; }
+  .step { display: flex; align-items: center; gap: 11px; padding: 8px 0; }
+  .step .sico { width: 34px; height: 34px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: .95rem; flex-shrink: 0; }
+  .step.speak .sico { background: var(--grammar-soft); color: var(--grammar); }
+  .step .sname { font-size: .88rem; font-weight: 700; }
+  .step .ssub { font-size: .74rem; color: var(--muted); }
+  .step .stime { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .rail { width: 2px; height: 10px; background: var(--border); margin-left: 16px; }
+
+  .concepts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  /* A3 · length chips */
+  .lenrow { display: flex; gap: 8px; margin-bottom: 16px; }
+  .len { flex: 1; text-align: center; border: 1.5px solid var(--border); border-radius: 12px; padding: 8px 4px; }
+  .len b { display: block; font-size: .8rem; }
+  .len small { font-size: .68rem; color: var(--muted); }
+  .len.on { border-color: var(--brand); background: var(--brand-soft); }
+  .len.on b { color: var(--brand); }
+
+  .actions { display: flex; flex-direction: column; gap: 9px; }
+  .row2 { display: flex; gap: 9px; }
+  .row2 .btn { flex: 1; padding: 11px 8px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="backdrop">
+    <div class="ghost-node"></div>
+    <div class="ghost-node b"></div>
+    <div class="ghost-node" style="background:var(--surface-alt)"></div>
+  </div>
+  <div class="scrim"></div>
+
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="kicker">Lesson 12 · Unit 3</div>
+    <h2>Asking for directions</h2>
+    <p class="obj">Ask where something is and understand the answer — 喺邊度, turn left/right, and the location words you already know.</p>
+
+    <div class="steps">
+      <div class="step">
+        <span class="sico">🔥</span>
+        <div><div class="sname">Warm-up</div><div class="ssub">2 quick recalls from past lessons</div></div>
+        <span class="stime">1 min</span>
+      </div>
+      <div class="rail"></div>
+      <div class="step">
+        <span class="sico">📖</span>
+        <div><div class="sname">Learn · 喺邊度</div><div class="ssub">2 cards + quick check, then 4 drills</div></div>
+        <span class="stime">3 min</span>
+      </div>
+      <div class="rail"></div>
+      <div class="step">
+        <span class="sico">✏️</span>
+        <div><div class="sname">Practice · directions</div><div class="ssub">5 mixed drills</div></div>
+        <span class="stime">2 min</span>
+      </div>
+      <div class="rail"></div>
+      <div class="step speak">
+        <span class="sico">✨</span>
+        <div><div class="sname">AI Speak</div><div class="ssub">3 phrases, graded by your tutor</div></div>
+        <span class="stime">2 min</span>
+      </div>
+    </div>
+
+    <div class="concepts">
+      <span class="chip hanzi">喺邊度 <small>where</small></span>
+      <span class="chip hanzi">轉左 <small>turn left</small></span>
+      <span class="chip hanzi">轉右 <small>turn right</small></span>
+      <span class="chip">+2 more</span>
+    </div>
+
+    <div class="lenrow">
+      <div class="len"><b>Quick</b><small>~4 min</small></div>
+      <div class="len on"><b>Standard</b><small>~8 min</small></div>
+      <div class="len"><b>Thorough</b><small>~12 min</small></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn block">Start lesson</button>
+      <div class="row2">
+        <button class="btn ghost">⚡ Practice only</button>
+        <button class="btn ghost">🎓 Test out</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

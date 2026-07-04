@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — “AI Speak” as its own step (3 turns, skippable)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script src="../mock.js"></script>
+<style>
+  .ptop { display: flex; align-items: center; gap: 10px; padding: 14px 16px 6px; }
+  .pclose { color: var(--faint); font-size: 1.3rem; padding: 2px 6px; }
+  .stepbar { flex: 1; display: flex; gap: 5px; }
+  .seg { flex: 1; height: 12px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+  .seg .f { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), color-mix(in srgb, var(--brand) 70%, var(--gold))); }
+  .seg .fg { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--grammar), color-mix(in srgb, var(--grammar) 65%, var(--brand))); }
+
+  .steptag { padding: 8px 18px 2px; display: flex; align-items: center; gap: 8px; }
+  .steptag .kicker { color: var(--grammar); }
+  .turns { margin-left: auto; font-size: .76rem; font-weight: 800; color: var(--grammar); font-variant-numeric: tabular-nums; }
+
+  .body { padding: 8px 18px 0; display: flex; flex-direction: column; gap: 10px; }
+  .construction { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; background: var(--grammar-soft); color: var(--grammar); font-size: .74rem; font-weight: 800; border-radius: 999px; padding: 5px 12px; }
+
+  /* Past turn — compact history card */
+  .hist { border-left: 3px solid var(--good); background: var(--good-soft); border-radius: 10px; padding: 9px 12px; }
+  .hist .ph { font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .hist .zh { font-size: 1rem; line-height: 1.8; }
+  rt { font-size: .52em; }
+
+  /* Current prompt */
+  .task { margin-top: 6px; }
+  .task .tl { font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .task .phrase { font-size: 1.3rem; font-weight: 700; font-family: var(--display); line-height: 1.35; }
+
+  /* Live grading feedback */
+  .fb { border-radius: 14px; background: var(--good-soft); padding: 13px 14px; }
+  .fb .h { font-weight: 800; color: var(--good); font-size: .92rem; margin-bottom: 5px; }
+  .fb .zh { font-size: 1.15rem; line-height: 1.9; }
+  .fb .tip { font-size: .8rem; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+  .fb .tip b { color: var(--grammar); }
+
+  .composer { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 420px; background: var(--bg); border-top: 1px solid var(--border); padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .inrow { position: relative; }
+  .in { width: 100%; border: 1.5px solid var(--border); border-radius: 14px; background: var(--surface); padding: 13px 48px 13px 14px; font-size: 1.05rem; color: var(--ink); }
+  .send { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 10px; background: var(--grammar); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .95rem; }
+  .skip { display: block; text-align: center; margin-top: 9px; font-size: .78rem; font-weight: 700; color: var(--faint); width: 100%; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="ptop">
+    <button class="pclose">✕</button>
+    <div class="stepbar">
+      <div class="seg"><div class="f" style="width:100%"></div></div>
+      <div class="seg"><div class="f" style="width:100%"></div></div>
+      <div class="seg"><div class="f" style="width:100%"></div></div>
+      <div class="seg"><div class="fg" style="width:66%"></div></div>
+    </div>
+  </div>
+
+  <div class="steptag">
+    <span class="kicker">Step 4 of 4 · ✨ AI Speak</span>
+    <span class="turns">2 / 3</span>
+  </div>
+
+  <div class="body">
+    <span class="construction">📐 Asking where with 喺邊度</span>
+
+    <div class="hist">
+      <div class="ph">“Where is the MTR station?”</div>
+      <div class="zh hanzi"><ruby>地鐵站<rt>dei6 tit3 zaam6</rt></ruby><ruby>喺<rt>hai2</rt></ruby><ruby>邊度<rt>bin1 dou6</rt></ruby>？ ✓</div>
+    </div>
+
+    <div class="task">
+      <div class="tl">Now say</div>
+      <div class="phrase">“Where is the bathroom?”</div>
+    </div>
+
+    <div class="fb">
+      <div class="h">Nice — that works!</div>
+      <div class="zh hanzi"><ruby>洗手間<rt>sai2 sau2 gaan1</rt></ruby><ruby>喺<rt>hai2</rt></ruby><ruby>邊度<rt>bin1 dou6</rt></ruby>？</div>
+      <div class="tip">Your tutor grades <b>meaning first</b> — any correct way to say it counts, and you’re always shown the version that uses the pattern.</div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="inrow">
+      <input class="in hanzi" value="洗手間喺邊度？">
+      <button class="send">➤</button>
+    </div>
+    <button class="skip">Skip AI practice — finish lesson</button>
+  </div>
+</div>
+</body>
+</html>

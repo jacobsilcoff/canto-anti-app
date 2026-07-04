@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Unit checkpoint passed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script src="../mock.js"></script>
+<style>
+  .wrap { padding: 40px 22px 120px; text-align: center; }
+  .shield { width: 120px; height: 132px; margin: 8px auto 4px; position: relative; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, var(--gold), color-mix(in srgb, var(--gold) 55%, var(--energy)));
+    clip-path: polygon(50% 0, 100% 18%, 100% 62%, 50% 100%, 0 62%, 0 18%); box-shadow: var(--shadow-pop); }
+  .shield .inner { font-size: 3rem; }
+  .burst { font-size: .9rem; letter-spacing: .4em; color: var(--gold); margin-top: 6px; }
+  h1 { font-size: 1.5rem; margin: 10px 0 4px; }
+  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 18px; }
+  .scorebar { display: inline-flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
+  .scorebar .n { font-family: var(--display); font-size: 2.3rem; font-weight: 800; }
+  .scorebar .bonus { background: var(--gold-soft); color: var(--gold); font-weight: 800; font-size: .84rem; border-radius: 999px; padding: 5px 13px; }
+
+  .skills { text-align: left; padding: 14px 16px; margin-bottom: 14px; }
+  .skills .kicker { margin-bottom: 10px; }
+  .sk { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .sk .zh { font-size: 1rem; font-weight: 600; flex: 1; }
+  .sk .zh small { display: block; font-size: .72rem; color: var(--muted); font-weight: 500; font-family: var(--body); }
+  .sk .tick { font-size: .9rem; }
+  .sk .m { font-size: .7rem; font-weight: 800; border-radius: 999px; padding: 3px 9px; background: var(--good-soft); color: var(--good); }
+  .sk .m.weak { background: var(--energy-soft); color: var(--energy); }
+
+  .sealed { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius); background: var(--brand-soft); text-align: left; margin-bottom: 20px; }
+  .sealed b { color: var(--brand); font-size: .86rem; }
+  .sealed small { display: block; color: var(--muted); font-size: .74rem; margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="wrap">
+    <div class="shield"><span class="inner">🛡</span></div>
+    <div class="burst">✦ ✦ ✦</div>
+    <h1>Checkpoint passed!</h1>
+    <p class="sub">Unit 3 · Getting around — 10 questions from all 4 lessons</p>
+
+    <div class="scorebar">
+      <span class="n">9/10</span>
+      <span class="bonus">+40 XP bonus</span>
+    </div>
+
+    <div class="card skills">
+      <div class="kicker">Skills sealed</div>
+      <div class="sk"><span class="zh hanzi">交通工具 <small>transport words</small></span><span class="m">strong</span><span class="tick">✅</span></div>
+      <div class="sk"><span class="zh">Comparisons with 過</span><span class="m">strong</span><span class="tick">✅</span></div>
+      <div class="sk"><span class="zh">Asking where · 喺邊度</span><span class="m">solid</span><span class="tick">✅</span></div>
+      <div class="sk"><span class="zh hanzi">的士用語 <small>taxi phrases</small></span><span class="m weak">review soon</span><span class="tick">➖</span></div>
+    </div>
+
+    <div class="sealed">
+      <span style="font-size:1.3rem">🛡</span>
+      <div><b>Unit 3 sealed on your path</b>
+        <small>Weak spots feed your next lessons automatically.</small></div>
+    </div>
+
+    <button class="btn block">Continue</button>
+  </div>
+</div>
+</body>
+</html>

@@ -118,6 +118,15 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 48. Lesson redesign — bite-sized steps, quests, checkpoints, customization ⭐ DESIGNED, READY TO IMPLEMENT
+**Complexity: Medium per phase (3 phases) | Cost: ~$0 — no new LLM calls except unchanged lesson authoring; quests/checkpoints/league are deterministic**
+
+Full audit + implementation plan in **`docs/LESSON_REDESIGN.md`**; tappable mockups in **`mockups/lesson-redesign/`** (dev site: `/mockups/lesson-redesign/`). Headlines:
+- **Phase 1 (the shape change):** author lessons as 2–4 micro-**steps** (teach a little → drill it immediately; the player already supports multi-segment content, `learning.assemble_lesson` just never emits it); teach becomes tap-through **cards with ungraded quick-checks**; review drills move to a front **warm-up**; the construction drill becomes its own skippable 3-turn **"AI Speak" step**. Segmented step progress bar in the player.
+- **Phase 2 (motivation):** **daily quests + chest** (3 rotating, computed from events already tracked; new `daily_quests` table), **unit checkpoint quizzes** (deterministic sample of the unit's stored drills, shield on the banner, bonus XP), **adjustable daily XP goal** (replaces `_DAILY_XP_GOAL=50`), results-screen **recap card**.
+- **Phase 3 (social + agency):** **friends weekly XP league** (one query over `points_ledger` × `friendships`, no new tables), **lesson length setting** (Quick/Standard/Thorough → `n_drills`), **course focus dial** (grammar/vocab/conversation planner steer), **lesson intro sheet** consolidating Start/Practice/Test-out, **test-out** (pass 4 hardest stored drills → complete at half XP).
+- Later: lightning rounds for AI lessons (generalize foundations `speed_round`), streak freeze, practice hub, drill variants, 👍/👎 lesson feedback into the planner prompt.
+
 ## 47. Reader browser extension
 **Complexity: Medium–Large | Cost: same per-reading cost as URL import**
 

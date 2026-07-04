@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson redesign mockups — bite-sized steps, quests, checkpoints</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script>
+(function () {
+  var t = localStorage.getItem('mock-theme') || 'auto';
+  if (t === 'auto') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+<style>
+  body { padding: 34px 20px 80px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header.hero { max-width: 680px; margin-bottom: 8px; }
+  .hero .kicker { color: var(--energy); }
+  .hero h1 { font-size: 2rem; margin: 6px 0 10px; text-wrap: balance; }
+  .hero p { color: var(--muted); line-height: 1.6; }
+  .hero a { color: var(--brand); font-weight: 700; }
+  .theme-toggle { position: fixed; top: 18px; right: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; font-weight: 700; font-size: .84rem; box-shadow: var(--shadow); z-index: 50; }
+
+  h2.sect { font-size: 1.25rem; margin: 44px 0 6px; }
+  .sect-sub { color: var(--muted); max-width: 660px; line-height: 1.6; margin-bottom: 20px; }
+
+  .frames { display: flex; gap: 26px; flex-wrap: wrap; }
+  .frame-block { width: 300px; }
+  .phone { width: 300px; height: 620px; border-radius: 34px; border: 10px solid #1b1f24; background: var(--bg); overflow: hidden; box-shadow: var(--shadow-pop); position: relative; }
+  [data-theme="dark"] .phone { border-color: #000; }
+  .phone iframe { width: 390px; height: 793px; border: none; transform: scale(.718); transform-origin: 0 0; }
+  .frame-cap { margin: 12px 4px 0; }
+  .frame-cap b { font-family: var(--display); font-size: .95rem; }
+  .frame-cap p { color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: 3px; }
+  .frame-cap a { color: var(--brand); font-weight: 700; font-size: .78rem; }
+
+  .principles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .principles .card h3 { font-size: .98rem; margin-bottom: 5px; }
+  .principles .card p { color: var(--muted); font-size: .86rem; line-height: 1.55; }
+  .principles .card .tag { display: inline-block; font-size: .66rem; font-weight: 800; letter-spacing: .05em; border-radius: 999px; padding: 3px 9px; margin-bottom: 7px; }
+  .tag.p1 { background: var(--energy-soft); color: var(--energy); }
+  .tag.p2 { background: var(--gold-soft); color: var(--gold); }
+  .tag.p3 { background: var(--brand-soft); color: var(--brand); }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="tt">🌙 Dark</button>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Proposal · Lesson redesign</div>
+    <h1>Bite-sized steps, real goals, and a lesson that teaches as you go</h1>
+    <p>Six tappable mockups for reorganizing the AI Learning Path. The core moves:
+    a lesson becomes <b>2–4 short steps</b> (teach a little → drill it immediately)
+    instead of a teach-wall followed by 15 drills; the AI construction drill becomes
+    its own <b>“AI Speak” step</b>; and between lessons, <b>daily quests, a friends
+    league and unit checkpoints</b> give XP something to push against. Full audit +
+    implementation plan: <b>docs/LESSON_REDESIGN.md</b> in the repo.
+    Toggle dark mode (top right).</p>
+  </header>
+
+  <h2 class="sect">The flow, in order</h2>
+  <p class="sect-sub">Path → intro sheet → step player → AI Speak → results; plus the
+  checkpoint that seals a finished unit.</p>
+
+  <div class="frames">
+    <div class="frame-block">
+      <div class="phone"><iframe src="learn-path.html" title="Learn path mockup"></iframe></div>
+      <div class="frame-cap"><b>1 · Learn path + quests + league</b>
+        <p>Daily quests with a chest above the path; friends weekly XP league strip; lessons show “4 steps · ~6 min”; a shield <b>checkpoint node</b> seals each finished unit; ⚡ lightning rounds hang off done lessons.</p>
+        <a href="learn-path.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="lesson-intro.html" title="Lesson intro sheet mockup"></iframe></div>
+      <div class="frame-cap"><b>2 · Lesson intro sheet</b>
+        <p>Tap a node → see the step plan (Warm-up / Learn / Practice / AI Speak) with time estimates, concept chips, a Quick/Standard/Thorough length choice, and Test-out for material you already know.</p>
+        <a href="lesson-intro.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="lesson-steps.html" title="Step player mockup"></iframe></div>
+      <div class="frame-cap"><b>3 · Step player: teach cards + quick check</b>
+        <p>Segmented step bar replaces the single progress bar. Teach is one card at a time (dots), and every couple of cards an ungraded <b>quick check</b> makes you use the rule before the graded drills.</p>
+        <a href="lesson-steps.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="lesson-speak.html" title="AI Speak step mockup"></iframe></div>
+      <div class="frame-cap"><b>4 · “AI Speak” — its own step</b>
+        <p>The LLM-graded construction drill moves out of the drill run's tail into a named final step: 3 turns (down from 4), grammar-purple identity, meaning-first grading, and an honest skip.</p>
+        <a href="lesson-speak.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="results.html" title="Results mockup"></iframe></div>
+      <div class="frame-cap"><b>5 · Results that feed the loops</b>
+        <p>XP breakdown (answers / combo / AI Speak), quest bars advancing to a chest, a “what you learned” recap table, words added to the deck, and your league move.</p>
+        <a href="results.html">Open full-size →</a></div>
+    </div>
+    <div class="frame-block">
+      <div class="phone"><iframe src="checkpoint.html" title="Checkpoint mockup"></iframe></div>
+      <div class="frame-cap"><b>6 · Unit checkpoint</b>
+        <p>8–10 questions sampled from the unit's own stored drills (no LLM). Pass → gold shield on the path + bonus XP; weak skills are flagged and fed back to the lesson planner.</p>
+        <a href="checkpoint.html">Open full-size →</a></div>
+    </div>
+  </div>
+
+  <h2 class="sect">The twelve moves, by phase</h2>
+  <div class="principles">
+    <div class="card"><span class="tag p1">Phase 1</span><h3>Lessons become steps</h3><p>Author 2–4 micro-steps (0–2 teach blocks + 3–5 drills each) instead of teach-wall + 7–14 drills. The player already supports multi-segment lessons — this is mostly a prompt/assembler change.</p></div>
+    <div class="card"><span class="tag p1">Phase 1</span><h3>Teach cards + quick checks</h3><p>One block per screen with an ungraded one-tap check every card or two. You never read more than ~2 cards without doing something.</p></div>
+    <div class="card"><span class="tag p1">Phase 1</span><h3>Warm-up recall opener</h3><p>The 2 interleaved review drills move to the front as a labeled warm-up — retrieval practice before new input, and a gentler on-ramp.</p></div>
+    <div class="card"><span class="tag p1">Phase 1</span><h3>AI Speak as a step</h3><p>Construction drill = its own named final step, 3 turns, skippable. Billed as the lesson's highlight instead of buried at the point of maximum fatigue.</p></div>
+    <div class="card"><span class="tag p2">Phase 2</span><h3>Daily quests + chest</h3><p>3 rotating quests computable from events we already track (XP, combo, drill types, card adds). All 3 done → chest with bonus XP, occasionally a streak freeze.</p></div>
+    <div class="card"><span class="tag p2">Phase 2</span><h3>Unit checkpoints</h3><p>Deterministic quiz from stored drills when a chapter closes. Bonus XP, a shield on the banner, mastery-ledger bumps — zero LLM cost.</p></div>
+    <div class="card"><span class="tag p2">Phase 2</span><h3>Adjustable daily goal</h3><p>Replace the fixed 50-XP goal with Casual/Regular/Serious/Intense. The ring and quests read it automatically.</p></div>
+    <div class="card"><span class="tag p2">Phase 2</span><h3>Recap on results</h3><p>The lesson's key table or top examples repeated on the results screen — free retention from content we already store.</p></div>
+    <div class="card"><span class="tag p3">Phase 3</span><h3>Friends weekly league</h3><p>Weekly XP ranking among accepted friends — one query over the existing points ledger, no new tables. The app's social edge over solo Duolingo clones.</p></div>
+    <div class="card"><span class="tag p3">Phase 3</span><h3>Lesson length setting</h3><p>Quick (~4 min) / Standard / Thorough (~12 min) — a generation-time knob in Settings and on the intro sheet.</p></div>
+    <div class="card"><span class="tag p3">Phase 3</span><h3>Course focus dial</h3><p>Balanced / grammar / vocab / conversation preference steering the planner. One prompt line.</p></div>
+    <div class="card"><span class="tag p3">Phase 3</span><h3>Test out</h3><p>“I know this” → 4 hardest stored drills; pass marks the lesson done at half XP. Respects prior knowledge — a top churn-saver for non-beginners.</p></div>
+  </div>
+</div>
+<script>
+  const tt = document.getElementById('tt');
+  function label() { tt.textContent = document.documentElement.dataset.theme === 'dark' ? '☀️ Light' : '🌙 Dark'; }
+  tt.onclick = () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('mock-theme', next);
+    document.querySelectorAll('iframe').forEach(f => {
+      try { f.contentWindow.postMessage({ mockTheme: next }, '*'); } catch {}
+    });
+    label();
+  };
+  label();
+</script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Results: XP breakdown, quests, recap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script src="../mock.js"></script>
+<style>
+  .wrap { padding: 30px 18px 40px; }
+  .hero { text-align: center; margin-bottom: 16px; }
+  .hero .emo { font-size: 2.6rem; }
+  .hero h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .hero .sub { color: var(--muted); font-size: .85rem; }
+  .badges { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .bdg { font-size: .74rem; font-weight: 800; border-radius: 999px; padding: 5px 12px; background: var(--gold-soft); color: var(--gold); }
+  .bdg.perfect { background: var(--good-soft); color: var(--good); }
+
+  .panel { padding: 14px 16px; margin-bottom: 12px; }
+  .panel .kicker { margin-bottom: 10px; }
+
+  /* XP breakdown */
+  .xr { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: .86rem; }
+  .xr .n { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--gold); }
+  .xr.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; font-weight: 800; }
+  .xr.total .n { font-family: var(--display); font-size: 1.15rem; }
+
+  /* quest ticks */
+  .quest { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .quest .qname { font-size: .82rem; font-weight: 600; flex: 1; }
+  .quest .qbar { flex: 1.2; height: 7px; border-radius: 99px; background: var(--surface-alt); overflow: hidden; }
+  .quest .qfill { height: 100%; border-radius: 99px; background: var(--gold); }
+  .quest.done .qfill { background: var(--good); }
+  .quest .qn { font-size: .7rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .qup { font-size: .72rem; font-weight: 800; color: var(--good); }
+
+  /* recap */
+  .recap-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  .recap-table th { text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 6px; }
+  .recap-table td { padding: 6px; border-top: 1px solid var(--border); }
+  .recap-table .zh { font-size: 1rem; }
+  rt { font-size: .52em; }
+
+  /* words added */
+  .words { display: flex; gap: 6px; flex-wrap: wrap; }
+  .wchip { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-soft); color: var(--brand); border-radius: 999px; padding: 5px 12px; font-size: .8rem; font-weight: 700; }
+
+  /* league delta */
+  .league { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .league .up { font-size: 1.2rem; }
+  .league b { font-size: .85rem; }
+  .league small { display: block; color: var(--muted); font-size: .74rem; }
+
+  .cta { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="wrap">
+    <div class="hero">
+      <div class="emo">🎉</div>
+      <h1>Lesson complete!</h1>
+      <div class="sub">Asking for directions · 12/13 first try</div>
+      <div class="badges">
+        <span class="bdg perfect">★ 92%</span>
+        <span class="bdg">⚡ Best combo ×7</span>
+        <span class="bdg">👑 Crown level 2</span>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="kicker">XP earned</div>
+      <div class="xr">Correct answers <span class="n">+80</span></div>
+      <div class="xr">Combo bonus <span class="n">+14</span></div>
+      <div class="xr">AI Speak step <span class="n">+12</span></div>
+      <div class="xr total">Total <span class="n">★ 106</span></div>
+    </div>
+
+    <div class="card panel">
+      <div class="kicker">Daily quests</div>
+      <div class="quest done">
+        <span class="qname">Earn 40 XP</span>
+        <div class="qbar"><div class="qfill" style="width:100%"></div></div>
+        <span class="qup">done ✓</span>
+      </div>
+      <div class="quest done">
+        <span class="qname">Hit a 6-combo</span>
+        <div class="qbar"><div class="qfill" style="width:100%"></div></div>
+        <span class="qup">done ✓</span>
+      </div>
+      <div class="quest">
+        <span class="qname">Add 3 words</span>
+        <div class="qbar"><div class="qfill" style="width:100%"></div></div>
+        <span class="qn">3/3 → 🎁 chest!</span>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="kicker">What you learned</div>
+      <table class="recap-table">
+        <tr><th>Pattern</th><th>Example</th></tr>
+        <tr><td>X + 喺邊度?</td><td class="zh hanzi"><ruby>地鐵站<rt>dei6 tit3 zaam6</rt></ruby>喺邊度？</td></tr>
+        <tr><td>轉左 / 轉右</td><td class="zh hanzi"><ruby>轉左<rt>zyun3 zo2</rt></ruby>就到喇</td></tr>
+      </table>
+    </div>
+
+    <div class="card panel">
+      <div class="kicker">Added to your flashcards</div>
+      <div class="words">
+        <span class="wchip hanzi">喺邊度</span>
+        <span class="wchip hanzi">轉左</span>
+        <span class="wchip hanzi">轉右</span>
+        <span class="wchip hanzi">附近</span>
+      </div>
+    </div>
+
+    <div class="card league">
+      <span class="up">📈</span>
+      <div><b>You passed Maya — #1 this week!</b>
+        <small>Friends league · 3 days left</small></div>
+    </div>
+
+    <div class="cta">
+      <button class="btn block">Continue</button>
+      <button class="btn ghost block">↻ Practice again</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

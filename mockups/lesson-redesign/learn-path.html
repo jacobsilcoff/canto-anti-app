@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Learn path with quests, league & checkpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../mock.css">
+<script src="../mock.js"></script>
+<style>
+  /* ── Daily quests card (B1) ── */
+  .quests { padding: 14px 16px 12px; }
+  .quests .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .quests .head .kicker { color: var(--energy); }
+  .quests .head .timer { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .quest { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .quest .qico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; background: var(--surface-alt); flex-shrink: 0; }
+  .quest.done .qico { background: var(--good-soft); }
+  .quest .qbody { flex: 1; min-width: 0; }
+  .quest .qname { font-size: .84rem; font-weight: 600; }
+  .quest.done .qname { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .quest .qbar { height: 7px; border-radius: 99px; background: var(--surface-alt); margin-top: 5px; overflow: hidden; }
+  .quest .qfill { height: 100%; border-radius: 99px; background: var(--gold); }
+  .quest.done .qfill { background: var(--good); }
+  .quest .qnum { font-size: .72rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .chest { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 9px 12px; border-radius: 12px; background: var(--gold-soft); }
+  .chest .ci { font-size: 1.3rem; }
+  .chest b { font-size: .8rem; color: var(--gold); }
+  .chest small { display: block; font-size: .72rem; color: var(--muted); }
+
+  /* ── Friends league strip (B2) ── */
+  .league { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-top: 12px; }
+  .league .medal { font-size: 1.25rem; }
+  .league .lbody { flex: 1; min-width: 0; }
+  .league .lline { font-size: .84rem; font-weight: 700; }
+  .league .lsub { font-size: .74rem; color: var(--muted); }
+  .avatars { display: flex; }
+  .avatars span { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .62rem; font-weight: 800; color: #fff; border: 2px solid var(--surface); margin-left: -7px; }
+  .avatars span:first-child { margin-left: 0; }
+
+  /* ── Path ── */
+  .path { position: relative; padding: 8px 0 10px; }
+  .spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; transform: translateX(-50%); background: repeating-linear-gradient(var(--border) 0 7px, transparent 7px 16px); border-radius: 2px; }
+  .banner { position: relative; text-align: center; margin: 20px 0 14px; }
+  .banner .bu { display: block; font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); margin-bottom: 5px; }
+  .banner .bp { display: inline-flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 15px; font-weight: 700; font-size: .9rem; box-shadow: var(--shadow); }
+  .banner .shield { color: var(--gold); }
+  .node-row { position: relative; display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; }
+  .node-row.w1 { transform: translateX(40px); }
+  .node-row.w3 { transform: translateX(-40px); }
+  .node { position: relative; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; box-shadow: 0 4px 0 rgba(0,0,0,.16); }
+  .node.done { background: var(--good); }
+  .node.active { background: var(--brand); }
+  .node.locked { background: var(--surface-alt); color: var(--faint); box-shadow: 0 4px 0 rgba(0,0,0,.05); }
+  .node.active::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--brand); opacity: .45; }
+  .startflag { position: absolute; top: -24px; background: var(--brand); color: var(--on-brand); font-size: .62rem; font-weight: 800; letter-spacing: .07em; padding: 3px 10px; border-radius: 7px; }
+  .crowns { position: absolute; bottom: -7px; display: flex; gap: 1px; font-size: .62rem; }
+  .ncap { margin-top: 9px; font-size: .8rem; font-weight: 600; text-align: center; max-width: 150px; }
+  .ncap small { display: block; font-weight: 500; color: var(--faint); font-size: .68rem; margin-top: 1px; }
+  .node-row.lk .ncap { color: var(--faint); }
+  /* extra "lightning" mini-node hanging off a done lesson (B4) */
+  .mini { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; background: var(--energy-soft); color: var(--energy); font-size: .7rem; font-weight: 800; border-radius: 999px; padding: 4px 11px; }
+  /* checkpoint node (B3): squircle + shield */
+  .node.checkpoint { border-radius: 20px; background: linear-gradient(140deg, var(--gold), color-mix(in srgb, var(--gold) 60%, var(--energy))); font-size: 1.5rem; }
+  .node.checkpoint.locked { background: var(--surface-alt); }
+</style>
+</head>
+<body data-tab="learn">
+<div class="screen">
+  <div class="topstrip">
+    <span class="lang-chip">🇭🇰 Cantonese</span>
+    <span class="stat-pills">
+      <span class="pill streak">🔥 12</span>
+      <span class="pill xp">★ 1.4k</span>
+    </span>
+  </div>
+
+  <div class="content">
+    <!-- B1 · Daily quests -->
+    <div class="card quests">
+      <div class="head">
+        <span class="kicker">Daily quests</span>
+        <span class="timer">resets in 9 h</span>
+      </div>
+      <div class="quest done">
+        <span class="qico">⭐</span>
+        <div class="qbody"><div class="qname">Earn 40 XP</div>
+          <div class="qbar"><div class="qfill" style="width:100%"></div></div></div>
+        <span class="qnum">40/40</span>
+      </div>
+      <div class="quest">
+        <span class="qico">⚡</span>
+        <div class="qbody"><div class="qname">Hit a 6-combo</div>
+          <div class="qbar"><div class="qfill" style="width:66%"></div></div></div>
+        <span class="qnum">4/6</span>
+      </div>
+      <div class="quest">
+        <span class="qico">📦</span>
+        <div class="qbody"><div class="qname">Add 3 words to your deck</div>
+          <div class="qbar"><div class="qfill" style="width:33%"></div></div></div>
+        <span class="qnum">1/3</span>
+      </div>
+      <div class="chest">
+        <span class="ci">🎁</span>
+        <div><b>2 more to open today’s chest</b>
+          <small>Bonus XP — sometimes a streak freeze</small></div>
+      </div>
+    </div>
+
+    <!-- B2 · Friends weekly league -->
+    <div class="card league">
+      <span class="medal">🥈</span>
+      <div class="lbody">
+        <div class="lline">#2 of 5 friends this week</div>
+        <div class="lsub">40 XP behind Maya · 3 days left</div>
+      </div>
+      <div class="avatars">
+        <span style="background:#e4572e">M</span>
+        <span style="background:#146b5c">Y</span>
+        <span style="background:#4f46a5">K</span>
+        <span style="background:#dfa32e">J</span>
+      </div>
+    </div>
+
+    <!-- Path -->
+    <div class="path">
+      <div class="spine"></div>
+
+      <div class="banner">
+        <span class="bu">Unit 2 · complete</span>
+        <span class="bp"><span class="shield">🛡</span> Ordering food · Checkpoint passed</span>
+      </div>
+
+      <div class="banner">
+        <span class="bu">Unit 3 · in progress</span>
+        <span class="bp">Getting around</span>
+      </div>
+
+      <div class="node-row w1">
+        <div class="node done">✓<span class="crowns">👑👑</span></div>
+        <div class="ncap">Transport words</div>
+        <span class="mini">⚡ Lightning round</span>
+      </div>
+
+      <div class="node-row w3">
+        <div class="node done">✓<span class="crowns">👑</span></div>
+        <div class="ncap">Comparisons with 過</div>
+      </div>
+
+      <div class="node-row">
+        <div class="node active"><span class="startflag">START</span>★</div>
+        <div class="ncap">Asking for directions<small>4 steps · ~6 min</small></div>
+      </div>
+
+      <div class="node-row w1 lk">
+        <div class="node locked">🔒</div>
+        <div class="ncap">Taxi phrases</div>
+      </div>
+
+      <div class="node-row w3 lk">
+        <div class="node checkpoint locked">🛡</div>
+        <div class="ncap">Checkpoint<small>seal Unit 3 · +40 XP</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Subdir mockup: tab links point back at the parent gallery's screens.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.tabbar a').forEach(function (a) {
+      a.setAttribute('href', '../' + a.getAttribute('href'));
+    });
+  });
+</script>
+</body>
+</html>
