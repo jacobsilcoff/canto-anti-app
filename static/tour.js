@@ -42,7 +42,7 @@
     { icon: '🎯', title: 'Smoother lesson drills',
       body: 'The Check button and feedback now stay pinned to the bottom of the screen in lessons — no more scrolling past a long word bank. On desktop, press 1–9 to pick an answer and Enter to check.', v: 15 },
     { icon: '🧭', title: 'A fresh look + new navigation',
-      body: 'The app has a new design and a bottom tab bar: Home, Learn, Cards, Chat, and Reader are always one tap away. Home shows your daily goal and what to do next, and your AI tutor now lives at the top of Chat alongside your friends.', v: 16 },
+      body: 'The app has a new design and a single bottom tab bar: Home, Learn, Cards, Chat, and Reader are always one tap away. Home shows your daily goal, your streak, and the \u22ef menu (Browse, Feedback, Settings, Sign out). Your AI tutor now lives at the top of Chat alongside your friends.', v: 16 },
   ];
 
   var steps, stepIdx;

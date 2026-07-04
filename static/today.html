@@ -70,6 +70,37 @@
     .quick-chip:hover { border-color: var(--primary); color: var(--primary); }
     .quick-chip svg { width: 16px; height: 16px; }
 
+    /* Greeting row hosts what the (removed) mobile top bar used to: the ⋯
+       menu, streak/XP pills and language pill. Hidden on desktop, where the
+       top nav still exists. */
+    .greet-row { display: flex; align-items: flex-start; gap: 10px; }
+    .greet-row h2 { flex: 1; min-width: 0; }
+    .more-btn { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text-muted); box-shadow: var(--shadow); }
+    .home-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .home-chips .streak-display { display: inline-flex; }
+    @media (min-width: 1200px) { .more-btn, .home-chips { display: none; } }
+
+    /* ⋯ More bottom sheet (Browse / Feedback / Settings / Dashboard / Sign out) */
+    .more-overlay { position: fixed; inset: 0; z-index: 300; background: var(--overlay);
+      display: none; align-items: flex-end; }
+    .more-overlay.open { display: flex; }
+    .more-sheet { width: 100%; background: var(--surface); border-radius: 20px 20px 0 0;
+      box-shadow: var(--shadow-pop); padding: 8px 14px calc(16px + env(safe-area-inset-bottom));
+      animation: sheet-rise 0.18s ease; }
+    @keyframes sheet-rise { from { transform: translateY(30px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+    .more-handle { width: 38px; height: 4px; border-radius: 2px; background: var(--border); margin: 4px auto 10px; }
+    .more-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 10px;
+      border: none; background: none; cursor: pointer; text-decoration: none; color: var(--text);
+      font-size: 0.98rem; font-weight: 600; border-radius: 12px; text-align: left; font-family: inherit; }
+    .more-link:active { background: var(--surface-alt); }
+    .more-link + .more-link { border-top: 1px solid var(--border); border-radius: 0; }
+    .more-link svg { width: 19px; height: 19px; color: var(--text-muted); flex-shrink: 0; }
+    .more-link.danger { color: var(--danger); }
+    .more-link.danger svg { color: var(--danger); }
+
     .today-loading { text-align: center; color: var(--text-muted); padding: 40px 0; }
     .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border);
       border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
@@ -82,14 +113,41 @@
 
 <main class="today-page">
   <div class="greet">
-    <h2 id="greet-line">Welcome back</h2>
+    <div class="greet-row">
+      <h2 id="greet-line">Welcome back</h2>
+      <button class="more-btn" onclick="openMore()" aria-label="More options" title="More">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+      </button>
+    </div>
     <p id="greet-sub"></p>
+    <div class="home-chips">
+      <span data-lang-slot></span>
+      <span class="streak-display" style="display:none"></span>
+    </div>
   </div>
 
   <div id="today-body">
     <div class="today-loading"><span class="spinner"></span></div>
   </div>
 </main>
+
+<!-- ⋯ More sheet: the destinations that used to live in the top-bar menu -->
+<div class="more-overlay" id="more-overlay" onclick="if(event.target===this)closeMore()">
+  <div class="more-sheet" role="menu">
+    <div class="more-handle"></div>
+    <a class="more-link" href="/browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Browse &amp; decks</a>
+    <a class="more-link" href="/feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Feedback</a>
+    <a class="more-link" href="/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+    <a class="more-link more-admin" href="/admin/dashboard" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Admin dashboard</a>
+    <button class="more-link danger" onclick="doLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button>
+  </div>
+</div>
+
+<script>
+  function openMore() { document.getElementById('more-overlay').classList.add('open'); }
+  function closeMore() { document.getElementById('more-overlay').classList.remove('open'); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMore(); });
+</script>
 
 <script>
   const _svg = {
@@ -164,6 +222,7 @@
     ]);
 
     const name = (me && (me.display_name || me.username)) || '';
+    if (me && me.is_admin) document.querySelectorAll('.more-admin').forEach(el => el.style.display = '');
     document.getElementById('greet-line').textContent = greeting() + (name ? `, ${name}` : '');
     const today = (streak && streak.points_today) || 0;
     const goal = (streak && streak.daily_goal) || 50;

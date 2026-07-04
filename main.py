@@ -294,12 +294,14 @@ def _compute_asset_version() -> str:
 ASSET_VERSION = _compute_asset_version()
 
 
-def _build_nav(active: str = "", tabbar: bool = True) -> str:
-    """Return the full <header> inner HTML with the active page highlighted.
+def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
+    """Return (header inner HTML, tab-bar HTML) with the active page marked.
 
-    `tabbar` also appends the mobile bottom tab bar (fixed nav for the five
-    daily destinations); pages that manage their own fixed viewport (tutor
-    chat) opt out and rely on an in-page back affordance instead."""
+    The header is desktop chrome (display:none below 1200px — mobile has no
+    top bar at all; Home hosts the stats/language/menu instead). The tab bar
+    is injected as a direct <body> child by _html; pages that manage their
+    own fixed viewport (tutor chat) pass tabbar=False and rely on an in-page
+    back affordance instead."""
     _i = ('class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
           'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')
     svgs = {
@@ -324,7 +326,6 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         "dashboard": f'<svg {_i}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
         "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-        "hamburger": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
     }
 
     def link(href: str, label: str, icon: str, badge: bool = False, notif: bool = False) -> str:
@@ -352,64 +353,39 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         admin_link("/admin/dashboard", "Dashboard", "dashboard"),
     ]
     nav_links = primary_links + secondary_links
-    # The hamburger dropdown only opens below the collapse breakpoint, where the
-    # bottom tab bar already carries the five primary destinations — so it lists
-    # ONLY the secondary items (no redundant navigation). The tutor page has no
-    # tab bar (tabbar=False) and keeps the full list.
-    dropdown_links = secondary_links if tabbar else nav_links
     signout_btn = (
         '    <button class="nav-link" onclick="doLogout()" '
         'style="border:none;cursor:pointer;background:none" title="Sign out">\n'
         f'      {svgs["signout"]}\n      Sign out\n    </button>'
     )
-    signout_dropdown = (
-        '    <button class="nav-link nav-signout" onclick="doLogout()" '
-        'style="border:none;cursor:pointer;background:none">\n'
-        f'      {svgs["signout"]}\n      Sign out\n    </button>'
-    )
-
     def tab(href: str, label: str, icon: str, badge: str = "") -> str:
         on = " active" if href == active else ""
         bdg = f' <span class="badge {badge}"></span>' if badge else ""
         return (f'    <a href="{href}" class="tab{on}">'
                 f'<span class="tab-ico">{svgs[icon]}{bdg}</span>{label}</a>')
 
+    # Injected as a direct <body> child by _html (NOT inside <header> — the
+    # header is display:none on mobile, which would take the tab bar with it).
     tabbar_html = (
-        "  <nav class=\"tabbar\" aria-label=\"Main\">\n"
+        "\n<nav class=\"tabbar\" aria-label=\"Main\">\n"
         + "\n".join([
             tab("/",         "Home",   "home"),
             tab("/learn",    "Learn",  "learn"),
             tab("/cards",    "Cards",  "cards", badge="due-badge"),
             tab("/messages", "Chat",   "tutor", badge="notif-badge"),
             tab("/reader",   "Reader", "reader"),
-        ]) + "\n  </nav>\n"
+        ]) + "\n</nav>\n"
     ) if tabbar else ""
 
-    return (
+    header_html = (
         "  <h1><a class=\"logo-text\" href=\"/\">{{APP_NAME_HTML}}</a></h1>\n"
         "  <nav class=\"nav-desktop\">\n"
         + "\n".join(nav_links) + "\n"
         "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
         + signout_btn + "\n"
         "  </nav>\n"
-        "  <div class=\"nav-mobile\">\n"
-        "    <span class=\"streak-display\" id=\"streak-display-mobile\" style=\"display:none\"></span>\n"
-        "    <button class=\"nav-hamburger\" onclick=\"toggleMobileMenu()\" aria-label=\"Menu\">\n"
-        f"      {svgs['hamburger']}\n"
-        "    </button>\n"
-        "  </div>\n"
-        "  <nav class=\"nav-dropdown\" id=\"nav-dropdown\">\n"
-        + "\n".join(dropdown_links) + "\n"
-        + signout_dropdown + "\n"
-        "  </nav>\n"
-        + tabbar_html +
         "  <script>"
-        "function toggleMobileMenu(){document.getElementById('nav-dropdown').classList.toggle('open')}\n"
-        "function closeMobileMenu(){document.getElementById('nav-dropdown').classList.remove('open')}\n"
         "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
-        "document.addEventListener('click',function(e){"
-        "if(!e.target.closest('header')){var d=document.getElementById('nav-dropdown');if(d)d.classList.remove('open')}"
-        "});\n"
         "fetch('/api/me').then(function(r){return r.json()}).then(function(u){"
         "if(u.is_admin)document.querySelectorAll('.nav-admin').forEach(function(el){el.style.display=''})"
         "}).catch(function(){});\n"
@@ -436,6 +412,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> str:
         "}).catch(function(){});"
         "</script>\n"
     )
+    return header_html, tabbar_html
 
 
 _LANG_WIDGET = """
@@ -587,8 +564,20 @@ _LANG_WIDGET = """
     wrap.appendChild(pill);
     wrap.appendChild(dd);
 
-    var h1 = document.querySelector('header h1');
-    if (h1) h1.appendChild(wrap);
+    // Mobile has no top bar — a page can host the pill in its own content by
+    // marking an element with data-lang-slot (the Home greeting row does).
+    // Desktop (or pages without a slot) keeps the pill in the header h1.
+    var slot = matchMedia('(max-width: 1199px)').matches
+      ? document.querySelector('[data-lang-slot]') : null;
+    if (slot) {
+      pill.style.marginLeft = '0';
+      pill.style.fontSize = '0.82rem';
+      pill.style.padding = '5px 12px 5px 9px';
+      slot.appendChild(wrap);
+    } else {
+      var h1 = document.querySelector('header h1');
+      if (h1) h1.appendChild(wrap);
+    }
   }).catch(function () {});
 })();
 </script>
@@ -874,7 +863,12 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     has_nav = "{{NAV}}" in content
     # The tutor page manages its own fixed viewport (mobile-keyboard handling),
     # so it opts out of the bottom tab bar and shows a back button instead.
-    content = content.replace("{{NAV}}", _build_nav(active, tabbar=name != "tutor.html"), 1)
+    header_html, tabbar_html = _build_nav(active, tabbar=name != "tutor.html")
+    content = content.replace("{{NAV}}", header_html, 1)
+    if has_nav and tabbar_html:
+        # Direct <body> child — the <header> is display:none on mobile, so the
+        # tab bar cannot live inside it.
+        content = content.replace("</body>", tabbar_html + "</body>", 1)
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("{{TURNSTILE_SITE_KEY}}", _TURNSTILE_SITE_KEY)

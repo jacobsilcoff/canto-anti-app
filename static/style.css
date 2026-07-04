@@ -1439,15 +1439,12 @@ textarea.edit-input {
    Dashboard link too). Below this the header shows the compact h1 + hamburger,
    and the bottom tab bar carries the five daily destinations. */
 @media (max-width: 1199px) {
-  .nav-desktop { display: none; }
-  .nav-mobile  { display: flex; }
-  /* Simplified mobile header (mockup "topstrip"): the tab bar carries the
-     brand weight, so the logo + plan pill hide and the header reads
-     [language pill] ... [streak/XP pills] [menu]. */
-  header { padding: 9px 14px; }
-  header h1 a.logo-text { display: none; }
-  header h1 #plan-pill { display: none; }
-  header h1 #lang-pill { margin-left: 0 !important; font-size: 0.82rem !important; padding: 5px 12px 5px 9px !important; }
+  /* No top bar on mobile at all — the bottom tab bar is the only fixed
+     chrome. The header's jobs move into the Home page (streak/XP pills,
+     language pill via [data-lang-slot], and the ⋯ More sheet for Browse/
+     Feedback/Settings/Dashboard/Sign out). The header element stays in the
+     DOM because the shared nav <script> lives inside it. */
+  header { display: none; }
 }
 
 /* ── Bottom tab bar (mobile) ─────────────────────────────────────────────
