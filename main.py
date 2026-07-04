@@ -344,15 +344,15 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
     }
 
     def link(href: str, label: str, icon: str, badge: bool = False, notif: bool = False) -> str:
-        hl = ' style="color:var(--primary)"' if href == active else ""
+        on = " nav-active" if href == active else ""
         bdg = ' <span class="badge due-badge"></span>' if badge else ""
         nbd = ' <span class="badge notif-badge"></span>' if notif else ""
-        return f'    <a href="{href}" class="nav-link"{hl}>\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
+        return f'    <a href="{href}" class="nav-link{on}">\n      {svgs[icon]}\n      {label}{bdg}{nbd}\n    </a>'
 
     def admin_link(href: str, label: str, icon: str) -> str:
-        extra = "color:var(--primary);" if href == active else ""
-        return (f'    <a href="{href}" class="nav-link nav-admin"'
-                f' style="display:none;{extra}">\n      {svgs[icon]}\n      {label}\n    </a>')
+        on = " nav-active" if href == active else ""
+        return (f'    <a href="{href}" class="nav-link nav-admin{on}"'
+                f' style="display:none">\n      {svgs[icon]}\n      {label}\n    </a>')
 
     primary_links = [
         link("/",         "Home",       "home"),
@@ -392,12 +392,26 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         ]) + "\n</nav>\n"
     ) if tabbar else ""
 
+    # On desktop (≥1200px) the header is a fixed LEFT RAIL (see style.css): logo
+    # at the top, primary links, a "More" group of secondary links, then a
+    # footer pinned to the bottom with the language pill, streak/XP stats and
+    # sign-out. Below 1200px the whole header is display:none (mobile uses the
+    # bottom tab bar + the Home ⋯ sheet). Same markup drives both.
     header_html = (
         "  <h1><a class=\"logo-text\" href=\"/\">{{APP_NAME_HTML}}</a></h1>\n"
         "  <nav class=\"nav-desktop\">\n"
-        + "\n".join(nav_links) + "\n"
-        "    <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
+        "    <div class=\"nav-group\">\n"
+        + "\n".join(primary_links) + "\n"
+        "    </div>\n"
+        "    <div class=\"nav-more-label\">More</div>\n"
+        "    <div class=\"nav-group\">\n"
+        + "\n".join(secondary_links) + "\n"
+        "    </div>\n"
+        "    <div class=\"nav-foot\">\n"
+        "      <span class=\"nav-lang-slot\" data-lang-slot-rail></span>\n"
+        "      <span class=\"streak-display\" id=\"streak-display\" style=\"display:none\"></span>\n"
         + signout_btn + "\n"
+        "    </div>\n"
         "  </nav>\n"
         "  <script>"
         "function doLogout(){try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('nav:')===0)sessionStorage.removeItem(k)})}catch(e){};fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
@@ -606,11 +620,13 @@ _LANG_WIDGET = """
     wrap.appendChild(pill);
     wrap.appendChild(dd);
 
-    // Mobile has no top bar — a page can host the pill in its own content by
-    // marking an element with data-lang-slot (the Home greeting row does).
-    // Desktop (or pages without a slot) keeps the pill in the header h1.
-    var slot = matchMedia('(max-width: 1199px)').matches
-      ? document.querySelector('[data-lang-slot]') : null;
+    // Mobile (<1200px): the top bar is gone, so a page hosts the pill in its
+    // own content via [data-lang-slot] (the Home greeting row). Desktop: the
+    // pill lives in the left-rail footer ([data-lang-slot-rail]). Fallback to
+    // the header h1 if neither slot exists.
+    var mobile = matchMedia('(max-width: 1199px)').matches;
+    var slot = mobile ? document.querySelector('[data-lang-slot]')
+                      : document.querySelector('[data-lang-slot-rail]');
     if (slot) {
       pill.style.marginLeft = '0';
       pill.style.fontSize = '0.82rem';
