@@ -188,11 +188,30 @@ _SECURITY_HEADERS = {
     "Content-Security-Policy": _CSP,
 }
 
+# The dev-only /mockups gallery embeds each screen in an <iframe> phone frame.
+# The default DENY / frame-ancestors 'none' / frame-src (cloudflare-only) headers
+# blank those frames, so relax ONLY the framing directives for /mockups — same
+# origin still, and the mount doesn't exist in production. Everything else (auth
+# pages, the real app) keeps the strict headers.
+_MOCKUP_CSP = (
+    _CSP.replace("frame-src https://challenges.cloudflare.com",
+                 "frame-src 'self' https://challenges.cloudflare.com")
+        .replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+)
+_MOCKUP_SECURITY_HEADERS = {
+    **_SECURITY_HEADERS,
+    "X-Frame-Options": "SAMEORIGIN",
+    "Content-Security-Policy": _MOCKUP_CSP,
+}
+
 
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
-    for k, v in _SECURITY_HEADERS.items():
+    headers = (_MOCKUP_SECURITY_HEADERS
+               if IS_DEV and request.url.path.startswith("/mockups")
+               else _SECURITY_HEADERS)
+    for k, v in headers.items():
         response.headers.setdefault(k, v)
     return response
 
