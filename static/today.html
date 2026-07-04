@@ -241,7 +241,7 @@
 
     const nl = nextLesson(courseRes && courseRes.course);
     const nextCard = nl
-      ? `<a class="tcard next" href="/learn">
+      ? `<a class="tcard next" href="/learn?lesson=${nl.lesson.id}">
            <span class="goal-kicker">Continue learning</span>
            <h3>${esc(nl.lesson.title || 'Next lesson')}</h3>
            <p>${esc(nl.unit.title ? nl.unit.title + ' · ' : '')}~5 min</p>
@@ -272,7 +272,7 @@
           <div class="lbl">card${dueN === 1 ? '' : 's'} due for review</div>
           <div class="cta">${dueN > 0 ? 'Review now →' : 'Open flashcards →'}</div>
         </a>
-        <a class="tcard mini" href="/messages">
+        <a class="tcard mini" href="/tutor">
           <div class="n" style="color:var(--primary)">${_svg.chat.replace('<svg ', '<svg width="26" height="26" ')}</div>
           <div class="lbl">practice a real conversation</div>
           <div class="cta">Chat with your tutor →</div>
@@ -282,7 +282,7 @@
         <h3>Quick actions</h3>
         <div class="quick-row">
           <a class="quick-chip" href="/translate">${_svg.pencil} Translate a word</a>
-          <a class="quick-chip" href="/reader">${_svg.book} New story</a>
+          <a class="quick-chip" href="/reader?new=1">${_svg.book} New story</a>
           <a class="quick-chip" href="/browse?tab=community">${_svg.decks} Browse decks</a>
         </div>
       </div>`;

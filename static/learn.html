@@ -700,6 +700,12 @@
       const { course } = await fetch('/api/courses/active').then(r => r.json());
       if (course) { renderCourse(course); show('course'); }
       else { show('empty'); }
+      // Deep link from Home's "Start lesson": open the player immediately.
+      const lessonParam = new URLSearchParams(location.search).get('lesson');
+      if (course && lessonParam) {
+        history.replaceState(null, '', '/learn');   // refresh returns to the map
+        openLesson(parseInt(lessonParam, 10));
+      }
     } catch {
       show('empty');
     }

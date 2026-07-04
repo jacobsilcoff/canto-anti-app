@@ -127,6 +127,21 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.middleware("http")
+async def static_cache_middleware(request: Request, call_next):
+    """Fingerprinted /static assets (?v=<hash>) are immutable — cache forever.
+    Un-fingerprinted static files (icons, fonts) get an hour. Without this,
+    StaticFiles sends no Cache-Control and every page navigation revalidates
+    css/js with a 304 round-trip each, which reads as sluggish nav on mobile."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        if "v" in request.query_params:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers.setdefault("Cache-Control", "public, max-age=3600")
+    return response
+
+
+@app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if (request.url.path in _NO_AUTH_PATHS or request.url.path.startswith("/static/")
             or request.url.path.startswith("/mockups/") or request.url.path == "/mockups"):
@@ -385,19 +400,29 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         + signout_btn + "\n"
         "  </nav>\n"
         "  <script>"
-        "function doLogout(){fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
-        "fetch('/api/me').then(function(r){return r.json()}).then(function(u){"
-        "if(u.is_admin)document.querySelectorAll('.nav-admin').forEach(function(el){el.style.display=''})"
-        "}).catch(function(){});\n"
-        "fetch('/api/cards/due-count').then(function(r){return r.ok?r.json():null}).then(function(d){"
-        "if(!d)return;var n=d.count||0;"
+        "function doLogout(){try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('nav:')===0)sessionStorage.removeItem(k)})}catch(e){};fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
+        # Stale-while-revalidate: render cached values instantly on every page
+        # load (rapid tab switching costs zero network inside the TTL), refresh
+        # in the background past it. Keyed in sessionStorage.
+        "function navSWR(key,url,ttl,apply){var hit=null;"
+        "try{hit=JSON.parse(sessionStorage.getItem(key)||'null')}catch(e){}"
+        "if(hit&&hit.d!=null){apply(hit.d);if(Date.now()-hit.t<ttl)return;}"
+        "fetch(url).then(function(r){return r.ok?r.json():null}).then(function(d){"
+        "if(d==null)return;"
+        "try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:d}))}catch(e){}"
+        "apply(d);}).catch(function(){});}\n"
+        "navSWR('nav:me','/api/me',300000,function(u){"
+        "if(u.is_admin)document.querySelectorAll('.nav-admin,.more-admin').forEach(function(el){el.style.display=''})"
+        "});\n"
+        "navSWR('nav:due','/api/cards/due-count',60000,function(d){var n=d.count||0;"
         "document.querySelectorAll('.due-badge').forEach(function(b){"
         "b.textContent=n>99?'99+':String(n);b.classList.toggle('visible',n>0)})"
-        "}).catch(function(){});\n"
+        "});\n"
         # Single renderer for the header streak/XP pills. Pages call this from
         # their loadStreak (to refresh after earning XP); the nav also fetches
         # once on load so every page shows the pills without page-side code.
         "window.renderHeaderStats=function(streak,points){"
+        "try{sessionStorage.setItem('nav:streak',JSON.stringify({t:Date.now(),d:{streak:streak,points:points}}))}catch(e){}"
         "var flame='<svg viewBox=\"0 0 16 20\" width=\"12\" height=\"15\" aria-hidden=\"true\"><path fill=\"#f4702a\" d=\"M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z\"/></svg>';"
         "var star='<svg viewBox=\"0 0 20 20\" width=\"12\" height=\"12\" aria-hidden=\"true\"><path fill=\"#f0b429\" d=\"M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z\"/></svg>';"
         "function fmt(n){return n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n)}"
@@ -407,9 +432,13 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         "if(!h)return;"
         "document.querySelectorAll('.streak-display').forEach(function(el){el.innerHTML=h;el.style.display=''});"
         "};\n"
+        "(function(){var hit=null;"
+        "try{hit=JSON.parse(sessionStorage.getItem('nav:streak')||'null')}catch(e){}"
+        "if(hit&&hit.d){window.renderHeaderStats(hit.d.streak||0,hit.d.points||0);"
+        "if(Date.now()-hit.t<60000)return;}"
         "fetch('/api/streak').then(function(r){return r.ok?r.json():null}).then(function(d){"
         "if(d)window.renderHeaderStats(d.streak||0,d.points||0)"
-        "}).catch(function(){});"
+        "}).catch(function(){});})();"
         "</script>\n"
     )
     return header_html, tabbar_html
@@ -418,9 +447,21 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
 _LANG_WIDGET = """
 <script>
 (function () {
+  // Cached fetches: the language list only changes on deploy (keyed by asset
+  // version), settings get a short TTL. Cuts two blocking round-trips from
+  // every page navigation; applyLang invalidates the settings entry.
+  function cachedJson(key, url, ttl) {
+    var hit = null;
+    try { hit = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) {}
+    if (hit && hit.d != null && (Date.now() - hit.t < ttl)) return Promise.resolve(hit.d);
+    return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (d != null) { try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {} }
+      return d;
+    });
+  }
   Promise.all([
-    fetch('/api/languages').then(function (r) { return r.ok ? r.json() : null; }),
-    fetch('/api/settings').then(function (r) { return r.ok ? r.json() : null; }),
+    cachedJson('nav:langs:' + (window.__VERSION__ || ''), '/api/languages', 86400000),
+    cachedJson('nav:settings', '/api/settings', 60000),
   ]).then(function (results) {
     var langRes = results[0]; var settingsRes = results[1];
     if (!langRes || !settingsRes) return;
@@ -468,6 +509,7 @@ _LANG_WIDGET = """
     // every page react via the 'langchange' event. Shared by the dropdown and
     // window.setAppLanguage (called when e.g. importing a deck in another lang).
     function applyLang(l) {
+      try { sessionStorage.removeItem('nav:settings'); sessionStorage.removeItem('nav:due'); } catch (e) {}
       return fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -657,7 +699,8 @@ _NOTIF_WIDGET = """
       .catch(function () {});
   }
   _loadNotifCounts();
-  setInterval(_loadNotifCounts, 60000);
+  setInterval(function () { if (!document.hidden) _loadNotifCounts(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) _loadNotifCounts(); });
   window._refreshNotifCounts = _loadNotifCounts;
 })();
 
@@ -872,6 +915,9 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("{{APP_NAME}}", APP_NAME)
     content = content.replace("{{APP_NAME_HTML}}", _APP_NAME_HTML)
     content = content.replace("{{TURNSTILE_SITE_KEY}}", _TURNSTILE_SITE_KEY)
+    content = content.replace(
+        '<link rel="stylesheet" href="/static/style.css">',
+        '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/static/style.css">', 1)
     content = content.replace("/static/style.css", f"/static/style.css?v={ASSET_VERSION}")
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")

@@ -584,6 +584,12 @@
     populateCommLangFilter();
     loadSavedTexts();
     loadStreak();
+    // Deep link from Home's "New story": open the generate form directly.
+    if (new URLSearchParams(location.search).get('new') === '1') {
+      history.replaceState(null, '', '/reader');
+      toggleGenForm(true);
+      document.getElementById('gen-prompt').focus();
+    }
   }
 
   async function loadDefaultLang() {

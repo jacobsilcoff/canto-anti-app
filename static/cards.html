@@ -1131,7 +1131,7 @@
     // Poll every 30 s. Learning cards can come due in as little as 1 min, so
     // 30 s means at most a 30-second delay before the session auto-resumes.
     _duePoller = setInterval(async () => {
-      if (!isOnline) return;
+      if (!isOnline || document.hidden) return;
       try {
         const url = '/api/cards/due-count' + filterQuery();
         const { count } = await fetch(url).then(r => r.json());

@@ -1,7 +1,8 @@
 /* ── Reset & Variables ─────────────────────────────────────────────────── */
 /* "Field Notes" identity — deep viridian primary, persimmon energy accent,
-   harvest gold XP, ink text on a warm bone ground (see mockups/). */
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap');
+   harvest gold XP, ink text on a warm bone ground (see mockups/). Fonts are
+   loaded via <link> tags injected by main._html — NOT @import here, which
+   would serialize style.css → fonts CSS → font files on every navigation. */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

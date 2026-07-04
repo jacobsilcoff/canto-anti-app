@@ -1983,6 +1983,7 @@
   let _activeConvSeenAt = null;
   function startPolling() {
     _pollTimer = setInterval(async () => {
+      if (document.hidden) return;   // don't burn radio/battery in a background tab
       await loadConvs();
       if (!_activeConvId) return;
       const conv = _convs.find(c => c.id === _activeConvId);
