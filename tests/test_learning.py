@@ -339,18 +339,19 @@ def test_review_block_in_prompt():
     prompt = learning._build_lesson_prompt("es", _CONCEPTS, [], None, review)
     assert "REVIEW (warm-up)" in prompt
     assert "casa" in prompt
-    assert "8–12" in prompt
+    # Lessons are always authored at max depth; review lessons get the larger budget.
+    assert "12–16" in prompt
     # Review drills open the lesson as step 1's warm-up (C2).
     assert "START of step 1" in prompt
-    # Without review: no section, original drill count.
+    # Without review: no section, the standard (non-review) max budget.
     prompt2 = learning._build_lesson_prompt("es", _CONCEPTS, [], None, None)
     assert "REVIEW (warm-up)" not in prompt2
-    assert "7–10" in prompt2
+    assert "10–14" in prompt2
 
 
 def test_lesson_prompt_asks_for_steps():
     prompt = learning._build_lesson_prompt("es", _CONCEPTS, [], None, None)
-    assert "2–4 BITE-SIZED STEPS" in prompt
+    assert "3–4 BITE-SIZED STEPS" in prompt
     assert '"steps"' in prompt
     assert "quick_check" in prompt
 

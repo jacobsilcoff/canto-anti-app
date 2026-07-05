@@ -359,12 +359,12 @@ async def plan_next_lesson(
 # recomputed by us). Drill kinds the model may use to PRACTISE (we assemble the
 # graded exercise from {answer + distractors} so the key is correct by build).
 _DRILL_KINDS = """\
-  {"kind":"recognition","concept":"<key>","target":"<native word/phrase>","gloss":"<English meaning>","distractors":["<other English meaning>", ...]}
-  {"kind":"production","concept":"<key>","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
-  {"kind":"listening","concept":"<key>","target":"<native word/phrase>","gloss":"<English>","distractors":["<other NATIVE-SCRIPT word — NEVER English; for tonal languages prefer words differing by one tone or one phoneme so the listener must discriminate carefully>", ...]}
-  {"kind":"cloze","concept":"<key>","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
-  {"kind":"reorder","concept":"<key>","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
-  {"kind":"match","concept":"<key>","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
+  {"kind":"recognition","concept":"<key>","tier":"core|standard|extra","target":"<native word/phrase>","gloss":"<English meaning>","distractors":["<other English meaning>", ...]}
+  {"kind":"production","concept":"<key>","tier":"core|standard|extra","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
+  {"kind":"listening","concept":"<key>","tier":"core|standard|extra","target":"<native word/phrase>","gloss":"<English>","distractors":["<other NATIVE-SCRIPT word — NEVER English; for tonal languages prefer words differing by one tone or one phoneme so the listener must discriminate carefully>", ...]}
+  {"kind":"cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
+  {"kind":"reorder","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
+  {"kind":"match","concept":"<key>","tier":"core|standard|extra","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
 
 _BLOCK_TYPES = """\
   {"type":"prose","text":"<English explanation — **bold** and *italic* markdown supported>"}
@@ -467,33 +467,44 @@ def _brief_block(brief: dict | None) -> str:
     return "\n".join(lines) + "\n\n"
 
 
-# A3 · lesson length presets (user setting `lesson_length`). Each tunes the
-# drill count, step count, and teach depth in the author prompt; "standard" is
-# the pre-existing shape. Applies at GENERATION time (stored lessons keep the
-# shape they were authored with).
-LESSON_LENGTHS = {
-    "quick": {
-        "drills": "4–6", "drills_review": "5–7", "steps": "exactly 2",
-        "teach": ("Keep teaching ULTRA-COMPRESSED: at most 2 short blocks in the whole "
-                  "lesson — one rule statement and one example set. This learner asked "
-                  "for quick lessons."),
-    },
-    "standard": {
-        "drills": "7–10", "drills_review": "8–12", "steps": "2–4", "teach": "",
-    },
-    "thorough": {
-        "drills": "10–14", "drills_review": "12–16", "steps": "3–4",
-        "teach": ("This learner asked for THOROUGH lessons: include an extra examples "
-                  "block per concept and drill each item from more than one angle."),
-    },
-}
+# A3 · valid values for the learner-facing `lesson_length` setting.
+#
+# Length NO LONGER shapes generation. Every lesson is authored ONCE at maximum
+# ("thorough") depth, and each drill is tagged with a TIER (core / standard /
+# extra). The player then plays a subset by tier — quick = core, standard =
+# core+standard, thorough = everything. This makes "thorough" honest (all the
+# content really was authored) and lets a length change reshape ANY stored lesson
+# instead of only shrinking a freshly-generated one (you can't add drills that were
+# never generated). See `_trimForLength` in static/learn.html for the play-time cut.
+LESSON_LENGTHS = ("quick", "standard", "thorough")
+
+# The single depth every lesson is authored at (the old "thorough" budget).
+_AUTHOR_DRILLS = "10–14"
+_AUTHOR_DRILLS_REVIEW = "12–16"
+_AUTHOR_STEPS = "3–4"
+# Roughly how the tiers should split the authored drills, so the model builds a
+# coherent core→extra progression rather than tagging at random.
+_DRILL_TIER_GUIDANCE = (
+    "TIER every drill so the player can serve a shorter or longer version of THIS "
+    "lesson without re-generating it:\n"
+    "• \"core\" = the 4–5 essential drills a beginner needs to grasp the point at all "
+    "(one gentle warm-up, the central pattern, one recall drill). A learner who only "
+    "does the core drills should still leave having practised the main idea.\n"
+    "• \"standard\" = the next 3–4 drills that round out normal practice (more vocab, "
+    "more contexts, a harder angle).\n"
+    "• \"extra\" = the remaining drills for a thorough session (edge cases, extra "
+    "reorder/cloze reps, less-common vocab).\n"
+    "Spread each tier across the steps so cutting to core still leaves ≥1 drill per "
+    "step. The easy→hard ordering still holds WITHIN the full set; don't cluster all "
+    "core drills at the front.\n"
+)
 
 
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
     taught: list[dict] | None = None, review: list[dict] | None = None,
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
-    brief: dict | None = None, length: str = "standard",
+    brief: dict | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -517,9 +528,15 @@ def _build_lesson_prompt(
             f"naturally, work 1–2 of them into example sentences or drills (set the "
             f"drill's \"concept\" to the lesson concept it practises). Don't force it.\n\n"
         )
-    ln = LESSON_LENGTHS.get(length) or LESSON_LENGTHS["standard"]
-    n_drills = ln["drills_review"] if review else ln["drills"]
-    length_note = (ln["teach"] + "\n") if ln["teach"] else ""
+    # Always author at maximum depth; length is applied at play time by tier.
+    n_drills = _AUTHOR_DRILLS_REVIEW if review else _AUTHOR_DRILLS
+    n_steps = _AUTHOR_STEPS
+    length_note = (
+        "Author the FULL, thorough version of this lesson: an extra examples block "
+        "per grammar concept and each item drilled from more than one angle. Don't "
+        "self-censor for length — the player trims drills by tier for learners who "
+        "want a shorter session (see the tiering rule under DRILLS).\n"
+    )
     return (
         f"You are an expert {name} teacher. Author ONE focused micro-lesson "
         f"(teach blocks + drills together) for an English speaker.\n\n"
@@ -530,9 +547,9 @@ def _build_lesson_prompt(
         f"{deck_block}"
         f"{weak_block}"
         f"── TEACH EXACTLY THIS LESSON ({len(concepts)} concept(s); cover every listed item) ──\n{_concepts_block(concepts)}\n\n"
-        f"── LESSON SHAPE: {ln['steps'].upper()} BITE-SIZED STEPS ──\n"
+        f"── LESSON SHAPE: {n_steps.upper()} BITE-SIZED STEPS ──\n"
         f"{length_note}"
-        f"Structure the lesson as {ln['steps']} STEPS, each a short teach → practise cycle "
+        f"Structure the lesson as {n_steps} STEPS, each a short teach → practise cycle "
         f"(the learner plays them in order, one screen at a time):\n"
         f"• STEP 1 = warm-up: any review drills, plus the lesson's gentlest hook (its "
         f"single easiest new drill). Little or no teaching here.\n"
@@ -575,6 +592,7 @@ def _build_lesson_prompt(
         f"reorder (hardest — pure recall + construction). Include at least 2 reorder "
         f"drills for grammar concepts; reorder tiles expose word-order rules better than "
         f"any other drill type.\n"
+        f"{_DRILL_TIER_GUIDANCE}"
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
@@ -685,6 +703,17 @@ def _pick_options(correct: str, distractors: list[str], n: int = 4) -> tuple[lis
     opts = [correct] + pool[: max(0, n - 1)]
     random.shuffle(opts)
     return opts, opts.index(correct)
+
+
+_DRILL_TIERS = ("core", "standard", "extra")
+
+
+def _norm_tier(tier) -> str:
+    """Clamp an authored drill tier to core/standard/extra. Unknown/missing →
+    'standard' so an untagged drill shows in standard+thorough (hidden only in the
+    aggressive 'quick' cut). See LESSON_LENGTHS / _trimForLength."""
+    t = (tier or "").strip().lower()
+    return t if t in _DRILL_TIERS else "standard"
 
 
 def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
@@ -873,6 +902,7 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
             ex = _assemble_drill(d, target_lang, kinds, rom)
             if not ex:
                 continue
+            ex["tier"] = _norm_tier(d.get("tier"))   # A3 · play-time length subset
             # Dedup: skip drills that test the same answer in the same drill type.
             etype = ex.get("type", "")
             if etype in ("choice", "listening"):
@@ -936,7 +966,6 @@ async def author_lesson(
     known_words: list[dict] | None = None,
     weak_words: list[dict] | None = None,
     brief: dict | None = None,
-    length: str = "standard",
 ) -> dict:
     """One LLM call: author teach blocks + drills for the given skill/concepts
     together, then validate/assemble. Returns lesson metadata + content + raw strings.
@@ -954,8 +983,7 @@ async def author_lesson(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review,
-                                  known_words=known_words, weak_words=weak_words, brief=brief,
-                                  length=length)
+                                  known_words=known_words, weak_words=weak_words, brief=brief)
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
 

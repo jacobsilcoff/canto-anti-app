@@ -732,6 +732,13 @@
     <div class="err" id="create-err" style="display:none"></div>
   </div>
 
+  <!-- Course failed to load (network/server hiccup) — NOT the same as "no course" -->
+  <div id="state-error" class="learn-center" style="display:none">
+    <h2>Couldn't load your lessons</h2>
+    <p>Something went wrong reaching the server. Your progress is safe.</p>
+    <div><button class="cta-btn" onclick="init()">Retry</button></div>
+  </div>
+
   <!-- Generating next lesson -->
   <div id="state-generating" class="learn-center" style="display:none">
     <h2><span class="spinner"></span></h2>
@@ -871,7 +878,7 @@
     _currentState = state;
     // Full-focus lesson states reclaim the mobile tab bar's space.
     document.body.classList.toggle('hide-tabbar', state === 'teach' || state === 'player');
-    ['loading', 'empty', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
+    ['loading', 'empty', 'error', 'generating', 'course', 'lesson-loading', 'teach', 'player', 'results'].forEach(s =>
       document.getElementById('state-' + s).style.display = s === state ? '' : 'none');
     // The path connectors need real layout geometry, so (re)draw once the course
     // view is actually visible (it may have rendered while hidden).
@@ -911,7 +918,13 @@
     document.getElementById('empty-lang').textContent = langName;
 
     try {
-      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      // A failed request (network blip, 5xx from lock contention) must NOT be
+      // rendered as "no course yet" — that made the learn page falsely claim you'd
+      // never generated a lesson until a reload. Only a real null course is empty;
+      // a fetch failure gets a distinct retry state.
+      const res = await fetch('/api/courses/active');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const { course } = await res.json();
       if (course) { renderCourse(course); show('course'); }
       else { show('empty'); }
       // Deep link from Home's "Start lesson": open the player immediately.
@@ -921,7 +934,7 @@
         openLesson(parseInt(lessonParam, 10));
       }
     } catch {
-      show('empty');
+      show('error');
     }
     loadStreak();
     loadQuests();
@@ -2663,14 +2676,48 @@
     return out;
   }
 
-  // A3 · a stored lesson is already authored, so length can only trim it for
-  // THIS run (you can't add drills that weren't generated). The full authored
-  // lesson IS "thorough"; standard/quick play a balanced subset. Self-managed
-  // drills (AI Speak) are always kept; we trim the graded drills per step,
-  // keeping the easy→hard prefix and at least one per step. The persisted
-  // `lesson_length` setting still shapes how FUTURE lessons are generated.
-  const _LEN_FACTOR = { quick: 0.5, standard: 0.8, thorough: 1.0 };
+  // A3 · length is applied at PLAY time as a subset of the (always max-depth)
+  // authored lesson. Every drill is tagged with a tier by the author — quick plays
+  // 'core', standard plays 'core'+'standard', thorough plays everything. So
+  // "thorough" is honest (all the content was authored) and switching length
+  // reshapes ANY stored lesson, not just a freshly-generated one. Self-managed
+  // drills (AI Speak) are always kept, and a step that had drills never ends up
+  // with zero. Lessons authored before tiers existed (no `tier` on any exercise)
+  // fall back to a proportional trim so they still shorten sensibly.
+  const _TIER_ALLOW = {
+    quick: new Set(['core']),
+    standard: new Set(['core', 'standard']),
+    thorough: new Set(['core', 'standard', 'extra']),
+  };
+  const _LEN_FACTOR = { quick: 0.5, standard: 0.8, thorough: 1.0 };  // legacy fallback
+
+  function _hasTiers(segments) {
+    return segments.some(sg => (sg.exercises || [])
+      .some(e => !SELF_MANAGED.has(e.type) && e.tier));
+  }
+
   function _trimForLength(segments, len) {
+    if (len === 'thorough') return segments;
+    return _hasTiers(segments)
+      ? _trimByTier(segments, len)
+      : _trimByFactor(segments, len);
+  }
+
+  function _trimByTier(segments, len) {
+    const allow = _TIER_ALLOW[len] || _TIER_ALLOW.standard;
+    return segments.map(sg => {
+      const ex = sg.exercises || [];
+      if (!ex.length) return sg;
+      const out = ex.filter(e => SELF_MANAGED.has(e.type) || allow.has(e.tier || 'standard'));
+      const hadGraded = ex.some(e => !SELF_MANAGED.has(e.type));
+      const keepsGraded = out.some(e => !SELF_MANAGED.has(e.type));
+      // Never leave a step that had drills with none — keep its first graded drill.
+      if (hadGraded && !keepsGraded) out.push(ex.find(e => !SELF_MANAGED.has(e.type)));
+      return { ...sg, exercises: out };
+    });
+  }
+
+  function _trimByFactor(segments, len) {
     const f = _LEN_FACTOR[len] ?? 1;
     if (f >= 1) return segments;
     return segments.map(sg => {
@@ -2689,8 +2736,8 @@
 
   function _lenNoteText(len) {
     return len === 'thorough'
-      ? 'Every drill this lesson · sets the depth of future lessons too'
-      : 'Trims this lesson to a shorter set · sets future lesson depth too';
+      ? 'Plays every drill · applies to all your lessons'
+      : 'Plays a shorter subset of each lesson · applies to all your lessons';
   }
 
   async function openLessonIntro(lessonId) {
@@ -2777,9 +2824,9 @@
       </div>`;
   }
 
-  // A3 · length chips reshape the current lesson for this run (re-render the
-  // sheet so the step list + estimate update live) AND persist the setting so
-  // future lessons are generated at this depth.
+  // A3 · length chips choose how much of the (always max-depth) lesson to play,
+  // as a tier subset — re-render the sheet so the step list + estimate update live,
+  // and persist the choice so it applies to every lesson the learner opens.
   async function setLessonLength(v) {
     if (_lessonLength === v) return;
     _lessonLength = v;
@@ -3771,9 +3818,11 @@
     show('loading');
     loadQuests();
     try {
-      const { course } = await fetch('/api/courses/active').then(r => r.json());
+      const res = await fetch('/api/courses/active');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const { course } = await res.json();
       if (course) { renderCourse(course); show('course'); } else { show('empty'); }
-    } catch { show('empty'); }
+    } catch { show('error'); }
   }
 
   // ── Viewport-clamped tooltip for .gl[data-gloss] spans ─────────────────────

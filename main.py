@@ -3137,7 +3137,6 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     learner_profile = ""
     cefr_spread = ""
     course_focus = "balanced"      # D2 · planner steering
-    lesson_length = "standard"     # A3 · author drill/step budget
     if user_id:
         mastery = await db.get_mastery_summary(user_id, lang)
         known_words = await db.get_known_words(user_id, lang)
@@ -3145,7 +3144,6 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         recent_cards = await db.get_recent_cards(user_id, lang)
         learner_profile = await db.get_setting(user_id, "learner_profile") or ""
         course_focus = _valid_course_focus(await db.get_setting(user_id, "course_focus"))
-        lesson_length = _valid_lesson_length(await db.get_setting(user_id, "lesson_length"))
         try:
             cefr_spread = await _known_cefr_stats(user_id, lang, access.api_key)
         except Exception:
@@ -3209,7 +3207,6 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
             taught=ctx["concept_registry"], review=review,
             known_words=known_words, weak_words=weak_words, brief=brief,
-            length=lesson_length,
         )
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",

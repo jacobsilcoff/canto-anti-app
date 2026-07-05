@@ -144,13 +144,20 @@ Files: `learning.py`, `examples/lesson_example.json`, `static/learn.html`
 
 #### A3 · Lesson length setting: Quick / Standard / Thorough (S)
 
-User setting `lesson_length` (default `standard`):
-`quick` → 4–6 drills, ≤2 steps, teach ultra-compressed; `standard` → today's
-volume in 3 steps; `thorough` → 10–14 drills, 4 steps, extra examples block.
-Implementation: plumb through `main._author_next_lesson` → `author_lesson(brief…)`
-→ `n_drills` + a sentence in the prompt. Surface in Settings **and** as a chip
-row on the lesson intro sheet (B4 mockup). Applies at *generation* time; note in
-UI that it affects new lessons.
+User setting `lesson_length` (default `standard`), surfaced in Settings **and**
+as a chip row on the lesson intro sheet (B4 mockup).
+
+**Shipped design (revised):** length is a *play-time subset*, NOT a generation
+knob. Shaping generation by length was incoherent — a lesson authored while
+`quick` had only 4–6 drills, so tapping "thorough" later couldn't expand it (you
+can't play drills that were never generated), and the setting was applied twice
+(once at generation, once at playback) which compounded the trim. Instead:
+every lesson is authored ONCE at max depth (`_AUTHOR_DRILLS`=10–14, `_AUTHOR_STEPS`
+=3–4, thorough teach), and the author TAGS each drill with a `tier`
+(core/standard/extra). The player serves a subset by tier — `quick`=core,
+`standard`=core+standard, `thorough`=everything (`_trimForLength` in `learn.html`).
+So "thorough" is honest and a length change reshapes ANY stored lesson. Pre-tier
+lessons fall back to a proportional trim, so they behave exactly as before.
 
 #### A4 · "Test out" of a lesson (S/M)
 

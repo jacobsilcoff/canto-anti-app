@@ -73,6 +73,18 @@ async def _migrate_legacy_schema(db):
 async def init():
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
+        # Enable Write-Ahead Logging. In the default rollback-journal mode readers
+        # block writers and two connections that each hold a read lock and then try
+        # to upgrade to a write deadlock and get "database is locked" IMMEDIATELY,
+        # regardless of the busy timeout. Our pages fan out many concurrent requests
+        # on load — several of which lazily seed rows (Foundations units in
+        # /api/courses/active, daily quests in /api/quests) — so that upgrade
+        # contention surfaced as sporadic 500s (which the learn page silently
+        # rendered as "no course yet"). WAL lets readers and a single writer proceed
+        # without blocking each other. journal_mode=WAL is PERSISTENT (stored in the
+        # DB file header), so this one statement covers every later connection.
+        await db.execute("PRAGMA journal_mode = WAL")
+        await db.execute("PRAGMA synchronous = NORMAL")
         await db.execute("PRAGMA foreign_keys = ON")
 
         # Users.

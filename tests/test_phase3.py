@@ -65,42 +65,55 @@ async def test_league_ranks_friends_this_week(fresh_db):
     assert not any(r["username"] == "stranger" for r in league)
 
 
-# ── A3 · lesson length presets ────────────────────────────────────────────────
+# ── A3 · lesson length = play-time tier subset (generation is length-independent) ─
 
-def _author_prompt(length):
+def _author_prompt(**kw):
     return learning._build_lesson_prompt(
         "fr", [{"kind": "vocab", "key": "w", "label": "mot", "gloss": "word"}],
-        [], length=length,
+        [], **kw,
     )
 
 
-def test_lesson_length_quick_shrinks_the_budget():
-    p = _author_prompt("quick")
-    assert "4–6 drills" in p
-    assert "exactly 2 STEPS" in p
-    assert "ULTRA-COMPRESSED" in p
-
-
-def test_lesson_length_thorough_grows_the_budget():
-    p = _author_prompt("thorough")
+def test_lessons_are_always_authored_at_max_depth():
+    # Length no longer shapes generation — every lesson is authored thorough and the
+    # player subsets it by tier. So the prompt always asks for the full budget.
+    p = _author_prompt()
     assert "10–14 drills" in p
-    assert "THOROUGH" in p
+    assert "3–4 STEPS" in p
 
 
-def test_lesson_length_standard_matches_legacy_shape():
-    p = _author_prompt("standard")
-    assert "7–10 drills" in p
-    assert "2–4 STEPS" in p
-    # Unknown values fall back to standard rather than exploding.
-    assert _author_prompt("bogus") == p
+def test_author_prompt_requests_drill_tiers():
+    p = _author_prompt()
+    assert "TIER every drill" in p          # the tiering instruction
+    assert '"tier":"core|standard|extra"' in p   # the drill schema field
+    for t in ("core", "standard", "extra"):
+        assert t in p
 
 
-def test_lesson_length_review_budget():
-    p = learning._build_lesson_prompt(
-        "fr", [{"kind": "vocab", "key": "w", "label": "mot", "gloss": "word"}],
-        [], review=[{"key": "old", "label": "vieux", "gloss": "old"}], length="quick",
-    )
-    assert "5–7 drills" in p
+def test_review_lessons_get_the_larger_budget():
+    p = _author_prompt(review=[{"key": "old", "label": "vieux", "gloss": "old"}])
+    assert "12–16 drills" in p
+
+
+def test_norm_tier_clamps_to_known_values():
+    assert learning._norm_tier("core") == "core"
+    assert learning._norm_tier("EXTRA") == "extra"
+    assert learning._norm_tier(None) == "standard"      # missing → standard
+    assert learning._norm_tier("bogus") == "standard"   # unknown → standard
+
+
+def test_assembled_drills_carry_a_tier():
+    authored = {"intro": "x", "vocab_glossary": {}, "steps": [{"title": "s", "teach": [], "drills": [
+        {"kind": "recognition", "concept": "w", "tier": "core",
+         "target": "mot", "gloss": "word", "distractors": ["dog", "cat", "sun"]},
+        # no tier → defaults to standard so it survives standard/thorough, hidden in quick
+        {"kind": "recognition", "concept": "w",
+         "target": "chat", "gloss": "cat", "distractors": ["dog", "word", "sun"]},
+    ]}]}
+    concepts = [{"kind": "vocab", "key": "w", "label": "mot", "gloss": "word"}]
+    content = learning.assemble_lesson("fr", concepts, authored)
+    tiers = [e.get("tier") for e in content["segments"][0]["exercises"]]
+    assert tiers == ["core", "standard"]
 
 
 # ── D2 · course focus dial ────────────────────────────────────────────────────

@@ -23,6 +23,7 @@
           {
             "kind": "production",
             "concept": "casa",
+            "tier": "core",
             "gloss": "our house",
             "target": "nuestra casa",
             "distractors": ["mi familia", "su libro", "tu madre"]
@@ -30,6 +31,7 @@
           {
             "kind": "cloze",
             "concept": "ser_present",
+            "tier": "standard",
             "sentence": "Mi hermano ___ médico.",
             "answer": "es",
             "gloss": "My brother is a doctor.",
@@ -38,6 +40,7 @@
           {
             "kind": "recognition",
             "concept": "familia",
+            "tier": "core",
             "target": "familia",
             "gloss": "family",
             "distractors": ["friend", "house", "sister"]
@@ -75,6 +78,7 @@
           {
             "kind": "recognition",
             "concept": "possessive_adj",
+            "tier": "core",
             "target": "mi libro",
             "gloss": "my book",
             "distractors": ["your book", "his book", "our book"]
@@ -82,6 +86,7 @@
           {
             "kind": "production",
             "concept": "possessive_adj",
+            "tier": "standard",
             "gloss": "your book (informal)",
             "target": "tu libro",
             "distractors": ["mi libro", "su libro", "nuestro libro"]
@@ -89,6 +94,7 @@
           {
             "kind": "cloze",
             "concept": "possessive_adj",
+            "tier": "extra",
             "sentence": "___ familia es muy grande.",
             "answer": "Mi",
             "gloss": "My family is very big.",
@@ -123,6 +129,7 @@
           {
             "kind": "listening",
             "concept": "possessive_adj",
+            "tier": "core",
             "target": "su familia",
             "gloss": "his / her family",
             "distractors": ["mi familia", "tu familia", "nuestra familia"]
@@ -130,6 +137,7 @@
           {
             "kind": "cloze",
             "concept": "possessive_adj",
+            "tier": "standard",
             "sentence": "No encuentro ___ llaves.",
             "answer": "mis",
             "gloss": "I can't find my keys.",
@@ -138,6 +146,7 @@
           {
             "kind": "match",
             "concept": "possessive_adj",
+            "tier": "extra",
             "pairs": [
               {"target": "mi", "english": "my"},
               {"target": "tu", "english": "your (informal)"},
@@ -154,6 +163,7 @@
           {
             "kind": "reorder",
             "concept": "possessive_adj",
+            "tier": "core",
             "sentence": "Mi hermano trabaja en Madrid",
             "tokens": ["Mi", "hermano", "trabaja", "en", "Madrid"],
             "decoys": ["Mis"],
@@ -166,6 +176,7 @@
           {
             "kind": "reorder",
             "concept": "familia",
+            "tier": "extra",
             "sentence": "Su familia vive aquí",
             "tokens": ["Su", "familia", "vive", "aquí"],
             "decoys": ["Sus"],
