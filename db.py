@@ -900,7 +900,7 @@ async def get_admin_dashboard_stats() -> dict:
             _dates_by_user: dict[int, list[str]] = {}
             async for uid, sdate in cur:
                 _dates_by_user.setdefault(uid, []).append(sdate)
-        _today = _utc_today()
+        _today = _utc_today_date()
         for u in users:
             u["streak"] = _streak_from_dates(_dates_by_user.get(u["id"], []), _today)
 
@@ -2959,9 +2959,11 @@ async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]
         await db.commit()
 
 
-def _utc_today():
-    """Today in UTC — the day boundary used everywhere for streaks/activity
-    (SQLite `date('now')` is UTC), so reads and writes never disagree."""
+def _utc_today_date():
+    """Today in UTC as a `date` object — the day boundary used everywhere for
+    streaks/activity (SQLite `date('now')` is UTC), so reads and writes never
+    disagree. (Distinct from `_utc_today()` below, which returns an ISO string
+    for direct SQL comparisons.)"""
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).date()
 
@@ -2974,7 +2976,7 @@ def _streak_from_dates(dates_desc: list[str], today=None) -> int:
         return 0
     from datetime import date, timedelta
     if today is None:
-        today = _utc_today()
+        today = _utc_today_date()
     most_recent = date.fromisoformat(dates_desc[0])
     # Allow streak if most-recent activity is today or yesterday.
     if most_recent < today - timedelta(days=1):
@@ -3018,7 +3020,7 @@ async def set_streak(user_id: int, days: int) -> int:
     Days further back are left untouched. Idempotent. Returns the new streak."""
     from datetime import timedelta
     days = max(0, int(days))
-    today = _utc_today()
+    today = _utc_today_date()
     async with aiosqlite.connect(DB_PATH) as db:
         # Ensure the streak window is present.
         if days:
