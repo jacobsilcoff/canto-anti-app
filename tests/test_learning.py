@@ -60,7 +60,10 @@ def test_assemble_answer_keys_are_correct():
     }
     content = learning.assemble_lesson("es", _CONCEPTS, authored)
     segs = content["segments"]
-    assert len(segs) == 1
+    # Flat legacy shape wraps as one step; the grammar concept adds an "AI Speak"
+    # construction-drill segment at the end.
+    assert len(segs) == 2
+    assert segs[1]["speak"] is True
     ex = {e["type"]: e for e in segs[0]["exercises"]}
     # Recognition: prompt is the target, correct option is its English gloss.
     assert ex["choice"]["prompt"] == "la mesa" or ex["choice"]["prompt"] == "the book"
@@ -212,11 +215,13 @@ def test_french_cloze_uses_conjugation_oracle():
          "gloss": "We speak French.", "verb": "parler", "person": "nous",
          "distractors": ["parle", "parles"]},
     ]}
-    exs = learning.assemble_lesson("fr", concepts, authored)["segments"][0]["exercises"]
-    # The cloze, plus an auto-added construction_drill for the grammar concept.
-    cloze = next(e for e in exs if e["type"] == "choice")
+    segs = learning.assemble_lesson("fr", concepts, authored)["segments"]
+    # The cloze, plus a construction_drill for the grammar concept in its own
+    # final "AI Speak" segment.
+    cloze = next(e for e in segs[0]["exercises"] if e["type"] == "choice")
     assert cloze["options"][cloze["answer"]] == "parlons"
-    assert any(e["type"] == "construction_drill" for e in exs)
+    all_ex = [e for s in segs for e in s["exercises"]]
+    assert any(e["type"] == "construction_drill" for e in all_ex)
 
 
 # ── Drill validation: distractor hygiene + reorder backtracking ──────────────
@@ -332,13 +337,104 @@ def test_review_concepts_flag_kinds_but_lesson_registers_only_batch():
 def test_review_block_in_prompt():
     review = [{"kind": "vocab", "key": "casa", "label": "casa", "gloss": "house"}]
     prompt = learning._build_lesson_prompt("es", _CONCEPTS, [], None, review)
-    assert "REVIEW (interleaving)" in prompt
+    assert "REVIEW (warm-up)" in prompt
     assert "casa" in prompt
     assert "8–12" in prompt
+    # Review drills open the lesson as step 1's warm-up (C2).
+    assert "START of step 1" in prompt
     # Without review: no section, original drill count.
     prompt2 = learning._build_lesson_prompt("es", _CONCEPTS, [], None, None)
-    assert "REVIEW (interleaving)" not in prompt2
+    assert "REVIEW (warm-up)" not in prompt2
     assert "7–10" in prompt2
+
+
+def test_lesson_prompt_asks_for_steps():
+    prompt = learning._build_lesson_prompt("es", _CONCEPTS, [], None, None)
+    assert "2–4 BITE-SIZED STEPS" in prompt
+    assert '"steps"' in prompt
+    assert "quick_check" in prompt
+
+
+# ── Multi-step assembly (A1/A2/C1) ────────────────────────────────────────────
+
+def test_steps_become_segments():
+    authored = {
+        "intro": "intro line",
+        "steps": [
+            {"title": "Warm-up", "teach": [], "drills": [
+                {"kind": "recognition", "concept": "mesa", "target": "la mesa",
+                 "gloss": "the table", "distractors": ["the book", "the door"]},
+            ]},
+            {"title": "The pattern",
+             "teach": [{"type": "prose", "text": "Articles agree in gender."}],
+             "drills": [
+                {"kind": "production", "concept": "articles", "gloss": "the book",
+                 "target": "el libro", "distractors": ["la libro", "el mesa"]},
+             ]},
+            {"title": "Empty step", "teach": [], "drills": []},   # dropped
+        ],
+    }
+    segs = learning.assemble_lesson("es", _CONCEPTS, authored)["segments"]
+    # 2 surviving steps + the AI Speak segment for the grammar concept.
+    assert [s["title"] for s in segs] == ["Warm-up", "The pattern", "AI Speak"]
+    # Intro lands on the first segment only.
+    assert segs[0]["teach"]["intro"] == "intro line"
+    assert segs[1]["teach"]["intro"] == ""
+    assert segs[0]["exercises"][0]["type"] == "choice"
+    assert segs[1]["teach"]["blocks"][0]["type"] == "prose"
+    # The AI Speak segment has no teach and one construction drill.
+    assert segs[2]["speak"] is True and segs[2]["teach"] is None
+    assert [e["type"] for e in segs[2]["exercises"]] == ["construction_drill"]
+    assert segs[2]["exercises"][0]["construction"] == "el / la"
+
+
+def test_step_dedup_spans_steps():
+    # The same recognition answer in two different steps is still a duplicate.
+    drill = {"kind": "recognition", "concept": "mesa", "target": "la mesa",
+             "gloss": "the table", "distractors": ["the book", "the door"]}
+    authored = {"steps": [
+        {"title": "A", "teach": [], "drills": [dict(drill)]},
+        {"title": "B", "teach": [], "drills": [dict(drill)]},
+    ]}
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    segs = learning.assemble_lesson("es", concepts, authored)["segments"]
+    all_ex = [e for s in segs for e in s["exercises"]]
+    assert len(all_ex) == 1
+
+
+def test_quick_check_block_validated_and_keyed():
+    # quick_check: we place + shuffle the answer ourselves; the stored index is
+    # correct by construction. An answer missing from options is inserted.
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    authored = {"steps": [{"title": "T", "teach": [
+        {"type": "quick_check", "question": "Which means 'my books'?",
+         "options": ["mis libros", "mi libros"], "answer": "mis libros",
+         "why": "plural agrees"},
+        {"type": "quick_check", "question": "Pick one",
+         "options": ["b", "c"], "answer": "a", "why": ""},          # answer inserted
+        {"type": "quick_check", "question": "No foils",
+         "options": ["only"], "answer": "only", "why": ""},         # dropped
+        {"type": "quick_check", "question": "", "options": ["a", "b"],
+         "answer": "a", "why": ""},                                  # no question → dropped
+    ], "drills": []}]}
+    blocks = learning.assemble_lesson("es", concepts, authored)["segments"][0]["teach"]["blocks"]
+    qcs = [b for b in blocks if b["type"] == "quick_check"]
+    assert len(qcs) == 2
+    assert qcs[0]["options"][qcs[0]["answer"]] == "mis libros"
+    assert qcs[0]["why"] == "plural agrees"
+    assert qcs[1]["options"][qcs[1]["answer"]] == "a"
+    assert set(qcs[1]["options"]) == {"a", "b", "c"}
+
+
+def test_no_speak_segment_for_vocab_only_lesson():
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    authored = {"steps": [{"title": "T", "teach": [], "drills": [
+        {"kind": "recognition", "concept": "mesa", "target": "la mesa",
+         "gloss": "the table", "distractors": ["the book", "the door"]},
+    ]}]}
+    segs = learning.assemble_lesson("es", concepts, authored)["segments"]
+    assert len(segs) == 1
+    assert not any(s.get("speak") for s in segs)
 
 
 def test_pick_review_concepts_prefers_weak_then_rotates():

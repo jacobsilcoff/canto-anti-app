@@ -142,8 +142,31 @@
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
     .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
-    .player-bar { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
-    .player-bar-fill { height: 100%; background: var(--good); width: 0; transition: width 0.25s; }
+    /* Segmented step bar — one pill per lesson step (A1), filling left→right. */
+    .step-bar { flex: 1; display: flex; gap: 5px; }
+    .step-seg { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .step-fill { height: 100%; border-radius: 999px; background: var(--good); width: 0; transition: width 0.25s; }
+    .step-seg.speak .step-fill { background: var(--grammar-strong); }
+    .step-tag { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
+    .step-tag.speak { color: var(--grammar-strong); }
+    .teach-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 10px; }
+    /* C1 · teach card pager: thin dot progress, one block per screen. */
+    .teach-dots { display: flex; gap: 5px; justify-content: center; margin: 2px 0 14px; }
+    .teach-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: width 0.2s, background 0.2s; }
+    .teach-dots span.on { background: var(--primary); width: 18px; border-radius: 4px; }
+    /* C1 · quick check — formative one-tap check inside the teach flow. */
+    .qc { margin: 4px 0 16px; padding: 16px; border: 1.5px dashed var(--primary); border-radius: 14px; background: var(--primary-soft); }
+    .qc-kicker { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); margin-bottom: 8px; }
+    .qc-q { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
+    .qc-opt { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 11px 13px; font-size: 1.05rem; margin-bottom: 8px; cursor: pointer; color: var(--text); font-family: inherit; line-height: 1.9; }
+    .qc-opt .qc-mark { margin-left: auto; flex-shrink: 0; }
+    .qc.answered .qc-opt { cursor: default; }
+    .qc-opt.good { border-color: var(--good); background: var(--good-soft); }
+    .qc-opt.bad { border-color: var(--danger); background: var(--danger-soft); }
+    .qc-why { font-size: 0.8rem; color: var(--good-strong); font-weight: 600; margin-top: 2px; }
+    .qc-why small { display: block; font-weight: 500; color: var(--text-muted); margin-top: 3px; }
+    /* A2 · "Skip AI practice" ghost button under the construction drill. */
+    .cd-skip-btn { display: block; margin: 8px auto 0; background: none; border: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 700; cursor: pointer; padding: 6px 12px; }
     .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; overflow-wrap: break-word; }
     .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); overflow-wrap: break-word; min-width: 0; }
     .ex-prompt.english { font-family: inherit; }
@@ -604,20 +627,24 @@
   <div id="state-teach" style="display:none">
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
-      <div style="flex:1;font-weight:600" id="teach-title"></div>
+      <div class="step-bar" id="teach-stepbar"></div>
     </div>
+    <div class="step-tag" id="teach-step-tag" style="display:none"></div>
+    <div class="teach-title" id="teach-title"></div>
+    <div class="teach-dots" id="teach-dots" style="display:none"></div>
     <p class="teach-intro" id="teach-intro"></p>
     <div id="teach-items"></div>
-    <button class="cta-btn player-action" id="teach-action" onclick="startExercises()">Start exercises →</button>
+    <button class="cta-btn player-action" id="teach-action" onclick="onTeachAction()">Start exercises →</button>
   </div>
 
   <!-- Lesson player -->
   <div id="state-player" style="display:none">
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
-      <div class="player-bar"><div class="player-bar-fill" id="player-bar-fill"></div></div>
+      <div class="step-bar" id="player-stepbar"></div>
       <div class="combo-chip" id="combo-chip"><span class="combo-icon"><svg class="icon-svg" viewBox="0 0 14 22" width="10" height="15" aria-hidden="true"><path fill="#f0b429" d="M10 0L5 12H9L4 22 14 10H10Z"/></svg></span><span id="combo-n"></span></div>
     </div>
+    <div class="step-tag" id="step-tag" style="display:none"></div>
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
     <div id="exercise-root"></div>
@@ -1325,7 +1352,7 @@
     construction_drill: {
       render(ex, root, lang, onDone) {
         const construction = (ex.construction || ex.skill || '').trim();
-        let maxTurns = 4;
+        let maxTurns = 3;   // matches tutor.LESSON_DRILL_TURNS; the plan's length overrides
         let planItems = [];      // [{english, target}] — drill plan with reference translations
         let turn = 0, busy = false;
         let currentPhrase = null, lastFeedback = null, lastAnswer = null;
@@ -1347,6 +1374,7 @@
               <button class="cd-send" id="cd-send" type="button" title="Submit">➤</button>
             </div>
             <button class="cta-btn cd-continue" id="cd-continue" type="button" style="display:none">Continue →</button>
+            <button class="cd-skip-btn" id="cd-skip-btn" type="button">Skip AI practice</button>
           </div>`;
         const feedEl    = root.querySelector('#cd-feed');
         const promptEl  = root.querySelector('#cd-prompt');
@@ -1471,7 +1499,14 @@
 
         async function start() {
           const data = await call(null);
-          if (!data || !data.phrase) { promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`; root.querySelector('#cd-retry').onclick = start; return; }
+          // The learner may have skipped past this drill while the opener call was
+          // in flight — promptEl is detached then, and the retry button null.
+          if (!data || !data.phrase) {
+            promptEl.innerHTML = `<div class="cd-err">Couldn't start the drill — <button id="cd-retry" type="button">retry</button></div>`;
+            const retryBtn = promptEl.querySelector('#cd-retry');
+            if (retryBtn) retryBtn.onclick = start;
+            return;
+          }
           planItems = Array.isArray(data.plan_items) ? data.plan_items : [];
           if (planItems.length) maxTurns = planItems.length;
           showPrompt(data);
@@ -1526,12 +1561,20 @@
           currentPhrase = null; lastFeedback = null; lastAnswer = null;
           if (_cdDrillCleanup) _cdDrillCleanup();
           inputWrap.style.display = 'none'; promptEl.innerHTML = '';
+          skipEl.style.display = 'none';
           feedEl.innerHTML = `<div class="cd-done">Drill complete!</div>`;
           contEl.style.display = ''; contEl.onclick = () => onDone();
           scrollEl.scrollTop = scrollEl.scrollHeight;
           try { sfx.complete(); } catch {}
         }
 
+        // A2 · the AI step is skippable: counts as a formative pass, same as the
+        // LLM-failure path (never penalizes the learner).
+        const skipEl = root.querySelector('#cd-skip-btn');
+        skipEl.onclick = () => {
+          if (_cdDrillCleanup) _cdDrillCleanup();
+          onDone();
+        };
         sendEl.onclick = submit;
         inputEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
         start();
@@ -2001,9 +2044,39 @@
     },
   };
 
+  // Segmented step bar (A1): one pill per lesson step. Past steps are full, the
+  // current step fills with its own exercises, future steps are empty; the
+  // end-of-lesson mistake review shows everything full. Mirrored on the teach
+  // screen and the player. Also refreshes the "Step i of n · title" tag.
   function updateBar() {
-    const pct = player ? Math.min(100, Math.round(player.answered / player.total * 100)) : 0;
-    document.getElementById('player-bar-fill').style.width = pct + '%';
+    if (!player) return;
+    const segs = player.segments || [];
+    const html = segs.map((sg, i) => {
+      let pct = 0;
+      if (player.reviewStarted || i < player.segIdx) pct = 100;
+      else if (i === player.segIdx) {
+        const t = (player.segTotals || [])[i] || 0;
+        pct = t ? Math.min(100, Math.round(player.segAnswered / t * 100)) : 0;
+      }
+      return `<div class="step-seg${sg.speak ? ' speak' : ''}"><div class="step-fill" style="width:${pct}%"></div></div>`;
+    }).join('');
+    ['player-stepbar', 'teach-stepbar'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    });
+    const seg = segs[player.segIdx] || {};
+    let label = '';
+    if (segs.length > 1 && !player.reviewStarted) {
+      const t = seg.title || (seg.speak ? 'AI Speak' : '');
+      label = `Step ${player.segIdx + 1} of ${segs.length}` + (t ? ` · ${seg.speak ? '✨ ' : ''}${t}` : '');
+    }
+    ['step-tag', 'teach-step-tag'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = label;
+      el.style.display = label ? '' : 'none';
+      el.classList.toggle('speak', !!seg.speak);
+    });
   }
 
   // ── Gamification: combo meter + XP ──
@@ -2023,7 +2096,9 @@
     updateComboChip();
     const chip = document.getElementById('combo-chip');
     if (chip && player.combo >= 2) { chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); }
-    const top = document.querySelector('#state-player .player-top');
+    // Quick checks bump XP from the teach screen — float over whichever top bar is visible.
+    const top = document.querySelector(
+      (_currentState === 'teach' ? '#state-teach' : '#state-player') + ' .player-top');
     if (top) {
       const f = document.createElement('div');
       f.className = 'xp-float'; f.textContent = '+' + gained;
@@ -2086,12 +2161,13 @@
       const content = lesson.content || {};
       let segments = content.segments;
       if (!segments) segments = [{ teach: null, exercises: content.exercises || [] }];
-      const total = segments.reduce((s, sg) => s + (sg.exercises || []).length, 0);
+      const segTotals = segments.map(sg => (sg.exercises || []).length);
+      const total = segTotals.reduce((a, b) => a + b, 0);
       if (!total) throw new Error('empty');
       _prefetchLesson(content, lesson.target_lang);
       player = {
         lessonId: 0, lang: lesson.target_lang, title: lesson.title || 'Practice',
-        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         combo: 0, maxCombo: 0, xp: 0,
         controller: null, graded: false,
@@ -2123,8 +2199,9 @@
       if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
       // Count only the exercises this mode will actually play — 'llm' filters to
       // self-managed drills, so an unfiltered total would deflate the score/bar.
-      const total = segments.reduce((s, sg) => s + (sg.exercises || [])
-        .filter(e => mode !== 'llm' || SELF_MANAGED.has(e.type)).length, 0);
+      const segTotals = segments.map(sg => (sg.exercises || [])
+        .filter(e => mode !== 'llm' || SELF_MANAGED.has(e.type)).length);
+      const total = segTotals.reduce((a, b) => a + b, 0);
       if (mode === 'llm' && !total) {
         alert('This lesson has no AI practice drills — they\'re added for grammar lessons.');
         show('course'); return;
@@ -2139,7 +2216,7 @@
 
       player = {
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
-        segments, segIdx: 0, queue: [], idx: 0, total, answered: 0,
+        segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
         combo: 0, maxCombo: 0, xp: 0,   // gamification: in-lesson combo + earned XP
         controller: null, graded: false,
@@ -2164,21 +2241,39 @@
 
   function startSegment(i) {
     player.segIdx = i;
+    player.segAnswered = 0;
+    updateBar();
     const seg = player.segments[i];
     const teach = seg.teach;
     const hasTeach = teach && ((teach.items || []).length || teach.intro || (teach.blocks || []).length);
     if (hasTeach && !player.skipTeach) {
-      const n = player.segments.length;
-      document.getElementById('teach-title').textContent =
-        n > 1 ? `${player.title} · part ${i + 1}/${n}` : player.title;
-      const hasEx = (seg.exercises || []).length > 0;
-      document.getElementById('teach-action').textContent =
-        !hasEx ? 'Got it →' : (i === 0 ? 'Start exercises →' : 'Continue →');
+      document.getElementById('teach-title').textContent = player.title;
       renderTeach(teach);
       show('teach');
+      window.scrollTo(0, 0);
     } else {
       startExercises();
     }
+  }
+
+  // Teach "Continue/Start" button: advance the teach-card pager, then exercises.
+  function onTeachAction() {
+    if (player && player.teachPaged && player.teachIdx < player.teachBlocks.length - 1) {
+      player.teachIdx++;
+      renderTeachCard();
+    } else {
+      startExercises();
+    }
+  }
+
+  // Label for the teach action button. `last` = the pager is on its final card
+  // (always true for the single-scroll fallback).
+  function setTeachAction(last) {
+    const hasEx = ((player.segments[player.segIdx] || {}).exercises || []).length > 0;
+    document.getElementById('teach-action').textContent =
+      !last ? 'Continue →'
+        : hasEx ? 'Start exercises →'
+        : (player.segIdx < player.segments.length - 1 ? 'Continue →' : 'Got it →');
   }
 
   // Advance past a finished segment: next segment, then end-of-lesson review, then finish.
@@ -2232,13 +2327,15 @@
         _prewarmTTS(it.audio || it.target, lang);
         if (it.target && needsRuby(lang) && !_isLatin(it.target)) _fetchTokens(it.target, lang);
       }
-      // Teach blocks (table cells, example native text)
+      // Teach blocks (table cells, example native text, quick-check options)
       for (const blk of ((seg.teach || {}).blocks || [])) {
         for (const row of (blk.rows || []))
           for (const cell of row)
             if (cell && needsRuby(lang) && !_isLatin(cell)) _fetchTokens(cell, lang);
         for (const ex of (blk.examples || []))
           if (ex.native) { _prewarmTTS(ex.native, lang); if (needsRuby(lang) && !_isLatin(ex.native)) _fetchTokens(ex.native, lang); }
+        for (const opt of (blk.options || []))
+          if (opt && needsRuby(lang) && !_isLatin(opt)) _fetchTokens(opt, lang);
       }
       // Exercises — since all exercise text now gets hover/tap tooltips (hideRoman=true
       // with vocabGlossary), pre-warm ruby for every native-language string that will
@@ -2468,6 +2565,9 @@
       });
       return box;
     }
+    if (b.type === 'quick_check') {
+      return renderQuickCheck(b);
+    }
     if (b.type === 'contrast') {
       const card = document.createElement('div'); card.className = 'mp-card';
       [b.a, b.b].forEach(s => {
@@ -2484,6 +2584,19 @@
   }
 
   function renderTeach(teach) {
+    const blocks = teach.blocks || [];
+    // C1 · tap-through teach cards: one block per screen with a dot pager, so a
+    // grammar lesson's blocks never render as one wall of text. Foundations and
+    // legacy item-list lessons keep the single scroll page (their teach IS the
+    // lesson and is laid out as a unit).
+    player.teachPaged = !!player && player.theme !== 'foundations'
+      && !(teach.items || []).length && blocks.length > 1;
+    player.teachBlocks = blocks;
+    player.teachIntro = teach.intro || '';
+    player.teachIdx = 0;
+    if (player.teachPaged) { renderTeachCard(); return; }
+    document.getElementById('teach-dots').style.display = 'none';
+    setTeachAction(true);
     document.getElementById('teach-intro').textContent = teach.intro || '';
     const wrap = document.getElementById('teach-items');
     wrap.innerHTML = '';
@@ -2535,6 +2648,70 @@
     // hover/tap glosses from the lesson's vocab_glossary, with a live AI fallback
     // for words it didn't gloss (hybrid; off for the foundations reading track).
     applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
+  }
+
+  // One teach block per screen (C1). Intro rides on the first card only.
+  function renderTeachCard() {
+    const dots = document.getElementById('teach-dots');
+    dots.style.display = '';
+    dots.innerHTML = player.teachBlocks
+      .map((_, i) => `<span class="${i === player.teachIdx ? 'on' : ''}"></span>`).join('');
+    document.getElementById('teach-intro').textContent =
+      player.teachIdx === 0 ? player.teachIntro : '';
+    const wrap = document.getElementById('teach-items');
+    wrap.innerHTML = '';
+    const el = renderBlock(player.teachBlocks[player.teachIdx]);
+    if (el) wrap.appendChild(el);
+    applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
+    setTeachAction(player.teachIdx >= player.teachBlocks.length - 1);
+    window.scrollTo(0, 0);
+  }
+
+  // C1 · quick_check: a one-tap formative check inside the teach flow. Ungraded —
+  // it never joins the mistake queue, mastery ledger, or score, and a miss never
+  // breaks the combo; a correct tap still bumps combo/XP so it feels rewarding.
+  function renderQuickCheck(b) {
+    const box = document.createElement('div'); box.className = 'qc';
+    box.innerHTML = `<div class="qc-kicker">Quick check</div><div class="qc-q">${esc(b.question || '')}</div>`;
+    const lang = player && player.lang;
+    let answered = false;
+    const btns = [];
+    (b.options || []).forEach((o, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'qc-opt';
+      const inner = (needsRuby(lang) && !_isLatin(o)) ? targetSpan(o, lang) : esc(o);
+      btn.innerHTML = `<span>${inner}</span><span class="qc-mark"></span>`;
+      btn.onclick = () => {
+        if (answered) return;
+        answered = true;
+        box.classList.add('answered');
+        const ok = i === b.answer;
+        btn.classList.add(ok ? 'good' : 'bad');
+        btn.querySelector('.qc-mark').textContent = ok ? '✓' : '✗';
+        if (!ok && btns[b.answer]) {
+          btns[b.answer].classList.add('good');
+          btns[b.answer].querySelector('.qc-mark').textContent = '✓';
+        }
+        const why = document.createElement('div'); why.className = 'qc-why';
+        why.innerHTML = `${ok ? 'Right!' : 'Not quite.'} ${esc(b.why || '')}` +
+          '<small>Ungraded warm-up — it never counts against you.</small>';
+        box.appendChild(why);
+        if (ok) {
+          sfx.correct();
+          if (player) {
+            player.combo++;
+            player.maxCombo = Math.max(player.maxCombo, player.combo);
+            const gained = comboXp(player.combo);
+            player.xp += gained;
+            bumpCombo(gained);
+          }
+        } else { sfx.wrong(); }
+        try { if (navigator.vibrate) navigator.vibrate(ok ? 15 : [0, 30, 30, 30]); } catch {}
+      };
+      btns.push(btn);
+      box.appendChild(btn);
+    });
+    return box;
   }
 
   // Live word lookup is enabled for AI-lesson teach text (not foundations, where
@@ -2651,6 +2828,7 @@
 
   function advanceExercise() {
     player.answered++;
+    player.segAnswered++;
     player.idx++;
     if (player.idx >= player.queue.length) {
       if (player.reviewStarted) finishLesson();   // review queue exhausted
@@ -2894,9 +3072,15 @@
   document.addEventListener('keydown', e => {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-    if (_currentState === 'teach' && e.key === 'Enter') {
-      e.preventDefault();
-      document.getElementById('teach-action').click();
+    if (_currentState === 'teach') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('teach-action').click();
+      } else if (/^[1-9]$/.test(e.key)) {
+        // Quick-check options answer to number keys like exercise options do.
+        const b = document.querySelectorAll('#teach-items .qc-opt')[+e.key - 1];
+        if (b) b.click();
+      }
       return;
     }
     if (_currentState !== 'player' || !player) return;

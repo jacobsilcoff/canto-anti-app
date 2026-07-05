@@ -1,9 +1,13 @@
 # Lesson Redesign — audit + proposal (bite-sized steps, gamification, pacing, customization)
 
-> **Status: PROPOSAL — nothing here is implemented.** This doc + the mockups in
-> `mockups/lesson-redesign/` are the deliverable of a design/ideation pass. It is
-> written to be self-contained: a fresh Claude session should be able to implement
-> any phase below without other context. Review the mockups at
+> **Status: Phase 1 IMPLEMENTED (2026-07)** — A1 multi-segment steps, A2 skippable
+> 3-turn "AI Speak" construction step, C1 tap-through teach cards + `quick_check`
+> blocks, C2 review-as-warm-up. See `learning.assemble_lesson` (steps → segments),
+> `grammar_lessons._clean_block` (quick_check), and the learn.html player
+> (segmented step bar, teach pager, skip button). **Phases 2–3 remain proposals.**
+> This doc + the mockups in `mockups/lesson-redesign/` were the deliverable of the
+> design pass; it is written to be self-contained: a fresh Claude session should be
+> able to implement any remaining phase without other context. Review the mockups at
 > `https://dev.canto-ank.silcoff-labs.ca/mockups/lesson-redesign/` (dev-only, no login).
 
 ---

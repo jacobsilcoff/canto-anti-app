@@ -37,7 +37,7 @@ HISTORY_LIMIT = 20      # most recent messages serialized into the prompt
 MAX_CORRECTIONS = 3
 MAX_NEW_ITEMS = 4       # a little headroom for multiple ways to say an asked-for phrase
 MAX_POINT_ITEMS = 3     # ≤3 awards/message, 1–3 points each
-LESSON_DRILL_TURNS = 4  # how many phrases an inline lesson construction-drill poses
+LESSON_DRILL_TURNS = 3  # how many phrases an inline lesson construction-drill poses (its own "AI Speak" step)
 
 # Construction-drill vocab snapping (embedding-anchored, verify-fail fallback only).
 SNAP_THRESHOLD = 0.62   # cosine ≥ this ⇒ a known word can stand in for a missed word

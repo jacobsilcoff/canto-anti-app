@@ -12,9 +12,12 @@ Two LLM calls per lesson, BOTH adaptive (no frozen unit plan):
      re-deciding every lesson (so tutor chat / new cards steer what comes next).
 
   2. author_lesson()       — once per lesson. ONE LLM call authors the WHOLE
-     lesson together: free-form teach blocks AND the drills, for the skill +
-     items handed to it. Grammar and vocab are NOT segregated — the model sees
-     one palette (block types + drill kinds) and picks what the point needs.
+     lesson together as 2–4 bite-sized STEPS (each = 0–2 teach blocks + 3–5
+     drills, teach interleaved with practice; step 1 = review warm-up, final
+     step = mixed drills). Grammar and vocab are NOT segregated — the model
+     sees one palette (block types + drill kinds) and picks what the point
+     needs. Each step becomes one player segment; grammar concepts add a final
+     "AI Speak" construction-drill segment.
 
 The model for both calls is provider-pluggable via `llm.call` (Gemini or Claude),
 selected by the caller; the deterministic assembler below is identical regardless.
@@ -355,7 +358,13 @@ _BLOCK_TYPES = """\
       near-synonyms with different nuance. Label names the single differing feature.
   {"type":"note","text":"<tip, 'Don't say X — say Y', or exception — **bold** supported>"}
     → Highlighted callout box. Use for common learner errors, important exceptions,
-      'don't say...' warnings."""""
+      'don't say...' warnings.
+  {"type":"quick_check","question":"<one-line English question about the rule JUST shown>","options":["<native-script option>","<native-script option>"],"answer":"<the correct option, copied VERBATIM from options>","why":"<one line: why it's right>"}
+    → A one-tap formative check inside the teach flow ("Which one is correct?").
+      Insert one after every 1–2 teach blocks so the learner USES each rule
+      immediately instead of reading a wall of text. Ungraded — instant feedback
+      only, never counts toward the score. 2–3 options, EXACTLY one correct;
+      `answer` must match one option verbatim (we shuffle & key it ourselves)."""""
 
 
 def _concepts_block(concepts: list[dict]) -> str:
@@ -394,13 +403,14 @@ def _review_block(review: list[dict]) -> str:
         for c in review
     )
     return (
-        f"── REVIEW (interleaving) ──\n"
+        f"── REVIEW (warm-up) ──\n"
         f"These previously-taught concepts are due for review:\n{lines}\n"
         f"In ADDITION to the drills for the new concepts, include EXACTLY "
         f"{len(review)} drill(s) whose \"concept\" is one of these review keys — "
         f"use fresh sentences/contexts (not the ones they were taught with), and "
-        f"where natural COMBINE them with the new concepts. Place review drills "
-        f"between the new-concept drills, not all at the end.\n\n"
+        f"where natural COMBINE them with the new concepts. Place ALL review "
+        f"drills at the START of step 1 — retrieval practice on familiar material "
+        f"is the warm-up before any new input.\n\n"
     )
 
 
@@ -471,9 +481,24 @@ def _build_lesson_prompt(
         f"{deck_block}"
         f"{weak_block}"
         f"── TEACH EXACTLY THIS LESSON ({len(concepts)} concept(s); cover every listed item) ──\n{_concepts_block(concepts)}\n\n"
+        f"── LESSON SHAPE: 2–4 BITE-SIZED STEPS ──\n"
+        f"Structure the lesson as 2–4 STEPS, each a short teach → practise cycle "
+        f"(the learner plays them in order, one screen at a time):\n"
+        f"• STEP 1 = warm-up: any review drills, plus the lesson's gentlest hook (its "
+        f"single easiest new drill). Little or no teaching here.\n"
+        f"• Each MIDDLE step: at most 2 teach blocks introducing ONE slice of the "
+        f"material, then 3–5 drills practising exactly that slice. Teach a little, "
+        f"use it immediately — never front-load all the teaching.\n"
+        f"• FINAL step: no new teaching — 3–5 mixed drills combining everything.\n"
+        f"• Give each step a short `title` (2–4 English words, e.g. \"Warm-up\", "
+        f"\"The pattern\", \"Mix it up\").\n"
+        f"A short vocab-only lesson may use just 2 steps (debut + mix). The teach-block "
+        f"and drill guidance below applies to the WHOLE lesson, spread across steps.\n\n"
         f"── TEACH BLOCKS ──\n"
-        f"Write a TEXTBOOK PAGE for these concepts. The learner should finish the teach "
-        f"section with a thorough understanding — not just surface familiarity.\n"
+        f"Write a TEXTBOOK PAGE for these concepts, split across the steps. The learner "
+        f"should finish the lesson with a thorough understanding — not just surface "
+        f"familiarity — but must never face a wall of text: after every 1–2 blocks, "
+        f"either a quick_check or the step's drills put the rule to work.\n"
         f"• GRAMMAR concepts: aim for 4–8 blocks. Open with a PROSE rule, follow with a "
         f"TABLE if there's a paradigm (pronoun charts, tone tables, aspect markers), then "
         f"EXAMPLES with `lit` fields where word order diverges from English, then at "
@@ -488,7 +513,8 @@ def _build_lesson_prompt(
         f"topic-comment structure, copula-less sentences, postpositions/particles).\n"
         f"Block types:\n{_BLOCK_TYPES}\n\n"
         f"{_review_block(review or [])}"
-        f"── DRILLS ──\nAuthor {n_drills} drills for these concepts, in EASY → HARD order "
+        f"── DRILLS ──\nAuthor {n_drills} drills for these concepts across the steps, in "
+        f"EASY → HARD order overall "
         f"(DO NOT shuffle — the order is intentional and the learner sees them in sequence).\n"
         f"VARIETY IS CRITICAL: each drill must use DIFFERENT vocabulary and sentence context "
         f"than every other drill. Never repeat the same word as the answer/prompt across "
@@ -535,8 +561,7 @@ def _build_lesson_prompt(
         '  "objective": "<what the learner can do after this, one sentence>",\n'
         '  "intro": "<1 English sentence introducing this micro-lesson>",\n'
         '  "summary": "<20 words or less listing the specific items taught>",\n'
-        '  "teach": [ <blocks> ],\n'
-        '  "drills": [ <drills> ],\n'
+        '  "steps": [ {"title": "<2-4 word step label>", "teach": [ <blocks> ], "drills": [ <drills> ]}, ... ],\n'
         '  "vocab_glossary": {"<native token>": "<English, 1-3 words>", ...}\n'
         '}'
     )
@@ -729,11 +754,22 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     return None
 
 
+_MAX_STEPS = 5   # authored steps kept per lesson (the prompt asks for 2–4)
+
+
 def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> dict:
     """Validate + assemble authored output into the stored lesson content.
     Pure/deterministic. Returns {"vocab_glossary": {...}, "segments": [...]}
 
-    `authored` — output of author_lesson() ({intro, teach, drills, vocab_glossary}).
+    `authored` — output of author_lesson(): {intro, steps: [{title, teach,
+    drills}], vocab_glossary}. The legacy flat shape ({teach, drills}) is still
+    accepted and wrapped as a single step, so an old-style model reply (or an
+    old golden example) keeps working.
+
+    Each authored step becomes one player segment (the player already supports
+    multi-segment lessons); the construction drill for grammar concepts is
+    emitted as its OWN final "AI Speak" segment instead of trailing the drill
+    run, so it reads as a feature, not a tail.
 
     `vocab_glossary` = {native_word: English} for words used in TEACH text. The
     client reveals these on hover/tap (hidden by default), so we don't try to guess
@@ -764,52 +800,77 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
     # Concept entries take priority over LLM entries for the same word.
     vocab_glossary = {**llm_glossary, **concept_glossary}
 
-    blocks = []
-    for b in (authored.get("teach") or []):
-        cleaned = _clean_block(b, rom)
-        if cleaned:
-            blocks.append(cleaned)
+    # Authored steps → segments. Legacy flat shape wraps as a single step.
+    steps = authored.get("steps")
+    if not isinstance(steps, list) or not steps:
+        steps = [{"title": "", "teach": authored.get("teach") or [],
+                  "drills": authored.get("drills") or []}]
 
-    exercises = []
-    seen_drills = set()
-    for d in (authored.get("drills") or []):
-        ex = _assemble_drill(d, target_lang, kinds, rom)
-        if not ex:
+    intro = (authored.get("intro") or "").strip()
+    segments = []
+    seen_drills = set()   # dedup across the WHOLE lesson, not per step
+    for st in steps[:_MAX_STEPS]:
+        if not isinstance(st, dict):
             continue
-        # Dedup: skip drills that test the same answer in the same drill type.
-        etype = ex.get("type", "")
-        if etype in ("choice", "listening"):
-            opts = ex.get("options") or []
-            ans_idx = ex.get("answer", 0)
-            ans_key = _norm(opts[ans_idx]) if 0 <= ans_idx < len(opts) else ""
-            dedup_key = (etype, ex.get("instruction", ""), ans_key)
-            if ans_key and dedup_key in seen_drills:
-                continue
-            if ans_key:
-                seen_drills.add(dedup_key)
-        exercises.append(ex)
+        blocks = []
+        for b in (st.get("teach") or []):
+            cleaned = _clean_block(b, rom)
+            if cleaned:
+                blocks.append(cleaned)
 
-    # Inline construction drill for each NEW grammar concept: an interactive,
-    # LLM-graded "translate this phrase" practice (rendered by the lesson player,
-    # graded by /api/lesson/drill). Appended after the deterministic drills so the
-    # learner meets the form in graded drills first, then produces it freely.
+        exercises = []
+        for d in (st.get("drills") or []):
+            ex = _assemble_drill(d, target_lang, kinds, rom)
+            if not ex:
+                continue
+            # Dedup: skip drills that test the same answer in the same drill type.
+            etype = ex.get("type", "")
+            if etype in ("choice", "listening"):
+                opts = ex.get("options") or []
+                ans_idx = ex.get("answer", 0)
+                ans_key = _norm(opts[ans_idx]) if 0 <= ans_idx < len(opts) else ""
+                dedup_key = (etype, ex.get("instruction", ""), ans_key)
+                if ans_key and dedup_key in seen_drills:
+                    continue
+                if ans_key:
+                    seen_drills.add(dedup_key)
+            exercises.append(ex)
+
+        if not blocks and not exercises:
+            continue   # nothing survived validation — drop the empty step
+        segments.append({
+            "title": (st.get("title") or "").strip(),
+            "teach": {"intro": intro if not segments else "", "blocks": blocks},
+            "exercises": exercises,
+        })
+
+    # Construction drill for each grammar concept: an interactive, LLM-graded
+    # "translate this phrase" practice (rendered by the lesson player, graded by
+    # /api/lesson/drill). Emitted as its OWN final segment — a visible "AI Speak"
+    # step instead of a tail on an already-long drill run (skippable client-side).
+    speak_exercises = []
     for c in concepts:
         if (c.get("kind") or "vocab") != "grammar":
             continue
         label = (c.get("label") or "").strip()
         if label:
-            exercises.append({
+            speak_exercises.append({
                 "type": "construction_drill",
                 "concept_key": (c.get("key") or "").strip(),
                 "grammar": True,
                 "construction": label,
             })
+    if speak_exercises:
+        segments.append({
+            "title": "AI Speak", "speak": True,
+            "teach": None, "exercises": speak_exercises,
+        })
 
-    segment = {
-        "teach": {"intro": (authored.get("intro") or "").strip(), "blocks": blocks},
-        "exercises": exercises,
-    }
-    return {"vocab_glossary": vocab_glossary, "segments": [segment]}
+    if not segments:
+        # Preserve the old contract: a lesson always has at least one segment.
+        segments = [{"title": "", "teach": {"intro": intro, "blocks": []},
+                     "exercises": []}]
+    return {"vocab_glossary": vocab_glossary, "segments": segments}
 
 
 async def author_lesson(

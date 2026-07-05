@@ -266,6 +266,27 @@ def _clean_block(b: dict, rom) -> dict | None:
                 "a": {"text": at, "gloss": (a.get("gloss") or "").strip(), "roman": rom(at)},
                 "b": {"text": bt, "gloss": (bb.get("gloss") or "").strip(), "roman": rom(bt)},
                 "label": (b.get("label") or "").strip()}
+    if t == "quick_check":
+        # Formative one-tap check inside the teach flow. Same trust model as
+        # drills — the model supplies the correct answer STRING, we place and
+        # shuffle it ourselves so the stored index is correct by construction.
+        q = (b.get("question") or "").strip()
+        ans = (b.get("answer") or "").strip()
+        opts, seen = [], set()
+        for o in (b.get("options") or []):
+            o = str(o or "").strip()
+            if o and o not in seen:
+                seen.add(o)
+                opts.append(o)
+        if not q or not ans:
+            return None
+        foils = [o for o in opts if o != ans][:2]
+        if not foils:
+            return None
+        opts = [ans] + foils
+        random.shuffle(opts)
+        return {"type": "quick_check", "question": q, "options": opts,
+                "answer": opts.index(ans), "why": (b.get("why") or "").strip()}
     return None
 
 
