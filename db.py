@@ -892,6 +892,18 @@ async def get_admin_dashboard_stats() -> dict:
         ) as cur:
             users = [dict(r) for r in await cur.fetchall()]
 
+        # ── Current streak per user (computed in Python from one query so it
+        #    matches get_streak exactly) ──
+        async with db.execute(
+            "SELECT user_id, study_date FROM study_activity ORDER BY user_id, study_date DESC"
+        ) as cur:
+            _dates_by_user: dict[int, list[str]] = {}
+            async for uid, sdate in cur:
+                _dates_by_user.setdefault(uid, []).append(sdate)
+        _today = _utc_today_date()
+        for u in users:
+            u["streak"] = _streak_from_dates(_dates_by_user.get(u["id"], []), _today)
+
         # ── DAU / WAU / MAU ──
         async with db.execute(
             """SELECT
@@ -2947,6 +2959,40 @@ async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]
         await db.commit()
 
 
+def _utc_today_date():
+    """Today in UTC as a `date` object — the day boundary used everywhere for
+    streaks/activity (SQLite `date('now')` is UTC), so reads and writes never
+    disagree. (Distinct from `_utc_today()` below, which returns an ISO string
+    for direct SQL comparisons.)"""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).date()
+
+
+def _streak_from_dates(dates_desc: list[str], today=None) -> int:
+    """Count the current streak (consecutive days ending today or yesterday)
+    from a DESC-sorted list of ISO date strings. Pure — shared by get_streak and
+    the admin dashboard so they can never compute the streak differently."""
+    if not dates_desc:
+        return 0
+    from datetime import date, timedelta
+    if today is None:
+        today = _utc_today_date()
+    most_recent = date.fromisoformat(dates_desc[0])
+    # Allow streak if most-recent activity is today or yesterday.
+    if most_recent < today - timedelta(days=1):
+        return 0
+    streak = 0
+    expected = today if most_recent == today else today - timedelta(days=1)
+    for row in dates_desc:
+        d = date.fromisoformat(row)
+        if d == expected:
+            streak += 1
+            expected -= timedelta(days=1)
+        elif d < expected:
+            break
+    return streak
+
+
 async def get_streak(user_id: int) -> int:
     """Return the user's current study streak in days.
 
@@ -2960,30 +3006,39 @@ async def get_streak(user_id: int) -> int:
             (user_id,),
         ) as cur:
             rows = [r[0] async for r in cur]
+    return _streak_from_dates(rows)
 
-    if not rows:
-        return 0
 
-    from datetime import date, datetime, timedelta, timezone
-    # Use UTC to match how activity is RECORDED (SQLite `date('now')` is UTC).
-    # Using local `date.today()` here would disagree with the stored dates on
-    # any non-UTC server, miscounting (or zeroing) the streak near midnight.
-    today = datetime.now(timezone.utc).date()
-    # Allow streak if most-recent activity is today or yesterday.
-    most_recent = date.fromisoformat(rows[0])
-    if most_recent < today - timedelta(days=1):
-        return 0
+async def set_streak(user_id: int, days: int) -> int:
+    """Admin override: force a user's current streak to exactly `days`.
 
-    streak = 0
-    expected = today if most_recent == today else today - timedelta(days=1)
-    for row in rows:
-        d = date.fromisoformat(row)
-        if d == expected:
-            streak += 1
-            expected -= timedelta(days=1)
-        elif d < expected:
-            break
-    return streak
+    Streaks aren't stored as a number — they're derived from `study_activity`
+    rows — so we reshape those rows (all dates in UTC, matching get_streak):
+      - backfill the most recent `days` days (offsets 0..days-1) ending today, and
+      - clear the boundary day at offset `days` so the count stops at exactly
+        `days` (and, for days==0, also clear yesterday so the streak lapses).
+    Days further back are left untouched. Idempotent. Returns the new streak."""
+    from datetime import timedelta
+    days = max(0, int(days))
+    today = _utc_today_date()
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Ensure the streak window is present.
+        if days:
+            await db.executemany(
+                "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
+                [(user_id, (today - timedelta(days=n)).isoformat()) for n in range(days)],
+            )
+        # Clear the day(s) just past the window so the streak can't run longer.
+        # days==0 also clears yesterday so most-recent < yesterday (streak = 0).
+        boundary = [(today - timedelta(days=days)).isoformat()]
+        if days == 0:
+            boundary.append((today - timedelta(days=1)).isoformat())
+        await db.executemany(
+            "DELETE FROM study_activity WHERE user_id=? AND study_date=?",
+            [(user_id, d) for d in boundary],
+        )
+        await db.commit()
+    return await get_streak(user_id)
 
 
 async def record_study_activity(user_id: int) -> None:
