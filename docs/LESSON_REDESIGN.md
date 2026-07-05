@@ -8,7 +8,14 @@
 > B1 daily quests + chest (`daily_quests` table, `/api/quests*`, Learn/Home/results
 > surfaces), B3 unit checkpoint quizzes (`course_units.checkpoint_*`,
 > `/api/units/{id}/checkpoint`, 🛡 path node), D1 adjustable `daily_xp_goal`
-> setting, C3 results recap card. **Phase 3 remains a proposal.**
+> setting, C3 results recap card. Phase 3: B2 friends weekly XP league
+> (`/api/league`, `db.get_weekly_league`, Learn strip + sheet), A3 lesson-length
+> presets (`learning.LESSON_LENGTHS`, `lesson_length` setting), D2 course-focus
+> dial (`learning.COURSE_FOCUSES`, `course_focus` setting), D3 lesson intro sheet
+> (`openLessonIntro`), A4 test-out quiz (`startTestOut`, deterministic from
+> stored drills). **All three phases (1–3) are now implemented; only the "Later"
+> nice-to-haves (B4 lightning, B5 streak freeze, B6 practice hub, C4 variants,
+> D4 feedback) remain.**
 > This doc + the mockups in `mockups/lesson-redesign/` were the deliverable of the
 > design pass; it is written to be self-contained: a fresh Claude session should be
 > able to implement any remaining phase without other context. Review the mockups at
@@ -303,9 +310,9 @@ drills"). Cheap personalization loop with zero new UI surface elsewhere.
 
 | Phase | Contents | Rationale |
 |---|---|---|
-| **1 — the shape change** | A1 steps + A2 construction-step + C2 warm-up + C1 teach cards/quick-checks | One coherent generation+player change; transforms perceived length. All four touch the same prompt/assembler/player code — do together, one PR. |
-| **2 — the motivation layer** | B1 quests + B3 checkpoints + D1 daily goal + C3 recap | Mid-term goals; all deterministic (no new LLM spend). |
-| **3 — social + agency** | B2 league + A3 length + D2 focus + D3 intro sheet + A4 test-out | League is the only multi-user feature (needs friends adoption); the rest is settings plumbing. |
+| **1 — the shape change** ✅ | A1 steps + A2 construction-step + C2 warm-up + C1 teach cards/quick-checks | One coherent generation+player change; transforms perceived length. All four touch the same prompt/assembler/player code — do together, one PR. |
+| **2 — the motivation layer** ✅ | B1 quests + B3 checkpoints + D1 daily goal + C3 recap | Mid-term goals; all deterministic (no new LLM spend). |
+| **3 — social + agency** ✅ | B2 league + A3 length + D2 focus + D3 intro sheet + A4 test-out | League is the only multi-user feature (needs friends adoption); the rest is settings plumbing. |
 | Later | B4 lightning, B5 freeze, B6 practice hub, C4 variants, D4 feedback | Nice-to-haves once the above proves out. |
 
 Estimated total for Phases 1–3: ~6–9 focused sessions. Phase 1 alone is

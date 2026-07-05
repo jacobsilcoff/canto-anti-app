@@ -1441,6 +1441,16 @@ def _valid_lesson_model(value: str | None) -> str | None:
     return value if value in LESSON_MODEL_ALLOWLIST else None
 
 
+def _valid_lesson_length(value: str | None) -> str:
+    """A3 · lesson length setting; anything unknown falls back to standard."""
+    return value if value in learning.LESSON_LENGTHS else "standard"
+
+
+def _valid_course_focus(value: str | None) -> str:
+    """D2 · course focus dial; anything unknown falls back to balanced."""
+    return value if value in learning.COURSE_FOCUSES else "balanced"
+
+
 def _plan_limit(user: dict) -> int:
     return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
 
@@ -1850,6 +1860,8 @@ async def get_settings(user: dict = Depends(current_user)):
         "chat_compact_phrases": (await db.get_setting(user["id"], "chat_compact_phrases") or "false") == "true",
         "populate_min_score": populate_min_score,
         "daily_xp_goal": await _daily_goal(user["id"]),
+        "lesson_length": _valid_lesson_length(await db.get_setting(user["id"], "lesson_length")),
+        "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
     }
 
 
@@ -1869,6 +1881,8 @@ class SettingsUpdate(BaseModel):
     chat_compact_phrases: bool | None = None
     populate_min_score: float | None = None
     daily_xp_goal: int | None = None
+    lesson_length: str | None = None
+    course_focus: str | None = None
 
 
 @app.put("/api/settings")
@@ -1926,6 +1940,14 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if not 10 <= req.daily_xp_goal <= 200:
             raise HTTPException(400, "daily_xp_goal must be 10–200")
         await db.set_setting(user["id"], "daily_xp_goal", req.daily_xp_goal)
+    if req.lesson_length is not None:
+        if req.lesson_length not in learning.LESSON_LENGTHS:
+            raise HTTPException(400, "lesson_length must be quick/standard/thorough")
+        await db.set_setting(user["id"], "lesson_length", req.lesson_length)
+    if req.course_focus is not None:
+        if req.course_focus not in learning.COURSE_FOCUSES:
+            raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
+        await db.set_setting(user["id"], "course_focus", req.course_focus)
     return {"success": True}
 
 
@@ -2250,6 +2272,17 @@ async def quest_progress(req: QuestProgressRequest, user: dict = Depends(current
                         amount=max(0, min(20, req.amount)),
                         value=None if req.value is None else max(0, min(500, req.value)))
     return _quests_payload(await db.get_daily_quests(user["id"]))
+
+
+@app.get("/api/league")
+async def get_league(user: dict = Depends(current_user)):
+    """B2 · friends weekly XP league: user + accepted friends ranked by XP
+    earned this ISO week (points_ledger window query — weekly reset is
+    implicit). Empty league (no friends) → the client hides the strip."""
+    league = await db.get_weekly_league(user["id"])
+    from datetime import datetime, timezone
+    days_left = 7 - datetime.now(timezone.utc).date().weekday()
+    return {"league": league, "days_left": days_left}
 
 
 @app.post("/api/quests/claim")
@@ -3103,12 +3136,16 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     recent_cards: list[dict] = []
     learner_profile = ""
     cefr_spread = ""
+    course_focus = "balanced"      # D2 · planner steering
+    lesson_length = "standard"     # A3 · author drill/step budget
     if user_id:
         mastery = await db.get_mastery_summary(user_id, lang)
         known_words = await db.get_known_words(user_id, lang)
         weak_words = await db.get_weak_cards(user_id, lang)
         recent_cards = await db.get_recent_cards(user_id, lang)
         learner_profile = await db.get_setting(user_id, "learner_profile") or ""
+        course_focus = _valid_course_focus(await db.get_setting(user_id, "course_focus"))
+        lesson_length = _valid_lesson_length(await db.get_setting(user_id, "lesson_length"))
         try:
             cefr_spread = await _known_cefr_stats(user_id, lang, access.api_key)
         except Exception:
@@ -3125,6 +3162,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             learner_profile=learner_profile, mastery=mastery,
             known_words=known_words, weak_words=weak_words,
             recent_cards=recent_cards, cefr_spread=cefr_spread,
+            course_focus=course_focus,
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
         )
     except Exception as e:
@@ -3171,6 +3209,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
             taught=ctx["concept_registry"], review=review,
             known_words=known_words, weak_words=weak_words, brief=brief,
+            length=lesson_length,
         )
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
@@ -3327,6 +3366,7 @@ class CompleteLessonRequest(BaseModel):
     score: int = 0
     results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes
     xp: int = 0                # XP earned this lesson (base + combo + perfect), client-computed
+    tested_out: bool = False   # A4 · completed via the 4-question test-out quiz (half XP, client-halved)
 
 
 _MAX_LESSON_XP = 300   # clamp client-reported XP so the ledger can't be inflated

@@ -154,6 +154,22 @@ def _chapter_block(chapter: dict | None) -> str:
     )
 
 
+# D2 · course focus dial (user setting `course_focus`): one steering line in the
+# planner prompt. "balanced" (the default) adds nothing.
+COURSE_FOCUSES = {
+    "balanced": "",
+    "grammar": ("The learner set their course focus to GRAMMAR: prefer grammar-pattern "
+                "skills over plain vocab sets; introduce new vocab mainly in service of "
+                "a structure."),
+    "vocab": ("The learner set their course focus to VOCABULARY: prefer themed word-set "
+              "lessons; introduce grammar only when it unblocks using the words."),
+    "conversation": ("The learner set their course focus to CONVERSATION: prefer usable "
+                     "phrase patterns and sentence frames (asking, answering, reacting) "
+                     "that yield speakable sentences immediately — grammar taught as "
+                     "phrase patterns, vocab chosen for dialogue."),
+}
+
+
 def _build_plan_prompt(
     target_lang: str, level_target: str,
     concept_registry: list[dict], recent_summaries: list[dict],
@@ -161,6 +177,7 @@ def _build_plan_prompt(
     learner_profile: str = "", mastery: list[dict] | None = None,
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
     recent_cards: list[dict] | None = None, cefr_spread: str = "",
+    course_focus: str = "balanced",
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -168,6 +185,11 @@ def _build_plan_prompt(
     profile_section = ""
     if (learner_profile or "").strip():
         profile_section = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n"
+
+    focus_section = ""
+    focus_line = COURSE_FOCUSES.get(course_focus, "")
+    if focus_line:
+        focus_section = f"── COURSE FOCUS ──\n{focus_line}\n\n"
 
     level_section = ""
     if (cefr_spread or "").strip():
@@ -218,6 +240,7 @@ def _build_plan_prompt(
         f"from the learner's live state — not a fixed syllabus.\n\n"
         f"{_lang_preamble(info)}"
         f"{profile_section}"
+        f"{focus_section}"
         f"{level_section}"
         f"{mastery_section}"
         f"{deck_section}"
@@ -279,6 +302,7 @@ async def plan_next_lesson(
     weak_words: list[dict] | None = None,
     recent_cards: list[dict] | None = None,
     cefr_spread: str = "",
+    course_focus: str = "balanced",
     api_key: str,
     anthropic_key: str | None = None,
     model: str = DEFAULT_MODEL,
@@ -295,6 +319,7 @@ async def plan_next_lesson(
         learner_profile=learner_profile, mastery=mastery,
         known_words=known_words, weak_words=weak_words,
         recent_cards=recent_cards, cefr_spread=cefr_spread,
+        course_focus=course_focus,
     )
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
@@ -442,11 +467,33 @@ def _brief_block(brief: dict | None) -> str:
     return "\n".join(lines) + "\n\n"
 
 
+# A3 · lesson length presets (user setting `lesson_length`). Each tunes the
+# drill count, step count, and teach depth in the author prompt; "standard" is
+# the pre-existing shape. Applies at GENERATION time (stored lessons keep the
+# shape they were authored with).
+LESSON_LENGTHS = {
+    "quick": {
+        "drills": "4–6", "drills_review": "5–7", "steps": "exactly 2",
+        "teach": ("Keep teaching ULTRA-COMPRESSED: at most 2 short blocks in the whole "
+                  "lesson — one rule statement and one example set. This learner asked "
+                  "for quick lessons."),
+    },
+    "standard": {
+        "drills": "7–10", "drills_review": "8–12", "steps": "2–4", "teach": "",
+    },
+    "thorough": {
+        "drills": "10–14", "drills_review": "12–16", "steps": "3–4",
+        "teach": ("This learner asked for THOROUGH lessons: include an extra examples "
+                  "block per concept and drill each item from more than one angle."),
+    },
+}
+
+
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
     taught: list[dict] | None = None, review: list[dict] | None = None,
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
-    brief: dict | None = None,
+    brief: dict | None = None, length: str = "standard",
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -470,7 +517,9 @@ def _build_lesson_prompt(
             f"naturally, work 1–2 of them into example sentences or drills (set the "
             f"drill's \"concept\" to the lesson concept it practises). Don't force it.\n\n"
         )
-    n_drills = "8–12" if review else "7–10"
+    ln = LESSON_LENGTHS.get(length) or LESSON_LENGTHS["standard"]
+    n_drills = ln["drills_review"] if review else ln["drills"]
+    length_note = (ln["teach"] + "\n") if ln["teach"] else ""
     return (
         f"You are an expert {name} teacher. Author ONE focused micro-lesson "
         f"(teach blocks + drills together) for an English speaker.\n\n"
@@ -481,8 +530,9 @@ def _build_lesson_prompt(
         f"{deck_block}"
         f"{weak_block}"
         f"── TEACH EXACTLY THIS LESSON ({len(concepts)} concept(s); cover every listed item) ──\n{_concepts_block(concepts)}\n\n"
-        f"── LESSON SHAPE: 2–4 BITE-SIZED STEPS ──\n"
-        f"Structure the lesson as 2–4 STEPS, each a short teach → practise cycle "
+        f"── LESSON SHAPE: {ln['steps'].upper()} BITE-SIZED STEPS ──\n"
+        f"{length_note}"
+        f"Structure the lesson as {ln['steps']} STEPS, each a short teach → practise cycle "
         f"(the learner plays them in order, one screen at a time):\n"
         f"• STEP 1 = warm-up: any review drills, plus the lesson's gentlest hook (its "
         f"single easiest new drill). Little or no teaching here.\n"
@@ -886,6 +936,7 @@ async def author_lesson(
     known_words: list[dict] | None = None,
     weak_words: list[dict] | None = None,
     brief: dict | None = None,
+    length: str = "standard",
 ) -> dict:
     """One LLM call: author teach blocks + drills for the given skill/concepts
     together, then validate/assemble. Returns lesson metadata + content + raw strings.
@@ -903,7 +954,8 @@ async def author_lesson(
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review,
-                                  known_words=known_words, weak_words=weak_words, brief=brief)
+                                  known_words=known_words, weak_words=weak_words, brief=brief,
+                                  length=length)
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
 

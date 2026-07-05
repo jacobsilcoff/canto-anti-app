@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 18;
+  var TOUR_VERSION = 19;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -47,6 +47,8 @@
       body: 'New lessons are split into short steps \u2014 a warm-up on things you know, teach-a-little-then-practice cards with instant quick checks, a mix-it-up round, and a skippable \u2728 AI Speak finale. The step bar at the top shows exactly where you are.', v: 17 },
     { icon: '\ud83c\udf81', title: 'Daily quests & checkpoints',
       body: 'Three fresh quests every day \u2014 finish all three to open a bonus-XP chest. Finished units on the Learn path now end in a \ud83d\udee1 checkpoint quiz that seals the unit, and you can set your own daily XP goal in Settings.', v: 18 },
+    { icon: '\ud83c\udfc6', title: 'Compete, shape, and skip',
+      body: 'Race friends on a weekly XP league right on the Learn page. Tapping a lesson opens an overview where you can pick its length or \ud83c\udf93 test out if you already know it. Set a course focus (grammar, vocab, or conversation) in Settings.', v: 19 },
   ];
 
   var steps, stepIdx;

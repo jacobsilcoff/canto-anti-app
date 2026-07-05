@@ -3300,6 +3300,44 @@ async def claim_daily_chest(user_id: int) -> int | None:
     return chest_xp_for(user_id, today)
 
 
+# ── Friends weekly XP league (lesson redesign B2) ────────────────────────────
+
+async def get_weekly_league(user_id: int) -> list[dict]:
+    """XP earned this ISO week (Mon 00:00 UTC) by the user + accepted friends,
+    ranked descending. No new tables — one aggregate over points_ledger.
+    Returns [] when the user has no friends (the UI hides the strip)."""
+    friends = (await get_friends(user_id))["friends"]
+    if not friends:
+        return []
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone.utc).date()
+    week_start = (today - timedelta(days=today.weekday())).isoformat()
+
+    names = {f["user_id"]: f["username"] for f in friends}
+    ids = [user_id] + list(names)
+    placeholders = ",".join("?" * len(ids))
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT username FROM users WHERE id=?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            names[user_id] = row[0] if row else "you"
+        async with db.execute(
+            f"""SELECT user_id, COALESCE(SUM(points), 0) AS xp FROM points_ledger
+                WHERE user_id IN ({placeholders}) AND date(created_at) >= ?
+                GROUP BY user_id""",
+            (*ids, week_start),
+        ) as cur:
+            xp = {r[0]: r[1] for r in await cur.fetchall()}
+
+    rows = [{"user_id": uid, "username": names[uid], "xp": xp.get(uid, 0),
+             "you": uid == user_id} for uid in ids]
+    rows.sort(key=lambda r: (-r["xp"], r["username"].lower()))
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+    return rows
+
+
 # ── Unit checkpoints (lesson redesign B3) ────────────────────────────────────
 
 async def get_unit_checkpoint_pool(user_id: int, unit_id: int) -> dict | None:

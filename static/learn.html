@@ -173,6 +173,78 @@
       border-radius: 999px; padding: 7px 16px; font-weight: 800; font-size: 0.8rem; cursor: pointer; }
     .chest .chest-open:active { transform: translateY(1px); }
 
+    /* ── B2 · friends weekly league strip + sheet ── */
+    .league { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 18px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 14px);
+      box-shadow: var(--shadow); cursor: pointer; }
+    .league .medal { font-size: 1.25rem; }
+    .league .lbody { flex: 1; min-width: 0; }
+    .league .lline { font-size: 0.84rem; font-weight: 700; }
+    .league .lsub { font-size: 0.74rem; color: var(--text-muted); }
+    .league .avatars { display: flex; }
+    .league .avatars span { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 0.62rem; font-weight: 800; color: #fff;
+      border: 2px solid var(--surface); margin-left: -7px; }
+    .league .avatars span:first-child { margin-left: 0; }
+    .league-overlay { position: fixed; inset: 0; z-index: 300; background: var(--overlay);
+      display: none; align-items: flex-end; justify-content: center; }
+    .league-overlay.open { display: flex; }
+    .league-sheet { width: 100%; max-width: 460px; background: var(--surface); border-radius: 20px 20px 0 0;
+      box-shadow: var(--shadow-pop); padding: 14px 18px calc(18px + env(safe-area-inset-bottom));
+      max-height: 70vh; overflow-y: auto; }
+    @media (min-width: 600px) { .league-overlay { align-items: center; padding: 16px; }
+      .league-sheet { border-radius: 20px; } }
+    .league-sheet h3 { font-size: 1.02rem; margin: 4px 0 2px; }
+    .league-sheet .lg-sub { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; }
+    .lg-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .lg-row:last-child { border-bottom: none; }
+    .lg-row .lg-rank { width: 26px; font-weight: 800; font-size: 0.9rem; color: var(--text-muted); text-align: center; }
+    .lg-row .lg-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 0.7rem; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .lg-row .lg-name { flex: 1; min-width: 0; font-weight: 600; font-size: 0.9rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lg-row.you { background: var(--primary-soft); border-radius: 10px; padding-left: 6px; padding-right: 6px; }
+    .lg-row .lg-xp { font-weight: 800; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+
+    /* ── D3 · lesson intro sheet ── */
+    .intro-overlay { position: fixed; inset: 0; z-index: 300; background: var(--overlay);
+      display: none; align-items: flex-end; justify-content: center; }
+    .intro-overlay.open { display: flex; }
+    .intro-sheet { width: 100%; max-width: 460px; background: var(--surface); border-radius: 20px 20px 0 0;
+      box-shadow: var(--shadow-pop); padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+      max-height: 86vh; overflow-y: auto; }
+    @media (min-width: 600px) { .intro-overlay { align-items: center; padding: 16px; }
+      .intro-sheet { border-radius: 20px; } }
+    .intro-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--border); margin: 4px auto 12px; }
+    .intro-kicker { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); }
+    .intro-sheet h2 { font-size: 1.25rem; margin: 4px 0 4px; }
+    .intro-obj { font-size: 0.86rem; color: var(--text-muted); margin-bottom: 12px; }
+    .intro-steps { margin-bottom: 12px; }
+    .intro-step { display: flex; align-items: center; gap: 11px; padding: 6px 0; }
+    .intro-step .sico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; font-size: 1rem; background: var(--surface-alt, var(--neutral-soft)); flex-shrink: 0; }
+    .intro-step.speak .sico { background: var(--grammar-soft, var(--primary-soft)); }
+    .intro-step .sname { font-size: 0.86rem; font-weight: 700; }
+    .intro-step .ssub { font-size: 0.74rem; color: var(--text-muted); }
+    .intro-step .stime { margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+      flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .intro-rail { width: 2px; height: 10px; background: var(--border); margin-left: 16px; }
+    .intro-concepts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .intro-concepts .chip { background: var(--surface-alt, var(--neutral-soft)); border-radius: 999px;
+      padding: 5px 12px; font-size: 0.8rem; font-weight: 600; }
+    .intro-concepts .chip small { color: var(--text-muted); font-weight: 500; }
+    .intro-lenrow { display: flex; gap: 8px; margin-bottom: 6px; }
+    .intro-len { flex: 1; text-align: center; border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px 4px; cursor: pointer; background: none; font-family: inherit; }
+    .intro-len b { display: block; font-size: 0.8rem; }
+    .intro-len small { font-size: 0.66rem; color: var(--text-muted); }
+    .intro-len.on { border-color: var(--primary); background: var(--primary-soft); }
+    .intro-len.on b { color: var(--primary); }
+    .intro-len-note { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; min-height: 1em; }
+    .intro-actions { display: flex; flex-direction: column; gap: 9px; }
+    .intro-actions .row2 { display: flex; gap: 9px; }
+    .intro-actions .row2 .cta-btn { flex: 1; padding: 11px 8px; font-size: 0.85rem; }
+
     /* ── C3 · results recap ("What you learned") ── */
     .recap { margin: 14px auto 0; max-width: 520px; text-align: left; background: var(--surface);
       border: 1px solid var(--border); border-radius: var(--radius, 14px); box-shadow: var(--shadow); overflow: hidden; }
@@ -610,6 +682,13 @@
       <div class="level-chip active" data-level="A1">A1 · Beginner</div>
       <div class="level-chip" data-level="A2">A2 · Elementary</div>
     </div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin:-6px 0 8px">Focus</div>
+    <div class="level-row" id="focus-row" style="flex-wrap:wrap;justify-content:center">
+      <div class="level-chip active" data-focus="balanced">Balanced</div>
+      <div class="level-chip" data-focus="grammar">Grammar</div>
+      <div class="level-chip" data-focus="vocab">Vocabulary</div>
+      <div class="level-chip" data-focus="conversation">Conversation</div>
+    </div>
     <div><button class="cta-btn" id="create-btn" onclick="createCourse()">Start course</button></div>
     <div class="err" id="create-err" style="display:none"></div>
   </div>
@@ -636,6 +715,7 @@
       </div>
     </div>
     <div id="quest-card"></div>
+    <div id="league-strip"></div>
     <div id="units"></div>
     <div id="course-gen-area"></div>
     <div id="course-cta"></div>
@@ -651,6 +731,20 @@
         <button style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="closeVocabReview()">×</button>
       </div>
       <div class="vocab-body" id="vocab-body"></div>
+    </div>
+  </div>
+
+  <!-- D3 · lesson intro sheet -->
+  <div class="intro-overlay" id="intro-overlay" onclick="if(event.target===this)closeLessonIntro()">
+    <div class="intro-sheet" id="intro-sheet"></div>
+  </div>
+
+  <!-- B2 · full league list sheet -->
+  <div class="league-overlay" id="league-overlay" onclick="if(event.target===this)closeLeague()">
+    <div class="league-sheet">
+      <h3>Friends league</h3>
+      <div class="lg-sub" id="league-sub"></div>
+      <div id="league-list"></div>
     </div>
   </div>
 
@@ -722,6 +816,8 @@
 
 <script>
   let selectedLevel = 'A1';
+  let selectedFocus = 'balanced';
+  let _lessonLength = 'standard';   // A3 · mirrors the lesson_length setting
   let langName = 'your language';
   let LANGS = [];
   let currentCourse = null;
@@ -768,6 +864,7 @@
       // the stale flag for non-admins so sequential locking works again.
       if (!isAdmin && unlockAll) { unlockAll = false; localStorage.removeItem('learn_unlock_all'); }
       _lessonBuffer = Math.max(0, parseInt(settings.lesson_buffer || 3, 10) || 3);
+      _lessonLength = settings.lesson_length || 'standard';
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -789,6 +886,7 @@
     }
     loadStreak();
     loadQuests();
+    loadLeague();
   }
 
   let _streakInfo = null;
@@ -905,6 +1003,68 @@
     } catch { btn.disabled = false; }
   }
 
+  // ── B2 · friends weekly XP league ──────────────────────────────────────────
+  let _leagueData = null;
+  const _AV_COLORS = ['#e4572e', '#146b5c', '#4f46a5', '#dfa32e', '#a5459b', '#2b7fb2'];
+  function _avColor(name) {
+    let h = 0; for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+    return _AV_COLORS[h % _AV_COLORS.length];
+  }
+
+  async function loadLeague() {
+    try {
+      _leagueData = await fetch('/api/league').then(r => r.ok ? r.json() : null);
+    } catch { _leagueData = null; }
+    renderLeagueStrip();
+  }
+
+  function renderLeagueStrip() {
+    const el = document.getElementById('league-strip');
+    if (!el) return;
+    const rows = (_leagueData && _leagueData.league) || [];
+    if (rows.length < 2) { el.innerHTML = ''; return; }   // solo users see nothing
+    const me = rows.find(r => r.you);
+    const rank = me ? me.rank : rows.length;
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏅';
+    const days = _leagueData.days_left || 0;
+    let sub;
+    if (rank === 1) {
+      const runnerUp = rows.find(r => !r.you);
+      sub = runnerUp ? `${me.xp - runnerUp.xp} XP ahead of ${runnerUp.username}` : 'You lead';
+    } else {
+      const above = rows[rank - 2];
+      sub = `${above.xp - me.xp} XP behind ${above.username}`;
+    }
+    sub += ` · ${days} day${days === 1 ? '' : 's'} left`;
+    const avatars = rows.slice(0, 4).map(r =>
+      `<span style="background:${_avColor(r.username)}">${esc((r.username || '?')[0].toUpperCase())}</span>`).join('');
+    el.innerHTML = `<div class="league" onclick="openLeague()" title="Weekly XP among friends">
+      <span class="medal">${medal}</span>
+      <div class="lbody">
+        <div class="lline">#${rank} of ${rows.length} friends this week</div>
+        <div class="lsub">${esc(sub)}</div>
+      </div>
+      <div class="avatars">${avatars}</div>
+    </div>`;
+  }
+
+  function openLeague() {
+    const rows = (_leagueData && _leagueData.league) || [];
+    if (!rows.length) return;
+    const days = _leagueData.days_left || 0;
+    document.getElementById('league-sub').textContent =
+      `XP earned this week · resets in ${days} day${days === 1 ? '' : 's'}`;
+    document.getElementById('league-list').innerHTML = rows.map(r => `
+      <div class="lg-row${r.you ? ' you' : ''}">
+        <span class="lg-rank">${r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}</span>
+        <span class="lg-av" style="background:${_avColor(r.username)}">${esc((r.username || '?')[0].toUpperCase())}</span>
+        <span class="lg-name">${esc(r.username)}${r.you ? ' (you)' : ''}</span>
+        <span class="lg-xp">${r.xp} XP</span>
+      </div>`).join('');
+    document.getElementById('league-overlay').classList.add('open');
+  }
+  function closeLeague() { document.getElementById('league-overlay').classList.remove('open'); }
+
   // Client-only quest signals the server can't observe (best combo, listening
   // hits) — reported once per lesson at finish; the server clamps them.
   async function reportQuestSignals() {
@@ -929,13 +1089,29 @@
     const chip = e.target.closest('.level-chip');
     if (!chip) return;
     selectedLevel = chip.dataset.level;
-    document.querySelectorAll('.level-chip').forEach(c => c.classList.toggle('active', c === chip));
+    document.querySelectorAll('#level-row .level-chip').forEach(c => c.classList.toggle('active', c === chip));
+  });
+
+  // D2 · course focus dial at creation: writes the course_focus setting the
+  // planner reads on every future lesson (changeable later in Settings).
+  document.getElementById('focus-row').addEventListener('click', e => {
+    const chip = e.target.closest('.level-chip');
+    if (!chip) return;
+    selectedFocus = chip.dataset.focus;
+    document.querySelectorAll('#focus-row .level-chip').forEach(c => c.classList.toggle('active', c === chip));
   });
 
   async function createCourse() {
     document.getElementById('create-err').style.display = 'none';
     document.getElementById('create-btn').disabled = true;
     try {
+      // Persist the focus dial first — the planner reads it per lesson.
+      if (selectedFocus !== 'balanced') {
+        await fetch('/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ course_focus: selectedFocus }),
+        }).catch(() => {});
+      }
       const res = await fetch('/api/courses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level: selectedLevel }),
@@ -1172,18 +1348,14 @@
     const meta = l.concept_count ? `${l.concept_count} new` : '';
     const dbg = isAdmin
       ? `<button class="ldbg" title="LLM debug" onclick="event.stopPropagation();openDebug(${l.id},${l.lesson_num || 0})">🔍</button>` : '';
-    const showBtns = st === 'done' || st === 'available';
-    const drillsBtn = showBtns
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'skip')" title="Skip teach, go straight to exercises">⚡ Practice</button>` : '';
-    const llmBtn = showBtns
-      ? `<button class="ldrills-btn" onclick="event.stopPropagation();openLesson(${l.id},'llm')" title="Skip to LLM construction drills only">🎯 AI Drills</button>` : '';
+    // D3 · tapping a node opens the lesson intro sheet (the old per-row
+    // ⚡ Practice / 🎯 AI Drills mini-buttons moved into the sheet).
     return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
       ${start}
-      <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+      <div class="lnode ${st}${clickable ? ' clickable' : ''}" ${clickable ? `onclick="openLessonIntro(${l.id})"` : ''}>
         ${glyph}${crowns}
       </div>
       <div class="lcap">${esc(l.title)}${meta ? `<div class="lcap-meta">${meta}</div>` : ''}</div>
-      ${drillsBtn}${llmBtn}
       ${dbg}
     </div>`;
   }
@@ -2383,6 +2555,189 @@
     }
   }
 
+  // ── D3 · lesson intro sheet ─────────────────────────────────────────────────
+  let _introLesson = null;      // the fetched lesson behind the open sheet
+  const GRADEABLE_TYPES = new Set(['choice', 'listening', 'word_bank', 'match']);
+
+  function _introSegments(content) {
+    const segments = content.segments
+      || [{ teach: content.teach || null, exercises: content.exercises || [] }];
+    return segments;
+  }
+
+  function _estMinutes(segments) {
+    let m = 0;
+    segments.forEach(sg => {
+      m += ((sg.teach && (sg.teach.blocks || []).length) || 0) * 0.4;
+      (sg.exercises || []).forEach(e => { m += SELF_MANAGED.has(e.type) ? 2 : 0.5; });
+    });
+    return Math.max(1, Math.round(m));
+  }
+
+  function _gradeableExercises(segments) {
+    const out = [];
+    segments.forEach(sg => (sg.exercises || []).forEach(e => {
+      if (GRADEABLE_TYPES.has(e.type)) out.push(e);
+    }));
+    return out;
+  }
+
+  async function openLessonIntro(lessonId) {
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      _introLesson = await res.json();
+      renderLessonIntro(_introLesson);
+      document.getElementById('intro-overlay').classList.add('open');
+    } catch {
+      openLesson(lessonId);   // sheet is sugar — fall back to playing directly
+    }
+  }
+
+  function closeLessonIntro() {
+    document.getElementById('intro-overlay').classList.remove('open');
+  }
+
+  function _introPlay(mode) {
+    const id = _introLesson && _introLesson.id;
+    closeLessonIntro();
+    if (id) openLesson(id, mode);
+  }
+
+  function renderLessonIntro(lesson) {
+    const sheet = document.getElementById('intro-sheet');
+    const content = lesson.content || {};
+    const segments = _introSegments(content);
+    const mins = _estMinutes(segments);
+    const hasSpeak = segments.some(sg => (sg.exercises || []).some(e => SELF_MANAGED.has(e.type)));
+    const canTestOut = !lesson.completed && _gradeableExercises(segments).length >= 4;
+
+    const stepRows = segments.map((sg, i) => {
+      const blocks = (sg.teach && (sg.teach.blocks || []).length) || 0;
+      const drills = (sg.exercises || []).length;
+      const speak = !!sg.speak;
+      const icon = speak ? '✨' : (i === 0 && !blocks ? '🔥' : (blocks ? '📖' : '✏️'));
+      const name = sg.title || (speak ? 'AI Speak' : `Step ${i + 1}`);
+      const sub = speak
+        ? 'Short phrases, graded by your tutor'
+        : [blocks ? `${blocks} card${blocks === 1 ? '' : 's'}` : '',
+           drills ? `${drills} drill${drills === 1 ? '' : 's'}` : ''].filter(Boolean).join(' + ');
+      const t = Math.max(1, Math.round(blocks * 0.4 + drills * (speak ? 2 : 0.5)));
+      return `${i ? '<div class="intro-rail"></div>' : ''}
+        <div class="intro-step${speak ? ' speak' : ''}">
+          <span class="sico">${icon}</span>
+          <div><div class="sname">${esc(name)}</div>${sub ? `<div class="ssub">${esc(sub)}</div>` : ''}</div>
+          <span class="stime">${t} min</span>
+        </div>`;
+    }).join('');
+
+    const concepts = (lesson.concepts || []).filter(c => (c.label || '').trim());
+    const chips = concepts.slice(0, 4).map(c =>
+      `<span class="chip">${esc(c.label)}${c.gloss ? ` <small>${esc(c.gloss)}</small>` : ''}</span>`).join('')
+      + (concepts.length > 4 ? `<span class="chip">+${concepts.length - 4} more</span>` : '');
+
+    const lenChip = (v, label, sub) =>
+      `<button type="button" class="intro-len${_lessonLength === v ? ' on' : ''}" data-len="${v}"
+        onclick="setLessonLength('${v}')"><b>${label}</b><small>${sub}</small></button>`;
+
+    sheet.className = 'intro-sheet ' + scriptClassFor(lesson.target_lang);
+    sheet.innerHTML = `
+      <div class="intro-grab"></div>
+      <div class="intro-kicker">${lesson.completed ? `Completed${lesson.score != null ? ` · ${lesson.score}%` : ''}` : 'Lesson'} · ~${mins} min</div>
+      <h2>${esc(lesson.title || 'Lesson')}</h2>
+      ${lesson.objective ? `<p class="intro-obj">${esc(lesson.objective)}</p>` : ''}
+      <div class="intro-steps">${stepRows}</div>
+      ${chips ? `<div class="intro-concepts">${chips}</div>` : ''}
+      <div class="intro-lenrow">
+        ${lenChip('quick', 'Quick', '~4 min')}${lenChip('standard', 'Standard', '~8 min')}${lenChip('thorough', 'Thorough', '~12 min')}
+      </div>
+      <div class="intro-len-note" id="intro-len-note"></div>
+      <div class="intro-actions">
+        <button class="cta-btn" onclick="_introPlay('')">${lesson.completed ? '↻ Play again' : 'Start lesson'}</button>
+        <div class="row2">
+          <button class="cta-btn secondary" onclick="_introPlay('skip')">⚡ Practice only</button>
+          ${hasSpeak ? `<button class="cta-btn secondary" onclick="_introPlay('llm')">✨ AI Speak</button>` : ''}
+          ${canTestOut ? `<button class="cta-btn secondary" onclick="startTestOut()">🎓 Test out</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // A3 · length chips in the sheet write the lesson_length setting — it shapes
+  // FUTURE generations (this lesson is already authored), so say so.
+  async function setLessonLength(v) {
+    _lessonLength = v;
+    document.querySelectorAll('.intro-len').forEach(b =>
+      b.classList.toggle('on', b.dataset.len === v));
+    const note = document.getElementById('intro-len-note');
+    if (note) note.textContent = 'Applies to newly generated lessons.';
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_length: v }),
+      });
+    } catch {}
+  }
+
+  // ── A4 · test out of a lesson ───────────────────────────────────────────────
+  // A 4-question quiz drawn from the lesson's own hardest stored drills
+  // (deterministic, no LLM). Pass ≥3/4 → complete (half XP, crown 1);
+  // fail → drop into the full lesson.
+  function _testOutRank(ex) {
+    if (ex.type === 'word_bank') return 0;
+    if (ex.type === 'choice' && ex.is_cloze) return 1;
+    if (ex.type === 'choice' && ex.prompt_lang === 'english') return 2;
+    if (ex.type === 'listening') return 3;
+    if (ex.type === 'choice') return 4;
+    return 5;   // match
+  }
+
+  function _pickTestOut(segments, n = 4) {
+    const byRank = new Map();
+    _gradeableExercises(segments).forEach(ex => {
+      const r = _testOutRank(ex);
+      if (!byRank.has(r)) byRank.set(r, []);
+      byRank.get(r).push(ex);
+    });
+    const ranks = [...byRank.keys()].sort((a, b) => a - b);
+    const picked = [];
+    // Rounds over the hardness ranks, taking the LAST stored drill of each
+    // type first (later drills are the hardest by the authoring contract).
+    while (picked.length < n && ranks.some(r => byRank.get(r).length)) {
+      for (const r of ranks) {
+        const pool = byRank.get(r);
+        if (pool.length && picked.length < n) picked.push(pool.pop());
+      }
+    }
+    return picked;
+  }
+
+  function startTestOut() {
+    const lesson = _introLesson;
+    if (!lesson) return;
+    closeLessonIntro();
+    const segments = _introSegments(lesson.content || {});
+    const quiz = _pickTestOut(segments).map(e => ({ ...e }));
+    if (quiz.length < 4) { openLesson(lesson.id); return; }
+    _prefetchLesson({ segments: [{ exercises: quiz }] }, lesson.target_lang);
+    player = {
+      lessonId: lesson.id, lang: lesson.target_lang, title: lesson.title || 'Lesson',
+      segments: [{ title: 'Test out', teach: null, exercises: quiz }],
+      segTotals: [quiz.length], segIdx: 0, segAnswered: 0,
+      queue: [], idx: 0, total: quiz.length, answered: 0,
+      firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+      combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+      controller: null, graded: false,
+      conceptResults: {}, vocabGlossary: (lesson.content || {}).vocab_glossary || {},
+      concepts: lesson.concepts || [], theme: lesson.theme || '',
+      mode: '', skipTeach: true, drillsOnly: false, testOut: true,
+    };
+    const sc = scriptClassFor(player.lang);
+    document.getElementById('state-player').className = sc;
+    document.getElementById('state-teach').className = sc;
+    document.getElementById('state-results').className = 'learn-center ' + sc;
+    startSegment(0);
+  }
+
   async function openLesson(lessonId, mode = '') {
     // mode: '' = full lesson, 'skip' = skip teach, 'llm' = LLM drills only
     show('lesson-loading');
@@ -2474,10 +2829,12 @@
   }
 
   // Advance past a finished segment: next segment, then end-of-lesson review, then finish.
+  // Quizzes (test-out, checkpoints) skip the mistake-review lap — they end when
+  // the questions do; the score is already decided.
   function afterSegment() {
     if (player.segIdx < player.segments.length - 1) {
       startSegment(player.segIdx + 1);
-    } else if (player.mistakes.length) {
+    } else if (player.mistakes.length && !player.testOut && !player.checkpointUnitId) {
       player.reviewStarted = true;
       player.queue = player.mistakes.map(e => ({ ...e, _review: true }));
       player.mistakes = [];
@@ -3047,6 +3404,12 @@
     }));
     await reportQuestSignals();   // combo / listening quests (before the quest refetch)
 
+    // Default results buttons (the test-out fail path rewires them below).
+    const contBtn = document.getElementById('results-continue');
+    const retryBtn = document.getElementById('results-retry');
+    contBtn.textContent = 'Continue'; contBtn.onclick = backToMap;
+    retryBtn.style.display = ''; retryBtn.textContent = 'Practice again'; retryBtn.onclick = retryLesson;
+
     // B3 · checkpoint: its own completion route + pass/fail results screen.
     if (player.checkpointUnitId) {
       let info = null;
@@ -3080,6 +3443,28 @@
       return;
     }
 
+    // A4 · test-out fail: nothing is recorded — offer the full lesson instead.
+    if (player.testOut && player.firstPassCorrect < Math.ceil(total * 0.75)) {
+      const lessonId = player.lessonId;
+      document.getElementById('results-score').textContent = score + '%';
+      const emoji = document.getElementById('results-emoji');
+      emoji.textContent = '💪';
+      document.getElementById('results-msg').textContent =
+        `You need ${Math.ceil(total * 0.75)} of ${total} to test out — the full lesson will get you there.`;
+      document.getElementById('results-badges').innerHTML = '';
+      renderResultsXp(0, false, player.maxCombo, 0, false);
+      document.getElementById('results-recap').innerHTML = '';
+      document.getElementById('results-vocab').innerHTML = '';
+      contBtn.textContent = 'Start the full lesson →';
+      contBtn.onclick = () => openLesson(lessonId);
+      retryBtn.textContent = 'Back to map'; retryBtn.onclick = backToMap;
+      show('results');
+      renderResultsQuests();
+      emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
+      sfx.wrong();
+      return;
+    }
+
     let serverInfo = null;
     if (player.lessonId) {
       try {
@@ -3099,6 +3484,10 @@
       total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
     renderResultsXp(xpEarned, perfect, player.maxCombo,
                     serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
+    if (player.testOut) {
+      document.getElementById('results-badges').insertAdjacentHTML('beforeend',
+        '<span class="results-badge">🎓 Tested out</span>');
+    }
     show('results');
     renderResultsRecap();   // C3 · "What you learned" recap card
     renderResultsVocab();   // async fill of the "New words → deck" panel
