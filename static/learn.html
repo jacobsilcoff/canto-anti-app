@@ -173,6 +173,45 @@
       border-radius: 999px; padding: 7px 16px; font-weight: 800; font-size: 0.8rem; cursor: pointer; }
     .chest .chest-open:active { transform: translateY(1px); }
 
+    /* ── Chest-opening reveal (full-screen) ── */
+    .chest-reveal { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center;
+      justify-content: center; background: var(--overlay); opacity: 0; transition: opacity .25s ease;
+      -webkit-tap-highlight-color: transparent; }
+    .chest-reveal.show { opacity: 1; }
+    .cr-stage { position: relative; display: flex; flex-direction: column; align-items: center; }
+    .cr-rays { position: absolute; top: 50%; left: 50%; width: 460px; height: 460px; margin: -230px 0 0 -230px;
+      border-radius: 50%; opacity: 0; transform: scale(.4); pointer-events: none;
+      background: repeating-conic-gradient(rgba(240,180,41,.30) 0 5deg, transparent 5deg 15deg);
+      -webkit-mask: radial-gradient(circle, transparent 26%, #000 40%, transparent 70%);
+      mask: radial-gradient(circle, transparent 26%, #000 40%, transparent 70%);
+      transition: opacity .45s ease, transform .55s cubic-bezier(.2,1.2,.4,1); }
+    .cr-rays.on { opacity: 1; transform: scale(1); animation: cr-spin 11s linear infinite; }
+    @keyframes cr-spin { to { transform: rotate(360deg); } }
+    .cr-chest { position: relative; z-index: 1; font-size: 5.4rem; line-height: 1;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.32)); }
+    .cr-chest.cr-shake { animation: cr-shake .55s ease-in-out infinite; }
+    @keyframes cr-shake { 0%,100% { transform: rotate(0) } 20% { transform: rotate(-9deg) scale(1.04) }
+      40% { transform: rotate(8deg) } 60% { transform: rotate(-6deg) } 80% { transform: rotate(5deg) } }
+    .cr-chest.cr-pop { animation: cr-pop .6s cubic-bezier(.2,1.4,.5,1) both; }
+    @keyframes cr-pop { 0% { transform: scale(.6) } 45% { transform: scale(1.32) translateY(-8px) }
+      70% { transform: scale(.94) } 100% { transform: scale(1.06) translateY(-4px) } }
+    .cr-prize { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center;
+      margin-top: 6px; opacity: 0; }
+    .cr-prize.show { animation: cr-prize .55s .05s cubic-bezier(.2,1.5,.5,1) both; }
+    @keyframes cr-prize { 0% { opacity: 0; transform: translateY(22px) scale(.5) }
+      60% { opacity: 1; transform: translateY(-4px) scale(1.16) } 100% { opacity: 1; transform: translateY(0) scale(1) } }
+    .cr-prize .cr-star { font-size: 1.7rem; }
+    .cr-prize .cr-xp { font-family: var(--display-font); font-weight: 800; font-size: 2.7rem; color: #f0b429;
+      text-shadow: 0 2px 12px rgba(240,180,41,.55); }
+    .cr-prize .cr-lbl { font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+      color: #fff; opacity: .82; }
+    .cr-hint { position: absolute; bottom: -54px; left: 0; right: 0; text-align: center;
+      font-size: .8rem; color: rgba(255,255,255,.72); font-weight: 600; z-index: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      .cr-chest.cr-shake, .cr-chest.cr-pop, .cr-rays.on, .cr-prize.show { animation: none; }
+      .cr-prize { opacity: 1; }
+    }
+
     /* ── B2 · friends weekly league strip + sheet ── */
     .league { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 18px;
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 14px);
@@ -990,17 +1029,59 @@
 
   async function claimChest(btn) {
     btn.disabled = true;
-    try {
-      const res = await fetch('/api/quests/claim', { method: 'POST' });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      sfx.complete(); confetti();
+    showChestReveal(
+      fetch('/api/quests/claim', { method: 'POST' }).then(r => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      }),
+      () => { btn.disabled = false; },   // re-enable if the claim fails
+    );
+  }
+
+  // Animated chest-opening: the chest shakes (anticipation) while the claim POST
+  // resolves, then bursts open with sunburst rays + confetti to reveal the XP
+  // prize. Self-contained (emoji + CSS), tap or auto-dismiss to continue.
+  function showChestReveal(claimPromise, onError) {
+    const ov = document.createElement('div');
+    ov.className = 'chest-reveal';
+    ov.innerHTML = `
+      <div class="cr-stage">
+        <div class="cr-rays"></div>
+        <div class="cr-chest cr-shake">🎁</div>
+        <div class="cr-prize"></div>
+        <div class="cr-hint">Opening…</div>
+      </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('show'));
+    try { sfx.tap(); } catch {}
+
+    let closed = false;
+    const close = () => {
+      if (closed) return; closed = true;
+      ov.classList.remove('show');
+      setTimeout(() => ov.remove(), 260);
+    };
+
+    // Let the shake play for a beat even if the network returns instantly.
+    const minDelay = new Promise(r => setTimeout(r, 850));
+    Promise.all([claimPromise, minDelay]).then(([data]) => {
+      const xp = (data && data.xp) || 0;
       if (_questData) _questData.chest_claimed = true;
       renderQuestCard();
-      const box = document.querySelector('#quest-card .chest b');
-      if (box) box.textContent = `Chest opened · +${data.xp} XP`;
       loadStreak();   // refresh the ⭐ total + daily ring with the bonus XP
-    } catch { btn.disabled = false; }
+      const chest = ov.querySelector('.cr-chest');
+      chest.classList.remove('cr-shake');
+      chest.classList.add('cr-pop');
+      ov.querySelector('.cr-rays').classList.add('on');
+      const prize = ov.querySelector('.cr-prize');
+      prize.innerHTML = `<span class="cr-star">⭐</span><span class="cr-xp">+${xp}</span><span class="cr-lbl">bonus XP</span>`;
+      prize.classList.add('show');
+      ov.querySelector('.cr-hint').textContent = 'Tap to continue';
+      try { sfx.complete(); } catch {}
+      confetti(); setTimeout(confetti, 260);
+      ov.addEventListener('click', close);
+      setTimeout(close, 4500);   // backstop auto-dismiss
+    }).catch(() => { close(); if (onError) onError(); });
   }
 
   // ── B2 · friends weekly XP league ──────────────────────────────────────────
@@ -2582,6 +2663,36 @@
     return out;
   }
 
+  // A3 · a stored lesson is already authored, so length can only trim it for
+  // THIS run (you can't add drills that weren't generated). The full authored
+  // lesson IS "thorough"; standard/quick play a balanced subset. Self-managed
+  // drills (AI Speak) are always kept; we trim the graded drills per step,
+  // keeping the easy→hard prefix and at least one per step. The persisted
+  // `lesson_length` setting still shapes how FUTURE lessons are generated.
+  const _LEN_FACTOR = { quick: 0.5, standard: 0.8, thorough: 1.0 };
+  function _trimForLength(segments, len) {
+    const f = _LEN_FACTOR[len] ?? 1;
+    if (f >= 1) return segments;
+    return segments.map(sg => {
+      const ex = sg.exercises || [];
+      if (ex.length <= 1) return sg;
+      const graded = ex.filter(e => !SELF_MANAGED.has(e.type)).length;
+      const target = Math.max(1, Math.round(graded * f));
+      let kept = 0;
+      const out = ex.filter(e => {
+        if (SELF_MANAGED.has(e.type)) return true;
+        return kept++ < target;
+      });
+      return { ...sg, exercises: out.length ? out : ex.slice(0, 1) };
+    });
+  }
+
+  function _lenNoteText(len) {
+    return len === 'thorough'
+      ? 'Every drill this lesson · sets the depth of future lessons too'
+      : 'Trims this lesson to a shorter set · sets future lesson depth too';
+  }
+
   async function openLessonIntro(lessonId) {
     try {
       const res = await fetch('/api/lessons/' + lessonId);
@@ -2607,10 +2718,14 @@
   function renderLessonIntro(lesson) {
     const sheet = document.getElementById('intro-sheet');
     const content = lesson.content || {};
-    const segments = _introSegments(content);
+    const fullSegments = _introSegments(content);
+    // The step list + estimate reflect what the chosen length will actually
+    // play, so switching Quick/Standard/Thorough visibly reshapes the layout.
+    const isFoundations = lesson.theme === 'foundations';
+    const segments = isFoundations ? fullSegments : _trimForLength(fullSegments, _lessonLength);
     const mins = _estMinutes(segments);
     const hasSpeak = segments.some(sg => (sg.exercises || []).some(e => SELF_MANAGED.has(e.type)));
-    const canTestOut = !lesson.completed && _gradeableExercises(segments).length >= 4;
+    const canTestOut = !lesson.completed && _gradeableExercises(fullSegments).length >= 4;
 
     const stepRows = segments.map((sg, i) => {
       const blocks = (sg.teach && (sg.teach.blocks || []).length) || 0;
@@ -2648,10 +2763,10 @@
       ${lesson.objective ? `<p class="intro-obj">${esc(lesson.objective)}</p>` : ''}
       <div class="intro-steps">${stepRows}</div>
       ${chips ? `<div class="intro-concepts">${chips}</div>` : ''}
-      <div class="intro-lenrow">
+      ${isFoundations ? '' : `<div class="intro-lenrow">
         ${lenChip('quick', 'Quick', '~4 min')}${lenChip('standard', 'Standard', '~8 min')}${lenChip('thorough', 'Thorough', '~12 min')}
       </div>
-      <div class="intro-len-note" id="intro-len-note"></div>
+      <div class="intro-len-note" id="intro-len-note">${esc(_lenNoteText(_lessonLength))}</div>`}
       <div class="intro-actions">
         <button class="cta-btn" onclick="_introPlay('')">${lesson.completed ? '↻ Play again' : 'Start lesson'}</button>
         <div class="row2">
@@ -2662,14 +2777,13 @@
       </div>`;
   }
 
-  // A3 · length chips in the sheet write the lesson_length setting — it shapes
-  // FUTURE generations (this lesson is already authored), so say so.
+  // A3 · length chips reshape the current lesson for this run (re-render the
+  // sheet so the step list + estimate update live) AND persist the setting so
+  // future lessons are generated at this depth.
   async function setLessonLength(v) {
+    if (_lessonLength === v) return;
     _lessonLength = v;
-    document.querySelectorAll('.intro-len').forEach(b =>
-      b.classList.toggle('on', b.dataset.len === v));
-    const note = document.getElementById('intro-len-note');
-    if (note) note.textContent = 'Applies to newly generated lessons.';
+    if (_introLesson) renderLessonIntro(_introLesson);
     try {
       await fetch('/api/settings', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -2749,6 +2863,9 @@
       // Normalise to segments (back-compat with old single-block lessons).
       let segments = content.segments;
       if (!segments) segments = [{ teach: content.teach || null, exercises: content.exercises || [] }];
+      // A3 · trim to the chosen length for this run (never for the curated
+      // foundations reading track, whose drills each teach a specific letter).
+      if (lesson.theme !== 'foundations') segments = _trimForLength(segments, _lessonLength);
       // Count only the exercises this mode will actually play — 'llm' filters to
       // self-managed drills, so an unfiltered total would deflate the score/bar.
       const segTotals = segments.map(sg => (sg.exercises || [])

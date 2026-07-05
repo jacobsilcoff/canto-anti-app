@@ -320,6 +320,20 @@
 
   init();
   document.addEventListener('langchange', init);
+
+  // We no longer poll, so the ring/streak/due counts go stale when the learner
+  // earns XP elsewhere (a flashcard session, a lesson) and comes back Home.
+  // Refresh on return: bfcache restore (pageshow.persisted) and tab re-focus
+  // (visibilitychange), debounced so rapid fires don't stack fetches.
+  let _lastRefresh = Date.now();
+  function _refreshOnReturn() {
+    if (document.hidden) return;
+    if (Date.now() - _lastRefresh < 2500) return;
+    _lastRefresh = Date.now();
+    init();
+  }
+  window.addEventListener('pageshow', e => { if (e.persisted) _refreshOnReturn(); });
+  document.addEventListener('visibilitychange', _refreshOnReturn);
 </script>
 </body>
 </html>
