@@ -269,6 +269,16 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">AI Speak practice</div>
+          <div class="settings-desc">Tutor-graded translation drills at the end of grammar lessons. Off is faster and uses fewer AI calls (also toggleable per-lesson).</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-ai-speak" onchange="saveAiSpeak()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Course focus</div>
           <div class="settings-desc">Steers what the lesson planner picks next (applies to future lessons)</div>
         </div>
@@ -891,6 +901,7 @@
     const goal = settings.daily_xp_goal || 50;
     goalSel.value = [10, 30, 50, 100].includes(goal) ? String(goal) : '50';
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
+    document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
     document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
@@ -1075,6 +1086,23 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveAiSpeak() {
+    const checked = document.getElementById('settings-ai-speak').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_ai_speak: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_ai_speak = checked;
+      showToast(checked ? 'AI Speak practice on.' : 'AI Speak practice off.');
+    } catch {
+      document.getElementById('settings-ai-speak').checked = !checked;
       showToast('Failed to save setting.');
     }
   }
