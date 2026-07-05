@@ -1,10 +1,14 @@
 # Lesson Redesign — audit + proposal (bite-sized steps, gamification, pacing, customization)
 
-> **Status: Phase 1 IMPLEMENTED (2026-07)** — A1 multi-segment steps, A2 skippable
-> 3-turn "AI Speak" construction step, C1 tap-through teach cards + `quick_check`
-> blocks, C2 review-as-warm-up. See `learning.assemble_lesson` (steps → segments),
-> `grammar_lessons._clean_block` (quick_check), and the learn.html player
-> (segmented step bar, teach pager, skip button). **Phases 2–3 remain proposals.**
+> **Status: Phases 1–2 IMPLEMENTED (2026-07)** — Phase 1: A1 multi-segment steps,
+> A2 skippable 3-turn "AI Speak" construction step, C1 tap-through teach cards +
+> `quick_check` blocks, C2 review-as-warm-up. See `learning.assemble_lesson`
+> (steps → segments), `grammar_lessons._clean_block` (quick_check), and the
+> learn.html player (segmented step bar, teach pager, skip button). Phase 2:
+> B1 daily quests + chest (`daily_quests` table, `/api/quests*`, Learn/Home/results
+> surfaces), B3 unit checkpoint quizzes (`course_units.checkpoint_*`,
+> `/api/units/{id}/checkpoint`, 🛡 path node), D1 adjustable `daily_xp_goal`
+> setting, C3 results recap card. **Phase 3 remains a proposal.**
 > This doc + the mockups in `mockups/lesson-redesign/` were the deliverable of the
 > design pass; it is written to be self-contained: a fresh Claude session should be
 > able to implement any remaining phase without other context. Review the mockups at

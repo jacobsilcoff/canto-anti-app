@@ -138,6 +138,54 @@
     .ldbg { background: none; border: none; cursor: pointer; font-size: 0.78rem; opacity: 0.4; padding: 2px; margin-top: 2px; }
     .ldrills-btn { background: none; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 0.68rem; font-weight: 600; color: var(--primary); padding: 2px 10px; margin-top: 4px; opacity: 0.75; }
     .ldrills-btn:hover { opacity: 1; background: var(--primary-soft); }
+    /* B3 · checkpoint node: gold squircle sealing a finished unit */
+    .lnode.checkpoint { border-radius: 20px; font-size: 1.5rem;
+      background: linear-gradient(140deg, var(--gold, #f0b429), var(--warn-accent, #f0962a)); color: #fff; }
+    .lnode.checkpoint.locked { background: var(--neutral-soft, var(--border)); color: var(--text-muted); }
+    .lnode.checkpoint.available { animation: none; }
+    .lnode.checkpoint.available::after { border-radius: 24px; }
+
+    /* ── B1 · Daily quests card ── */
+    .quests { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 14px);
+      box-shadow: var(--shadow); padding: 14px 16px 12px; margin-bottom: 18px; }
+    .quests .q-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .quests .q-kicker { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--energy, var(--warn-accent)); }
+    .quests .q-timer { margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+      font-variant-numeric: tabular-nums; }
+    .quest { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+    .quest .qico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; font-size: 1rem; background: var(--surface-alt, var(--neutral-soft)); flex-shrink: 0; }
+    .quest.done .qico { background: var(--good-soft); }
+    .quest .qbody { flex: 1; min-width: 0; }
+    .quest .qname { font-size: 0.84rem; font-weight: 600; }
+    .quest.done .qname { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+    .quest .qbar { height: 7px; border-radius: 99px; background: var(--surface-alt, var(--neutral-soft)); margin-top: 5px; overflow: hidden; }
+    .quest .qfill { height: 100%; border-radius: 99px; background: var(--gold, #f0b429); transition: width 0.4s; }
+    .quest.done .qfill { background: var(--good); }
+    .quest .qnum { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .chest { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 9px 12px; border-radius: 12px;
+      background: var(--gold-soft, var(--warn-soft)); }
+    .chest .ci { font-size: 1.3rem; }
+    .chest b { font-size: 0.8rem; color: var(--gold, #b98a0e); display: block; }
+    .chest small { display: block; font-size: 0.72rem; color: var(--text-muted); }
+    .chest .chest-open { margin-left: auto; flex-shrink: 0; background: var(--gold, #f0b429); color: #fff; border: none;
+      border-radius: 999px; padding: 7px 16px; font-weight: 800; font-size: 0.8rem; cursor: pointer; }
+    .chest .chest-open:active { transform: translateY(1px); }
+
+    /* ── C3 · results recap ("What you learned") ── */
+    .recap { margin: 14px auto 0; max-width: 520px; text-align: left; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius, 14px); box-shadow: var(--shadow); overflow: hidden; }
+    .recap-toggle { width: 100%; display: flex; align-items: center; gap: 8px; background: none; border: none;
+      padding: 12px 14px; cursor: pointer; font-family: inherit; text-align: left; }
+    .recap-toggle .r-kicker { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--primary); flex: 1; }
+    .recap-toggle .r-chev { color: var(--text-muted); transition: transform 0.2s; }
+    .recap.open .recap-toggle .r-chev { transform: rotate(90deg); }
+    .recap-body { display: none; padding: 0 14px 14px; }
+    .recap.open .recap-body { display: block; }
+    /* B1 · quest ticks on the results screen */
+    .results-quests { margin: 14px auto 0; max-width: 520px; text-align: left; }
 
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
@@ -587,6 +635,7 @@
         <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
       </div>
     </div>
+    <div id="quest-card"></div>
     <div id="units"></div>
     <div id="course-gen-area"></div>
     <div id="course-cta"></div>
@@ -661,8 +710,10 @@
     <div class="results-xp" id="results-xp" style="display:none"><span id="results-xp-num">0</span><span class="xp-unit"><svg class="icon-svg" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="#f0b429" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg> XP</span></div>
     <div class="results-badges" id="results-badges"></div>
     <p id="results-msg">Lesson complete!</p>
+    <div id="results-recap"></div>
     <div id="results-vocab"></div>
-    <div><button class="cta-btn" onclick="backToMap()">Continue</button></div>
+    <div id="results-quests"></div>
+    <div style="margin-top:14px"><button class="cta-btn" id="results-continue" onclick="backToMap()">Continue</button></div>
     <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
   </div>
 </main>
@@ -737,6 +788,7 @@
       show('empty');
     }
     loadStreak();
+    loadQuests();
   }
 
   let _streakInfo = null;
@@ -782,6 +834,95 @@
       </div>
       <span class="dr-label">${met ? '<b>Goal met!</b>' : `<b>${today}</b> / ${goal} XP today`}</span>`;
     el.style.display = '';
+  }
+
+  // ── B1 · Daily quests ───────────────────────────────────────────────────────
+  let _questData = null;
+
+  async function loadQuests() {
+    try {
+      _questData = await fetch('/api/quests').then(r => r.ok ? r.json() : null);
+    } catch { _questData = null; }
+    renderQuestCard();
+  }
+
+  function _questRows(data, compact) {
+    return (data.quests || []).map(q => `
+      <div class="quest${q.done ? ' done' : ''}">
+        <span class="qico">${q.icon}</span>
+        <div class="qbody"><div class="qname">${esc(q.name)}</div>
+          ${compact ? '' : `<div class="qbar"><div class="qfill" style="width:${Math.round(q.progress / q.target * 100)}%"></div></div>`}
+        </div>
+        <span class="qnum">${q.done ? '✓' : `${q.progress}/${q.target}`}</span>
+      </div>`).join('');
+  }
+
+  function _chestHtml(data) {
+    if (data.chest_claimed) {
+      return `<div class="chest"><span class="ci">🎉</span>
+        <div><b>Chest opened</b><small>Come back tomorrow for new quests</small></div></div>`;
+    }
+    if (data.all_done) {
+      return `<div class="chest"><span class="ci">🎁</span>
+        <div><b>All quests complete!</b><small>Open the chest for bonus XP</small></div>
+        <button class="chest-open" onclick="claimChest(this)">Open</button></div>`;
+    }
+    const left = (data.quests || []).filter(q => !q.done).length;
+    return `<div class="chest"><span class="ci">🎁</span>
+      <div><b>${left} more to open today's chest</b><small>Bonus XP for finishing all three</small></div></div>`;
+  }
+
+  function _questResetLabel() {
+    const now = new Date();
+    const h = 23 - now.getUTCHours();
+    return `resets in ${Math.max(1, h)} h`;
+  }
+
+  function renderQuestCard() {
+    const el = document.getElementById('quest-card');
+    if (!el) return;
+    if (!_questData || !(_questData.quests || []).length) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="quests">
+      <div class="q-head"><span class="q-kicker">Daily quests</span>
+        <span class="q-timer">${_questResetLabel()}</span></div>
+      ${_questRows(_questData)}
+      ${_chestHtml(_questData)}
+    </div>`;
+  }
+
+  async function claimChest(btn) {
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/quests/claim', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      sfx.complete(); confetti();
+      if (_questData) _questData.chest_claimed = true;
+      renderQuestCard();
+      const box = document.querySelector('#quest-card .chest b');
+      if (box) box.textContent = `Chest opened · +${data.xp} XP`;
+      loadStreak();   // refresh the ⭐ total + daily ring with the bonus XP
+    } catch { btn.disabled = false; }
+  }
+
+  // Client-only quest signals the server can't observe (best combo, listening
+  // hits) — reported once per lesson at finish; the server clamps them.
+  async function reportQuestSignals() {
+    if (!player) return;
+    const posts = [];
+    if (player.maxCombo > 0) {
+      posts.push(fetch('/api/quests/progress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'combo', value: player.maxCombo }),
+      }));
+    }
+    if (player.listeningHits > 0) {
+      posts.push(fetch('/api/quests/progress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'listening', amount: player.listeningHits }),
+      }));
+    }
+    try { await Promise.all(posts); } catch {}
   }
 
   document.getElementById('level-row').addEventListener('click', e => {
@@ -1047,6 +1188,60 @@
     </div>`;
   }
 
+  // B3 · checkpoint node after a closed unit's lessons: available once every
+  // lesson in the unit is done; gold shield once passed.
+  function _checkpointRow(u, wave) {
+    const lessons = u.lessons || [];
+    const allDone = lessons.length > 0 && lessons.every(l => l.status === 'done');
+    const passed = !!u.checkpoint_passed;
+    const st = passed ? 'done' : (allDone || unlockAll ? 'available' : 'locked');
+    const clickable = st !== 'locked';
+    const sub = passed
+      ? `Passed${u.checkpoint_score != null ? ` · ${u.checkpoint_score}%` : ''}`
+      : (st === 'available' ? 'Seal this unit · +40 XP' : 'Finish the unit to unlock');
+    return `<div class="lrow w${wave & 3}${st === 'locked' ? ' is-locked' : ''}">
+      <div class="lnode checkpoint ${st}${clickable ? ' clickable' : ''}"
+        ${clickable ? `onclick="openCheckpoint(${u.id})"` : ''}>🛡</div>
+      <div class="lcap">Checkpoint<div class="lcap-meta">${esc(sub)}</div></div>
+    </div>`;
+  }
+
+  async function openCheckpoint(unitId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/units/' + unitId + '/checkpoint');
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))).detail || 'Could not load the checkpoint.';
+        throw new Error(msg);
+      }
+      const quiz = await res.json();
+      const content = quiz.content || {};
+      const segments = content.segments || [];
+      const segTotals = segments.map(sg => (sg.exercises || []).length);
+      const total = segTotals.reduce((a, b) => a + b, 0);
+      if (!total) throw new Error('Empty checkpoint');
+      _prefetchLesson(content, quiz.target_lang);
+      player = {
+        lessonId: 0, lang: quiz.target_lang, title: quiz.title || 'Checkpoint',
+        segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+        controller: null, graded: false,
+        conceptResults: {}, vocabGlossary: {},
+        concepts: [], theme: 'checkpoint', skipTeach: true, drillsOnly: false,
+        checkpointUnitId: unitId, checkpointPassPct: quiz.pass_pct || 80,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch (e) {
+      alert(e.message || 'Could not load the checkpoint — please try again.');
+      refreshAndShowCourse();
+    }
+  }
+
   // Draw the angled trail as an SVG polyline through the node centres. Re-run on
   // render / show / resize since node positions depend on layout (offsets + caption
   // heights vary), so a fixed CSS spine can't follow the wave.
@@ -1175,6 +1370,8 @@
         if (!u.in_progress) unitNo += 1;
         html += _unitBanner(u, unitNo);
         lessons.forEach(l => { html += _pathRow(l, wave); wave++; });
+        // Closed units get a checkpoint node sealing the unit (B3).
+        if (!u.in_progress && u.id) { html += _checkpointRow(u, wave); wave++; }
       });
       path.innerHTML = html;
       wrap.appendChild(path);
@@ -2169,7 +2366,7 @@
         lessonId: 0, lang: lesson.target_lang, title: lesson.title || 'Practice',
         segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
-        combo: 0, maxCombo: 0, xp: 0,
+        combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
         controller: null, graded: false,
         conceptResults: {}, vocabGlossary: {},
         concepts: [], theme: 'foundations', skipTeach: false, drillsOnly: false,
@@ -2218,7 +2415,7 @@
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
         segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
         firstPassCorrect: 0, mistakes: [], reviewStarted: false,
-        combo: 0, maxCombo: 0, xp: 0,   // gamification: in-lesson combo + earned XP
+        combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,   // gamification: in-lesson combo + earned XP
         controller: null, graded: false,
         conceptResults: {},   // concept_key → {correct, total} for mastery ledger
         vocabGlossary: content.vocab_glossary || {},
@@ -2777,6 +2974,7 @@
           player.firstPassCorrect++;
           player.combo++;
           player.maxCombo = Math.max(player.maxCombo, player.combo);
+          if (ex.type === 'listening') player.listeningHits = (player.listeningHits || 0) + 1;
           const gained = comboXp(player.combo);
           player.xp += gained;
           bumpCombo(gained);
@@ -2844,15 +3042,52 @@
     const perfect = total > 0 && player.firstPassCorrect === total;
     const xpEarned = player.xp + (perfect ? PERFECT_BONUS : 0);
     document.getElementById('combo-chip').classList.remove('on');
+    const results = Object.entries(player.conceptResults).map(([k, v]) => ({
+      concept_key: k, correct: v.correct, total: v.total,
+    }));
+    await reportQuestSignals();   // combo / listening quests (before the quest refetch)
+
+    // B3 · checkpoint: its own completion route + pass/fail results screen.
+    if (player.checkpointUnitId) {
+      let info = null;
+      try {
+        const res = await fetch('/api/units/' + player.checkpointUnitId + '/checkpoint', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score, results }),
+        });
+        info = await res.json();
+      } catch {}
+      const passed = info ? info.passed : score >= (player.checkpointPassPct || 80);
+      document.getElementById('results-score').textContent = score + '%';
+      const emoji = document.getElementById('results-emoji');
+      emoji.textContent = passed ? '🛡' : '💪';
+      document.getElementById('results-msg').textContent = passed
+        ? 'Checkpoint passed — this unit is sealed!'
+        : `You need ${(info && info.pass_pct) || 80}% to seal the unit. Review and try again!`;
+      const badges = document.getElementById('results-badges');
+      badges.innerHTML = passed
+        ? `<span class="results-badge perfect">🛡 Checkpoint passed${info && info.xp_awarded ? ` +${info.xp_awarded} XP` : ''}</span>`
+        : '';
+      renderResultsXp(info && info.xp_awarded ? info.xp_awarded : 0, false, player.maxCombo, 0, false);
+      document.getElementById('results-recap').innerHTML = '';
+      document.getElementById('results-vocab').innerHTML = '';
+      show('results');
+      renderResultsQuests();
+      emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
+      if (passed) { sfx.complete(); confetti(); } else { sfx.wrong(); }
+      try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+      loadStreak();
+      return;
+    }
+
     let serverInfo = null;
     if (player.lessonId) {
       try {
-        const results = Object.entries(player.conceptResults).map(([k, v]) => ({
-          concept_key: k, correct: v.correct, total: v.total,
-        }));
+        const body = { score, results, xp: xpEarned };
+        if (player.testOut) { body.xp = Math.round(xpEarned * 0.5); body.tested_out = true; }
         const res = await fetch('/api/lessons/' + player.lessonId + '/complete', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ score, results, xp: xpEarned }),
+          body: JSON.stringify(body),
         });
         serverInfo = await res.json();
       } catch {}
@@ -2865,13 +3100,65 @@
     renderResultsXp(xpEarned, perfect, player.maxCombo,
                     serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
     show('results');
+    renderResultsRecap();   // C3 · "What you learned" recap card
     renderResultsVocab();   // async fill of the "New words → deck" panel
+    renderResultsQuests();  // B1 · quest ticks advancing
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
     sfx.complete();
     if (score >= 60) confetti();
     if (perfect) setTimeout(confetti, 350);   // double burst for a flawless run
     try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
     loadStreak();   // refresh the ⭐ header total + daily-goal ring with the new XP
+  }
+
+  // C3 · recap card: the lesson's key table (else first examples block),
+  // collapsed under the score so learners can revisit what they just learned.
+  function renderResultsRecap() {
+    const wrap = document.getElementById('results-recap');
+    wrap.innerHTML = '';
+    if (!player || player.theme === 'foundations' || player.practiceGame) return;
+    let block = null;
+    for (const sg of player.segments || []) {
+      const blocks = (sg.teach && sg.teach.blocks) || [];
+      block = block || blocks.find(b => b.type === 'table');
+      if (block) break;
+    }
+    if (!block) {
+      for (const sg of player.segments || []) {
+        const blocks = (sg.teach && sg.teach.blocks) || [];
+        block = block || blocks.find(b => b.type === 'examples');
+        if (block) break;
+      }
+    }
+    if (!block) return;
+    const card = document.createElement('div');
+    card.className = 'recap ' + scriptClassFor(player.lang);
+    card.innerHTML = `<button class="recap-toggle" type="button">
+        <span class="r-kicker">What you learned</span><span class="r-chev">›</span>
+      </button><div class="recap-body"></div>`;
+    card.querySelector('.recap-toggle').onclick = () => card.classList.toggle('open');
+    const el = renderBlock(block);
+    if (!el) return;
+    card.querySelector('.recap-body').appendChild(el);
+    wrap.appendChild(card);
+    applyRuby(card, player.vocabGlossary);
+  }
+
+  // B1 · compact quest state on the results screen (fresh fetch shows the
+  // just-earned progress; the chest is claimable right here).
+  async function renderResultsQuests() {
+    const wrap = document.getElementById('results-quests');
+    wrap.innerHTML = '';
+    try {
+      _questData = await fetch('/api/quests').then(r => r.ok ? r.json() : null);
+    } catch { _questData = null; }
+    renderQuestCard();   // keep the course-page card in sync for the return trip
+    if (!_questData || !(_questData.quests || []).length) return;
+    wrap.innerHTML = `<div class="quests" style="margin:0">
+      <div class="q-head"><span class="q-kicker">Daily quests</span></div>
+      ${_questRows(_questData, true)}
+      ${_questData.all_done ? _chestHtml(_questData) : ''}
+    </div>`;
   }
 
   const PERFECT_BONUS = 25;
@@ -2969,12 +3256,14 @@
   function retryLesson() {
     if (!player) return;
     if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
+    else if (player.checkpointUnitId) openCheckpoint(player.checkpointUnitId);
     else openLesson(player.lessonId, player.mode || '');
   }
   function backToMap() { player = null; refreshAndShowCourse(); }
 
   async function refreshAndShowCourse() {
     show('loading');
+    loadQuests();
     try {
       const { course } = await fetch('/api/courses/active').then(r => r.json());
       if (course) { renderCourse(course); show('course'); } else { show('empty'); }

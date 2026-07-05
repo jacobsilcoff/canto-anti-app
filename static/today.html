@@ -54,6 +54,18 @@
       font-size: 0.92rem; }
     .next:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--primary-strong), var(--shadow); }
 
+    /* Daily quests strip (compact mirror of the Learn page card) */
+    .quests { margin-top: 12px; padding: 13px 16px 10px; }
+    .q-kicker { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--energy); }
+    .quest { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .quest .qico { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+      justify-content: center; font-size: 0.9rem; background: var(--surface-alt); flex-shrink: 0; }
+    .quest.done .qico { background: var(--good-soft); }
+    .quest .qname { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 600; }
+    .quest.done .qname { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+    .quest .qnum { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .quest-chest { font-size: 0.76rem; color: var(--gold); font-weight: 700; padding: 4px 0 2px; }
+
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
     .mini { padding: 13px 14px; text-decoration: none; color: inherit; display: block; }
     .mini:hover { border-color: var(--primary); }
@@ -214,11 +226,12 @@
 
   async function init() {
     loadStreak();
-    const [me, streak, due, courseRes] = await Promise.all([
+    const [me, streak, due, courseRes, quests] = await Promise.all([
       fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/streak').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/cards/due-count').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/courses/active').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/quests').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
     const name = (me && (me.display_name || me.username)) || '';
@@ -255,6 +268,22 @@
          </a>`;
 
     const dueN = (due && due.count) || 0;
+    let questCard = '';
+    if (quests && (quests.quests || []).length) {
+      const rows = quests.quests.map(q => `
+        <div class="quest${q.done ? ' done' : ''}">
+          <span class="qico">${q.icon}</span>
+          <span class="qname">${esc(q.name)}</span>
+          <span class="qnum">${q.done ? '✓' : `${q.progress}/${q.target}`}</span>
+        </div>`).join('');
+      const chest = quests.chest_claimed
+        ? '<div class="quest-chest">🎉 Chest opened — new quests tomorrow</div>'
+        : quests.all_done
+          ? '<div class="quest-chest">🎁 Chest ready — open it on the Learn page!</div>'
+          : '';
+      questCard = `<a class="tcard quests" href="/learn" style="display:block;text-decoration:none;color:inherit">
+        <div class="q-kicker">Daily quests</div>${rows}${chest}</a>`;
+    }
     document.getElementById('today-body').innerHTML = `
       <div class="tcard goal">
         ${ringHtml(today, goal)}
@@ -266,6 +295,7 @@
         </div>
       </div>
       ${nextCard}
+      ${questCard}
       <div class="row2">
         <a class="tcard mini" href="/cards">
           <div class="n">${dueN}</div>

@@ -2133,7 +2133,8 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
 
         # Completed units (those with assigned lessons)
         async with db.execute(
-            "SELECT id, idx, title, summary, theme FROM course_units WHERE course_id=? ORDER BY idx",
+            "SELECT id, idx, title, summary, theme, checkpoint_passed, checkpoint_score "
+            "FROM course_units WHERE course_id=? ORDER BY idx",
             (course_id,),
         ) as cur:
             units = [dict(r) for r in await cur.fetchall()]
@@ -3153,6 +3154,211 @@ async def get_points_today(user_id: int, lang: str) -> int:
             (user_id,),
         ) as cur:
             return (await cur.fetchone())[0]
+
+
+# ── Daily quests (gamification) ─────────────────────────────────────────────
+# 3 rotating quests per user per day, seeded lazily on first read. The `earn_xp`
+# quest is always included (it's the anchor the daily-goal ring already trains
+# users on); the other 2 rotate deterministically from user_id + date so friends
+# see different mixes. `mode`: "sum" quests accumulate, "max" quests track a
+# high-water mark (e.g. best combo). Progress comes from server-side events
+# where possible; combo/listening are client-reported (same trust model as
+# lesson XP — clamped, low stakes).
+
+QUEST_TEMPLATES = {
+    "earn_xp":   {"name": "Earn {n} XP",                   "icon": "⭐", "target": 40, "mode": "sum"},
+    "combo":     {"name": "Hit a {n}-combo",               "icon": "⚡", "target": 5,  "mode": "max"},
+    "lessons":   {"name": "Complete {n} lessons",          "icon": "📘", "target": 2,  "mode": "sum"},
+    "add_cards": {"name": "Add {n} words to your deck",    "icon": "📦", "target": 3,  "mode": "sum"},
+    "reviews":   {"name": "Review {n} flashcards",         "icon": "🃏", "target": 10, "mode": "sum"},
+    "perfect":   {"name": "Finish a perfect lesson",       "icon": "🏆", "target": 1,  "mode": "sum"},
+    "tutor":     {"name": "Send {n} tutor messages",       "icon": "💬", "target": 3,  "mode": "sum"},
+    "listening": {"name": "Get {n} listening drills right", "icon": "🔊", "target": 5, "mode": "sum"},
+}
+_QUEST_ROTATION = sorted(k for k in QUEST_TEMPLATES if k != "earn_xp")
+# Client-reported quest keys (everything else is bumped by server-side events).
+CLIENT_QUEST_KEYS = {"combo", "listening"}
+CHEST_XP_MIN, CHEST_XP_MAX = 20, 40
+
+
+def _utc_today() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def quest_keys_for(user_id: int, quest_date: str) -> list[str]:
+    """The 3 quest keys for a user+day: earn_xp + 2 deterministic rotations."""
+    h = int(hashlib.sha256(f"{user_id}:{quest_date}".encode()).hexdigest(), 16)
+    n = len(_QUEST_ROTATION)
+    first = h % n
+    second = (first + 1 + (h // n) % (n - 1)) % n
+    return ["earn_xp", _QUEST_ROTATION[first], _QUEST_ROTATION[second]]
+
+
+def chest_xp_for(user_id: int, quest_date: str) -> int:
+    """Deterministic chest bonus (20–40 XP) so a retried claim can't re-roll."""
+    h = int(hashlib.sha256(f"chest:{user_id}:{quest_date}".encode()).hexdigest(), 16)
+    return CHEST_XP_MIN + h % (CHEST_XP_MAX - CHEST_XP_MIN + 1)
+
+
+async def get_daily_quests(user_id: int) -> list[dict]:
+    """Today's 3 quests, seeding them on first call. The earn_xp quest's
+    progress is re-derived from the points ledger every read (it can never
+    drift); the rest accumulate via bump_quest."""
+    today = _utc_today()
+    keys = quest_keys_for(user_id, today)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        for key in keys:
+            await db.execute(
+                """INSERT OR IGNORE INTO daily_quests
+                   (user_id, quest_date, quest_key, target)
+                   VALUES (?, ?, ?, ?)""",
+                (user_id, today, key, QUEST_TEMPLATES[key]["target"]),
+            )
+        await db.execute(
+            """UPDATE daily_quests
+               SET progress = (SELECT COALESCE(SUM(points), 0) FROM points_ledger
+                               WHERE user_id=? AND date(created_at) = date('now'))
+               WHERE user_id=? AND quest_date=? AND quest_key='earn_xp'""",
+            (user_id, user_id, today),
+        )
+        await db.commit()
+        async with db.execute(
+            """SELECT quest_key, target, progress, claimed FROM daily_quests
+               WHERE user_id=? AND quest_date=?""",
+            (user_id, today),
+        ) as cur:
+            rows = {r["quest_key"]: dict(r) for r in await cur.fetchall()}
+    out = []
+    for key in keys:               # template order, not row order
+        r = rows.get(key)
+        if not r:
+            continue
+        t = QUEST_TEMPLATES[key]
+        progress = min(r["progress"], r["target"])
+        out.append({
+            "key": key,
+            "name": t["name"].format(n=r["target"]),
+            "icon": t["icon"],
+            "target": r["target"],
+            "progress": progress,
+            "done": progress >= r["target"],
+            "claimed": bool(r["claimed"]),
+        })
+    return out
+
+
+async def bump_quest(user_id: int, quest_key: str, amount: int = 1,
+                     value: int | None = None) -> None:
+    """Advance one of today's quests. No-op if the quest isn't among today's
+    seeded rows (cheap enough to call unconditionally from event sites).
+    "sum" quests add `amount`; "max" quests raise progress to `value`."""
+    tpl = QUEST_TEMPLATES.get(quest_key)
+    if not tpl:
+        return
+    today = _utc_today()
+    async with aiosqlite.connect(DB_PATH) as db:
+        if tpl["mode"] == "max":
+            if value is None:
+                return
+            await db.execute(
+                """UPDATE daily_quests SET progress = MAX(progress, ?)
+                   WHERE user_id=? AND quest_date=? AND quest_key=?""",
+                (max(0, int(value)), user_id, today, quest_key),
+            )
+        else:
+            if amount <= 0:
+                return
+            await db.execute(
+                """UPDATE daily_quests SET progress = progress + ?
+                   WHERE user_id=? AND quest_date=? AND quest_key=?""",
+                (int(amount), user_id, today, quest_key),
+            )
+        await db.commit()
+
+
+async def claim_daily_chest(user_id: int) -> int | None:
+    """Open today's chest: all 3 quests complete and not yet claimed → mark
+    claimed and return the bonus XP (deterministic). Else None. The caller
+    appends the XP to points_ledger (reason 'quest')."""
+    today = _utc_today()
+    quests = await get_daily_quests(user_id)   # seeds + syncs earn_xp
+    if len(quests) < 3 or not all(q["done"] for q in quests):
+        return None
+    if any(q["claimed"] for q in quests):
+        return None
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Guard against a concurrent double-claim: only flip unclaimed rows.
+        cur = await db.execute(
+            "UPDATE daily_quests SET claimed=1 WHERE user_id=? AND quest_date=? AND claimed=0",
+            (user_id, today),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return chest_xp_for(user_id, today)
+
+
+# ── Unit checkpoints (lesson redesign B3) ────────────────────────────────────
+
+async def get_unit_checkpoint_pool(user_id: int, unit_id: int) -> dict | None:
+    """The material a unit checkpoint quiz samples from: the unit row + each of
+    its lessons' stored content. Ownership-checked; foundations units have no
+    checkpoint. Returns None when the unit doesn't exist / isn't the user's."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.id, u.title, u.checkpoint_passed, u.checkpoint_score,
+                      c.target_lang, c.id AS course_id
+               FROM course_units u JOIN courses c ON c.id = u.course_id
+               WHERE u.id=? AND c.user_id=? AND COALESCE(u.theme, '') != 'foundations'""",
+            (unit_id, user_id),
+        ) as cur:
+            unit = await cur.fetchone()
+        if not unit:
+            return None
+        unit = dict(unit)
+        async with db.execute(
+            """SELECT id, title, content FROM course_lessons
+               WHERE unit_id=? ORDER BY lesson_num""",
+            (unit_id,),
+        ) as cur:
+            lessons = [dict(r) for r in await cur.fetchall()]
+    for l in lessons:
+        try:
+            l["content"] = json.loads(l["content"]) if l["content"] else None
+        except (ValueError, TypeError):
+            l["content"] = None
+    unit["lessons"] = lessons
+    return unit
+
+
+async def record_checkpoint(user_id: int, unit_id: int, score: int,
+                            passed: bool) -> tuple[bool, bool]:
+    """Record a checkpoint attempt (best score kept; passed is sticky).
+    Returns (found, first_pass) — first_pass is True only the FIRST time the
+    checkpoint is passed, so the bonus XP is awarded once."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT u.checkpoint_passed FROM course_units u
+               JOIN courses c ON c.id = u.course_id
+               WHERE u.id=? AND c.user_id=? AND COALESCE(u.theme, '') != 'foundations'""",
+            (unit_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return (False, False)
+        first_pass = passed and not row[0]
+        await db.execute(
+            """UPDATE course_units
+               SET checkpoint_score  = MAX(COALESCE(checkpoint_score, 0), ?),
+                   checkpoint_passed = MAX(checkpoint_passed, ?)
+               WHERE id=?""",
+            (int(score), 1 if passed else 0, unit_id),
+        )
+        await db.commit()
+    return (True, first_pass)
 
 
 # ── Embedding cache ───────────────────────────────────────────────────────────

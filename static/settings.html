@@ -246,6 +246,18 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Daily XP goal</div>
+          <div class="settings-desc">Sets the daily-goal ring on Home and the Learn page</div>
+        </div>
+        <select id="settings-daily-goal" class="settings-select" onchange="saveSettings()">
+          <option value="10">Casual · 10 XP</option>
+          <option value="30">Regular · 30 XP</option>
+          <option value="50">Serious · 50 XP</option>
+          <option value="100">Intense · 100 XP</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Populate similarity threshold</div>
           <div class="settings-desc">How closely a card must match a label for "Already in your deck" suggestions (higher = stricter)</div>
         </div>
@@ -852,6 +864,9 @@
       lmSel.value = settings.lesson_model || '';
     }
     document.getElementById('settings-learner-profile').value = settings.learner_profile || '';
+    const goalSel = document.getElementById('settings-daily-goal');
+    const goal = settings.daily_xp_goal || 50;
+    goalSel.value = [10, 30, 50, 100].includes(goal) ? String(goal) : '50';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
     document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
     updateScoreLabel(Math.round(pScore * 100));
@@ -997,19 +1012,21 @@
     const lang = document.getElementById('settings-default-lang').value;
     const buf = parseInt(document.getElementById('settings-lesson-buffer').value, 10);
     const popScore = parseInt(document.getElementById('settings-populate-score').value, 10) / 100;
+    const dailyGoal = parseInt(document.getElementById('settings-daily-goal').value, 10) || 50;
     if (!val || val < 1 || val > 500) { showToast('Must be between 1 and 500.'); return; }
     const lessonBuf = isNaN(buf) ? 3 : Math.max(0, Math.min(10, buf));
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_cards_per_day: val, default_target_lang: lang, lesson_buffer: lessonBuf, populate_min_score: popScore }),
+        body: JSON.stringify({ new_cards_per_day: val, default_target_lang: lang, lesson_buffer: lessonBuf, populate_min_score: popScore, daily_xp_goal: dailyGoal }),
       });
       if (!res.ok) throw new Error();
       settings.new_cards_per_day = val;
       settings.default_target_lang = lang;
       settings.lesson_buffer = lessonBuf;
       settings.populate_min_score = popScore;
+      settings.daily_xp_goal = dailyGoal;
       showToast('Saved.');
     } catch {
       showToast('Failed to save settings.');

@@ -1731,6 +1731,7 @@ async def create_card(
     except HTTPException:
         pass
 
+    await db.bump_quest(user["id"], "add_cards", 1)   # daily quest: grow the deck
     return {"card_id": card_id, "notes": notes, "labels": []}
 
 
@@ -1848,6 +1849,7 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_buffer": lesson_buffer,
         "chat_compact_phrases": (await db.get_setting(user["id"], "chat_compact_phrases") or "false") == "true",
         "populate_min_score": populate_min_score,
+        "daily_xp_goal": await _daily_goal(user["id"]),
     }
 
 
@@ -1866,6 +1868,7 @@ class SettingsUpdate(BaseModel):
     lesson_buffer: int | None = None
     chat_compact_phrases: bool | None = None
     populate_min_score: float | None = None
+    daily_xp_goal: int | None = None
 
 
 @app.put("/api/settings")
@@ -1919,6 +1922,10 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
     if req.populate_min_score is not None:
         val = max(0.0, min(1.0, req.populate_min_score))
         await db.set_setting(user["id"], "populate_min_score", f"{val:.2f}")
+    if req.daily_xp_goal is not None:
+        if not 10 <= req.daily_xp_goal <= 200:
+            raise HTTPException(400, "daily_xp_goal must be 10–200")
+        await db.set_setting(user["id"], "daily_xp_goal", req.daily_xp_goal)
     return {"success": True}
 
 
@@ -2188,7 +2195,16 @@ async def cefr_distribution(user: dict = Depends(current_user)):
     return await db.get_cefr_distribution(user["id"])
 
 
-_DAILY_XP_GOAL = 50   # XP target for the daily-goal ring on the Learn page
+_DAILY_XP_GOAL = 50   # default XP target for the daily-goal ring (daily_xp_goal setting overrides)
+
+
+async def _daily_goal(user_id: int) -> int:
+    """The user's daily XP goal (D1: adjustable; falls back to the old fixed 50)."""
+    try:
+        goal = int(await db.get_setting(user_id, "daily_xp_goal") or _DAILY_XP_GOAL)
+    except (ValueError, TypeError):
+        goal = _DAILY_XP_GOAL
+    return max(10, min(200, goal))
 
 
 @app.get("/api/streak")
@@ -2197,7 +2213,57 @@ async def get_streak(user: dict = Depends(current_user)):
     return {"streak": await db.get_streak(user["id"]),
             "points": await db.get_points_total(user["id"], lang),
             "points_today": await db.get_points_today(user["id"], lang),
-            "daily_goal": _DAILY_XP_GOAL}
+            "daily_goal": await _daily_goal(user["id"])}
+
+
+# ── Daily quests (lesson redesign B1) ──────────────────────────────────────────
+
+class QuestProgressRequest(BaseModel):
+    key: str
+    amount: int = 1
+    value: int | None = None   # for high-water-mark quests (combo)
+
+
+def _quests_payload(quests: list[dict]) -> dict:
+    all_done = len(quests) >= 3 and all(q["done"] for q in quests)
+    return {
+        "quests": quests,
+        "all_done": all_done,
+        "chest_claimed": all_done and all(q["claimed"] for q in quests),
+    }
+
+
+@app.get("/api/quests")
+async def get_quests(user: dict = Depends(current_user)):
+    """Today's 3 daily quests (seeded lazily) + chest state."""
+    return _quests_payload(await db.get_daily_quests(user["id"]))
+
+
+@app.post("/api/quests/progress")
+async def quest_progress(req: QuestProgressRequest, user: dict = Depends(current_user)):
+    """Client-only quest signals (combo high-water mark, listening hits) — the
+    server can't observe these. Server-observable quests are bumped where the
+    events happen and reject client reports here."""
+    if req.key not in db.CLIENT_QUEST_KEYS:
+        raise HTTPException(400, "This quest is tracked server-side")
+    await db.bump_quest(user["id"], req.key,
+                        amount=max(0, min(20, req.amount)),
+                        value=None if req.value is None else max(0, min(500, req.value)))
+    return _quests_payload(await db.get_daily_quests(user["id"]))
+
+
+@app.post("/api/quests/claim")
+async def quest_claim(user: dict = Depends(current_user)):
+    """Open today's chest (all 3 quests done). Bonus XP is deterministic per
+    user+day and awarded once (reason 'quest' in the points ledger)."""
+    xp = await db.claim_daily_chest(user["id"])
+    if xp is None:
+        raise HTTPException(400, "Chest not ready — finish today's quests first")
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    await db.add_points(user["id"], lang, xp, "quest")
+    return {"xp": xp,
+            "points_today": await db.get_points_today(user["id"], lang),
+            "daily_goal": await _daily_goal(user["id"])}
 
 
 @app.get("/api/audio/{card_id}")
@@ -2232,6 +2298,7 @@ async def review_card(card_id: int, req: ReviewRequest, user: dict = Depends(cur
     new_state = srs.update(face_state, req.quality)
     await db.update_face_review(user["id"], card_id, req.face, new_state)
     await db.record_study_activity(user["id"])
+    await db.bump_quest(user["id"], "reviews", 1)   # daily quest: flashcard reviews
     xp = 0
     if req.quality in ("good", "easy"):
         xp = 7 if req.quality == "easy" else 5
@@ -3340,6 +3407,10 @@ async def complete_lesson(
             _auto_add_lesson_vocab,
             user["id"], lang, lesson,
         )
+    # Daily quests: any completion counts; a 100% run also ticks "perfect".
+    await db.bump_quest(user["id"], "lessons", 1)
+    if req.score >= 100:
+        await db.bump_quest(user["id"], "perfect", 1)
     return {
         "success": True,
         "xp_awarded": awarded,
@@ -3347,7 +3418,115 @@ async def complete_lesson(
         "crown_leveled_up": leveled_up,
         "points_today": await db.get_points_today(user["id"], lang),
         "points_total": await db.get_points_total(user["id"], lang),
-        "daily_goal": _DAILY_XP_GOAL,
+        "daily_goal": await _daily_goal(user["id"]),
+    }
+
+
+# ── Unit checkpoint quiz (lesson redesign B3) ──────────────────────────────────
+# A closed unit gains a Checkpoint node: 8–10 questions sampled DETERMINISTICALLY
+# from the unit's lessons' stored drills — no LLM, no new content generation.
+
+_CHECKPOINT_XP = 40          # bonus XP on the first pass (reason 'checkpoint')
+_CHECKPOINT_PASS_PCT = 80    # score needed to seal the unit
+_CHECKPOINT_MAX_Q = 10
+_CHECKPOINT_PER_LESSON = 2
+# Exercise types a checkpoint can grade (self-managed/LLM types are excluded).
+_CHECKPOINT_TYPES = {"choice", "listening", "word_bank", "match"}
+
+
+def _checkpoint_difficulty(ex: dict) -> int:
+    """Rank a stored exercise by difficulty (lower = harder). Hardest kinds are
+    preferred per the redesign doc: reorder/cloze/production over recognition."""
+    t = ex.get("type")
+    if t == "word_bank":
+        return 0
+    if t == "choice" and ex.get("is_cloze"):
+        return 1
+    if t == "choice" and ex.get("prompt_lang") == "english":
+        return 2
+    if t == "listening":
+        return 3
+    if t == "choice":
+        return 4
+    return 5   # match
+
+
+def _checkpoint_quiz(unit: dict) -> list[dict]:
+    """Sample up to 10 gradeable drills from the unit's lessons (hardest 1–2 per
+    lesson), deterministically seeded by unit id so the quiz is stable."""
+    import random as _random
+    rng = _random.Random(unit["id"])
+    picked: list[dict] = []
+    for lesson in unit.get("lessons") or []:
+        content = lesson.get("content") or {}
+        pool = []
+        for seg in content.get("segments") or []:
+            for ex in seg.get("exercises") or []:
+                if ex.get("type") in _CHECKPOINT_TYPES:
+                    pool.append(ex)
+        pool.sort(key=_checkpoint_difficulty)
+        picked.extend(dict(ex) for ex in pool[:_CHECKPOINT_PER_LESSON])
+    rng.shuffle(picked)
+    return picked[:_CHECKPOINT_MAX_Q]
+
+
+@app.get("/api/units/{unit_id}/checkpoint")
+async def get_checkpoint(unit_id: int, user: dict = Depends(current_user)):
+    """Assemble the unit's checkpoint quiz as a drills-only playable lesson."""
+    unit = await db.get_unit_checkpoint_pool(user["id"], unit_id)
+    if not unit:
+        raise HTTPException(404, "Unit not found")
+    exercises = _checkpoint_quiz(unit)
+    if len(exercises) < 4:
+        raise HTTPException(400, "Not enough lesson material for a checkpoint yet")
+    return {
+        "unit_id": unit["id"],
+        "title": f"Checkpoint · {unit['title'] or 'Unit'}",
+        "target_lang": unit["target_lang"],
+        "passed": bool(unit["checkpoint_passed"]),
+        "best_score": unit["checkpoint_score"],
+        "pass_pct": _CHECKPOINT_PASS_PCT,
+        "bonus_xp": _CHECKPOINT_XP,
+        "content": {"segments": [
+            {"title": "Checkpoint", "teach": None, "exercises": exercises},
+        ]},
+    }
+
+
+class CheckpointCompleteRequest(BaseModel):
+    score: int = 0
+    results: list[dict] = []   # same shape as lesson results → mastery ledger
+
+
+@app.post("/api/units/{unit_id}/checkpoint")
+async def complete_checkpoint(unit_id: int, req: CheckpointCompleteRequest,
+                              user: dict = Depends(current_user)):
+    """Record a checkpoint attempt. Pass ≥80% → gold shield on the unit banner +
+    bonus XP (first pass only, reason 'checkpoint'); mastery bumps either way."""
+    score = max(0, min(100, req.score))
+    passed = score >= _CHECKPOINT_PASS_PCT
+    found, first_pass = await db.record_checkpoint(user["id"], unit_id, score, passed)
+    if not found:
+        raise HTTPException(404, "Unit not found")
+    lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+    unit = await db.get_unit_checkpoint_pool(user["id"], unit_id)
+    if unit:
+        lang = unit["target_lang"]
+    if req.results:
+        await db.record_concept_results(user["id"], lang, req.results)
+    await db.record_study_activity(user["id"])
+    awarded = 0
+    if first_pass:
+        awarded = _CHECKPOINT_XP
+        await db.add_points(user["id"], lang, awarded, "checkpoint")
+    return {
+        "success": True,
+        "passed": passed,
+        "first_pass": first_pass,
+        "xp_awarded": awarded,
+        "pass_pct": _CHECKPOINT_PASS_PCT,
+        "points_today": await db.get_points_today(user["id"], lang),
+        "daily_goal": await _daily_goal(user["id"]),
     }
 
 
@@ -3569,6 +3748,7 @@ async def tutor_send_message(request: Request, conv_id: int, req: TutorMessageRe
     await db.add_tutor_message(user["id"], conv_id, "tutor", json.dumps(payload, ensure_ascii=False),
                                drill_id=active_drill_id, drill_skill=drill_skill or None)
     await db.record_study_activity(user["id"])   # tutor turns count toward the 🔥 streak
+    await db.bump_quest(user["id"], "tutor", 1)  # daily quest: tutor practice
     for p in payload["points"]:
         await db.add_points(user["id"], lang, p["points"],
                             f'{p.get("concept", "")}: {p.get("reason", "")}'.strip(": "))
