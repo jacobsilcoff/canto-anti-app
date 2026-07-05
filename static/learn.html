@@ -280,6 +280,22 @@
     .intro-len.on { border-color: var(--primary); background: var(--primary-soft); }
     .intro-len.on b { color: var(--primary); }
     .intro-len-note { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; min-height: 1em; }
+    /* AI-practice toggle row inside the intro sheet. */
+    .intro-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 12px;
+      border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt, var(--neutral-soft)); }
+    .intro-toggle .it-text { flex: 1; min-width: 0; }
+    .intro-toggle .it-title { font-size: 0.84rem; font-weight: 700; }
+    .intro-toggle .it-sub { font-size: 0.7rem; color: var(--text-muted); line-height: 1.35; }
+    .intro-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; border: none; border-radius: 999px;
+      background: var(--border); cursor: pointer; padding: 0; transition: background 0.2s; }
+    .intro-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+      border-radius: 50%; background: #fff; transition: transform 0.2s; box-shadow: var(--shadow); }
+    .intro-switch.on { background: var(--primary); }
+    .intro-switch.on::after { transform: translateX(18px); }
+    /* Resume banner when a saved attempt exists. */
+    .intro-resume { display: flex; align-items: center; gap: 8px; padding: 9px 12px; margin-bottom: 12px;
+      border: 1px solid var(--good, var(--primary)); border-radius: 12px; background: var(--good-soft, var(--primary-soft));
+      font-size: 0.8rem; font-weight: 600; color: var(--good-strong, var(--primary)); }
     .intro-actions { display: flex; flex-direction: column; gap: 9px; }
     .intro-actions .row2 { display: flex; gap: 9px; }
     .intro-actions .row2 .cta-btn { flex: 1; padding: 11px 8px; font-size: 0.85rem; }
@@ -301,6 +317,9 @@
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
     .player-close { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+    /* Back button — step back to a previous card/exercise in the current step. */
+    .player-back { background: none; border: none; font-size: 1.35rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 2px 6px; border-radius: 8px; }
+    .player-back:active { background: var(--surface-alt, var(--neutral-soft)); }
     /* Segmented step bar — one pill per lesson step (A1), filling left→right. */
     .step-bar { flex: 1; display: flex; gap: 5px; }
     .step-seg { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
@@ -324,8 +343,13 @@
     .qc-opt.bad { border-color: var(--danger); background: var(--danger-soft); }
     .qc-why { font-size: 0.8rem; color: var(--good-strong); font-weight: 600; margin-top: 2px; }
     .qc-why small { display: block; font-weight: 500; color: var(--text-muted); margin-top: 3px; }
-    /* A2 · "Skip AI practice" ghost button under the construction drill. */
-    .cd-skip-btn { display: block; margin: 8px auto 0; background: none; border: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 700; cursor: pointer; padding: 6px 12px; }
+    /* A2 · "Skip AI practice" ghost button under the construction drill. A
+       comfortable tap target (≥44px) with breathing room above the safe-area so
+       it never hugs the phone's bottom edge / home indicator. */
+    .cd-skip-btn { display: block; flex-shrink: 0; margin: 10px auto 2px; background: none;
+      border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted);
+      font-size: 0.82rem; font-weight: 700; cursor: pointer; padding: 11px 20px; min-height: 44px; }
+    .cd-skip-btn:active { background: var(--surface-alt, var(--neutral-soft)); }
     .ex-instruction { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; overflow-wrap: break-word; }
     .ex-prompt { font-size: 2rem; text-align: center; margin: 8px 0 6px; font-family: var(--script-font, inherit); overflow-wrap: break-word; min-width: 0; }
     .ex-prompt.english { font-family: inherit; }
@@ -428,7 +452,8 @@
       position: fixed; top: 0; left: 0; right: 0; max-width: 720px; margin: 0 auto;
       height: 100dvh; /* overridden by JS */
       z-index: 100; overflow: hidden;
-      background: var(--bg); box-sizing: border-box; padding: 16px 16px 0;
+      background: var(--bg); box-sizing: border-box;
+      padding: 16px 16px calc(6px + env(safe-area-inset-bottom));
     }
     #state-player.cd-drilling #exercise-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #state-player.cd-drilling .cd-wrap { flex: 1; min-height: 0; }
@@ -816,6 +841,7 @@
   <div id="state-teach" style="display:none">
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Close">✕</button>
+      <button class="player-back" id="teach-back" onclick="goBackTeach()" title="Back" style="display:none">←</button>
       <div class="step-bar" id="teach-stepbar"></div>
     </div>
     <div class="step-tag" id="teach-step-tag" style="display:none"></div>
@@ -830,6 +856,7 @@
   <div id="state-player" style="display:none">
     <div class="player-top">
       <button class="player-close" onclick="quitLesson()" title="Quit lesson">✕</button>
+      <button class="player-back" id="player-back" onclick="goBack()" title="Back" style="display:none">←</button>
       <div class="step-bar" id="player-stepbar"></div>
       <div class="combo-chip" id="combo-chip"><span class="combo-icon"><svg class="icon-svg" viewBox="0 0 14 22" width="10" height="15" aria-hidden="true"><path fill="#f0b429" d="M10 0L5 12H9L4 22 14 10H10Z"/></svg></span><span id="combo-n"></span></div>
     </div>
@@ -864,6 +891,8 @@
   let selectedLevel = 'A1';
   let selectedFocus = 'balanced';
   let _lessonLength = 'standard';   // A3 · mirrors the lesson_length setting
+  let _aiSpeak = true;              // mirrors the lesson_ai_speak setting (AI Speak drills on/off)
+  const _cdPreload = {};           // construction → Promise<opener data>, warmed while the learner works
   let langName = 'your language';
   let LANGS = [];
   let currentCourse = null;
@@ -911,6 +940,7 @@
       if (!isAdmin && unlockAll) { unlockAll = false; localStorage.removeItem('learn_unlock_all'); }
       _lessonBuffer = Math.max(0, parseInt(settings.lesson_buffer || 3, 10) || 3);
       _lessonLength = settings.lesson_length || 'standard';
+      _aiSpeak = settings.lesson_ai_speak !== false && settings.lesson_ai_speak !== 'false';
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -931,7 +961,7 @@
       const lessonParam = new URLSearchParams(location.search).get('lesson');
       if (course && lessonParam) {
         history.replaceState(null, '', '/learn');   // refresh returns to the map
-        openLesson(parseInt(lessonParam, 10));
+        resumeLesson(parseInt(lessonParam, 10));    // continue a saved attempt if there is one
       }
     } catch {
       show('error');
@@ -1961,7 +1991,12 @@
         }
 
         async function start() {
-          const data = await call(null);
+          // Reuse the opener warmed by _preloadDrills if it's ready (consume once —
+          // a fresh opener would generate a different set of phrases).
+          let data = null;
+          const pre = construction && _cdPreload[construction];
+          if (pre) { data = await pre; delete _cdPreload[construction]; }
+          if (!data) data = await call(null);
           // The learner may have skipped past this drill while the opener call was
           // in flight — promptEl is detached then, and the retry button null.
           if (!data || !data.phrase) {
@@ -2659,6 +2694,45 @@
     return segments;
   }
 
+  // ── AI Speak (construction-drill) helpers ──────────────────────────────────
+  // AI practice lives in two shapes: new lessons carry a dedicated `speak:true`
+  // segment; older lessons bury a `construction_drill` exercise inside a regular
+  // step. Both count as "AI practice" for the toggle + the intro breakdown.
+  function _isAiSpeakEx(e) { return e && e.type === 'construction_drill'; }
+  function _segHasAiSpeak(sg) {
+    return !!(sg && (sg.speak || (sg.exercises || []).some(_isAiSpeakEx)));
+  }
+  function _hasAiSpeak(segments) { return (segments || []).some(_segHasAiSpeak); }
+
+  // Remove all AI-Speak content: drop dedicated speak segments, filter embedded
+  // construction drills out of the rest, and discard any segment left with no
+  // teach and no exercises.
+  function _stripAiSpeak(segments) {
+    return (segments || []).filter(sg => !sg.speak).map(sg => ({
+      ...sg, exercises: (sg.exercises || []).filter(e => !_isAiSpeakEx(e)),
+    })).filter(sg => (sg.exercises || []).length
+      || (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
+  }
+
+  // Warm the opener (question + plan) for every construction drill in the lesson,
+  // in parallel, so by the time the learner reaches the AI Speak step the phrases
+  // are already generated. Cached by construction label; the drill widget reuses
+  // the SAME plan (a fresh opener would generate different phrases). Best-effort.
+  function _preloadDrills(segments, lang) {
+    if (!_aiSpeak) return;
+    for (const sg of (segments || [])) {
+      for (const ex of (sg.exercises || [])) {
+        if (!_isAiSpeakEx(ex)) continue;
+        const construction = (ex.construction || ex.skill || '').trim();
+        if (!construction || _cdPreload[construction]) continue;
+        _cdPreload[construction] = fetch('/api/lesson/drill', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ construction, plan_items: [], answer: null, turn: 1, lang }),
+        }).then(r => r.ok ? r.json() : null).catch(() => null);
+      }
+    }
+  }
+
   function _estMinutes(segments) {
     let m = 0;
     segments.forEach(sg => {
@@ -2761,37 +2835,64 @@
     closeLessonIntro();
     if (id) openLesson(id, mode);
   }
+  function _introResume() {
+    const id = _introLesson && _introLesson.id;
+    closeLessonIntro();
+    if (id) resumeLesson(id);
+  }
+
+  // Flatten segments into displayed step rows. Non-speak segments surface their
+  // embedded AI practice (older lessons bury a construction_drill in a step) as
+  // its own "✨ AI Speak" row, so the breakdown reads the same as new lessons'.
+  function _introStepRows(segments) {
+    const rows = [];
+    (segments || []).forEach((sg, i) => {
+      const speakSeg = !!sg.speak;
+      const exs = sg.exercises || [];
+      const cds = speakSeg ? exs.length : exs.filter(_isAiSpeakEx).length;
+      const blocks = (sg.teach && (sg.teach.blocks || []).length) || 0;
+      const drills = exs.length - (speakSeg ? 0 : cds);
+      if (!speakSeg && (blocks || drills)) {
+        const n = rows.filter(r => !r.speak).length + 1;
+        rows.push({
+          speak: false,
+          icon: (i === 0 && !blocks) ? '🔥' : (blocks ? '📖' : '✏️'),
+          name: sg.title || `Step ${n}`,
+          sub: [blocks ? `${blocks} card${blocks === 1 ? '' : 's'}` : '',
+                drills ? `${drills} drill${drills === 1 ? '' : 's'}` : ''].filter(Boolean).join(' + '),
+          t: Math.max(1, Math.round(blocks * 0.4 + drills * 0.5)),
+        });
+      }
+      if (speakSeg || cds) {
+        rows.push({ speak: true, icon: '✨', name: 'AI Speak',
+          sub: 'Short phrases, graded by your tutor',
+          t: Math.max(1, Math.round((speakSeg ? exs.length : cds) * 2)) });
+      }
+    });
+    return rows.map((r, i) => `${i ? '<div class="intro-rail"></div>' : ''}
+      <div class="intro-step${r.speak ? ' speak' : ''}">
+        <span class="sico">${r.icon}</span>
+        <div><div class="sname">${esc(r.name)}</div>${r.sub ? `<div class="ssub">${esc(r.sub)}</div>` : ''}</div>
+        <span class="stime">${r.t} min</span>
+      </div>`).join('');
+  }
 
   function renderLessonIntro(lesson) {
     const sheet = document.getElementById('intro-sheet');
     const content = lesson.content || {};
     const fullSegments = _introSegments(content);
-    // The step list + estimate reflect what the chosen length will actually
-    // play, so switching Quick/Standard/Thorough visibly reshapes the layout.
     const isFoundations = lesson.theme === 'foundations';
-    const segments = isFoundations ? fullSegments : _trimForLength(fullSegments, _lessonLength);
+    const hasAi = !isFoundations && _hasAiSpeak(fullSegments);
+    // The step list + estimate reflect what will actually play: the chosen length
+    // (Quick/Standard/Thorough) and the AI-Speak toggle both reshape it live.
+    let segments = isFoundations ? fullSegments : _trimForLength(fullSegments, _lessonLength);
+    if (!_aiSpeak) segments = _stripAiSpeak(segments);
     const mins = _estMinutes(segments);
-    const hasSpeak = segments.some(sg => (sg.exercises || []).some(e => SELF_MANAGED.has(e.type)));
+    const hasSpeak = _aiSpeak && _hasAiSpeak(segments);
     const canTestOut = !lesson.completed && _gradeableExercises(fullSegments).length >= 4;
+    const resume = _loadResume(lesson.id);
 
-    const stepRows = segments.map((sg, i) => {
-      const blocks = (sg.teach && (sg.teach.blocks || []).length) || 0;
-      const drills = (sg.exercises || []).length;
-      const speak = !!sg.speak;
-      const icon = speak ? '✨' : (i === 0 && !blocks ? '🔥' : (blocks ? '📖' : '✏️'));
-      const name = sg.title || (speak ? 'AI Speak' : `Step ${i + 1}`);
-      const sub = speak
-        ? 'Short phrases, graded by your tutor'
-        : [blocks ? `${blocks} card${blocks === 1 ? '' : 's'}` : '',
-           drills ? `${drills} drill${drills === 1 ? '' : 's'}` : ''].filter(Boolean).join(' + ');
-      const t = Math.max(1, Math.round(blocks * 0.4 + drills * (speak ? 2 : 0.5)));
-      return `${i ? '<div class="intro-rail"></div>' : ''}
-        <div class="intro-step${speak ? ' speak' : ''}">
-          <span class="sico">${icon}</span>
-          <div><div class="sname">${esc(name)}</div>${sub ? `<div class="ssub">${esc(sub)}</div>` : ''}</div>
-          <span class="stime">${t} min</span>
-        </div>`;
-    }).join('');
+    const stepRows = _introStepRows(segments);
 
     const concepts = (lesson.concepts || []).filter(c => (c.label || '').trim());
     const chips = concepts.slice(0, 4).map(c =>
@@ -2802,26 +2903,53 @@
       `<button type="button" class="intro-len${_lessonLength === v ? ' on' : ''}" data-len="${v}"
         onclick="setLessonLength('${v}')"><b>${label}</b><small>${sub}</small></button>`;
 
+    const aiToggle = hasAi ? `
+      <div class="intro-toggle">
+        <div class="it-text">
+          <div class="it-title">✨ AI Speak practice</div>
+          <div class="it-sub">Tutor-graded translation drills. Off is faster and uses fewer AI calls.</div>
+        </div>
+        <button type="button" class="intro-switch${_aiSpeak ? ' on' : ''}" onclick="toggleAiSpeak()" aria-label="Toggle AI Speak practice"></button>
+      </div>` : '';
+
     sheet.className = 'intro-sheet ' + scriptClassFor(lesson.target_lang);
     sheet.innerHTML = `
       <div class="intro-grab"></div>
       <div class="intro-kicker">${lesson.completed ? `Completed${lesson.score != null ? ` · ${lesson.score}%` : ''}` : 'Lesson'} · ~${mins} min</div>
       <h2>${esc(lesson.title || 'Lesson')}</h2>
       ${lesson.objective ? `<p class="intro-obj">${esc(lesson.objective)}</p>` : ''}
+      ${resume ? `<div class="intro-resume">⏸ You stopped partway through — resume where you left off, or start over.</div>` : ''}
       <div class="intro-steps">${stepRows}</div>
       ${chips ? `<div class="intro-concepts">${chips}</div>` : ''}
       ${isFoundations ? '' : `<div class="intro-lenrow">
         ${lenChip('quick', 'Quick', '~4 min')}${lenChip('standard', 'Standard', '~8 min')}${lenChip('thorough', 'Thorough', '~12 min')}
       </div>
       <div class="intro-len-note" id="intro-len-note">${esc(_lenNoteText(_lessonLength))}</div>`}
+      ${aiToggle}
       <div class="intro-actions">
-        <button class="cta-btn" onclick="_introPlay('')">${lesson.completed ? '↻ Play again' : 'Start lesson'}</button>
+        ${resume
+          ? `<button class="cta-btn" onclick="_introResume()">▶ Resume lesson</button>`
+          : `<button class="cta-btn" onclick="_introPlay('')">${lesson.completed ? '↻ Play again' : 'Start lesson'}</button>`}
         <div class="row2">
+          ${resume ? `<button class="cta-btn secondary" onclick="_introPlay('')">↻ Start over</button>` : ''}
           <button class="cta-btn secondary" onclick="_introPlay('skip')">⚡ Practice only</button>
           ${hasSpeak ? `<button class="cta-btn secondary" onclick="_introPlay('llm')">✨ AI Speak</button>` : ''}
           ${canTestOut ? `<button class="cta-btn secondary" onclick="startTestOut()">🎓 Test out</button>` : ''}
         </div>
       </div>`;
+  }
+
+  // Toggle AI Speak practice for every lesson; re-render the sheet so the step
+  // breakdown + estimate update live, and persist the choice.
+  async function toggleAiSpeak() {
+    _aiSpeak = !_aiSpeak;
+    if (_introLesson) renderLessonIntro(_introLesson);
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_ai_speak: _aiSpeak }),
+      });
+    } catch {}
   }
 
   // A3 · length chips choose how much of the (always max-depth) lesson to play,
@@ -2899,9 +3027,12 @@
     startSegment(0);
   }
 
-  async function openLesson(lessonId, mode = '') {
+  async function openLesson(lessonId, mode = '', resume = null) {
     // mode: '' = full lesson, 'skip' = skip teach, 'llm' = LLM drills only
+    // resume: a saved snapshot to continue from (see _loadResume); else fresh.
     show('lesson-loading');
+    // Starting a lesson fresh replaces any earlier saved attempt.
+    if (!resume) _clearResume(lessonId);
     try {
       const res = await fetch('/api/lessons/' + lessonId);
       if (!res.ok) throw new Error();
@@ -2913,6 +3044,12 @@
       // A3 · trim to the chosen length for this run (never for the curated
       // foundations reading track, whose drills each teach a specific letter).
       if (lesson.theme !== 'foundations') segments = _trimForLength(segments, _lessonLength);
+      // AI Speak toggle: when off, drop the construction-drill practice entirely
+      // (unless doing so would leave nothing to play).
+      if (!_aiSpeak && mode !== 'llm') {
+        const stripped = _stripAiSpeak(segments);
+        if (stripped.length) segments = stripped;
+      }
       // Count only the exercises this mode will actually play — 'llm' filters to
       // self-managed drills, so an unfiltered total would deflate the score/bar.
       const segTotals = segments.map(sg => (sg.exercises || [])
@@ -2929,6 +3066,8 @@
       // Fire-and-forget: kick off TTS + ruby fetches for the whole lesson so
       // everything is cached by the time the learner reaches each exercise.
       _prefetchLesson(content, lesson.target_lang);
+      // Warm the AI-Speak openers in parallel while the learner works the lesson.
+      _preloadDrills(segments, lesson.target_lang);
 
       player = {
         lessonId, lang: lesson.target_lang, title: lesson.title || 'Lesson',
@@ -2948,6 +3087,10 @@
       document.getElementById('state-player').className = sc;
       document.getElementById('state-teach').className = sc;
       document.getElementById('state-results').className = 'learn-center ' + sc;
+      // Resume a saved attempt (see quitLesson): restore counters + jump into the
+      // segment/exercise the learner stopped on. Guarded so a stale/mismatched
+      // snapshot (settings changed, lesson re-authored) just starts fresh.
+      if (resume && _applyResume(resume)) return;
       startSegment(0);
     } catch {
       alert('Could not load this lesson — please try again.');
@@ -3252,6 +3395,10 @@
       // Store clean TTS text as data-tts BEFORE applyRuby runs — afterwards
       // td.textContent includes the <rt> romanization content and would be read aloud.
       const cell = c => {
+        // English/Latin cells (the meaning column) must NOT be tokenised by the
+        // target-language tokenizer — a CJK/Thai tokenizer segments English text
+        // and drops the spaces ("not is" → "notis"). Render them as plain text.
+        if (!needsRuby(l) || _isLatin(c)) return `<td>${esc(c)}</td>`;
         const clean = cleanForTTS(c, l);
         return `<td data-tts="${esc(clean)}"><span class="needs-ruby" data-text="${esc(clean)}" data-lang="${esc(l)}">${esc(c)}</span></td>`;
       };
@@ -3314,6 +3461,7 @@
     player.teachIdx = 0;
     if (player.teachPaged) { renderTeachCard(); return; }
     document.getElementById('teach-dots').style.display = 'none';
+    { const tb = document.getElementById('teach-back'); if (tb) tb.style.display = 'none'; }
     setTeachAction(true);
     document.getElementById('teach-intro').textContent = teach.intro || '';
     const wrap = document.getElementById('teach-items');
@@ -3382,6 +3530,8 @@
     if (el) wrap.appendChild(el);
     applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
     setTeachAction(player.teachIdx >= player.teachBlocks.length - 1);
+    const tb = document.getElementById('teach-back');
+    if (tb) tb.style.display = player.teachIdx > 0 ? '' : 'none';
     window.scrollTo(0, 0);
   }
 
@@ -3438,11 +3588,17 @@
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
-    let exs = (seg.exercises || []).map(e => ({ ...e }));
-    // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
-    if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
-    player.queue = exs;
-    player.idx = 0;
+    // Build the queue once per segment. Returning here via the back button (teach
+    // → exercises) must REUSE the existing queue so its `_counted` flags survive —
+    // rebuilding fresh copies would let already-answered drills recount.
+    if (player._queueSeg !== player.segIdx) {
+      let exs = (seg.exercises || []).map(e => ({ ...e }));
+      // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
+      if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
+      player.queue = exs;
+      player.idx = 0;
+      player._queueSeg = player.segIdx;
+    }
     if (!player.queue.length) { afterSegment(); return; }
     show('player');
     renderExercise();
@@ -3456,6 +3612,7 @@
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
     player.graded = false;
     updateComboChip();
+    updateBackBtn();
     const action = document.getElementById('player-action');
     const footer = document.getElementById('player-footer');
     // Construction drill is self-managed (its own submit + turn loop, LLM-graded):
@@ -3464,7 +3621,8 @@
     if (SELF_MANAGED.has(ex.type)) {
       footer.style.display = 'none';
       player.controller = EXERCISE_TYPES[ex.type].render(ex, root, player.lang, () => {
-        if (!ex._review) player.firstPassCorrect++;
+        if (!ex._review && !ex._counted) player.firstPassCorrect++;
+        if (!ex._review) ex._counted = true;
         advanceExercise();
       });
       updateBar();
@@ -3490,8 +3648,12 @@
       const correct = player.controller.grade();
       player.controller.lock(correct);
       player.graded = true;
+      // First-pass counting happens ONCE per exercise. Going back (goBack) or
+      // resuming (_applyResume) can re-render an already-answered exercise; the
+      // `_counted` flag stops it inflating the score / combo / mistake queue.
+      const firstTime = !ex._review && !ex._counted;
       if (correct) {
-        if (!ex._review) {
+        if (firstTime) {
           player.firstPassCorrect++;
           player.combo++;
           player.maxCombo = Math.max(player.maxCombo, player.combo);
@@ -3502,17 +3664,18 @@
         }
       } else if (ex._review) {
         player.queue.push({ ...ex });          // retry this mistake again later
-      } else {
+      } else if (firstTime) {
         player.mistakes.push(ex);              // review it at the end of the lesson
         player.combo = 0;                      // a first-pass miss breaks the combo
         updateComboChip();
       }
-      // Track first-pass outcomes per concept for the mastery ledger.
-      if (!ex._review && ex.concept_key) {
+      // Track first-pass outcomes per concept for the mastery ledger (once).
+      if (firstTime && ex.concept_key) {
         const m = player.conceptResults[ex.concept_key] || (player.conceptResults[ex.concept_key] = { correct: 0, total: 0 });
         m.total++;
         if (correct) m.correct++;
       }
+      if (!ex._review) ex._counted = true;
       const fb = document.getElementById('feedback');
       const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
       if (correct) {
@@ -3558,6 +3721,7 @@
   }
 
   async function finishLesson() {
+    if (player.lessonId) _clearResume(player.lessonId);   // completed → no resume
     const total = player.total;
     const score = total ? Math.round(player.firstPassCorrect / total * 100) : 100;
     const perfect = total > 0 && player.firstPassCorrect === total;
@@ -3797,14 +3961,144 @@
     }
   }
 
+  // ── Back navigation within a step ──────────────────────────────────────────
+  // Whether the current segment's teach screen would have been shown (so "back"
+  // from the first exercise can return to it). Not for skip-teach/foundations runs.
+  function _segTeachVisible(seg) {
+    return !!(seg && seg.teach && player && !player.skipTeach
+      && ((seg.teach.items || []).length || seg.teach.intro || (seg.teach.blocks || []).length));
+  }
+
+  function updateBackBtn() {
+    const b = document.getElementById('player-back');
+    if (!b) return;
+    let can = false;
+    if (player && !player.reviewStarted) {
+      const ex = player.queue[player.idx];
+      if (!(ex && SELF_MANAGED.has(ex.type)))
+        can = player.idx > 0 || _segTeachVisible(player.segments[player.segIdx]);
+    }
+    b.style.display = can ? '' : 'none';
+  }
+
+  // Step back one exercise (re-rendered fresh — the `_counted` guard keeps the
+  // score/combo honest), or from the first exercise back to the step's teach.
+  function goBack() {
+    if (!player || _currentState !== 'player' || player.reviewStarted) return;
+    const ex = player.queue[player.idx];
+    if (ex && SELF_MANAGED.has(ex.type)) return;   // self-managed drills own their screen
+    if (player._mgCleanup) { player._mgCleanup(); player._mgCleanup = null; }
+    if (player.idx > 0) {
+      player.idx--;
+      player.segAnswered = Math.max(0, player.segAnswered - 1);
+      renderExercise();
+    } else {
+      const seg = player.segments[player.segIdx];
+      if (!_segTeachVisible(seg)) return;
+      renderTeach(seg.teach);
+      if (player.teachPaged) { player.teachIdx = player.teachBlocks.length - 1; renderTeachCard(); }
+      show('teach');
+      updateBar();
+    }
+  }
+
+  function goBackTeach() {
+    if (player && player.teachPaged && player.teachIdx > 0) {
+      player.teachIdx--;
+      renderTeachCard();
+    }
+  }
+
+  // ── Resume: save an in-progress lesson so the learner can stop early ─────────
+  function _resumeKey(id) { return 'lessonResume:' + id; }
+  function _loadResume(id) {
+    try {
+      const s = JSON.parse(localStorage.getItem(_resumeKey(id)) || 'null');
+      if (!s || s.lessonId !== id || !Array.isArray(s.segments) || !s.segments.length) return null;
+      return s;
+    } catch { return null; }
+  }
+  function _clearResume(id) { try { localStorage.removeItem(_resumeKey(id)); } catch {} }
+
+  function _saveResume() {
+    // Only ordinary lessons are resumable — not practice games (lessonId 0),
+    // quizzes (test-out / checkpoint) or drills-only runs, and only once the
+    // learner has actually started.
+    if (!player || !player.lessonId || player.testOut || player.checkpointUnitId || player.drillsOnly) return false;
+    const started = player.segIdx > 0 || player.segAnswered > 0 || player.firstPassCorrect > 0
+      || _currentState === 'player';
+    if (!started) return false;
+    const snap = {
+      v: 1, lessonId: player.lessonId, mode: player.mode || '',
+      state: _currentState === 'teach' ? 'teach' : 'player',
+      reviewStarted: !!player.reviewStarted,
+      segIdx: player.segIdx, idx: player.idx, segAnswered: player.segAnswered, answered: player.answered,
+      firstPassCorrect: player.firstPassCorrect, xp: player.xp, maxCombo: player.maxCombo,
+      listeningHits: player.listeningHits, mistakes: player.mistakes, conceptResults: player.conceptResults,
+      queue: player.queue, segments: player.segments, segTotals: player.segTotals, total: player.total,
+      theme: player.theme, lang: player.lang, title: player.title, ts: Date.now(),
+    };
+    try { localStorage.setItem(_resumeKey(player.lessonId), JSON.stringify(snap)); return true; }
+    catch { return false; }
+  }
+
+  // Restore a snapshot onto the freshly-built `player` (openLesson has already set
+  // lang/theme/vocabGlossary/concepts). Returns false to fall back to a fresh start.
+  function _applyResume(s) {
+    try {
+      if (!s || !player || !Array.isArray(s.segments) || !s.segments.length) return false;
+      if (typeof s.segIdx !== 'number' || s.segIdx < 0 || s.segIdx >= s.segments.length) return false;
+      player.segments = s.segments;
+      player.segTotals = s.segTotals || s.segments.map(sg => (sg.exercises || []).length);
+      player.total = s.total || player.segTotals.reduce((a, b) => a + b, 0);
+      player.firstPassCorrect = s.firstPassCorrect || 0;
+      player.answered = s.answered || 0;
+      player.xp = s.xp || 0;
+      player.maxCombo = s.maxCombo || 0;
+      player.listeningHits = s.listeningHits || 0;
+      player.mistakes = Array.isArray(s.mistakes) ? s.mistakes : [];
+      player.conceptResults = s.conceptResults || {};
+      player.reviewStarted = !!s.reviewStarted;
+      player.segIdx = s.segIdx;
+      _preloadDrills(s.segments, player.lang);
+      if (s.state === 'player' && Array.isArray(s.queue) && s.queue.length) {
+        player.queue = s.queue;
+        player._queueSeg = s.segIdx;
+        player.idx = Math.min(Math.max(0, s.idx || 0), s.queue.length - 1);
+        player.segAnswered = Math.min(s.segAnswered != null ? s.segAnswered : player.idx,
+          player.segTotals[s.segIdx] || s.queue.length);
+        show('player');
+        renderExercise();
+      } else {
+        startSegment(s.segIdx);
+      }
+      return true;
+    } catch { return false; }
+  }
+
+  function resumeLesson(id) {
+    const s = _loadResume(id);
+    if (s) openLesson(id, s.mode || '', s);
+    else openLesson(id);
+  }
+
   function quitLesson() {
-    if (confirm('Quit this lesson? This attempt won\'t be saved.')) {
+    const canSave = _canSaveResume();
+    const msg = canSave
+      ? 'Stop this lesson for now? Your progress is saved — you can pick up where you left off.'
+      : 'Quit this lesson? This attempt won\'t be saved.';
+    if (confirm(msg)) {
+      if (canSave) _saveResume();
       if (_cdDrillCleanup) _cdDrillCleanup();
       // Stop any running mini-game timer — a leaked interval would keep ticking
       // (and crash on a null player) after the lesson is gone.
       if (player && player._mgCleanup) { player._mgCleanup(); player._mgCleanup = null; }
       player = null; refreshAndShowCourse();
     }
+  }
+  function _canSaveResume() {
+    return !!(player && player.lessonId && !player.testOut && !player.checkpointUnitId && !player.drillsOnly
+      && (player.segIdx > 0 || player.segAnswered > 0 || player.firstPassCorrect > 0));
   }
   function retryLesson() {
     if (!player) return;

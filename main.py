@@ -1861,6 +1861,8 @@ async def get_settings(user: dict = Depends(current_user)):
         "populate_min_score": populate_min_score,
         "daily_xp_goal": await _daily_goal(user["id"]),
         "lesson_length": _valid_lesson_length(await db.get_setting(user["id"], "lesson_length")),
+        # AI Speak practice defaults ON (only "false" turns it off).
+        "lesson_ai_speak": (await db.get_setting(user["id"], "lesson_ai_speak") or "true") != "false",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
     }
 
@@ -1882,6 +1884,7 @@ class SettingsUpdate(BaseModel):
     populate_min_score: float | None = None
     daily_xp_goal: int | None = None
     lesson_length: str | None = None
+    lesson_ai_speak: bool | None = None
     course_focus: str | None = None
 
 
@@ -1944,6 +1947,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.lesson_length not in learning.LESSON_LENGTHS:
             raise HTTPException(400, "lesson_length must be quick/standard/thorough")
         await db.set_setting(user["id"], "lesson_length", req.lesson_length)
+    if req.lesson_ai_speak is not None:
+        await db.set_setting(user["id"], "lesson_ai_speak", "true" if req.lesson_ai_speak else "false")
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
