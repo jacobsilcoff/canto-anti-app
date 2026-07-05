@@ -868,6 +868,25 @@
     });
   }
 
+  // ── Local XP tracking (drives the home XP ring instantly, even offline) ───
+  // The daily-goal ring on the home page depends on the server's points_today,
+  // which needs a round trip (and is unreachable offline). Flashcard reviews
+  // are the one XP-earning action that works fully offline, so we mirror the
+  // server's award amounts into localStorage the instant a review happens;
+  // today.html takes max(serverPointsToday, this) so the ring never lags
+  // behind what the learner just did on this device.
+  const LOCAL_XP_KEY = 'xpLocalToday';
+  function _utcDateStr() { return new Date().toISOString().slice(0, 10); }
+  function bumpLocalXp(amount) {
+    if (!amount) return;
+    let cur = null;
+    try { cur = JSON.parse(localStorage.getItem(LOCAL_XP_KEY) || 'null'); } catch {}
+    const today = _utcDateStr();
+    if (!cur || cur.date !== today) cur = { date: today, xp: 0 };
+    cur.xp += amount;
+    try { localStorage.setItem(LOCAL_XP_KEY, JSON.stringify(cur)); } catch {}
+  }
+
   // ── Offline / sync bar ────────────────────────────────────────────────────
   function updateOfflineBar(pendingCount) {
     const bar = document.getElementById('offline-bar');
@@ -1378,6 +1397,9 @@
   async function rate(quality) {
     const item = queue[idx];
     let state = null;
+    // Mirrors the server's award in main.py review_card (5 good / 7 easy) so
+    // offline reviews can show + track XP immediately, without waiting on sync.
+    const expectedXp = quality === 'easy' ? 7 : quality === 'good' ? 5 : 0;
     if (isOnline) {
       try {
         const res = await fetch(`/api/cards/${item.card_id}/review`, {
@@ -1386,16 +1408,18 @@
         });
         if (res.ok) {
           state = await res.json();
-          if (state.xp > 0) showXpPop(state.xp);
+          if (state.xp > 0) { showXpPop(state.xp); bumpLocalXp(state.xp); }
         }
       } catch {
         isOnline = false;
         await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
         updateOfflineBar((await idbGetAllWithKeys('pending')).length);
+        if (expectedXp > 0) { showXpPop(expectedXp); bumpLocalXp(expectedXp); }
       }
     } else {
       await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
       updateOfflineBar((await idbGetAllWithKeys('pending')).length);
+      if (expectedXp > 0) { showXpPop(expectedXp); bumpLocalXp(expectedXp); }
     }
     reviewedFaces.add(`${item.card_id}-${item.face}`);
     if (_activeDeckId) _recordDeckSeen(_activeDeckId, item.card_id);

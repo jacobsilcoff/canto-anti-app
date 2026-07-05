@@ -171,6 +171,31 @@
   };
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
+  // ── Local XP fallback (same keys cards.html writes to on every review) ─────
+  // The ring should never lag behind flashcard practice that just happened on
+  // this device, and should still render something when offline. We keep a
+  // same-day cache of the last successful /api/streak response, and take
+  // max(serverPointsToday, localXpToday) so neither a stale/offline server
+  // fetch nor a not-yet-synced offline review can under-report the ring.
+  function _utcDateStr() { return new Date().toISOString().slice(0, 10); }
+  function _loadLocalXp() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem('xpLocalToday') || 'null'); } catch {}
+    return (raw && raw.date === _utcDateStr()) ? (raw.xp || 0) : 0;
+  }
+  function _loadStreakCache() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem('streakCache') || 'null'); } catch {}
+    return (raw && raw.date === _utcDateStr()) ? raw : null;
+  }
+  function _saveStreakCache(streak) {
+    try {
+      localStorage.setItem('streakCache', JSON.stringify({
+        date: _utcDateStr(), streak: streak.streak, points_today: streak.points_today, daily_goal: streak.daily_goal,
+      }));
+    } catch {}
+  }
+
   async function loadStreak() {
     try {
       const { streak, points } = await fetch('/api/streak').then(r => r.json());
@@ -237,14 +262,18 @@
     const name = (me && (me.display_name || me.username)) || '';
     if (me && me.is_admin) document.querySelectorAll('.more-admin').forEach(el => el.style.display = '');
     document.getElementById('greet-line').textContent = greeting() + (name ? `, ${name}` : '');
-    const today = (streak && streak.points_today) || 0;
-    const goal = (streak && streak.daily_goal) || 50;
+    if (streak) _saveStreakCache(streak);
+    const cached = _loadStreakCache();
+    const localXp = _loadLocalXp();
+    const serverToday = streak ? (streak.points_today || 0) : (cached ? cached.points_today : 0);
+    const today = Math.max(serverToday, localXp);
+    const goal = (streak && streak.daily_goal) || (cached && cached.daily_goal) || 50;
     const remaining = Math.max(0, goal - today);
     document.getElementById('greet-sub').textContent =
       new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
       + (remaining > 0 ? ` · ${remaining} XP to today's goal` : ' · daily goal met!');
 
-    const s = (streak && streak.streak) || 0;
+    const s = (streak && streak.streak) || (cached && cached.streak) || 0;
     const goalTitle = remaining <= 0 ? 'Goal complete!' : (today > 0 ? 'Almost there' : 'Start your day');
     const goalSub = remaining <= 0
       ? 'Anything more is bonus XP.'

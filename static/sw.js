@@ -15,8 +15,17 @@ const SHELL = [
 // NOTE: /api/me and /api/settings are deliberately excluded — they are session-
 // dependent and must never be served from a previous user's cached response.
 const SWR_API = new Set([
-  '/api/streak',
   '/api/languages',
+]);
+
+// API GET responses where a fresh network answer must win over any cached
+// copy for THIS request — /api/streak changes every time the learner earns
+// XP (flashcard review, lesson, tutor turn), so serving a stale cached hit
+// (the old SWR behavior) made the home XP ring look "stuck" right after
+// practicing. Network-first still falls back to the last cached response
+// when fully offline.
+const NETWORK_FIRST_API = new Set([
+  '/api/streak',
 ]);
 
 // Minimal offline fallback page — returned when a navigation request fails and
@@ -123,6 +132,19 @@ self.addEventListener('fetch', e => {
             return res;
           });
         })
+      )
+    );
+    return;
+  }
+
+  // ── Volatile API responses — network-first, cache as offline fallback ────
+  if (NETWORK_FIRST_API.has(url.pathname)) {
+    e.respondWith(
+      caches.open(CACHE).then(c =>
+        fetch(request).then(res => {
+          if (res.ok) c.put(request, res.clone());
+          return res;
+        }).catch(() => c.match(request).then(cached => cached || Response.error()))
       )
     );
     return;
