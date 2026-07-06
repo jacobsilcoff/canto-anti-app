@@ -110,3 +110,45 @@ async def test_avatar_shows_in_conversation_list(client):
     convs = (await client.get("/api/conversations")).json()["conversations"]
     dave_conv = [c for c in convs if c.get("other_user_id") == dave_id][0]
     assert dave_conv["avatar_url"] == "/api/media/" + "d" * 32 + ".jpg"
+
+
+async def _with_avatar(username, media_id):
+    uid = await db.create_user(username, auth.hash_password("password1"))
+    await db.add_media_record(media_id, uid, None, 10)
+    await db.update_user_profile(uid, avatar_media_id=media_id)
+    return uid
+
+
+@pytest.mark.asyncio
+async def test_avatar_shows_in_friends_search_leaderboard_and_league(client):
+    await _login(client, "erin")
+    erin = await db.get_user_by_username("erin")
+    frank_id = await _with_avatar("frank", "f" * 32)
+    expected_url = "/api/media/" + "f" * 32 + ".jpg"
+
+    # search surfaces frank's avatar
+    search = (await client.get("/api/friends/search?q=frank")).json()["users"]
+    assert search == [{"id": frank_id, "username": "frank", "avatar_url": expected_url}]
+
+    # friend request + accept -> friends list carries the avatar both ways
+    result = await db.send_friend_request(erin["id"], frank_id)
+    assert result["ok"], result
+    sent = (await db.get_friends(erin["id"]))["sent"]
+    friendship_id = [f for f in sent if f["user_id"] == frank_id][0]["id"]
+    await db.respond_friend_request(friendship_id, frank_id, accept=True)
+
+    friends_resp = (await client.get("/api/friends")).json()
+    frank_entry = [f for f in friends_resp["friends"] if f["user_id"] == frank_id][0]
+    assert frank_entry["avatar_url"] == expected_url
+
+    # leaderboard: both erin (no avatar) and frank (has one) render correctly
+    lb = (await client.get("/api/friends/leaderboard")).json()["leaderboard"]
+    lb_by_id = {e["user_id"]: e for e in lb}
+    assert lb_by_id[frank_id]["avatar_url"] == expected_url
+    assert lb_by_id[erin["id"]]["avatar_url"] is None
+
+    # weekly league: same avatar plumbing
+    league = (await client.get("/api/league")).json()["league"]
+    league_by_id = {r["user_id"]: r for r in league}
+    assert league_by_id[frank_id]["avatar_url"] == expected_url
+    assert league_by_id[erin["id"]]["avatar_url"] is None

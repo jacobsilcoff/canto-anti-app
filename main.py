@@ -5709,7 +5709,7 @@ async def search_users(q: str, user: dict = Depends(current_user)):
     found = await db.get_user_by_username(q.strip())
     if not found or found["id"] == user["id"]:
         return {"users": []}
-    return {"users": [{"id": found["id"], "username": found["username"]}]}
+    return {"users": [{"id": found["id"], "username": found["username"], "avatar_url": _avatar_url(found)}]}
 
 
 @app.post("/api/friends/request")
@@ -5765,8 +5765,10 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
     friends = data["friends"]
     user_ids = [user["id"]] + [f["user_id"] for f in friends]
     usernames = {user["id"]: user["username"]}
+    avatars = {user["id"]: _avatar_url(user)}
     for f in friends:
         usernames[f["user_id"]] = f["username"]
+        avatars[f["user_id"]] = f.get("avatar_url")
 
     import aiosqlite as _aiosqlite
     placeholders = ",".join("?" * len(user_ids))
@@ -5784,6 +5786,7 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
         entries.append({
             "user_id": uid,
             "username": usernames[uid],
+            "avatar_url": avatars.get(uid),
             "xp": xp_map.get(uid, 0),
             "streak": streak,
             "is_me": uid == user["id"],

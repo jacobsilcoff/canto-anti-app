@@ -3384,14 +3384,16 @@ async def get_weekly_league(user_id: int) -> list[dict]:
     week_start = (today - timedelta(days=today.weekday())).isoformat()
 
     names = {f["user_id"]: f["username"] for f in friends}
+    avatars = {f["user_id"]: f.get("avatar_url") for f in friends}
     ids = [user_id] + list(names)
     placeholders = ",".join("?" * len(ids))
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT username FROM users WHERE id=?", (user_id,)
+            "SELECT username, avatar_media_id FROM users WHERE id=?", (user_id,)
         ) as cur:
             row = await cur.fetchone()
             names[user_id] = row[0] if row else "you"
+            avatars[user_id] = f"/api/media/{row[1]}.jpg" if row and row[1] else None
         async with db.execute(
             f"""SELECT user_id, COALESCE(SUM(points), 0) AS xp FROM points_ledger
                 WHERE user_id IN ({placeholders}) AND date(created_at) >= ?
@@ -3400,7 +3402,7 @@ async def get_weekly_league(user_id: int) -> list[dict]:
         ) as cur:
             xp = {r[0]: r[1] for r in await cur.fetchall()}
 
-    rows = [{"user_id": uid, "username": names[uid], "xp": xp.get(uid, 0),
+    rows = [{"user_id": uid, "username": names[uid], "avatar_url": avatars.get(uid), "xp": xp.get(uid, 0),
              "you": uid == user_id} for uid in ids]
     rows.sort(key=lambda r: (-r["xp"], r["username"].lower()))
     for i, r in enumerate(rows):
@@ -3574,7 +3576,8 @@ async def get_friends(user_id: int) -> dict:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at,
-                      r.username AS requester_name, a.username AS addressee_name
+                      r.username AS requester_name, a.username AS addressee_name,
+                      r.avatar_media_id AS requester_avatar, a.avatar_media_id AS addressee_avatar
                FROM friendships f
                JOIN users r ON r.id = f.requester_id
                JOIN users a ON a.id = f.addressee_id
@@ -3587,7 +3590,12 @@ async def get_friends(user_id: int) -> dict:
     for r in rows:
         other_id = r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
         other_name = r["addressee_name"] if r["requester_id"] == user_id else r["requester_name"]
-        entry = {"id": r["id"], "user_id": other_id, "username": other_name, "created_at": r["created_at"]}
+        other_avatar = r["addressee_avatar"] if r["requester_id"] == user_id else r["requester_avatar"]
+        entry = {
+            "id": r["id"], "user_id": other_id, "username": other_name,
+            "avatar_url": f"/api/media/{other_avatar}.jpg" if other_avatar else None,
+            "created_at": r["created_at"],
+        }
         if r["status"] == "accepted":
             friends.append(entry)
         elif r["requester_id"] == user_id:

@@ -260,6 +260,13 @@
     .friend-row-actions { display: flex; gap: 6px; }
     .modal-empty { color: var(--text-muted); font-size: 0.88rem; padding: 6px 0; }
 
+    /* ── Small avatar (friends list, search results, leaderboard) ── */
+    .mini-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--border);
+      display: flex; align-items: center; justify-content: center; font-weight: 700;
+      font-size: 0.78rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase;
+      overflow: hidden; }
+    .mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
     /* ── Friends modal tabs ── */
     .modal-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .modal-tab { flex: 1; padding: 10px; font-size: 0.88rem; font-weight: 600; border: none;
@@ -2119,6 +2126,7 @@
         pendingEl.style.display = '';
         pendingList.innerHTML = received.map(f => `
           <div class="friend-row">
+            ${miniAvatarHtml(f.avatar_url, f.username)}
             <span class="friend-row-name">${esc(f.username)} wants to be friends</span>
             <div class="friend-row-actions">
               <button class="friend-action-btn accept" onclick="acceptReq(${f.id})">Accept</button>
@@ -2135,6 +2143,7 @@
       } else {
         friendsEl.innerHTML = friends.map(f => `
           <div class="friend-row">
+            ${miniAvatarHtml(f.avatar_url, f.username)}
             <span class="friend-row-name">${esc(f.username)}</span>
             <div class="friend-row-actions">
               <button class="friend-action-btn" onclick="openConvWithFriend(${f.user_id}); closeFriendsModal()">Message</button>
@@ -2160,6 +2169,7 @@
         const rankLabel = medals[i] || `${i + 1}`;
         return `<div class="lb-row">
           <div class="lb-rank ${rankClass}">${rankLabel}</div>
+          ${miniAvatarHtml(entry.avatar_url, entry.username)}
           <div class="lb-name${entry.is_me ? ' lb-me' : ''}">
             ${esc(entry.username)}${entry.is_me ? '<span class="lb-me-tag">you</span>' : ''}
           </div>
@@ -2187,6 +2197,7 @@
       }
       el.innerHTML = users.map(u => `
         <div class="friend-result">
+          ${miniAvatarHtml(u.avatar_url, u.username)}
           <span class="friend-result-name">${esc(u.username)}</span>
           <button class="friend-action-btn" onclick="sendReq('${esc(u.username)}', this)">Add friend</button>
         </div>`).join('');
@@ -2286,6 +2297,13 @@
   }
   // Retained for callers; esc() already covers attributes now.
   function escAttr(s) { return esc(s); }
+
+  // Small circular avatar (friends/leaderboard rows): a real photo when set,
+  // else initials — same fallback pattern as the conversation-list avatars.
+  function miniAvatarHtml(url, name) {
+    if (url) return `<div class="mini-avatar"><img src="${esc(url)}" alt=""></div>`;
+    return `<div class="mini-avatar">${esc((name || '?').slice(0, 2).toUpperCase())}</div>`;
+  }
 
   // ── Input auto-grow + keyboard ────────────────────────────────────────────
   document.getElementById('msg-input').addEventListener('input', resizeInput);
