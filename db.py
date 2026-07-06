@@ -588,7 +588,7 @@ _USER_COLS = (
     "id, username, email, display_name, password_hash, is_admin, "
     "native_lang, email_verified, created_at, "
     "plan, stripe_customer_id, subscription_status, subscription_period_end, "
-    "stripe_subscription_id, cancel_at_period_end"
+    "stripe_subscription_id, cancel_at_period_end, avatar_media_id"
 )
 
 
@@ -719,6 +719,7 @@ async def update_user_profile(
     email: str | None = None,
     email_verified: bool | None = None,
     verification_token: str | None = ...,  # type: ignore[assignment]
+    avatar_media_id: str | None = ...,  # type: ignore[assignment]
 ) -> None:
     """Partial-update profile fields. Pass only the kwargs you want to change."""
     fields, vals = [], []
@@ -732,6 +733,8 @@ async def update_user_profile(
         fields.append("email_verified=?"); vals.append(1 if email_verified else 0)
     if verification_token is not ...:  # explicitly passed (including None to clear)
         fields.append("verification_token=?"); vals.append(verification_token)
+    if avatar_media_id is not ...:  # explicitly passed (including None to clear)
+        fields.append("avatar_media_id=?"); vals.append(avatar_media_id)
     if not fields:
         return
     vals.append(user_id)
@@ -3645,6 +3648,7 @@ async def list_conversations(user_id: int) -> list[dict]:
             """SELECT c.id, c.user1_id, c.user2_id, c.platform, c.platform_thread_id,
                       c.owner_user_id, c.last_message_at,
                       u1.username AS user1_name, u2.username AS user2_name,
+                      u1.avatar_media_id AS user1_avatar, u2.avatar_media_id AS user2_avatar,
                       (SELECT COUNT(*) FROM messages m
                        WHERE m.conversation_id=c.id AND m.read_at IS NULL
                          AND (m.sender_user_id IS NULL OR m.sender_user_id != ?)) AS unread,
@@ -3678,9 +3682,11 @@ async def list_conversations(user_id: int) -> list[dict]:
         else:
             other_id = r["user2_id"] if r["user1_id"] == user_id else r["user1_id"]
             other_name = r["user2_name"] if r["user1_id"] == user_id else r["user1_name"]
+            other_avatar = r["user2_avatar"] if r["user1_id"] == user_id else r["user1_avatar"]
             conv = {
                 "id": r["id"], "type": "inapp",
                 "other_user_id": other_id, "name": other_name,
+                "avatar_url": f"/api/media/{other_avatar}.jpg" if other_avatar else None,
                 "unread": r["unread"], "last_text": r["last_text"],
                 "last_translations": r["last_translations"],
                 "last_sender_id": r["last_sender_id"],

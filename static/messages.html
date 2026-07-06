@@ -47,7 +47,9 @@
     .msg-conv-row.active { background: var(--primary-soft); }
     .msg-conv-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--border);
       display: flex; align-items: center; justify-content: center; font-weight: 700;
-      font-size: 1rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase; }
+      font-size: 1rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase;
+      overflow: hidden; }
+    .msg-conv-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .msg-conv-avatar.messenger { background: #0084ff22; color: #0084ff; }
     .msg-conv-info { min-width: 0; flex: 1; }
     .msg-conv-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden;
@@ -75,7 +77,9 @@
       cursor: pointer; padding: 0 4px; display: none; }
     .msg-chat-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--border);
       display: flex; align-items: center; justify-content: center; font-weight: 700;
-      font-size: 0.9rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase; }
+      font-size: 0.9rem; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase;
+      overflow: hidden; }
+    .msg-chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .msg-chat-info { flex: 1; min-width: 0; }
     .msg-chat-name { font-weight: 700; font-size: 0.98rem; }
     .msg-chat-sub { font-size: 0.78rem; color: var(--text-muted); }
@@ -887,8 +891,9 @@
       const preview = _previewText ? _previewText.slice(0, 40) + (_previewText.length > 40 ? '…' : '') : 'No messages yet';
       const badge = c.unread > 0 ? `<div class="msg-unread-badge">${c.unread}</div>` : '';
       const time = c.last_message_at ? relTime(c.last_message_at) : '';
+      const avInner = messenger ? '📘' : (c.avatar_url ? `<img src="${esc(c.avatar_url)}" alt="">` : initials);
       return `<div class="msg-conv-row${isActive ? ' active' : ''}" onclick="openConv(${c.id})">
-        <div class="msg-conv-avatar${messenger ? ' messenger' : ''}">${messenger ? '📘' : initials}</div>
+        <div class="msg-conv-avatar${messenger ? ' messenger' : ''}">${avInner}</div>
         <div class="msg-conv-info">
           <div class="msg-conv-name">${esc(name)}</div>
           <div class="msg-conv-preview">${esc(preview)}</div>
@@ -926,7 +931,12 @@
     // Set header
     const name = conv ? (conv.name || conv.last_sender_name || '(unknown)') : '…';
     document.getElementById('chat-name').textContent = name;
-    document.getElementById('chat-avatar').textContent = name.slice(0, 2).toUpperCase();
+    const chatAv = document.getElementById('chat-avatar');
+    if (conv && conv.avatar_url) {
+      chatAv.innerHTML = `<img src="${esc(conv.avatar_url)}" alt="">`;
+    } else {
+      chatAv.textContent = name.slice(0, 2).toUpperCase();
+    }
     document.getElementById('chat-sub').textContent =
       conv?.type === 'messenger' ? '📘 Messenger' : 'In-app chat';
 

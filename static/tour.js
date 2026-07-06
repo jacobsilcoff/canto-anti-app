@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 20;
+  var TOUR_VERSION = 21;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -51,6 +51,8 @@
       body: 'Race friends on a weekly XP league right on the Learn page. Tapping a lesson opens an overview where you can pick its length or \ud83c\udf93 test out if you already know it. Set a course focus (grammar, vocab, or conversation) in Settings.', v: 19 },
     { icon: '\u23ee', title: 'Pause, rewind & fine-tune lessons',
       body: 'Need to stop mid-lesson? Just quit \u2014 your progress is saved and the overview offers Resume. Tap \u2190 to step back to a previous card, and switch \u2728 AI Speak practice on or off (per-lesson or in Settings) to trade speed for depth.', v: 20 },
+    { icon: '\ud83d\udcf7', title: 'Add a profile picture',
+      body: 'Set a profile photo in Settings \u2192 Account \u2014 it\u2019s cropped to a circle and shows up next to your chats. Add your name there too and Home will greet you by your first name.', v: 21 },
   ];
 
   var steps, stepIdx;

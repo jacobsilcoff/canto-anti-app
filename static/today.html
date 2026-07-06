@@ -259,7 +259,8 @@
       fetch('/api/quests').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
-    const name = (me && (me.display_name || me.username)) || '';
+    const fullName = (me && (me.display_name || me.username)) || '';
+    const name = fullName.trim().split(/\s+/)[0] || '';  // first name only
     if (me && me.is_admin) document.querySelectorAll('.more-admin').forEach(el => el.style.display = '');
     document.getElementById('greet-line').textContent = greeting() + (name ? `, ${name}` : '');
     if (streak) _saveStreakCache(streak);
