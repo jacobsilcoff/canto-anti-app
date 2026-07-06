@@ -1493,6 +1493,13 @@ textarea.edit-input {
      env() reports 0 (e.g. in-browser with the toolbar visible). Requires
      viewport-fit=cover in each page's viewport meta or env() is always 0. */
   padding: 4px 4px max(14px, calc(10px + env(safe-area-inset-bottom)));
+  /* Promote to its own compositor layer. Without this, iOS Safari repaints
+     fixed elements against the document's scroll offset on the main thread,
+     so on a page heavy enough to miss a frame (long lists, several images —
+     e.g. Home/Learn's avatars) the bar visibly trails the scroll gesture
+     before snapping back to bottom:0 once scrolling settles. */
+  transform: translateZ(0);
+  will-change: transform;
 }
 .tabbar .tab {
   flex: 1;
