@@ -1073,12 +1073,19 @@ async def logout(request: Request):
     return response
 
 
+def _avatar_url(user: dict) -> str | None:
+    media_id = user.get("avatar_media_id")
+    return f"/api/media/{media_id}.jpg" if media_id else None
+
+
 @app.get("/api/me")
 async def me(user: dict = Depends(current_user)):
     return {
         "username": user["username"],
+        "display_name": user.get("display_name") or "",
         "is_admin": bool(user["is_admin"]),
         "native_lang": user.get("native_lang", "en"),
+        "avatar_url": _avatar_url(user),
     }
 
 
@@ -1089,6 +1096,7 @@ async def get_profile(user: dict = Depends(current_user)):
         "display_name": user.get("display_name") or "",
         "email": user.get("email") or "",
         "email_verified": bool(user.get("email_verified", True)),
+        "avatar_url": _avatar_url(user),
     }
 
 
@@ -1144,6 +1152,65 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
         await db.update_user_profile(user["id"], verification_token=vt, **updates)
 
     return {"ok": True, "email_changed": email_changed}
+
+
+_AVATAR_DIM = 400  # square output size (frontend renders it circular via CSS)
+
+
+@app.post("/api/profile/avatar")
+@limiter.limit("10/minute")
+async def upload_avatar(request: Request, file: UploadFile = File(...),
+                        user: dict = Depends(current_user)):
+    import io as _io
+    if not _PIL_OK:
+        raise HTTPException(500, "Image processing unavailable (Pillow not installed)")
+
+    raw = await file.read()
+    if len(raw) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Image too large (max 20 MB)")
+
+    try:
+        img = Image.open(_io.BytesIO(raw))
+        img = _ImageOps.exif_transpose(img)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        # Center-crop to a square so the circular CSS crop is centered.
+        w, h = img.size
+        side = min(w, h)
+        left, top = (w - side) // 2, (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+        if side > _AVATAR_DIM:
+            img = img.resize((_AVATAR_DIM, _AVATAR_DIM), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        out_bytes = buf.getvalue()
+    except Exception as exc:
+        raise HTTPException(400, f"Could not process image: {exc}")
+
+    old_media_id = user.get("avatar_media_id")
+    media_id = _uuid.uuid4().hex
+    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
+    await db.add_media_record(media_id, user["id"], None, len(out_bytes))
+    await db.update_user_profile(user["id"], avatar_media_id=media_id)
+
+    if old_media_id:
+        old_path = MEDIA_DIR / f"{old_media_id}.jpg"
+        if old_path.exists():
+            old_path.unlink()
+
+    return {"ok": True, "avatar_url": f"/api/media/{media_id}.jpg"}
+
+
+@app.delete("/api/profile/avatar")
+async def delete_avatar(user: dict = Depends(current_user)):
+    old_media_id = user.get("avatar_media_id")
+    if not old_media_id:
+        return {"ok": True}
+    await db.update_user_profile(user["id"], avatar_media_id=None)
+    old_path = MEDIA_DIR / f"{old_media_id}.jpg"
+    if old_path.exists():
+        old_path.unlink()
+    return {"ok": True}
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -5642,7 +5709,7 @@ async def search_users(q: str, user: dict = Depends(current_user)):
     found = await db.get_user_by_username(q.strip())
     if not found or found["id"] == user["id"]:
         return {"users": []}
-    return {"users": [{"id": found["id"], "username": found["username"]}]}
+    return {"users": [{"id": found["id"], "username": found["username"], "avatar_url": _avatar_url(found)}]}
 
 
 @app.post("/api/friends/request")
@@ -5698,8 +5765,10 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
     friends = data["friends"]
     user_ids = [user["id"]] + [f["user_id"] for f in friends]
     usernames = {user["id"]: user["username"]}
+    avatars = {user["id"]: _avatar_url(user)}
     for f in friends:
         usernames[f["user_id"]] = f["username"]
+        avatars[f["user_id"]] = f.get("avatar_url")
 
     import aiosqlite as _aiosqlite
     placeholders = ",".join("?" * len(user_ids))
@@ -5717,6 +5786,7 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
         entries.append({
             "user_id": uid,
             "username": usernames[uid],
+            "avatar_url": avatars.get(uid),
             "xp": xp_map.get(uid, 0),
             "streak": streak,
             "is_me": uid == user["id"],

@@ -223,8 +223,9 @@
     .league .avatars { display: flex; }
     .league .avatars span { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
       justify-content: center; font-size: 0.62rem; font-weight: 800; color: #fff;
-      border: 2px solid var(--surface); margin-left: -7px; }
+      border: 2px solid var(--surface); margin-left: -7px; overflow: hidden; }
     .league .avatars span:first-child { margin-left: 0; }
+    .league .avatars span img { width: 100%; height: 100%; object-fit: cover; }
     .league-overlay { position: fixed; inset: 0; z-index: 300; background: var(--overlay);
       display: none; align-items: flex-end; justify-content: center; }
     .league-overlay.open { display: flex; }
@@ -239,7 +240,9 @@
     .lg-row:last-child { border-bottom: none; }
     .lg-row .lg-rank { width: 26px; font-weight: 800; font-size: 0.9rem; color: var(--text-muted); text-align: center; }
     .lg-row .lg-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
-      justify-content: center; font-size: 0.7rem; font-weight: 800; color: #fff; flex-shrink: 0; }
+      justify-content: center; font-size: 0.7rem; font-weight: 800; color: #fff; flex-shrink: 0;
+      overflow: hidden; }
+    .lg-row .lg-av img { width: 100%; height: 100%; object-fit: cover; }
     .lg-row .lg-name { flex: 1; min-width: 0; font-weight: 600; font-size: 0.9rem;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lg-row.you { background: var(--primary-soft); border-radius: 10px; padding-left: 6px; padding-right: 6px; }
@@ -1134,6 +1137,11 @@
     let h = 0; for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) & 0xffff;
     return _AV_COLORS[h % _AV_COLORS.length];
   }
+  // A real profile picture when set, else a colored initial (same fallback
+  // pattern used for chat/friends avatars elsewhere in the app).
+  function _avatarInner(r) {
+    return r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase());
+  }
 
   async function loadLeague() {
     try {
@@ -1161,7 +1169,7 @@
     }
     sub += ` · ${days} day${days === 1 ? '' : 's'} left`;
     const avatars = rows.slice(0, 4).map(r =>
-      `<span style="background:${_avColor(r.username)}">${esc((r.username || '?')[0].toUpperCase())}</span>`).join('');
+      `<span style="background:${_avColor(r.username)}">${_avatarInner(r)}</span>`).join('');
     el.innerHTML = `<div class="league" onclick="openLeague()" title="Weekly XP among friends">
       <span class="medal">${medal}</span>
       <div class="lbody">
@@ -1181,7 +1189,7 @@
     document.getElementById('league-list').innerHTML = rows.map(r => `
       <div class="lg-row${r.you ? ' you' : ''}">
         <span class="lg-rank">${r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}</span>
-        <span class="lg-av" style="background:${_avColor(r.username)}">${esc((r.username || '?')[0].toUpperCase())}</span>
+        <span class="lg-av" style="background:${_avColor(r.username)}">${_avatarInner(r)}</span>
         <span class="lg-name">${esc(r.username)}${r.you ? ' (you)' : ''}</span>
         <span class="lg-xp">${r.xp} XP</span>
       </div>`).join('');

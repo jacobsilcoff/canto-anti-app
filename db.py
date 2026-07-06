@@ -588,7 +588,7 @@ _USER_COLS = (
     "id, username, email, display_name, password_hash, is_admin, "
     "native_lang, email_verified, created_at, "
     "plan, stripe_customer_id, subscription_status, subscription_period_end, "
-    "stripe_subscription_id, cancel_at_period_end"
+    "stripe_subscription_id, cancel_at_period_end, avatar_media_id"
 )
 
 
@@ -719,6 +719,7 @@ async def update_user_profile(
     email: str | None = None,
     email_verified: bool | None = None,
     verification_token: str | None = ...,  # type: ignore[assignment]
+    avatar_media_id: str | None = ...,  # type: ignore[assignment]
 ) -> None:
     """Partial-update profile fields. Pass only the kwargs you want to change."""
     fields, vals = [], []
@@ -732,6 +733,8 @@ async def update_user_profile(
         fields.append("email_verified=?"); vals.append(1 if email_verified else 0)
     if verification_token is not ...:  # explicitly passed (including None to clear)
         fields.append("verification_token=?"); vals.append(verification_token)
+    if avatar_media_id is not ...:  # explicitly passed (including None to clear)
+        fields.append("avatar_media_id=?"); vals.append(avatar_media_id)
     if not fields:
         return
     vals.append(user_id)
@@ -3381,14 +3384,16 @@ async def get_weekly_league(user_id: int) -> list[dict]:
     week_start = (today - timedelta(days=today.weekday())).isoformat()
 
     names = {f["user_id"]: f["username"] for f in friends}
+    avatars = {f["user_id"]: f.get("avatar_url") for f in friends}
     ids = [user_id] + list(names)
     placeholders = ",".join("?" * len(ids))
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT username FROM users WHERE id=?", (user_id,)
+            "SELECT username, avatar_media_id FROM users WHERE id=?", (user_id,)
         ) as cur:
             row = await cur.fetchone()
             names[user_id] = row[0] if row else "you"
+            avatars[user_id] = f"/api/media/{row[1]}.jpg" if row and row[1] else None
         async with db.execute(
             f"""SELECT user_id, COALESCE(SUM(points), 0) AS xp FROM points_ledger
                 WHERE user_id IN ({placeholders}) AND date(created_at) >= ?
@@ -3397,7 +3402,7 @@ async def get_weekly_league(user_id: int) -> list[dict]:
         ) as cur:
             xp = {r[0]: r[1] for r in await cur.fetchall()}
 
-    rows = [{"user_id": uid, "username": names[uid], "xp": xp.get(uid, 0),
+    rows = [{"user_id": uid, "username": names[uid], "avatar_url": avatars.get(uid), "xp": xp.get(uid, 0),
              "you": uid == user_id} for uid in ids]
     rows.sort(key=lambda r: (-r["xp"], r["username"].lower()))
     for i, r in enumerate(rows):
@@ -3571,7 +3576,8 @@ async def get_friends(user_id: int) -> dict:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at,
-                      r.username AS requester_name, a.username AS addressee_name
+                      r.username AS requester_name, a.username AS addressee_name,
+                      r.avatar_media_id AS requester_avatar, a.avatar_media_id AS addressee_avatar
                FROM friendships f
                JOIN users r ON r.id = f.requester_id
                JOIN users a ON a.id = f.addressee_id
@@ -3584,7 +3590,12 @@ async def get_friends(user_id: int) -> dict:
     for r in rows:
         other_id = r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
         other_name = r["addressee_name"] if r["requester_id"] == user_id else r["requester_name"]
-        entry = {"id": r["id"], "user_id": other_id, "username": other_name, "created_at": r["created_at"]}
+        other_avatar = r["addressee_avatar"] if r["requester_id"] == user_id else r["requester_avatar"]
+        entry = {
+            "id": r["id"], "user_id": other_id, "username": other_name,
+            "avatar_url": f"/api/media/{other_avatar}.jpg" if other_avatar else None,
+            "created_at": r["created_at"],
+        }
         if r["status"] == "accepted":
             friends.append(entry)
         elif r["requester_id"] == user_id:
@@ -3645,6 +3656,7 @@ async def list_conversations(user_id: int) -> list[dict]:
             """SELECT c.id, c.user1_id, c.user2_id, c.platform, c.platform_thread_id,
                       c.owner_user_id, c.last_message_at,
                       u1.username AS user1_name, u2.username AS user2_name,
+                      u1.avatar_media_id AS user1_avatar, u2.avatar_media_id AS user2_avatar,
                       (SELECT COUNT(*) FROM messages m
                        WHERE m.conversation_id=c.id AND m.read_at IS NULL
                          AND (m.sender_user_id IS NULL OR m.sender_user_id != ?)) AS unread,
@@ -3678,9 +3690,11 @@ async def list_conversations(user_id: int) -> list[dict]:
         else:
             other_id = r["user2_id"] if r["user1_id"] == user_id else r["user1_id"]
             other_name = r["user2_name"] if r["user1_id"] == user_id else r["user1_name"]
+            other_avatar = r["user2_avatar"] if r["user1_id"] == user_id else r["user1_avatar"]
             conv = {
                 "id": r["id"], "type": "inapp",
                 "other_user_id": other_id, "name": other_name,
+                "avatar_url": f"/api/media/{other_avatar}.jpg" if other_avatar else None,
                 "unread": r["unread"], "last_text": r["last_text"],
                 "last_translations": r["last_translations"],
                 "last_sender_id": r["last_sender_id"],
