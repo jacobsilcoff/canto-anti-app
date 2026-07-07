@@ -454,23 +454,28 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         # Single renderer for the header streak/XP pills. Pages call this from
         # their loadStreak (to refresh after earning XP); the nav also fetches
         # once on load so every page shows the pills without page-side code.
-        "window.renderHeaderStats=function(streak,points){"
-        "try{sessionStorage.setItem('nav:streak',JSON.stringify({t:Date.now(),d:{streak:streak,points:points}}))}catch(e){}"
+        "window.renderHeaderStats=function(streak,points,freezes){"
+        # Pages that pass only (streak,points) keep the cached freeze count so the
+        # shield isn't wiped; an explicit value (incl. 0) always wins.
+        "if(freezes==null){try{var _fc=JSON.parse(sessionStorage.getItem('nav:streak')||'null');freezes=(_fc&&_fc.d&&_fc.d.streak_freezes)||0}catch(e){freezes=0}}"
+        "try{sessionStorage.setItem('nav:streak',JSON.stringify({t:Date.now(),d:{streak:streak,points:points,streak_freezes:freezes}}))}catch(e){}"
         "var flame='<svg viewBox=\"0 0 16 20\" width=\"12\" height=\"15\" aria-hidden=\"true\"><path fill=\"#f4702a\" d=\"M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z\"/></svg>';"
         "var star='<svg viewBox=\"0 0 20 20\" width=\"12\" height=\"12\" aria-hidden=\"true\"><path fill=\"#f0b429\" d=\"M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z\"/></svg>';"
+        "var shield='<svg viewBox=\"0 0 18 20\" width=\"11\" height=\"12\" aria-hidden=\"true\"><path fill=\"#3aa0d4\" d=\"M9 0L1 3v7c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V3z\"/></svg>';"
         "function fmt(n){return n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n)}"
         "var h='';"
         "if(streak>0)h+='<span class=\"hstat hstat-streak\" title=\"'+streak.toLocaleString()+'-day streak\">'+flame+fmt(streak)+'</span>';"
+        "if(freezes>0)h+='<span class=\"hstat hstat-freeze\" title=\"'+freezes+' streak freeze'+(freezes>1?'s':'')+' — protects your streak if you miss a day\">'+shield+(freezes>1?freezes:'')+'</span>';"
         "if(points>0)h+='<span class=\"hstat hstat-xp\" title=\"'+points.toLocaleString()+' XP\">'+star+fmt(points)+'</span>';"
         "if(!h)return;"
         "document.querySelectorAll('.streak-display').forEach(function(el){el.innerHTML=h;el.style.display=''});"
         "};\n"
         "(function(){var hit=null;"
         "try{hit=JSON.parse(sessionStorage.getItem('nav:streak')||'null')}catch(e){}"
-        "if(hit&&hit.d){window.renderHeaderStats(hit.d.streak||0,hit.d.points||0);"
+        "if(hit&&hit.d){window.renderHeaderStats(hit.d.streak||0,hit.d.points||0,hit.d.streak_freezes||0);"
         "if(Date.now()-hit.t<60000)return;}"
         "fetch('/api/streak').then(function(r){return r.ok?r.json():null}).then(function(d){"
-        "if(d)window.renderHeaderStats(d.streak||0,d.points||0)"
+        "if(d)window.renderHeaderStats(d.streak||0,d.points||0,d.streak_freezes||0)"
         "}).catch(function(){});})();"
         "</script>\n"
     )
@@ -2304,10 +2309,15 @@ async def _daily_goal(user_id: int) -> int:
 @app.get("/api/streak")
 async def get_streak(user: dict = Depends(current_user)):
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    return {"streak": await db.get_streak(user["id"]),
+    # get_streak may consume a freeze to bridge a missed day, so read it first.
+    streak = await db.get_streak(user["id"])
+    freeze = await db.get_streak_freeze_state(user["id"])
+    return {"streak": streak,
             "points": await db.get_points_total(user["id"], lang),
             "points_today": await db.get_points_today(user["id"], lang),
-            "daily_goal": await _daily_goal(user["id"])}
+            "daily_goal": await _daily_goal(user["id"]),
+            "streak_freezes": freeze["freezes"],
+            "streak_freeze_used_date": freeze["used_date"]}
 
 
 # ── Daily quests (lesson redesign B1) ──────────────────────────────────────────
@@ -3209,6 +3219,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     learner_profile = ""
     cefr_spread = ""
     course_focus = "balanced"      # D2 · planner steering
+    lesson_feedback: list[dict] = []   # D4 · recent 👍/👎 signals
     if user_id:
         mastery = await db.get_mastery_summary(user_id, lang)
         known_words = await db.get_known_words(user_id, lang)
@@ -3216,6 +3227,13 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         recent_cards = await db.get_recent_cards(user_id, lang)
         learner_profile = await db.get_setting(user_id, "learner_profile") or ""
         course_focus = _valid_course_focus(await db.get_setting(user_id, "course_focus"))
+        try:
+            _fb_raw = await db.get_setting(user_id, "lesson_feedback")
+            lesson_feedback = json.loads(_fb_raw) if _fb_raw else []
+            if not isinstance(lesson_feedback, list):
+                lesson_feedback = []
+        except (ValueError, TypeError):
+            lesson_feedback = []
         try:
             cefr_spread = await _known_cefr_stats(user_id, lang, access.api_key)
         except Exception:
@@ -3232,7 +3250,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             learner_profile=learner_profile, mastery=mastery,
             known_words=known_words, weak_words=weak_words,
             recent_cards=recent_cards, cefr_spread=cefr_spread,
-            course_focus=course_focus,
+            course_focus=course_focus, lesson_feedback=lesson_feedback,
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
         )
     except Exception as e:
@@ -3431,6 +3449,73 @@ async def foundations_practice(
     }
 
 
+# ── Practice hub (lesson redesign B6) ──────────────────────────────────────────
+# Recombines a course's OWN stored drills into practice sets — no LLM, no new
+# content. `mistakes` pulls drills for weak concepts (concept_mastery); `lightning`
+# returns the choice-drill pool the client remixes into a 60s speed round.
+
+_PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match"}
+_PRACTICE_MAX = 12
+
+
+def _course_drill_pool(lessons: list[dict]) -> list[dict]:
+    """Flatten every gradeable stored exercise across a course's lessons."""
+    out: list[dict] = []
+    for lesson in lessons:
+        content = lesson.get("content") or {}
+        for seg in content.get("segments") or []:
+            for ex in seg.get("exercises") or []:
+                if ex.get("type") in _PRACTICE_GRADEABLE:
+                    out.append(ex)
+    return out
+
+
+@app.get("/api/courses/{course_id}/practice")
+@limiter.limit("30/minute")
+async def course_practice(request: Request, course_id: int, mode: str = "mistakes",
+                          user: dict = Depends(current_user)):
+    """Assemble a practice set from the course's own stored drills (B6).
+    mode=mistakes → weak-concept drills; mode=lightning → choice-drill pool for the
+    client to remix. Both are deterministic recombination (no LLM)."""
+    import random as _random
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    lang = course["target_lang"]
+    lessons = await db.get_completed_lesson_contents(user["id"], course_id)
+    pool = _course_drill_pool(lessons)
+    if not pool:
+        raise HTTPException(400, "Finish a lesson first — there's nothing to practice yet.")
+
+    if mode == "lightning":
+        choices = [ex for ex in pool
+                   if ex.get("type") == "choice" and ex.get("prompt") and ex.get("options")]
+        if len(choices) < 4:
+            raise HTTPException(400, "Not enough material for a lightning round yet.")
+        _random.shuffle(choices)
+        return {"title": "⚡ Lightning", "target_lang": lang,
+                "content": {"segments": [{"teach": None, "exercises": choices[:30]}]}}
+
+    # mode == "mistakes": prefer drills for weak concepts, then top up.
+    mastery = await db.get_mastery_summary(user["id"], lang)
+    weak_keys = {m["concept_key"] for m in mastery
+                 if m["total"] >= 3 and m["correct"] / m["total"] < 0.7}
+    weak = [ex for ex in pool if (ex.get("concept_key") or "") in weak_keys]
+    rest = [ex for ex in pool if (ex.get("concept_key") or "") not in weak_keys]
+    _random.shuffle(weak)
+    _random.shuffle(rest)
+    exercises = (weak + rest)[:_PRACTICE_MAX]
+    if len(exercises) < 4:
+        raise HTTPException(400, "Not enough material to review yet — finish more lessons.")
+    _random.shuffle(exercises)
+    return {
+        "title": "🔁 Review mistakes" if weak else "🔁 Mixed review",
+        "target_lang": lang,
+        "has_weak": bool(weak),
+        "content": {"segments": [{"teach": None, "exercises": exercises}]},
+    }
+
+
 class CompleteLessonRequest(BaseModel):
     score: int = 0
     results: list[dict] = []   # [{concept_key, correct, total}] per-concept drill outcomes
@@ -3516,6 +3601,10 @@ async def complete_lesson(
             _auto_add_lesson_vocab,
             user["id"], lang, lesson,
         )
+    # B5 · earn a streak freeze every N lessons (first completions only).
+    freeze_earned = False
+    if first:
+        freeze_earned = await db.earn_streak_freeze(user["id"])
     # Daily quests: any completion counts; a 100% run also ticks "perfect".
     await db.bump_quest(user["id"], "lessons", 1)
     if req.score >= 100:
@@ -3525,10 +3614,58 @@ async def complete_lesson(
         "xp_awarded": awarded,
         "crown_level": crown,
         "crown_leveled_up": leveled_up,
+        "freeze_earned": freeze_earned,
         "points_today": await db.get_points_today(user["id"], lang),
         "points_total": await db.get_points_total(user["id"], lang),
         "daily_goal": await _daily_goal(user["id"]),
     }
+
+
+# ── Per-lesson feedback (lesson redesign D4) ───────────────────────────────────
+# A 👍/👎 on the results screen appends a lightweight signal to a ring-buffer
+# setting the planner quotes ("learner liked … / disliked …") — a cheap
+# personalization loop with no new tables.
+
+_LESSON_FEEDBACK_MAX = 12   # ring-buffer size (most recent kept)
+
+
+class LessonFeedbackRequest(BaseModel):
+    rating: str = ""   # "up" | "down"
+
+
+async def _append_lesson_feedback(user_id: int, entry: dict) -> None:
+    """Append one feedback entry to the `lesson_feedback` ring buffer setting."""
+    try:
+        raw = await db.get_setting(user_id, "lesson_feedback")
+        buf = json.loads(raw) if raw else []
+        if not isinstance(buf, list):
+            buf = []
+    except (ValueError, TypeError):
+        buf = []
+    buf.append(entry)
+    buf = buf[-_LESSON_FEEDBACK_MAX:]
+    await db.set_setting(user_id, "lesson_feedback", json.dumps(buf))
+
+
+@app.post("/api/lessons/{lesson_id}/feedback")
+async def lesson_feedback(lesson_id: int, req: LessonFeedbackRequest,
+                          user: dict = Depends(current_user)):
+    """Record a 👍/👎 for a lesson. Stored in the `lesson_feedback` ring buffer,
+    which the planner prompt reads to steer future lessons (D4)."""
+    rating = "up" if req.rating == "up" else "down" if req.rating == "down" else ""
+    if not rating:
+        raise HTTPException(400, "rating must be 'up' or 'down'")
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    concepts = [(c.get("label") or "").strip()
+                for c in (lesson.get("concepts") or []) if (c.get("label") or "").strip()]
+    await _append_lesson_feedback(user["id"], {
+        "title": (lesson.get("title") or "").strip()[:80],
+        "concepts": concepts[:4],
+        "rating": rating,
+    })
+    return {"success": True}
 
 
 # ── Unit checkpoint quiz (lesson redesign B3) ──────────────────────────────────
