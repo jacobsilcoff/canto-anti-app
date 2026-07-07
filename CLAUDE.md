@@ -101,7 +101,11 @@ Admin-only page showing KPI tiles + drill-down sections. `GET /api/admin/dashboa
 
 ### Auth & sessions
 
-Sessions are in-memory (`_sessions` dict in `main.py`): token → (user_id, expiry). Auth middleware runs on every request; unauthenticated HTML requests redirect to `/login`, API requests get 401. Sessions expire after 30 days and are purged on next login.
+Sessions are in-memory (`_sessions` dict in `main.py`): token → (user_id, expiry). Auth middleware runs on every request; unauthenticated HTML requests redirect to `/login`, API requests get 401. Sessions expire after 30 days and are purged on next login. **Bearer API tokens:** `auth_middleware` also accepts `Authorization: Bearer <token>` for programmatic clients (the Even glasses plugin, below), resolved via `db.get_user_by_api_token`. These are long-lived, stored as `sha256(token)` in the `api_tokens` table (migration 037, mirrors `sessions`), minted/revoked via `POST`/`DELETE /api/profile/api-token` (one active token per user, raw value returned once) and surfaced in **Settings → Even glasses**.
+
+### Even glasses plugin (`even-glasses/`, MentraOS)
+
+A self-contained **MentraOS app** (TypeScript, `@mentra/sdk` `AppServer`) — NOT part of the FastAPI app — that reviews your due flashcards on Even Realities glasses, earning XP and syncing streak/quests. It reads a per-user Site URL + API token from MentraOS app settings (`app_config.json` schema), pulls `GET /api/cards/due`, and drives a **Pass/Fail** loop on the monochrome HUD: tap to reveal, short-press → SRS `good` (full XP), long-press → `again`, each POSTed to `/api/cards/{id}/review`. The glasses have no speaker, so **audio is never used** — non-Latin languages show **romanization** (pronunciation-face prompt / other-face reveals) and the audio-only **pronunciation face is skipped for Latin scripts** (keyed off `/api/languages` `logographic`). `src/cards.ts` holds the pure display/filter logic (unit-tested via `bun test`); `src/canto.ts` is the bearer-auth REST client; `src/index.ts` is the `AppServer`. Deployed separately from the main app (see `even-glasses/README.md`).
 
 ### SRS scheduling (`srs.update`)
 
