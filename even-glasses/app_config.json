@@ -1,0 +1,43 @@
+{
+  "name": "Flashcards",
+  "description": "Review your language flashcards on your glasses — earning XP and syncing progress with your account.",
+  "version": "0.1.0",
+  "settings": [
+    {
+      "type": "group",
+      "title": "Connection"
+    },
+    {
+      "key": "canto_base_url",
+      "type": "text",
+      "label": "Site URL",
+      "defaultValue": "",
+      "hint": "The address of your flashcard site, e.g. https://canto-ank.silcoff-labs.ca"
+    },
+    {
+      "key": "canto_api_token",
+      "type": "text",
+      "label": "API token",
+      "defaultValue": "",
+      "hint": "Generate this in the site's Settings → Even glasses, then paste it here."
+    },
+    {
+      "type": "group",
+      "title": "Controls"
+    },
+    {
+      "key": "swap_controls",
+      "type": "toggle",
+      "label": "Swap tap / hold",
+      "defaultValue": false,
+      "hint": "By default a short press = 'got it' and a long press = 'missed it'. Turn on to swap them."
+    },
+    {
+      "key": "show_notes",
+      "type": "toggle",
+      "label": "Show card notes on reveal",
+      "defaultValue": true
+    }
+  ],
+  "tools": []
+}
