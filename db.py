@@ -3002,14 +3002,60 @@ async def get_streak(user_id: int) -> int:
     A streak is the number of consecutive days (ending today or yesterday) with
     at least one review. Counting back from today preserves the streak before
     the user studies on a given day.
+
+    B5 · streak freeze: if the streak WOULD lapse because of a single missed day
+    (yesterday), and the learner has a freeze equipped, we consume one freeze and
+    write a marker activity row for yesterday so the streak survives. Only a
+    one-day gap qualifies — a freeze can't bridge two or more missed days.
     """
+    from datetime import date, timedelta
+    today = _utc_today_date()
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT study_date FROM study_activity WHERE user_id=? ORDER BY study_date DESC",
             (user_id,),
         ) as cur:
             rows = [r[0] async for r in cur]
-    return _streak_from_dates(rows)
+        if not rows:
+            return 0
+        most_recent = date.fromisoformat(rows[0])
+        # Streak alive (activity today or yesterday) — no freeze needed.
+        if most_recent >= today - timedelta(days=1):
+            return _streak_from_dates(rows, today)
+        # A single missed day (yesterday) can be bridged by a freeze.
+        if most_recent == today - timedelta(days=2):
+            async with db.execute(
+                "SELECT value FROM user_settings WHERE user_id=? AND key='streak_freezes'",
+                (user_id,),
+            ) as cur:
+                frow = await cur.fetchone()
+            try:
+                freezes = int(frow[0]) if frow else 0
+            except (ValueError, TypeError):
+                freezes = 0
+            if freezes > 0:
+                yesterday = (today - timedelta(days=1)).isoformat()
+                ins = await db.execute(
+                    "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
+                    (user_id, yesterday),
+                )
+                # Consume a freeze only if we actually filled the gap — keeps this
+                # idempotent against concurrent get_streak calls.
+                if ins.rowcount == 1:
+                    await db.execute(
+                        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+                        "VALUES (?, 'streak_freezes', ?)",
+                        (user_id, str(freezes - 1)),
+                    )
+                    await db.execute(
+                        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+                        "VALUES (?, 'streak_freeze_used_date', ?)",
+                        (user_id, yesterday),
+                    )
+                await db.commit()
+                rows = [yesterday] + rows
+                return _streak_from_dates(rows, today)
+        return _streak_from_dates(rows, today)
 
 
 async def set_streak(user_id: int, days: int) -> int:
@@ -3054,6 +3100,70 @@ async def record_study_activity(user_id: int) -> None:
             (user_id,),
         )
         await db.commit()
+
+
+# ── Streak freeze (lesson redesign B5) ─────────────────────────────────────────
+# Earned, not bought: one freeze per N completed lessons, capped. Consumed
+# automatically in get_streak to bridge a single missed day. Stored in
+# user_settings (streak_freezes, streak_freeze_progress, streak_freeze_used_date).
+
+STREAK_FREEZE_CAP = 2
+STREAK_FREEZE_PER_LESSONS = 10
+
+
+async def _settings_int(db, user_id: int, key: str, default: int = 0) -> int:
+    async with db.execute(
+        "SELECT value FROM user_settings WHERE user_id=? AND key=?", (user_id, key)
+    ) as cur:
+        row = await cur.fetchone()
+    try:
+        return int(row[0]) if row else default
+    except (ValueError, TypeError):
+        return default
+
+
+async def earn_streak_freeze(user_id: int) -> bool:
+    """Advance the freeze-earn counter by one completed lesson. Every
+    STREAK_FREEZE_PER_LESSONS lessons grants a freeze (capped at
+    STREAK_FREEZE_CAP). Returns True iff a freeze was just awarded."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        progress = await _settings_int(db, user_id, "streak_freeze_progress") + 1
+        freezes = await _settings_int(db, user_id, "streak_freezes")
+        awarded = False
+        if progress >= STREAK_FREEZE_PER_LESSONS:
+            if freezes < STREAK_FREEZE_CAP:
+                freezes += 1
+                awarded = True
+                progress = 0
+            else:
+                # At cap — hold progress at the threshold so the next lesson after
+                # a freeze is consumed grants one immediately.
+                progress = STREAK_FREEZE_PER_LESSONS
+        await db.execute(
+            "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+            "VALUES (?, 'streak_freeze_progress', ?)",
+            (user_id, str(progress)),
+        )
+        if awarded:
+            await db.execute(
+                "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+                "VALUES (?, 'streak_freezes', ?)",
+                (user_id, str(freezes)),
+            )
+        await db.commit()
+        return awarded
+
+
+async def get_streak_freeze_state(user_id: int) -> dict:
+    """Return {freezes, used_date} for surfacing the shield + a consumed toast."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        freezes = await _settings_int(db, user_id, "streak_freezes")
+        async with db.execute(
+            "SELECT value FROM user_settings WHERE user_id=? AND key='streak_freeze_used_date'",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return {"freezes": max(0, freezes), "used_date": row[0] if row else None}
 
 
 # ── Tutor chat ─────────────────────────────────────────────────────────────────
@@ -3244,10 +3354,11 @@ QUEST_TEMPLATES = {
     "perfect":   {"name": "Finish a perfect lesson",       "icon": "🏆", "target": 1,  "mode": "sum"},
     "tutor":     {"name": "Send {n} tutor messages",       "icon": "💬", "target": 3,  "mode": "sum"},
     "listening": {"name": "Get {n} listening drills right", "icon": "🔊", "target": 5, "mode": "sum"},
+    "lightning": {"name": "Finish a lightning round",       "icon": "⚡", "target": 1,  "mode": "sum"},
 }
 _QUEST_ROTATION = sorted(k for k in QUEST_TEMPLATES if k != "earn_xp")
 # Client-reported quest keys (everything else is bumped by server-side events).
-CLIENT_QUEST_KEYS = {"combo", "listening"}
+CLIENT_QUEST_KEYS = {"combo", "listening", "lightning"}
 CHEST_XP_MIN, CHEST_XP_MAX = 20, 40
 
 
@@ -3442,6 +3553,31 @@ async def get_unit_checkpoint_pool(user_id: int, unit_id: int) -> dict | None:
             l["content"] = None
     unit["lessons"] = lessons
     return unit
+
+
+async def get_completed_lesson_contents(user_id: int, course_id: int) -> list[dict]:
+    """Return {id, title, content} for every COMPLETED, non-foundations lesson in a
+    course. Powers the practice hub (B6) — mistakes review + course-wide lightning
+    recombine these stored drills. Ownership-checked via the course join."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT l.id, l.title, l.content
+               FROM course_lessons l
+               JOIN courses c ON c.id = l.course_id
+               LEFT JOIN course_units u ON u.id = l.unit_id
+               WHERE l.course_id=? AND c.user_id=? AND l.completed_at IS NOT NULL
+                     AND COALESCE(u.theme, '') != 'foundations'
+               ORDER BY l.lesson_num DESC""",
+            (course_id, user_id),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+    for r in rows:
+        try:
+            r["content"] = json.loads(r["content"]) if r["content"] else None
+        except (ValueError, TypeError):
+            r["content"] = None
+    return rows
 
 
 async def record_checkpoint(user_id: int, unit_id: int, score: int,

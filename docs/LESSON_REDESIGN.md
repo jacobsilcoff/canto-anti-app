@@ -13,9 +13,17 @@
 > presets (`learning.LESSON_LENGTHS`, `lesson_length` setting), D2 course-focus
 > dial (`learning.COURSE_FOCUSES`, `course_focus` setting), D3 lesson intro sheet
 > (`openLessonIntro`), A4 test-out quiz (`startTestOut`, deterministic from
-> stored drills). **All three phases (1–3) are now implemented; only the "Later"
-> nice-to-haves (B4 lightning, B5 streak freeze, B6 practice hub, C4 variants,
-> D4 feedback) remain.**
+> stored drills). **The "Later" nice-to-haves are now implemented too (2026-07):**
+> B4 lightning round (`openLightning`/`_startLightning`, reuses the `speed_round`
+> widget on a lesson's own choice drills; `lightning` daily quest), B5 streak
+> freeze (`db.earn_streak_freeze` + `get_streak` bridges a one-day gap;
+> `streak_freezes` in `/api/streak`; header shield + toast), B6 practice hub
+> (`/api/courses/{id}/practice?mode=mistakes|lightning`,
+> `db.get_completed_lesson_contents`, `openPracticeHub`), C4 listening-first
+> variants (`_maybeListeningVariant` remaps ~⅓ of production drills to listening
+> on each play), D4 per-lesson feedback (`POST /api/lessons/{id}/feedback` →
+> `lesson_feedback` ring buffer the planner quotes). **Every phase (1–3) plus the
+> Later set is now shipped.**
 > This doc + the mockups in `mockups/lesson-redesign/` were the deliverable of the
 > design pass; it is written to be self-contained: a fresh Claude session should be
 > able to implement any remaining phase without other context. Review the mockups at
@@ -320,7 +328,7 @@ drills"). Cheap personalization loop with zero new UI surface elsewhere.
 | **1 — the shape change** ✅ | A1 steps + A2 construction-step + C2 warm-up + C1 teach cards/quick-checks | One coherent generation+player change; transforms perceived length. All four touch the same prompt/assembler/player code — do together, one PR. |
 | **2 — the motivation layer** ✅ | B1 quests + B3 checkpoints + D1 daily goal + C3 recap | Mid-term goals; all deterministic (no new LLM spend). |
 | **3 — social + agency** ✅ | B2 league + A3 length + D2 focus + D3 intro sheet + A4 test-out | League is the only multi-user feature (needs friends adoption); the rest is settings plumbing. |
-| Later | B4 lightning, B5 freeze, B6 practice hub, C4 variants, D4 feedback | Nice-to-haves once the above proves out. |
+| Later ✅ | B4 lightning, B5 freeze, B6 practice hub, C4 variants, D4 feedback | Nice-to-haves — now all implemented (2026-07). |
 
 Estimated total for Phases 1–3: ~6–9 focused sessions. Phase 1 alone is
 shippable and addresses the loudest complaint (lesson length/pacing).

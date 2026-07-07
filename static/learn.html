@@ -271,6 +271,21 @@
     .intro-step .stime { margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
       flex-shrink: 0; font-variant-numeric: tabular-nums; }
     .intro-rail { width: 2px; height: 10px; background: var(--border); margin-left: 16px; }
+    /* B6 · practice hub cards */
+    .practice-cards { display: flex; flex-direction: column; gap: 9px; margin-top: 6px; }
+    .practice-group-label { font-size: 0.72rem; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted); margin: 12px 0 2px; }
+    .practice-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      padding: 12px 14px; border-radius: 14px; border: 1px solid var(--neutral-border);
+      background: var(--surface); cursor: pointer; transition: background .15s ease, transform .1s ease; }
+    .practice-card:hover { background: var(--surface-alt, var(--neutral-soft)); transform: translateY(-1px); }
+    .practice-card .pc-ico { width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+      background: var(--primary-soft); }
+    .practice-card .pc-text { display: flex; flex-direction: column; gap: 1px; }
+    .practice-card .pc-name { font-size: 0.92rem; font-weight: 700; }
+    .practice-card .pc-sub { font-size: 0.76rem; color: var(--text-muted); }
+    .practice-card .pc-arrow { margin-left: auto; color: var(--text-muted); font-size: 1.3rem; }
     .intro-concepts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
     .intro-concepts .chip { background: var(--surface-alt, var(--neutral-soft)); border-radius: 999px;
       padding: 5px 12px; font-size: 0.8rem; font-weight: 600; }
@@ -316,6 +331,25 @@
     .recap.open .recap-body { display: block; }
     /* B1 · quest ticks on the results screen */
     .results-quests { margin: 14px auto 0; max-width: 520px; text-align: left; }
+    /* D4 · per-lesson feedback */
+    .results-fb { display: flex; align-items: center; justify-content: center; gap: 12px;
+      margin: 16px auto 0; max-width: 520px; }
+    .results-fb .rfb-q { color: var(--text-muted); font-size: .95rem; }
+    .rfb-btns { display: flex; gap: 8px; }
+    .rfb-btn { font-size: 1.15rem; line-height: 1; padding: 7px 12px; border-radius: 12px;
+      border: 1px solid var(--neutral-border); background: var(--surface); cursor: pointer;
+      transition: transform .1s ease, background .15s ease; }
+    .rfb-btn:hover:not(:disabled) { background: var(--surface-alt); transform: translateY(-1px); }
+    .rfb-btn:disabled { cursor: default; opacity: .5; }
+    .rfb-btn.picked { opacity: 1; background: var(--primary-soft); border-color: var(--primary); }
+    /* B5 · streak-freeze toast */
+    .learn-toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom));
+      transform: translate(-50%, 20px); z-index: 9999; max-width: 90vw;
+      background: var(--tooltip-bg); color: #fff; padding: 11px 16px; border-radius: 12px;
+      font-weight: 600; font-size: .9rem; box-shadow: var(--shadow-pop);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
+    .learn-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (min-width: 1200px) { .learn-toast { bottom: 28px; } }
 
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
@@ -784,6 +818,7 @@
         <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
         <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
         <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="course-regen" id="practice-hub-btn" style="display:none" onclick="openPracticeHub()" title="Practice everything you've learned">🎯 Practice</button>
         <button class="course-regen" onclick="openVocabReview()" title="Review all vocab from your lessons">📚 Words</button>
         <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
       </div>
@@ -811,6 +846,11 @@
   <!-- D3 · lesson intro sheet -->
   <div class="intro-overlay" id="intro-overlay" onclick="if(event.target===this)closeLessonIntro()">
     <div class="intro-sheet" id="intro-sheet"></div>
+  </div>
+
+  <!-- B6 · practice hub -->
+  <div class="intro-overlay" id="practice-overlay" onclick="if(event.target===this)closePracticeHub()">
+    <div class="intro-sheet" id="practice-sheet"></div>
   </div>
 
   <!-- B2 · full league list sheet -->
@@ -882,6 +922,7 @@
     <p id="results-msg">Lesson complete!</p>
     <div id="results-recap"></div>
     <div id="results-vocab"></div>
+    <div id="results-feedback"></div>
     <div id="results-quests"></div>
     <div style="margin-top:14px"><button class="cta-btn" id="results-continue" onclick="backToMap()">Continue</button></div>
     <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
@@ -974,12 +1015,42 @@
     loadLeague();
   }
 
+  // B5 · lightweight toast (streak-freeze earned / consumed messages).
+  let _toastTimer = null;
+  function learnToast(msg) {
+    let el = document.getElementById('learn-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'learn-toast';
+      el.className = 'learn-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  // Toast once when a streak freeze was just consumed to bridge yesterday.
+  function _checkFreezeConsumed(info) {
+    try {
+      const used = info && info.streak_freeze_used_date;
+      if (!used) return;
+      const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      if (used !== yest) return;   // only a freshly-used freeze (yesterday)
+      if (localStorage.getItem('freezeUsedSeen') === used) return;
+      localStorage.setItem('freezeUsedSeen', used);
+      learnToast('🛡 Streak freeze used — your streak is safe!');
+    } catch {}
+  }
+
   let _streakInfo = null;
   async function loadStreak() {
     try {
       const info = await fetch('/api/streak').then(r => r.json());
       _streakInfo = info;
-      if (window.renderHeaderStats) { window.renderHeaderStats(info.streak || 0, info.points || 0); renderDailyRing(); return; }
+      _checkFreezeConsumed(info);
+      if (window.renderHeaderStats) { window.renderHeaderStats(info.streak || 0, info.points || 0, info.streak_freezes || 0); renderDailyRing(); return; }
       const fmtN = n => n >= 10000 ? Math.round(n/1000)+'k' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n);
       const numSpan = n => { const s=fmtN(n),f=n.toLocaleString(); return s===f?s:`<span style="cursor:pointer" title="${f}" onclick="this.textContent=this.textContent==='${s}'?'${f}':'${s}'">${s}</span>`; };
       const ic = n => `<span style="display:inline-flex;align-items:center;gap:3px">${n}</span>`;
@@ -1212,6 +1283,12 @@
       posts.push(fetch('/api/quests/progress', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'listening', amount: player.listeningHits }),
+      }));
+    }
+    if (player.lightning) {   // B4 · finishing a lightning round ticks its quest
+      posts.push(fetch('/api/quests/progress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'lightning', amount: 1 }),
       }));
     }
     try { await Promise.all(posts); } catch {}
@@ -1599,6 +1676,11 @@
     const allUnits  = course.units || [];
     const foundUnits = allUnits.filter(u => u.theme === 'foundations');
     const aiUnits    = allUnits.filter(u => u.theme !== 'foundations');
+
+    // B6 · the Practice hub needs at least one finished AI lesson to remix.
+    const aiDone = aiUnits.reduce((n, u) =>
+      n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+    document.getElementById('practice-hub-btn').style.display = aiDone > 0 ? '' : 'none';
 
     const nLessons = course.lesson_count || 0;
     const nDone    = course.done_count   || 0;
@@ -2692,6 +2774,166 @@
     }
   }
 
+  // ── B4 · Lightning round (AI-lesson material) ───────────────────────────────
+  // A 60-second timed remix built entirely from a lesson's own stored choice
+  // drills (recognition / production / cloze). Reuses the foundations speed_round
+  // widget; client-side assembly, formative (combo XP, no mastery writes).
+  function _lightningItems(segments) {
+    const drills = [];
+    (segments || []).forEach(sg => (sg.exercises || []).forEach(ex => {
+      if (ex.type === 'choice' && ex.prompt && Array.isArray(ex.options)
+          && ex.answer != null && ex.options[ex.answer]) drills.push(ex);
+    }));
+    return shuffle(drills).slice(0, 12).map(ex => {
+      const correct = ex.options[ex.answer];
+      const distractors = ex.options.filter((_, i) => i !== ex.answer).slice(0, 2);
+      return { symbol: ex.prompt, roman: correct, distractors };
+    }).filter(it => it.distractors.length >= 1);
+  }
+
+  function _lightningCount(segments) { return _lightningItems(segments).length; }
+
+  // Launch a lightning round from a set of already-fetched segments.
+  function _startLightning(segments, lang, title) {
+    const items = _lightningItems(segments);
+    if (items.length < 4) { alert('Not enough material for a lightning round yet.'); show('course'); return false; }
+    const speed = { type: 'speed_round', time_limit: 60, items, hide_roman: true };
+    const content = { segments: [{ teach: null, exercises: [speed] }] };
+    _prefetchLesson(content, lang);
+    player = {
+      lessonId: 0, lang, title: title || '⚡ Lightning',
+      segments: content.segments, segTotals: [1], segIdx: 0, segAnswered: 0,
+      queue: [], idx: 0, total: 1, answered: 0,
+      firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+      combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+      controller: null, graded: false,
+      conceptResults: {}, vocabGlossary: {},
+      concepts: [], theme: 'lightning', skipTeach: true, drillsOnly: false,
+      practiceGame: 'lightning', lightning: true,
+      lightningSource: segments, lightningTitle: title,
+    };
+    const sc = scriptClassFor(lang);
+    document.getElementById('state-player').className = sc;
+    document.getElementById('state-teach').className = sc;
+    document.getElementById('state-results').className = 'learn-center ' + sc;
+    startSegment(0);
+    return true;
+  }
+
+  async function openLightning(lessonId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      _startLightning(content.segments || [], lesson.target_lang,
+                      '⚡ Lightning · ' + (lesson.title || 'Lesson'));
+    } catch {
+      alert('Could not start the lightning round — please try again.');
+      show('course');
+    }
+  }
+
+  // ── B6 · Practice hub ───────────────────────────────────────────────────────
+  // A single sheet that recombines a course's OWN stored content: a course-wide
+  // lightning round, a weak-concept mistakes review, and (if present) the
+  // foundations mini-games. No LLM, no new content.
+  function openPracticeHub() {
+    const c = currentCourse;
+    if (!c) return;
+    // Foundations mini-games draw on the whole reading track, so they're available
+    // as soon as the track exists (no need to have finished a reading lesson).
+    const foundations = (c.units || []).some(u => u.theme === 'foundations'
+      && (u.lessons || []).length);
+    const sheet = document.getElementById('practice-sheet');
+    const card = (icon, name, sub, onclick) => `
+      <button class="practice-card" onclick="${onclick}">
+        <span class="pc-ico">${icon}</span>
+        <span class="pc-text"><span class="pc-name">${name}</span><span class="pc-sub">${sub}</span></span>
+        <span class="pc-arrow">›</span>
+      </button>`;
+    let games = '';
+    if (foundations) {
+      games = `<div class="practice-group-label">Reading games</div>
+        ${card('⚡', 'Speed Round', 'Rapid character → sound', `_practiceGame('speed_round')`)}
+        ${card('🔊', 'Audio Blitz', 'Hear it, tap the character', `_practiceGame('audio_blitz')`)}
+        ${card('🃏', 'Memory Match', 'Flip-card concentration', `_practiceMemory()`)}`;
+    }
+    sheet.className = 'intro-sheet ' + scriptClassFor(c.target_lang);
+    sheet.innerHTML = `
+      <div class="intro-grab"></div>
+      <div class="intro-kicker">Practice</div>
+      <h2>🎯 Practice hub</h2>
+      <p class="intro-obj">Sharpen what you've learned — built from your own lessons.</p>
+      <div class="practice-cards">
+        ${card('⚡', 'Lightning round', '60-second timed remix of your drills', `_practiceCourse('lightning')`)}
+        ${card('🔁', 'Review mistakes', 'Re-drill the concepts you find hardest', `_practiceCourse('mistakes')`)}
+        ${games}
+      </div>`;
+    document.getElementById('practice-overlay').classList.add('open');
+  }
+  function closePracticeHub() {
+    document.getElementById('practice-overlay').classList.remove('open');
+  }
+  function _practiceCourse(mode) {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) openCoursePractice(id, mode);
+  }
+  function _practiceGame(game) {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) openPracticeGame(id, game);
+  }
+  function _practiceMemory() {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) showMemoryMatchSettings(id);
+  }
+
+  // Fetch a course practice set (mistakes / lightning) and play it. Lightning is
+  // remixed client-side into a speed round; mistakes plays as a drills-only run.
+  async function openCoursePractice(courseId, mode) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/courses/' + courseId + '/practice?mode=' + mode);
+      if (!res.ok) {
+        const m = (await res.json().catch(() => ({}))).detail || 'Could not start practice.';
+        throw new Error(m);
+      }
+      const data = await res.json();
+      const content = data.content || {};
+      const segments = content.segments || [];
+      if (mode === 'lightning') {
+        _startLightning(segments, data.target_lang, data.title || '⚡ Lightning');
+        return;
+      }
+      const segTotals = segments.map(sg => (sg.exercises || []).length);
+      const total = segTotals.reduce((a, b) => a + b, 0);
+      if (!total) throw new Error('empty');
+      _prefetchLesson(content, data.target_lang);
+      player = {
+        lessonId: 0, lang: data.target_lang, title: data.title || 'Practice',
+        segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+        controller: null, graded: false,
+        conceptResults: {}, vocabGlossary: {},
+        concepts: [], theme: 'practice', skipTeach: true, drillsOnly: false,
+        practiceGame: 'mistakes', practiceCourseId: courseId,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch (e) {
+      alert(e.message || 'Could not start practice — please try again.');
+      show('course');
+    }
+  }
+
   // ── D3 · lesson intro sheet ─────────────────────────────────────────────────
   let _introLesson = null;      // the fetched lesson behind the open sheet
   const GRADEABLE_TYPES = new Set(['choice', 'listening', 'word_bank', 'match']);
@@ -2848,6 +3090,11 @@
     closeLessonIntro();
     if (id) resumeLesson(id);
   }
+  function _introLightning() {
+    const id = _introLesson && _introLesson.id;
+    closeLessonIntro();
+    if (id) openLightning(id);
+  }
 
   // Flatten segments into displayed step rows. Non-speak segments surface their
   // embedded AI practice (older lessons bury a construction_drill in a step) as
@@ -2898,6 +3145,8 @@
     const mins = _estMinutes(segments);
     const hasSpeak = _aiSpeak && _hasAiSpeak(segments);
     const canTestOut = !lesson.completed && _gradeableExercises(fullSegments).length >= 4;
+    // B4 · lightning round is offered on lessons the learner has finished.
+    const canLightning = lesson.completed && _lightningCount(fullSegments) >= 4;
     const resume = _loadResume(lesson.id);
 
     const stepRows = _introStepRows(segments);
@@ -2943,6 +3192,7 @@
           <button class="cta-btn secondary" onclick="_introPlay('skip')">⚡ Practice only</button>
           ${hasSpeak ? `<button class="cta-btn secondary" onclick="_introPlay('llm')">✨ AI Speak</button>` : ''}
           ${canTestOut ? `<button class="cta-btn secondary" onclick="startTestOut()">🎓 Test out</button>` : ''}
+          ${canLightning ? `<button class="cta-btn secondary" onclick="_introLightning()">⚡ Lightning</button>` : ''}
         </div>
       </div>`;
   }
@@ -3594,6 +3844,23 @@
   // romanization is the lesson and a "translation" would be meaningless).
   function _liveLookupOn() { return !!player && player.theme !== 'foundations'; }
 
+  // C4 · listening-first variant. Sometimes present a production drill (English
+  // prompt → pick the target) as a listening drill (hear the target → pick it),
+  // so replays of a lesson stop being identical. Client-only; the options are
+  // already target-language, so the answer key is untouched. Skipped for
+  // checkpoints/test-out (deterministic quizzes) and foundations/practice.
+  function _maybeListeningVariant(ex) {
+    if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english') return ex;
+    if (!player || player.checkpointUnitId || player.testOut
+        || player.theme === 'foundations' || player.practiceGame) return ex;
+    const opts = ex.options || [];
+    const ans = ex.answer;
+    if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
+    if (Math.random() > 0.35) return ex;   // ~1 in 3 production drills
+    return { ...ex, type: 'listening', instruction: 'What did you hear?',
+             audio: opts[ans], prompt: '', prompt_roman: '', audio_roman: '' };
+  }
+
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
     // Build the queue once per segment. Returning here via the back button (teach
@@ -3603,6 +3870,7 @@
       let exs = (seg.exercises || []).map(e => ({ ...e }));
       // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
       if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
+      else exs = exs.map(_maybeListeningVariant);   // C4 · vary replays
       player.queue = exs;
       player.idx = 0;
       player._queueSeg = player.segIdx;
@@ -3770,6 +4038,7 @@
       renderResultsXp(info && info.xp_awarded ? info.xp_awarded : 0, false, player.maxCombo, 0, false);
       document.getElementById('results-recap').innerHTML = '';
       document.getElementById('results-vocab').innerHTML = '';
+      document.getElementById('results-feedback').innerHTML = '';
       show('results');
       renderResultsQuests();
       emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
@@ -3791,6 +4060,7 @@
       renderResultsXp(0, false, player.maxCombo, 0, false);
       document.getElementById('results-recap').innerHTML = '';
       document.getElementById('results-vocab').innerHTML = '';
+      document.getElementById('results-feedback').innerHTML = '';
       contBtn.textContent = 'Start the full lesson →';
       contBtn.onclick = () => openLesson(lessonId);
       retryBtn.textContent = 'Back to map'; retryBtn.onclick = backToMap;
@@ -3813,12 +4083,20 @@
         serverInfo = await res.json();
       } catch {}
     }
-    document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
-    emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
-    document.getElementById('results-msg').textContent =
-      total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
-    renderResultsXp(xpEarned, perfect, player.maxCombo,
+    if (player.practiceGame) {
+      // Mini-games (foundations + B4 lightning) score themselves on their own
+      // screen; the "1 of 1" lesson tally would be meaningless here.
+      document.getElementById('results-score').textContent = 'Done!';
+      emoji.textContent = player.lightning ? '⚡' : '🎉';
+      document.getElementById('results-msg').textContent = 'Nice practice — keep the combo going!';
+    } else {
+      document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
+      emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
+      document.getElementById('results-msg').textContent =
+        total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
+    }
+    renderResultsXp(xpEarned, player.practiceGame ? false : perfect, player.maxCombo,
                     serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
     if (player.testOut) {
       document.getElementById('results-badges').insertAdjacentHTML('beforeend',
@@ -3827,12 +4105,16 @@
     show('results');
     renderResultsRecap();   // C3 · "What you learned" recap card
     renderResultsVocab();   // async fill of the "New words → deck" panel
+    renderResultsFeedback();// D4 · 👍/👎 "How was this lesson?"
     renderResultsQuests();  // B1 · quest ticks advancing
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
     sfx.complete();
     if (score >= 60) confetti();
     if (perfect) setTimeout(confetti, 350);   // double burst for a flawless run
     try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+    if (serverInfo && serverInfo.freeze_earned) {   // B5 · earned a streak freeze
+      setTimeout(() => learnToast('🛡 You earned a streak freeze!'), 900);
+    }
     loadStreak();   // refresh the ⭐ header total + daily-goal ring with the new XP
   }
 
@@ -3867,6 +4149,37 @@
     card.querySelector('.recap-body').appendChild(el);
     wrap.appendChild(card);
     applyRuby(card, player.vocabGlossary);
+  }
+
+  // D4 · lightweight 👍/👎 rating. One tap posts to the lesson-feedback ring
+  // buffer the planner reads. Only for real AI-lesson completions (not
+  // foundations/practice/checkpoints/test-out).
+  function renderResultsFeedback() {
+    const wrap = document.getElementById('results-feedback');
+    wrap.innerHTML = '';
+    if (!player || !player.lessonId || player.theme === 'foundations'
+        || player.practiceGame || player.checkpointUnitId || player.testOut) return;
+    const lessonId = player.lessonId;
+    wrap.innerHTML = `<div class="results-fb" id="results-fb">
+        <span class="rfb-q">How was this lesson?</span>
+        <div class="rfb-btns">
+          <button class="rfb-btn" data-rating="up" aria-label="Good">👍</button>
+          <button class="rfb-btn" data-rating="down" aria-label="Not great">👎</button>
+        </div></div>`;
+    wrap.querySelectorAll('.rfb-btn').forEach(btn => {
+      btn.onclick = () => {
+        const rating = btn.dataset.rating;
+        wrap.querySelectorAll('.rfb-btn').forEach(b => {
+          b.disabled = true;
+          b.classList.toggle('picked', b === btn);
+        });
+        wrap.querySelector('.rfb-q').textContent = 'Thanks — noted for your next lessons!';
+        fetch('/api/lessons/' + lessonId + '/feedback', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating }),
+        }).catch(() => {});
+      };
+    });
   }
 
   // B1 · compact quest state on the results screen (fresh fetch shows the
@@ -4110,7 +4423,12 @@
   }
   function retryLesson() {
     if (!player) return;
-    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
+    if (player.lightning) {   // B4 · re-roll a fresh lightning set from the source
+      const src = player.lightningSource, lang = player.lang, title = player.lightningTitle;
+      show('lesson-loading'); _startLightning(src, lang, title);
+    }
+    else if (player.practiceGame === 'mistakes') openCoursePractice(player.practiceCourseId, 'mistakes');
+    else if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
     else if (player.checkpointUnitId) openCheckpoint(player.checkpointUnitId);
     else openLesson(player.lessonId, player.mode || '');
   }
