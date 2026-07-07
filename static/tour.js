@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 22;
+  var TOUR_VERSION = 23;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -55,6 +55,8 @@
       body: 'Set a profile photo in Settings \u2192 Account \u2014 it\u2019s cropped to a circle and shows up next to your chats. Add your name there too and Home will greet you by your first name.', v: 21 },
     { icon: '\u26a1', title: 'Practice, lightning & streak freezes',
       body: 'Tap \ud83c\udfaf Practice on the Learn page for a \u26a1 lightning round (a 60-second remix of your drills) or a review of the concepts you find hardest. Finish lessons to earn \ud83d\udee1 streak freezes that save your streak if you miss a day \u2014 and give a lesson a \ud83d\udc4d/\ud83d\udc4e afterwards to shape what comes next.', v: 22 },
+    { icon: '\ud83d\udc53', title: 'Review on Even glasses',
+      body: 'Have Even Realities glasses? Generate a token in Settings \u2192 Even glasses and study your due cards hands-free on the HUD via MentraOS \u2014 tap to reveal, tap again for \u201cgot it\u201d or hold for \u201cmissed it.\u201d XP and your streak sync automatically.', v: 23 },
   ];
 
   var steps, stepIdx;
