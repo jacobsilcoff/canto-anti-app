@@ -658,6 +658,12 @@
     }
     .vocab-deck-badge.in { background: var(--good-soft); color: var(--good-strong); }
     .vocab-deck-badge.out { background: var(--neutral-soft, var(--surface-alt)); color: var(--text-muted); }
+    button.vocab-deck-badge.out {
+      border: none; cursor: pointer; background: var(--primary-soft); color: var(--primary);
+      transition: opacity .15s ease;
+    }
+    button.vocab-deck-badge.out:hover { opacity: 0.8; }
+    button.vocab-deck-badge.out:disabled { cursor: default; opacity: 0.6; }
     .vocab-empty { text-align: center; color: var(--text-muted); padding: 20px 10px; font-size: 0.9rem; }
 
     /* ── Daily-goal XP ring (course header) ── */
@@ -1435,9 +1441,6 @@
         g.items.forEach(v => {
           const row = document.createElement('div');
           row.className = 'vocab-row';
-          const badge = v.in_deck
-            ? '<span class="vocab-deck-badge in">✓ In deck</span>'
-            : '<span class="vocab-deck-badge out">Not yet</span>';
           // The word carries a `.needs-ruby` hook so applyRuby annotates it with
           // romanization (offline oracle) — non-Latin scripts are unreadable on
           // mobile without it.
@@ -1446,8 +1449,17 @@
             : esc(v.label);
           row.innerHTML =
             `<div class="vocab-word">${wordHtml}</div>` +
-            `<div class="vocab-gloss">${esc(v.gloss)}</div>` +
-            badge;
+            `<div class="vocab-gloss">${esc(v.gloss)}</div>`;
+          if (v.in_deck) {
+            row.insertAdjacentHTML('beforeend', '<span class="vocab-deck-badge in">✓ In deck</span>');
+          } else {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'vocab-deck-badge out vocab-add-btn';
+            btn.textContent = '＋ Add';
+            btn.onclick = () => addVocabWord(v, btn, lang);
+            row.appendChild(btn);
+          }
           wrap.appendChild(row);
         });
         body.appendChild(wrap);
@@ -1461,6 +1473,28 @@
 
   function closeVocabReview() {
     document.getElementById('vocab-overlay').classList.remove('open');
+  }
+
+  // Add a word from the vocab review drawer straight to the SRS deck.
+  async function addVocabWord(v, btn, lang) {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: v.gloss, target_text: v.label,
+          target_lang: lang, priority: 3,
+          notes: 'From lesson: ' + (v.lesson_title || ''),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      v.in_deck = true;
+      btn.outerHTML = '<span class="vocab-deck-badge in">✓ In deck</span>';
+    } catch {
+      btn.disabled = false; btn.textContent = '＋ Add';
+      learnToast('Failed to add word — try again');
+    }
   }
 
   function toggleUnlockAll() {
