@@ -152,6 +152,13 @@ async def auth_middleware(request: Request, call_next):
     if token:
         user_id = await db.get_session_user(token)
 
+    # Programmatic clients (the Even glasses plugin) authenticate with a
+    # long-lived bearer token instead of the browser session cookie.
+    if user_id is None:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            user_id = await db.get_user_by_api_token(auth_header[7:].strip())
+
     if user_id is None:
         accept = request.headers.get("Accept", "")
         if "text/html" in accept:
@@ -1102,7 +1109,25 @@ async def get_profile(user: dict = Depends(current_user)):
         "email": user.get("email") or "",
         "email_verified": bool(user.get("email_verified", True)),
         "avatar_url": _avatar_url(user),
+        "has_api_token": await db.has_api_token(user["id"]),
     }
+
+
+@app.post("/api/profile/api-token")
+@limiter.limit("10/minute")
+async def create_api_token(request: Request, user: dict = Depends(current_user)):
+    """Mint a long-lived bearer token for the Even glasses plugin.
+    Replaces any existing token. The raw token is returned ONCE — we store only
+    its hash, so it can never be shown again."""
+    token = secrets.token_urlsafe(32)
+    await db.create_api_token(token, user["id"], label="even-glasses")
+    return {"token": token}
+
+
+@app.delete("/api/profile/api-token")
+async def revoke_api_token(user: dict = Depends(current_user)):
+    await db.revoke_api_tokens(user["id"])
+    return {"ok": True}
 
 
 class ProfileUpdate(BaseModel):

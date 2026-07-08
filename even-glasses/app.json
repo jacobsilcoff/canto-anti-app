@@ -1,0 +1,8 @@
+{
+  "package_id": "ca.silcoff-labs.canto-flashcards",
+  "name": "Flashcards",
+  "version": "1.0.0",
+  "description": "Review your language flashcards on Even Realities glasses — earning XP and syncing progress with your account.",
+  "author": "Silcoff Labs",
+  "entrypoint": "index.html"
+}

@@ -818,6 +818,46 @@ async def purge_expired_sessions() -> None:
         await db.commit()
 
 
+# ── API tokens ────────────────────────────────────────────────────────────────
+# Long-lived bearer tokens for programmatic access (the Even glasses plugin).
+# Like sessions, only sha256(token) is stored. These never expire — they are
+# revoked explicitly. Generating a new one replaces any existing token(s) for
+# the user (one active token per user).
+
+async def create_api_token(token: str, user_id: int, label: str = "") -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM api_tokens WHERE user_id=?", (user_id,))
+        await db.execute(
+            "INSERT INTO api_tokens (token_hash, user_id, label) VALUES (?, ?, ?)",
+            (_hash_token(token), user_id, label),
+        )
+        await db.commit()
+
+
+async def get_user_by_api_token(token: str) -> int | None:
+    """Return the user_id for a valid API token, or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT user_id FROM api_tokens WHERE token_hash=?", (_hash_token(token),)
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
+async def has_api_token(user_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM api_tokens WHERE user_id=? LIMIT 1", (user_id,)
+        ) as cur:
+            return await cur.fetchone() is not None
+
+
+async def revoke_api_tokens(user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM api_tokens WHERE user_id=?", (user_id,))
+        await db.commit()
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 async def count_cards(user_id: int) -> int:
