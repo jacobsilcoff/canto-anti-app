@@ -5,9 +5,25 @@ import time
 import asyncio
 import logging
 from google import genai
-from google.genai.errors import ServerError
+from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
+
+# Statuses worth retrying: 503/500/etc. = model overloaded (ServerError), 429 =
+# rate-limited / quota (ClientError). The shared free-tier key is hit by many
+# users at once, so a burst of lessons/translations trips 429 constantly — a
+# short backoff-and-retry turns most of those transient limits into a success
+# instead of a user-facing error.
+_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+# 429 usually clears in a couple seconds once the per-minute window rolls; give
+# it more headroom than the 5xx path. Total worst-case wait ≈ 12s.
+_RETRY_DELAYS = (1, 3, 8)
+
+
+def _retry_status(e: Exception) -> int | None:
+    """The HTTP-ish status for a genai error if it's one we should retry, else None."""
+    status = getattr(e, "status_code", None) or getattr(e, "code", None)
+    return status if status in _RETRY_STATUSES else None
 
 _clients: dict[str, "genai.Client"] = {}
 
@@ -593,15 +609,14 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
         config = _types.GenerateContentConfig(
             thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
         )
-    delays = [1, 3]
-    for attempt, delay in enumerate([0] + delays):
+    for attempt, delay in enumerate([0] + list(_RETRY_DELAYS)):
         if delay:
             time.sleep(delay)
         try:
             return _get_client(api_key).models.generate_content(
                 model=model, contents=prompt, config=config).text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+        except APIError as e:
+            if _retry_status(e) and attempt < len(_RETRY_DELAYS):
                 continue
             raise
 
@@ -659,8 +674,7 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                      model: str = DEFAULT_MODEL) -> str:
     from google.genai import types as _types
     part_img = _types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
-    delays = [1, 3]
-    for attempt, delay in enumerate([0] + delays):
+    for attempt, delay in enumerate([0] + list(_RETRY_DELAYS)):
         if delay:
             time.sleep(delay)
         try:
@@ -679,8 +693,8 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                     reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
                 raise ValueError(f"Vision model returned no text (reason: {reason})")
             return text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+        except APIError as e:
+            if _retry_status(e) and attempt < len(_RETRY_DELAYS):
                 continue
             raise
 

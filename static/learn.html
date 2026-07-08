@@ -39,6 +39,25 @@
     .course-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
     .course-regen { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; font-size: 0.82rem; }
     .course-regen:hover { border-color: var(--again); color: var(--again); }
+    /* Header action buttons — clean, consistent chips that collapse to icon-only
+       circles on narrow screens so the header never becomes a wrapping jumble. */
+    .course-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .hdr-btn {
+      display: inline-flex; align-items: center; gap: 6px; line-height: 1;
+      background: var(--surface-alt); border: none; border-radius: 999px;
+      color: var(--text); cursor: pointer; padding: 8px 14px;
+      font-size: 0.83rem; font-weight: 600; font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hdr-btn:hover { background: var(--primary-soft); color: var(--primary); }
+    .hdr-btn .hdr-ic { font-size: 1.02rem; }
+    .hdr-btn.icon-only { padding: 0; width: 38px; height: 38px; justify-content: center; font-size: 1.02rem; }
+    .hdr-btn.danger { color: var(--danger); }
+    .hdr-btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+    @media (max-width: 560px) {
+      .hdr-btn { padding: 0; width: 38px; height: 38px; justify-content: center; font-size: 1.02rem; }
+      .hdr-btn .hdr-lbl { display: none; }
+    }
 
     /* Units + lessons (vertical path) */
     .unit { margin-bottom: 20px; }
@@ -609,22 +628,36 @@
     .vocab-head-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
     .vocab-head-count { font-size: 0.82rem; color: var(--text-muted); }
     .vocab-body {
-      flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px;
-      display: flex; flex-direction: column; gap: 6px;
+      flex: 1; min-height: 0; overflow-y: auto; padding: 6px 14px 14px;
     }
+    /* Lesson group heading — sticks to the top as you scroll the group. */
+    .vocab-group-head {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 12px 2px 6px; background: var(--surface);
+      font-family: var(--display-font, inherit);
+      font-weight: 700; font-size: 0.9rem; color: var(--text);
+    }
+    .vocab-group-head .vg-count { font-weight: 600; font-size: 0.76rem; color: var(--text-muted); }
+    .vocab-group { display: flex; flex-direction: column; gap: 6px; }
     .vocab-row {
-      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-      border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+      display: flex; align-items: center; gap: 12px; padding: 9px 11px;
+      border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
     }
-    .vocab-word { font-weight: 600; font-size: 0.95rem; font-family: var(--script-font, inherit); }
-    .vocab-gloss { font-size: 0.84rem; color: var(--text-muted); flex: 1; min-width: 0; }
-    .vocab-lesson { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+    /* Reserve ruby height so romanization loading in never re-spaces the row. */
+    .vocab-word {
+      font-weight: 700; font-size: 1.15rem; line-height: 2;
+      font-family: var(--script-font, inherit); flex-shrink: 0;
+    }
+    .vocab-word ruby { line-height: 1; }
+    .vocab-word rt { font-size: 0.55em; font-weight: 500; color: var(--text-muted); }
+    .vocab-gloss { font-size: 0.86rem; color: var(--text-muted); flex: 1; min-width: 0; }
     .vocab-deck-badge {
-      font-size: 0.7rem; font-weight: 600; border-radius: 6px; padding: 2px 7px;
+      font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 3px 9px;
       white-space: nowrap; flex-shrink: 0;
     }
     .vocab-deck-badge.in { background: var(--good-soft); color: var(--good-strong); }
-    .vocab-deck-badge.out { background: var(--warn-soft); color: var(--warn-strong); }
+    .vocab-deck-badge.out { background: var(--neutral-soft, var(--surface-alt)); color: var(--text-muted); }
     .vocab-empty { text-align: center; color: var(--text-muted); padding: 20px 10px; font-size: 0.9rem; }
 
     /* ── Daily-goal XP ring (course header) ── */
@@ -814,13 +847,15 @@
         <div class="course-title" id="course-title"></div>
         <div class="course-sub" id="course-sub"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="course-actions">
         <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
-        <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
-        <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
-        <button class="course-regen" id="practice-hub-btn" style="display:none" onclick="openPracticeHub()" title="Practice everything you've learned">🎯 Practice</button>
-        <button class="course-regen" onclick="openVocabReview()" title="Review all vocab from your lessons">📚 Words</button>
-        <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
+        <button class="hdr-btn" id="practice-hub-btn" style="display:none" onclick="openPracticeHub()" title="Practice everything you've learned">
+          <span class="hdr-ic">🎯</span><span class="hdr-lbl">Practice</span></button>
+        <button class="hdr-btn" onclick="openVocabReview()" title="Review all vocab from your lessons">
+          <span class="hdr-ic">📚</span><span class="hdr-lbl">Words</span></button>
+        <button class="hdr-btn icon-only" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
+        <button class="hdr-btn icon-only" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="hdr-btn icon-only danger" onclick="resetAiLessons()" title="Restart course — clears all AI lessons and starts over (your reading track is kept)">↻</button>
       </div>
     </div>
     <div id="quest-card"></div>
@@ -1371,21 +1406,54 @@
       const lang = currentCourse && currentCourse.target_lang;
       body.innerHTML = '';
       if (lang) body.classList.add(scriptClassFor(lang));
+
+      // Group words by the lesson that introduced them so the list reads in
+      // teaching order instead of one undifferentiated pile. Words with no known
+      // lesson fall into a trailing "Other" group.
+      const groups = [];
+      const byKey = new Map();
       vocab.forEach(v => {
-        const row = document.createElement('div');
-        row.className = 'vocab-row';
-        const badge = v.in_deck
-          ? '<span class="vocab-deck-badge in">In deck</span>'
-          : '<span class="vocab-deck-badge out">Not in deck</span>';
-        row.innerHTML =
-          `<div style="flex:1;min-width:0">` +
-            `<div class="vocab-word">${esc(v.label)}</div>` +
-            `<div class="vocab-gloss">${esc(v.gloss)}</div>` +
-          `</div>` +
-          badge;
-        if (v.lesson_title) row.title = 'From: ' + v.lesson_title;
-        body.appendChild(row);
+        const key = v.lesson_title || '';
+        let g = byKey.get(key);
+        if (!g) {
+          g = { title: v.lesson_title || 'Other words', num: v.lesson_num || 9999, items: [] };
+          byKey.set(key, g);
+          groups.push(g);
+        }
+        g.items.push(v);
       });
+      groups.sort((a, b) => a.num - b.num);
+
+      groups.forEach(g => {
+        const head = document.createElement('div');
+        head.className = 'vocab-group-head';
+        head.innerHTML = `<span>${esc(g.title)}</span>` +
+          `<span class="vg-count">${g.items.length} word${g.items.length === 1 ? '' : 's'}</span>`;
+        body.appendChild(head);
+        const wrap = document.createElement('div');
+        wrap.className = 'vocab-group';
+        g.items.forEach(v => {
+          const row = document.createElement('div');
+          row.className = 'vocab-row';
+          const badge = v.in_deck
+            ? '<span class="vocab-deck-badge in">✓ In deck</span>'
+            : '<span class="vocab-deck-badge out">Not yet</span>';
+          // The word carries a `.needs-ruby` hook so applyRuby annotates it with
+          // romanization (offline oracle) — non-Latin scripts are unreadable on
+          // mobile without it.
+          const wordHtml = lang && needsRuby(lang)
+            ? `<span class="needs-ruby" data-text="${esc(v.label)}" data-lang="${esc(lang)}">${esc(v.label)}</span>`
+            : esc(v.label);
+          row.innerHTML =
+            `<div class="vocab-word">${wordHtml}</div>` +
+            `<div class="vocab-gloss">${esc(v.gloss)}</div>` +
+            badge;
+          wrap.appendChild(row);
+        });
+        body.appendChild(wrap);
+      });
+      // Resolve all the romanization ruby in one batched pass.
+      if (lang && needsRuby(lang)) applyRuby(body, null, false, false);
     } catch {
       body.innerHTML = '<div class="vocab-empty">Failed to load vocab.</div>';
     }
@@ -1668,7 +1736,9 @@
     currentCourse = course;
     renderDailyRing();   // show the daily-XP ring if streak data is already loaded
     document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
-    document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
+    const ut = document.getElementById('unlock-toggle');
+    ut.textContent = unlockAll ? '🔓' : '🔒';
+    ut.title = unlockAll ? 'All lessons unlocked (testing) — tap to re-lock' : 'Unlock every lesson for testing';
     document.getElementById('state-course').dataset.courseId = course.id;
     document.getElementById('course-title').textContent =
       (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
