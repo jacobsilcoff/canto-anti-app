@@ -2227,7 +2227,21 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
 
 
 async def get_course_vocab(user_id: int, course_id: int) -> list[dict]:
-    """All vocab concepts taught in a course, with deck status."""
+    """Every vocabulary word taught across a course's COMPLETED lessons, in
+    teaching order (caller groups by lesson_num/lesson_title).
+
+    Words are pulled from each lesson's stored `concepts_json`, NOT the
+    `course_concepts` registry filtered to kind='vocab'. That old approach was
+    nearly always empty: the planner is biased toward GRAMMAR skills, and a
+    grammar lesson is registered as ONE kind='grammar' concept whose taught words
+    live in its `items` array — so the vocab-only view missed everything taught
+    inside grammar lessons (most of a grammar-forward course). Here a vocab
+    concept contributes itself; a grammar concept contributes its `items` (its
+    skill label, e.g. "-er present tense", is not a word and is skipped).
+
+    COMPLETED-only so it reflects what the learner has actually studied and never
+    spoils pre-generated lessons ahead of them. Foundations (reading-track) units
+    are excluded — they teach script, not vocabulary."""
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
         async with conn.execute(
@@ -2236,15 +2250,44 @@ async def get_course_vocab(user_id: int, course_id: int) -> list[dict]:
             if not await cur.fetchone():
                 return []
         async with conn.execute(
-            """SELECT cc.label, cc.gloss, cl.title AS lesson_title, cl.lesson_num
-               FROM course_concepts cc
-               LEFT JOIN course_lessons cl ON cl.id = cc.introduced_lesson_id
-               WHERE cc.course_id=? AND cc.kind='vocab' AND cc.label != ''
-               ORDER BY cl.lesson_num, cc.id""",
+            """SELECT l.lesson_num, l.title AS lesson_title, l.concepts_json
+               FROM course_lessons l
+               LEFT JOIN course_units u ON u.id = l.unit_id
+               WHERE l.course_id=? AND l.completed_at IS NOT NULL
+                     AND COALESCE(u.theme, '') != 'foundations'
+               ORDER BY l.lesson_num, l.id""",
             (course_id,),
         ) as cur:
-            rows = [dict(r) for r in await cur.fetchall()]
-    return rows
+            lessons = [dict(r) for r in await cur.fetchall()]
+
+    out: list[dict] = []
+    seen: set[str] = set()   # first lesson to teach a word wins
+    for l in lessons:
+        try:
+            concepts = json.loads(l["concepts_json"] or "[]")
+        except (ValueError, TypeError):
+            concepts = []
+        if not isinstance(concepts, list):
+            continue
+        for c in concepts:
+            if not isinstance(c, dict):
+                continue
+            kind = (c.get("kind") or "vocab").strip()
+            words = (c.get("items") or []) if kind == "grammar" else [c]
+            for w in words:
+                if not isinstance(w, dict):
+                    continue
+                label = (w.get("label") or "").strip()
+                if not label or label in seen:
+                    continue
+                seen.add(label)
+                out.append({
+                    "label": label,
+                    "gloss": (w.get("gloss") or "").strip(),
+                    "lesson_title": l["lesson_title"],
+                    "lesson_num": l["lesson_num"],
+                })
+    return out
 
 
 async def get_active_course(user_id: int, target_lang: str) -> dict | None:
