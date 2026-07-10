@@ -154,7 +154,7 @@ async function drawImage(data: number[]): Promise<boolean> {
     const ok =
       res === ImageRawDataUpdateResult.success ||
       (res as unknown as string) === 'success'
-    lastGlyphNote = `img=${String(res)}`
+    lastGlyphNote = `img=${String(res)}(${data.length}B)`
     return ok
   } catch (e) {
     lastGlyphNote = `img-ex:${(e as Error).message}`

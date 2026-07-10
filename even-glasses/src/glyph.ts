@@ -13,9 +13,15 @@
  * predicate `shouldRenderAsGlyph` is unit-tested, `renderGlyph` needs a DOM.
  */
 
-// Image container bounds (SDK: width 20~288, height 20~144). Leave a margin.
-export const GLYPH_W = 240
-export const GLYPH_H = 136
+// Image container bounds (SDK: width 20~288, height 20~144).
+//
+// Kept deliberately small: the raw pixel buffer is sent over BLE to the
+// glasses, and a full 240×136 (≈32 KB) buffer fails with `sendFailed`. The
+// glasses' known-good on-air images are well under ~10 KB, so 112×80 (8,960 B)
+// stays safely inside that budget while still rendering a glyph ~3× the size of
+// the default HUD text. Scale up once a send is confirmed working.
+export const GLYPH_W = 112
+export const GLYPH_H = 80
 
 // Longest prompt (in code points) still worth scaling up. renderGlyph shrinks
 // the font to fit, so longer would render too — but past ~4 CJK chars each
