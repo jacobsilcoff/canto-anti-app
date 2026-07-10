@@ -7,39 +7,64 @@
  *
  * Controls (G2 TouchBar / R1 Ring):
  *   - before reveal:  tap             -> show the answer
- *   - after reveal:   tap             -> "got it"   (SRS "good")
+ *                     double-tap      -> go back to the previous card
+ *   - after reveal:   tap             -> "got it"    (SRS "good")
  *                     double-tap      -> "missed it" (SRS "again")
- *   - swipe up = "got it", swipe down = "missed it" (alternative)
+ *                     swipe up        -> "got it"
+ *                     swipe down      -> "missed it"
+ * Every grade shows a brief 👍/👎 confirmation so a finicky ring tap is
+ * visibly acknowledged.
  *
  * Because the glasses have no speaker, audio is never used:
  *   - Non-Latin languages show romanization as the prompt on the pronunciation
  *     face and in the reveal on other faces.
  *   - Latin pronunciation faces (audio-only) are skipped automatically.
+ *
+ * Short prompts (a lone CJK character) are drawn BIG via the image path for
+ * legibility, falling back to text when the image can't be sent.
  */
 import {
   waitForEvenAppBridge,
   CreateStartUpPageContainer,
   TextContainerProperty,
   TextContainerUpgrade,
+  ImageContainerProperty,
+  ImageRawDataUpdate,
+  ImageRawDataUpdateResult,
   OsEventTypeList,
 } from '@evenrealities/even_hub_sdk'
 import type { EvenAppBridge, EvenHubEvent } from '@evenrealities/even_hub_sdk'
 
 import { ApiClient, ApiError } from './api.js'
-import type { DueCard, Quality } from './api.js'
+import type { DueCard, Quality, Label } from './api.js'
 import { buildView, playableCards } from './cards.js'
 import type { CardView } from './cards.js'
-import { loadConfig } from './config.js'
+import {
+  loadConfig,
+  loadBaseUrl,
+  loadDeckLabels,
+  saveDeckLabels,
+} from './config.js'
+import { shouldRenderAsGlyph, renderGlyph, GLYPH_W, GLYPH_H } from './glyph.js'
 
 // ── Display constants ────────────────────────────────────────────────────────
 const CONTAINER_ID = 1
 const CONTAINER_NAME = 'flashcard'
+const IMAGE_ID = 2
+const IMAGE_NAME = 'glyph'
 
-// Full usable area with a small margin.
+// Full usable text area with a small margin.
 const X = 20
 const Y = 10
 const W = 536
 const H = 268
+
+// Glyph image centered inside the text area.
+const IX = X + Math.round((W - GLYPH_W) / 2)
+const IY = Y + Math.round((H - GLYPH_H) / 2)
+
+// How long to hold the 👍/👎 grade confirmation before advancing.
+const GRADE_ACK_MS = 450
 
 // ── State ────────────────────────────────────────────────────────────────────
 type Phase = 'prompt' | 'reveal'
@@ -54,14 +79,22 @@ let view: CardView | null = null
 let xp = 0
 let graded = 0
 let busy = false
+let deckLabels: number[] = []
+
+/** XP awarded per graded card, so a "go back" can subtract it cleanly. */
+let awarded: number[] = []
+/** Whether a glyph image is currently drawn (so we know to clear it). */
+let glyphActive = false
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // ── Display helpers ──────────────────────────────────────────────────────────
 
-/** Show the initial page container (must be called once). */
+/** Show the initial page container (text + image), called once. */
 async function showStartup(text: string): Promise<void> {
   await bridge.createStartUpPageContainer(
     new CreateStartUpPageContainer({
-      containerTotalNum: 1,
+      containerTotalNum: 2,
       textObject: [
         new TextContainerProperty({
           containerID: CONTAINER_ID,
@@ -76,6 +109,16 @@ async function showStartup(text: string): Promise<void> {
           borderRadius: 4,
           paddingLength: 10,
           isEventCapture: 1,
+        }),
+      ],
+      imageObject: [
+        new ImageContainerProperty({
+          containerID: IMAGE_ID,
+          containerName: IMAGE_NAME,
+          xPosition: IX,
+          yPosition: IY,
+          width: GLYPH_W,
+          height: GLYPH_H,
         }),
       ],
     }),
@@ -93,17 +136,50 @@ async function updateText(text: string): Promise<void> {
   )
 }
 
+/** Push a grayscale bitmap to the image container. Returns true on success. */
+async function drawImage(data: number[]): Promise<boolean> {
+  try {
+    const res = await bridge.updateImageRawData(
+      new ImageRawDataUpdate({
+        containerID: IMAGE_ID,
+        containerName: IMAGE_NAME,
+        imageData: data,
+      }),
+    )
+    return (
+      res === ImageRawDataUpdateResult.success ||
+      (res as unknown as string) === 'success'
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Blank the glyph image (all-black) so text mode isn't overlapped by it. */
+async function clearGlyph(): Promise<void> {
+  if (!glyphActive) return
+  glyphActive = false
+  await drawImage(new Array(GLYPH_W * GLYPH_H).fill(0))
+}
+
+/** Show plain text, clearing any glyph first. */
+async function showText(text: string): Promise<void> {
+  await clearGlyph()
+  await updateText(text)
+}
+
 // ── Review loop ──────────────────────────────────────────────────────────────
 
-async function begin(): Promise<void> {
-  await updateText('Loading your flashcards...')
+async function begin(labelIds: number[] = deckLabels): Promise<void> {
+  deckLabels = labelIds
+  await showText('Loading your flashcards...')
 
   let romanizable: Set<string>
   let cards: DueCard[]
   try {
     ;[romanizable, { cards }] = await Promise.all([
       api.romanizableLangs(),
-      api.dueSession().then((s) => ({ cards: s.cards })),
+      api.dueSession(labelIds).then((s) => ({ cards: s.cards })),
     ])
   } catch (e) {
     return showError(e)
@@ -113,30 +189,46 @@ async function begin(): Promise<void> {
   idx = 0
   xp = 0
   graded = 0
+  awarded = []
+  phase = 'prompt'
 
   if (queue.length === 0) {
-    await updateText('All caught up!\n\nNo cards due right now.\n\n( tap to check again )')
+    await showText('All caught up!\n\nNo cards due right now.\n\n( tap to check again )')
     return
   }
 
-  render()
+  await render()
 }
 
-function render(): void {
+/** Header line: what's being tested + progress. */
+function header(v: CardView): string {
+  return `${v.hint}  |  ${idx + 1}/${queue.length}`
+}
+
+async function render(): Promise<void> {
   const card = queue[idx]
   if (phase === 'prompt') view = buildView(card)
   const v = view!
-  const progress = `${idx + 1}/${queue.length}`
 
   if (phase === 'prompt') {
-    updateText(`${v.hint}  |  ${progress}\n\n${v.prompt}\n\n( tap to reveal )`)
+    const backHint = idx > 0 ? '  ·  2× tap = back' : ''
+    // Draw a lone character BIG via the image path; keep the instructions as
+    // two compact lines up top, with the glyph centered below.
+    if (shouldRenderAsGlyph(v.prompt)) {
+      const bmp = renderGlyph(v.prompt)
+      if (bmp && (await drawImage(bmp.data))) {
+        glyphActive = true
+        await updateText(`${header(v)}\n( tap to reveal${backHint} )`)
+        return
+      }
+    }
+    await showText(`${header(v)}\n\n\n${v.prompt}\n\n\n( tap to reveal${backHint} )`)
   } else {
-    const notes =
-      card.notes && card.notes.trim() ? `\n\n${card.notes.trim()}` : ''
-    updateText(
-      `${v.hint}  |  ${progress}\n\n` +
+    const notes = card.notes && card.notes.trim() ? `\n\n${card.notes.trim()}` : ''
+    await showText(
+      `${header(v)}\n\n` +
         `${v.prompt}\n---\n${v.answer}${notes}\n\n` +
-        `tap = got it  |  2x tap = missed`,
+        `tap = got it  ·  swipe ↓ = again`,
     )
   }
 }
@@ -144,22 +236,51 @@ function render(): void {
 async function grade(quality: Quality): Promise<void> {
   const card = queue[idx]
   busy = true
+
+  let gained = 0
   try {
     const res = await api.review(card.card_id, card.face, quality)
-    xp += res.xp || 0
+    gained = res.xp || 0
   } catch (e) {
     busy = false
     return showError(e)
   }
-  busy = false
+
+  // Acknowledge the input explicitly — the ring can be finicky, so show that
+  // the grade registered before moving on.
+  xp += gained
+  awarded[idx] = gained
   graded += 1
+  const ack = quality === 'good' ? `👍 Got it   +${gained} XP` : '👎 Again'
+  await showText(`\n\n${ack}`)
+  await sleep(GRADE_ACK_MS)
+
   idx += 1
   phase = 'prompt'
+  busy = false
   if (idx >= queue.length) return finish()
-  render()
+  await render()
+}
+
+/** Prompt-phase "go back": re-show the previous card so it can be re-read. */
+async function goBack(): Promise<void> {
+  if (idx <= 0) return
+  busy = true
+  idx -= 1
+  // The previous card was already graded; walk its award back so the running
+  // totals stay honest. (There's no server endpoint to reverse an SRS review,
+  // so re-grading it simply schedules a fresh review.)
+  const prev = awarded[idx] || 0
+  xp = Math.max(0, xp - prev)
+  graded = Math.max(0, graded - 1)
+  awarded.length = idx
+  phase = 'prompt'
+  busy = false
+  await render()
 }
 
 async function finish(): Promise<void> {
+  await clearGlyph()
   let tail = ''
   try {
     const s = await api.streak()
@@ -174,7 +295,7 @@ async function finish(): Promise<void> {
 
 function showError(e: unknown): void {
   const msg = e instanceof ApiError ? e.message : 'Something went wrong.'
-  updateText(`Flashcards\n\n${msg}`)
+  void showText(`Flashcards\n\n${msg}`)
 }
 
 // ── Event handling ───────────────────────────────────────────────────────────
@@ -191,7 +312,7 @@ function onEvent(event: EvenHubEvent): void {
 
   const eventType = resolveEventType(event)
 
-  // Finished screen -> any press restarts.
+  // Finished / empty screen -> any press restarts with the current deck scope.
   if (idx >= queue.length) {
     void begin()
     return
@@ -203,20 +324,18 @@ function onEvent(event: EvenHubEvent): void {
     case undefined: // SDK normalizes 0 (CLICK) to undefined
       if (phase === 'prompt') {
         phase = 'reveal'
-        render()
+        void render()
       } else {
         void grade('good')
       }
       break
 
-    // Double-tap -> "missed it"
+    // Double-tap -> go back (prompt) / "missed it" (reveal)
     case OsEventTypeList.DOUBLE_CLICK_EVENT:
       if (phase === 'reveal') {
         void grade('again')
       } else {
-        // Double-tap on prompt also reveals (forgiving)
-        phase = 'reveal'
-        render()
+        void goBack()
       }
       break
 
@@ -240,6 +359,7 @@ function onEvent(event: EvenHubEvent): void {
 
 async function main(): Promise<void> {
   const cfg = loadConfig()
+  deckLabels = loadDeckLabels()
 
   bridge = await waitForEvenAppBridge()
   bridge.onEvenHubEvent(onEvent)
@@ -248,42 +368,46 @@ async function main(): Promise<void> {
     await showStartup(
       'Setup needed\n\n' +
         'Open this plugin on your phone\n' +
-        'and enter your site URL + API token.\n\n' +
-        '(Generate a token in the site\'s\n' +
+        'and paste your API token.\n\n' +
+        '(Generate one in the site\'s\n' +
         'Settings > Even glasses)',
     )
-    // Also show a config form in the phone WebView.
     showPhoneConfigUI()
     return
   }
 
   api = new ApiClient(cfg.baseUrl, cfg.token)
   await showStartup('Connecting...')
-  await begin()
+  // Auto-start on the glasses with the saved deck scope, and also show the
+  // phone panel so the deck / token can be changed and the review restarted.
+  showPhonePanel()
+  await begin(deckLabels)
 }
 
 /**
- * Show a simple config form in the phone's WebView (the HTML body). This is
- * only visible on the phone, not on the glasses — the glasses get their
- * display via the SDK bridge.
+ * First-run setup form in the phone's WebView. Token-first (all a deployed
+ * user needs); the site URL defaults to production behind an "Advanced" line.
  */
 function showPhoneConfigUI(): void {
   document.body.innerHTML = `
-    <div style="max-width:400px;margin:40px auto;padding:20px;font-family:system-ui,sans-serif;color:#333">
-      <h2 style="margin-top:0">Flashcards Setup</h2>
-      <p style="font-size:0.9em;color:#666">
-        Enter your flashcard site URL and API token to connect your glasses.
-        Generate a token in the site's <strong>Settings &gt; Even glasses</strong>.
-      </p>
-      <label style="display:block;margin-top:16px;font-weight:600;font-size:0.85em">Site URL</label>
-      <input id="cfg-url" type="url" placeholder="https://canto-ank.silcoff-labs.ca"
-        style="width:100%;box-sizing:border-box;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:6px;font-size:1em"
-        value="${localStorage.getItem('canto_base_url') || ''}">
-      <label style="display:block;margin-top:14px;font-weight:600;font-size:0.85em">API Token</label>
+    <div style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
+      <h2 style="margin:0 0 6px">Connect your glasses</h2>
+      <ol style="font-size:0.92em;color:#555;padding-left:1.1em;margin:0 0 16px;line-height:1.5">
+        <li>In the flashcard site, open <strong>Settings &rarr; Even glasses</strong>.</li>
+        <li>Tap <strong>Generate token</strong> and copy it.</li>
+        <li>Paste it below and tap Connect.</li>
+      </ol>
+      <label style="display:block;font-weight:600;font-size:0.85em">API Token</label>
       <input id="cfg-token" type="text" placeholder="Paste your token here"
-        style="width:100%;box-sizing:border-box;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:6px;font-size:1em;font-family:monospace"
-        value="${localStorage.getItem('canto_api_token') || ''}">
-      <button id="cfg-save" style="display:block;width:100%;margin-top:18px;padding:12px;
+        style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:1em;font-family:monospace">
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-size:0.85em;color:#2d6a4f">Advanced: site URL</summary>
+        <input id="cfg-url" type="url"
+          style="width:100%;box-sizing:border-box;padding:10px;margin-top:8px;border:1px solid #ccc;border-radius:6px;font-size:0.95em"
+          value="${loadBaseUrl()}">
+        <p style="font-size:0.78em;color:#888;margin:6px 0 0">Only change this if you self-host at a different address.</p>
+      </details>
+      <button id="cfg-save" style="display:block;width:100%;margin-top:18px;padding:13px;
         background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer">
         Connect
       </button>
@@ -291,12 +415,13 @@ function showPhoneConfigUI(): void {
     </div>
   `
   document.getElementById('cfg-save')!.addEventListener('click', async () => {
-    const url = (document.getElementById('cfg-url') as HTMLInputElement).value.trim()
     const token = (document.getElementById('cfg-token') as HTMLInputElement).value.trim()
+    const urlInput = (document.getElementById('cfg-url') as HTMLInputElement | null)
+    const url = (urlInput?.value || loadBaseUrl()).trim()
     const status = document.getElementById('cfg-status')!
 
-    if (!url || !token) {
-      status.textContent = 'Both fields are required.'
+    if (!token) {
+      status.textContent = 'Please paste your API token.'
       status.style.color = '#c0392b'
       return
     }
@@ -304,7 +429,6 @@ function showPhoneConfigUI(): void {
     status.textContent = 'Testing connection...'
     status.style.color = '#666'
 
-    // Validate the credentials by hitting the streak endpoint.
     const testApi = new ApiClient(url, token)
     try {
       await testApi.streak()
@@ -315,14 +439,81 @@ function showPhoneConfigUI(): void {
       return
     }
 
-    // Save config and restart.
     localStorage.setItem('canto_base_url', url)
     localStorage.setItem('canto_api_token', token)
-    status.textContent = 'Connected! Starting review...'
+    status.textContent = 'Connected!'
     status.style.color = '#27ae60'
 
     api = new ApiClient(url, token)
-    await begin()
+    showPhonePanel()
+    await begin(deckLabels)
+  })
+}
+
+/**
+ * The persistent phone control panel (shown once connected): pick a deck/label
+ * to study and (re)start the glasses review. Reachable even when the plugin was
+ * launched from the glasses, so the deck can always be changed.
+ */
+function showPhonePanel(): void {
+  document.body.innerHTML = `
+    <div style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
+      <h2 style="margin:0 0 4px">Flashcards on your glasses</h2>
+      <p style="font-size:0.9em;color:#666;margin:0 0 18px">Review is running on your glasses. Pick what to study, then Start.</p>
+      <label style="display:block;font-weight:600;font-size:0.85em">Study</label>
+      <select id="deck-select"
+        style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:1em;background:#fff">
+        <option value="">All due cards</option>
+      </select>
+      <button id="deck-start" style="display:block;width:100%;margin-top:16px;padding:13px;
+        background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer">
+        Start review
+      </button>
+      <p id="deck-status" style="margin-top:10px;font-size:0.85em;color:#666"></p>
+      <button id="deck-reset" style="display:block;margin-top:22px;background:none;border:none;
+        color:#999;font-size:0.8em;text-decoration:underline;cursor:pointer">Change token / site</button>
+    </div>
+  `
+
+  const select = document.getElementById('deck-select') as HTMLSelectElement
+  const status = document.getElementById('deck-status')!
+
+  // Populate deck / label options; 📦 deck labels first, then categories.
+  void api
+    .listLabels()
+    .then((labels: Label[]) => {
+      const withCards = labels.filter((l) => (l.card_count || 0) > 0)
+      const isDeck = (l: Label) => l.name.startsWith('📦')
+      withCards.sort((a, b) => {
+        if (isDeck(a) !== isDeck(b)) return isDeck(a) ? -1 : 1
+        return a.name.localeCompare(b.name)
+      })
+      for (const l of withCards) {
+        const opt = document.createElement('option')
+        opt.value = String(l.id)
+        opt.textContent = `${l.name} (${l.card_count})`
+        select.appendChild(opt)
+      }
+      // Restore the saved scope (single label; empty = all).
+      if (deckLabels.length === 1) select.value = String(deckLabels[0])
+    })
+    .catch(() => {
+      status.textContent = 'Could not load your decks (still reviewing all due cards).'
+    })
+
+  document.getElementById('deck-start')!.addEventListener('click', async () => {
+    const val = select.value
+    const labels = val ? [Number(val)] : []
+    saveDeckLabels(labels)
+    deckLabels = labels
+    status.textContent = 'Starting on your glasses...'
+    status.style.color = '#27ae60'
+    await begin(labels)
+  })
+
+  document.getElementById('deck-reset')!.addEventListener('click', () => {
+    localStorage.removeItem('canto_api_token')
+    showPhoneConfigUI()
   })
 }
 

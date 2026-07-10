@@ -30,6 +30,14 @@ glasses <-BLE-> iPhone Even App (WebView) <-HTTPS-> your flashcard site's API
 In the flashcard site, go to **Settings > Even glasses > Generate token** and copy it.
 (You can revoke/regenerate any time; the old token stops working immediately.)
 
+The first time you open the plugin, the phone screen asks for **just the token** — the
+site URL defaults to the production address (`https://canto-ank.silcoff-labs.ca`) and is
+only editable under an "Advanced" line, so self-hosters can point it elsewhere.
+
+Once connected, the phone shows a small control panel where you can **pick a deck or
+label to study** (or "All due cards") and start the review on your glasses. Your last
+choice is remembered, so launching straight from the glasses reuses it.
+
 ### 2. Sideload the plugin (development)
 
 ```bash
@@ -55,8 +63,15 @@ Start the plugin from the glasses. Then, per card:
 
 | State | Tap | Double-tap | Swipe up | Swipe down |
 |-------|-----|------------|----------|------------|
-| Prompt shown | Reveal answer | Reveal answer | — | — |
+| Prompt shown | Reveal answer | **Go back** (previous card) | — | — |
 | Answer shown | **Got it** (SRS "good") | **Missed it** (SRS "again") | **Got it** | **Missed it** |
+
+Every grade shows a brief **👍 Got it / 👎 Again** confirmation, so you can tell a
+(sometimes finicky) ring tap actually registered. Single-character prompts (a lone CJK
+字) are drawn **large and centered** via the image path for legibility, falling back to
+text if the image can't be sent. **Go back** re-shows the previous card so you can re-read
+and re-grade it (re-grading schedules a fresh review — there's no server-side undo of a
+grade).
 
 When the queue is empty you get a summary (cards done, XP earned, streak). Tap again
 to re-check for anything newly due.
@@ -69,9 +84,14 @@ npm run typecheck     # TypeScript type check (tsc --noEmit)
 npm test              # Unit tests (vitest)
 ```
 
-- `src/api.ts` — REST client (bearer auth).
+- `src/api.ts` — REST client (bearer auth); `dueSession(labelIds?)` scopes the
+  session to a deck/label, `listLabels()` powers the phone deck picker.
 - `src/cards.ts` — pure display logic: which faces are playable, and the
   prompt/answer per face. Unit-tested in `src/cards.test.ts`.
-- `src/config.ts` — localStorage config persistence.
-- `src/main.ts` — the Even Hub plugin: reads config, drives the review loop via
-  the SDK bridge, handles touch/swipe events, and POSTs grades.
+- `src/glyph.ts` — big-glyph rasterization: `shouldRenderAsGlyph()` (pure,
+  unit-tested) + `renderGlyph()` (canvas → grayscale bitmap for the image path).
+- `src/config.ts` — localStorage persistence (token, default URL, deck scope).
+- `src/main.ts` — the Even Hub plugin: reads config, shows the phone setup +
+  deck panel, drives the review loop via the SDK bridge (text + image
+  containers), handles touch/swipe events (incl. go-back + grade feedback),
+  and POSTs grades.

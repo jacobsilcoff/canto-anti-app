@@ -4,7 +4,9 @@
  *
  * Only the endpoints the glasses review loop needs are wrapped here:
  *   GET  /api/languages          - which languages have romanization
- *   GET  /api/cards/due          - the study session (due reviews + new cards)
+ *   GET  /api/labels             - the user's labels/decks (for the deck picker)
+ *   GET  /api/cards/due          - the study session (due reviews + new cards),
+ *                                  optionally scoped to a set of label ids
  *   POST /api/cards/{id}/review  - grade a face; awards XP + syncs streak/quests
  *   GET  /api/streak             - streak + XP totals (for the summary screen)
  */
@@ -34,6 +36,12 @@ export interface LanguageInfo {
   code: string
   name: string
   logographic: boolean // true when the language has romanization (non-Latin)
+}
+
+export interface Label {
+  id: number
+  name: string
+  card_count: number
 }
 
 export interface ReviewResult {
@@ -94,8 +102,17 @@ export class ApiClient {
     return new Set(data.languages.filter((l) => l.logographic).map((l) => l.code))
   }
 
-  dueSession(): Promise<StudySession> {
-    return this.req<StudySession>('/api/cards/due')
+  /** The user's labels (deck labels are prefixed with 📦), for the deck picker. */
+  async listLabels(): Promise<Label[]> {
+    const data = await this.req<{ labels: Label[] }>('/api/labels')
+    return data.labels || []
+  }
+
+  /** Due session, optionally scoped to a set of label ids (empty = all due). */
+  dueSession(labelIds?: number[]): Promise<StudySession> {
+    const ids = (labelIds || []).filter((n) => Number.isFinite(n))
+    const q = ids.length ? `?label_ids=${ids.join(',')}` : ''
+    return this.req<StudySession>(`/api/cards/due${q}`)
   }
 
   review(cardId: number, face: Face, quality: Quality): Promise<ReviewResult> {
