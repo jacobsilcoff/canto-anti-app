@@ -12,10 +12,15 @@ const KEY_TOKEN = 'canto_api_token'
 const KEY_DECK_LABELS = 'canto_deck_labels'
 
 /**
- * The production site. Users who deploy only need to paste a token — the URL
- * defaults here and stays editable behind an "Advanced" control.
+ * Default site the plugin talks to — users only need to paste a token; the URL
+ * stays editable behind an "Advanced" control.
+ *
+ * Points at the DEV site for now because the CORS support the (cross-origin)
+ * plugin requires is only deployed there — production lacks it until develop is
+ * merged to main. Flip this to https://canto-ank.silcoff-labs.ca once CORS
+ * ships to prod.
  */
-export const DEFAULT_BASE_URL = 'https://canto-ank.silcoff-labs.ca'
+export const DEFAULT_BASE_URL = 'https://dev.canto-ank.silcoff-labs.ca'
 
 export interface Config {
   baseUrl: string

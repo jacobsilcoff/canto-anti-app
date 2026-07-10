@@ -31,8 +31,10 @@ In the flashcard site, go to **Settings > Even glasses > Generate token** and co
 (You can revoke/regenerate any time; the old token stops working immediately.)
 
 The first time you open the plugin, the phone screen asks for **just the token** — the
-site URL defaults to the production address (`https://canto-ank.silcoff-labs.ca`) and is
-only editable under an "Advanced" line, so self-hosters can point it elsewhere.
+site URL defaults to the dev address (`https://dev.canto-ank.silcoff-labs.ca`) and is
+only editable under an "Advanced" line, so you can point it elsewhere. (The default is
+the dev site because the CORS support the plugin needs is only deployed there for now;
+switch it to production once that's merged to `main`.)
 
 Once connected, the phone shows a small control panel where you can **pick a deck or
 label to study** (or "All due cards") and start the review on your glasses. Your last
