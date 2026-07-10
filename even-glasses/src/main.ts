@@ -73,7 +73,7 @@ async function showStartup(text: string): Promise<void> {
           height: H,
           borderWidth: 1,
           borderColor: 8,
-          borderRdaius: '4', // SDK typo is intentional
+          borderRadius: 4,
           paddingLength: 10,
           isEventCapture: 1,
         }),
