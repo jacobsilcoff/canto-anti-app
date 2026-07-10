@@ -17,10 +17,10 @@ const KEY_DECK_LABELS = 'canto_deck_labels'
  *
  * Points at the DEV site for now because the CORS support the (cross-origin)
  * plugin requires is only deployed there — production lacks it until develop is
- * merged to main. Flip this to https://canto-ank.silcoff-labs.ca once CORS
- * ships to prod.
+ * merged to main. Flip this to https://canto-anki.silcoff-labs.ca once CORS
+ * ships to prod. (Note the host is `canto-anki`, not `canto-ank`.)
  */
-export const DEFAULT_BASE_URL = 'https://dev.canto-ank.silcoff-labs.ca'
+export const DEFAULT_BASE_URL = 'https://dev.canto-anki.silcoff-labs.ca'
 
 export interface Config {
   baseUrl: string

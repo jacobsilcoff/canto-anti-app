@@ -136,6 +136,11 @@ async function updateText(text: string): Promise<void> {
   )
 }
 
+// Temporary: surface why the big-glyph image path did/didn't render, right on
+// the glasses (the WebView has no easy console). Set false to hide.
+const DEBUG_GLYPH = true
+let lastGlyphNote = ''
+
 /** Push a grayscale bitmap to the image container. Returns true on success. */
 async function drawImage(data: number[]): Promise<boolean> {
   try {
@@ -146,11 +151,13 @@ async function drawImage(data: number[]): Promise<boolean> {
         imageData: data,
       }),
     )
-    return (
+    const ok =
       res === ImageRawDataUpdateResult.success ||
       (res as unknown as string) === 'success'
-    )
-  } catch {
+    lastGlyphNote = `img=${String(res)}`
+    return ok
+  } catch (e) {
+    lastGlyphNote = `img-ex:${(e as Error).message}`
     return false
   }
 }
@@ -214,15 +221,20 @@ async function render(): Promise<void> {
     const backHint = idx > 0 ? '  ·  2× tap = back' : ''
     // Draw a lone character BIG via the image path; keep the instructions as
     // two compact lines up top, with the glyph centered below.
+    lastGlyphNote = ''
     if (shouldRenderAsGlyph(v.prompt)) {
       const bmp = renderGlyph(v.prompt)
+      if (!bmp) lastGlyphNote = 'render=null'
       if (bmp && (await drawImage(bmp.data))) {
         glyphActive = true
         await updateText(`${header(v)}\n( tap to reveal${backHint} )`)
         return
       }
+    } else {
+      lastGlyphNote = `noglyph(len=${[...v.prompt.trim()].length})`
     }
-    await showText(`${header(v)}\n\n\n${v.prompt}\n\n\n( tap to reveal${backHint} )`)
+    const dbg = DEBUG_GLYPH && lastGlyphNote ? `\n\n[${lastGlyphNote}]` : ''
+    await showText(`${header(v)}\n\n\n${v.prompt}\n\n\n( tap to reveal${backHint} )${dbg}`)
   } else {
     const notes = card.notes && card.notes.trim() ? `\n\n${card.notes.trim()}` : ''
     await showText(
