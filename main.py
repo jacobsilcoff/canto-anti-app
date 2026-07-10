@@ -21,6 +21,7 @@ try:
 except ImportError:
     _PIL_OK = False
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -221,6 +222,29 @@ async def security_headers_middleware(request: Request, call_next):
     for k, v in headers.items():
         response.headers.setdefault(k, v)
     return response
+
+
+# CORS for the Even glasses plugin (and any other cross-origin API client). The
+# plugin is a web app served from a DIFFERENT origin (the Even Hub CDN, or the
+# Vite dev server during development) that calls this API with a Bearer token +
+# JSON body. That makes every request a "non-simple" CORS request, so the
+# browser first sends an OPTIONS preflight — which browsers send WITHOUT the
+# Authorization header, so auth_middleware would 401 it and the real request
+# never fires. Registered AFTER the decorators above so it inserts as the
+# OUTERMOST layer and answers the preflight before auth_middleware sees it.
+#
+# allow_credentials=False + allow_origins=["*"]: the plugin authenticates with a
+# Bearer token, never a cookie, so we don't (and mustn't, per the CORS spec)
+# echo credentials with a wildcard origin. Same-origin site pages are unaffected
+# (CORS never applies to them); cross-origin JS still can't read the API without
+# a valid token, so opening this up doesn't weaken auth.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 
 async def current_user(request: Request) -> dict:
