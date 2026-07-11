@@ -990,6 +990,86 @@ _PWA_INSTALL_WIDGET = """
 </script>
 """
 
+# Tap-to-copy for toasts (errors especially). Every page has a `.toast` element
+# and its own showToast() that just sets textContent + a 'show' class for ~4s —
+# no way to select the text on mobile. This shared enhancer makes any visible
+# toast copyable with a single tap (clipboard API + execCommand fallback for
+# older/insecure contexts), re-injecting the affordance each time a toast shows
+# (showToast's `textContent = msg` wipes child nodes), and shows a "Tap to copy"
+# hint only for error-like messages so quick success toasts stay clean.
+_TOAST_COPY_WIDGET = """
+<script>
+(function(){
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text)['catch'](function(){ return fallback(text); });
+    }
+    return fallback(text);
+  }
+  function fallback(text){
+    return new Promise(function(res, rej){
+      try{
+        var ta=document.createElement('textarea');
+        ta.value=text; ta.setAttribute('readonly','');
+        ta.style.cssText='position:fixed;top:-9999px;left:0;opacity:0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        ta.setSelectionRange(0, text.length);
+        var ok=document.execCommand('copy'); document.body.removeChild(ta);
+        ok?res():rej();
+      }catch(e){ rej(e); }
+    });
+  }
+  function looksImportant(msg){
+    return msg.length>40 || /(error|fail|rate|quota|unable|couldn|try again|wrong|invalid|too many|overload|limit|denied|blocked)/i.test(msg);
+  }
+  function textOf(t){
+    var clone=t.cloneNode(true);
+    var hints=clone.querySelectorAll('.__tc_hint');
+    for(var i=0;i<hints.length;i++) hints[i].remove();
+    return (clone.textContent||'').trim();
+  }
+  function enhance(t){
+    if(t.__tcReady) return; t.__tcReady=true;
+    var hint=document.createElement('span');
+    hint.className='__tc_hint';
+    hint.style.cssText='display:block;font-size:0.68rem;opacity:0.65;margin-top:4px;font-weight:600';
+    function refresh(){
+      var msg=textOf(t);
+      if(msg && looksImportant(msg)){
+        t.style.cursor='pointer';
+        hint.textContent='Tap to copy';
+        if(!t.contains(hint)) t.appendChild(hint);
+      } else {
+        t.style.cursor='';
+        if(t.contains(hint)) hint.remove();
+      }
+    }
+    t.addEventListener('pointerdown', function(){
+      var msg=textOf(t); if(!msg) return;
+      copyText(msg).then(function(){ hint.textContent='Copied ✓'; if(!t.contains(hint)) t.appendChild(hint); })
+                   ['catch'](function(){ hint.textContent='Long-press to select'; if(!t.contains(hint)) t.appendChild(hint); });
+      // keep it up briefly so the confirmation is visible
+      t.classList.add('show');
+      clearTimeout(t.__tcHold);
+      t.__tcHold=setTimeout(function(){ t.classList.remove('show'); }, 1800);
+    });
+    // showToast() replaces textContent (dropping the hint) then toggles 'show';
+    // re-inject on each show.
+    new MutationObserver(function(){
+      if(t.classList.contains('show')) refresh();
+    }).observe(t, {attributes:true, attributeFilter:['class']});
+    refresh();
+  }
+  function init(){
+    var els=document.querySelectorAll('.toast');
+    for(var i=0;i<els.length;i++) enhance(els[i]);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+"""
+
 
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
@@ -1027,7 +1107,7 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + _TOAST_COPY_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
