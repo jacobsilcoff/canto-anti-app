@@ -65,6 +65,7 @@ _NO_AUTH_PATHS = {
     "/api/resend-verification",
     "/api/webhooks/stripe",
     "/manifest.json", "/sw.js",
+    "/api/version",
 }
 
 
@@ -124,6 +125,73 @@ def _rate_limit_key(request: Request) -> str:
 limiter = Limiter(key_func=_rate_limit_key)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(translation.APIError)
+async def _gemini_api_error_handler(request: Request, exc: translation.APIError):
+    """Turn any *unhandled* Gemini provider error into a clean, actionable
+    response instead of an opaque 500.
+
+    The shared free-tier key routinely 503s ("model overloaded") and 429s
+    (request-rate limit — NOT a spend budget), and those errors bubble up from
+    many call sites. Without this, each one surfaced as a generic 500 "internal
+    server error" across every AI feature, with the real cause invisible to the
+    user (who reasonably checks their budget and finds it fine). Routes that
+    format their own error (e.g. lesson generation) handle the exception first,
+    so this only fires for the ones that don't."""
+    status = translation._api_status(exc)
+    quota = translation.quota_info(exc)
+    logger.warning(
+        "Gemini API error on %s: status=%s quota=%s %s",
+        request.url.path, status, quota or "-", exc,
+    )
+    if status == 429:
+        # Surface whatever the provider gave us so the error is diagnosable
+        # without server-log access. The quota metric is the whole answer to
+        # "why am I 429ing on a paid project?"; a `free_tier` metric means the
+        # KEY is metered against an unbilled project, not the Tier-1 one whose
+        # quotas you're reading. When there's no structured metric, fall back to
+        # the raw status (e.g. RESOURCE_EXHAUSTED) + retry delay.
+        bits = []
+        if quota.get("metric"):
+            bits.append("quota: " + quota["metric"])
+        elif getattr(exc, "status", None):
+            bits.append(str(exc.status))
+        if quota.get("retry_delay"):
+            bits.append("retry in " + quota["retry_delay"])
+        hint = (" [" + "; ".join(bits) + "]") if bits else ""
+        if quota.get("free_tier"):
+            hint += (" — note: this is a FREE-TIER quota, so the API key is "
+                     "billed to a different project than your Tier-1 one.")
+        http_status, detail = 429, (
+            "The AI service is rate-limited right now. Please wait a minute and "
+            "try again, or add your own Gemini key in Settings for uninterrupted use."
+            + hint
+        )
+    elif status in (500, 502, 503, 504):
+        http_status, detail = 503, (
+            "The AI model is temporarily overloaded. Please wait a moment and try again."
+        )
+    else:
+        http_status, detail = 502, (
+            "The AI service returned an error. Please try again in a moment."
+        )
+    return JSONResponse(status_code=http_status, content={"detail": detail})
+
+
+@app.get("/api/version")
+async def version():
+    """What commit is actually running. No-auth so it's a trivial curl/health
+    check. ASSET_VERSION is a static-content hash (only moves when a file under
+    static/ changes); commit/branch/built_at come from the deploy build args and
+    identify a backend deploy that ASSET_VERSION alone can't."""
+    return {
+        "commit": APP_COMMIT,
+        "branch": APP_BRANCH or None,
+        "built_at": APP_BUILD_TIME or None,
+        "asset_version": ASSET_VERSION,
+        "environment": "dev" if IS_DEV else "prod",
+    }
 
 
 @app.middleware("http")
@@ -326,6 +394,29 @@ def _compute_asset_version() -> str:
 
 
 ASSET_VERSION = _compute_asset_version()
+
+# Build/deploy identity — distinct from ASSET_VERSION (a static-content hash that
+# only moves when a file under static/ changes, so a backend-only deploy leaves it
+# unchanged). These come from the git checkout at image-build time (threaded in as
+# Docker build args by the deploy workflows; `.git` is dockerignored, so runtime
+# `git` isn't available). They answer "what commit is actually running?".
+APP_COMMIT = os.getenv("GIT_SHA", "").strip() or "dev"
+APP_BRANCH = os.getenv("GIT_BRANCH", "").strip()
+APP_BUILD_TIME = os.getenv("BUILD_TIME", "").strip()
+
+
+def _version_line() -> str:
+    """Human-readable one-liner for the Settings footer."""
+    parts = [f"build {APP_COMMIT}"]
+    if APP_BRANCH and APP_BRANCH not in ("main", "HEAD"):
+        parts[0] += f" ({APP_BRANCH})"
+    if APP_BUILD_TIME:
+        parts.append(APP_BUILD_TIME)
+    parts.append(f"assets v{ASSET_VERSION}")
+    return " · ".join(parts)
+
+
+APP_VERSION_LINE = _version_line()
 
 
 def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
@@ -942,6 +1033,107 @@ _PWA_INSTALL_WIDGET = """
 </script>
 """
 
+# Tap-to-copy for toasts (errors especially). Every page has a `.toast` element
+# and its own showToast() that just sets textContent + a 'show' class for ~4s —
+# no way to select the text on mobile. This shared enhancer makes any visible
+# toast copyable with a single tap (clipboard API + execCommand fallback for
+# older/insecure contexts), re-injecting the affordance each time a toast shows
+# (showToast's `textContent = msg` wipes child nodes), and shows a "Tap to copy"
+# hint only for error-like messages so quick success toasts stay clean.
+_TOAST_COPY_WIDGET = """
+<script>
+(function(){
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // iOS-correct synchronous copy: a contentEditable, on-screen-but-invisible
+  // element + a Range selection + execCommand, all INSIDE the tap handler.
+  // navigator.clipboard.writeText is unreliable on iOS (and an async .catch
+  // fallback runs outside the user gesture, which iOS then blocks), so this
+  // synchronous path is the one that actually works on iPhone.
+  function legacyCopy(text){
+    try{
+      var el=document.createElement('textarea');
+      el.value=text; el.readOnly=true; el.contentEditable='true';
+      el.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;margin:0;opacity:0;font-size:16px';
+      document.body.appendChild(el);
+      var sel=window.getSelection();
+      var range=document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges(); sel.addRange(range);
+      el.setSelectionRange(0, text.length);
+      var ok=document.execCommand('copy');
+      sel.removeAllRanges(); document.body.removeChild(el);
+      return ok;
+    }catch(e){ return false; }
+  }
+  // Returns a Promise. On iOS the synchronous legacy path runs first (must stay
+  // inside the gesture); elsewhere the async Clipboard API is preferred so an
+  // existing text selection isn't clobbered, with legacyCopy as the fallback.
+  function copyText(text){
+    if(isIOS){
+      if(legacyCopy(text)) return Promise.resolve();
+      if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      return Promise.reject();
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text)['catch'](function(){
+        return legacyCopy(text) ? Promise.resolve() : Promise.reject();
+      });
+    }
+    return legacyCopy(text) ? Promise.resolve() : Promise.reject();
+  }
+  window.__copyToClipboard = copyText;
+  function looksImportant(msg){
+    return msg.length>40 || /(error|fail|rate|quota|unable|couldn|try again|wrong|invalid|too many|overload|limit|denied|blocked)/i.test(msg);
+  }
+  function textOf(t){
+    var clone=t.cloneNode(true);
+    var hints=clone.querySelectorAll('.__tc_hint');
+    for(var i=0;i<hints.length;i++) hints[i].remove();
+    return (clone.textContent||'').trim();
+  }
+  function enhance(t){
+    if(t.__tcReady) return; t.__tcReady=true;
+    var hint=document.createElement('span');
+    hint.className='__tc_hint';
+    hint.style.cssText='display:block;font-size:0.68rem;opacity:0.65;margin-top:4px;font-weight:600';
+    function refresh(){
+      var msg=textOf(t);
+      if(msg && looksImportant(msg)){
+        t.style.cursor='pointer';
+        hint.textContent='Tap to copy';
+        if(!t.contains(hint)) t.appendChild(hint);
+      } else {
+        t.style.cursor='';
+        if(t.contains(hint)) hint.remove();
+      }
+    }
+    t.addEventListener('click', function(){
+      var msg=textOf(t); if(!msg) return;
+      function say(s){ hint.textContent=s; if(!t.contains(hint)) t.appendChild(hint); }
+      copyText(msg).then(function(){ say('Copied ✓'); })['catch'](function(){ say('Long-press to select'); });
+      // keep it up briefly so the confirmation is visible
+      t.classList.add('show');
+      clearTimeout(t.__tcHold);
+      t.__tcHold=setTimeout(function(){ t.classList.remove('show'); }, 1800);
+    });
+    // showToast() replaces textContent (dropping the hint) then toggles 'show';
+    // re-inject on each show.
+    new MutationObserver(function(){
+      if(t.classList.contains('show')) refresh();
+    }).observe(t, {attributes:true, attributeFilter:['class']});
+    refresh();
+  }
+  function init(){
+    var els=document.querySelectorAll('.toast');
+    for(var i=0;i<els.length;i++) enhance(els[i]);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+"""
+
 
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
@@ -965,6 +1157,8 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
     content = content.replace("/static/pwa-install.js", f"/static/pwa-install.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
+    content = content.replace("{{APP_VERSION_LINE}}", APP_VERSION_LINE)
+    content = content.replace("{{APP_COMMIT}}", APP_COMMIT)
     # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
     # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
     # isn't enough — iOS prefers apple-touch-icon over it.)
@@ -979,7 +1173,7 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     # Inject the plan badge + upgrade banner on authenticated app pages (those
     # with the shared nav); login/register pages have no nav and are skipped.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + _TOAST_COPY_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -3168,8 +3362,16 @@ def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
                 f"Wait a moment and tap Generate again.{extra}")
     # Quota / rate limit straight from the provider.
     if status == 429 or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
+        q = translation.quota_info(e)
+        extra = ""
+        if q.get("metric"):
+            extra = f" [quota: {q['metric']}]"
+            if q.get("free_tier"):
+                extra += " (free-tier — key billed to a non-Tier-1 project)"
+        elif q.get("retry_delay"):
+            extra = f" [retry in {q['retry_delay']}]"
         return (f"{stage} failed: the AI provider rate-limited the request. "
-                f"Wait a minute and try again.")
+                f"Wait a minute and try again.{extra}")
     # JSON parsing / empty body — the model returned something unusable.
     if name in ("ValueError", "JSONDecodeError") or "json" in msg or "expecting value" in msg:
         return (f"{stage} failed: the AI returned a malformed response. "

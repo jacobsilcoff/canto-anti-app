@@ -10,6 +10,8 @@ A self-hosted multi-user Anki-style spaced repetition (SRS) flashcard app for la
 
 - **`develop`** auto-deploys to the **dev site**: `dev.canto-ank.silcoff-labs.ca`. Push here to test.
 - **`main`** auto-deploys to **production**. Merge `develop → main` to ship.
+- **Any non-`main` branch push deploys to the dev site** (`.github/workflows/deploy-staging.yml` is `branches-ignore: [main]` — it checks out the pushed branch and rebuilds, so the dev site reflects the **last** non-main branch pushed). `develop` is just the canonical one.
+- **Checking what's deployed:** `GET /api/version` (no auth) → `{commit, branch, built_at, asset_version, environment}`, also shown in the Settings footer. `asset_version` is a **static-content hash** — it only changes when a file under `static/` changes, so a backend-only deploy leaves it identical; use `commit`/`built_at` to confirm a backend deploy landed.
 - **Always develop on `develop`** unless the user explicitly says otherwise. Never push directly to `main`.
 - The **lesson (AI Learning Path) and tutor pages are NOT live on production yet** — they currently exist only on the dev site. Keep that in mind before referencing them as shipped to end users.
 

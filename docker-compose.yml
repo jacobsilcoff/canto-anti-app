@@ -4,7 +4,12 @@
 # external "web" network). See deploy notes for the one-time VM setup.
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        GIT_BRANCH: ${GIT_BRANCH:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     # Stable network alias so Caddy can reverse_proxy to "app:8080".
     container_name: canto-app

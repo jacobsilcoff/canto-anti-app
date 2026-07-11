@@ -78,5 +78,11 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             git fetch origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
+            # Build-version identity, baked into the image so /api/version and the
+            # Settings footer show exactly what's deployed (a backend-only deploy
+            # doesn't move the static-asset hash).
+            export GIT_SHA="$(git rev-parse --short HEAD)"
+            export GIT_BRANCH="$BRANCH"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             docker rm -f canto-app-staging 2>/dev/null || true
             docker compose -p staging -f docker-compose.staging.yml up -d --build

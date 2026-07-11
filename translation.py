@@ -5,11 +5,54 @@ import time
 import asyncio
 import logging
 from google import genai
-from google.genai.errors import ServerError
+from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
 
 _clients: dict[str, "genai.Client"] = {}
+
+# HTTP statuses worth retrying inline with a short backoff: provider overload /
+# transient 5xx, which clear within seconds. 429 is deliberately NOT here — a 429
+# is a *rate* limit (per-minute RPM/TPM), and retrying it 1–3s later just adds
+# load inside the same window, deepening the limit. Fail fast on 429 and let the
+# caller surface "try again in a minute" instead of hammering.
+_RETRY_STATUS = frozenset({500, 502, 503, 504})
+
+
+def _api_status(e: Exception) -> int | None:
+    """HTTP status of a genai APIError, tolerant of SDK attribute renames.
+
+    Older google-genai exposed `.status_code`; current versions expose `.code`.
+    A bare `e.status_code` access therefore raises AttributeError on the new SDK,
+    which is exactly how a retryable 503/429 got turned into an opaque 500."""
+    return getattr(e, "status_code", None) or getattr(e, "code", None)
+
+
+def quota_info(e: Exception) -> dict:
+    """Pull the quota dimension out of a Gemini 429 (RESOURCE_EXHAUSTED) body.
+
+    A 429 on a paid/Tier-1 project is only explicable from *which* quota tripped:
+    the metric names the model + window (requests-per-day/minute, tokens-per-minute)
+    and, crucially, whether it's a `free_tier` metric — a free-tier metric on a paid
+    project means the API key is metered against a *different* (unbilled) project
+    than the one whose Tier-1 quotas you're reading. Returns
+    {metric, quota_id, retry_delay, free_tier} (any field may be None/absent)."""
+    out: dict = {}
+    details = getattr(e, "details", None)
+    if not isinstance(details, dict):
+        return out
+    for d in (details.get("error", {}) or {}).get("details", []) or []:
+        t = d.get("@type", "")
+        if t.endswith("QuotaFailure"):
+            v = (d.get("violations") or [{}])[0]
+            metric = v.get("quotaMetric")
+            out["metric"] = metric
+            out["quota_id"] = v.get("quotaId")
+            if metric:
+                out["free_tier"] = "free_tier" in metric or "FreeTier" in (v.get("quotaId") or "")
+        elif t.endswith("RetryInfo"):
+            out["retry_delay"] = d.get("retryDelay")
+    return out
 
 
 def _get_client(api_key: str):
@@ -598,10 +641,21 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(
-                model=model, contents=prompt, config=config).text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+            resp = _get_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config)
+            text = resp.text
+            # `.text` is None when the response carried no text part (safety
+            # block / empty candidate). `.strip()` on None raises AttributeError
+            # and hides the real cause — surface it instead.
+            if text is None:
+                reason = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+                if reason is None:
+                    cands = getattr(resp, "candidates", None) or []
+                    reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
+                raise ValueError(f"Model returned no text (reason: {reason})")
+            return text.strip()
+        except APIError as e:
+            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
 
@@ -679,8 +733,8 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                     reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
                 raise ValueError(f"Vision model returned no text (reason: {reason})")
             return text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+        except APIError as e:
+            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
 
@@ -1302,13 +1356,18 @@ async def translate_article_to_reading(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            # Rate-limit / overload — do NOT split-and-retry: fanning out more
+            # calls into a rate limit is what turns one 429 into a storm. Abort
+            # the whole generation with one clean error (gather cancels siblings).
+            raise
         except Exception:
             raw = None
 
         if isinstance(raw, list) and len(raw) == len(chunk):
             return [_as_target(x) for x in raw]
 
-        # Misaligned / failed response — split to keep the rest aligned.
+        # Misaligned but successful response — split to keep the rest aligned.
         if len(chunk) > 1:
             mid = len(chunk) // 2
             left, right = await asyncio.gather(
@@ -1324,6 +1383,8 @@ async def translate_article_to_reading(
                     f'no romanisation). Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [""]
 
@@ -1409,6 +1470,8 @@ async def simplify_article(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            raise  # rate-limit / overload — don't fan out (see _translate_chunk)
         except Exception:
             raw = None
         if isinstance(raw, list) and len(raw) == len(chunk):
@@ -1427,6 +1490,8 @@ async def simplify_article(
                     f'Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [chunk[0]]
 
