@@ -584,6 +584,28 @@ LANG_INFO = {
             "- Use the definite article enclitic system correctly (e.g. casa = the house)"
         ),
     },
+    "ga": {
+        "name": "Irish",
+        "full_name": "Irish (Gaeilge)",
+        "flag": "🇮🇪",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, the copula 'is' / verb 'tá', basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Irish (An Caighdeán Oifigiúil)\n"
+            "- Preserve the síneadh fada (long-vowel accents): á, é, í, ó, ú\n"
+            "- Apply initial mutations correctly — séimhiú (lenition, e.g. bh, ch, dh, mh) "
+            "and urú (eclipsis, e.g. mb, gc, nd, bhf)\n"
+            "- Use VSO (verb–subject–object) word order, and distinguish the copula 'is' "
+            "from the substantive verb 'tá'"
+        ),
+    },
     "uk": {
         "name": "Ukrainian",
         "flag": "🇺🇦",

@@ -210,7 +210,7 @@ NOT yet built (deferred): first-class up-front **unit rows** with a visible road
 
 ### Multi-language support
 
-`translation.LANG_INFO` is the language registry — maps codes to per-language config (name, flag, script, romanization scheme, frequency scale, Gemini prompt rules). Supported: `yue cmn` (Chinese), `ja` (Japanese), `fr es de it pt tl ms id sw vi tr nl pl sv nb ro` (Latin), `ko` (Hangul), `hi` (Devanagari), `te` (Telugu), `bn` (Bengali), `ur ar fa` (Arabic script), `ru uk` (Cyrillic), `el` (Greek), `th` (Thai), `he` (Hebrew). `/api/languages` derives the frontend language list from it, so the settings dropdown, language pill, and onboarding update automatically.
+`translation.LANG_INFO` is the language registry — maps codes to per-language config (name, flag, script, romanization scheme, frequency scale, Gemini prompt rules). Supported: `yue cmn` (Chinese), `ja` (Japanese), `fr es de it pt tl ms id sw vi tr nl pl sv nb ro ga` (Latin), `ko` (Hangul), `hi` (Devanagari), `te` (Telugu), `bn` (Bengali), `ur ar fa` (Arabic script), `ru uk` (Cyrillic), `el` (Greek), `th` (Thai), `he` (Hebrew). `/api/languages` derives the frontend language list from it, so the settings dropdown, language pill, and onboarding update automatically.
 
 **Adding a Latin-script language** = an entry in `LANG_INFO` + a voice in `audio.VOICES`. That's it.
 
