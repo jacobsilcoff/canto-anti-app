@@ -157,6 +157,8 @@ async def _gemini_api_error_handler(request: Request, exc: translation.APIError)
             bits.append("quota: " + quota["metric"])
         elif getattr(exc, "status", None):
             bits.append(str(exc.status))
+        if quota.get("model"):
+            bits.append("model: " + quota["model"])
         if quota.get("retry_delay"):
             bits.append("retry in " + quota["retry_delay"])
         hint = (" [" + "; ".join(bits) + "]") if bits else ""
@@ -3363,13 +3365,16 @@ def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
     # Quota / rate limit straight from the provider.
     if status == 429 or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
         q = translation.quota_info(e)
-        extra = ""
+        bits = []
         if q.get("metric"):
-            extra = f" [quota: {q['metric']}]"
-            if q.get("free_tier"):
-                extra += " (free-tier — key billed to a non-Tier-1 project)"
-        elif q.get("retry_delay"):
-            extra = f" [retry in {q['retry_delay']}]"
+            bits.append(f"quota: {q['metric']}")
+        if q.get("model"):
+            bits.append(f"model: {q['model']}")
+        if q.get("retry_delay"):
+            bits.append(f"retry in {q['retry_delay']}")
+        extra = f" [{'; '.join(bits)}]" if bits else ""
+        if q.get("free_tier"):
+            extra += " (free-tier — key billed to a non-Tier-1 project)"
         return (f"{stage} failed: the AI provider rate-limited the request. "
                 f"Wait a minute and try again.{extra}")
     # JSON parsing / empty body — the model returned something unusable.

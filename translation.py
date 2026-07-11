@@ -39,9 +39,26 @@ def quota_info(e: Exception) -> dict:
     {metric, quota_id, retry_delay, free_tier} (any field may be None/absent)."""
     out: dict = {}
     details = getattr(e, "details", None)
-    if not isinstance(details, dict):
-        return out
-    for d in (details.get("error", {}) or {}).get("details", []) or []:
+    # The SDK's APIError.details is the raw response body, whose shape varies by
+    # call path: normal HTTP responses carry the full envelope {"error": {...}},
+    # but streaming/segmented responses carry the INNER error object directly
+    # ({"code", "status", "details": [...]}) — see errors.py raise_for_response.
+    # Handle both (plus a JSON string / 1-element list, which the SDK also emits).
+    if isinstance(details, str):
+        try:
+            details = json.loads(details)
+        except ValueError:
+            details = None
+    if isinstance(details, list) and len(details) == 1:
+        details = details[0]
+    detail_list = None
+    if isinstance(details, dict):
+        inner = details.get("error", details)
+        if isinstance(inner, dict):
+            detail_list = inner.get("details")
+    for d in detail_list or []:
+        if not isinstance(d, dict):
+            continue
         t = d.get("@type", "")
         if t.endswith("QuotaFailure"):
             v = (d.get("violations") or [{}])[0]
@@ -52,6 +69,27 @@ def quota_info(e: Exception) -> dict:
                 out["free_tier"] = "free_tier" in metric or "FreeTier" in (v.get("quotaId") or "")
         elif t.endswith("RetryInfo"):
             out["retry_delay"] = d.get("retryDelay")
+    if not out.get("metric"):
+        # Last resort: str(APIError) embeds the whole response body (the SDK's
+        # __init__ formats it in), so fish the fields out of the text. Matches
+        # both JSON double quotes and Python-dict single quotes.
+        s = str(e)
+        m = re.search(r'''["']quotaMetric["']:\s*["']([^"']+)["']''', s)
+        qid = re.search(r'''["']quotaId["']:\s*["']([^"']+)["']''', s)
+        rd = re.search(r'''["']retryDelay["']:\s*["']([^"']+)["']''', s)
+        if m:
+            out["metric"] = m.group(1)
+            out["free_tier"] = ("free_tier" in m.group(1)
+                                or "FreeTier" in (qid.group(1) if qid else ""))
+        if qid:
+            out["quota_id"] = qid.group(1)
+        if rd and not out.get("retry_delay"):
+            out["retry_delay"] = rd.group(1)
+    # Which model the failing call targeted — attached by _call/_call_stream/
+    # _call_with_image. A 429 on gemini-2.5-flash vs -lite vs -pro points at a
+    # completely different quota row in the AI Studio dashboard.
+    if getattr(e, "model", None):
+        out["model"] = e.model
     return out
 
 
@@ -655,6 +693,7 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
                 raise ValueError(f"Model returned no text (reason: {reason})")
             return text.strip()
         except APIError as e:
+            e.model = model            # which quota row to look at (see quota_info)
             if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
@@ -692,6 +731,8 @@ async def _call_stream(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
                 if text:
                     loop.call_soon_threadsafe(queue.put_nowait, text)
         except Exception as exc:                    # surfaced to the consumer
+            if isinstance(exc, APIError):
+                exc.model = model      # which quota row to look at (see quota_info)
             loop.call_soon_threadsafe(queue.put_nowait, exc)
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, _DONE)
@@ -734,6 +775,7 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                 raise ValueError(f"Vision model returned no text (reason: {reason})")
             return text.strip()
         except APIError as e:
+            e.model = model            # which quota row to look at (see quota_info)
             if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
