@@ -1434,8 +1434,9 @@
     el.style.cursor='pointer';
     el.addEventListener('click', function(){
       var txt=(el.textContent||'').trim();
-      (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(txt):Promise.reject())
-        .then(function(){ showToast&&showToast('Version copied'); })['catch'](function(){});
+      var p=window.__copyToClipboard ? window.__copyToClipboard(txt)
+            : (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(txt):Promise.reject());
+      p.then(function(){ showToast&&showToast('Version copied'); })['catch'](function(){});
     });
   })();
 </script>

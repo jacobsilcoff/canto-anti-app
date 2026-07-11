@@ -146,19 +146,23 @@ async def _gemini_api_error_handler(request: Request, exc: translation.APIError)
         request.url.path, status, quota or "-", exc,
     )
     if status == 429:
-        # The quota metric is the whole answer to "why am I 429ing on a paid
-        # project?" — surface it so it's visible without server-log access. A
-        # `free_tier` metric here means the KEY is metered against an unbilled
-        # project, not the Tier-1 one whose quotas you're reading.
-        hint = ""
+        # Surface whatever the provider gave us so the error is diagnosable
+        # without server-log access. The quota metric is the whole answer to
+        # "why am I 429ing on a paid project?"; a `free_tier` metric means the
+        # KEY is metered against an unbilled project, not the Tier-1 one whose
+        # quotas you're reading. When there's no structured metric, fall back to
+        # the raw status (e.g. RESOURCE_EXHAUSTED) + retry delay.
+        bits = []
         if quota.get("metric"):
-            hint = f" [quota: {quota['metric']}"
-            if quota.get("retry_delay"):
-                hint += f", retry in {quota['retry_delay']}"
-            hint += "]"
-            if quota.get("free_tier"):
-                hint += (" — note: this is a FREE-TIER quota, so the API key is "
-                         "billed to a different project than your Tier-1 one.")
+            bits.append("quota: " + quota["metric"])
+        elif getattr(exc, "status", None):
+            bits.append(str(exc.status))
+        if quota.get("retry_delay"):
+            bits.append("retry in " + quota["retry_delay"])
+        hint = (" [" + "; ".join(bits) + "]") if bits else ""
+        if quota.get("free_tier"):
+            hint += (" — note: this is a FREE-TIER quota, so the API key is "
+                     "billed to a different project than your Tier-1 one.")
         http_status, detail = 429, (
             "The AI service is rate-limited right now. Please wait a minute and "
             "try again, or add your own Gemini key in Settings for uninterrupted use."
@@ -1039,25 +1043,46 @@ _PWA_INSTALL_WIDGET = """
 _TOAST_COPY_WIDGET = """
 <script>
 (function(){
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // iOS-correct synchronous copy: a contentEditable, on-screen-but-invisible
+  // element + a Range selection + execCommand, all INSIDE the tap handler.
+  // navigator.clipboard.writeText is unreliable on iOS (and an async .catch
+  // fallback runs outside the user gesture, which iOS then blocks), so this
+  // synchronous path is the one that actually works on iPhone.
+  function legacyCopy(text){
+    try{
+      var el=document.createElement('textarea');
+      el.value=text; el.readOnly=true; el.contentEditable='true';
+      el.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;margin:0;opacity:0;font-size:16px';
+      document.body.appendChild(el);
+      var sel=window.getSelection();
+      var range=document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges(); sel.addRange(range);
+      el.setSelectionRange(0, text.length);
+      var ok=document.execCommand('copy');
+      sel.removeAllRanges(); document.body.removeChild(el);
+      return ok;
+    }catch(e){ return false; }
+  }
+  // Returns a Promise. On iOS the synchronous legacy path runs first (must stay
+  // inside the gesture); elsewhere the async Clipboard API is preferred so an
+  // existing text selection isn't clobbered, with legacyCopy as the fallback.
   function copyText(text){
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      return navigator.clipboard.writeText(text)['catch'](function(){ return fallback(text); });
+    if(isIOS){
+      if(legacyCopy(text)) return Promise.resolve();
+      if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      return Promise.reject();
     }
-    return fallback(text);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text)['catch'](function(){
+        return legacyCopy(text) ? Promise.resolve() : Promise.reject();
+      });
+    }
+    return legacyCopy(text) ? Promise.resolve() : Promise.reject();
   }
-  function fallback(text){
-    return new Promise(function(res, rej){
-      try{
-        var ta=document.createElement('textarea');
-        ta.value=text; ta.setAttribute('readonly','');
-        ta.style.cssText='position:fixed;top:-9999px;left:0;opacity:0';
-        document.body.appendChild(ta); ta.focus(); ta.select();
-        ta.setSelectionRange(0, text.length);
-        var ok=document.execCommand('copy'); document.body.removeChild(ta);
-        ok?res():rej();
-      }catch(e){ rej(e); }
-    });
-  }
+  window.__copyToClipboard = copyText;
   function looksImportant(msg){
     return msg.length>40 || /(error|fail|rate|quota|unable|couldn|try again|wrong|invalid|too many|overload|limit|denied|blocked)/i.test(msg);
   }
@@ -1083,10 +1108,10 @@ _TOAST_COPY_WIDGET = """
         if(t.contains(hint)) hint.remove();
       }
     }
-    t.addEventListener('pointerdown', function(){
+    t.addEventListener('click', function(){
       var msg=textOf(t); if(!msg) return;
-      copyText(msg).then(function(){ hint.textContent='Copied ✓'; if(!t.contains(hint)) t.appendChild(hint); })
-                   ['catch'](function(){ hint.textContent='Long-press to select'; if(!t.contains(hint)) t.appendChild(hint); });
+      function say(s){ hint.textContent=s; if(!t.contains(hint)) t.appendChild(hint); }
+      copyText(msg).then(function(){ say('Copied ✓'); })['catch'](function(){ say('Long-press to select'); });
       // keep it up briefly so the confirmation is visible
       t.classList.add('show');
       clearTimeout(t.__tcHold);
@@ -3337,8 +3362,16 @@ def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
                 f"Wait a moment and tap Generate again.{extra}")
     # Quota / rate limit straight from the provider.
     if status == 429 or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
+        q = translation.quota_info(e)
+        extra = ""
+        if q.get("metric"):
+            extra = f" [quota: {q['metric']}]"
+            if q.get("free_tier"):
+                extra += " (free-tier — key billed to a non-Tier-1 project)"
+        elif q.get("retry_delay"):
+            extra = f" [retry in {q['retry_delay']}]"
         return (f"{stage} failed: the AI provider rate-limited the request. "
-                f"Wait a minute and try again.")
+                f"Wait a minute and try again.{extra}")
     # JSON parsing / empty body — the model returned something unusable.
     if name in ("ValueError", "JSONDecodeError") or "json" in msg or "expecting value" in msg:
         return (f"{stage} failed: the AI returned a malformed response. "
