@@ -34,6 +34,7 @@ VOICES = {
     "el": "el-GR-AthinaNeural",
     "th": "th-TH-PremwadeeNeural",
     "he": "he-IL-HilaNeural",
+    "ga": "ga-IE-OrlaNeural",
 }
 
 
