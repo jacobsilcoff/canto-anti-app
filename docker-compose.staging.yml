@@ -9,7 +9,12 @@
 # Its own named volume keeps the staging database fully isolated from prod.
 services:
   app-staging:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        GIT_BRANCH: ${GIT_BRANCH:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     container_name: canto-app-staging
     environment:

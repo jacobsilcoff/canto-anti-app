@@ -1424,8 +1424,20 @@
     if (sel && e.detail && e.detail.code) { sel.value = e.detail.code; renderLangDetail(); }
   });
 </script>
-<p style="text-align:center;font-size:0.72rem;color:var(--text-muted,#888);padding:16px 0 32px;margin:0">
-  v{{ASSET_VERSION}}
+<p style="text-align:center;font-size:0.72rem;color:var(--text-muted,#888);padding:16px 0 32px;margin:0" title="Tap to copy" id="version-line">
+  {{APP_VERSION_LINE}}
 </p>
+<script>
+  // One-tap copy of the build version (handy for bug reports).
+  (function(){
+    var el=document.getElementById('version-line'); if(!el) return;
+    el.style.cursor='pointer';
+    el.addEventListener('click', function(){
+      var txt=(el.textContent||'').trim();
+      (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(txt):Promise.reject())
+        .then(function(){ showToast&&showToast('Version copied'); })['catch'](function(){});
+    });
+  })();
+</script>
 </body>
 </html>

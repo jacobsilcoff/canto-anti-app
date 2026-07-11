@@ -65,6 +65,7 @@ _NO_AUTH_PATHS = {
     "/api/resend-verification",
     "/api/webhooks/stripe",
     "/manifest.json", "/sw.js",
+    "/api/version",
 }
 
 
@@ -172,6 +173,21 @@ async def _gemini_api_error_handler(request: Request, exc: translation.APIError)
             "The AI service returned an error. Please try again in a moment."
         )
     return JSONResponse(status_code=http_status, content={"detail": detail})
+
+
+@app.get("/api/version")
+async def version():
+    """What commit is actually running. No-auth so it's a trivial curl/health
+    check. ASSET_VERSION is a static-content hash (only moves when a file under
+    static/ changes); commit/branch/built_at come from the deploy build args and
+    identify a backend deploy that ASSET_VERSION alone can't."""
+    return {
+        "commit": APP_COMMIT,
+        "branch": APP_BRANCH or None,
+        "built_at": APP_BUILD_TIME or None,
+        "asset_version": ASSET_VERSION,
+        "environment": "dev" if IS_DEV else "prod",
+    }
 
 
 @app.middleware("http")
@@ -374,6 +390,29 @@ def _compute_asset_version() -> str:
 
 
 ASSET_VERSION = _compute_asset_version()
+
+# Build/deploy identity — distinct from ASSET_VERSION (a static-content hash that
+# only moves when a file under static/ changes, so a backend-only deploy leaves it
+# unchanged). These come from the git checkout at image-build time (threaded in as
+# Docker build args by the deploy workflows; `.git` is dockerignored, so runtime
+# `git` isn't available). They answer "what commit is actually running?".
+APP_COMMIT = os.getenv("GIT_SHA", "").strip() or "dev"
+APP_BRANCH = os.getenv("GIT_BRANCH", "").strip()
+APP_BUILD_TIME = os.getenv("BUILD_TIME", "").strip()
+
+
+def _version_line() -> str:
+    """Human-readable one-liner for the Settings footer."""
+    parts = [f"build {APP_COMMIT}"]
+    if APP_BRANCH and APP_BRANCH not in ("main", "HEAD"):
+        parts[0] += f" ({APP_BRANCH})"
+    if APP_BUILD_TIME:
+        parts.append(APP_BUILD_TIME)
+    parts.append(f"assets v{ASSET_VERSION}")
+    return " · ".join(parts)
+
+
+APP_VERSION_LINE = _version_line()
 
 
 def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
@@ -1093,6 +1132,8 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
     content = content.replace("/static/pwa-install.js", f"/static/pwa-install.js?v={ASSET_VERSION}")
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
+    content = content.replace("{{APP_VERSION_LINE}}", APP_VERSION_LINE)
+    content = content.replace("{{APP_COMMIT}}", APP_COMMIT)
     # In dev, point the favicon + apple-touch-icon at the badged dev icons so the
     # browser tab and iOS homescreen visibly differ from prod. (The manifest alone
     # isn't enough — iOS prefers apple-touch-icon over it.)
