@@ -11,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 _clients: dict[str, "genai.Client"] = {}
 
-# HTTP statuses worth retrying with backoff: provider overload / transient 5xx
-# AND 429 (rate limit — a *request-rate* cap on the shared free-tier key, not a
-# spend budget). These frequently blip on a shared key and self-heal on retry.
-_RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+# HTTP statuses worth retrying inline with a short backoff: provider overload /
+# transient 5xx, which clear within seconds. 429 is deliberately NOT here — a 429
+# is a *rate* limit (per-minute RPM/TPM), and retrying it 1–3s later just adds
+# load inside the same window, deepening the limit. Fail fast on 429 and let the
+# caller surface "try again in a minute" instead of hammering.
+_RETRY_STATUS = frozenset({500, 502, 503, 504})
 
 
 def _api_status(e: Exception) -> int | None:
@@ -1354,13 +1356,18 @@ async def translate_article_to_reading(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            # Rate-limit / overload — do NOT split-and-retry: fanning out more
+            # calls into a rate limit is what turns one 429 into a storm. Abort
+            # the whole generation with one clean error (gather cancels siblings).
+            raise
         except Exception:
             raw = None
 
         if isinstance(raw, list) and len(raw) == len(chunk):
             return [_as_target(x) for x in raw]
 
-        # Misaligned / failed response — split to keep the rest aligned.
+        # Misaligned but successful response — split to keep the rest aligned.
         if len(chunk) > 1:
             mid = len(chunk) // 2
             left, right = await asyncio.gather(
@@ -1376,6 +1383,8 @@ async def translate_article_to_reading(
                     f'no romanisation). Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [""]
 
@@ -1461,6 +1470,8 @@ async def simplify_article(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            raise  # rate-limit / overload — don't fan out (see _translate_chunk)
         except Exception:
             raw = None
         if isinstance(raw, list) and len(raw) == len(chunk):
@@ -1479,6 +1490,8 @@ async def simplify_article(
                     f'Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [chunk[0]]
 
