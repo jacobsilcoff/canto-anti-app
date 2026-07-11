@@ -126,6 +126,36 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+@app.exception_handler(translation.APIError)
+async def _gemini_api_error_handler(request: Request, exc: translation.APIError):
+    """Turn any *unhandled* Gemini provider error into a clean, actionable
+    response instead of an opaque 500.
+
+    The shared free-tier key routinely 503s ("model overloaded") and 429s
+    (request-rate limit — NOT a spend budget), and those errors bubble up from
+    many call sites. Without this, each one surfaced as a generic 500 "internal
+    server error" across every AI feature, with the real cause invisible to the
+    user (who reasonably checks their budget and finds it fine). Routes that
+    format their own error (e.g. lesson generation) handle the exception first,
+    so this only fires for the ones that don't."""
+    status = translation._api_status(exc)
+    logger.warning("Gemini API error on %s: status=%s %s", request.url.path, status, exc)
+    if status == 429:
+        http_status, detail = 429, (
+            "The AI service is rate-limited right now. Please wait a minute and "
+            "try again, or add your own Gemini key in Settings for uninterrupted use."
+        )
+    elif status in (500, 502, 503, 504):
+        http_status, detail = 503, (
+            "The AI model is temporarily overloaded. Please wait a moment and try again."
+        )
+    else:
+        http_status, detail = 502, (
+            "The AI service returned an error. Please try again in a moment."
+        )
+    return JSONResponse(status_code=http_status, content={"detail": detail})
+
+
 @app.middleware("http")
 async def static_cache_middleware(request: Request, call_next):
     """Fingerprinted /static assets (?v=<hash>) are immutable — cache forever.

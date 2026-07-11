@@ -5,11 +5,25 @@ import time
 import asyncio
 import logging
 from google import genai
-from google.genai.errors import ServerError
+from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
 
 _clients: dict[str, "genai.Client"] = {}
+
+# HTTP statuses worth retrying with backoff: provider overload / transient 5xx
+# AND 429 (rate limit — a *request-rate* cap on the shared free-tier key, not a
+# spend budget). These frequently blip on a shared key and self-heal on retry.
+_RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+
+def _api_status(e: Exception) -> int | None:
+    """HTTP status of a genai APIError, tolerant of SDK attribute renames.
+
+    Older google-genai exposed `.status_code`; current versions expose `.code`.
+    A bare `e.status_code` access therefore raises AttributeError on the new SDK,
+    which is exactly how a retryable 503/429 got turned into an opaque 500."""
+    return getattr(e, "status_code", None) or getattr(e, "code", None)
 
 
 def _get_client(api_key: str):
@@ -598,10 +612,21 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(
-                model=model, contents=prompt, config=config).text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+            resp = _get_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config)
+            text = resp.text
+            # `.text` is None when the response carried no text part (safety
+            # block / empty candidate). `.strip()` on None raises AttributeError
+            # and hides the real cause — surface it instead.
+            if text is None:
+                reason = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+                if reason is None:
+                    cands = getattr(resp, "candidates", None) or []
+                    reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
+                raise ValueError(f"Model returned no text (reason: {reason})")
+            return text.strip()
+        except APIError as e:
+            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
 
@@ -679,8 +704,8 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                     reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
                 raise ValueError(f"Vision model returned no text (reason: {reason})")
             return text.strip()
-        except ServerError as e:
-            if e.status_code == 503 and attempt < len(delays):
+        except APIError as e:
+            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
                 continue
             raise
 
