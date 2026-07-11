@@ -26,6 +26,33 @@ def _api_status(e: Exception) -> int | None:
     return getattr(e, "status_code", None) or getattr(e, "code", None)
 
 
+def quota_info(e: Exception) -> dict:
+    """Pull the quota dimension out of a Gemini 429 (RESOURCE_EXHAUSTED) body.
+
+    A 429 on a paid/Tier-1 project is only explicable from *which* quota tripped:
+    the metric names the model + window (requests-per-day/minute, tokens-per-minute)
+    and, crucially, whether it's a `free_tier` metric — a free-tier metric on a paid
+    project means the API key is metered against a *different* (unbilled) project
+    than the one whose Tier-1 quotas you're reading. Returns
+    {metric, quota_id, retry_delay, free_tier} (any field may be None/absent)."""
+    out: dict = {}
+    details = getattr(e, "details", None)
+    if not isinstance(details, dict):
+        return out
+    for d in (details.get("error", {}) or {}).get("details", []) or []:
+        t = d.get("@type", "")
+        if t.endswith("QuotaFailure"):
+            v = (d.get("violations") or [{}])[0]
+            metric = v.get("quotaMetric")
+            out["metric"] = metric
+            out["quota_id"] = v.get("quotaId")
+            if metric:
+                out["free_tier"] = "free_tier" in metric or "FreeTier" in (v.get("quotaId") or "")
+        elif t.endswith("RetryInfo"):
+            out["retry_delay"] = d.get("retryDelay")
+    return out
+
+
 def _get_client(api_key: str):
     """Return a cached Gemini client for the given API key (one per distinct key)."""
     client = _clients.get(api_key)

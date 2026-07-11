@@ -139,11 +139,29 @@ async def _gemini_api_error_handler(request: Request, exc: translation.APIError)
     format their own error (e.g. lesson generation) handle the exception first,
     so this only fires for the ones that don't."""
     status = translation._api_status(exc)
-    logger.warning("Gemini API error on %s: status=%s %s", request.url.path, status, exc)
+    quota = translation.quota_info(exc)
+    logger.warning(
+        "Gemini API error on %s: status=%s quota=%s %s",
+        request.url.path, status, quota or "-", exc,
+    )
     if status == 429:
+        # The quota metric is the whole answer to "why am I 429ing on a paid
+        # project?" — surface it so it's visible without server-log access. A
+        # `free_tier` metric here means the KEY is metered against an unbilled
+        # project, not the Tier-1 one whose quotas you're reading.
+        hint = ""
+        if quota.get("metric"):
+            hint = f" [quota: {quota['metric']}"
+            if quota.get("retry_delay"):
+                hint += f", retry in {quota['retry_delay']}"
+            hint += "]"
+            if quota.get("free_tier"):
+                hint += (" — note: this is a FREE-TIER quota, so the API key is "
+                         "billed to a different project than your Tier-1 one.")
         http_status, detail = 429, (
             "The AI service is rate-limited right now. Please wait a minute and "
             "try again, or add your own Gemini key in Settings for uninterrupted use."
+            + hint
         )
     elif status in (500, 502, 503, 504):
         http_status, detail = 503, (
