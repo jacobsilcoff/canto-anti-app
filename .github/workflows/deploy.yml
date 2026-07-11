@@ -20,7 +20,11 @@ jobs:
               grep -q "^${key}=" ~/canto-anti-app/.env 2>/dev/null || echo "${key}=${val}" >> ~/canto-anti-app/.env
             }
             touch ~/canto-anti-app/.env
-            set_if_missing GEMINI_API_KEY "${{ secrets.GEMINI_API_KEY }}"
+            # Always overwrite the Gemini key so key rotations (e.g. moving to a
+            # billed/higher-tier project) actually take effect — set_if_missing
+            # would leave the VM pinned to whatever key was first deployed.
+            sed -i '/^GEMINI_API_KEY=/d' ~/canto-anti-app/.env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> ~/canto-anti-app/.env
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing APP_ADMIN_EMAIL "${{ secrets.APP_ADMIN_EMAIL }}"
