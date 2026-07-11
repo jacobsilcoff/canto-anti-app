@@ -165,11 +165,17 @@ async def _gemini_api_error_handler(request: Request, exc: translation.APIError)
         if quota.get("free_tier"):
             hint += (" — note: this is a FREE-TIER quota, so the API key is "
                      "billed to a different project than your Tier-1 one.")
-        http_status, detail = 429, (
-            "The AI service is rate-limited right now. Please wait a minute and "
-            "try again, or add your own Gemini key in Settings for uninterrupted use."
-            + hint
-        )
+        if quota.get("metric"):
+            msg = ("The AI service is rate-limited right now. Please wait a "
+                   "minute and try again, or add your own Gemini key in "
+                   "Settings for uninterrupted use.")
+        else:
+            # No quota metric = Google-side capacity shedding on the model,
+            # not this project's quota (the dashboard will show headroom).
+            msg = ("The AI model is at capacity on Google's side right now "
+                   "(provider throttling, not your quota). Please try again "
+                   "shortly — or switch the model in Settings.")
+        http_status, detail = 429, msg + hint
     elif status in (500, 502, 503, 504):
         http_status, detail = 503, (
             "The AI model is temporarily overloaded. Please wait a moment and try again."

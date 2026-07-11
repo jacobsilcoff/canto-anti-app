@@ -12,11 +12,21 @@ logger = logging.getLogger(__name__)
 _clients: dict[str, "genai.Client"] = {}
 
 # HTTP statuses worth retrying inline with a short backoff: provider overload /
-# transient 5xx, which clear within seconds. 429 is deliberately NOT here — a 429
-# is a *rate* limit (per-minute RPM/TPM), and retrying it 1–3s later just adds
-# load inside the same window, deepening the limit. Fail fast on 429 and let the
-# caller surface "try again in a minute" instead of hammering.
+# transient 5xx, which clear within seconds. 429 is NOT here unconditionally —
+# there are two kinds and they need opposite handling (see _retryable):
+#   - QUOTA 429 (body carries a QuotaFailure metric): a per-minute/day limit;
+#     retrying 1–3s later just adds load inside the same window. Fail fast.
+#   - CAPACITY 429 (bare RESOURCE_EXHAUSTED, no metric): Google-side load
+#     shedding on the model itself, independent of your quota (the dashboard
+#     shows headroom). Clears like a 503 — a short delayed retry genuinely helps.
 _RETRY_STATUS = frozenset({500, 502, 503, 504})
+
+
+def _retryable(e: Exception) -> bool:
+    status = _api_status(e)
+    if status in _RETRY_STATUS:
+        return True
+    return status == 429 and not quota_info(e).get("metric")
 
 
 def _api_status(e: Exception) -> int | None:
@@ -694,7 +704,7 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
             return text.strip()
         except APIError as e:
             e.model = model            # which quota row to look at (see quota_info)
-            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
+            if _retryable(e) and attempt < len(delays):
                 continue
             raise
 
@@ -776,7 +786,7 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
             return text.strip()
         except APIError as e:
             e.model = model            # which quota row to look at (see quota_info)
-            if _api_status(e) in _RETRY_STATUS and attempt < len(delays):
+            if _retryable(e) and attempt < len(delays):
                 continue
             raise
 
