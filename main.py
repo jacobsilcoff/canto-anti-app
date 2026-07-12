@@ -42,6 +42,7 @@ import starter_deck
 import tokenizer
 import translation
 import learning
+import textbook
 import grammar_lessons
 import foundations
 import tutor
@@ -3390,15 +3391,122 @@ def _gen_error_detail(e: Exception, stage: str, model: str) -> str:
     return f"{stage} failed — please try again."
 
 
+# Semantic concept dedup (grammar only): exact-key dedup can't catch paraphrased
+# keys/labels (present_er vs er_verbs_present), which was a main source of
+# repeated lessons. Grammar labels+glosses are embedded (shared embedding_cache,
+# sentinel lang like the label-merge feature's __label__) and a planned grammar
+# concept too close to an already-taught one is dropped. Vocab is left alone —
+# near-synonyms are legitimately distinct words to learn.
+_CONCEPT_EMBED_LANG = "__concept__"
+_CONCEPT_DUP_THRESHOLD = 0.86
+_CONCEPT_DEDUP_OLD_CAP = 200    # most recent registry grammar concepts compared
+
+
+def _concept_embed_text(c: dict) -> str:
+    return f'{(c.get("label") or "").strip()} — {(c.get("gloss") or "").strip()}'.strip(" —")
+
+
+async def _semantic_dedup_grammar(concepts: list[dict], registry: list[dict],
+                                  lang: str, api_key: str) -> list[dict]:
+    """Drop planned GRAMMAR concepts semantically equivalent to already-taught
+    grammar (cosine ≥ threshold on label+gloss embeddings). Best-effort: any
+    embedding failure returns the input unchanged (string dedup still applied)."""
+    new_g = [c for c in concepts
+             if (c.get("kind") or "vocab") == "grammar" and _concept_embed_text(c)]
+    old_texts = [_concept_embed_text(c) for c in registry
+                 if (c.get("kind") or "vocab") == "grammar"]
+    old_texts = [t for t in old_texts if t][-_CONCEPT_DEDUP_OLD_CAP:]
+    if not new_g or not old_texts:
+        return concepts
+    try:
+        all_texts = list(dict.fromkeys([_concept_embed_text(c) for c in new_g] + old_texts))
+        keyed = {t: f"{lang}|{t}" for t in all_texts}
+        cached = await db.get_cached_embeddings(
+            _CONCEPT_EMBED_LANG, embeddings.EMBED_MODEL, list(keyed.values()))
+        missing = [t for t in all_texts if keyed[t] not in cached]
+        if missing:
+            vecs = await embeddings.embed(missing, api_key)
+            put = {keyed[t]: embeddings.pack(v) for t, v in zip(missing, vecs)}
+            await db.put_cached_embeddings(_CONCEPT_EMBED_LANG, embeddings.EMBED_MODEL, put)
+            cached.update(put)
+        vec_of = {t: embeddings.unpack(cached[keyed[t]])
+                  for t in all_texts if keyed[t] in cached}
+        drop_ids = set()
+        for c in new_g:
+            v = vec_of.get(_concept_embed_text(c))
+            if not v:
+                continue
+            for ot in old_texts:
+                ov = vec_of.get(ot)
+                if ov and embeddings.cosine(v, ov) >= _CONCEPT_DUP_THRESHOLD:
+                    logger.info("Semantic-dup grammar concept dropped: %r ≈ taught %r",
+                                _concept_embed_text(c), ot)
+                    drop_ids.add(id(c))
+                    break
+        return [c for c in concepts if id(c) not in drop_ids]
+    except Exception:
+        logger.warning("Semantic concept dedup failed — keeping string-dedup result",
+                       exc_info=True)
+        return concepts
+
+
+async def _dedup_plan_concepts(spec: dict, ctx: dict, known_texts: set[str],
+                               lang: str, api_key: str, *,
+                               semantic: bool = True) -> tuple[list[dict], list[dict]]:
+    """(raw concepts from the spec, the deduped survivors). Raises 502 when the
+    spec carries no skill at all."""
+    concepts = _concepts_from_spec(spec)
+    if not concepts:
+        raise HTTPException(502, "Lesson planning returned no skill — please try again.")
+    deduped = _filter_new_concepts(concepts, ctx["concept_registry"], known_texts)
+    if deduped and semantic:
+        deduped = await _semantic_dedup_grammar(deduped, ctx["concept_registry"], lang, api_key)
+    return concepts, deduped
+
+
+async def _maybe_close_chapter(course_id: int) -> None:
+    """Close the in-progress chapter into a unit at COMPLETION time.
+
+    Units used to close only when the NEXT lesson was generated, so a learner who
+    finished a chapter's lessons (but didn't generate more) saw 'In progress'
+    indefinitely and never got the checkpoint node. Once the chapter's budget is
+    fully generated AND every open lesson is completed, seal it now."""
+    chapter = await db.get_active_plan(course_id)
+    if not chapter or not (chapter.get("title") or "").strip():
+        return
+    total, done = await db.get_open_lesson_stats(course_id)
+    if total == 0 or done < total:
+        return
+    if total < learning.clamp_chapter_budget(chapter.get("budget"), floor=1):
+        return    # chapter not fully generated yet — more lessons belong to it
+    queued = await db.peek_lesson_queue(course_id)
+    if queued and (queued.get("unit_title") or "") == chapter.get("title"):
+        return    # more textbook lessons still queued for this unit
+    await db.close_unit(course_id, chapter["title"], chapter.get("summary") or "")
+    await db.set_active_plan(course_id, None)
+
+
 async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
     """Plan + author + persist ONE lesson, just-in-time from live learner state.
 
     Two LLM calls: a cheap PLANNER picks the next skill + how broad to teach it
     (continuing or opening a chapter), then the AUTHOR writes teach blocks + drills.
     Re-reads context each call, so calling it in a loop adapts to prior lessons.
-    `courses.active_plan` holds the in-progress chapter ({title,objective,summary});
-    a finished chapter is closed into a unit via close_unit. Returns the new
-    lesson_id; raises HTTPException(502) on generation failure."""
+
+    `courses.active_plan` holds the in-progress chapter ({title, objective,
+    summary, budget}); the summary ROLLS UP each authored lesson's summary so the
+    planner sees progress, and once `budget` lessons are open the next plan is
+    FORCED to open a new chapter (closing the old one into a unit via close_unit).
+
+    If the course has a lesson_queue (textbook import), the next queued spec is
+    consumed INSTEAD of calling the planner — the book is the plan — and the
+    author is grounded in the item's `source` excerpt.
+
+    A plan whose concepts are ALL already taught/known is never shipped: the
+    planner is re-run once with explicit feedback, then the request fails with a
+    502 (previously the duplicate lesson shipped as a fallback).
+
+    Returns the new lesson_id; raises HTTPException(502) on generation failure."""
     course_id = course["id"]
     lang = course["target_lang"]
     # The planner is a cheap routing decision (pick the next skill), so it ALWAYS
@@ -3414,6 +3522,9 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     chapter = await db.get_active_plan(course_id)
     if chapter and not (chapter.get("title") or "").strip():
         chapter = None
+
+    # Queued textbook lesson? Then the book is the plan — skip the planner.
+    queued = await db.peek_lesson_queue(course_id)
 
     mastery: list[dict] = []
     known_words: list[dict] = []
@@ -3435,10 +3546,42 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             cefr_spread = ""
     known_texts = {(w.get("target_text") or "").strip() for w in known_words}
 
-    # 1. PLAN the next lesson from live state.
-    try:
-        spec = await learning.plan_next_lesson(
-            lang, course["level"],
+    source = ""
+    if queued:
+        # 1a. Spec straight from the queue. The chapter continues while queued
+        #     items share a unit_title; a title change opens the next book chapter
+        #     (budget = the chapter's lesson count from the segmentation).
+        qspec = queued.get("spec") or {}
+        source = queued.get("source") or ""
+        spec = {
+            "chapter_action": "continue" if (chapter and chapter.get("title") == queued["unit_title"]) else "new",
+            "chapter": {"title": queued["unit_title"], "objective": "",
+                        "summary": "", "budget": queued.get("unit_size") or 1},
+            "skill": qspec.get("skill") or {},
+            "scope": "broad", "focus": "new",
+            "target_items": qspec.get("target_items") or [],
+        }
+        plan_prompt = f"(queued textbook lesson #{queued['idx'] + 1} — planner skipped)"
+        plan_response = json.dumps(spec, ensure_ascii=False, indent=1)
+        # Textbook material is explicit user intent: if dedup empties it (the
+        # learner already knows this part of the book), teach it anyway.
+        try:
+            raw_concepts, deduped = await _dedup_plan_concepts(
+                spec, ctx, known_texts, lang, access.api_key, semantic=False)
+        except HTTPException:
+            # A malformed queue item would otherwise 502 on EVERY retry and wedge
+            # the whole queue — drop it so the next Generate moves on.
+            await db.pop_lesson_queue(queued["id"])
+            raise HTTPException(502, (
+                "That queued textbook lesson was malformed and has been skipped — "
+                "tap Generate again for the next one."
+            ))
+        concepts = deduped or raw_concepts
+    else:
+        # 1b. PLAN the next lesson from live state.
+        budget_reached = bool(chapter) and \
+            ctx["open_lessons"] >= learning.clamp_chapter_budget(chapter.get("budget"))
+        plan_kwargs = dict(
             concept_registry=ctx["concept_registry"],
             recent_summaries=ctx["recent_summaries"],
             current_chapter=chapter,
@@ -3446,16 +3589,60 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             known_words=known_words, weak_words=weak_words,
             recent_cards=recent_cards, cefr_spread=cefr_spread,
             course_focus=course_focus,
+            unit_summaries=ctx["unit_summaries"],
+            lessons_done=ctx["open_lessons"], budget_reached=budget_reached,
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
         )
-    except Exception as e:
-        logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
-    plan_prompt = spec.pop("_raw_prompt", "")
-    plan_response = spec.pop("_raw_response", "")
+        try:
+            spec = await learning.plan_next_lesson(lang, course["level"], **plan_kwargs)
+        except Exception as e:
+            logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
+            raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
+        plan_prompt = spec.pop("_raw_prompt", "")
+        plan_response = spec.pop("_raw_response", "")
+        # Deterministic backstop: at budget the chapter closes no matter what the
+        # model answered.
+        if budget_reached and spec.get("chapter_action") != "new":
+            spec["chapter_action"] = "new"
 
-    # 2. CHAPTER bookkeeping. Opening a new chapter closes the previous one into a
-    #    unit (retrospective grouping for the roadmap UI).
+        # 2. Dedup against the registry + known deck words. A fully-duplicate plan
+        #    is NEVER shipped: re-plan once with explicit feedback, then fail.
+        raw_concepts, deduped = await _dedup_plan_concepts(
+            spec, ctx, known_texts, lang, access.api_key)
+        if not deduped:
+            feedback = (
+                "Your previous plan proposed: "
+                + "; ".join(f'{c.get("key")} ("{c.get("label")}" = {c.get("gloss")})'
+                            for c in raw_concepts)
+                + ". ALL of it is already taught in this course (or already in the "
+                  "learner's flashcard deck). Pick a genuinely DIFFERENT skill — "
+                  "re-read WHAT'S BEEN TAUGHT carefully before answering."
+            )
+            logger.info("Plan was all duplicates (lang=%s, keys=%s) — re-planning once",
+                        lang, [c.get("key") for c in raw_concepts])
+            try:
+                spec = await learning.plan_next_lesson(
+                    lang, course["level"], avoid_feedback=feedback, **plan_kwargs)
+            except Exception as e:
+                logger.error("Lesson re-planning failed lang=%s: %s", lang, e, exc_info=True)
+                raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
+            sep = "\n\n══════ RE-PLAN (first plan was all duplicates) ══════\n\n"
+            plan_prompt += sep + spec.pop("_raw_prompt", "")
+            plan_response += sep + spec.pop("_raw_response", "")
+            if budget_reached and spec.get("chapter_action") != "new":
+                spec["chapter_action"] = "new"
+            raw_concepts, deduped = await _dedup_plan_concepts(
+                spec, ctx, known_texts, lang, access.api_key)
+            if not deduped:
+                raise HTTPException(502, (
+                    "The lesson planner keeps proposing material you've already been "
+                    "taught. Try again in a moment — or add a few new flashcards / "
+                    "update your tutor profile to steer it somewhere new."
+                ))
+        concepts = deduped
+
+    # 3. CHAPTER bookkeeping (from the FINAL spec — a re-plan may have changed it).
+    #    Opening a new chapter closes the previous one into a unit.
     if spec.get("chapter_action") == "new" or chapter is None:
         if chapter:
             await db.close_unit(course_id, chapter.get("title") or "Unit", chapter.get("summary") or "")
@@ -3464,18 +3651,11 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             "title":     (new_ch.get("title") or spec.get("skill", {}).get("label") or "Lesson").strip(),
             "objective": (new_ch.get("objective") or "").strip(),
             "summary":   (new_ch.get("summary") or "").strip(),
+            # floor=1: a queued textbook unit can hold a single lesson; planner
+            # budgets were already normalized to 2–6 in plan_next_lesson.
+            "budget":    learning.clamp_chapter_budget(new_ch.get("budget"), floor=1),
         }
         await db.set_active_plan(course_id, chapter)
-
-    # 3. Build the concept list (skill + items) and dedupe against the registry +
-    #    known deck words. If dedup empties it (planner re-proposed only known
-    #    material), fall back to the raw concepts — INSERT OR IGNORE keeps the
-    #    registry clean and re-teaching is harmless.
-    concepts = _concepts_from_spec(spec)
-    if not concepts:
-        raise HTTPException(502, "Lesson planning returned no skill — please try again.")
-    deduped = _filter_new_concepts(concepts, ctx["concept_registry"], known_texts)
-    concepts = deduped or concepts
 
     brief = {
         "title":     chapter.get("title", ""),
@@ -3492,6 +3672,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
             api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
             taught=ctx["concept_registry"], review=review,
             known_words=known_words, weak_words=weak_words, brief=brief,
+            source=source or None,
         )
     except Exception as e:
         logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
@@ -3513,7 +3694,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         "response": (plan_response + sep + authored["_raw_response"]) if plan_response else authored["_raw_response"],
     }
 
-    return await db.create_lesson(
+    lesson_id = await db.create_lesson(
         course_id, ctx["lesson_num"],
         authored["title"], authored["objective"],
         concepts,             # skill + vocab items get registered
@@ -3521,6 +3702,32 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         authored["summary"],
         debug,
     )
+
+    # 5. Roll this lesson's summary into the chapter's running summary so the NEXT
+    #    plan can see progress toward the objective (a frozen summary made every
+    #    chapter look unfinished forever — the root of the never-closing units).
+    chapter["summary"] = learning.roll_chapter_summary(
+        chapter.get("summary"), authored["summary"] or authored["title"])
+    await db.set_active_plan(course_id, chapter)
+
+    if queued:
+        await db.pop_lesson_queue(queued["id"])
+    return lesson_id
+
+
+async def _resolve_lesson_model(user: dict, access) -> str:
+    """The model the lesson AUTHOR (and textbook segmenter) runs on. Admin-only
+    knob: a chosen `lesson_model` — Gemini Flash/Pro OR Claude Sonnet/Opus — to
+    A/B lesson quality; falls back to the legacy lesson_premium→Pro toggle, then
+    the normal reader model. Everyone else uses the normal reader model."""
+    lesson_model = access.model_reader
+    if user.get("is_admin"):
+        chosen = _valid_lesson_model(await db.get_setting(user["id"], "lesson_model"))
+        if chosen:
+            lesson_model = chosen
+        elif await db.get_setting(user["id"], "lesson_premium") == "1":
+            lesson_model = grammar_lessons.GENERATION_MODEL
+    return lesson_model
 
 
 @app.post("/api/courses/{course_id}/next")
@@ -3538,17 +3745,7 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
 
     # Resolve access + check quota without metering yet — we meter per lesson below.
     access = await _resolve_gemini(user, meter=False)
-    # Admin-only knob: run the whole pipeline (planner + author) on a chosen model
-    # — Gemini Flash/Pro OR Claude Sonnet/Opus — to A/B lesson quality. Falls back
-    # to the legacy lesson_premium→Pro toggle, then the normal reader model.
-    # Everyone else uses the normal reader model.
-    lesson_model = access.model_reader
-    if user.get("is_admin"):
-        chosen = _valid_lesson_model(await db.get_setting(user["id"], "lesson_model"))
-        if chosen:
-            lesson_model = chosen
-        elif await db.get_setting(user["id"], "lesson_premium") == "1":
-            lesson_model = grammar_lessons.GENERATION_MODEL
+    lesson_model = await _resolve_lesson_model(user, access)
 
     # Metered = shared key, not admin, no own API key. Bill one usage unit per
     # lesson authored (not per batch) so generating 5 at once costs 5, not 1.
@@ -3580,6 +3777,77 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
         lesson = await db.get_lesson(user["id"], lesson_ids[0])
         return _lesson_response(lesson, lesson["content"])
     return {"generated": len(lesson_ids), "lesson_ids": lesson_ids}
+
+
+# ── Textbook import: PDF → segmented, queued lessons ──────────────────────────
+
+_TEXTBOOK_MAX_PDF = 25 * 1024 * 1024   # request-size guard
+
+
+@app.post("/api/courses/{course_id}/textbook")
+@limiter.limit("4/hour;10/day")
+async def import_textbook(request: Request, course_id: int,
+                          file: UploadFile = File(...),
+                          user: dict = Depends(current_user)):
+    """Turn a grammar-book / textbook PDF into queued interactive lessons.
+
+    Extract the PDF's text (deterministic), segment it into lesson specs grouped
+    by the book's chapters (one LLM call per ~9k-char chunk), and store them in
+    the course's lesson_queue. The normal '+ Add lesson' flow then authors them
+    one at a time — planner skipped, author grounded in the book's own rules and
+    examples. Metered 1 unit per segmentation call."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    data = await file.read()
+    if len(data) > _TEXTBOOK_MAX_PDF:
+        raise HTTPException(413, "PDF too large (max 25 MB).")
+    try:
+        extracted = await asyncio.to_thread(
+            extract.extract_pdf, data, textbook.MAX_TEXTBOOK_CHARS)
+    except extract.ExtractError as e:
+        raise HTTPException(400, str(e))
+
+    access = await _resolve_gemini(user, meter=False)
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    metered = not own_enc and not user.get("is_admin")
+    n_chunks = len(textbook.chunk_text(extracted["text"]))
+    if metered and await db.get_usage(user["id"]) + n_chunks > _plan_limit(user):
+        raise HTTPException(402, (
+            f"Importing this book needs {n_chunks} AI calls, which would exceed your "
+            f"monthly quota. Add your own Gemini key in Settings for unlimited use."
+        ))
+    model = await _resolve_lesson_model(user, access)
+    try:
+        seg = await textbook.segment_textbook(
+            extracted["text"], course["target_lang"],
+            api_key=access.api_key, anthropic_key=access.anthropic_key, model=model)
+    except Exception as e:
+        logger.error("Textbook segmentation failed lang=%s: %s",
+                     course["target_lang"], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Textbook segmentation", model))
+    if metered:
+        for _ in range(seg["llm_calls"]):
+            await db.increment_usage(user["id"])
+    if not seg["items"]:
+        raise HTTPException(422, (
+            "Couldn't find teachable lessons in that PDF — is it a language "
+            "textbook or grammar book for this course's language?"
+        ))
+    added = await db.add_lesson_queue(course_id, seg["items"])
+    title = extracted.get("title") or (file.filename or "textbook")
+    return {"queued": added, "units": seg["units"], "title": title}
+
+
+@app.delete("/api/courses/{course_id}/textbook")
+async def clear_textbook_queue(course_id: int, user: dict = Depends(current_user)):
+    """Drop any queued (not-yet-authored) textbook lessons. Already-authored
+    lessons are untouched."""
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    await db.clear_lesson_queue(course_id)
+    return {"success": True}
 
 
 def _lesson_response(lesson: dict, content: dict) -> dict:
@@ -3729,6 +3997,13 @@ async def complete_lesson(
             _auto_add_lesson_vocab,
             user["id"], lang, lesson,
         )
+    # Seal the chapter into a unit if this completion finished it (otherwise a
+    # fully-played chapter shows "In progress" until the NEXT lesson generates).
+    if first and lesson and lesson.get("course_id"):
+        try:
+            await _maybe_close_chapter(lesson["course_id"])
+        except Exception:
+            logger.exception("Chapter auto-close failed course=%s", lesson.get("course_id"))
     # Daily quests: any completion counts; a 100% run also ticks "perfect".
     await db.bump_quest(user["id"], "lessons", 1)
     if req.score >= 100:

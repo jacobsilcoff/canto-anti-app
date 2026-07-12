@@ -137,20 +137,65 @@ def _lang_preamble(info: dict) -> str:
 
 _PLAN_KNOWN_SAMPLE = 60   # known words shown to the planner (strongest first)
 
+# Every chapter carries a LESSON BUDGET (how many lessons it should span), so a
+# chapter can never run for dozens of lessons: the planner picks 2–6 when it opens
+# one, and once the in-progress lesson count reaches the budget the next plan is
+# FORCED to open a new chapter (enforced deterministically in main, not just asked
+# of the model).
+DEFAULT_CHAPTER_BUDGET = 4
+CHAPTER_BUDGET_MIN, CHAPTER_BUDGET_MAX = 2, 6
 
-def _chapter_block(chapter: dict | None) -> str:
+# The chapter's running summary is capped; oldest content drops first.
+_CHAPTER_SUMMARY_CAP = 600
+
+
+def clamp_chapter_budget(v, floor: int = CHAPTER_BUDGET_MIN) -> int:
+    """Clamp a chapter's lesson budget. Planner chapters use the 2–6 range; a
+    textbook-imported unit may legitimately hold a single lesson (floor=1)."""
+    try:
+        b = int(v)
+    except (TypeError, ValueError):
+        return DEFAULT_CHAPTER_BUDGET
+    return max(floor, min(b, CHAPTER_BUDGET_MAX))
+
+
+def roll_chapter_summary(prev: str, new: str, cap: int = _CHAPTER_SUMMARY_CAP) -> str:
+    """Fold one authored lesson's summary into the chapter's running summary.
+
+    The chapter summary used to be frozen at open, so the planner never saw
+    evidence of progress toward the objective and 'continue' was always the safe
+    answer — chapters ran forever. Appending each lesson's summary makes
+    'continue until the objective is met' actually decidable."""
+    parts = [p for p in ((prev or "").strip(), (new or "").strip()) if p]
+    out = "; ".join(parts)
+    return out[-cap:] if len(out) > cap else out
+
+
+def _chapter_block(chapter: dict | None, lessons_done: int = 0,
+                   budget_reached: bool = False) -> str:
     """The chapter currently in progress, so the planner can continue it (or
     decide it's done and open a new one)."""
     if not chapter or not (chapter.get("title") or "").strip():
         return ("CURRENT CHAPTER: none in progress — you MUST open a new chapter "
                 "(set chapter_action to \"new\" and provide `chapter`).\n")
-    return (
-        f"CURRENT CHAPTER (in progress): \"{chapter.get('title','')}\"\n"
+    budget = clamp_chapter_budget(chapter.get("budget"))
+    head = (
+        f"CURRENT CHAPTER (in progress, {lessons_done} of ~{budget} planned lessons "
+        f"done): \"{chapter.get('title','')}\"\n"
         f"  objective: {chapter.get('objective','')}\n"
         f"  so far: {chapter.get('summary','')}\n"
+    )
+    if budget_reached:
+        return head + (
+            "This chapter has REACHED ITS PLANNED LENGTH. You MUST open a new chapter "
+            "now (chapter_action \"new\") — pick a fresh theme or skill that builds on "
+            "what's been taught.\n"
+        )
+    return head + (
         f"Continue this chapter (chapter_action \"continue\") until its objective is "
-        f"met, THEN open a new one (\"new\"). Cutting a chapter short is fine if the "
-        f"learner clearly needs something else next.\n"
+        f"met or its ~{budget} lessons are used, THEN open a new one (\"new\"). "
+        f"Cutting a chapter short is fine if the learner clearly needs something "
+        f"else next.\n"
     )
 
 
@@ -178,6 +223,9 @@ def _build_plan_prompt(
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
     recent_cards: list[dict] | None = None, cefr_spread: str = "",
     course_focus: str = "balanced",
+    unit_summaries: list[dict] | None = None,
+    lessons_done: int = 0, budget_reached: bool = False,
+    avoid_feedback: str = "",
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -234,6 +282,20 @@ def _build_plan_prompt(
                 f"A `focus:\"review\"` lesson on one of these is a good choice when due.\n\n"
             )
 
+    units_section = ""
+    if unit_summaries:
+        units_section = (
+            f"── COURSE SO FAR ──\n{_units_block(unit_summaries)}\n"
+            f"Do NOT plan a lesson that re-covers a completed unit's material.\n\n"
+        )
+
+    avoid_section = ""
+    if (avoid_feedback or "").strip():
+        avoid_section = (
+            f"── DO NOT REPEAT (your previous attempt was rejected) ──\n"
+            f"{avoid_feedback.strip()}\n\n"
+        )
+
     return (
         f"You are an expert {name} teacher planning the SINGLE next lesson for an "
         f"English speaker (proficiency goal {level_target}). One lesson, chosen now "
@@ -246,9 +308,11 @@ def _build_plan_prompt(
         f"{deck_section}"
         f"{recent_section}"
         f"{weak_section}"
+        f"{units_section}"
         f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
         f"{_recent_block(recent_summaries)}"
-        f"{_chapter_block(current_chapter)}\n"
+        f"{_chapter_block(current_chapter, lessons_done, budget_reached)}\n"
+        f"{avoid_section}"
         f"── YOUR TASK ──\n"
         f"Pick the best next lesson. A lesson is a SATISFYING CHUNK, not one word:\n"
         f"• GRAMMAR: when a pattern has a clean regular core, teach the WHOLE core in "
@@ -266,7 +330,7 @@ def _build_plan_prompt(
         f"Return ONLY valid JSON, no other text:\n"
         '{\n'
         '  "chapter_action": "continue" | "new",\n'
-        '  "chapter": {"title":"<short English chapter title>","objective":"<one sentence>","summary":"<one sentence>"},\n'
+        '  "chapter": {"title":"<short English chapter title>","objective":"<one sentence>","summary":"<one sentence>","planned_lessons":<2-6: how many lessons this chapter should span — a tight arc, not an open-ended theme>},\n'
         '  "skill": {"kind":"grammar"|"vocab","key":"<snake_case>","label":"<pattern name OR native theme word>","gloss":"<one-line English>"},\n'
         '  "scope": "broad" | "narrow",\n'
         '  "focus": "new" | "exceptions" | "review",\n'
@@ -303,6 +367,10 @@ async def plan_next_lesson(
     recent_cards: list[dict] | None = None,
     cefr_spread: str = "",
     course_focus: str = "balanced",
+    unit_summaries: list[dict] | None = None,
+    lessons_done: int = 0,
+    budget_reached: bool = False,
+    avoid_feedback: str = "",
     api_key: str,
     anthropic_key: str | None = None,
     model: str = DEFAULT_MODEL,
@@ -310,7 +378,10 @@ async def plan_next_lesson(
     """One LLM call: decide the single next lesson from live learner state.
     Returns a normalized lesson_spec:
       {chapter_action, chapter, skill, scope, focus, target_items, rationale,
-       _raw_prompt, _raw_response}."""
+       _raw_prompt, _raw_response}.
+    `chapter` carries a `budget` (clamped planned_lessons). `budget_reached`
+    forces chapter_action to "new" — the deterministic backstop that keeps a
+    chapter from running forever (the caller also enforces it)."""
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_plan_prompt(
@@ -320,6 +391,8 @@ async def plan_next_lesson(
         known_words=known_words, weak_words=weak_words,
         recent_cards=recent_cards, cefr_spread=cefr_spread,
         course_focus=course_focus,
+        unit_summaries=unit_summaries, lessons_done=lessons_done,
+        budget_reached=budget_reached, avoid_feedback=avoid_feedback,
     )
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
@@ -334,11 +407,14 @@ async def plan_next_lesson(
     action = (parsed.get("chapter_action") or "").strip().lower()
     if action not in ("continue", "new"):
         action = "new" if not current_chapter else "continue"
+    if budget_reached:
+        action = "new"
     ch_in = parsed.get("chapter") or {}
     chapter = {
         "title":     (ch_in.get("title") or "").strip(),
         "objective": (ch_in.get("objective") or "").strip(),
         "summary":   (ch_in.get("summary") or "").strip(),
+        "budget":    clamp_chapter_budget(ch_in.get("planned_lessons")),
     }
     return {
         "chapter_action": action,
@@ -500,11 +576,27 @@ _DRILL_TIER_GUIDANCE = (
 )
 
 
+def _source_block(source: str | None) -> str:
+    """Grounding material for a textbook-imported lesson: the condensed rules /
+    examples / vocab the segmenter pulled from the learner's own book."""
+    if not (source or "").strip():
+        return ""
+    return (
+        "── SOURCE MATERIAL (from the learner's own textbook) ──\n"
+        f"{source.strip()}\n"
+        "This lesson was planned from the textbook excerpt above. GROUND the lesson "
+        "in it: teach the same rules and patterns (in your own words — don't copy "
+        "prose verbatim), reuse its example sentences where they're good, and keep "
+        "the terminology the book uses so the lesson matches what the learner reads "
+        "there. Silently fix anything in the excerpt that is plainly wrong.\n\n"
+    )
+
+
 def _build_lesson_prompt(
     target_lang: str, concepts: list[dict], recent_summaries: list[dict],
     taught: list[dict] | None = None, review: list[dict] | None = None,
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
-    brief: dict | None = None,
+    brief: dict | None = None, source: str | None = None,
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -542,6 +634,7 @@ def _build_lesson_prompt(
         f"(teach blocks + drills together) for an English speaker.\n\n"
         f"{_lang_preamble(info)}"
         f"{_brief_block(brief)}"
+        f"{_source_block(source)}"
         f"{_recent_block(recent_summaries)}"
         f"{taught_block}"
         f"{deck_block}"
@@ -966,6 +1059,7 @@ async def author_lesson(
     known_words: list[dict] | None = None,
     weak_words: list[dict] | None = None,
     brief: dict | None = None,
+    source: str | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for the given skill/concepts
     together, then validate/assemble. Returns lesson metadata + content + raw strings.
@@ -979,11 +1073,15 @@ async def author_lesson(
                with, struggling words to weave in for extra practice).
     `brief` — the planner's steer (title/objective/scope/focus) so a broad lesson
                teaches a whole family and an exceptions/review lesson behaves right.
+    `source` — condensed source material for a textbook-imported lesson; the
+               author grounds the teach blocks + drills in the book's own rules
+               and examples.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     prompt = _build_lesson_prompt(target_lang, concepts, recent_summaries or [], taught, review,
-                                  known_words=known_words, weak_words=weak_words, brief=brief)
+                                  known_words=known_words, weak_words=weak_words, brief=brief,
+                                  source=source)
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
 

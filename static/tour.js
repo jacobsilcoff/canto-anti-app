@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 21;
+  var TOUR_VERSION = 22;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -53,6 +53,8 @@
       body: 'Need to stop mid-lesson? Just quit \u2014 your progress is saved and the overview offers Resume. Tap \u2190 to step back to a previous card, and switch \u2728 AI Speak practice on or off (per-lesson or in Settings) to trade speed for depth.', v: 20 },
     { icon: '\ud83d\udcf7', title: 'Add a profile picture',
       body: 'Set a profile photo in Settings \u2192 Account \u2014 it\u2019s cropped to a circle and shows up next to your chats. Add your name there too and Home will greet you by your first name.', v: 21 },
+    { icon: '\ud83d\udcd5', title: 'Turn a textbook into lessons',
+      body: 'On the Learn page, tap \ud83d\udcd5 From textbook to upload a grammar book or textbook PDF \u2014 its chapters become interactive lessons with drills, built one at a time as you tap + Add lesson. Chapters now also show their length (\u201cLesson 2 of ~4\u201d) and close into units on their own.', v: 22 },
   ];
 
   var steps, stepIdx;

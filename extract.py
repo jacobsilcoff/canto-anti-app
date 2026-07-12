@@ -145,11 +145,13 @@ async def fetch_and_extract_url(url: str) -> dict:
 
 # ── PDF extraction ─────────────────────────────────────────────────────────────
 
-def extract_pdf(pdf_bytes: bytes) -> dict:
+def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
     """Pull selectable text out of a PDF. Returns {"title", "text"}.
 
     Scanned/image-only PDFs have no text layer — we raise a clear error rather
-    than returning gibberish (OCR is out of scope).
+    than returning gibberish (OCR is out of scope). `max_chars` bounds the kept
+    text: the reader default is small (per-sentence translate/TTS is costly),
+    while the textbook import passes a much larger cap.
     """
     try:
         from pypdf import PdfReader
@@ -180,7 +182,7 @@ def extract_pdf(pdf_bytes: bytes) -> dict:
             title = str(reader.metadata.title).strip()
     except Exception:
         pass
-    return {"title": title, "text": text[:MAX_TEXT_CHARS]}
+    return {"title": title, "text": text[:max_chars]}
 
 
 # ── Shared cleanup ─────────────────────────────────────────────────────────────

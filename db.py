@@ -2150,13 +2150,23 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, target_lang, level, status, created_at FROM courses WHERE id=? AND user_id=?",
+            "SELECT id, target_lang, level, status, created_at, active_plan "
+            "FROM courses WHERE id=? AND user_id=?",
             (course_id, user_id),
         ) as cur:
             course = await cur.fetchone()
         if not course:
             return None
         course = dict(course)
+        try:
+            active_plan = json.loads(course.pop("active_plan") or "null")
+        except (ValueError, TypeError):
+            active_plan = None
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE course_id=?", (course_id,)
+        ) as cur:
+            course["queued_lessons"] = (await cur.fetchone())[0]
 
         # Completed units (those with assigned lessons)
         async with db.execute(
@@ -2217,6 +2227,16 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
                 "lessons": pending, "in_progress": True,
             })
 
+        # The in-progress chapter's header info (title + lesson budget), so the
+        # roadmap can show "Chapter · Lesson 2 of ~4" instead of a bare
+        # "In progress".
+        if active_plan and (active_plan.get("title") or "").strip():
+            course["active_chapter"] = {
+                "title":  active_plan["title"],
+                "budget": active_plan.get("budget"),
+                "lessons_done": len(pending),
+            }
+
         course["units"] = units
         course["lesson_count"] = sum(len(u["lessons"]) for u in units)
         course["done_count"] = sum(
@@ -2271,6 +2291,7 @@ async def delete_course(user_id: int, course_id: int) -> None:
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
         await db.commit()
 
@@ -2291,6 +2312,7 @@ async def delete_ai_lessons(course_id: int) -> None:
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
         await db.execute(
             "DELETE FROM concept_mastery WHERE user_id=? AND lang=?", (user_id, lang)
@@ -2332,7 +2354,8 @@ async def set_active_plan(course_id: int, plan: dict | None) -> None:
 
 async def get_next_lesson_context(course_id: int) -> dict:
     """Return everything needed to generate the next lesson:
-    lesson_num, concept_registry, unit_summaries, recent_summaries, prior_concepts."""
+    lesson_num, open_lessons, concept_registry, unit_summaries, recent_summaries,
+    prior_concepts."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
@@ -2340,6 +2363,14 @@ async def get_next_lesson_context(course_id: int) -> dict:
             "SELECT COUNT(*) FROM course_lessons WHERE course_id=?", (course_id,)
         ) as cur:
             lesson_num = (await cur.fetchone())[0] + 1
+
+        # Lessons in the in-progress chapter (unitless). Derived, not stored, so
+        # the chapter-budget check is self-healing across old/new plan formats.
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_lessons WHERE course_id=? AND unit_id IS NULL",
+            (course_id,),
+        ) as cur:
+            open_lessons = (await cur.fetchone())[0]
 
         async with db.execute(
             "SELECT kind, key, label, gloss FROM course_concepts WHERE course_id=? ORDER BY id",
@@ -2364,6 +2395,7 @@ async def get_next_lesson_context(course_id: int) -> dict:
 
         return {
             "lesson_num":       lesson_num,
+            "open_lessons":     open_lessons,
             "concept_registry": concept_registry,
             "unit_summaries":   unit_summaries,
             "recent_summaries": recent_summaries,
@@ -2437,6 +2469,87 @@ async def close_unit(course_id: int, title: str, summary: str) -> int:
         )
         await db.commit()
         return unit_id
+
+
+async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
+    """(total, completed) among the in-progress (unitless) lessons — used to close
+    the chapter into a unit at COMPLETION time once its budget is fully done."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*),
+                      COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END), 0)
+               FROM course_lessons WHERE course_id=? AND unit_id IS NULL""",
+            (course_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return (row[0], row[1])
+
+
+# ── Lesson queue (textbook import) ────────────────────────────────────────────
+# Queued lesson specs from a textbook PDF import, consumed FIFO by lesson
+# generation: while the queue is non-empty the planner is skipped (the book IS
+# the plan) and the author is grounded in the item's `source` excerpt.
+
+async def add_lesson_queue(course_id: int, items: list[dict]) -> int:
+    """Append queue items ({unit_title, unit_size, spec, source}). Returns count."""
+    if not items:
+        return 0
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(MAX(idx), -1) FROM lesson_queue WHERE course_id=?",
+            (course_id,),
+        ) as cur:
+            next_idx = (await cur.fetchone())[0] + 1
+        for i, it in enumerate(items):
+            await db.execute(
+                """INSERT INTO lesson_queue (course_id, idx, unit_title, unit_size, spec_json, source)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (course_id, next_idx + i, (it.get("unit_title") or "").strip(),
+                 max(1, int(it.get("unit_size") or 1)),
+                 json.dumps(it.get("spec") or {}), it.get("source") or ""),
+            )
+        await db.commit()
+        return len(items)
+
+
+async def peek_lesson_queue(course_id: int) -> dict | None:
+    """The next queued lesson spec (lowest idx), or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, idx, unit_title, unit_size, spec_json, source
+               FROM lesson_queue WHERE course_id=? ORDER BY idx LIMIT 1""",
+            (course_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    item = dict(row)
+    try:
+        item["spec"] = json.loads(item.pop("spec_json") or "{}")
+    except (ValueError, TypeError):
+        item["spec"] = {}
+    return item
+
+
+async def pop_lesson_queue(queue_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM lesson_queue WHERE id=?", (queue_id,))
+        await db.commit()
+
+
+async def count_lesson_queue(course_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE course_id=?", (course_id,)
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+async def clear_lesson_queue(course_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
+        await db.commit()
 
 
 async def get_lesson(user_id: int, lesson_id: int) -> dict | None:

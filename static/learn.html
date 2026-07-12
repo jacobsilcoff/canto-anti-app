@@ -1429,6 +1429,50 @@
     }
   }
 
+  // ── Textbook import (PDF → queued lessons) ──────────────────────────────────
+
+  let _importingBook = false;
+  let _bookMsg = '';          // rendered under the CTA until the next import
+
+  function importTextbook(courseId) {
+    if (_importingBook || _generating) return;
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'application/pdf,.pdf';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      _importingBook = true;
+      _bookMsg = '';
+      if (currentCourse) renderCourse(currentCourse);
+      try {
+        const fd = new FormData();
+        fd.append('file', f);
+        const res = await fetch(`/api/courses/${courseId}/textbook`, { method: 'POST', body: fd });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.detail || 'Import failed — please try again.');
+        const nu = (body.units || []).length;
+        _bookMsg = `📕 Queued ${body.queued} lesson${body.queued === 1 ? '' : 's'} in ${nu} unit${nu === 1 ? '' : 's'} from “${esc(body.title)}”. Tap “+ Add lesson” to build them.`;
+        const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+        if (course) currentCourse = course;
+      } catch (e) {
+        _bookMsg = `⚠️ ${esc(e.message || 'Import failed — please try again.')}`;
+      } finally {
+        _importingBook = false;
+        if (currentCourse) renderCourse(currentCourse);
+      }
+    };
+    inp.click();
+  }
+
+  async function clearTextbookQueue(courseId) {
+    if (!confirm('Drop the remaining queued textbook lessons? Lessons already built are kept.')) return;
+    await fetch(`/api/courses/${courseId}/textbook`, { method: 'DELETE' }).catch(() => {});
+    _bookMsg = '';
+    const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+    if (course) { currentCourse = course; renderCourse(course); }
+  }
+
   // ── Course map ───────────────────────────────────────────────────────────────
 
   // Shared: build the HTML for one lesson row (used for both foundations & AI).
@@ -1459,9 +1503,15 @@
   }
 
   // ── Skill-tree path rendering (AI lessons) ──
-  function _unitBanner(u, unitNo) {
+  function _unitBanner(u, unitNo, ach) {
     if (u.in_progress) {
-      return `<div class="lbanner"><span class="lb-unit">In progress</span><span class="lb-pill">Up next</span></div>`;
+      // Show the active chapter's title + lesson budget ("Lesson 2 of ~4")
+      // instead of a bare "In progress" (chapters now carry a planned length).
+      const nDone = (u.lessons || []).length;
+      const label = (ach && ach.title) ? esc(ach.title) : 'In progress';
+      const pill = (ach && ach.budget)
+        ? `Lesson ${Math.min(nDone, ach.budget)} of ~${ach.budget}` : 'Up next';
+      return `<div class="lbanner"><span class="lb-unit">${label}</span><span class="lb-pill">${pill}</span></div>`;
     }
     return `<div class="lbanner">
       <span class="lb-unit">Unit ${unitNo}</span>
@@ -1672,7 +1722,7 @@
         const lessons = u.lessons || [];
         if (!lessons.length) return;
         if (!u.in_progress) unitNo += 1;
-        html += _unitBanner(u, unitNo);
+        html += _unitBanner(u, unitNo, course.active_chapter);
         lessons.forEach(l => { html += _pathRow(l, wave); wave++; });
         // Closed units get a checkpoint node sealing the unit (B3).
         if (!u.in_progress && u.id) { html += _checkpointRow(u, wave); wave++; }
@@ -1700,11 +1750,22 @@
       genArea.innerHTML = '';
     }
 
-    // CTA: single "+ Add lesson" button (auto-buffer handles routine generation).
+    // CTA: "+ Add lesson" (auto-buffer handles routine generation) + textbook
+    // import. When textbook lessons are queued, "+ Add lesson" authors the next
+    // queued one, so a small note explains what the queue is.
     const cta = document.getElementById('course-cta');
+    const nQueued = course.queued_lessons || 0;
     cta.innerHTML = `<div style="text-align:center;padding:16px 0 4px">
       <button class="course-regen"${_generating ? ' disabled' : ''}
         onclick="generateNextLesson(${course.id},1)">+ Add lesson</button>
+      <button class="course-regen"${(_generating || _importingBook) ? ' disabled' : ''} style="margin-left:6px"
+        onclick="importTextbook(${course.id})"
+        title="Upload a textbook or grammar-book PDF and turn its chapters into interactive lessons">${
+          _importingBook ? '<span class="spinner"></span> Reading your book…' : '📕 From textbook'}</button>
+      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${_bookMsg}</div>` : ''}
+      ${nQueued ? `<div class="learn-note" style="margin-top:8px">📕 ${nQueued} textbook lesson${nQueued === 1 ? '' : 's'} queued — “+ Add lesson” builds the next one.
+        <button class="course-regen" style="margin-left:6px;font-size:.72rem;padding:3px 8px"
+          onclick="clearTextbookQueue(${course.id})">✕ Clear queue</button></div>` : ''}
     </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
 
