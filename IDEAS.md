@@ -138,6 +138,23 @@ Complexity ratings: **Low** (days), **Medium** (1–2 weeks), **High** (weeks+)
 
 ---
 
+## 49. Lesson planner rework — stop repetitive lessons + never-closing chapters
+**Complexity: Low–Medium (fixes are mostly `main._author_next_lesson` + prompts; embeddings pass is Medium) | Cost: ~$0 (one extra embedding batch per lesson at most)**
+
+Users report (a) many lessons re-teaching the same/similar material and (b) chapters running dozens of lessons perpetually "In progress". Root causes found in the current pipeline:
+
+1. **Chapter closure is entirely at the LLM's whim, with a bias toward "continue".** The unit closes only when the planner outputs `chapter_action:"new"`; invalid output defaults to "continue"; and the chapter's `summary` ("so far: …") is **never updated after opening** (step 2 of `_author_next_lesson` ignores `spec.chapter` on "continue"), so the planner can never see evidence the objective was met → it continues forever.
+2. **No deterministic backstop on chapter length.** Nothing counts lessons-in-chapter; and `close_unit` scoops ALL unitless lessons, so when a close finally happens you get one giant unit.
+3. **Dedup is exact-string only, and the failure mode re-teaches on purpose.** `_filter_new_concepts` matches exact snake_case keys (planner invents fresh keys freely: `present_er` vs `er_verbs_present`) and vocab labels only — **grammar concepts have no label/gloss dedup at all**. And when dedup empties the plan, `concepts = deduped or concepts` ships the duplicate lesson anyway instead of re-planning.
+4. **Dead memory tier:** `_units_block` (Tier-2 "one line per completed unit") is fetched by `get_next_lesson_context` but **never passed into any prompt** — the planner sees only the last 3 lesson summaries + a stale chapter summary + the registry (capped at 150, so old material falls out entirely on long courses).
+
+Fixes, in priority order:
+- **A. Chapter budget + running summary (Low):** planner emits `planned_lessons` (3–6) when opening a chapter; store `{…, lessons_done, budget}` in `active_plan`; bump `lessons_done` per lesson and roll the authored lesson's `summary` into the chapter summary. Force/strongly-steer `chapter_action:"new"` at budget. Also lets the roadmap show "Lesson 2 of ~5" instead of a bare "In progress", and close the unit at last-lesson **completion** (not only at next generation).
+- **B. Re-plan instead of re-teach (Low):** drop the `deduped or concepts` fallback — on an emptied plan, re-run the planner once with explicit feedback ("you proposed X, already taught as Y"), else 502.
+- **C. Semantic dedup (Medium):** embed each registered concept's `label+gloss` (reuse `embeddings.py` + `embedding_cache`, exactly like label merge suggestions); reject planned concepts with cosine ≥ ~0.85 against the registry. Catches paraphrase keys and re-themed vocab sets that exact-match misses. Apply to grammar too.
+- **D. Wire up the dead memory (Low):** pass `unit_summaries` into `_build_plan_prompt` via the existing `_units_block`; consider a rolling course-summary line for concepts beyond the 150-registry cap.
+- **E. (Bigger, optional) Chapter sketch:** when opening a chapter, have the planner also emit 3–5 one-line lesson slots; each generation defaults to the next slot but may adapt/swap from live state; chapter closes when slots are exhausted. Restores a visible roadmap (the deferred "first-class unit rows" idea) while keeping just-in-time authoring.
+
 ## 48. Lesson redesign — quests, checkpoints, customization (Phases 2–3; Phase 1 shipped)
 **Complexity: Medium per phase | Cost: ~$0 — quests/checkpoints/league are deterministic**
 
