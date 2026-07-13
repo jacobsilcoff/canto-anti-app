@@ -540,6 +540,9 @@ def _brief_block(brief: dict | None) -> str:
     elif scope == "broad":
         lines.append("This is a BROAD lesson: teach the WHOLE set/family together; drills "
                      "should span all the items, not just one.")
+    challenge = (brief.get("challenge") or "").strip()
+    if challenge:
+        lines.append(challenge)
     return "\n".join(lines) + "\n\n"
 
 
@@ -588,7 +591,10 @@ def _source_block(source: str | None) -> str:
         "in it: teach the same rules and patterns (in your own words — don't copy "
         "prose verbatim), reuse its example sentences where they're good, and keep "
         "the terminology the book uses so the lesson matches what the learner reads "
-        "there. Silently fix anything in the excerpt that is plainly wrong.\n\n"
+        "there. If the excerpt includes the book's own exercises, adapt the best of "
+        "them into drills of the supported kinds (only where you are certain of the "
+        "correct answer) and add your own alongside. Silently fix anything in the "
+        "excerpt that is plainly wrong.\n\n"
     )
 
 

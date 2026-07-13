@@ -3547,12 +3547,27 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     known_texts = {(w.get("target_text") or "").strip() for w in known_words}
 
     source = ""
+    challenge = ""
     if queued:
         # 1a. Spec straight from the queue. The chapter continues while queued
         #     items share a unit_title; a title change opens the next book chapter
         #     (budget = the chapter's lesson count from the segmentation).
         qspec = queued.get("spec") or {}
         source = queued.get("source") or ""
+        # Adaptive difficulty: the book fixes WHAT to teach, but the learner's
+        # deck still shapes HOW. If they already know most of this lesson's
+        # items, skip the gentle introduction and drill harder.
+        q_items = [(it.get("label") or "").strip()
+                   for it in (qspec.get("target_items") or [])]
+        n_known = sum(1 for t in q_items if t and t in known_texts)
+        if q_items and n_known >= max(2, (len(q_items) + 1) // 2):
+            challenge = (
+                f"The learner ALREADY KNOWS {n_known} of the {len(q_items)} "
+                f"words/forms this lesson covers (they're in their flashcard deck). "
+                f"Keep teach blocks brief, use fresh example contexts instead of "
+                f"re-introducing the words, and skew the drill mix HARDER — "
+                f"production, reorder and cloze over recognition."
+            )
         spec = {
             "chapter_action": "continue" if (chapter and chapter.get("title") == queued["unit_title"]) else "new",
             "chapter": {"title": queued["unit_title"], "objective": "",
@@ -3662,6 +3677,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         "objective": spec.get("skill", {}).get("gloss", ""),
         "scope":     spec.get("scope", "broad"),
         "focus":     spec.get("focus", "new"),
+        "challenge": challenge,
     }
     review = _pick_review_concepts(ctx["concept_registry"], concepts, mastery, ctx["lesson_num"])
 
@@ -3779,23 +3795,37 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
     return {"generated": len(lesson_ids), "lesson_ids": lesson_ids}
 
 
-# ── Textbook import: PDF → segmented, queued lessons ──────────────────────────
+# ── Textbook import: PDF → reviewed source → one lesson ──────────────────────
 
 _TEXTBOOK_MAX_PDF = 25 * 1024 * 1024   # request-size guard
 
 
-@app.post("/api/courses/{course_id}/textbook")
-@limiter.limit("4/hour;10/day")
-async def import_textbook(request: Request, course_id: int,
+async def _textbook_metering(user: dict, n_calls: int, what: str):
+    """Shared 402 pre-check for textbook LLM steps. Returns `metered` (whether
+    to record usage afterwards)."""
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    metered = not own_enc and not user.get("is_admin")
+    if metered and await db.get_usage(user["id"]) + n_calls > _plan_limit(user):
+        raise HTTPException(402, (
+            f"{what} needs {n_calls} AI call{'s' if n_calls != 1 else ''}, which "
+            f"would exceed your monthly quota. Add your own Gemini key in Settings "
+            f"for unlimited use."
+        ))
+    return metered
+
+
+@app.post("/api/courses/{course_id}/textbooks")
+@limiter.limit("6/hour;20/day")
+async def upload_textbook(request: Request, course_id: int,
                           file: UploadFile = File(...),
                           user: dict = Depends(current_user)):
-    """Turn a grammar-book / textbook PDF into queued interactive lessons.
+    """Stage 1 of the textbook import: store the book + propose its chapters.
 
-    Extract the PDF's text (deterministic), segment it into lesson specs grouped
-    by the book's chapters (one LLM call per ~9k-char chunk), and store them in
-    the course's lesson_queue. The normal '+ Add lesson' flow then authors them
-    one at a time — planner skipped, author grounded in the book's own rules and
-    examples. Metered 1 unit per segmentation call."""
+    Extracts the PDF per page (deterministic; the cleanup collapses the
+    repeated-text-layer artifact and strips running headers/footers), persists
+    the book in `textbooks`, and runs ONE cheap LLM call over a heading skeleton
+    to propose chapters as page ranges. Nothing is queued yet — the user reviews
+    (and can correct) the chapter ranges, then generates lessons per chapter."""
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
@@ -3803,40 +3833,249 @@ async def import_textbook(request: Request, course_id: int,
     if len(data) > _TEXTBOOK_MAX_PDF:
         raise HTTPException(413, "PDF too large (max 25 MB).")
     try:
-        extracted = await asyncio.to_thread(
-            extract.extract_pdf, data, textbook.MAX_TEXTBOOK_CHARS)
+        extracted = await asyncio.to_thread(extract.extract_pdf_pages, data)
+        pages = await asyncio.to_thread(textbook.clean_pages, extracted["pages"])
     except extract.ExtractError as e:
         raise HTTPException(400, str(e))
 
     access = await _resolve_gemini(user, meter=False)
-    own_enc = await db.get_setting(user["id"], "gemini_api_key")
-    metered = not own_enc and not user.get("is_admin")
-    n_chunks = len(textbook.chunk_text(extracted["text"]))
-    if metered and await db.get_usage(user["id"]) + n_chunks > _plan_limit(user):
-        raise HTTPException(402, (
-            f"Importing this book needs {n_chunks} AI calls, which would exceed your "
-            f"monthly quota. Add your own Gemini key in Settings for unlimited use."
+    metered = await _textbook_metering(user, 1, "Analyzing this book")
+    # Structure detection is a cheap routing decision (like the planner) — it
+    # always runs on the fast reader model, never the premium lesson_model.
+    try:
+        chapters = await textbook.detect_chapters(
+            pages, course["target_lang"],
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=access.model_reader)
+    except Exception as e:
+        logger.error("Textbook chapter detection failed lang=%s: %s",
+                     course["target_lang"], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Chapter detection",
+                                                   access.model_reader))
+    if metered:
+        await db.increment_usage(user["id"])
+
+    title = (extracted.get("title") or "").strip() or \
+        re.sub(r"\.pdf$", "", file.filename or "textbook", flags=re.I)
+    tb_id = await db.create_textbook(user["id"], course_id, title,
+                                     file.filename or "", pages)
+    await db.update_textbook_chapters(tb_id, chapters)
+    return {"id": tb_id, "title": title, "num_pages": len(pages),
+            "chapters": chapters}
+
+
+@app.get("/api/courses/{course_id}/textbooks")
+async def list_course_textbooks(course_id: int, user: dict = Depends(current_user)):
+    course = await db.get_course(user["id"], course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    return {"textbooks": await db.list_textbooks(user["id"], course_id)}
+
+
+_TEXTBOOK_PREVIEW_PAGES = textbook.MAX_LESSON_SOURCE_PAGES
+
+
+@app.get("/api/textbooks/{textbook_id}/pages")
+async def textbook_pages(textbook_id: int, start: int = 1, end: int = 1,
+                         user: dict = Depends(current_user)):
+    """Raw extracted text for a page range — the review UI's preview, so the
+    user can check what a chapter actually contains before generating."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    start = max(1, min(start, book["num_pages"]))
+    end = max(start, min(end, book["num_pages"], start + _TEXTBOOK_PREVIEW_PAGES - 1))
+    return {"start": start, "end": end, "num_pages": book["num_pages"],
+            "max_lesson_pages": textbook.MAX_LESSON_SOURCE_PAGES,
+            "max_lesson_chars": textbook.MAX_LESSON_SOURCE_CHARS,
+            "pages": [{"page": i + 1, "text": book["pages"][i]}
+                      for i in range(start - 1, end)]}
+
+
+@app.put("/api/textbooks/{textbook_id}/chapters")
+async def save_textbook_chapters(textbook_id: int, payload: dict,
+                                 user: dict = Depends(current_user)):
+    """Persist user-corrected chapter structure (rename / re-range / add / drop).
+    Runs through the same normalizer as the detector's output."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    chapters = textbook._norm_chapters(
+        {"chapters": payload.get("chapters") or []}, book["num_pages"])
+    await db.update_textbook_chapters(textbook_id, chapters)
+    return {"chapters": chapters}
+
+
+@app.post("/api/textbooks/{textbook_id}/lesson")
+@limiter.limit("10/hour;30/day")
+async def create_textbook_lesson(request: Request, textbook_id: int,
+                                 payload: dict,
+                                 user: dict = Depends(current_user)):
+    """Create exactly one lesson from a user-approved textbook selection.
+
+    The client first shows the extracted page text and lets the learner change
+    the page range, trim/correct the text, and add an instruction. This endpoint
+    plans one lesson from that reviewed source and immediately authors it; there
+    is no user-visible chapter batch or second "+ Add lesson" action.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    if start < 1 or end < start or end > book["num_pages"]:
+        raise HTTPException(
+            400, f"Choose pages between 1 and {book['num_pages']}, in order.")
+    if end - start + 1 > textbook.MAX_LESSON_SOURCE_PAGES:
+        raise HTTPException(400, (
+            f"Choose at most {textbook.MAX_LESSON_SOURCE_PAGES} pages for one "
+            "lesson. You can create another lesson from the next pages."
         ))
+
+    extracted_source = "\n\n".join(
+        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
+        for i in range(start - 1, end)
+    ).strip()
+    # Supplying source_text means the learner edited/approved the textarea.
+    source_text = (payload.get("source_text") if "source_text" in payload
+                   else extracted_source)
+    source_text = str(source_text or "").strip()
+    if not source_text:
+        raise HTTPException(
+            422, "The selected pages contain no text. Choose different pages."
+        )
+    if len(source_text) > textbook.MAX_LESSON_SOURCE_CHARS:
+        raise HTTPException(413, (
+            f"The selected text is {len(source_text):,} characters; one lesson "
+            f"can use up to {textbook.MAX_LESSON_SOURCE_CHARS:,}. Choose fewer "
+            "pages or trim the text in the preview."
+        ))
+    guidance = str(payload.get("guidance") or "").strip()[:1000]
+    section_title = str(payload.get("section_title") or "").strip()[:80]
+    if not section_title:
+        section_title = f"Pages {start}–{end}" if start != end else f"Page {start}"
+
+    access = await _resolve_gemini(user, meter=False)
+    # One fast planning call + one quality-critical author call.
+    metered = await _textbook_metering(user, 2, "Creating this textbook lesson")
+    lesson_model = await _resolve_lesson_model(user, access)
+    try:
+        spec = await textbook.plan_source_lesson(
+            source_text, course["target_lang"], book["title"], start, end,
+            guidance, api_key=access.api_key,
+            anthropic_key=access.anthropic_key, model=access.model_reader)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Textbook lesson planning failed lang=%s: %s",
+                     course["target_lang"], e, exc_info=True)
+        raise HTTPException(
+            502, _gen_error_detail(e, "Textbook lesson planning", access.model_reader))
+    if metered:
+        await db.increment_usage(user["id"])
+
+    grounding = (
+        f"Textbook: {book['title']}\nApproved PDF pages: {start}–{end}\n"
+        + (f"Learner direction: {guidance}\n" if guidance else "")
+        + "\n" + source_text
+    )
+    item = {
+        "unit_title": f"📕 {section_title}",
+        "unit_size": 1,
+        "spec": {"title": spec["title"], "skill": spec["skill"],
+                 "target_items": spec["target_items"]},
+        "source": grounding,
+    }
+    chapter_idx = next((
+        i for i, ch in enumerate(book["chapters"])
+        if ch.get("start") == start and ch.get("end") == end
+    ), None)
+    await db.add_lesson_queue(
+        book["course_id"], [item], textbook_id=textbook_id,
+        chapter_idx=chapter_idx, front=True)
+    queued = await db.peek_lesson_queue(book["course_id"])
+    queued_id = queued["id"] if queued else None
+    try:
+        lesson_id = await _author_next_lesson(
+            course, access, lesson_model, user["id"])
+    except Exception:
+        # This one-off source should not turn into an invisible retry queue when
+        # authoring fails. The learner still has the book and can retry explicitly.
+        if queued_id is not None:
+            await db.pop_lesson_queue(queued_id)
+        raise
+    if metered:
+        await db.increment_usage(user["id"])
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    response = _lesson_response(lesson, lesson["content"])
+    response["source"] = {
+        "textbook_id": textbook_id, "book": book["title"],
+        "start": start, "end": end, "section": section_title,
+    }
+    return response
+
+
+@app.post("/api/textbooks/{textbook_id}/chapters/{chapter_idx}/generate")
+@limiter.limit("20/hour")
+async def generate_chapter_lessons(request: Request, textbook_id: int,
+                                   chapter_idx: int,
+                                   user: dict = Depends(current_user)):
+    """Stage 2: segment ONE chapter into queued lesson specs (1 LLM call per
+    ~9k chars — usually one). The '+ Add lesson' flow then authors them one at
+    a time, grounded in the book's own rules/examples/exercises."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    if not (0 <= chapter_idx < len(book["chapters"])):
+        raise HTTPException(404, "Chapter not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    ch = book["chapters"][chapter_idx]
+
+    chapter_text = "\n".join(
+        book["pages"][ch["start"] - 1:ch["end"]])[:textbook.MAX_CHAPTER_CHARS]
+    n_chunks = max(1, len(textbook.chunk_text(chapter_text)))
+    access = await _resolve_gemini(user, meter=False)
+    metered = await _textbook_metering(user, n_chunks, "Generating this chapter")
     model = await _resolve_lesson_model(user, access)
     try:
-        seg = await textbook.segment_textbook(
-            extracted["text"], course["target_lang"],
-            api_key=access.api_key, anthropic_key=access.anthropic_key, model=model)
+        seg = await textbook.segment_chapter(
+            book["pages"], ch["start"], ch["end"], course["target_lang"],
+            ch["title"], api_key=access.api_key,
+            anthropic_key=access.anthropic_key, model=model)
     except Exception as e:
-        logger.error("Textbook segmentation failed lang=%s: %s",
+        logger.error("Chapter segmentation failed lang=%s: %s",
                      course["target_lang"], e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Textbook segmentation", model))
+        raise HTTPException(502, _gen_error_detail(e, "Chapter segmentation", model))
     if metered:
         for _ in range(seg["llm_calls"]):
             await db.increment_usage(user["id"])
     if not seg["items"]:
         raise HTTPException(422, (
-            "Couldn't find teachable lessons in that PDF — is it a language "
-            "textbook or grammar book for this course's language?"
+            "Couldn't find teachable lessons in that chapter — check its page "
+            "range covers the chapter's content (use the preview)."
         ))
-    added = await db.add_lesson_queue(course_id, seg["items"])
-    title = extracted.get("title") or (file.filename or "textbook")
-    return {"queued": added, "units": seg["units"], "title": title}
+    added = await db.add_lesson_queue(book["course_id"], seg["items"],
+                                      textbook_id=textbook_id,
+                                      chapter_idx=chapter_idx)
+    ch["status"] = "queued"
+    await db.update_textbook_chapters(textbook_id, book["chapters"])
+    return {"queued": added, "chapter": ch["title"]}
+
+
+@app.delete("/api/textbooks/{textbook_id}")
+async def delete_textbook(textbook_id: int, user: dict = Depends(current_user)):
+    """Remove a book + its still-queued lessons (authored lessons are kept)."""
+    if not await db.delete_textbook(user["id"], textbook_id):
+        raise HTTPException(404, "Book not found")
+    return {"success": True}
 
 
 @app.delete("/api/courses/{course_id}/textbook")

@@ -185,6 +185,51 @@ def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
     return {"title": title, "text": text[:max_chars]}
 
 
+MAX_PDF_PAGES = 600
+
+
+def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES) -> dict:
+    """Pull selectable text out of a PDF, KEEPING page boundaries.
+
+    Returns {"title", "pages": [str, ...]} — one entry per page (empty pages
+    stay as "" so page numbers line up with the source PDF). The textbook
+    import needs pages: chapter structure is expressed as page ranges the user
+    can review/correct, and lessons link back to their source pages.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise ExtractError("PDF import is unavailable on this server.")
+
+    import io
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+    except Exception as exc:
+        raise ExtractError(f"Couldn't read that PDF: {exc}")
+
+    if len(reader.pages) > max_pages:
+        raise ExtractError(f"That PDF has too many pages (max {max_pages}).")
+
+    pages: list[str] = []
+    for page in reader.pages:
+        try:
+            pages.append(clean_text(page.extract_text() or ""))
+        except Exception:
+            pages.append("")
+    if sum(len(p) for p in pages) < 80:
+        raise ExtractError(
+            "No selectable text found in that PDF "
+            "(it may be a scanned image — OCR isn't supported yet)."
+        )
+    title = ""
+    try:
+        if reader.metadata and reader.metadata.title:
+            title = str(reader.metadata.title).strip()
+    except Exception:
+        pass
+    return {"title": title, "pages": pages}
+
+
 # ── Shared cleanup ─────────────────────────────────────────────────────────────
 
 def clean_text(text: str) -> str:

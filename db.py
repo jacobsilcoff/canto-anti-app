@@ -2292,6 +2292,7 @@ async def delete_course(user_id: int, course_id: int) -> None:
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM textbooks WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
         await db.commit()
 
@@ -2317,6 +2318,20 @@ async def delete_ai_lessons(course_id: int) -> None:
         await db.execute(
             "DELETE FROM concept_mastery WHERE user_id=? AND lang=?", (user_id, lang)
         )
+        # Textbooks SURVIVE a course restart (the parse is the valuable part) —
+        # but their chapters' "queued" statuses point at the queue we just wiped,
+        # so reset them to let the user re-generate.
+        async with db.execute(
+            "SELECT id, chapters_json FROM textbooks WHERE course_id=?", (course_id,)
+        ) as cur:
+            books = await cur.fetchall()
+        for tb_id, chapters_json in books:
+            chapters = _parse_chapters(chapters_json)
+            for ch in chapters:
+                if isinstance(ch, dict):
+                    ch["status"] = ""
+            await db.execute("UPDATE textbooks SET chapters_json=? WHERE id=?",
+                             (json.dumps(chapters, ensure_ascii=False), tb_id))
         await db.commit()
 
     # Re-seed foundations from code so fixes are picked up.
@@ -2490,23 +2505,35 @@ async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
 # generation: while the queue is non-empty the planner is skipped (the book IS
 # the plan) and the author is grounded in the item's `source` excerpt.
 
-async def add_lesson_queue(course_id: int, items: list[dict]) -> int:
-    """Append queue items ({unit_title, unit_size, spec, source}). Returns count."""
+async def add_lesson_queue(course_id: int, items: list[dict],
+                           textbook_id: int | None = None,
+                           chapter_idx: int | None = None,
+                           front: bool = False) -> int:
+    """Add queue items ({unit_title, unit_size, spec, source}). Returns count.
+    `textbook_id`/`chapter_idx` tag the items with the book chapter they came
+    from (so deleting a book drops its still-queued lessons). ``front`` is used
+    for a user-approved one-off source so it cannot be displaced by a legacy
+    batch already waiting in the queue."""
     if not items:
         return 0
     async with aiosqlite.connect(DB_PATH) as db:
+        order_fn = "MIN" if front else "MAX"
+        default_idx = 0 if front else -1
         async with db.execute(
-            "SELECT COALESCE(MAX(idx), -1) FROM lesson_queue WHERE course_id=?",
-            (course_id,),
+            f"SELECT COALESCE({order_fn}(idx), ?) FROM lesson_queue WHERE course_id=?",
+            (default_idx, course_id),
         ) as cur:
-            next_idx = (await cur.fetchone())[0] + 1
+            edge = (await cur.fetchone())[0]
+        next_idx = edge - len(items) if front else edge + 1
         for i, it in enumerate(items):
             await db.execute(
-                """INSERT INTO lesson_queue (course_id, idx, unit_title, unit_size, spec_json, source)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO lesson_queue (course_id, idx, unit_title, unit_size,
+                                             spec_json, source, textbook_id, chapter_idx)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (course_id, next_idx + i, (it.get("unit_title") or "").strip(),
                  max(1, int(it.get("unit_size") or 1)),
-                 json.dumps(it.get("spec") or {}), it.get("source") or ""),
+                 json.dumps(it.get("spec") or {}), it.get("source") or "",
+                 textbook_id, chapter_idx),
             )
         await db.commit()
         return len(items)
@@ -2550,6 +2577,104 @@ async def clear_lesson_queue(course_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.commit()
+
+
+# ── Textbook library (import v2) ──────────────────────────────────────────────
+# Uploaded books persist with their per-page extracted text + an editable
+# chapter structure, so parsing survives the upload: the user can correct page
+# ranges and reuse them as source-selection presets for individual lessons.
+
+def _parse_chapters(raw: str | None) -> list[dict]:
+    try:
+        chapters = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        chapters = []
+    return chapters if isinstance(chapters, list) else []
+
+
+async def create_textbook(user_id: int, course_id: int, title: str,
+                          filename: str, pages: list[str]) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO textbooks (user_id, course_id, title, filename,
+                                      num_pages, pages_json)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, course_id, (title or "").strip()[:200],
+             (filename or "").strip()[:200], len(pages), json.dumps(pages)),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
+    """Books for a course (no page text — the list stays light). Each chapter
+    row also reports how many of its lessons are still queued."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, filename, num_pages, chapters_json, created_at
+               FROM textbooks WHERE user_id=? AND course_id=? ORDER BY id""",
+            (user_id, course_id),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+        out = []
+        for r in rows:
+            chapters = _parse_chapters(r.pop("chapters_json"))
+            async with db.execute(
+                """SELECT chapter_idx, COUNT(*) FROM lesson_queue
+                   WHERE textbook_id=? GROUP BY chapter_idx""", (r["id"],),
+            ) as cur:
+                queued = {row[0]: row[1] for row in await cur.fetchall()}
+            for i, ch in enumerate(chapters):
+                ch["queued"] = queued.get(i, 0)
+            r["chapters"] = chapters
+            out.append(r)
+        return out
+
+
+async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
+    """One book incl. its pages (ownership-checked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, user_id, course_id, title, filename, num_pages,
+                      pages_json, chapters_json, created_at
+               FROM textbooks WHERE id=? AND user_id=?""",
+            (textbook_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    book = dict(row)
+    try:
+        book["pages"] = json.loads(book.pop("pages_json") or "[]")
+    except (ValueError, TypeError):
+        book["pages"] = []
+    book["chapters"] = _parse_chapters(book.pop("chapters_json"))
+    return book
+
+
+async def update_textbook_chapters(textbook_id: int, chapters: list[dict]) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE textbooks SET chapters_json=? WHERE id=?",
+            (json.dumps(chapters, ensure_ascii=False), textbook_id),
+        )
+        await db.commit()
+
+
+async def delete_textbook(user_id: int, textbook_id: int) -> bool:
+    """Delete a book + its still-queued lessons. Authored lessons are kept."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "DELETE FROM textbooks WHERE id=? AND user_id=?",
+            (textbook_id, user_id),
+        )
+        if cur.rowcount:
+            await db.execute(
+                "DELETE FROM lesson_queue WHERE textbook_id=?", (textbook_id,))
+        await db.commit()
+        return bool(cur.rowcount)
 
 
 async def get_lesson(user_id: int, lesson_id: int) -> dict | None:

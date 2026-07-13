@@ -593,6 +593,86 @@
     .vocab-deck-badge.out { background: var(--warn-soft); color: var(--warn-strong); }
     .vocab-empty { text-align: center; color: var(--text-muted); padding: 20px 10px; font-size: 0.9rem; }
 
+    /* ── Add-lesson / textbook source sheet ── */
+    .books-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: var(--overlay); display: none;
+      align-items: flex-end; justify-content: center;
+      padding: 0 10px calc(8px + env(safe-area-inset-bottom));
+    }
+    .books-overlay.open { display: flex; }
+    .books-sheet {
+      width: 100%; max-width: 680px; background: var(--surface);
+      border-radius: 20px; box-shadow: var(--shadow-pop);
+      display: flex; flex-direction: column;
+      max-height: min(92dvh, 840px); overflow: hidden;
+      animation: ask-rise 0.18s ease;
+    }
+    @media (min-width: 600px) { .books-overlay { align-items: center; padding: 16px; } }
+    .books-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+    .maker-intro { margin: 0 0 14px; color: var(--text-muted); font-size: .86rem; line-height: 1.45; }
+    .maker-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .maker-option { border: 1.5px solid var(--border); background: var(--surface); color: var(--text); border-radius: 16px; padding: 18px; text-align: left; cursor: pointer; font-family: inherit; min-height: 142px; }
+    .maker-option:hover { border-color: var(--primary); background: var(--primary-soft); }
+    .maker-option:active { transform: scale(.985); }
+    .maker-option-icon { display: block; font-size: 1.65rem; margin-bottom: 16px; }
+    .maker-option b { display: block; font-size: 1rem; margin-bottom: 5px; }
+    .maker-option small { display: block; color: var(--text-muted); font-size: .78rem; line-height: 1.4; }
+    .maker-kicker { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); margin: 2px 0 7px; }
+    .maker-upload { width: 100%; border: 1.5px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer; margin-bottom: 14px; }
+    .maker-book-list { display: flex; flex-direction: column; gap: 10px; }
+    .maker-book { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 14px; padding: 12px; text-align: left; cursor: pointer; font-family: inherit; }
+    .maker-book:hover { border-color: var(--primary); }
+    .maker-book-icon { width: 42px; height: 48px; border-radius: 8px 11px 11px 8px; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+    .maker-book-copy { flex: 1; min-width: 0; }
+    .maker-book-copy b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .maker-book-copy small { color: var(--text-muted); font-size: .74rem; }
+    .maker-book-arrow { color: var(--text-muted); font-size: 1.2rem; }
+    .maker-source-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+    .maker-source-head > div { flex: 1; min-width: 0; }
+    .maker-source-head h3 { font-size: 1rem; margin: 0 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .maker-source-head p { font-size: .75rem; color: var(--text-muted); margin: 0; }
+    .maker-field { display: block; margin-bottom: 14px; }
+    .maker-field > span { display: block; font-size: .76rem; font-weight: 700; margin-bottom: 6px; }
+    .maker-select, .maker-textarea, .maker-guidance { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text); font: inherit; }
+    .maker-select { padding: 10px 11px; }
+    .maker-range { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .maker-page { min-width: 0; }
+    .maker-page span { display: block; color: var(--text-muted); font-size: .68rem; margin-bottom: 4px; }
+    .maker-page input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); padding: 9px; font: inherit; }
+    .maker-range-dash { color: var(--text-muted); padding-top: 19px; }
+    .maker-textarea { min-height: 230px; resize: vertical; padding: 11px; font: .78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .maker-guidance { min-height: 82px; resize: vertical; padding: 11px; font-size: .86rem; line-height: 1.4; }
+    .maker-help { color: var(--text-muted); font-size: .7rem; line-height: 1.4; margin-top: 5px; display: flex; justify-content: space-between; gap: 8px; }
+    .maker-count.over { color: var(--danger); font-weight: 700; }
+    .maker-actions { position: sticky; bottom: -16px; margin: 18px -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 9px; }
+    .maker-actions .cta-btn { flex: 1; margin: 0; }
+    .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
+    .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
+    .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
+    .bk-title-row { display: flex; align-items: center; gap: 8px; }
+    .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bk-meta { font-size: 0.74rem; color: var(--text-muted); margin: 2px 0 6px; }
+    .bk-note { font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 0; }
+    .ch-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .ch-title { flex: 1 1 150px; min-width: 0; font-size: 0.84rem; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+    .ch-pg { width: 50px; font-size: 0.84rem; padding: 5px 3px; border: 1px solid var(--border); border-radius: 8px; text-align: center; background: var(--surface); color: var(--text); }
+    .ch-dash { color: var(--text-muted); font-size: 0.8rem; }
+    .ch-btn { border: 1px solid var(--border); background: var(--surface-alt); border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer; color: var(--text); white-space: nowrap; }
+    .ch-btn:disabled { opacity: 0.55; cursor: default; }
+    .ch-btn.gen { background: var(--primary-soft); color: var(--primary); border-color: transparent; font-weight: 700; }
+    .ch-queued { font-size: 0.72rem; font-weight: 700; color: var(--good-strong); background: var(--good-soft); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+    .ch-skip { font-size: 0.7rem; color: var(--text-muted); }
+    .bk-preview { font-size: 0.72rem; white-space: pre-wrap; background: var(--surface-alt); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; margin: 6px 0; width: 100%; }
+    .bk-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    @media (max-width: 520px) {
+      .maker-options { grid-template-columns: 1fr; }
+      .maker-option { min-height: 108px; padding: 15px; }
+      .maker-option-icon { margin-bottom: 10px; }
+      .maker-textarea { min-height: 190px; }
+      .books-sheet { border-radius: 18px 18px 10px 10px; }
+    }
+
     /* ── Daily-goal XP ring (course header) ── */
     .daily-ring { display: inline-flex; align-items: center; gap: 8px; }
     .daily-ring .dr-ringwrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
@@ -805,6 +885,18 @@
         <button style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="closeVocabReview()">×</button>
       </div>
       <div class="vocab-body" id="vocab-body"></div>
+    </div>
+  </div>
+
+  <!-- Add lesson: AI or an approved textbook source -->
+  <div class="books-overlay" id="books-overlay" onclick="if(event.target===this)closeBooks()">
+    <div class="books-sheet">
+      <div class="vocab-head">
+        <button id="books-back" style="display:none;background:none;border:none;font-size:1.25rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="lessonMakerBack()" aria-label="Back">←</button>
+        <div class="vocab-head-title" id="books-title">Add a lesson</div>
+        <button style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="closeBooks()">×</button>
+      </div>
+      <div class="books-body" id="books-body"></div>
     </div>
   </div>
 
@@ -1429,46 +1521,397 @@
     }
   }
 
-  // ── Textbook import (PDF → queued lessons) ──────────────────────────────────
+  // ── Add lesson: choose AI or approve a textbook source ─────────────────────
 
-  let _importingBook = false;
-  let _bookMsg = '';          // rendered under the CTA until the next import
+  const TEXTBOOK_SOURCE_CHAR_LIMIT = 24000;
+  const TEXTBOOK_SOURCE_PAGE_LIMIT = 20;
+  let _books = [];
+  let _booksCourseId = null;
+  let _bookBusy = false;
+  let _bookMsg = '';
+  let _makerStep = 'choose';
+  let _sourceBookId = null;
+  let _sourceSection = 'custom';
+  let _sourceStart = 1;
+  let _sourceEnd = 1;
+  let _sourceText = '';
+  let _sourceGuidance = '';
+  let _sourceLoading = false;
+  let _sourceError = '';
+  let _sourceTimer = null;
+  let _sourceRequest = 0;
 
-  function importTextbook(courseId) {
-    if (_importingBook || _generating) return;
+  function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
+
+  function openLessonMaker(courseId) {
+    _booksCourseId = courseId;
+    _makerStep = 'choose';
+    _sourceError = '';
+    document.getElementById('books-overlay').classList.add('open');
+    renderLessonMaker();
+  }
+
+  // Kept as a small compatibility alias for old inline links / cached HTML.
+  function openBooks(courseId) {
+    openLessonMaker(courseId);
+    chooseLessonSource('textbook');
+  }
+
+  function closeBooks() {
+    if (_sourceTimer) clearTimeout(_sourceTimer);
+    document.getElementById('books-overlay').classList.remove('open');
+  }
+
+  function lessonMakerBack() {
+    if (_bookBusy) return;
+    if (_makerStep === 'manage') _makerStep = 'source';
+    else if (_makerStep === 'source') _makerStep = 'books';
+    else _makerStep = 'choose';
+    _sourceError = '';
+    renderLessonMaker();
+  }
+
+  function chooseLessonSource(kind) {
+    if (kind === 'ai') {
+      closeBooks();
+      generateNextLesson(_booksCourseId, 1);
+      return;
+    }
+    _makerStep = 'books';
+    document.getElementById('books-body').innerHTML =
+      '<div class="vocab-empty"><span class="spinner"></span> Loading textbooks…</div>';
+    loadBooks();
+  }
+
+  async function loadBooks(render = true) {
+    try {
+      const r = await fetch(`/api/courses/${_booksCourseId}/textbooks`);
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.detail || 'Failed to load textbooks');
+      _books = body.textbooks || [];
+      if (_sourceBookId && !_sourceBook()) _sourceBookId = null;
+    } catch (e) {
+      _books = [];
+      _sourceError = e.message || 'Failed to load textbooks.';
+    }
+    if (render) renderLessonMaker();
+  }
+
+  function _makerHeader(title, back = true) {
+    document.getElementById('books-title').textContent = title;
+    document.getElementById('books-back').style.display = back ? '' : 'none';
+  }
+
+  function renderLessonMaker() {
+    const body = document.getElementById('books-body');
+    if (_makerStep === 'choose') {
+      _makerHeader('Add a lesson', false);
+      body.innerHTML = `<p class="maker-intro">Choose where this lesson should come from. You can let the course continue naturally or ground it in pages you approve from a textbook.</p>
+        <div class="maker-options">
+          <button class="maker-option" onclick="chooseLessonSource('ai')"${_generating ? ' disabled' : ''}>
+            <span class="maker-option-icon">✨</span><b>Continue my course</b>
+            <small>AI chooses the next topic from your progress, deck, and course focus.</small>
+          </button>
+          <button class="maker-option" onclick="chooseLessonSource('textbook')">
+            <span class="maker-option-icon">📕</span><b>From a textbook</b>
+            <small>Choose a book and approve the exact pages and extracted text first.</small>
+          </button>
+        </div>`;
+      return;
+    }
+    if (_makerStep === 'books') { renderBookPicker(body); return; }
+    if (_makerStep === 'manage') { renderSectionManager(body); return; }
+    renderSourceReview(body);
+  }
+
+  function renderBookPicker(body) {
+    _makerHeader('Choose a textbook');
+    let html = `<p class="maker-intro">Use a textbook you've already parsed, or upload another PDF. Uploaded books stay here for future lessons.</p>
+      <button class="maker-upload" onclick="uploadBook()"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Reading and finding sections…' : '＋ Upload another textbook PDF'}</button>`;
+    if (_sourceError) html += `<div class="maker-error">${esc(_sourceError)}</div>`;
+    if (!_books.length && !_bookBusy) html += '<div class="vocab-empty">No textbooks uploaded yet.</div>';
+    html += '<div class="maker-book-list">';
+    _books.forEach((b, bi) => {
+      html += `<button class="maker-book" onclick="selectBook(${b.id})">
+        <span class="maker-book-icon">📕</span>
+        <span class="maker-book-copy"><b>${esc(b.title)}</b><small>${b.num_pages} pages · ${(b.chapters || []).length} detected section${(b.chapters || []).length === 1 ? '' : 's'}</small></span>
+        <span class="maker-book-arrow">›</span>
+      </button>
+      <button class="maker-link" style="color:var(--text-muted);margin:-8px 8px 2px auto" onclick="deleteBook(${bi})">Remove ${esc(b.title)}</button>`;
+    });
+    body.innerHTML = html + '</div>';
+  }
+
+  function selectBook(bookId) {
+    const b = _books.find(x => x.id === bookId);
+    if (!b) return;
+    _sourceBookId = b.id;
+    _sourceGuidance = '';
+    _sourceError = '';
+    const first = (b.chapters || [])[0];
+    _sourceSection = first ? '0' : 'custom';
+    _sourceStart = first ? first.start : 1;
+    _sourceEnd = first ? first.end : Math.min(5, b.num_pages);
+    if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
+      _sourceEnd = _sourceStart + TEXTBOOK_SOURCE_PAGE_LIMIT - 1;
+      _sourceSection = 'custom';
+    }
+    _makerStep = 'source';
+    loadSourcePreview();
+  }
+
+  function renderSourceReview(body) {
+    const b = _sourceBook();
+    if (!b) { _makerStep = 'books'; renderBookPicker(body); return; }
+    _makerHeader('Review lesson source');
+    const sectionOptions = (b.chapters || []).map((ch, i) =>
+      `<option value="${i}"${_sourceSection === String(i) ? ' selected' : ''}>${esc(ch.title)} · pages ${ch.start}–${ch.end}</option>`).join('');
+    body.innerHTML = `<div class="maker-source-head">
+        <div><div class="maker-kicker">Textbook</div><h3>${esc(b.title)}</h3><p>${b.num_pages} PDF pages</p></div>
+        <button class="maker-link" onclick="_makerStep='books';renderLessonMaker()">Change</button>
+      </div>
+      <label class="maker-field"><span>Start from a detected section</span>
+        <select class="maker-select" onchange="selectBookSection(this.value)">
+          ${sectionOptions}<option value="custom"${_sourceSection === 'custom' ? ' selected' : ''}>Custom page range</option>
+        </select>
+      </label>
+      <div class="maker-range">
+        <label class="maker-page"><span>Start page</span><input id="source-start" type="number" min="1" max="${b.num_pages}" value="${_sourceStart}" onchange="sourceRangeChanged()"></label>
+        <span class="maker-range-dash">to</span>
+        <label class="maker-page"><span>End page</span><input id="source-end" type="number" min="1" max="${b.num_pages}" value="${_sourceEnd}" onchange="sourceRangeChanged()"></label>
+      </div>
+      <label class="maker-field"><span>Extracted text for this lesson</span>
+        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
+        <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
+      </label>
+      <label class="maker-field"><span>Guide the lesson <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
+        <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
+      </label>
+      <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into sections</button>
+      ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
+      <div class="maker-actions">
+        <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Creating lesson…' : 'Create lesson from these pages'}</button>
+      </div>`;
+    updateSourceCount();
+  }
+
+  function selectBookSection(value) {
+    const b = _sourceBook();
+    _sourceSection = value;
+    if (value !== 'custom' && b && b.chapters[Number(value)]) {
+      const ch = b.chapters[Number(value)];
+      _sourceStart = ch.start;
+      _sourceEnd = Math.min(ch.end, ch.start + TEXTBOOK_SOURCE_PAGE_LIMIT - 1);
+      if (_sourceEnd !== ch.end) {
+        _sourceSection = 'custom';
+        _sourceError = `“${ch.title}” is longer than ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. Start with the first ${TEXTBOOK_SOURCE_PAGE_LIMIT}, then make another lesson for the rest.`;
+      } else _sourceError = '';
+      loadSourcePreview();
+    }
+  }
+
+  function sourceRangeChanged() {
+    const b = _sourceBook();
+    if (!b) return;
+    _sourceStart = Math.max(1, Math.min(b.num_pages, parseInt(document.getElementById('source-start').value, 10) || 1));
+    _sourceEnd = Math.max(_sourceStart, Math.min(b.num_pages, parseInt(document.getElementById('source-end').value, 10) || _sourceStart));
+    _sourceSection = 'custom';
+    _sourceError = '';
+    if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
+      _sourceEnd = Math.min(b.num_pages, _sourceStart + TEXTBOOK_SOURCE_PAGE_LIMIT - 1);
+      _sourceError = `One lesson can use up to ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. The end page was adjusted.`;
+    }
+    if (_sourceTimer) clearTimeout(_sourceTimer);
+    renderLessonMaker();
+    _sourceTimer = setTimeout(loadSourcePreview, 300);
+  }
+
+  async function loadSourcePreview() {
+    const b = _sourceBook();
+    if (!b) return;
+    const requestId = ++_sourceRequest;
+    _sourceLoading = true;
+    renderLessonMaker();
+    try {
+      const r = await fetch(`/api/textbooks/${b.id}/pages?start=${_sourceStart}&end=${_sourceEnd}`);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Could not load these pages.');
+      if (requestId !== _sourceRequest) return;
+      _sourceStart = data.start;
+      _sourceEnd = data.end;
+      _sourceText = (data.pages || []).map(p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no extracted text on this page)'}`).join('\n\n');
+      _sourceError = _sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT
+        ? `This selection is ${_sourceText.length.toLocaleString()} characters. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} or choose fewer pages.` : '';
+    } catch (e) {
+      if (requestId !== _sourceRequest) return;
+      _sourceText = '';
+      _sourceError = e.message || 'Could not load these pages.';
+    } finally {
+      if (requestId === _sourceRequest) {
+        _sourceLoading = false;
+        renderLessonMaker();
+      }
+    }
+  }
+
+  function updateSourceCount() {
+    const count = document.getElementById('source-count');
+    if (!count) return;
+    const n = (_sourceText || '').length;
+    count.textContent = `${n.toLocaleString()} / ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()}`;
+    count.classList.toggle('over', n > TEXTBOOK_SOURCE_CHAR_LIMIT);
+  }
+
+  async function createTextbookLesson() {
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading) return;
+    const textEl = document.getElementById('source-text');
+    if (textEl) _sourceText = textEl.value;
+    if (!_sourceText.trim()) { _sourceError = 'There is no source text to create a lesson from.'; renderLessonMaker(); return; }
+    if (_sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT) { _sourceError = `Trim the source below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} characters.`; renderLessonMaker(); return; }
+    const ch = _sourceSection !== 'custom' ? (b.chapters || [])[Number(_sourceSection)] : null;
+    _bookBusy = true;
+    _generating = true;
+    _genCount = 1;
+    _sourceError = '';
+    renderLessonMaker();
+    if (currentCourse) renderCourse(currentCourse);
+    try {
+      const res = await fetch(`/api/textbooks/${b.id}/lesson`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: _sourceStart, end: _sourceEnd,
+          source_text: _sourceText, guidance: _sourceGuidance,
+          section_title: ch ? ch.title : `Pages ${_sourceStart}–${_sourceEnd}` }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not create the lesson.');
+      _bookMsg = `Created “${data.title || ch?.title || 'textbook lesson'}” from ${b.title}, pages ${_sourceStart}–${_sourceEnd}.`;
+      closeBooks();
+      const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+      if (course) { currentCourse = course; renderCourse(course); show('course'); }
+    } catch (e) {
+      _sourceError = e.message || 'Could not create the lesson.';
+    } finally {
+      _bookBusy = false;
+      _generating = false;
+      if (document.getElementById('books-overlay').classList.contains('open')) renderLessonMaker();
+      if (currentCourse) renderCourse(currentCourse);
+    }
+  }
+
+  function openSectionManager() {
+    _makerStep = 'manage';
+    _sourceError = '';
+    renderLessonMaker();
+  }
+
+  function renderSectionManager(body) {
+    const b = _sourceBook();
+    if (!b) { _makerStep = 'books'; renderBookPicker(body); return; }
+    _makerHeader('Edit detected sections');
+    const bi = _books.indexOf(b);
+    body.innerHTML = `<p class="maker-intro">These are reusable presets for choosing lesson pages. Rename, split, merge, or re-range them to match the real structure of <b>${esc(b.title)}</b>.</p>
+      <div class="bk-card">${(b.chapters || []).map((ch, ci) => _sectionRow(bi, ci, ch)).join('') || '<div class="vocab-empty">No sections yet.</div>'}
+        <div class="bk-actions"><button class="ch-btn" onclick="addChapter(${bi})">＋ Add section</button></div>
+      </div>
+      ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
+      <div class="maker-actions"><button class="course-regen" onclick="_makerStep='source';renderLessonMaker()">Cancel</button>
+        <button class="cta-btn" onclick="saveChapters(${bi})"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Saving…' : 'Save sections'}</button></div>`;
+  }
+
+  function _sectionRow(bi, ci, ch) {
+    return `<div class="ch-row">
+      <input class="ch-title" value="${esc(ch.title)}" onchange="chEdit(${bi},${ci},'title',this.value)" aria-label="Section title">
+      <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.start}" onchange="chEdit(${bi},${ci},'start',this.value)" aria-label="Start page">
+      <span class="ch-dash">–</span>
+      <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.end}" onchange="chEdit(${bi},${ci},'end',this.value)" aria-label="End page">
+      <button class="ch-btn" onclick="removeChapter(${bi},${ci})" title="Remove section">✕</button>
+      ${ch.skip_hint ? '<span class="ch-skip">Suggested skip</span>' : ''}
+    </div>`;
+  }
+
+  function chEdit(bi, ci, field, value) {
+    const ch = _books[bi].chapters[ci];
+    if (field === 'title') ch.title = value;
+    else ch[field] = Math.max(1, Math.min(_books[bi].num_pages, parseInt(value, 10) || 1));
+    ch._dirty = true;
+    renderLessonMaker();
+  }
+
+  function addChapter(bi) {
+    const b = _books[bi];
+    const last = b.chapters[b.chapters.length - 1];
+    const start = last ? Math.min(last.end + 1, b.num_pages) : 1;
+    b.chapters.push({ title: 'New section', start, end: Math.min(start + 4, b.num_pages), skip_hint: false, status: '', queued: 0, _dirty: true });
+    renderLessonMaker();
+  }
+
+  function removeChapter(bi, ci) {
+    _books[bi].chapters.splice(ci, 1);
+    _books[bi].chapters.forEach(c => { c._dirty = true; });
+    renderLessonMaker();
+  }
+
+  async function saveChapters(bi) {
+    const b = _books[bi];
+    _bookBusy = true;
+    renderLessonMaker();
+    try {
+      const res = await fetch(`/api/textbooks/${b.id}/chapters`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapters: b.chapters.map(({ _dirty, queued, ...c }) => c) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not save sections.');
+      b.chapters = (data.chapters || []).map(c => ({ ...c, queued: 0 }));
+      const selected = b.chapters.findIndex(ch => ch.start === _sourceStart && ch.end === _sourceEnd);
+      _sourceSection = selected >= 0 ? String(selected) : 'custom';
+      _makerStep = 'source';
+    } catch (e) {
+      _sourceError = e.message || 'Could not save sections.';
+    } finally {
+      _bookBusy = false;
+      renderLessonMaker();
+    }
+  }
+
+  function uploadBook() {
+    if (_bookBusy) return;
     const inp = document.createElement('input');
-    inp.type = 'file';
-    inp.accept = 'application/pdf,.pdf';
+    inp.type = 'file'; inp.accept = 'application/pdf,.pdf';
     inp.onchange = async () => {
       const f = inp.files && inp.files[0];
       if (!f) return;
-      _importingBook = true;
-      _bookMsg = '';
-      if (currentCourse) renderCourse(currentCourse);
+      _bookBusy = true; _sourceError = '';
+      renderLessonMaker();
       try {
-        const fd = new FormData();
-        fd.append('file', f);
-        const res = await fetch(`/api/courses/${courseId}/textbook`, { method: 'POST', body: fd });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body.detail || 'Import failed — please try again.');
-        const nu = (body.units || []).length;
-        _bookMsg = `📕 Queued ${body.queued} lesson${body.queued === 1 ? '' : 's'} in ${nu} unit${nu === 1 ? '' : 's'} from “${esc(body.title)}”. Tap “+ Add lesson” to build them.`;
-        const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
-        if (course) currentCourse = course;
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch(`/api/courses/${_booksCourseId}/textbooks`, { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Upload failed.');
+        await loadBooks(false);
+        _bookBusy = false;
+        selectBook(data.id);
       } catch (e) {
-        _bookMsg = `⚠️ ${esc(e.message || 'Import failed — please try again.')}`;
-      } finally {
-        _importingBook = false;
-        if (currentCourse) renderCourse(currentCourse);
+        _sourceError = e.message || 'Upload failed.';
+        _bookBusy = false;
+        renderLessonMaker();
       }
     };
     inp.click();
   }
 
+  async function deleteBook(bi) {
+    const b = _books[bi];
+    if (!confirm(`Remove “${b.title}”? Lessons already created from it are kept.`)) return;
+    await fetch(`/api/textbooks/${b.id}`, { method: 'DELETE' }).catch(() => {});
+    await loadBooks();
+  }
+
   async function clearTextbookQueue(courseId) {
-    if (!confirm('Drop the remaining queued textbook lessons? Lessons already built are kept.')) return;
+    if (!confirm('Drop the remaining lessons from the old textbook queue? Lessons already built are kept.')) return;
     await fetch(`/api/courses/${courseId}/textbook`, { method: 'DELETE' }).catch(() => {});
-    _bookMsg = '';
     const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
     if (course) { currentCourse = course; renderCourse(course); }
   }
@@ -1750,22 +2193,17 @@
       genArea.innerHTML = '';
     }
 
-    // CTA: "+ Add lesson" (auto-buffer handles routine generation) + textbook
-    // import. When textbook lessons are queued, "+ Add lesson" authors the next
-    // queued one, so a small note explains what the queue is.
+    // One entry point for lesson creation. The sheet then offers the adaptive
+    // AI path or an explicitly reviewed textbook source.
     const cta = document.getElementById('course-cta');
     const nQueued = course.queued_lessons || 0;
     cta.innerHTML = `<div style="text-align:center;padding:16px 0 4px">
       <button class="course-regen"${_generating ? ' disabled' : ''}
-        onclick="generateNextLesson(${course.id},1)">+ Add lesson</button>
-      <button class="course-regen"${(_generating || _importingBook) ? ' disabled' : ''} style="margin-left:6px"
-        onclick="importTextbook(${course.id})"
-        title="Upload a textbook or grammar-book PDF and turn its chapters into interactive lessons">${
-          _importingBook ? '<span class="spinner"></span> Reading your book…' : '📕 From textbook'}</button>
-      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${_bookMsg}</div>` : ''}
-      ${nQueued ? `<div class="learn-note" style="margin-top:8px">📕 ${nQueued} textbook lesson${nQueued === 1 ? '' : 's'} queued — “+ Add lesson” builds the next one.
+        onclick="openLessonMaker(${course.id})">＋ Add lesson</button>
+      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
+      ${nQueued ? `<div class="learn-note" style="margin-top:8px">📕 ${nQueued} lesson${nQueued === 1 ? '' : 's'} remain in an earlier textbook batch. Continuing the course will build the next one.
         <button class="course-regen" style="margin-left:6px;font-size:.72rem;padding:3px 8px"
-          onclick="clearTextbookQueue(${course.id})">✕ Clear queue</button></div>` : ''}
+          onclick="clearTextbookQueue(${course.id})">Clear old batch</button></div>` : ''}
     </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
 
