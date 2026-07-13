@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
+from PIL import Image
+import io
 
 import auth
 import db
@@ -238,6 +240,28 @@ async def test_plan_source_lesson_rejects_empty_model_result(monkeypatch):
             api_key="x", model="m")
 
 
+@pytest.mark.asyncio
+async def test_plan_source_lesson_sends_selected_visuals(monkeypatch):
+    seen = {}
+
+    async def fake_call_with_image(prompt, image_bytes, **kw):
+        seen["prompt"] = prompt
+        seen["image"] = image_bytes
+        return json.dumps({"lesson": _lesson(8)})
+
+    monkeypatch.setattr(textbook.llm, "call_with_image", fake_call_with_image)
+    buf = io.BytesIO()
+    Image.new("RGB", (500, 300), "green").save(buf, format="JPEG")
+    lesson = await textbook.plan_source_lesson(
+        "diagram explanation", "yue", "Visual Book", 4, 4,
+        visuals=[{"pages": [4], "data": buf.getvalue()}],
+        api_key="x", model="m")
+
+    assert lesson["title"] == "L8"
+    assert "contact sheet" in seen["prompt"]
+    assert seen["image"].startswith(b"\xff\xd8")
+
+
 # ── textbooks table round-trip ────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
@@ -251,8 +275,9 @@ async def fresh_db(tmp_path):
 async def test_textbook_crud_roundtrip(fresh_db):
     uid = fresh_db
     cid = await db.create_course(uid, "yue", "A1")
+    visuals = [{"id": "a" * 32, "pages": [2], "width": 640, "height": 420}]
     tb_id = await db.create_textbook(uid, cid, "Basic Cantonese", "bc.pdf",
-                                     ["p1 text", "p2 text", "p3 text"])
+                                     ["p1 text", "p2 text", "p3 text"], visuals)
     chapters = [{"title": "Ch 1", "start": 1, "end": 2, "skip_hint": False, "status": ""}]
     await db.update_textbook_chapters(tb_id, chapters)
 
@@ -262,10 +287,16 @@ async def test_textbook_crud_roundtrip(fresh_db):
     assert books[0]["num_pages"] == 3
     assert books[0]["chapters"][0]["title"] == "Ch 1"
     assert books[0]["chapters"][0]["queued"] == 0
+    assert books[0]["visual_count"] == 1
     assert "pages" not in books[0]          # the list stays light
 
     book = await db.get_textbook(uid, tb_id)
     assert book["pages"] == ["p1 text", "p2 text", "p3 text"]
+    assert book["visuals"] == visuals
+    assert await db.rename_textbook(uid + 1, tb_id, "Nope") is False
+    assert await db.rename_textbook(uid, tb_id, "Renamed Cantonese") is True
+    assert (await db.get_textbook(uid, tb_id))["title"] == "Renamed Cantonese"
+    assert await db.list_textbook_visual_ids(uid, cid) == ["a" * 32]
 
     # Queue two lessons tagged with the book's chapter 0.
     items = [{"unit_title": "📕 Ch 1", "unit_size": 2,
@@ -304,12 +335,18 @@ async def test_one_off_textbook_lesson_goes_ahead_of_legacy_queue(fresh_db):
 
 @pytest.mark.asyncio
 async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
-        fresh_db, monkeypatch):
+        fresh_db, monkeypatch, tmp_path):
     uid = fresh_db
     user = await db.get_user(uid)
     cid = await db.create_course(uid, "yue", "A1")
+    visual_id = "b" * 32
+    visual_buf = io.BytesIO()
+    Image.new("RGB", (500, 300), "blue").save(visual_buf, format="JPEG")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / f"{visual_id}.jpg").write_bytes(visual_buf.getvalue())
     tb_id = await db.create_textbook(
-        uid, cid, "My Book", "book.pdf", ["raw page one", "raw page two"])
+        uid, cid, "My Book", "book.pdf", ["raw page one", "raw page two"],
+        [{"id": visual_id, "pages": [2], "width": 500, "height": 300}])
     await db.update_textbook_chapters(tb_id, [{
         "title": "Greetings", "start": 1, "end": 2,
         "skip_hint": False, "status": "",
@@ -332,6 +369,8 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
         assert guidance == "Focus on polite greetings"
         assert (target_lang, book_title, start, end) == (
             "yue", "My Book", 1, 2)
+        assert len(kwargs["visuals"]) == 1
+        assert kwargs["visuals"][0]["data"].startswith(b"\xff\xd8")
         return _lesson(9)
 
     async def fake_author(course, resolved_access, model, user_id):
@@ -355,11 +394,13 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
         None, tb_id, {
             "start": 1, "end": 2, "source_text": "edited approved text",
             "guidance": "Focus on polite greetings",
+            "visual_ids": [visual_id],
             "section_title": "Greetings",
         }, user)
 
     assert response["title"] == "Polite greetings"
     assert response["source"]["start"] == 1
+    assert response["source"]["visual_count"] == 1
     assert await db.count_lesson_queue(cid) == 0
 
     async def failed_author(*args, **kwargs):
@@ -372,6 +413,7 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
             None, tb_id, {
                 "start": 1, "end": 2, "source_text": "edited approved text",
                 "guidance": "Focus on polite greetings",
+                "visual_ids": [visual_id],
                 "section_title": "Greetings",
             }, user)
     assert await db.count_lesson_queue(cid) == 0

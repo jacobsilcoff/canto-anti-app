@@ -186,15 +186,76 @@ def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
 
 
 MAX_PDF_PAGES = 600
+MAX_PDF_VISUALS = 80
+MAX_VISUALS_PER_PAGE = 4
+MIN_VISUAL_WIDTH = 180
+MIN_VISUAL_HEIGHT = 120
+MIN_VISUAL_AREA = 40_000
+MAX_VISUAL_EDGE = 1400
 
 
-def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES) -> dict:
+def _extract_page_visuals(page, page_num: int) -> list[dict]:
+    """Extract useful embedded raster images from one PDF page.
+
+    Tiny icons, tracking pixels, decorative rules, and extreme-aspect assets are
+    ignored. Images are normalized to bounded JPEGs so textbook storage and the
+    source-review UI remain predictable. Vector-only diagrams are not exposed by
+    pypdf's image API and therefore are not captured here.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return []
+
+    import io
+    out: list[dict] = []
+    try:
+        image_files = page.images
+    except Exception:
+        return out
+    for image_file in image_files[:12]:
+        try:
+            im = image_file.image
+            if im is None:
+                im = Image.open(io.BytesIO(image_file.data))
+            im.load()
+            width, height = im.size
+            if (width < MIN_VISUAL_WIDTH or height < MIN_VISUAL_HEIGHT or
+                    width * height < MIN_VISUAL_AREA):
+                continue
+            ratio = max(width / max(1, height), height / max(1, width))
+            if ratio > 8:
+                continue
+            if im.mode in ("RGBA", "LA") or "transparency" in im.info:
+                rgba = im.convert("RGBA")
+                bg = Image.new("RGB", rgba.size, "white")
+                bg.paste(rgba, mask=rgba.getchannel("A"))
+                im = bg
+            else:
+                im = im.convert("RGB")
+            im.thumbnail((MAX_VISUAL_EDGE, MAX_VISUAL_EDGE), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            im.save(buf, format="JPEG", quality=84, optimize=True)
+            data = buf.getvalue()
+            out.append({
+                "page": page_num, "width": im.width, "height": im.height,
+                "data": data,
+            })
+            if len(out) >= MAX_VISUALS_PER_PAGE:
+                break
+        except Exception:
+            continue
+    return out
+
+
+def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
+                      include_images: bool = False) -> dict:
     """Pull selectable text out of a PDF, KEEPING page boundaries.
 
     Returns {"title", "pages": [str, ...]} — one entry per page (empty pages
-    stay as "" so page numbers line up with the source PDF). The textbook
-    import needs pages: chapter structure is expressed as page ranges the user
-    can review/correct, and lessons link back to their source pages.
+    stay as "" so page numbers line up with the source PDF). With
+    ``include_images=True``, also returns deduplicated, page-linked ``visuals``
+    as bounded JPEG bytes. The textbook import uses both in its source review.
     """
     try:
         from pypdf import PdfReader
@@ -211,11 +272,28 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES) -> dict:
         raise ExtractError(f"That PDF has too many pages (max {max_pages}).")
 
     pages: list[str] = []
-    for page in reader.pages:
+    visuals: list[dict] = []
+    visual_by_hash: dict[str, dict] = {}
+    for page_num, page in enumerate(reader.pages, 1):
         try:
             pages.append(clean_text(page.extract_text() or ""))
         except Exception:
             pages.append("")
+        if include_images and len(visuals) < MAX_PDF_VISUALS:
+            import hashlib
+            for visual in _extract_page_visuals(page, page_num):
+                digest = hashlib.sha256(visual["data"]).hexdigest()
+                existing = visual_by_hash.get(digest)
+                if existing:
+                    if page_num not in existing["pages"]:
+                        existing["pages"].append(page_num)
+                    continue
+                visual["pages"] = [visual.pop("page")]
+                visual["sha256"] = digest
+                visuals.append(visual)
+                visual_by_hash[digest] = visual
+                if len(visuals) >= MAX_PDF_VISUALS:
+                    break
     if sum(len(p) for p in pages) < 80:
         raise ExtractError(
             "No selectable text found in that PDF "
@@ -227,7 +305,10 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES) -> dict:
             title = str(reader.metadata.title).strip()
     except Exception:
         pass
-    return {"title": title, "pages": pages}
+    result = {"title": title, "pages": pages}
+    if include_images:
+        result["visuals"] = visuals
+    return result
 
 
 # ── Shared cleanup ─────────────────────────────────────────────────────────────

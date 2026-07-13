@@ -20,7 +20,7 @@ try:
     _PIL_OK = True
 except ImportError:
     _PIL_OK = False
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -3243,7 +3243,11 @@ async def get_course_vocab(course_id: int, user: dict = Depends(current_user)):
 
 @app.delete("/api/courses/{course_id}")
 async def delete_course(course_id: int, user: dict = Depends(current_user)):
+    visual_ids = await db.list_textbook_visual_ids(user["id"], course_id)
     await db.delete_course(user["id"], course_id)
+    await db.delete_media_records(visual_ids)
+    for media_id in visual_ids:
+        (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
     return {"success": True}
 
 
@@ -3818,6 +3822,7 @@ async def _textbook_metering(user: dict, n_calls: int, what: str):
 @limiter.limit("6/hour;20/day")
 async def upload_textbook(request: Request, course_id: int,
                           file: UploadFile = File(...),
+                          title: str = Form(""),
                           user: dict = Depends(current_user)):
     """Stage 1 of the textbook import: store the book + propose its chapters.
 
@@ -3833,7 +3838,8 @@ async def upload_textbook(request: Request, course_id: int,
     if len(data) > _TEXTBOOK_MAX_PDF:
         raise HTTPException(413, "PDF too large (max 25 MB).")
     try:
-        extracted = await asyncio.to_thread(extract.extract_pdf_pages, data)
+        extracted = await asyncio.to_thread(
+            extract.extract_pdf_pages, data, extract.MAX_PDF_PAGES, True)
         pages = await asyncio.to_thread(textbook.clean_pages, extracted["pages"])
     except extract.ExtractError as e:
         raise HTTPException(400, str(e))
@@ -3855,13 +3861,35 @@ async def upload_textbook(request: Request, course_id: int,
     if metered:
         await db.increment_usage(user["id"])
 
-    title = (extracted.get("title") or "").strip() or \
+    book_title = title.strip()[:200] or (extracted.get("title") or "").strip() or \
         re.sub(r"\.pdf$", "", file.filename or "textbook", flags=re.I)
-    tb_id = await db.create_textbook(user["id"], course_id, title,
-                                     file.filename or "", pages)
+    visual_meta = []
+    stored_visual_ids = []
+    try:
+        for visual in extracted.get("visuals") or []:
+            media_id = _uuid.uuid4().hex
+            image_bytes = visual.get("data") or b""
+            if not image_bytes:
+                continue
+            (MEDIA_DIR / f"{media_id}.jpg").write_bytes(image_bytes)
+            await db.add_media_record(media_id, user["id"], None, len(image_bytes))
+            stored_visual_ids.append(media_id)
+            visual_meta.append({
+                "id": media_id, "pages": visual.get("pages") or [],
+                "width": int(visual.get("width") or 0),
+                "height": int(visual.get("height") or 0),
+            })
+        tb_id = await db.create_textbook(
+            user["id"], course_id, book_title, file.filename or "", pages,
+            visual_meta)
+    except Exception:
+        await db.delete_media_records(stored_visual_ids)
+        for media_id in stored_visual_ids:
+            (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+        raise
     await db.update_textbook_chapters(tb_id, chapters)
-    return {"id": tb_id, "title": title, "num_pages": len(pages),
-            "chapters": chapters}
+    return {"id": tb_id, "title": book_title, "num_pages": len(pages),
+            "chapters": chapters, "visual_count": len(visual_meta)}
 
 
 @app.get("/api/courses/{course_id}/textbooks")
@@ -3870,6 +3898,17 @@ async def list_course_textbooks(course_id: int, user: dict = Depends(current_use
     if not course:
         raise HTTPException(404, "Course not found")
     return {"textbooks": await db.list_textbooks(user["id"], course_id)}
+
+
+@app.patch("/api/textbooks/{textbook_id}")
+async def rename_textbook(textbook_id: int, payload: dict,
+                          user: dict = Depends(current_user)):
+    title = str(payload.get("title") or "").strip()[:200]
+    if not title:
+        raise HTTPException(400, "Textbook name cannot be empty.")
+    if not await db.rename_textbook(user["id"], textbook_id, title):
+        raise HTTPException(404, "Book not found")
+    return {"id": textbook_id, "title": title}
 
 
 _TEXTBOOK_PREVIEW_PAGES = textbook.MAX_LESSON_SOURCE_PAGES
@@ -3885,9 +3924,15 @@ async def textbook_pages(textbook_id: int, start: int = 1, end: int = 1,
         raise HTTPException(404, "Book not found")
     start = max(1, min(start, book["num_pages"]))
     end = max(start, min(end, book["num_pages"], start + _TEXTBOOK_PREVIEW_PAGES - 1))
+    visuals = [
+        {**v, "url": f"/api/media/{v['id']}.jpg"}
+        for v in book.get("visuals") or []
+        if v.get("id") and any(start <= int(p) <= end for p in (v.get("pages") or []))
+    ]
     return {"start": start, "end": end, "num_pages": book["num_pages"],
             "max_lesson_pages": textbook.MAX_LESSON_SOURCE_PAGES,
             "max_lesson_chars": textbook.MAX_LESSON_SOURCE_CHARS,
+            "visuals": visuals,
             "pages": [{"page": i + 1, "text": book["pages"][i]}
                       for i in range(start - 1, end)]}
 
@@ -3965,10 +4010,24 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
     # One fast planning call + one quality-critical author call.
     metered = await _textbook_metering(user, 2, "Creating this textbook lesson")
     lesson_model = await _resolve_lesson_model(user, access)
+    requested_visual_ids = {
+        str(v) for v in (payload.get("visual_ids") or [])[:6]
+        if re.fullmatch(r"[0-9a-f]{32}", str(v))
+    }
+    selected_visuals = []
+    for visual in book.get("visuals") or []:
+        visual_id = str(visual.get("id") or "")
+        pages_for_visual = [int(p) for p in (visual.get("pages") or [])]
+        if (visual_id not in requested_visual_ids or
+                not any(start <= p <= end for p in pages_for_visual)):
+            continue
+        path = MEDIA_DIR / f"{visual_id}.jpg"
+        if path.exists():
+            selected_visuals.append({**visual, "data": path.read_bytes()})
     try:
         spec = await textbook.plan_source_lesson(
             source_text, course["target_lang"], book["title"], start, end,
-            guidance, api_key=access.api_key,
+            guidance, visuals=selected_visuals, api_key=access.api_key,
             anthropic_key=access.anthropic_key, model=access.model_reader)
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -3984,6 +4043,8 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
         f"Textbook: {book['title']}\nApproved PDF pages: {start}–{end}\n"
         + (f"Learner direction: {guidance}\n" if guidance else "")
         + "\n" + source_text
+        + (f"\n\nPlanner digest of relevant text/visuals:\n{spec['source']}"
+           if selected_visuals and spec.get("source") else "")
     )
     item = {
         "unit_title": f"📕 {section_title}",
@@ -4017,6 +4078,7 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
     response["source"] = {
         "textbook_id": textbook_id, "book": book["title"],
         "start": start, "end": end, "section": section_title,
+        "visual_count": len(selected_visuals),
     }
     return response
 
@@ -4073,8 +4135,15 @@ async def generate_chapter_lessons(request: Request, textbook_id: int,
 @app.delete("/api/textbooks/{textbook_id}")
 async def delete_textbook(textbook_id: int, user: dict = Depends(current_user)):
     """Remove a book + its still-queued lessons (authored lessons are kept)."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    visual_ids = [str(v.get("id")) for v in book.get("visuals") or [] if v.get("id")]
     if not await db.delete_textbook(user["id"], textbook_id):
         raise HTTPException(404, "Book not found")
+    await db.delete_media_records(visual_ids)
+    for media_id in visual_ids:
+        (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
     return {"success": True}
 
 

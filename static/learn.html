@@ -620,6 +620,10 @@
     .maker-option small { display: block; color: var(--text-muted); font-size: .78rem; line-height: 1.4; }
     .maker-kicker { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); margin: 2px 0 7px; }
     .maker-upload { width: 100%; border: 1.5px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer; margin-bottom: 14px; }
+    .maker-upload-card { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 14px; background: var(--surface-alt); }
+    .maker-upload-file { font-size: .75rem; color: var(--text-muted); margin-bottom: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .maker-upload-row { display: flex; gap: 8px; align-items: stretch; }
+    .maker-upload-row input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); padding: 9px 10px; font: inherit; }
     .maker-book-list { display: flex; flex-direction: column; gap: 10px; }
     .maker-book { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 14px; padding: 12px; text-align: left; cursor: pointer; font-family: inherit; }
     .maker-book:hover { border-color: var(--primary); }
@@ -645,6 +649,12 @@
     .maker-guidance { min-height: 82px; resize: vertical; padding: 11px; font-size: .86rem; line-height: 1.4; }
     .maker-help { color: var(--text-muted); font-size: .7rem; line-height: 1.4; margin-top: 5px; display: flex; justify-content: space-between; gap: 8px; }
     .maker-count.over { color: var(--danger); font-weight: 700; }
+    .maker-visual-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 7px; }
+    .maker-visual { position: relative; display: block; border: 2px solid var(--border); border-radius: 11px; overflow: hidden; background: var(--surface-alt); cursor: pointer; aspect-ratio: 4 / 3; }
+    .maker-visual.selected { border-color: var(--primary); }
+    .maker-visual img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .maker-visual input { position: absolute; top: 6px; right: 6px; width: 19px; height: 19px; accent-color: var(--primary); }
+    .maker-visual-page { position: absolute; left: 5px; bottom: 5px; background: rgba(0,0,0,.7); color: #fff; border-radius: 5px; padding: 2px 5px; font-size: .62rem; }
     .maker-actions { position: sticky; bottom: -16px; margin: 18px -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 9px; }
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
@@ -670,6 +680,8 @@
       .maker-option { min-height: 108px; padding: 15px; }
       .maker-option-icon { margin-bottom: 10px; }
       .maker-textarea { min-height: 190px; }
+      .maker-visual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .maker-upload-row { flex-direction: column; }
       .books-sheet { border-radius: 18px 18px 10px 10px; }
     }
 
@@ -1535,11 +1547,15 @@
   let _sourceStart = 1;
   let _sourceEnd = 1;
   let _sourceText = '';
+  let _sourceVisuals = [];
+  let _selectedVisualIds = new Set();
   let _sourceGuidance = '';
   let _sourceLoading = false;
   let _sourceError = '';
   let _sourceTimer = null;
   let _sourceRequest = 0;
+  let _pendingBookFile = null;
+  let _pendingBookTitle = '';
 
   function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
 
@@ -1626,18 +1642,34 @@
 
   function renderBookPicker(body) {
     _makerHeader('Choose a textbook');
-    let html = `<p class="maker-intro">Use a textbook you've already parsed, or upload another PDF. Uploaded books stay here for future lessons.</p>
-      <button class="maker-upload" onclick="uploadBook()"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Reading and finding sections…' : '＋ Upload another textbook PDF'}</button>`;
+    let html = `<p class="maker-intro">Use a textbook you've already parsed, or upload another PDF. Uploaded books stay here for future lessons.</p>`;
+    if (_pendingBookFile) {
+      html += `<div class="maker-upload-card">
+        <div class="maker-upload-file">PDF: ${esc(_pendingBookFile.name)}</div>
+        <label class="maker-field" style="margin-bottom:9px"><span>Textbook name</span>
+          <input class="maker-select" maxlength="200" value="${esc(_pendingBookTitle)}" oninput="_pendingBookTitle=this.value" placeholder="Name this textbook">
+        </label>
+        <div class="maker-upload-row">
+          <button class="course-regen" onclick="cancelPendingBook()"${_bookBusy ? ' disabled' : ''}>Choose another</button>
+          <button class="cta-btn" style="margin:0" onclick="uploadBook()"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Extracting text and visuals…' : 'Upload and parse'}</button>
+        </div>
+      </div>`;
+    } else {
+      html += `<button class="maker-upload" onclick="chooseBookFile()"${_bookBusy ? ' disabled' : ''}>＋ Upload another textbook PDF</button>`;
+    }
     if (_sourceError) html += `<div class="maker-error">${esc(_sourceError)}</div>`;
     if (!_books.length && !_bookBusy) html += '<div class="vocab-empty">No textbooks uploaded yet.</div>';
     html += '<div class="maker-book-list">';
     _books.forEach((b, bi) => {
       html += `<button class="maker-book" onclick="selectBook(${b.id})">
         <span class="maker-book-icon">📕</span>
-        <span class="maker-book-copy"><b>${esc(b.title)}</b><small>${b.num_pages} pages · ${(b.chapters || []).length} detected section${(b.chapters || []).length === 1 ? '' : 's'}</small></span>
+        <span class="maker-book-copy"><b>${esc(b.title)}</b><small>${b.num_pages} pages · ${(b.chapters || []).length} section${(b.chapters || []).length === 1 ? '' : 's'}${b.visual_count ? ` · ${b.visual_count} visual${b.visual_count === 1 ? '' : 's'}` : ''}</small></span>
         <span class="maker-book-arrow">›</span>
       </button>
-      <button class="maker-link" style="color:var(--text-muted);margin:-8px 8px 2px auto" onclick="deleteBook(${bi})">Remove ${esc(b.title)}</button>`;
+      <div style="display:flex;justify-content:flex-end;gap:12px;margin:-8px 8px 2px">
+        <button class="maker-link" style="color:var(--text-muted)" onclick="renameBook(${bi})">Rename</button>
+        <button class="maker-link" style="color:var(--text-muted)" onclick="deleteBook(${bi})">Remove</button>
+      </div>`;
     });
     body.innerHTML = html + '</div>';
   }
@@ -1666,9 +1698,18 @@
     _makerHeader('Review lesson source');
     const sectionOptions = (b.chapters || []).map((ch, i) =>
       `<option value="${i}"${_sourceSection === String(i) ? ' selected' : ''}>${esc(ch.title)} · pages ${ch.start}–${ch.end}</option>`).join('');
+    const visuals = _sourceVisuals.length ? `<label class="maker-field"><span>Images and diagrams from these pages</span>
+        <div class="maker-help" style="margin-top:0"><span>Choose up to 6 relevant visuals for the lesson planner; leave decorative images unselected.</span></div>
+        <div class="maker-visual-grid">${_sourceVisuals.map(v => {
+          const selected = _selectedVisualIds.has(v.id);
+          const pages = (v.pages || []).join(', ');
+          return `<label class="maker-visual${selected ? ' selected' : ''}"><img src="${esc(v.url)}" alt="Extracted textbook visual from page ${esc(pages)}" loading="lazy">
+            <input type="checkbox"${selected ? ' checked' : ''} onchange="toggleSourceVisual('${esc(v.id)}',this.checked)"><span class="maker-visual-page">p. ${esc(pages)}</span></label>`;
+        }).join('')}</div>
+      </label>` : '';
     body.innerHTML = `<div class="maker-source-head">
         <div><div class="maker-kicker">Textbook</div><h3>${esc(b.title)}</h3><p>${b.num_pages} PDF pages</p></div>
-        <button class="maker-link" onclick="_makerStep='books';renderLessonMaker()">Change</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end"><button class="maker-link" onclick="renameBookById(${b.id})">Rename</button><button class="maker-link" onclick="_makerStep='books';renderLessonMaker()">Change book</button></div>
       </div>
       <label class="maker-field"><span>Start from a detected section</span>
         <select class="maker-select" onchange="selectBookSection(this.value)">
@@ -1684,6 +1725,7 @@
         <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
       </label>
+      ${visuals}
       <label class="maker-field"><span>Guide the lesson <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
       </label>
@@ -1741,6 +1783,8 @@
       _sourceStart = data.start;
       _sourceEnd = data.end;
       _sourceText = (data.pages || []).map(p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no extracted text on this page)'}`).join('\n\n');
+      _sourceVisuals = data.visuals || [];
+      _selectedVisualIds = new Set(_sourceVisuals.slice(0, 6).map(v => v.id));
       _sourceError = _sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT
         ? `This selection is ${_sourceText.length.toLocaleString()} characters. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} or choose fewer pages.` : '';
     } catch (e) {
@@ -1763,6 +1807,17 @@
     count.classList.toggle('over', n > TEXTBOOK_SOURCE_CHAR_LIMIT);
   }
 
+  function toggleSourceVisual(id, selected) {
+    if (selected && _selectedVisualIds.size >= 6) {
+      _sourceError = 'Choose at most 6 visuals for one lesson.';
+    } else if (selected) {
+      _selectedVisualIds.add(id); _sourceError = '';
+    } else {
+      _selectedVisualIds.delete(id); _sourceError = '';
+    }
+    renderLessonMaker();
+  }
+
   async function createTextbookLesson() {
     const b = _sourceBook();
     if (!b || _bookBusy || _sourceLoading) return;
@@ -1782,11 +1837,12 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start: _sourceStart, end: _sourceEnd,
           source_text: _sourceText, guidance: _sourceGuidance,
+          visual_ids: [..._selectedVisualIds],
           section_title: ch ? ch.title : `Pages ${_sourceStart}–${_sourceEnd}` }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Could not create the lesson.');
-      _bookMsg = `Created “${data.title || ch?.title || 'textbook lesson'}” from ${b.title}, pages ${_sourceStart}–${_sourceEnd}.`;
+      _bookMsg = `Created “${data.title || ch?.title || 'textbook lesson'}” from ${b.title}, pages ${_sourceStart}–${_sourceEnd}${data.source?.visual_count ? ` with ${data.source.visual_count} visual${data.source.visual_count === 1 ? '' : 's'}` : ''}.`;
       closeBooks();
       const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
       if (course) { currentCourse = course; renderCourse(course); show('course'); }
@@ -1876,30 +1932,70 @@
     }
   }
 
-  function uploadBook() {
+  function chooseBookFile() {
     if (_bookBusy) return;
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'application/pdf,.pdf';
-    inp.onchange = async () => {
+    inp.onchange = () => {
       const f = inp.files && inp.files[0];
       if (!f) return;
-      _bookBusy = true; _sourceError = '';
+      _pendingBookFile = f;
+      _pendingBookTitle = f.name.replace(/\.pdf$/i, '');
       renderLessonMaker();
-      try {
-        const fd = new FormData(); fd.append('file', f);
-        const res = await fetch(`/api/courses/${_booksCourseId}/textbooks`, { method: 'POST', body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || 'Upload failed.');
-        await loadBooks(false);
-        _bookBusy = false;
-        selectBook(data.id);
-      } catch (e) {
-        _sourceError = e.message || 'Upload failed.';
-        _bookBusy = false;
-        renderLessonMaker();
-      }
     };
     inp.click();
+  }
+
+  function cancelPendingBook() {
+    _pendingBookFile = null; _pendingBookTitle = '';
+    renderLessonMaker();
+  }
+
+  async function uploadBook() {
+    if (_bookBusy || !_pendingBookFile) return;
+    if (!_pendingBookTitle.trim()) { _sourceError = 'Give this textbook a name.'; renderLessonMaker(); return; }
+    _bookBusy = true; _sourceError = '';
+    renderLessonMaker();
+    try {
+      const fd = new FormData();
+      fd.append('file', _pendingBookFile);
+      fd.append('title', _pendingBookTitle.trim());
+      const res = await fetch(`/api/courses/${_booksCourseId}/textbooks`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Upload failed.');
+      _pendingBookFile = null; _pendingBookTitle = '';
+      await loadBooks(false);
+      _bookBusy = false;
+      selectBook(data.id);
+    } catch (e) {
+      _sourceError = e.message || 'Upload failed.';
+      _bookBusy = false;
+      renderLessonMaker();
+    }
+  }
+
+  async function renameBookById(bookId) {
+    const bi = _books.findIndex(b => b.id === bookId);
+    if (bi >= 0) await renameBook(bi);
+  }
+
+  async function renameBook(bi) {
+    const b = _books[bi];
+    const title = prompt('Textbook name', b.title);
+    if (title === null || !title.trim() || title.trim() === b.title) return;
+    try {
+      const res = await fetch(`/api/textbooks/${b.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not rename textbook.');
+      b.title = data.title;
+      renderLessonMaker();
+    } catch (e) {
+      _sourceError = e.message || 'Could not rename textbook.';
+      renderLessonMaker();
+    }
   }
 
   async function deleteBook(bi) {

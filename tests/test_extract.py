@@ -6,8 +6,23 @@ exercised here (network + optional deps).
 """
 
 import pytest
+from PIL import Image
+from types import SimpleNamespace
 
 import extract
+
+
+def test_pdf_visual_filter_keeps_useful_images_and_drops_decorations():
+    page = SimpleNamespace(images=[
+        SimpleNamespace(image=Image.new("RGB", (640, 420), "navy"), data=b""),
+        SimpleNamespace(image=Image.new("RGB", (40, 40), "red"), data=b""),
+        SimpleNamespace(image=Image.new("RGB", (1200, 80), "black"), data=b""),
+    ])
+    visuals = extract._extract_page_visuals(page, 7)
+    assert len(visuals) == 1
+    assert visuals[0]["page"] == 7
+    assert visuals[0]["width"] == 640
+    assert visuals[0]["data"].startswith(b"\xff\xd8")
 
 
 def test_clean_text_joins_hyphenated_linebreaks():

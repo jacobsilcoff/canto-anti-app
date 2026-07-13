@@ -10,8 +10,9 @@ Pipeline (staged, so the user can verify the parse before spending LLM calls):
    (`detect_chapters`) proposes chapters as PAGE RANGES.
 2. REVIEW — "Add lesson → From a textbook" lets the user choose a detected
    section or a custom page range, inspect and edit ALL extracted source text,
-   and add an optional instruction. Detected sections remain editable reusable
-   presets; they are not a generation batch.
+   approve useful extracted images/diagrams, and add an optional instruction.
+   Detected sections remain editable reusable presets; they are not a generation
+   batch. A contact sheet of selected visuals is included in source planning.
 3. CREATE ONE LESSON — `plan_source_lesson` identifies one coherent skill from
    the approved text, then the normal lesson author receives the actual approved
    source + learner instruction and immediately creates the lesson.
@@ -332,12 +333,57 @@ def _norm_lessons(parsed: dict) -> list[dict]:
     return out
 
 
+def build_visual_contact_sheet(visuals: list[dict]) -> bytes | None:
+    """Combine selected page-linked JPEGs into one labelled planning image."""
+    if not visuals:
+        return None
+    try:
+        import io
+        from PIL import Image, ImageDraw, ImageOps
+    except ImportError:
+        return None
+    tiles = []
+    for visual in visuals[:6]:
+        try:
+            im = Image.open(io.BytesIO(visual["data"])).convert("RGB")
+            im = ImageOps.contain(im, (560, 360))
+            pages = visual.get("pages") or [visual.get("page")]
+            label = "PDF page" + ("s" if len(pages) != 1 else "") + " " + ", ".join(
+                str(p) for p in pages if p is not None)
+            tiles.append((im, label))
+        except Exception:
+            continue
+    if not tiles:
+        return None
+    cols = 2 if len(tiles) > 1 else 1
+    rows = (len(tiles) + cols - 1) // cols
+    cell_w, cell_h = 590, 410
+    sheet = Image.new("RGB", (cell_w * cols, cell_h * rows), "white")
+    draw = ImageDraw.Draw(sheet)
+    for i, (im, label) in enumerate(tiles):
+        x, y = (i % cols) * cell_w, (i // cols) * cell_h
+        sheet.paste(im, (x + (cell_w - im.width) // 2, y + 34))
+        draw.text((12 + x, 10 + y), label, fill="black")
+        draw.rectangle((x, y, x + cell_w - 1, y + cell_h - 1), outline="#cccccc")
+    buf = io.BytesIO()
+    sheet.save(buf, format="JPEG", quality=86, optimize=True)
+    return buf.getvalue()
+
+
 def _build_source_lesson_prompt(target_lang: str, source: str, book_title: str,
-                                start: int, end: int, guidance: str = "") -> str:
+                                start: int, end: int, guidance: str = "",
+                                has_visuals: bool = False) -> str:
     """Plan exactly one lesson from user-reviewed textbook text."""
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
     direction = guidance.strip() or "Choose the most useful coherent topic in this selection."
+    visual_note = (
+        "A labelled contact sheet of images/diagrams extracted from these pages "
+        "is attached. Use a visual only when it materially clarifies the lesson; "
+        "ignore decorative or irrelevant images. Include relevant facts from a "
+        "diagram in the source digest so the lesson author can use them.\n\n"
+        if has_visuals else ""
+    )
     return (
         f"You are planning ONE interactive {name} lesson from textbook text that "
         f"the learner has personally reviewed and approved. The source is from "
@@ -345,6 +391,7 @@ def _build_source_lesson_prompt(target_lang: str, source: str, book_title: str,
         f"{_lang_preamble(info)}"
         "── LEARNER'S DIRECTION ──\n"
         f"{direction}\n\n"
+        f"{visual_note}"
         "── RULES ──\n"
         "• Produce exactly ONE satisfying, self-contained lesson. Follow the "
         "learner's direction when it is compatible with the selected text.\n"
@@ -370,6 +417,7 @@ def _build_source_lesson_prompt(target_lang: str, source: str, book_title: str,
 
 async def plan_source_lesson(source: str, target_lang: str, book_title: str,
                              start: int, end: int, guidance: str = "", *,
+                             visuals: list[dict] | None = None,
                              api_key: str, anthropic_key: str | None = None,
                              model: str) -> dict:
     """Plan one lesson from an explicitly approved source selection.
@@ -389,11 +437,17 @@ async def plan_source_lesson(source: str, target_lang: str, book_title: str,
             f"maximum {MAX_LESSON_SOURCE_CHARS:,}). Choose fewer pages or trim "
             "the text before creating the lesson."
         )
+    contact_sheet = build_visual_contact_sheet(visuals or [])
     prompt = _build_source_lesson_prompt(
         target_lang, source, (book_title or "Textbook")[:_TITLE_CAP],
-        start, end, (guidance or "")[:1000])
-    raw = await llm.call(prompt, model=model, gemini_key=api_key,
-                         anthropic_key=anthropic_key)
+        start, end, (guidance or "")[:1000], bool(contact_sheet))
+    if contact_sheet:
+        raw = await llm.call_with_image(
+            prompt, contact_sheet, model=model, gemini_key=api_key,
+            anthropic_key=anthropic_key)
+    else:
+        raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                             anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
     lesson = parsed.get("lesson")
     if lesson is None and isinstance(parsed.get("lessons"), list):
