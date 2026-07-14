@@ -2133,6 +2133,8 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_length": _valid_lesson_length(await db.get_setting(user["id"], "lesson_length")),
         # AI Speak practice defaults ON (only "false" turns it off).
         "lesson_ai_speak": (await db.get_setting(user["id"], "lesson_ai_speak") or "true") != "false",
+        # Warm-up steps also default ON and can be skipped at play time.
+        "lesson_warmup": (await db.get_setting(user["id"], "lesson_warmup") or "true") != "false",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
     }
 
@@ -2155,6 +2157,7 @@ class SettingsUpdate(BaseModel):
     daily_xp_goal: int | None = None
     lesson_length: str | None = None
     lesson_ai_speak: bool | None = None
+    lesson_warmup: bool | None = None
     course_focus: str | None = None
 
 
@@ -2219,6 +2222,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_length", req.lesson_length)
     if req.lesson_ai_speak is not None:
         await db.set_setting(user["id"], "lesson_ai_speak", "true" if req.lesson_ai_speak else "false")
+    if req.lesson_warmup is not None:
+        await db.set_setting(user["id"], "lesson_warmup", "true" if req.lesson_warmup else "false")
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
@@ -3481,7 +3486,10 @@ async def _maybe_close_chapter(course_id: int) -> None:
     total, done = await db.get_open_lesson_stats(course_id)
     if total == 0 or done < total:
         return
-    if total < learning.clamp_chapter_budget(chapter.get("budget"), floor=1):
+    ceiling = (textbook.MAX_LESSONS_PER_CHAPTER if chapter.get("textbook")
+               else learning.CHAPTER_BUDGET_MAX)
+    if total < learning.clamp_chapter_budget(
+            chapter.get("budget"), floor=1, ceiling=ceiling):
         return    # chapter not fully generated yet — more lessons belong to it
     queued = await db.peek_lesson_queue(course_id)
     if queued and (queued.get("unit_title") or "") == chapter.get("title"):
@@ -3575,7 +3583,8 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         spec = {
             "chapter_action": "continue" if (chapter and chapter.get("title") == queued["unit_title"]) else "new",
             "chapter": {"title": queued["unit_title"], "objective": "",
-                        "summary": "", "budget": queued.get("unit_size") or 1},
+                        "summary": "", "budget": queued.get("unit_size") or 1,
+                        "textbook": True},
             "skill": qspec.get("skill") or {},
             "scope": "broad", "focus": "new",
             "target_items": qspec.get("target_items") or [],
@@ -3666,13 +3675,18 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         if chapter:
             await db.close_unit(course_id, chapter.get("title") or "Unit", chapter.get("summary") or "")
         new_ch = spec.get("chapter") or {}
+        is_textbook = bool(new_ch.get("textbook"))
         chapter = {
             "title":     (new_ch.get("title") or spec.get("skill", {}).get("label") or "Lesson").strip(),
             "objective": (new_ch.get("objective") or "").strip(),
             "summary":   (new_ch.get("summary") or "").strip(),
-            # floor=1: a queued textbook unit can hold a single lesson; planner
-            # budgets were already normalized to 2–6 in plan_next_lesson.
-            "budget":    learning.clamp_chapter_budget(new_ch.get("budget"), floor=1),
+            # Textbook units can mirror up to twelve source-grounded lessons;
+            # ordinary AI-planned units retain the tighter 2–6 arc.
+            "budget": learning.clamp_chapter_budget(
+                new_ch.get("budget"), floor=1,
+                ceiling=(textbook.MAX_LESSONS_PER_CHAPTER if is_textbook
+                         else learning.CHAPTER_BUDGET_MAX)),
+            "textbook": is_textbook,
         }
         await db.set_active_plan(course_id, chapter)
 
@@ -3826,11 +3840,10 @@ async def upload_textbook(request: Request, course_id: int,
                           user: dict = Depends(current_user)):
     """Stage 1 of the textbook import: store the book + propose its chapters.
 
-    Extracts the PDF per page (deterministic; the cleanup collapses the
-    repeated-text-layer artifact and strips running headers/footers), persists
-    the book in `textbooks`, and runs ONE cheap LLM call over a heading skeleton
-    to propose chapters as page ranges. Nothing is queued yet — the user reviews
-    (and can correct) the chapter ranges, then generates lessons per chapter."""
+    Extracts text per visible PDF page (including CropBox-split spreads), cleans
+    repeated text layers and running headers/footers, persists the book, and runs
+    one cheap LLM call over a heading skeleton to propose editable unit ranges.
+    Nothing is queued until the user reviews/corrects a unit's source."""
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
@@ -4079,6 +4092,152 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
         "textbook_id": textbook_id, "book": book["title"],
         "start": start, "end": end, "section": section_title,
         "visual_count": len(selected_visuals),
+    }
+    return response
+
+
+@app.post("/api/textbooks/{textbook_id}/unit")
+@limiter.limit("10/hour;30/day")
+async def create_textbook_unit(request: Request, textbook_id: int,
+                               payload: dict,
+                               user: dict = Depends(current_user)):
+    """Plan one coverage-complete multi-lesson unit from reviewed book pages."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if await db.count_lesson_queue(book["course_id"]):
+        raise HTTPException(409, (
+            "Another textbook unit still has lessons waiting to be generated. "
+            "Continue that unit from the course map, or clear its remaining "
+            "textbook lessons before creating a new unit."
+        ))
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    if start < 1 or end < start or end > book["num_pages"]:
+        raise HTTPException(
+            400, f"Choose pages between 1 and {book['num_pages']}, in order.")
+    if end - start + 1 > textbook.MAX_LESSON_SOURCE_PAGES:
+        raise HTTPException(400, (
+            f"Choose at most {textbook.MAX_LESSON_SOURCE_PAGES} pages for one "
+            "textbook unit. Split oversized chapters into smaller units."
+        ))
+
+    extracted_source = "\n\n".join(
+        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
+        for i in range(start - 1, end)
+    ).strip()
+    source_text = (payload.get("source_text") if "source_text" in payload
+                   else extracted_source)
+    source_text = str(source_text or "").strip()
+    if not source_text:
+        raise HTTPException(
+            422, "The selected pages contain no text. Choose different pages.")
+    if len(source_text) > textbook.MAX_LESSON_SOURCE_CHARS:
+        raise HTTPException(413, (
+            f"The selected text is {len(source_text):,} characters; one unit can "
+            f"use up to {textbook.MAX_LESSON_SOURCE_CHARS:,}. Choose fewer pages "
+            "or trim the preview."
+        ))
+    guidance = str(payload.get("guidance") or "").strip()[:1000]
+    unit_title = str(payload.get("section_title") or "").strip()[:80]
+    if not unit_title:
+        unit_title = f"Pages {start}–{end}" if start != end else f"Page {start}"
+
+    requested_visual_ids = {
+        str(v) for v in (payload.get("visual_ids") or [])[:6]
+        if re.fullmatch(r"[0-9a-f]{32}", str(v))
+    }
+    selected_visuals = []
+    for visual in book.get("visuals") or []:
+        visual_id = str(visual.get("id") or "")
+        pages_for_visual = [int(p) for p in (visual.get("pages") or [])]
+        if (visual_id not in requested_visual_ids or
+                not any(start <= p <= end for p in pages_for_visual)):
+            continue
+        path = MEDIA_DIR / f"{visual_id}.jpg"
+        if path.exists():
+            selected_visuals.append({**visual, "data": path.read_bytes()})
+
+    access = await _resolve_gemini(user, meter=False)
+    # Coverage planning + the immediately-authored first lesson. The remaining
+    # unit lessons follow the normal just-in-time generation path.
+    metered = await _textbook_metering(user, 2, "Creating this textbook unit")
+    lesson_model = await _resolve_lesson_model(user, access)
+    try:
+        plan = await textbook.plan_source_unit(
+            source_text, course["target_lang"], book["title"], unit_title,
+            start, end, guidance, visuals=selected_visuals,
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=lesson_model)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Textbook unit planning failed lang=%s: %s",
+                     course["target_lang"], e, exc_info=True)
+        raise HTTPException(
+            502, _gen_error_detail(e, "Textbook unit planning", lesson_model))
+    if metered:
+        await db.increment_usage(user["id"])
+
+    lessons = plan["lessons"]
+    common_grounding = (
+        f"Textbook: {book['title']}\nApproved PDF pages: {start}–{end}\n"
+        f"Textbook unit: {unit_title}\n"
+        + (f"Learner direction: {guidance}\n" if guidance else "")
+        + "This is one part of a coverage-complete textbook unit. Follow the "
+          "required coverage and verbatim excerpts below; reuse the book's "
+          "wording and examples where they work as learner-facing material.\n\n"
+    )
+    queue_title = f"📕 {unit_title}"
+    items = [{
+        "unit_title": queue_title,
+        "unit_size": len(lessons),
+        "spec": {"title": lesson["title"], "skill": lesson["skill"],
+                 "target_items": lesson["target_items"]},
+        "source": common_grounding + lesson["source"],
+    } for lesson in lessons]
+    chapter_idx = next((
+        i for i, ch in enumerate(book["chapters"])
+        if ch.get("start") == start and ch.get("end") == end
+    ), None)
+    await db.add_lesson_queue(
+        book["course_id"], items, textbook_id=textbook_id,
+        chapter_idx=chapter_idx, front=True)
+    try:
+        lesson_id = await _author_next_lesson(
+            course, access, lesson_model, user["id"])
+    except Exception:
+        # Remove only the new front batch; failed authoring must not leave an
+        # invisible partial unit waiting in the queue.
+        for _ in items:
+            queued = await db.peek_lesson_queue(book["course_id"])
+            if not queued or queued.get("unit_title") != queue_title:
+                break
+            await db.pop_lesson_queue(queued["id"])
+        raise
+    if metered:
+        await db.increment_usage(user["id"])
+
+    if chapter_idx is not None:
+        book["chapters"][chapter_idx]["status"] = "queued"
+        await db.update_textbook_chapters(textbook_id, book["chapters"])
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    response = _lesson_response(lesson, lesson["content"])
+    response["source"] = {
+        "textbook_id": textbook_id, "book": book["title"],
+        "start": start, "end": end, "section": unit_title,
+        "visual_count": len(selected_visuals),
+    }
+    response["unit_plan"] = {
+        "title": unit_title, "lesson_count": len(lessons),
+        "remaining": max(0, len(lessons) - 1),
+        "concept_count": len(plan["concept_inventory"]),
     }
     return response
 

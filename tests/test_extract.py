@@ -12,6 +12,43 @@ from types import SimpleNamespace
 import extract
 
 
+class _Box:
+    left = 100
+    right = 200
+    bottom = 0
+    top = 300
+
+
+class _CroppedPage:
+    cropbox = _Box()
+
+    def extract_text(self, visitor_text=None):
+        fragments = [
+            ("hidden left and deliberately long enough", 20, 250),
+            ("Visible", 120, 250),
+            (" heading", 155, 250),
+            ("Second line", 120, 230),
+            ("hidden right and deliberately long enough", 220, 220),
+        ]
+        if visitor_text:
+            for text, x, y in fragments:
+                visitor_text(text, [1, 0, 0, 1, 0, 0],
+                             [1, 0, 0, 1, x, y], None, 12)
+        return "hidden left Visible heading Second line hidden right"
+
+
+def test_visible_page_extraction_respects_cropbox_and_rebuilds_lines():
+    assert extract._extract_visible_page_text(_CroppedPage()) == (
+        "Visible heading\nSecond line"
+    )
+
+
+def test_visible_page_extraction_keeps_normal_pypdf_output_without_leakage():
+    page = _CroppedPage()
+    page.extract_text = lambda visitor_text=None: "pypdf assembled text"
+    assert extract._extract_visible_page_text(page) == "pypdf assembled text"
+
+
 def test_pdf_visual_filter_keeps_useful_images_and_drops_decorations():
     page = SimpleNamespace(images=[
         SimpleNamespace(image=Image.new("RGB", (640, 420), "navy"), data=b""),

@@ -599,17 +599,19 @@
       background: var(--overlay); display: none;
       align-items: flex-end; justify-content: center;
       padding: 0 10px calc(8px + env(safe-area-inset-bottom));
+      box-sizing: border-box; height: 100dvh; min-height: 0; overflow: hidden;
     }
     .books-overlay.open { display: flex; }
     .books-sheet {
       width: 100%; max-width: 680px; background: var(--surface);
       border-radius: 20px; box-shadow: var(--shadow-pop);
       display: flex; flex-direction: column;
-      max-height: min(92dvh, 840px); overflow: hidden;
+      max-height: min(92dvh, 840px); min-height: 0; overflow: hidden;
       animation: ask-rise 0.18s ease;
     }
     @media (min-width: 600px) { .books-overlay { align-items: center; padding: 16px; } }
-    .books-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+    .books-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px;
+      overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
     .maker-intro { margin: 0 0 14px; color: var(--text-muted); font-size: .86rem; line-height: 1.45; }
     .maker-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .maker-option { border: 1.5px solid var(--border); background: var(--surface); color: var(--text); border-radius: 16px; padding: 18px; text-align: left; cursor: pointer; font-family: inherit; min-height: 142px; }
@@ -655,7 +657,7 @@
     .maker-visual img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .maker-visual input { position: absolute; top: 6px; right: 6px; width: 19px; height: 19px; accent-color: var(--primary); }
     .maker-visual-page { position: absolute; left: 5px; bottom: 5px; background: rgba(0,0,0,.7); color: #fff; border-radius: 5px; padding: 2px 5px; font-size: .62rem; }
-    .maker-actions { position: sticky; bottom: -16px; margin: 18px -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 9px; }
+    .maker-actions { position: sticky; z-index: 2; bottom: 0; margin: 18px -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 9px; }
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
     .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
@@ -676,13 +678,19 @@
     .bk-preview { font-size: 0.72rem; white-space: pre-wrap; background: var(--surface-alt); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; margin: 6px 0; width: 100%; }
     .bk-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
     @media (max-width: 520px) {
+      .books-overlay { padding: 0; align-items: stretch; }
+      .books-sheet { height: 100dvh; max-height: none; border-radius: 0; }
       .maker-options { grid-template-columns: 1fr; }
       .maker-option { min-height: 108px; padding: 15px; }
       .maker-option-icon { margin-bottom: 10px; }
       .maker-textarea { min-height: 190px; }
       .maker-visual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .maker-upload-row { flex-direction: column; }
-      .books-sheet { border-radius: 18px 18px 10px 10px; }
+    }
+    @media (max-height: 620px) and (min-width: 521px) {
+      .books-overlay { align-items: stretch; padding: 6px; }
+      .books-sheet { max-height: none; height: calc(100dvh - 12px); border-radius: 12px; }
+      .maker-textarea { min-height: 150px; }
     }
 
     /* ── Daily-goal XP ring (course header) ── */
@@ -999,6 +1007,7 @@
   let selectedFocus = 'balanced';
   let _lessonLength = 'standard';   // A3 · mirrors the lesson_length setting
   let _aiSpeak = true;              // mirrors the lesson_ai_speak setting (AI Speak drills on/off)
+  let _warmup = true;               // mirrors lesson_warmup (optional first review step)
   const _cdPreload = {};           // construction → Promise<opener data>, warmed while the learner works
   let langName = 'your language';
   let LANGS = [];
@@ -1048,6 +1057,7 @@
       _lessonBuffer = Math.max(0, parseInt(settings.lesson_buffer || 3, 10) || 3);
       _lessonLength = settings.lesson_length || 'standard';
       _aiSpeak = settings.lesson_ai_speak !== false && settings.lesson_ai_speak !== 'false';
+      _warmup = settings.lesson_warmup !== false && settings.lesson_warmup !== 'false';
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -1622,7 +1632,7 @@
     const body = document.getElementById('books-body');
     if (_makerStep === 'choose') {
       _makerHeader('Add a lesson', false);
-      body.innerHTML = `<p class="maker-intro">Choose where this lesson should come from. You can let the course continue naturally or ground it in pages you approve from a textbook.</p>
+      body.innerHTML = `<p class="maker-intro">Continue with one AI-planned lesson, or turn a reviewed textbook chapter into a complete multi-lesson unit.</p>
         <div class="maker-options">
           <button class="maker-option" onclick="chooseLessonSource('ai')"${_generating ? ' disabled' : ''}>
             <span class="maker-option-icon">✨</span><b>Continue my course</b>
@@ -1630,7 +1640,7 @@
           </button>
           <button class="maker-option" onclick="chooseLessonSource('textbook')">
             <span class="maker-option-icon">📕</span><b>From a textbook</b>
-            <small>Choose a book and approve the exact pages and extracted text first.</small>
+            <small>Review exact pages, then create a faithful unit covering the whole chapter.</small>
           </button>
         </div>`;
       return;
@@ -1663,7 +1673,7 @@
     _books.forEach((b, bi) => {
       html += `<button class="maker-book" onclick="selectBook(${b.id})">
         <span class="maker-book-icon">📕</span>
-        <span class="maker-book-copy"><b>${esc(b.title)}</b><small>${b.num_pages} pages · ${(b.chapters || []).length} section${(b.chapters || []).length === 1 ? '' : 's'}${b.visual_count ? ` · ${b.visual_count} visual${b.visual_count === 1 ? '' : 's'}` : ''}</small></span>
+        <span class="maker-book-copy"><b>${esc(b.title)}</b><small>${b.num_pages} pages · ${(b.chapters || []).length} unit${(b.chapters || []).length === 1 ? '' : 's'}${b.visual_count ? ` · ${b.visual_count} visual${b.visual_count === 1 ? '' : 's'}` : ''}</small></span>
         <span class="maker-book-arrow">›</span>
       </button>
       <div style="display:flex;justify-content:flex-end;gap:12px;margin:-8px 8px 2px">
@@ -1695,11 +1705,11 @@
   function renderSourceReview(body) {
     const b = _sourceBook();
     if (!b) { _makerStep = 'books'; renderBookPicker(body); return; }
-    _makerHeader('Review lesson source');
+    _makerHeader('Review textbook unit');
     const sectionOptions = (b.chapters || []).map((ch, i) =>
       `<option value="${i}"${_sourceSection === String(i) ? ' selected' : ''}>${esc(ch.title)} · pages ${ch.start}–${ch.end}</option>`).join('');
     const visuals = _sourceVisuals.length ? `<label class="maker-field"><span>Images and diagrams from these pages</span>
-        <div class="maker-help" style="margin-top:0"><span>Choose up to 6 relevant visuals for the lesson planner; leave decorative images unselected.</span></div>
+        <div class="maker-help" style="margin-top:0"><span>Choose up to 6 relevant visuals for the unit planner; leave decorative images unselected.</span></div>
         <div class="maker-visual-grid">${_sourceVisuals.map(v => {
           const selected = _selectedVisualIds.has(v.id);
           const pages = (v.pages || []).join(', ');
@@ -1711,7 +1721,7 @@
         <div><div class="maker-kicker">Textbook</div><h3>${esc(b.title)}</h3><p>${b.num_pages} PDF pages</p></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end"><button class="maker-link" onclick="renameBookById(${b.id})">Rename</button><button class="maker-link" onclick="_makerStep='books';renderLessonMaker()">Change book</button></div>
       </div>
-      <label class="maker-field"><span>Start from a detected section</span>
+      <label class="maker-field"><span>Start from a detected textbook unit</span>
         <select class="maker-select" onchange="selectBookSection(this.value)">
           ${sectionOptions}<option value="custom"${_sourceSection === 'custom' ? ' selected' : ''}>Custom page range</option>
         </select>
@@ -1721,19 +1731,19 @@
         <span class="maker-range-dash">to</span>
         <label class="maker-page"><span>End page</span><input id="source-end" type="number" min="1" max="${b.num_pages}" value="${_sourceEnd}" onchange="sourceRangeChanged()"></label>
       </div>
-      <label class="maker-field"><span>Extracted text for this lesson</span>
+      <label class="maker-field"><span>Extracted text for this unit</span>
         <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
       </label>
       ${visuals}
-      <label class="maker-field"><span>Guide the lesson <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
+      <label class="maker-field"><span>Guide the unit <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
       </label>
-      <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into sections</button>
+      <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into units</button>
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions">
         <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
-        <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Creating lesson…' : 'Create lesson from these pages'}</button>
+        <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Planning unit…' : 'Create multi-lesson unit'}</button>
       </div>`;
     updateSourceCount();
   }
@@ -1747,7 +1757,7 @@
       _sourceEnd = Math.min(ch.end, ch.start + TEXTBOOK_SOURCE_PAGE_LIMIT - 1);
       if (_sourceEnd !== ch.end) {
         _sourceSection = 'custom';
-        _sourceError = `“${ch.title}” is longer than ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. Start with the first ${TEXTBOOK_SOURCE_PAGE_LIMIT}, then make another lesson for the rest.`;
+        _sourceError = `“${ch.title}” is longer than ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. Split it into smaller textbook units before generating.`;
       } else _sourceError = '';
       loadSourcePreview();
     }
@@ -1762,7 +1772,7 @@
     _sourceError = '';
     if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
       _sourceEnd = Math.min(b.num_pages, _sourceStart + TEXTBOOK_SOURCE_PAGE_LIMIT - 1);
-      _sourceError = `One lesson can use up to ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. The end page was adjusted.`;
+      _sourceError = `One textbook unit can use up to ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. The end page was adjusted.`;
     }
     if (_sourceTimer) clearTimeout(_sourceTimer);
     renderLessonMaker();
@@ -1809,7 +1819,7 @@
 
   function toggleSourceVisual(id, selected) {
     if (selected && _selectedVisualIds.size >= 6) {
-      _sourceError = 'Choose at most 6 visuals for one lesson.';
+      _sourceError = 'Choose at most 6 visuals for one textbook unit.';
     } else if (selected) {
       _selectedVisualIds.add(id); _sourceError = '';
     } else {
@@ -1823,7 +1833,7 @@
     if (!b || _bookBusy || _sourceLoading) return;
     const textEl = document.getElementById('source-text');
     if (textEl) _sourceText = textEl.value;
-    if (!_sourceText.trim()) { _sourceError = 'There is no source text to create a lesson from.'; renderLessonMaker(); return; }
+    if (!_sourceText.trim()) { _sourceError = 'There is no source text to create a unit from.'; renderLessonMaker(); return; }
     if (_sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT) { _sourceError = `Trim the source below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} characters.`; renderLessonMaker(); return; }
     const ch = _sourceSection !== 'custom' ? (b.chapters || [])[Number(_sourceSection)] : null;
     _bookBusy = true;
@@ -1833,7 +1843,7 @@
     renderLessonMaker();
     if (currentCourse) renderCourse(currentCourse);
     try {
-      const res = await fetch(`/api/textbooks/${b.id}/lesson`, {
+      const res = await fetch(`/api/textbooks/${b.id}/unit`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start: _sourceStart, end: _sourceEnd,
           source_text: _sourceText, guidance: _sourceGuidance,
@@ -1841,13 +1851,14 @@
           section_title: ch ? ch.title : `Pages ${_sourceStart}–${_sourceEnd}` }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Could not create the lesson.');
-      _bookMsg = `Created “${data.title || ch?.title || 'textbook lesson'}” from ${b.title}, pages ${_sourceStart}–${_sourceEnd}${data.source?.visual_count ? ` with ${data.source.visual_count} visual${data.source.visual_count === 1 ? '' : 's'}` : ''}.`;
+      if (!res.ok) throw new Error(data.detail || 'Could not create the textbook unit.');
+      const unit = data.unit_plan || {};
+      _bookMsg = `Created “${unit.title || ch?.title || 'textbook unit'}” with ${unit.lesson_count || 1} lesson${unit.lesson_count === 1 ? '' : 's'} covering ${unit.concept_count || 'the selected'} concept${unit.concept_count === 1 ? '' : 's'} from ${b.title}, pages ${_sourceStart}–${_sourceEnd}.`;
       closeBooks();
       const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
       if (course) { currentCourse = course; renderCourse(course); show('course'); }
     } catch (e) {
-      _sourceError = e.message || 'Could not create the lesson.';
+      _sourceError = e.message || 'Could not create the textbook unit.';
     } finally {
       _bookBusy = false;
       _generating = false;
@@ -1865,24 +1876,24 @@
   function renderSectionManager(body) {
     const b = _sourceBook();
     if (!b) { _makerStep = 'books'; renderBookPicker(body); return; }
-    _makerHeader('Edit detected sections');
+    _makerHeader('Edit textbook units');
     const bi = _books.indexOf(b);
-    body.innerHTML = `<p class="maker-intro">These are reusable presets for choosing lesson pages. Rename, split, merge, or re-range them to match the real structure of <b>${esc(b.title)}</b>.</p>
-      <div class="bk-card">${(b.chapters || []).map((ch, ci) => _sectionRow(bi, ci, ch)).join('') || '<div class="vocab-empty">No sections yet.</div>'}
-        <div class="bk-actions"><button class="ch-btn" onclick="addChapter(${bi})">＋ Add section</button></div>
+    body.innerHTML = `<p class="maker-intro">Each textbook unit becomes one app unit with multiple lessons. Rename, split, merge, or re-range these to match the real structure of <b>${esc(b.title)}</b>.</p>
+      <div class="bk-card">${(b.chapters || []).map((ch, ci) => _sectionRow(bi, ci, ch)).join('') || '<div class="vocab-empty">No units yet.</div>'}
+        <div class="bk-actions"><button class="ch-btn" onclick="addChapter(${bi})">＋ Add unit</button></div>
       </div>
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions"><button class="course-regen" onclick="_makerStep='source';renderLessonMaker()">Cancel</button>
-        <button class="cta-btn" onclick="saveChapters(${bi})"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Saving…' : 'Save sections'}</button></div>`;
+        <button class="cta-btn" onclick="saveChapters(${bi})"${_bookBusy ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Saving…' : 'Save units'}</button></div>`;
   }
 
   function _sectionRow(bi, ci, ch) {
     return `<div class="ch-row">
-      <input class="ch-title" value="${esc(ch.title)}" onchange="chEdit(${bi},${ci},'title',this.value)" aria-label="Section title">
+      <input class="ch-title" value="${esc(ch.title)}" onchange="chEdit(${bi},${ci},'title',this.value)" aria-label="Unit title">
       <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.start}" onchange="chEdit(${bi},${ci},'start',this.value)" aria-label="Start page">
       <span class="ch-dash">–</span>
       <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.end}" onchange="chEdit(${bi},${ci},'end',this.value)" aria-label="End page">
-      <button class="ch-btn" onclick="removeChapter(${bi},${ci})" title="Remove section">✕</button>
+      <button class="ch-btn" onclick="removeChapter(${bi},${ci})" title="Remove unit">✕</button>
       ${ch.skip_hint ? '<span class="ch-skip">Suggested skip</span>' : ''}
     </div>`;
   }
@@ -1899,7 +1910,7 @@
     const b = _books[bi];
     const last = b.chapters[b.chapters.length - 1];
     const start = last ? Math.min(last.end + 1, b.num_pages) : 1;
-    b.chapters.push({ title: 'New section', start, end: Math.min(start + 4, b.num_pages), skip_hint: false, status: '', queued: 0, _dirty: true });
+    b.chapters.push({ title: 'New unit', start, end: Math.min(start + 4, b.num_pages), skip_hint: false, status: '', queued: 0, _dirty: true });
     renderLessonMaker();
   }
 
@@ -1919,13 +1930,13 @@
         body: JSON.stringify({ chapters: b.chapters.map(({ _dirty, queued, ...c }) => c) }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Could not save sections.');
+      if (!res.ok) throw new Error(data.detail || 'Could not save units.');
       b.chapters = (data.chapters || []).map(c => ({ ...c, queued: 0 }));
       const selected = b.chapters.findIndex(ch => ch.start === _sourceStart && ch.end === _sourceEnd);
       _sourceSection = selected >= 0 ? String(selected) : 'custom';
       _makerStep = 'source';
     } catch (e) {
-      _sourceError = e.message || 'Could not save sections.';
+      _sourceError = e.message || 'Could not save units.';
     } finally {
       _bookBusy = false;
       renderLessonMaker();
@@ -3317,6 +3328,16 @@
       || (sg.teach && ((sg.teach.items || []).length || sg.teach.intro || (sg.teach.blocks || []).length)));
   }
 
+  function _isWarmupSegment(sg, index = 0) {
+    return index === 0 && /warm[ -]?up|quick review|review first/i.test((sg && sg.title) || '');
+  }
+  function _hasWarmup(segments) {
+    return (segments || []).length > 1 && _isWarmupSegment(segments[0], 0);
+  }
+  function _stripWarmup(segments) {
+    return _hasWarmup(segments) ? segments.slice(1) : segments;
+  }
+
   // Warm the opener (question + plan) for every construction drill in the lesson,
   // in parallel, so by the time the learner reaches the AI Speak step the phrases
   // are already generated. Cached by construction label; the drill widget reuses
@@ -3489,6 +3510,8 @@
     // The step list + estimate reflect what will actually play: the chosen length
     // (Quick/Standard/Thorough) and the AI-Speak toggle both reshape it live.
     let segments = isFoundations ? fullSegments : _trimForLength(fullSegments, _lessonLength);
+    const hasWarmup = !isFoundations && _hasWarmup(segments);
+    if (!_warmup) segments = _stripWarmup(segments);
     if (!_aiSpeak) segments = _stripAiSpeak(segments);
     const mins = _estMinutes(segments);
     const hasSpeak = _aiSpeak && _hasAiSpeak(segments);
@@ -3514,6 +3537,14 @@
         </div>
         <button type="button" class="intro-switch${_aiSpeak ? ' on' : ''}" onclick="toggleAiSpeak()" aria-label="Toggle AI Speak practice"></button>
       </div>` : '';
+    const warmupToggle = hasWarmup ? `
+      <div class="intro-toggle">
+        <div class="it-text">
+          <div class="it-title">🔥 Warm-up</div>
+          <div class="it-sub">A short optional review step before the main lesson.</div>
+        </div>
+        <button type="button" class="intro-switch${_warmup ? ' on' : ''}" onclick="toggleWarmup()" aria-label="Toggle lesson warm-up"></button>
+      </div>` : '';
 
     sheet.className = 'intro-sheet ' + scriptClassFor(lesson.target_lang);
     sheet.innerHTML = `
@@ -3528,6 +3559,7 @@
         ${lenChip('quick', 'Quick', '~4 min')}${lenChip('standard', 'Standard', '~8 min')}${lenChip('thorough', 'Thorough', '~12 min')}
       </div>
       <div class="intro-len-note" id="intro-len-note">${esc(_lenNoteText(_lessonLength))}</div>`}
+      ${warmupToggle}
       ${aiToggle}
       <div class="intro-actions">
         ${resume
@@ -3551,6 +3583,17 @@
       await fetch('/api/settings', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lesson_ai_speak: _aiSpeak }),
+      });
+    } catch {}
+  }
+
+  async function toggleWarmup() {
+    _warmup = !_warmup;
+    if (_introLesson) renderLessonIntro(_introLesson);
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_warmup: _warmup }),
       });
     } catch {}
   }
@@ -3647,6 +3690,7 @@
       // A3 · trim to the chosen length for this run (never for the curated
       // foundations reading track, whose drills each teach a specific letter).
       if (lesson.theme !== 'foundations') segments = _trimForLength(segments, _lessonLength);
+      if (!_warmup && lesson.theme !== 'foundations') segments = _stripWarmup(segments);
       // AI Speak toggle: when off, drop the construction-drill practice entirely
       // (unless doing so would leave nothing to play).
       if (!_aiSpeak && mode !== 'llm') {

@@ -1,4 +1,4 @@
-"""Textbook PDF → reviewable source selection → interactive lesson.
+"""Textbook PDF → reviewable source selection → interactive unit.
 
 Pipeline (staged, so the user can verify the parse before spending LLM calls):
 
@@ -11,17 +11,17 @@ Pipeline (staged, so the user can verify the parse before spending LLM calls):
 2. REVIEW — "Add lesson → From a textbook" lets the user choose a detected
    section or a custom page range, inspect and edit ALL extracted source text,
    approve useful extracted images/diagrams, and add an optional instruction.
-   Detected sections remain editable reusable presets; they are not a generation
-   batch. A contact sheet of selected visuals is included in source planning.
-3. CREATE ONE LESSON — `plan_source_lesson` identifies one coherent skill from
-   the approved text, then the normal lesson author receives the actual approved
-   source + learner instruction and immediately creates the lesson.
+   Detected ranges remain editable and become the one-to-one app unit boundary.
+   A contact sheet of selected visuals is included in source planning.
+3. CREATE ONE UNIT — `plan_source_unit` inventories every teachable concept in
+   the approved chapter, maps each concept to exactly one lesson, and verifies
+   that each lesson carries verbatim excerpts from the approved source. The
+   normal lesson author then builds the unit's lessons from those grounded specs.
 
-The approved one-off spec is temporarily put at the front of `lesson_queue` so
-`main._author_next_lesson` can reuse the established authoring, validation, and
-course-bookkeeping path; it is consumed in the same request and never exposed as
-a user workflow. `segment_chapter` and persistent batch queue support remain for
-backward compatibility with imports made before this interaction was redesigned.
+The approved unit's grounded specs are put at the front of `lesson_queue` so
+`main._author_next_lesson` can reuse established authoring, validation, and
+course bookkeeping. The first lesson is authored immediately and the rest are
+consumed just in time. `segment_chapter` remains for older imports/API clients.
 
 All LLM output is strictly normalized here (same trust model as the planner):
 malformed chapters/units/lessons are dropped, ranges are clamped, counts are
@@ -45,7 +45,7 @@ MAX_LESSON_SOURCE_PAGES = 20      # one reviewed source selection
 MAX_LESSON_SOURCE_CHARS = 24_000  # keep planner + author prompts responsive
 MAX_ITEMS_PER_LESSON = 10
 MAX_CHAPTERS = 60                 # structure-detection cap
-_SOURCE_CAP = 2000                # per-lesson condensed source notes
+_SOURCE_CAP = 4000                # per-lesson textbook grounding
 _TITLE_CAP = 80
 _SKELETON_CAP = 16_000            # chapter-detection prompt budget
 
@@ -459,6 +459,173 @@ async def plan_source_lesson(source: str, target_lang: str, book_title: str,
             "different page range or add a more specific instruction."
         )
     return normalized[0]
+
+
+def _source_contains_quote(source: str, quote: str) -> bool:
+    """Whitespace-tolerant but otherwise verbatim quote verification."""
+    haystack = re.sub(r"\s+", " ", source).strip().casefold()
+    needle = re.sub(r"\s+", " ", quote).strip().casefold()
+    return len(needle) >= 3 and needle in haystack
+
+
+def _norm_source_unit(parsed: dict, source: str) -> dict:
+    """Validate a coverage-complete textbook unit plan.
+
+    Every inventoried concept must be assigned to exactly one lesson, and every
+    lesson must cite at least one excerpt that really occurs in the approved
+    source. A malformed/incomplete plan is rejected instead of silently dropping
+    textbook material.
+    """
+    inventory: list[dict] = []
+    inventory_ids: set[str] = set()
+    for raw in (parsed.get("concept_inventory") or [])[:48]:
+        if not isinstance(raw, dict):
+            continue
+        concept_id = str(raw.get("id") or "").strip().lower()
+        label = str(raw.get("label") or "").strip()[:120]
+        if (not re.fullmatch(r"c\d{1,2}", concept_id) or not label or
+                concept_id in inventory_ids):
+            continue
+        inventory_ids.add(concept_id)
+        inventory.append({"id": concept_id, "label": label})
+    if not inventory:
+        raise ValueError("The unit planner did not identify any textbook concepts.")
+
+    lessons: list[dict] = []
+    coverage_counts = {concept_id: 0 for concept_id in inventory_ids}
+    for raw in (parsed.get("lessons") or [])[:MAX_LESSONS_PER_CHAPTER]:
+        if not isinstance(raw, dict):
+            continue
+        normalized = _norm_lessons({"lessons": [raw]})
+        if not normalized:
+            continue
+        covers = []
+        for concept_id in raw.get("covers") or []:
+            concept_id = str(concept_id).strip().lower()
+            if concept_id in inventory_ids and concept_id not in covers:
+                covers.append(concept_id)
+        excerpts = []
+        for quote in (raw.get("source_excerpts") or [])[:8]:
+            quote = str(quote or "").strip()[:1200]
+            if quote and _source_contains_quote(source, quote):
+                excerpts.append(quote)
+        if not covers or not excerpts:
+            continue
+        for concept_id in covers:
+            coverage_counts[concept_id] += 1
+        lesson = normalized[0]
+        labels = [c["label"] for c in inventory if c["id"] in covers]
+        notes = str(raw.get("teaching_notes") or "").strip()[:1000]
+        grounding = (
+            "Required textbook coverage: " + "; ".join(labels) + "\n"
+            "Verbatim textbook excerpts:\n" +
+            "\n".join(f"• {quote}" for quote in excerpts)
+        )
+        if notes:
+            grounding += "\nPlanner notes (secondary to the excerpts): " + notes
+        lesson["source"] = grounding[:_SOURCE_CAP]
+        lesson["covers"] = covers
+        lessons.append(lesson)
+
+    missing = [c["label"] for c in inventory if coverage_counts[c["id"]] == 0]
+    repeated = [c["label"] for c in inventory if coverage_counts[c["id"]] > 1]
+    if missing or repeated:
+        detail = []
+        if missing:
+            detail.append("missing: " + ", ".join(missing[:8]))
+        if repeated:
+            detail.append("assigned more than once: " + ", ".join(repeated[:8]))
+        raise ValueError(
+            "The unit plan did not map the textbook coverage cleanly (" +
+            "; ".join(detail) + "). Please try generating it again."
+        )
+    if not lessons:
+        raise ValueError("The selected chapter did not produce any grounded lessons.")
+    return {"concept_inventory": inventory, "lessons": lessons}
+
+
+def _build_source_unit_prompt(target_lang: str, source: str, book_title: str,
+                              unit_title: str, start: int, end: int,
+                              guidance: str = "", has_visuals: bool = False) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    direction = guidance.strip() or "Follow the textbook's progression and emphasis."
+    visual_note = (
+        "A labelled contact sheet of user-selected diagrams/images is attached. "
+        "Inventory and teach material visible there when it is instructional; "
+        "ignore decoration. Describe its relevant facts in teaching_notes.\n\n"
+        if has_visuals else ""
+    )
+    return (
+        f"You are converting ONE complete chapter of a {name} textbook into ONE "
+        f"interactive app unit containing MULTIPLE focused lessons. The source is "
+        f'\"{book_title}\", unit \"{unit_title}\" (PDF pages {start}-{end}).\n\n'
+        f"{_lang_preamble(info)}"
+        "── LEARNER'S DIRECTION ──\n" + direction + "\n\n" + visual_note +
+        "── NON-NEGOTIABLE SOURCE FIDELITY ──\n"
+        "• This textbook chapter maps 1:1 to this app unit. Do not merge it with "
+        "another chapter and do not add unrelated syllabus material.\n"
+        "• First inventory EVERY teachable concept in the approved source: each "
+        "grammar rule/distinction, usable expression set, vocabulary group, "
+        "pronunciation point, and instructional exercise type. Use stable IDs c1, "
+        "c2, ... in reading order. Do not inventory headers or duplicated text-layer "
+        "artifacts.\n"
+        "• Then produce 2–12 coherent lessons (one is allowed only if the source "
+        "truly contains one indivisible concept). Every inventory ID must occur in "
+        "exactly one lesson's covers list: none missing, none duplicated.\n"
+        "• Preserve the book's order, terminology, distinctions, examples, and "
+        "exercise intent. Make it interactive, but do not substitute a generic "
+        "lesson on the same topic.\n"
+        "• source_excerpts must be copied VERBATIM from APPROVED TEXTBOOK TEXT "
+        "(including its spelling/romanization). Give each lesson the exact rules, "
+        "examples, phrases, or exercise lines it needs; the server verifies them.\n"
+        "• target_items use native script where possible. If the book only supplies "
+        f"romanization, reconstruct native {name} script but preserve the original "
+        "romanization in teaching_notes/source excerpts.\n"
+        "• One lesson is one focused grammar concept or a cohesive set of 4–10 "
+        "expressions/words. Split broad units into enough lessons to teach everything.\n\n"
+        f"── APPROVED TEXTBOOK TEXT ──\n{source}\n\n"
+        "Return ONLY valid JSON:\n"
+        '{"concept_inventory":[{"id":"c1","label":"<specific source concept>"}],'
+        '"lessons":[{"title":"<short English title>",'
+        '"skill":{"kind":"grammar|vocab","key":"<snake_case>",'
+        '"label":"<pattern or native theme>","gloss":"<English>"},'
+        '"target_items":[{"label":"<native script>","gloss":"<English>"}],'
+        '"covers":["c1"],"source_excerpts":["<exact verbatim excerpt>"],'
+        '"teaching_notes":"<only useful interpretation/context>"}]}'
+    )
+
+
+async def plan_source_unit(source: str, target_lang: str, book_title: str,
+                           unit_title: str, start: int, end: int,
+                           guidance: str = "", *,
+                           visuals: list[dict] | None = None,
+                           api_key: str, anthropic_key: str | None = None,
+                           model: str) -> dict:
+    """Plan a source-complete multi-lesson unit from an approved chapter."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    source = (source or "").strip()
+    if not source:
+        raise ValueError("The selected pages do not contain any text.")
+    if len(source) > MAX_LESSON_SOURCE_CHARS:
+        raise ValueError(
+            f"The selected text is too long ({len(source):,} characters; "
+            f"maximum {MAX_LESSON_SOURCE_CHARS:,}). Choose fewer pages or trim it."
+        )
+    contact_sheet = build_visual_contact_sheet(visuals or [])
+    prompt = _build_source_unit_prompt(
+        target_lang, source, (book_title or "Textbook")[:_TITLE_CAP],
+        (unit_title or "Textbook unit")[:_TITLE_CAP], start, end,
+        (guidance or "")[:1000], bool(contact_sheet))
+    if contact_sheet:
+        raw = await llm.call_with_image(
+            prompt, contact_sheet, model=model, gemini_key=api_key,
+            anthropic_key=anthropic_key)
+    else:
+        raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                             anthropic_key=anthropic_key)
+    return _norm_source_unit(_parse_json(raw) or {}, source)
 
 
 async def segment_chapter(pages: list[str], start: int, end: int,

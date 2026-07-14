@@ -145,6 +145,75 @@ async def fetch_and_extract_url(url: str) -> dict:
 
 # ── PDF extraction ─────────────────────────────────────────────────────────────
 
+def _matrix_mult(m: list[float], n: list[float]) -> list[float]:
+    """Multiply two compressed PDF transformation matrices."""
+    return [
+        m[0] * n[0] + m[1] * n[2],
+        m[0] * n[1] + m[1] * n[3],
+        m[2] * n[0] + m[3] * n[2],
+        m[2] * n[1] + m[3] * n[3],
+        m[4] * n[0] + m[5] * n[2] + n[4],
+        m[4] * n[1] + m[5] * n[3] + n[5],
+    ]
+
+
+def _extract_visible_page_text(page) -> str:
+    """Extract only text positioned inside a page's visible crop box.
+
+    Split-spread PDFs often create two logical pages from one shared content
+    stream by assigning each copy a different CropBox. ``pypdf.extract_text``
+    reads the entire stream and ignores that box, making both logical pages
+    contain both halves. Detect meaningful out-of-box text and, only then,
+    rebuild the visible lines from pypdf's positioned text callbacks. Ordinary
+    PDFs retain pypdf's normal extraction unchanged.
+    """
+    positioned: list[tuple[str, float, float]] = []
+    outside_chars = 0
+    try:
+        box = page.cropbox
+        left, right = float(box.left), float(box.right)
+        bottom, top = float(box.bottom), float(box.top)
+
+        def visit(text, cm, tm, _font, _size):
+            nonlocal outside_chars
+            if not text or not text.strip():
+                return
+            matrix = _matrix_mult([float(v) for v in tm],
+                                  [float(v) for v in cm])
+            x, y = matrix[4], matrix[5]
+            if left - 2 <= x <= right + 2 and bottom - 2 <= y <= top + 2:
+                positioned.append((text.replace("\r", ""), x, y))
+            else:
+                outside_chars += len(text.strip())
+
+        raw = page.extract_text(visitor_text=visit) or ""
+    except Exception:
+        return page.extract_text() or ""
+
+    visible_chars = sum(len(text.strip()) for text, _, _ in positioned)
+    # A few out-of-bounds page numbers or printer marks are not enough to
+    # replace pypdf's usually-superior default line assembly.
+    if outside_chars < 40 or outside_chars < visible_chars * 0.05:
+        return raw
+    if not positioned:
+        return ""
+
+    rebuilt: list[str] = []
+    previous_y: float | None = None
+    previous_x: float | None = None
+    for text, x, y in positioned:
+        if previous_y is not None and abs(y - previous_y) > 2:
+            if rebuilt and not rebuilt[-1].endswith("\n"):
+                rebuilt.append("\n")
+        elif (rebuilt and previous_x is not None and x > previous_x and
+              rebuilt[-1] and not rebuilt[-1][-1].isspace() and
+              text and not text[0].isspace()):
+            rebuilt.append(" ")
+        rebuilt.append(text)
+        previous_y, previous_x = y, x
+    return "".join(rebuilt)
+
+
 def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
     """Pull selectable text out of a PDF. Returns {"title", "text"}.
 
@@ -167,7 +236,7 @@ def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
     parts: list[str] = []
     for page in reader.pages:
         try:
-            parts.append(page.extract_text() or "")
+            parts.append(_extract_visible_page_text(page))
         except Exception:
             continue
     text = clean_text("\n".join(parts))
@@ -276,7 +345,7 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
     visual_by_hash: dict[str, dict] = {}
     for page_num, page in enumerate(reader.pages, 1):
         try:
-            pages.append(clean_text(page.extract_text() or ""))
+            pages.append(clean_text(_extract_visible_page_text(page)))
         except Exception:
             pages.append("")
         if include_images and len(visuals) < MAX_PDF_VISUALS:

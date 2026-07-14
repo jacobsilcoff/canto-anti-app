@@ -297,6 +297,16 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Lesson warm-up</div>
+          <div class="settings-desc">Start lessons with a short review step. Turn this off to begin with the main material.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-warmup" onchange="saveWarmup()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Course focus</div>
           <div class="settings-desc">Steers what the lesson planner picks next (applies to future lessons)</div>
         </div>
@@ -965,6 +975,7 @@
     goalSel.value = [10, 30, 50, 100].includes(goal) ? String(goal) : '50';
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
+    document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
     document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
@@ -1166,6 +1177,22 @@
       showToast(checked ? 'AI Speak practice on.' : 'AI Speak practice off.');
     } catch {
       document.getElementById('settings-ai-speak').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveWarmup() {
+    const checked = document.getElementById('settings-warmup').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_warmup: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_warmup = checked;
+      showToast(checked ? 'Lesson warm-ups on.' : 'Lesson warm-ups off.');
+    } catch {
+      document.getElementById('settings-warmup').checked = !checked;
       showToast('Failed to save setting.');
     }
   }

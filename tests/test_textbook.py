@@ -262,6 +262,65 @@ async def test_plan_source_lesson_sends_selected_visuals(monkeypatch):
     assert seen["image"].startswith(b"\xff\xd8")
 
 
+def _source_unit_plan():
+    first = _lesson(1)
+    first.update({
+        "covers": ["c1"],
+        "source_excerpts": ["Good morning"],
+        "teaching_notes": "Keep the book's greeting order.",
+    })
+    second = _lesson(2)
+    second.update({
+        "covers": ["c2"],
+        "source_excerpts": ["see you again"],
+    })
+    return {
+        "concept_inventory": [
+            {"id": "c1", "label": "Morning greetings"},
+            {"id": "c2", "label": "Goodbyes"},
+        ],
+        "lessons": [first, second],
+    }
+
+
+def test_source_unit_requires_exact_complete_coverage_and_verbatim_quotes():
+    source = "Good morning\nSome explanation\nsee you again"
+    plan = textbook._norm_source_unit(_source_unit_plan(), source)
+    assert len(plan["lessons"]) == 2
+    assert "Good morning" in plan["lessons"][0]["source"]
+    assert plan["lessons"][1]["covers"] == ["c2"]
+
+    incomplete = _source_unit_plan()
+    incomplete["lessons"][1]["covers"] = ["c1"]
+    with pytest.raises(ValueError, match="did not map.*cleanly"):
+        textbook._norm_source_unit(incomplete, source)
+
+    invented_quote = _source_unit_plan()
+    invented_quote["lessons"][0]["source_excerpts"] = ["not in the book"]
+    with pytest.raises(ValueError, match="did not map.*cleanly"):
+        textbook._norm_source_unit(invented_quote, source)
+
+
+@pytest.mark.asyncio
+async def test_plan_source_unit_prompts_for_one_complete_multi_lesson_unit(monkeypatch):
+    seen = {}
+
+    async def fake_call(prompt, **kw):
+        seen["prompt"] = prompt
+        return json.dumps(_source_unit_plan())
+
+    monkeypatch.setattr(textbook.llm, "call", fake_call)
+    plan = await textbook.plan_source_unit(
+        "Good morning\nSome explanation\nsee you again", "yue", "Daily",
+        "Useful Expressions", 2, 10, "Follow every expression",
+        api_key="x", model="m")
+    assert len(plan["lessons"]) == 2
+    assert "maps 1:1" in seen["prompt"]
+    assert "exactly one lesson" in seen["prompt"]
+    assert "VERBATIM" in seen["prompt"]
+    assert "Follow every expression" in seen["prompt"]
+
+
 # ── textbooks table round-trip ────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
@@ -418,6 +477,79 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
             }, user)
     assert await db.count_lesson_queue(cid) == 0
 
+
+@pytest.mark.asyncio
+async def test_create_textbook_unit_queues_complete_unit_and_authors_first(
+        fresh_db, monkeypatch):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(
+        uid, cid, "Daily", "daily.pdf", ["Good morning", "see you again"])
+    await db.update_textbook_chapters(tb_id, [{
+        "title": "Useful Expressions", "start": 1, "end": 2,
+        "skip_hint": False, "status": "",
+    }])
+    access = SimpleNamespace(
+        api_key="key", anthropic_key=None, model_reader="reader")
+
+    async def fake_access(*args, **kwargs):
+        return access
+
+    async def fake_meter(*args, **kwargs):
+        return False
+
+    async def fake_model(*args, **kwargs):
+        return "author"
+
+    async def fake_plan(*args, **kwargs):
+        lessons = []
+        for i, excerpt in enumerate(("Good morning", "see you again"), 1):
+            lesson = _lesson(i)
+            lesson["source"] = f"Verbatim textbook excerpts:\n• {excerpt}"
+            lesson["covers"] = [f"c{i}"]
+            lessons.append(lesson)
+        return {
+            "concept_inventory": [
+                {"id": "c1", "label": "Greetings"},
+                {"id": "c2", "label": "Goodbyes"},
+            ],
+            "lessons": lessons,
+        }
+
+    async def fake_author(course, resolved_access, model, user_id):
+        queued = await db.peek_lesson_queue(course["id"])
+        assert queued["unit_title"] == "📕 Useful Expressions"
+        assert "Good morning" in queued["source"]
+        lesson_id = await db.create_lesson(
+            course["id"], 1, "Greetings", "Greet people", [],
+            {"segments": []}, "Greeting lesson")
+        await db.pop_lesson_queue(queued["id"])
+        return lesson_id
+
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+    monkeypatch.setattr(main, "_resolve_lesson_model", fake_model)
+    monkeypatch.setattr(textbook, "plan_source_unit", fake_plan)
+    monkeypatch.setattr(main, "_author_next_lesson", fake_author)
+
+    response = await main.create_textbook_unit.__wrapped__(
+        None, tb_id, {
+            "start": 1, "end": 2,
+            "source_text": "— PDF page 1 —\nGood morning\n\n"
+                           "— PDF page 2 —\nsee you again",
+            "section_title": "Useful Expressions",
+        }, user)
+
+    assert response["unit_plan"] == {
+        "title": "Useful Expressions", "lesson_count": 2,
+        "remaining": 1, "concept_count": 2,
+    }
+    assert await db.count_lesson_queue(cid) == 1
+    remaining = await db.peek_lesson_queue(cid)
+    assert remaining["spec"]["title"] == "L2"
+    book = await db.get_textbook(uid, tb_id)
+    assert book["chapters"][0]["status"] == "queued"
 
 @pytest.mark.asyncio
 async def test_textbooks_survive_restart_but_not_course_delete(fresh_db):

@@ -149,14 +149,15 @@ CHAPTER_BUDGET_MIN, CHAPTER_BUDGET_MAX = 2, 6
 _CHAPTER_SUMMARY_CAP = 600
 
 
-def clamp_chapter_budget(v, floor: int = CHAPTER_BUDGET_MIN) -> int:
+def clamp_chapter_budget(v, floor: int = CHAPTER_BUDGET_MIN,
+                         ceiling: int = CHAPTER_BUDGET_MAX) -> int:
     """Clamp a chapter's lesson budget. Planner chapters use the 2–6 range; a
     textbook-imported unit may legitimately hold a single lesson (floor=1)."""
     try:
         b = int(v)
     except (TypeError, ValueError):
         return DEFAULT_CHAPTER_BUDGET
-    return max(floor, min(b, CHAPTER_BUDGET_MAX))
+    return max(floor, min(b, ceiling))
 
 
 def roll_chapter_summary(prev: str, new: str, cap: int = _CHAPTER_SUMMARY_CAP) -> str:
@@ -587,11 +588,13 @@ def _source_block(source: str | None) -> str:
     return (
         "── SOURCE MATERIAL (from the learner's own textbook) ──\n"
         f"{source.strip()}\n"
-        "This lesson was planned from the textbook excerpt above. GROUND the lesson "
-        "in it: teach the same rules and patterns (in your own words — don't copy "
-        "prose verbatim), reuse its example sentences where they're good, and keep "
-        "the terminology the book uses so the lesson matches what the learner reads "
-        "there. If the excerpt includes the book's own exercises, adapt the best of "
+        "This lesson is one part of a coverage-complete textbook unit. GROUND the "
+        "lesson in the required coverage and excerpts: teach every listed concept, "
+        "reuse the textbook's wording and example sentences VERBATIM where they are "
+        "clear and useful, and keep its terminology so the interactive lesson matches "
+        "what the learner reads there. Paraphrase only when interactivity or clarity "
+        "requires it; never replace the source with generic material on the same "
+        "topic. If the excerpt includes the book's own exercises, adapt the best of "
         "them into drills of the supported kinds (only where you are certain of the "
         "correct answer) and add your own alongside. Silently fix anything in the "
         "excerpt that is plainly wrong.\n\n"
@@ -650,8 +653,10 @@ def _build_lesson_prompt(
         f"{length_note}"
         f"Structure the lesson as {n_steps} STEPS, each a short teach → practise cycle "
         f"(the learner plays them in order, one screen at a time):\n"
-        f"• STEP 1 = warm-up: any review drills, plus the lesson's gentlest hook (its "
-        f"single easiest new drill). Little or no teaching here.\n"
+        f"• STEP 1 may be a warm-up containing review drills plus one gentle hook. "
+        f"It is optional at play time: put NO unique teaching or required concept "
+        f"coverage there. Every new concept must still be fully introduced and "
+        f"practised in the later steps when the warm-up is skipped.\n"
         f"• Each MIDDLE step: at most 2 teach blocks introducing ONE slice of the "
         f"material, then 3–5 drills practising exactly that slice. Teach a little, "
         f"use it immediately — never front-load all the teaching.\n"
