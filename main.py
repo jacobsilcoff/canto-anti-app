@@ -3833,17 +3833,17 @@ async def _textbook_metering(user: dict, n_calls: int, what: str):
 
 
 @app.post("/api/courses/{course_id}/textbooks")
-@limiter.limit("6/hour;20/day")
+@limiter.limit("20/hour;50/day")
 async def upload_textbook(request: Request, course_id: int,
                           file: UploadFile = File(...),
                           title: str = Form(""),
                           user: dict = Depends(current_user)):
-    """Stage 1 of the textbook import: store the book + propose its chapters.
+    """Stage 1 of the textbook import: extract and store the book.
 
     Extracts text per visible PDF page (including CropBox-split spreads), cleans
-    repeated text layers and running headers/footers, persists the book, and runs
-    one cheap LLM call over a heading skeleton to propose editable unit ranges.
-    Nothing is queued until the user reviews/corrects a unit's source."""
+    repeated text layers and running headers/footers, and persists the book
+    immediately. Unit-boundary detection is a separate retryable request, so a
+    transient model failure can never discard a successfully parsed PDF."""
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
@@ -3856,23 +3856,6 @@ async def upload_textbook(request: Request, course_id: int,
         pages = await asyncio.to_thread(textbook.clean_pages, extracted["pages"])
     except extract.ExtractError as e:
         raise HTTPException(400, str(e))
-
-    access = await _resolve_gemini(user, meter=False)
-    metered = await _textbook_metering(user, 1, "Analyzing this book")
-    # Structure detection is a cheap routing decision (like the planner) — it
-    # always runs on the fast reader model, never the premium lesson_model.
-    try:
-        chapters = await textbook.detect_chapters(
-            pages, course["target_lang"],
-            api_key=access.api_key, anthropic_key=access.anthropic_key,
-            model=access.model_reader)
-    except Exception as e:
-        logger.error("Textbook chapter detection failed lang=%s: %s",
-                     course["target_lang"], e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Chapter detection",
-                                                   access.model_reader))
-    if metered:
-        await db.increment_usage(user["id"])
 
     book_title = title.strip()[:200] or (extracted.get("title") or "").strip() or \
         re.sub(r"\.pdf$", "", file.filename or "textbook", flags=re.I)
@@ -3900,9 +3883,9 @@ async def upload_textbook(request: Request, course_id: int,
         for media_id in stored_visual_ids:
             (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
         raise
-    await db.update_textbook_chapters(tb_id, chapters)
     return {"id": tb_id, "title": book_title, "num_pages": len(pages),
-            "chapters": chapters, "visual_count": len(visual_meta)}
+            "chapters": [], "visual_count": len(visual_meta),
+            "needs_analysis": True}
 
 
 @app.get("/api/courses/{course_id}/textbooks")
@@ -3911,6 +3894,39 @@ async def list_course_textbooks(course_id: int, user: dict = Depends(current_use
     if not course:
         raise HTTPException(404, "Course not found")
     return {"textbooks": await db.list_textbooks(user["id"], course_id)}
+
+
+@app.post("/api/textbooks/{textbook_id}/analyze")
+@limiter.limit("20/hour;50/day")
+async def analyze_textbook(request: Request, textbook_id: int,
+                           user: dict = Depends(current_user)):
+    """Detect editable unit boundaries after the PDF has already been saved.
+
+    Keeping this separate from upload means a transient model failure never
+    discards a successfully parsed book or encourages duplicate re-uploads.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    access = await _resolve_gemini(user, meter=False)
+    metered = await _textbook_metering(user, 1, "Detecting textbook units")
+    try:
+        chapters = await textbook.detect_chapters(
+            book["pages"], course["target_lang"],
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=access.model_reader)
+    except Exception as e:
+        logger.error("Textbook unit detection failed lang=%s: %s",
+                     course["target_lang"], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(
+            e, "Textbook unit detection", access.model_reader))
+    if metered:
+        await db.increment_usage(user["id"])
+    await db.update_textbook_chapters(textbook_id, chapters)
+    return {"id": textbook_id, "chapters": chapters}
 
 
 @app.patch("/api/textbooks/{textbook_id}")

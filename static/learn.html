@@ -595,13 +595,14 @@
 
     /* ── Add-lesson / textbook source sheet ── */
     .books-overlay {
-      position: fixed; inset: 0; z-index: 60;
+      position: fixed; inset: 0; z-index: 400;
       background: var(--overlay); display: none;
       align-items: flex-end; justify-content: center;
       padding: 0 10px calc(8px + env(safe-area-inset-bottom));
       box-sizing: border-box; height: 100dvh; min-height: 0; overflow: hidden;
     }
     .books-overlay.open { display: flex; }
+    body:has(.books-overlay.open) .tabbar { display: none; }
     .books-sheet {
       width: 100%; max-width: 680px; background: var(--surface);
       border-radius: 20px; box-shadow: var(--shadow-pop);
@@ -623,6 +624,10 @@
     .maker-kicker { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); margin: 2px 0 7px; }
     .maker-upload { width: 100%; border: 1.5px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer; margin-bottom: 14px; }
     .maker-upload-card { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 14px; background: var(--surface-alt); }
+    .maker-progress { display: flex; align-items: center; gap: 9px; position: sticky;
+      top: -16px; z-index: 3; margin: -16px -16px 14px; padding: 11px 16px;
+      border-bottom: 1px solid var(--border); background: var(--primary-soft);
+      color: var(--primary-strong, var(--primary)); font-size: .8rem; font-weight: 700; }
     .maker-upload-file { font-size: .75rem; color: var(--text-muted); margin-bottom: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .maker-upload-row { display: flex; gap: 8px; align-items: stretch; }
     .maker-upload-row input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); padding: 9px 10px; font: inherit; }
@@ -677,9 +682,11 @@
     .ch-skip { font-size: 0.7rem; color: var(--text-muted); }
     .bk-preview { font-size: 0.72rem; white-space: pre-wrap; background: var(--surface-alt); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; margin: 6px 0; width: 100%; }
     .bk-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-    @media (max-width: 520px) {
+    @media (max-width: 800px) {
       .books-overlay { padding: 0; align-items: stretch; }
       .books-sheet { height: 100dvh; max-height: none; border-radius: 0; }
+    }
+    @media (max-width: 520px) {
       .maker-options { grid-template-columns: 1fr; }
       .maker-option { min-height: 108px; padding: 15px; }
       .maker-option-icon { margin-bottom: 10px; }
@@ -917,6 +924,7 @@
         <button style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--text-muted);padding:2px 6px" onclick="closeBooks()">×</button>
       </div>
       <div class="books-body" id="books-body"></div>
+      <input id="book-file-input" type="file" accept="application/pdf,.pdf" hidden onchange="bookFileChosen(this)">
     </div>
   </div>
 
@@ -1566,6 +1574,7 @@
   let _sourceRequest = 0;
   let _pendingBookFile = null;
   let _pendingBookTitle = '';
+  let _bookProgress = '';
 
   function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
 
@@ -1653,6 +1662,9 @@
   function renderBookPicker(body) {
     _makerHeader('Choose a textbook');
     let html = `<p class="maker-intro">Use a textbook you've already parsed, or upload another PDF. Uploaded books stay here for future lessons.</p>`;
+    if (_bookProgress) {
+      html = `<div class="maker-progress" role="status" aria-live="polite"><span class="spinner"></span><span>${esc(_bookProgress)}</span></div>` + html;
+    }
     if (_pendingBookFile) {
       html += `<div class="maker-upload-card">
         <div class="maker-upload-file">PDF: ${esc(_pendingBookFile.name)}</div>
@@ -1677,6 +1689,7 @@
         <span class="maker-book-arrow">›</span>
       </button>
       <div style="display:flex;justify-content:flex-end;gap:12px;margin:-8px 8px 2px">
+        ${!(b.chapters || []).length ? `<button class="maker-link" style="color:var(--primary)" onclick="analyzeBook(${b.id})">Detect units</button>` : ''}
         <button class="maker-link" style="color:var(--text-muted)" onclick="renameBook(${bi})">Rename</button>
         <button class="maker-link" style="color:var(--text-muted)" onclick="deleteBook(${bi})">Remove</button>
       </div>`;
@@ -1945,43 +1958,120 @@
 
   function chooseBookFile() {
     if (_bookBusy) return;
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'application/pdf,.pdf';
-    inp.onchange = () => {
-      const f = inp.files && inp.files[0];
-      if (!f) return;
-      _pendingBookFile = f;
-      _pendingBookTitle = f.name.replace(/\.pdf$/i, '');
-      renderLessonMaker();
-    };
+    const inp = document.getElementById('book-file-input');
+    // Reset first so choosing the exact same file again still fires `change`.
+    inp.value = '';
     inp.click();
+  }
+
+  function bookFileChosen(inp) {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    _pendingBookFile = f;
+    _pendingBookTitle = f.name.replace(/\.pdf$/i, '');
+    _sourceError = '';
+    renderLessonMaker();
   }
 
   function cancelPendingBook() {
     _pendingBookFile = null; _pendingBookTitle = '';
+    const inp = document.getElementById('book-file-input');
+    if (inp) inp.value = '';
     renderLessonMaker();
   }
 
+  async function textbookFetch(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...(options || {}), signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function requestBookAnalysis(bookId) {
+    const res = await textbookFetch(`/api/textbooks/${bookId}/analyze`, {
+      method: 'POST',
+    }, 120000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Could not detect textbook units.');
+    return data;
+  }
+
+  async function analyzeBook(bookId) {
+    if (_bookBusy) return;
+    _bookBusy = true;
+    _sourceError = '';
+    _bookProgress = 'Finding textbook unit boundaries…';
+    renderLessonMaker();
+    try {
+      await requestBookAnalysis(bookId);
+      await loadBooks(false);
+      _bookBusy = false;
+      _bookProgress = '';
+      selectBook(bookId);
+    } catch (e) {
+      _sourceError = e.name === 'AbortError'
+        ? 'Unit detection took too long. The PDF is saved; tap Detect units to retry.'
+        : (e.message || 'The PDF is saved, but unit detection failed. Tap Detect units to retry.');
+    } finally {
+      _bookBusy = false;
+      _bookProgress = '';
+      if (document.getElementById('books-overlay').classList.contains('open')) renderLessonMaker();
+    }
+  }
+
   async function uploadBook() {
-    if (_bookBusy || !_pendingBookFile) return;
+    if (_bookBusy) return;
+    if (!_pendingBookFile) {
+      _sourceError = 'Choose a PDF before uploading.';
+      renderLessonMaker();
+      return;
+    }
     if (!_pendingBookTitle.trim()) { _sourceError = 'Give this textbook a name.'; renderLessonMaker(); return; }
+    // Snapshot before re-rendering. Keeping the real input in the DOM plus this
+    // reference avoids intermittent mobile Safari file-handle loss.
+    const file = _pendingBookFile;
+    const title = _pendingBookTitle.trim();
     _bookBusy = true; _sourceError = '';
+    _bookProgress = 'Saving and parsing the PDF…';
     renderLessonMaker();
     try {
       const fd = new FormData();
-      fd.append('file', _pendingBookFile);
-      fd.append('title', _pendingBookTitle.trim());
-      const res = await fetch(`/api/courses/${_booksCourseId}/textbooks`, { method: 'POST', body: fd });
+      fd.append('file', file, file.name);
+      fd.append('title', title);
+      const res = await textbookFetch(`/api/courses/${_booksCourseId}/textbooks`, {
+        method: 'POST', body: fd,
+      }, 180000);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Upload failed.');
       _pendingBookFile = null; _pendingBookTitle = '';
+      const inp = document.getElementById('book-file-input');
+      if (inp) inp.value = '';
       await loadBooks(false);
-      _bookBusy = false;
-      selectBook(data.id);
-    } catch (e) {
-      _sourceError = e.message || 'Upload failed.';
-      _bookBusy = false;
+      _bookProgress = 'PDF saved. Finding textbook unit boundaries…';
       renderLessonMaker();
+      try {
+        await requestBookAnalysis(data.id);
+        await loadBooks(false);
+        _bookBusy = false;
+        _bookProgress = '';
+        selectBook(data.id);
+      } catch (analysisError) {
+        await loadBooks(false);
+        _sourceError = analysisError.name === 'AbortError'
+          ? 'The PDF was saved, but unit detection took too long. Tap Detect units to retry.'
+          : `The PDF was saved, but unit detection failed: ${analysisError.message || 'try again.'}`;
+      }
+    } catch (e) {
+      _sourceError = e.name === 'AbortError'
+        ? 'PDF parsing took too long. Check the textbook library before retrying; the server may still finish saving it.'
+        : (e.message || 'Upload failed.');
+    } finally {
+      _bookBusy = false;
+      _bookProgress = '';
+      if (document.getElementById('books-overlay').classList.contains('open')) renderLessonMaker();
     }
   }
 

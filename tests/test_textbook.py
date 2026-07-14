@@ -375,6 +375,55 @@ async def test_textbook_crud_roundtrip(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_upload_saves_book_before_retryable_unit_detection(
+        fresh_db, monkeypatch, tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    monkeypatch.setattr(
+        main.extract, "extract_pdf_pages",
+        lambda *args: {"title": "PDF title", "pages": ["page one", "page two"],
+                       "visuals": []})
+    monkeypatch.setattr(main.textbook, "clean_pages", lambda pages: pages)
+
+    async def must_not_detect_during_upload(*args, **kwargs):
+        raise AssertionError("AI detection must not block or discard the upload")
+
+    monkeypatch.setattr(main.textbook, "detect_chapters", must_not_detect_during_upload)
+    upload = main.UploadFile(filename="book.pdf", file=io.BytesIO(b"pdf"))
+    result = await main.upload_textbook.__wrapped__(
+        None, cid, upload, "My saved book", user)
+    assert result["needs_analysis"] is True
+    assert result["chapters"] == []
+    saved = await db.get_textbook(uid, result["id"])
+    assert saved["title"] == "My saved book"
+    assert saved["pages"] == ["page one", "page two"]
+
+    access = SimpleNamespace(
+        api_key="key", anthropic_key=None, model_reader="reader")
+
+    async def fake_access(*args, **kwargs):
+        return access
+
+    async def fake_meter(*args, **kwargs):
+        return False
+
+    async def detect_after_save(pages, *args, **kwargs):
+        assert pages == ["page one", "page two"]
+        return [{"title": "Unit one", "start": 1, "end": 2,
+                 "skip_hint": False, "status": ""}]
+
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+    monkeypatch.setattr(main.textbook, "detect_chapters", detect_after_save)
+    analyzed = await main.analyze_textbook.__wrapped__(None, result["id"], user)
+    assert analyzed["chapters"][0]["title"] == "Unit one"
+    saved = await db.get_textbook(uid, result["id"])
+    assert saved["chapters"][0]["start"] == 1
+
+
+@pytest.mark.asyncio
 async def test_one_off_textbook_lesson_goes_ahead_of_legacy_queue(fresh_db):
     uid = fresh_db
     cid = await db.create_course(uid, "yue", "A1")
