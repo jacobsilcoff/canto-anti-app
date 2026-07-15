@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import hashlib
+import io
 import json
 import logging
 import math
@@ -13,6 +14,7 @@ import uuid as _uuid
 import httpx
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 try:
@@ -23,7 +25,7 @@ except ImportError:
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -56,6 +58,8 @@ _BOOTSTRAP_USERNAME = os.getenv("APP_ADMIN_USERNAME", "jsilcoff")
 _BOOTSTRAP_EMAIL = os.getenv("APP_ADMIN_EMAIL") or None
 
 _SESSION_TTL = 30 * 86400  # 30 days
+_MIN_PASSWORD_LENGTH = 8
+_MAX_PASSWORD_LENGTH = 1024
 
 _NO_AUTH_PATHS = {
     "/login", "/api/login",
@@ -65,6 +69,7 @@ _NO_AUTH_PATHS = {
     "/reset-password", "/api/reset-password",
     "/api/resend-verification",
     "/api/webhooks/stripe",
+    "/api/messenger/webhook",
     "/manifest.json", "/sw.js",
     "/api/version",
 }
@@ -108,6 +113,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 logger = logging.getLogger("app")
+
+# In-process fan-out for live message updates. Deployments currently run one
+# app worker; if that changes, this interface can be backed by Redis pub/sub
+# without changing the SSE route or browser client.
+_message_event_queues: dict[int, set[asyncio.Queue]] = {}
+
+
+def _publish_message_event(*user_ids: int | None) -> None:
+    for user_id in {uid for uid in user_ids if uid is not None}:
+        for queue in list(_message_event_queues.get(user_id, set())):
+            try:
+                queue.put_nowait({"type": "messages", "at": time.time()})
+            except asyncio.QueueFull:
+                pass
 
 
 def _rate_limit_key(request: Request) -> str:
@@ -384,8 +403,83 @@ _VAPID_CLAIMS_EMAIL = os.getenv("APP_ADMIN_EMAIL") or "admin@example.com"
 MEDIA_DIR = Path(os.getenv("DB_PATH", "data/cards.db")).parent.resolve() / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024   # 20 MB raw input limit
+_MAX_WEBHOOK_BYTES = 1024 * 1024        # provider callbacks are small JSON
 _MAX_IMAGE_DIM    = 1280               # longest edge after resize
+_MAX_IMAGE_PIXELS = 25_000_000         # decompression-bomb / memory guard
 _JPEG_QUALITY     = 82
+
+
+async def _read_upload_limited(
+    file: UploadFile, max_bytes: int, kind: str,
+) -> bytes:
+    """Read at most one byte beyond the limit so oversized uploads never enter RAM."""
+    raw = await file.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise HTTPException(
+            413, f"{kind} too large (max {max_bytes // (1024 * 1024)} MB)",
+        )
+    return raw
+
+
+async def _read_request_body_limited(request: Request, max_bytes: int) -> bytes:
+    """Read a streamed request body with a hard cap, including chunked bodies."""
+    content_length = request.headers.get("content-length", "")
+    if content_length.isdigit() and int(content_length) > max_bytes:
+        raise HTTPException(413, "Request body too large")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_bytes:
+            raise HTTPException(413, "Request body too large")
+    return bytes(body)
+
+
+def _normalize_uploaded_image(raw: bytes, *, square_size: int | None = None) -> bytes:
+    """Decode an untrusted image and return a bounded, metadata-free JPEG."""
+    if not _PIL_OK:
+        raise RuntimeError("Image processing unavailable")
+    with Image.open(io.BytesIO(raw)) as opened:
+        width, height = opened.size
+        if width <= 0 or height <= 0 or width * height > _MAX_IMAGE_PIXELS:
+            raise ValueError("Image dimensions are too large")
+        # Force decoding only after checking the dimensions advertised by the
+        # header. This avoids expanding a small compressed upload into hundreds
+        # of megabytes before the guard runs.
+        opened.load()
+        img = _ImageOps.exif_transpose(opened)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        if square_size is not None:
+            width, height = img.size
+            side = min(width, height)
+            left, top = (width - side) // 2, (height - side) // 2
+            img = img.crop((left, top, left + side, top + side))
+            if side > square_size:
+                img = img.resize((square_size, square_size), Image.LANCZOS)
+        elif max(img.size) > _MAX_IMAGE_DIM:
+            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        return buf.getvalue()
+
+
+async def _store_media(data: bytes, user_id: int, conv_id: int | None = None) -> str:
+    """Persist a media file and DB row without leaving a file on DB failure."""
+    media_id = _uuid.uuid4().hex
+    path = MEDIA_DIR / f"{media_id}.jpg"
+    path.write_bytes(data)
+    try:
+        await db.add_media_record(media_id, user_id, conv_id, len(data))
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return media_id
+
+
+async def _delete_media(media_id: str) -> None:
+    """Remove both halves of a stored media object."""
+    await db.delete_media_records([media_id])
+    (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
 
 # Pre-generated, committed dev-variant icons (orange tint + "DEV" badge). Served
 # as static files in dev — no runtime image library needed. See
@@ -533,45 +627,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         "    </div>\n"
         "  </nav>\n"
         "  <script>"
-        "function doLogout(){try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('nav:')===0)sessionStorage.removeItem(k)})}catch(e){};fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
-        # Stale-while-revalidate: render cached values instantly on every page
-        # load (rapid tab switching costs zero network inside the TTL), refresh
-        # in the background past it. Keyed in sessionStorage.
-        "function navSWR(key,url,ttl,apply){var hit=null;"
-        "try{hit=JSON.parse(sessionStorage.getItem(key)||'null')}catch(e){}"
-        "if(hit&&hit.d!=null){apply(hit.d);if(Date.now()-hit.t<ttl)return;}"
-        "fetch(url).then(function(r){return r.ok?r.json():null}).then(function(d){"
-        "if(d==null)return;"
-        "try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:d}))}catch(e){}"
-        "apply(d);}).catch(function(){});}\n"
-        "navSWR('nav:me','/api/me',300000,function(u){"
-        "if(u.is_admin)document.querySelectorAll('.nav-admin,.more-admin').forEach(function(el){el.style.display=''})"
-        "});\n"
-        "navSWR('nav:due','/api/cards/due-count',60000,function(d){var n=d.count||0;"
-        "document.querySelectorAll('.due-badge').forEach(function(b){"
-        "b.textContent=n>99?'99+':String(n);b.classList.toggle('visible',n>0)})"
-        "});\n"
-        # Single renderer for the header streak/XP pills. Pages call this from
-        # their loadStreak (to refresh after earning XP); the nav also fetches
-        # once on load so every page shows the pills without page-side code.
-        "window.renderHeaderStats=function(streak,points){"
-        "try{sessionStorage.setItem('nav:streak',JSON.stringify({t:Date.now(),d:{streak:streak,points:points}}))}catch(e){}"
-        "var flame='<svg viewBox=\"0 0 16 20\" width=\"12\" height=\"15\" aria-hidden=\"true\"><path fill=\"#f4702a\" d=\"M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z\"/></svg>';"
-        "var star='<svg viewBox=\"0 0 20 20\" width=\"12\" height=\"12\" aria-hidden=\"true\"><path fill=\"#f0b429\" d=\"M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z\"/></svg>';"
-        "function fmt(n){return n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n)}"
-        "var h='';"
-        "if(streak>0)h+='<span class=\"hstat hstat-streak\" title=\"'+streak.toLocaleString()+'-day streak\">'+flame+fmt(streak)+'</span>';"
-        "if(points>0)h+='<span class=\"hstat hstat-xp\" title=\"'+points.toLocaleString()+' XP\">'+star+fmt(points)+'</span>';"
-        "if(!h)return;"
-        "document.querySelectorAll('.streak-display').forEach(function(el){el.innerHTML=h;el.style.display=''});"
-        "};\n"
-        "(function(){var hit=null;"
-        "try{hit=JSON.parse(sessionStorage.getItem('nav:streak')||'null')}catch(e){}"
-        "if(hit&&hit.d){window.renderHeaderStats(hit.d.streak||0,hit.d.points||0);"
-        "if(Date.now()-hit.t<60000)return;}"
-        "fetch('/api/streak').then(function(r){return r.ok?r.json():null}).then(function(d){"
-        "if(d)window.renderHeaderStats(d.streak||0,d.points||0)"
-        "}).catch(function(){});})();"
+        "function doLogout(){try{sessionStorage.removeItem('canto:bootstrap')}catch(e){};fetch('/api/logout',{method:'POST'}).catch(function(){}).then(function(){window.location.replace('/login')})}\n"
         "</script>\n"
     )
     return header_html, tabbar_html
@@ -1174,15 +1230,18 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     if IS_DEV:
         content = content.replace("/static/icons/icon-192.png", "/static/icons/icon-dev-192.png")
         content = content.replace("/static/icons/icon-512.png", "/static/icons/icon-dev-512.png")
+    shell_script = (f'<script src="/static/app-shell.js?v={ASSET_VERSION}"></script>'
+                    if has_nav else "")
     content = content.replace(
         "</head>",
-        f'<script>window.__VERSION__="{ASSET_VERSION}"</script></head>',
+        f'<script>window.__VERSION__="{ASSET_VERSION}"</script>{shell_script}</head>',
         1,
     )
-    # Inject the plan badge + upgrade banner on authenticated app pages (those
-    # with the shared nav); login/register pages have no nav and are skipped.
+    # The cached app-shell module handles shared language, plan, notification,
+    # stats, and mobile navigation UI. Keep only widgets that require page-local
+    # markup here.
     if has_nav:
-        content = content.replace("</body>", _LANG_WIDGET + _PLAN_WIDGET + _NOTIF_WIDGET + _TOUR_WIDGET + _PWA_INSTALL_WIDGET + _TOAST_COPY_WIDGET + "</body>", 1)
+        content = content.replace("</body>", _TOUR_WIDGET + _PWA_INSTALL_WIDGET + _TOAST_COPY_WIDGET + "</body>", 1)
     # no-cache forces Safari to revalidate the HTML, so it always sees the
     # current fingerprinted asset URLs instead of serving a stale page.
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
@@ -1241,7 +1300,8 @@ async def login(request: Request, req: LoginRequest):
         user = await db.get_user_by_email(identifier)
     else:
         user = await db.get_user_by_username(identifier)
-    if not user or not auth.verify_password(req.password, user["password_hash"]):
+    if (len(req.password) > _MAX_PASSWORD_LENGTH or not user
+            or not auth.verify_password(req.password, user["password_hash"])):
         raise HTTPException(401, "Wrong username or password")
     if not user.get("email_verified", True):
         return JSONResponse(
@@ -1292,6 +1352,34 @@ async def me(user: dict = Depends(current_user)):
     }
 
 
+@app.get("/api/bootstrap")
+async def app_bootstrap(user: dict = Depends(current_user)):
+    """One shared payload for the application shell and page startup.
+
+    The client keeps this response in sessionStorage and serves the legacy
+    per-resource GETs from it, so existing pages gain a single-flight startup
+    without a risky all-at-once frontend rewrite.
+    """
+    settings, languages, streak, due, plan, notifications = await asyncio.gather(
+        get_settings(user),
+        list_languages(),
+        get_streak(user),
+        due_count(user=user),
+        billing_status(user),
+        notifications_counts(user),
+    )
+    payload = {
+        "me": await me(user),
+        "settings": settings,
+        "languages": languages["languages"],
+        "streak": streak,
+        "due": due,
+        "billing": plan,
+        "notifications": notifications,
+    }
+    return JSONResponse(payload, headers={"Cache-Control": "private, no-store"})
+
+
 @app.get("/api/profile")
 async def get_profile(user: dict = Depends(current_user)):
     return {
@@ -1319,6 +1407,8 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
         dn = req.display_name.strip()
         if not dn:
             raise HTTPException(400, "Full name cannot be empty.")
+        if len(dn) > 100:
+            raise HTTPException(400, "Full name is too long (max 100 characters).")
         updates["display_name"] = dn
 
     if req.username is not None:
@@ -1333,6 +1423,8 @@ async def update_profile(request: Request, req: ProfileUpdate, user: dict = Depe
 
     if req.email is not None:
         new_email = req.email.strip().lower()
+        if len(new_email) > 254:
+            raise HTTPException(400, "Email is too long.")
         if new_email and "@" not in new_email:
             raise HTTPException(400, "Enter a valid email address.")
         if new_email != (user.get("email") or "").lower():
@@ -1364,42 +1456,25 @@ _AVATAR_DIM = 400  # square output size (frontend renders it circular via CSS)
 @limiter.limit("10/minute")
 async def upload_avatar(request: Request, file: UploadFile = File(...),
                         user: dict = Depends(current_user)):
-    import io as _io
     if not _PIL_OK:
         raise HTTPException(500, "Image processing unavailable (Pillow not installed)")
 
-    raw = await file.read()
-    if len(raw) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Image too large (max 20 MB)")
-
+    raw = await _read_upload_limited(file, _MAX_UPLOAD_BYTES, "Image")
     try:
-        img = Image.open(_io.BytesIO(raw))
-        img = _ImageOps.exif_transpose(img)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        # Center-crop to a square so the circular CSS crop is centered.
-        w, h = img.size
-        side = min(w, h)
-        left, top = (w - side) // 2, (h - side) // 2
-        img = img.crop((left, top, left + side, top + side))
-        if side > _AVATAR_DIM:
-            img = img.resize((_AVATAR_DIM, _AVATAR_DIM), Image.LANCZOS)
-        buf = _io.BytesIO()
-        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
-        out_bytes = buf.getvalue()
+        out_bytes = _normalize_uploaded_image(raw, square_size=_AVATAR_DIM)
     except Exception as exc:
         raise HTTPException(400, f"Could not process image: {exc}")
 
     old_media_id = user.get("avatar_media_id")
-    media_id = _uuid.uuid4().hex
-    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
-    await db.add_media_record(media_id, user["id"], None, len(out_bytes))
-    await db.update_user_profile(user["id"], avatar_media_id=media_id)
+    media_id = await _store_media(out_bytes, user["id"])
+    try:
+        await db.update_user_profile(user["id"], avatar_media_id=media_id)
+    except Exception:
+        await _delete_media(media_id)
+        raise
 
     if old_media_id:
-        old_path = MEDIA_DIR / f"{old_media_id}.jpg"
-        if old_path.exists():
-            old_path.unlink()
+        await _delete_media(old_media_id)
 
     return {"ok": True, "avatar_url": f"/api/media/{media_id}.jpg"}
 
@@ -1410,9 +1485,7 @@ async def delete_avatar(user: dict = Depends(current_user)):
     if not old_media_id:
         return {"ok": True}
     await db.update_user_profile(user["id"], avatar_media_id=None)
-    old_path = MEDIA_DIR / f"{old_media_id}.jpg"
-    if old_path.exists():
-        old_path.unlink()
+    await _delete_media(old_media_id)
     return {"ok": True}
 
 
@@ -1564,8 +1637,10 @@ async def register(request: Request, req: RegisterRequest):
         raise HTTPException(400, "Username must be 2–30 characters: letters, numbers, _ or -")
     if not display_name:
         raise HTTPException(400, "Full name is required.")
-    if len(req.password) < 8:
-        raise HTTPException(400, "Password must be at least 8 characters.")
+    if len(email) > 254 or len(display_name) > 100:
+        raise HTTPException(400, "Email or full name is too long.")
+    if not _MIN_PASSWORD_LENGTH <= len(req.password) <= _MAX_PASSWORD_LENGTH:
+        raise HTTPException(400, "Password must be 8–1024 characters.")
     if await db.get_user_by_email(email):
         raise HTTPException(409, "An account with that email already exists.")
     if await db.get_user_by_username(username):
@@ -1591,7 +1666,7 @@ class ResendVerificationRequest(BaseModel):
 @limiter.limit("3/minute;10/hour")
 async def resend_verification(request: Request, req: ResendVerificationRequest):
     email = req.email.strip().lower()
-    if not email:
+    if not email or len(email) > 254:
         return {"ok": True}  # silent; don't leak info
     user = await db.get_user_by_email(email)
     if user and not user.get("email_verified", True):
@@ -1609,6 +1684,8 @@ class ForgotPasswordRequest(BaseModel):
 @limiter.limit("3/minute;10/hour")
 async def forgot_password(request: Request, req: ForgotPasswordRequest):
     email = req.email.strip().lower()
+    if len(email) > 254:
+        return {"ok": True}
     user = await db.get_user_by_email(email)
     if user and user.get("email_verified", True):
         token = secrets.token_urlsafe(32)
@@ -1627,8 +1704,8 @@ class ResetPasswordRequest(BaseModel):
 @app.post("/api/reset-password")
 @limiter.limit("5/minute")
 async def reset_password(request: Request, req: ResetPasswordRequest):
-    if len(req.password) < 8:
-        raise HTTPException(400, "Password must be at least 8 characters.")
+    if not _MIN_PASSWORD_LENGTH <= len(req.password) <= _MAX_PASSWORD_LENGTH:
+        raise HTTPException(400, "Password must be 8–1024 characters.")
     user = await db.get_user_by_token(req.token.strip(), "reset")
     if not user:
         raise HTTPException(400, "Link expired or invalid. Request a new one.")
@@ -2414,7 +2491,7 @@ def _subscription_period_end(obj) -> str | None:
 async def stripe_webhook(request: Request):
     """Stripe-to-server subscription events. Verifies the signature against the
     raw body, then syncs users.plan. Idempotent — Stripe may retry."""
-    payload = await request.body()
+    payload = await _read_request_body_limited(request, _MAX_WEBHOOK_BYTES)
     sig = request.headers.get("stripe-signature", "")
     try:
         billing.construct_event(payload, sig)  # verify signature against raw body
@@ -2478,6 +2555,41 @@ async def get_all_faces(label_id: int | None = None, label_ids: str | None = Non
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
     faces = await db.get_all_faces(user["id"], label_ids=_parse_label_ids(label_id, label_ids), target_lang=lang)
     return {"cards": faces, "count": len(faces)}
+
+
+@app.get("/api/cards/page")
+async def get_cards_page(
+    offset: int = 0,
+    limit: int = 60,
+    search: str = "",
+    lang: str = "",
+    label_id: int | None = None,
+    cefr: str = "",
+    strength: str = "",
+    status: str = "",
+    sort: str = "newest",
+    user: dict = Depends(current_user),
+):
+    allowed_cefr = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    allowed_strength = {"new", "learning", "familiar", "strong"}
+    allowed_status = {"active", "suspended", "flagged"}
+    allowed_sorts = {"newest", "oldest", "priority", "alpha", "cefr", "strength"}
+
+    def selected(raw: str, allowed: set[str]) -> set[str]:
+        return {item for item in raw.split(",") if item in allowed}
+
+    return await db.get_cards_page(
+        user["id"],
+        offset=max(0, offset),
+        limit=max(1, min(100, limit)),
+        search=search[:200],
+        target_lang=lang if lang in translation.LANG_INFO else "",
+        label_id=label_id,
+        cefr=selected(cefr, allowed_cefr),
+        strength=selected(strength, allowed_strength),
+        status=selected(status, allowed_status),
+        sort=sort if sort in allowed_sorts else "newest",
+    )
 
 
 @app.get("/api/cards/all")
@@ -3250,7 +3362,6 @@ async def get_course_vocab(course_id: int, user: dict = Depends(current_user)):
 async def delete_course(course_id: int, user: dict = Depends(current_user)):
     visual_ids = await db.list_textbook_visual_ids(user["id"], course_id)
     await db.delete_course(user["id"], course_id)
-    await db.delete_media_records(visual_ids)
     for media_id in visual_ids:
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
     return {"success": True}
@@ -3847,9 +3958,7 @@ async def upload_textbook(request: Request, course_id: int,
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
-    data = await file.read()
-    if len(data) > _TEXTBOOK_MAX_PDF:
-        raise HTTPException(413, "PDF too large (max 25 MB).")
+    data = await _read_upload_limited(file, _TEXTBOOK_MAX_PDF, "PDF")
     try:
         extracted = await asyncio.to_thread(
             extract.extract_pdf_pages, data, extract.MAX_PDF_PAGES, True)
@@ -4316,7 +4425,6 @@ async def delete_textbook(textbook_id: int, user: dict = Depends(current_user)):
     visual_ids = [str(v.get("id")) for v in book.get("visuals") or [] if v.get("id")]
     if not await db.delete_textbook(user["id"], textbook_id):
         raise HTTPException(404, "Book not found")
-    await db.delete_media_records(visual_ids)
     for media_id in visual_ids:
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
     return {"success": True}
@@ -5310,10 +5418,12 @@ class CreateUserRequest(BaseModel):
 @app.post("/api/admin/users")
 async def admin_create_user(req: CreateUserRequest, user: dict = Depends(current_admin)):
     username = req.username.strip()
-    if not username or len(username) > 50:
-        raise HTTPException(400, "Username must be 1–50 characters")
-    if len(req.password) < 8:
-        raise HTTPException(400, "Password must be at least 8 characters")
+    if not _USERNAME_RE.match(username):
+        raise HTTPException(
+            400, "Username must be 2–30 characters: letters, numbers, _ or -",
+        )
+    if not _MIN_PASSWORD_LENGTH <= len(req.password) <= _MAX_PASSWORD_LENGTH:
+        raise HTTPException(400, "Password must be 8–1024 characters")
     existing = await db.get_user_by_username(username)
     if existing:
         raise HTTPException(409, "Username already exists")
@@ -5327,8 +5437,8 @@ class UpdatePasswordRequest(BaseModel):
 
 @app.put("/api/admin/users/{user_id}/password")
 async def admin_update_password(user_id: int, req: UpdatePasswordRequest, user: dict = Depends(current_admin)):
-    if len(req.password) < 8:
-        raise HTTPException(400, "Password must be at least 8 characters")
+    if not _MIN_PASSWORD_LENGTH <= len(req.password) <= _MAX_PASSWORD_LENGTH:
+        raise HTTPException(400, "Password must be 8–1024 characters")
     target = await db.get_user(user_id)
     if not target:
         raise HTTPException(404, "User not found")
@@ -5439,12 +5549,6 @@ async def _reprocess_images_bg(rows: list[dict]) -> None:
 
 # ── Feedback / bug reports ───────────────────────────────────────────────────
 
-class FeedbackRequest(BaseModel):
-    type: str = "bug"
-    title: str
-    description: str = ""
-
-
 @app.post("/api/feedback")
 @limiter.limit("10/minute;50/day")
 async def submit_feedback(
@@ -5453,7 +5557,6 @@ async def submit_feedback(
     user: dict = Depends(current_user),
 ):
     """Submit a bug report or feature request, optionally with a screenshot."""
-    import io as _io
     form = await request.form()
     fb_type = str(form.get("type", "bug"))
     if fb_type not in ("bug", "feature"):
@@ -5461,30 +5564,29 @@ async def submit_feedback(
     title = str(form.get("title", "")).strip()
     if not title:
         raise HTTPException(400, "Title is required")
+    if len(title) > 200:
+        raise HTTPException(400, "Title is too long (max 200 characters)")
     description = str(form.get("description", "")).strip()
+    if len(description) > 10_000:
+        raise HTTPException(400, "Description is too long (max 10,000 characters)")
     screenshot_media_id = None
     screenshot_file = form.get("screenshot")
     if screenshot_file and hasattr(screenshot_file, "read"):
-        raw = await screenshot_file.read()
+        raw = await screenshot_file.read(_MAX_UPLOAD_BYTES + 1)
         if raw and len(raw) <= _MAX_UPLOAD_BYTES and _PIL_OK:
             try:
-                img = Image.open(_io.BytesIO(raw))
-                img = _ImageOps.exif_transpose(img)
-                if img.mode != "RGB":
-                    img = img.convert("RGB")
-                if max(img.size) > _MAX_IMAGE_DIM:
-                    img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
-                buf = _io.BytesIO()
-                img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
-                out_bytes = buf.getvalue()
-                screenshot_media_id = _uuid.uuid4().hex
-                (MEDIA_DIR / f"{screenshot_media_id}.jpg").write_bytes(out_bytes)
-                await db.add_media_record(screenshot_media_id, user["id"], None, len(out_bytes))
+                out_bytes = _normalize_uploaded_image(raw)
+                screenshot_media_id = await _store_media(out_bytes, user["id"])
             except Exception:
                 pass
-    feedback_id = await db.create_feedback(
-        user["id"], fb_type, title, description, screenshot_media_id
-    )
+    try:
+        feedback_id = await db.create_feedback(
+            user["id"], fb_type, title, description, screenshot_media_id
+        )
+    except Exception:
+        if screenshot_media_id:
+            await _delete_media(screenshot_media_id)
+        raise
     background_tasks.add_task(_triage_feedback_bg, feedback_id, title, description)
     background_tasks.add_task(
         _notify_admins_feedback, user, fb_type, title, feedback_id,
@@ -5764,48 +5866,42 @@ async def reader_generate_from_image(
     user: dict = Depends(current_user),
 ):
     """Generate a reader text inspired by an uploaded image."""
-    import io as _io
     if not _PIL_OK:
         raise HTTPException(500, "Image processing unavailable")
     form = await request.form()
     target_lang = str(form.get("target_lang", "yue"))
     difficulty = str(form.get("difficulty", "B1"))
-    num_paragraphs = int(form.get("num_paragraphs", 4))
-    prompt = str(form.get("prompt", ""))
+    try:
+        num_paragraphs = max(1, min(10, int(form.get("num_paragraphs", 4))))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "num_paragraphs must be a number from 1 to 10")
+    prompt = str(form.get("prompt", ""))[:2_000]
     if target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    access = await _resolve_gemini(user)
-    raw = await file.read()
-    if len(raw) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Image too large (max 20 MB)")
+    raw = await _read_upload_limited(file, _MAX_UPLOAD_BYTES, "Image")
     try:
-        img = Image.open(_io.BytesIO(raw))
-        img = _ImageOps.exif_transpose(img)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        if max(img.size) > _MAX_IMAGE_DIM:
-            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
-        buf = _io.BytesIO()
-        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
-        out_bytes = buf.getvalue()
+        out_bytes = _normalize_uploaded_image(raw)
     except Exception as exc:
         raise HTTPException(400, f"Could not process image: {exc}")
+    access = await _resolve_gemini(user)
     # Save image to media dir for display in the reader
-    media_id = _uuid.uuid4().hex
-    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
-    await db.add_media_record(media_id, user["id"], None, len(out_bytes))
-    existing = await db.list_reader_texts(user["id"], target_lang=target_lang)
-    existing_titles = [t["title"] for t in existing[:30]]
-    result = await translation.generate_reader_text_from_image(
-        out_bytes, target_lang, difficulty, num_paragraphs, prompt,
-        existing_titles=existing_titles,
-        api_key=access.api_key, model=access.model_reader,
-    )
-    stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
-    text_id = await db.create_reader_text(
-        user["id"], result["title"], stored_prompt, result["content"], target_lang,
-        image_media_id=media_id, difficulty=difficulty,
-    )
+    media_id = await _store_media(out_bytes, user["id"])
+    try:
+        existing = await db.list_reader_texts(user["id"], target_lang=target_lang)
+        existing_titles = [t["title"] for t in existing[:30]]
+        result = await translation.generate_reader_text_from_image(
+            out_bytes, target_lang, difficulty, num_paragraphs, prompt,
+            existing_titles=existing_titles,
+            api_key=access.api_key, model=access.model_reader,
+        )
+        stored_prompt = prompt or f"(image: {result.get('description', 'photo')})"
+        text_id = await db.create_reader_text(
+            user["id"], result["title"], stored_prompt, result["content"], target_lang,
+            image_media_id=media_id, difficulty=difficulty,
+        )
+    except Exception:
+        await _delete_media(media_id)
+        raise
     text = await db.get_reader_text(user["id"], text_id)
     return await _build_text_response(user["id"], text)
 
@@ -5902,9 +5998,7 @@ async def reader_generate_from_pdf(request: Request, file: UploadFile = File(...
     in_target = str(form.get("in_target_language", "false")).lower() == "true"
     if target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    raw = await file.read()
-    if len(raw) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "PDF too large (max 20 MB)")
+    raw = await _read_upload_limited(file, _MAX_UPLOAD_BYTES, "PDF")
     try:
         extracted = await asyncio.to_thread(extract.extract_pdf, raw)
     except extract.ExtractError as exc:
@@ -6116,14 +6210,27 @@ async def reader_translate_sentence(
     """Translate a single reader sentence to English using a plain prose prompt."""
     if req.target_lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
+    text_value = req.text.strip()
+    if not text_value or len(text_value) > 4_000:
+        raise HTTPException(400, "Sentence must be 1–4,000 characters")
+    if (req.text_id is None) != (req.sentence_idx is None):
+        raise HTTPException(400, "text_id and sentence_idx must be provided together")
+    if req.text_id is not None:
+        if req.sentence_idx is None or not 0 <= req.sentence_idx < 10_000:
+            raise HTTPException(400, "Invalid sentence index")
+        stored_text = await db.get_reader_text(user["id"], req.text_id)
+        if not stored_text:
+            raise HTTPException(404, "Text not found")
+        if stored_text["target_lang"] != req.target_lang:
+            raise HTTPException(400, "Language does not match the saved text")
     access = await _resolve_gemini(user)
     result = await translation.translate_sentence(
-        req.text, req.target_lang,
+        text_value, req.target_lang,
         api_key=access.api_key, model=access.model_translate,
     )
     if req.text_id is not None and req.sentence_idx is not None:
         await db.upsert_reader_sentence(
-            req.text_id, req.sentence_idx, req.text,
+            req.text_id, req.sentence_idx, text_value,
             translation=result.get("english"),
             romanization=result.get("romanization"),
         )
@@ -6132,7 +6239,10 @@ async def reader_translate_sentence(
 
 @app.delete("/api/reader/texts/{text_id}")
 async def reader_delete_text(text_id: int, user: dict = Depends(current_user)):
+    text = await db.get_reader_text(user["id"], text_id)
     await db.delete_reader_text(user["id"], text_id)
+    if text and text.get("image_media_id"):
+        await _delete_media(text["image_media_id"])
     return {"success": True}
 
 
@@ -6341,9 +6451,26 @@ class ComprehensionRequest(BaseModel):
 
 class ComprehensionXpRequest(BaseModel):
     lang: str
+    claim_token: str = Field(min_length=16, max_length=128)
 
 
 _COMPREHENSION_XP = 10
+_COMPREHENSION_CLAIM_TTL = 15 * 60
+_comprehension_claims: dict[str, tuple[int, str, float]] = {}
+
+
+def _issue_comprehension_claim(user_id: int, lang: str) -> str:
+    now = time.time()
+    # Opportunistic cleanup keeps this bounded without a timer/background task.
+    expired = [token for token, (_, _, expiry) in _comprehension_claims.items()
+               if expiry <= now]
+    for token in expired:
+        _comprehension_claims.pop(token, None)
+    while len(_comprehension_claims) >= 10_000:
+        _comprehension_claims.pop(next(iter(_comprehension_claims)))
+    token = secrets.token_urlsafe(24)
+    _comprehension_claims[token] = (user_id, lang, now + _COMPREHENSION_CLAIM_TTL)
+    return token
 
 
 @app.post("/api/reader/comprehension")
@@ -6387,12 +6514,17 @@ async def reader_comprehension(request: Request, req: ComprehensionRequest, user
         "options": [str(o).strip() for o in data["options"][:4]],
         "correct": correct,
         "xp": _COMPREHENSION_XP,
+        "claim_token": _issue_comprehension_claim(user["id"], req.lang),
     }
 
 
 @app.post("/api/reader/comprehension/xp")
 async def reader_comprehension_xp(req: ComprehensionXpRequest, user: dict = Depends(current_user)):
-    lang = req.lang if req.lang in translation.LANG_INFO else "yue"
+    claim = _comprehension_claims.pop(req.claim_token, None)
+    if (not claim or claim[0] != user["id"] or claim[1] != req.lang
+            or claim[2] <= time.time()):
+        raise HTTPException(400, "Quiz XP claim is invalid or expired")
+    lang = req.lang
     await db.add_points(user["id"], lang, _COMPREHENSION_XP, "comprehension")
     await db.record_study_activity(user["id"])
     return {"xp": _COMPREHENSION_XP}
@@ -6781,20 +6913,36 @@ async def vapid_public_key(_user: dict = Depends(current_user)):
 
 
 class PushSubscribeBody(BaseModel):
-    endpoint: str
-    p256dh: str
-    auth: str
+    endpoint: str = Field(min_length=1, max_length=2048)
+    p256dh: str = Field(min_length=16, max_length=256)
+    auth: str = Field(min_length=8, max_length=256)
+
+
+async def _validate_push_subscription(body: PushSubscribeBody) -> None:
+    """Reject malformed keys and endpoints that could turn push into SSRF."""
+    parsed = urlparse(body.endpoint)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username
+            or parsed.password):
+        raise HTTPException(400, "Invalid push endpoint")
+    if (not re.fullmatch(r"[A-Za-z0-9_\-=]+", body.p256dh)
+            or not re.fullmatch(r"[A-Za-z0-9_\-=]+", body.auth)):
+        raise HTTPException(400, "Invalid push subscription keys")
+    try:
+        await asyncio.to_thread(extract._validate_public_host, parsed.hostname)
+    except extract.ExtractError:
+        raise HTTPException(400, "Invalid push endpoint")
 
 
 @app.post("/api/push/subscribe")
 async def push_subscribe(body: PushSubscribeBody, user: dict = Depends(current_user)):
+    await _validate_push_subscription(body)
     await db.add_push_subscription(user["id"], body.endpoint, body.p256dh, body.auth)
     return {"ok": True}
 
 
 @app.delete("/api/push/subscribe")
 async def push_unsubscribe(body: PushSubscribeBody, user: dict = Depends(current_user)):
-    await db.remove_push_subscription(body.endpoint)
+    await db.remove_push_subscription(user["id"], body.endpoint)
     return {"ok": True}
 
 
@@ -6852,8 +7000,41 @@ async def _send_push_to_user(user_id: int, title: str, body: str,
         if not keep:
             dead.append(sub["endpoint"])
     for ep in dead:
-        await db.remove_push_subscription(ep)
+        await db.remove_push_subscription(user_id, ep)
     return {"sent": sent, "total": len(subs), "error": None if sent else last_err}
+
+
+@app.get("/api/events/messages")
+async def message_events(user: dict = Depends(current_user)):
+    """Push lightweight conversation-change signals over one live connection."""
+    user_id = user["id"]
+
+    async def stream():
+        queue: asyncio.Queue = asyncio.Queue(maxsize=8)
+        _message_event_queues.setdefault(user_id, set()).add(queue)
+        try:
+            yield "retry: 5000\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=20)
+                    yield "data: " + json.dumps(event, separators=(",", ":")) + "\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            queues = _message_event_queues.get(user_id)
+            if queues is not None:
+                queues.discard(queue)
+                if not queues:
+                    _message_event_queues.pop(user_id, None)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/conversations")
@@ -7025,6 +7206,7 @@ async def send_message(conv_id: int, body: SendMessageBody,
     msg_id = await db.add_message(
         conv_id, user["id"], body.text, original_lang, translations, analysis=analysis
     )
+    _publish_message_event(conv.get("other_user_id"))
 
     tokens: dict = {}
     if sender_lang in _RUBY_LANGS:
@@ -7104,7 +7286,6 @@ async def send_image_message(conv_id: int, request: Request,
                              file: UploadFile = File(...),
                              user: dict = Depends(current_user)):
     """Accept an image upload, downscale it, save to disk, store as a message."""
-    import io as _io
     if not _PIL_OK:
         raise HTTPException(500, "Image processing unavailable (Pillow not installed)")
 
@@ -7113,26 +7294,13 @@ async def send_image_message(conv_id: int, request: Request,
     if not conv:
         raise HTTPException(404, "Conversation not found")
 
-    raw = await file.read()
-    if len(raw) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Image too large (max 20 MB)")
-
+    raw = await _read_upload_limited(file, _MAX_UPLOAD_BYTES, "Image")
     try:
-        img = Image.open(_io.BytesIO(raw))
-        img = _ImageOps.exif_transpose(img)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        if max(img.size) > _MAX_IMAGE_DIM:
-            img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
-        buf = _io.BytesIO()
-        img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
-        out_bytes = buf.getvalue()
+        out_bytes = _normalize_uploaded_image(raw)
     except Exception as exc:
         raise HTTPException(400, f"Could not process image: {exc}")
 
-    media_id = _uuid.uuid4().hex
-    (MEDIA_DIR / f"{media_id}.jpg").write_bytes(out_bytes)
-    await db.add_media_record(media_id, user["id"], conv_id, len(out_bytes))
+    media_id = await _store_media(out_bytes, user["id"], conv_id)
 
     url = f"/api/media/{media_id}.jpg"
 
@@ -7172,11 +7340,16 @@ async def send_image_message(conv_id: int, request: Request,
         "descriptions": descriptions,
         "suggestions": vision.get("suggestions") or {},
     }
-    msg_id = await db.add_message(
-        conv_id, user["id"], f"📷 {description}", "en", translations_for_msg,
-        analysis=analysis,
-    )
+    try:
+        msg_id = await db.add_message(
+            conv_id, user["id"], f"📷 {description}", "en", translations_for_msg,
+            analysis=analysis,
+        )
+    except Exception:
+        await _delete_media(media_id)
+        raise
     await db.record_study_activity(user["id"])
+    _publish_message_event(conv.get("other_user_id"))
 
     if conv.get("type") == "inapp":
         # Use recipient's target-language description in their push notification
@@ -7206,13 +7379,16 @@ async def serve_media(media_id: str):
 
 @app.post("/api/conversations/{conv_id}/read")
 async def mark_read(conv_id: int, user: dict = Depends(current_user)):
-    await db.mark_conversation_read(conv_id, user["id"])
+    if not await db.mark_conversation_read(conv_id, user["id"]):
+        raise HTTPException(404, "Conversation not found")
     return {"ok": True}
 
 
 @app.get("/api/conversations/start/{friend_user_id}")
 async def start_or_get_conv_with_friend(friend_user_id: int, user: dict = Depends(current_user)):
     """Get or create an in-app conversation with a friend."""
+    if not await db.are_friends(user["id"], friend_user_id):
+        raise HTTPException(404, "Friend not found")
     result = await db.get_or_create_conversation(user["id"], friend_user_id)
     return result
 
@@ -7227,8 +7403,7 @@ async def delete_message(msg_id: int, user: dict = Depends(current_user)):
         url = analysis.get("url", "")
         media_id = url.rsplit("/", 1)[-1].replace(".jpg", "") if url else ""
         if media_id:
-            media_path = MEDIA_DIR / f"{media_id}.jpg"
-            media_path.unlink(missing_ok=True)
+            await _delete_media(media_id)
     return {"ok": True}
 
 
@@ -7240,6 +7415,8 @@ async def toggle_reaction(msg_id: int, emoji: str, user: dict = Depends(current_
     if emoji not in _ALLOWED_REACTIONS:
         raise HTTPException(400, "Emoji not allowed")
     added = await db.toggle_reaction(msg_id, user["id"], emoji)
+    if added is None:
+        raise HTTPException(404, "Message not found")
     reactions = await db.get_reactions_for_messages([msg_id], user["id"])
     return {"added": added, "reactions": reactions.get(msg_id, {})}
 
@@ -7387,12 +7564,17 @@ async def messenger_webhook_verify(
 @app.post("/api/messenger/webhook")
 async def messenger_webhook(request: Request):
     """Receive Messenger events from Meta."""
-    body = await request.body()
+    if not _FB_APP_SECRET:
+        raise HTTPException(503, "Messenger webhook is not configured")
+    body = await _read_request_body_limited(request, _MAX_WEBHOOK_BYTES)
     sig = request.headers.get("X-Hub-Signature-256", "")
-    if _FB_APP_SECRET and not _messenger.verify_signature(body, sig, _FB_APP_SECRET):
+    if not _messenger.verify_signature(body, sig, _FB_APP_SECRET):
         raise HTTPException(403, "Bad signature")
 
-    data = await request.json()
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(400, "Invalid JSON")
     if data.get("object") != "page":
         return {"ok": True}
 
@@ -7440,6 +7622,7 @@ async def messenger_webhook(request: Request):
                 sender_name=sender_name,
                 analysis=analysis,
             )
+            _publish_message_event(user_id)
 
     return {"ok": True}
 

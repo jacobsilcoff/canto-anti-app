@@ -4,6 +4,7 @@ import os
 
 import pytest
 import pytest_asyncio
+import aiosqlite
 from cryptography.fernet import Fernet
 from httpx import AsyncClient, ASGITransport
 from PIL import Image
@@ -89,12 +90,27 @@ async def test_avatar_upload_serve_and_delete(client):
     new_url = res2.json()["avatar_url"]
     assert new_url != url
     assert not (main.MEDIA_DIR / old_media).exists()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        old_id = old_media.removesuffix(".jpg")
+        assert (await (await conn.execute(
+            "SELECT COUNT(*) FROM media WHERE id=?", (old_id,)
+        )).fetchone())[0] == 0
 
     # delete clears the field and removes the file
     res3 = await client.delete("/api/profile/avatar")
     assert res3.status_code == 200
     assert (await client.get("/api/me")).json()["avatar_url"] is None
     assert not (main.MEDIA_DIR / new_url.rsplit("/", 1)[1]).exists()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        assert (await (await conn.execute(
+            "SELECT COUNT(*) FROM media"
+        )).fetchone())[0] == 0
+
+
+def test_image_normalizer_rejects_excessive_pixel_count(monkeypatch):
+    monkeypatch.setattr(main, "_MAX_IMAGE_PIXELS", 99)
+    with pytest.raises(ValueError, match="dimensions"):
+        main._normalize_uploaded_image(_png_bytes(size=(10, 10)))
 
 
 @pytest.mark.asyncio

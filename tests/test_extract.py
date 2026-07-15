@@ -6,6 +6,7 @@ exercised here (network + optional deps).
 """
 
 import pytest
+import httpx
 from PIL import Image
 from types import SimpleNamespace
 
@@ -104,3 +105,44 @@ async def test_fetch_url_blocks_loopback_host():
         await extract.fetch_url("http://localhost/admin")
     with pytest.raises(extract.ExtractError):
         await extract.fetch_url("http://127.0.0.1:8000/")
+
+
+@pytest.mark.asyncio
+async def test_fetch_url_blocks_redirect_before_requesting_private_target(monkeypatch):
+    requested = []
+
+    def handler(request):
+        requested.append(str(request.url))
+        return httpx.Response(
+            302, headers={"location": "http://127.0.0.1/admin"}, request=request,
+        )
+
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        return real_client(transport=httpx.MockTransport(handler), **kwargs)
+
+    monkeypatch.setattr(extract.httpx, "AsyncClient", client_factory)
+    with pytest.raises(extract.ExtractError, match="private|blocked"):
+        await extract.fetch_url("http://93.184.216.34/article")
+    assert requested == ["http://93.184.216.34/article"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_url_stops_streaming_at_size_limit(monkeypatch):
+    def handler(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=b"x" * (extract.MAX_FETCH_BYTES + 1),
+            request=request,
+        )
+
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        return real_client(transport=httpx.MockTransport(handler), **kwargs)
+
+    monkeypatch.setattr(extract.httpx, "AsyncClient", client_factory)
+    with pytest.raises(extract.ExtractError, match="too large"):
+        await extract.fetch_url("http://93.184.216.34/article")

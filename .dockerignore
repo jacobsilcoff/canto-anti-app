@@ -10,7 +10,13 @@ Caddyfile
 tests/
 *.md
 .DS_Store
+.claude/
+.mcp.json
+.pytest_cache/
 extracted_vocab.json
+even-glasses/node_modules/
+spike_output/
 test_google_translate.py
 *.key
+*.pub
 *.pem

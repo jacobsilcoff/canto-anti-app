@@ -1,10 +1,18 @@
 # Prod: served by the app container in docker-compose.yml.
 {$DOMAIN} {
+    encode zstd gzip
+    request_body {
+        max_size 30MB
+    }
     reverse_proxy canto-app:8080
 }
 
 # Staging: served by the app-staging container in docker-compose.staging.yml,
 # reachable over the shared "web" network. Returns 502 until staging is deployed.
 {$DEV_DOMAIN} {
+    encode zstd gzip
+    request_body {
+        max_size 30MB
+    }
     reverse_proxy canto-app-staging:8080
 }

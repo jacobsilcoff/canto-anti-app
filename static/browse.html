@@ -285,6 +285,10 @@
       0% { left: -40%; } 100% { left: 100%; }
     }
     .lbl-section-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
+    .cards-load-more { display: none; margin: 14px auto 4px; border: 1px solid var(--border);
+      border-radius: 10px; background: var(--surface); color: var(--primary); padding: 10px 18px;
+      font: inherit; font-weight: 700; cursor: pointer; }
+    .cards-load-more.visible { display: block; }
   </style>
 </head>
 <body>
@@ -362,6 +366,7 @@
     </div>
     <div class="cards-count" id="cards-count"></div>
     <div class="card-list-wrap" id="cards-list"></div>
+    <button class="cards-load-more" id="cards-load-more" onclick="loadMoreCards()">Load more</button>
   </div>
 
   <!-- My decks -->
@@ -404,7 +409,7 @@
 
 <div class="selection-bar hidden" id="selection-bar">
   <span class="sel-count" id="sel-count">0 selected</span>
-  <button class="sel-all-btn" onclick="selectAllFiltered()">Select all</button>
+  <button class="sel-all-btn" onclick="selectAllFiltered()">Select loaded</button>
   <button class="sel-action" onclick="showCreateDeckModal()">Create deck</button>
   <button class="sel-clear" onclick="clearSelection()">Clear</button>
 </div>
@@ -448,6 +453,13 @@
   let _langMap = {};
   let languages = [];
   let langByCode = {};
+  let _cardsOffset = 0;
+  let _cardsTotal = 0;
+  let _cardsHasMore = false;
+  let _cardsLoading = false;
+  let _cardsRequestId = 0;
+  let _cardsDebounce = null;
+  const CARDS_PAGE_SIZE = 60;
 
   // SVG icons (subset used by the card browser).
   const ICONS = {
@@ -472,7 +484,7 @@
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+  function escAttr(s) { return esc(s); }
 
   function langBadge(code) {
     const l = _langMap[code];
@@ -536,8 +548,7 @@
 
   // ── Init ──
   async function init() {
-    const [, settingsRes, langs] = await Promise.all([
-      loadMyCards(),
+    const [settingsRes, langs] = await Promise.all([
       fetch('/api/settings').then(r => r.json()).catch(() => ({})),
       fetch('/api/languages').then(r => r.json()).catch(() => ({})),
     ]);
@@ -548,10 +559,10 @@
     langByCode = Object.fromEntries(languages.map(l => [l.code, l]));
     populateCardsLangFilter();
     populateCommDeckLangFilter();
-    loadLabels();
+    await loadLabels();
     const urlTab = new URLSearchParams(location.search).get('tab');
     if (urlTab && _tabViews[urlTab]) switchTab(urlTab);
-    else filterCards();
+    else await loadMyCards(true);
   }
 
   async function loadLabels() {
@@ -1021,13 +1032,12 @@
   function populateCardsLangFilter() {
     const sel = document.getElementById('cards-lang-filter');
     if (!sel) return;
-    const present = [...new Set(_allCards.map(c => c.target_lang).filter(Boolean))];
     let opts = '<option value="">All languages</option>';
-    present.forEach(code => {
-      opts += `<option value="${code}"${code === _defaultLang ? ' selected' : ''}>${langBadge(code)}</option>`;
+    languages.forEach(lang => {
+      opts += `<option value="${lang.code}"${lang.code === _defaultLang ? ' selected' : ''}>${langBadge(lang.code)}</option>`;
     });
     sel.innerHTML = opts;
-    if (_defaultLang && present.includes(_defaultLang)) sel.value = _defaultLang;
+    if (_defaultLang && languages.some(lang => lang.code === _defaultLang)) sel.value = _defaultLang;
   }
 
   // ── Tabs ──
@@ -1051,12 +1061,56 @@
   }
 
   // ── My Cards (browse all) ──
-  async function loadMyCards() {
-    try {
-      const res = await fetch('/api/cards/all').then(r => r.json());
-      _allCards = res.cards || [];
-    } catch {}
+  function cardPageParams(offset) {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(CARDS_PAGE_SIZE) });
+    const search = document.getElementById('cards-search').value.trim();
+    const lang = document.getElementById('cards-lang-filter').value;
+    const labelId = document.getElementById('cards-label-filter').value;
+    const cefr = getActiveChips('cefr-chips');
+    const strength = getActiveChips('strength-chips');
+    const status = getActiveChips('status-chips');
+    const sort = document.getElementById('cards-sort').value;
+    if (search) params.set('search', search);
+    if (lang) params.set('lang', lang);
+    if (labelId) params.set('label_id', labelId);
+    if (cefr.length) params.set('cefr', cefr.join(','));
+    if (strength.length) params.set('strength', strength.join(','));
+    if (status.length) params.set('status', status.join(','));
+    if (sort) params.set('sort', sort);
+    return params;
   }
+
+  async function loadMyCards(reset = true) {
+    if (_cardsLoading && !reset) return;
+    const requestId = ++_cardsRequestId;
+    _cardsLoading = true;
+    const button = document.getElementById('cards-load-more');
+    if (button) { button.disabled = true; button.textContent = 'Loading…'; }
+    try {
+      const nextOffset = reset ? 0 : _cardsOffset;
+      const data = await fetch('/api/cards/page?' + cardPageParams(nextOffset)).then(r => r.json());
+      if (requestId !== _cardsRequestId) return;
+      const cards = data.cards || [];
+      _cardsTotal = data.total || 0;
+      _cardsHasMore = !!data.has_more;
+      _cardsOffset = nextOffset + cards.length;
+      if (reset) _allCards = cards;
+      else _allCards.push(...cards);
+      renderCardsList(cards, _cardsTotal, !reset);
+    } catch {
+      if (requestId === _cardsRequestId && reset) document.getElementById('cards-list').innerHTML = '<div class="deck-empty">Could not load cards.</div>';
+    } finally {
+      if (requestId !== _cardsRequestId) return;
+      _cardsLoading = false;
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Load more';
+        button.classList.toggle('visible', _cardsHasMore);
+      }
+    }
+  }
+
+  function loadMoreCards() { loadMyCards(false); }
 
   function getActiveChips(containerId) {
     return [...document.querySelectorAll(`#${containerId} .filter-chip.active`)].map(c => c.dataset.val);
@@ -1067,57 +1121,8 @@
   }
 
   function filterCards() {
-    const q = (document.getElementById('cards-search').value || '').toLowerCase();
-    const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
-    const langFilter = document.getElementById('cards-lang-filter').value;
-    const cefrVals = getActiveChips('cefr-chips');
-    const strengthVals = getActiveChips('strength-chips');
-    const statusVals = getActiveChips('status-chips');
-    const sortBy = document.getElementById('cards-sort').value;
-    let filtered = _allCards;
-    if (langFilter) {
-      filtered = filtered.filter(c => c.target_lang === langFilter);
-    }
-    if (q) {
-      filtered = filtered.filter(c =>
-        (c.target_text || '').toLowerCase().includes(q) ||
-        (c.source_text || '').toLowerCase().includes(q) ||
-        (c.romanization || '').toLowerCase().includes(q) ||
-        (c.notes || '').toLowerCase().includes(q)
-      );
-    }
-    if (labelId) {
-      filtered = filtered.filter(c => (c.labels || []).some(l => l.id === labelId));
-    }
-    if (cefrVals.length) {
-      filtered = filtered.filter(c => cefrVals.includes(c.cefr_level));
-    }
-    if (strengthVals.length) {
-      filtered = filtered.filter(c => strengthVals.includes(cardStrength(c)));
-    }
-    if (statusVals.length) {
-      filtered = filtered.filter(c => {
-        for (const v of statusVals) {
-          if (v === 'active' && !c.suspended && !c.tutor_flag) return true;
-          if (v === 'suspended' && c.suspended) return true;
-          if (v === 'flagged' && c.tutor_flag) return true;
-        }
-        return false;
-      });
-    }
-    const CEFR_ORDER = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
-    if (sortBy === 'oldest') {
-      filtered = filtered.slice().sort((a, b) => a.id - b.id);
-    } else if (sortBy === 'priority') {
-      filtered = filtered.slice().sort((a, b) => (b.priority || 3) - (a.priority || 3));
-    } else if (sortBy === 'alpha') {
-      filtered = filtered.slice().sort((a, b) => (a.target_text || '').localeCompare(b.target_text || ''));
-    } else if (sortBy === 'cefr') {
-      filtered = filtered.slice().sort((a, b) => (CEFR_ORDER[a.cefr_level] || 99) - (CEFR_ORDER[b.cefr_level] || 99));
-    } else if (sortBy === 'strength') {
-      filtered = filtered.slice().sort((a, b) => STRENGTH_ORDER[cardStrength(a)] - STRENGTH_ORDER[cardStrength(b)]);
-    }
-    renderCardsList(filtered);
+    clearTimeout(_cardsDebounce);
+    _cardsDebounce = setTimeout(() => loadMyCards(true), 250);
   }
 
   function clearFilters() {
@@ -1134,21 +1139,21 @@
     filterCards();
   }
 
-  function renderCardsList(cards) {
-    _lastFilteredCards = cards;
+  function renderCardsList(cards, total = cards.length, append = false) {
+    _lastFilteredCards = append ? _lastFilteredCards.concat(cards) : cards.slice();
     const el = document.getElementById('cards-count');
     const labelId = parseInt(document.getElementById('cards-label-filter').value) || 0;
     const studyHref = labelId ? `/cards?label_id=${labelId}&study=1` : '/cards?study=1';
-    el.innerHTML = `<span>${cards.length} card${cards.length !== 1 ? 's' : ''}</span>` +
-      (cards.length ? `<a class="study-link" href="${studyHref}">Study${labelId ? ' this label' : ''} →</a>` : '');
+    el.innerHTML = `<span>${total} card${total !== 1 ? 's' : ''}</span>` +
+      (total ? `<a class="study-link" href="${studyHref}">Study${labelId ? ' this label' : ''} →</a>` : '');
     const list = document.getElementById('cards-list');
-    if (!cards.length) {
+    if (!total) {
       list.innerHTML = '<div class="deck-empty">No cards found.</div>';
       updateSelectionBar();
       return;
     }
-    list.innerHTML = '';
-    cards.slice(0, 500).forEach(card => renderCardListItem(card, list));
+    if (!append) list.innerHTML = '';
+    cards.forEach(card => renderCardListItem(card, list));
     cards.forEach(card => {
       if (card.canonical_card_id) {
         const elc = document.getElementById(`canonical-target-${card.id}`);
@@ -1340,28 +1345,35 @@
   function filterCanonicalResults(cardId) {
     const input = document.getElementById(`edit-canonical-${cardId}`);
     const results = document.getElementById(`canonical-results-${cardId}`);
-    const query = input.value.trim().toLowerCase();
+    const query = input.value.trim();
     if (!query) { results.style.display = 'none'; return; }
-    const item = document.getElementById(`cli-${cardId}`);
-    const matches = _allCards.filter(c =>
-      c.id !== cardId &&
-      (c.target_text.toLowerCase().includes(query) || c.source_text.toLowerCase().includes(query))
-    ).slice(0, 8);
-    if (!matches.length) { results.style.display = 'none'; return; }
-    results.innerHTML = '';
-    matches.forEach(c => {
-      const row = document.createElement('div');
-      row.className = 'canonical-result-row';
-      row.textContent = c.target_text + (c.source_text ? ` — ${c.source_text}` : '');
-      row.onclick = () => {
-        item._pendingCanonicalId = c.id;
-        renderCanonicalCurrent(cardId, c.id);
-        input.value = '';
-        results.style.display = 'none';
-      };
-      results.appendChild(row);
-    });
-    results.style.display = '';
+    clearTimeout(input._canonicalTimer);
+    input._canonicalTimer = setTimeout(async () => {
+      try {
+        const data = await fetch('/api/cards/page?limit=20&search=' + encodeURIComponent(query)).then(r => r.json());
+        if (input.value.trim() !== query) return;
+        const matches = (data.cards || []).filter(card => card.id !== cardId).slice(0, 8);
+        if (!matches.length) { results.style.display = 'none'; return; }
+        const item = document.getElementById(`cli-${cardId}`);
+        matches.forEach(card => {
+          if (!_allCards.some(existing => existing.id === card.id)) _allCards.push(card);
+        });
+        results.innerHTML = '';
+        matches.forEach(card => {
+          const row = document.createElement('div');
+          row.className = 'canonical-result-row';
+          row.textContent = card.target_text + (card.source_text ? ` — ${card.source_text}` : '');
+          row.onclick = () => {
+            item._pendingCanonicalId = card.id;
+            renderCanonicalCurrent(cardId, card.id);
+            input.value = '';
+            results.style.display = 'none';
+          };
+          results.appendChild(row);
+        });
+        results.style.display = '';
+      } catch { results.style.display = 'none'; }
+    }, 200);
   }
 
   // ── Edit / delete ──

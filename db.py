@@ -1560,6 +1560,144 @@ async def get_all_cards(user_id: int) -> list[dict]:
     return cards
 
 
+async def get_cards_page(
+    user_id: int,
+    *,
+    offset: int = 0,
+    limit: int = 60,
+    search: str = "",
+    target_lang: str = "",
+    label_id: int | None = None,
+    cefr: set[str] | None = None,
+    strength: set[str] | None = None,
+    status: set[str] | None = None,
+    sort: str = "newest",
+) -> dict:
+    """Return a bounded, filtered card page without assembling the full deck."""
+    start = max(0, offset)
+    size = max(1, min(100, limit))
+    where = ["c.user_id = ?"]
+    params: list = [PRIMARY_FACE, user_id]
+
+    needle = search.strip().lower()
+    if needle:
+        where.append(
+            "(LOWER(c.source_text) LIKE ? OR LOWER(c.target_text) LIKE ? "
+            "OR LOWER(c.romanization) LIKE ? OR LOWER(COALESCE(c.notes, '')) LIKE ?)"
+        )
+        pattern = f"%{needle}%"
+        params.extend([pattern] * 4)
+    if target_lang:
+        where.append("c.target_lang = ?")
+        params.append(target_lang)
+    if label_id is not None:
+        where.append(
+            "EXISTS (SELECT 1 FROM card_labels cl JOIN labels l ON l.id=cl.label_id "
+            "WHERE cl.card_id=c.id AND cl.label_id=? AND l.user_id=?)"
+        )
+        params.extend([label_id, user_id])
+    if cefr:
+        values = sorted(cefr)
+        where.append(f"c.cefr_level IN ({','.join('?' for _ in values)})")
+        params.extend(values)
+
+    strength_sql = {
+        "new": "f.first_seen_date IS NULL",
+        "learning": "f.first_seen_date IS NOT NULL AND f.learning_step IS NOT NULL",
+        "strong": (
+            "f.first_seen_date IS NOT NULL AND f.learning_step IS NULL "
+            "AND COALESCE(f.interval_days, 1) >= 21 "
+            "AND COALESCE(f.ease_factor, 2.5) >= 2.0"
+        ),
+        "familiar": (
+            "f.first_seen_date IS NOT NULL AND f.learning_step IS NULL "
+            "AND NOT (COALESCE(f.interval_days, 1) >= 21 "
+            "AND COALESCE(f.ease_factor, 2.5) >= 2.0)"
+        ),
+    }
+    if strength:
+        where.append("(" + " OR ".join(strength_sql[value] for value in sorted(strength)) + ")")
+
+    status_sql = {
+        "active": "COALESCE(c.suspended, 0)=0 AND COALESCE(c.tutor_flag, 0)=0",
+        "suspended": "COALESCE(c.suspended, 0)<>0",
+        "flagged": "COALESCE(c.tutor_flag, 0)<>0",
+    }
+    if status:
+        where.append("(" + " OR ".join(status_sql[value] for value in sorted(status)) + ")")
+
+    strength_rank = (
+        "CASE WHEN f.first_seen_date IS NULL THEN 0 "
+        "WHEN f.learning_step IS NOT NULL THEN 1 "
+        "WHEN COALESCE(f.interval_days, 1) >= 21 AND COALESCE(f.ease_factor, 2.5) >= 2.0 THEN 3 "
+        "ELSE 2 END"
+    )
+    order_by = {
+        "newest": "c.created_at DESC, c.id DESC",
+        "oldest": "c.created_at ASC, c.id ASC",
+        "priority": "COALESCE(c.priority, 3) DESC, c.id DESC",
+        "alpha": "c.target_text COLLATE NOCASE ASC, c.id DESC",
+        "cefr": (
+            "CASE c.cefr_level WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B1' THEN 3 "
+            "WHEN 'B2' THEN 4 WHEN 'C1' THEN 5 WHEN 'C2' THEN 6 ELSE 99 END, c.id DESC"
+        ),
+        "strength": f"{strength_rank} ASC, c.id DESC",
+    }.get(sort, "c.created_at DESC, c.id DESC")
+
+    joined = "FROM cards c LEFT JOIN card_faces f ON f.card_id=c.id AND f.face=?"
+    predicate = " AND ".join(where)
+    select_cols = (
+        "c.id, c.source_text, c.target_text, c.romanization, c.target_lang, c.notes, "
+        "c.priority, c.tutor_flag, c.suspended, c.classifier, c.canonical_card_id, "
+        "c.cefr_level, c.created_at, f.ease_factor, f.repetitions, f.interval_days, "
+        "f.learning_step, f.first_seen_date"
+    )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT COUNT(*) {joined} WHERE {predicate}", tuple(params),
+        ) as cur:
+            total = (await cur.fetchone())[0]
+        async with db.execute(
+            f"SELECT {select_cols} {joined} WHERE {predicate} "
+            f"ORDER BY {order_by} LIMIT ? OFFSET ?",
+            tuple(params) + (size, start),
+        ) as cur:
+            cards = [dict(row) for row in await cur.fetchall()]
+
+        label_rows = []
+        if cards:
+            ids = [card["id"] for card in cards]
+            placeholders = ",".join("?" for _ in ids)
+            async with db.execute(
+                f"""SELECT cl.card_id, l.id, l.name
+                    FROM card_labels cl JOIN labels l ON l.id=cl.label_id
+                    WHERE cl.card_id IN ({placeholders}) AND l.user_id=?""",
+                tuple(ids) + (user_id,),
+            ) as cur:
+                label_rows = await cur.fetchall()
+
+    labels_by_card: dict[int, list[dict]] = {}
+    for row in label_rows:
+        labels_by_card.setdefault(row["card_id"], []).append(
+            {"id": row["id"], "name": row["name"]}
+        )
+    for card in cards:
+        card["labels"] = labels_by_card.get(card["id"], [])
+        card["ease_factor"] = card.get("ease_factor") or 2.5
+        card["repetitions"] = card.get("repetitions") or 0
+        card["interval_days"] = card.get("interval_days") or 1
+
+    return {
+        "cards": cards,
+        "total": total,
+        "offset": start,
+        "limit": size,
+        "has_more": start + size < total,
+    }
+
+
 async def get_due_count(
     user_id: int,
     label_ids: list[int] | None = None,
@@ -3913,6 +4051,22 @@ async def get_friends(user_id: int) -> dict:
     return {"friends": friends, "sent": sent, "received": received}
 
 
+async def are_friends(user_id: int, other_user_id: int) -> bool:
+    """Return whether two distinct users have an accepted friendship."""
+    if user_id == other_user_id:
+        return False
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM friendships
+               WHERE status='accepted' AND (
+                 (requester_id=? AND addressee_id=?) OR
+                 (requester_id=? AND addressee_id=?)
+               )""",
+            (user_id, other_user_id, other_user_id, user_id),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+
 # ── Conversations + Messages ───────────────────────────────────────────────────
 
 async def get_or_create_conversation(user1_id: int, user2_id: int) -> dict:
@@ -4061,9 +4215,19 @@ async def get_reactions_for_messages(message_ids: list[int], viewer_user_id: int
     return result
 
 
-async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool:
-    """Add reaction if not present, remove if already present. Returns True if now added."""
+async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool | None:
+    """Toggle a participant's reaction; return None when access is denied."""
     async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM messages m
+               JOIN conversations c ON c.id=m.conversation_id
+               WHERE m.id=? AND (
+                 c.user1_id=? OR c.user2_id=? OR c.owner_user_id=?
+               )""",
+            (message_id, user_id, user_id, user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return None
         async with db.execute(
             "SELECT id FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
             (message_id, user_id, emoji),
@@ -4134,8 +4298,10 @@ async def get_message(msg_id: int, user_id: int) -> dict | None:
                       m.original_text, m.original_lang, m.translations, m.analysis
                FROM messages m
                JOIN conversations c ON c.id = m.conversation_id
-               WHERE m.id = ? AND (c.user1_id = ? OR c.user2_id = ?)""",
-            (msg_id, user_id, user_id),
+               WHERE m.id = ? AND (
+                 c.user1_id = ? OR c.user2_id = ? OR c.owner_user_id = ?
+               )""",
+            (msg_id, user_id, user_id, user_id),
         )
         if not row:
             return None
@@ -4159,8 +4325,15 @@ async def update_message_analysis(msg_id: int, translations: dict, analysis: dic
         await conn.commit()
 
 
-async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
+async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM conversations
+               WHERE id=? AND (user1_id=? OR user2_id=? OR owner_user_id=?)""",
+            (conversation_id, reader_user_id, reader_user_id, reader_user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return False
         await db.execute(
             """UPDATE messages SET read_at=datetime('now')
                WHERE conversation_id=? AND read_at IS NULL
@@ -4168,6 +4341,7 @@ async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> N
             (conversation_id, reader_user_id),
         )
         await db.commit()
+        return True
 
 
 async def get_total_unread(user_id: int) -> int:
@@ -4219,9 +4393,12 @@ async def get_push_subscriptions(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def remove_push_subscription(endpoint: str) -> None:
+async def remove_push_subscription(user_id: int, endpoint: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
+        await db.execute(
+            "DELETE FROM push_subscriptions WHERE user_id=? AND endpoint=?",
+            (user_id, endpoint),
+        )
         await db.commit()
 
 

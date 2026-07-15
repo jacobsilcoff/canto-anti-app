@@ -17,6 +17,69 @@ import db
 import main
 
 
+@pytest.mark.parametrize("stored", [None, "", "not-a-hash", "zz$11", "00$00"])
+def test_verify_password_fails_closed_for_malformed_hash(stored):
+    assert auth.verify_password("password", stored) is False
+
+
+@pytest.mark.asyncio
+async def test_messenger_webhook_verification_is_reachable_without_login(
+    client, monkeypatch,
+):
+    monkeypatch.setattr(main, "_FB_WEBHOOK_VERIFY_TOKEN", "verify-me")
+    res = await client.get(
+        "/api/messenger/webhook",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "verify-me",
+            "hub.challenge": "challenge-123",
+        },
+    )
+    assert res.status_code == 200
+    assert res.text == "challenge-123"
+
+
+@pytest.mark.asyncio
+async def test_messenger_webhook_requires_valid_signature_without_login(
+    client, monkeypatch,
+):
+    import hashlib
+    import hmac
+
+    secret = "app-secret"
+    monkeypatch.setattr(main, "_FB_APP_SECRET", secret)
+    body = b'{"object":"ignored"}'
+
+    unsigned = await client.post("/api/messenger/webhook", content=body)
+    assert unsigned.status_code == 403
+
+    signature = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256,
+    ).hexdigest()
+    signed = await client.post(
+        "/api/messenger/webhook",
+        content=body,
+        headers={"X-Hub-Signature-256": signature},
+    )
+    assert signed.status_code == 200
+    assert signed.json() == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_comprehension_xp_claim_is_single_use(fresh_db):
+    user = await db.get_user_by_username("admin")
+    token = main._issue_comprehension_claim(user["id"], "yue")
+    request = main.ComprehensionXpRequest(lang="yue", claim_token=token)
+
+    result = await main.reader_comprehension_xp(request, user)
+    assert result == {"xp": main._COMPREHENSION_XP}
+    assert await db.get_points_total(user["id"], "yue") == main._COMPREHENSION_XP
+
+    with pytest.raises(main.HTTPException) as exc:
+        await main.reader_comprehension_xp(request, user)
+    assert exc.value.status_code == 400
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def disable_rate_limits():
     """Disable slowapi rate limiting for all auth flow tests."""
@@ -40,6 +103,83 @@ async def client(fresh_db):
     transport = ASGITransport(app=main.app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+async def _authenticate_test_client(client):
+    """Attach a plain test session; production login cookies are Secure."""
+    import time
+
+    user = await db.get_user_by_username("admin")
+    token = "test-ui-shell-session"
+    await db.create_session(token, user["id"], time.time() + 3600)
+    client.cookies.set("session", token)
+    return user
+
+
+@pytest.mark.asyncio
+async def test_app_bootstrap_combines_shared_startup_data(client):
+    await _authenticate_test_client(client)
+
+    res = await client.get("/api/bootstrap")
+
+    assert res.status_code == 200
+    assert "no-store" in res.headers["cache-control"]
+    payload = res.json()
+    assert set(payload) == {
+        "me", "settings", "languages", "streak", "due", "billing",
+        "notifications",
+    }
+    assert payload["me"]["username"] == "admin"
+    assert isinstance(payload["languages"], list)
+
+    home = await client.get("/")
+    assert home.status_code == 200
+    assert home.text.count('/static/app-shell.js?v=') == 1
+
+
+@pytest.mark.asyncio
+async def test_shared_shell_is_loaded_once_across_primary_pages(client):
+    await _authenticate_test_client(client)
+
+    for path in ("/", "/cards", "/reader", "/tutor", "/messages", "/browse", "/settings"):
+        res = await client.get(path)
+        assert res.status_code == 200, path
+        assert res.text.count('/static/app-shell.js?v=') == 1, path
+
+
+@pytest.mark.asyncio
+async def test_cards_page_endpoint_returns_a_bounded_page(client):
+    user = await _authenticate_test_client(client)
+    for i in range(5):
+        await db.create_card(
+            user["id"], f"Page source {i}", f"頁面 {i}", f"jyut {i}",
+            target_lang="yue",
+        )
+
+    res = await client.get(
+        "/api/cards/page",
+        params={"limit": 2, "search": "Page source", "lang": "yue"},
+    )
+
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["total"] == 5
+    assert len(payload["cards"]) == 2
+    assert payload["has_more"] is True
+
+
+@pytest.mark.asyncio
+async def test_message_event_signal_is_published_to_connected_user():
+    import asyncio
+
+    queue = asyncio.Queue(maxsize=1)
+    main._message_event_queues[42] = {queue}
+    try:
+        main._publish_message_event(42)
+        event = await asyncio.wait_for(queue.get(), timeout=0.1)
+        assert event["type"] == "messages"
+    finally:
+        main._message_event_queues.pop(42, None)
 
 
 # ── Turnstile CAPTCHA ───────────────────────────────────────────────────────

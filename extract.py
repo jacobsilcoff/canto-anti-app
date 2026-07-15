@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -74,35 +74,51 @@ def _validate_public_host(host: str) -> None:
 async def fetch_url(url: str) -> str:
     """Fetch a public web page and return its HTML (SSRF-guarded, size-capped)."""
     url = (url or "").strip()
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ExtractError("Enter a full http(s):// URL.")
-    _validate_public_host(parsed.hostname or "")
-
     try:
         async with httpx.AsyncClient(
             timeout=FETCH_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=5,
+            follow_redirects=False,
             headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"},
         ) as client:
-            resp = await client.get(url)
+            current_url = url
+            for _ in range(6):
+                parsed = urlparse(current_url)
+                if parsed.scheme not in ("http", "https"):
+                    raise ExtractError("Enter a full http(s):// URL.")
+                _validate_public_host(parsed.hostname or "")
+
+                async with client.stream("GET", current_url) as resp:
+                    if resp.status_code in (301, 302, 303, 307, 308):
+                        location = resp.headers.get("location")
+                        if not location:
+                            raise ExtractError("The page returned an invalid redirect.")
+                        # Validate the target before issuing the next request. Letting
+                        # httpx auto-follow would contact an internal redirect target
+                        # before we had a chance to apply the SSRF guard.
+                        current_url = urljoin(str(resp.url), location)
+                        continue
+
+                    if resp.status_code >= 400:
+                        raise ExtractError(
+                            f"The page returned HTTP {resp.status_code}."
+                        )
+                    ctype = resp.headers.get("content-type", "")
+                    if (ctype and "html" not in ctype and "xml" not in ctype
+                            and "text" not in ctype):
+                        raise ExtractError(
+                            f"That link isn't a web page (content-type: {ctype})."
+                        )
+
+                    body = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > MAX_FETCH_BYTES:
+                            raise ExtractError("That page is too large to import.")
+                    encoding = resp.charset_encoding or "utf-8"
+                    return bytes(body).decode(encoding, errors="replace")
+            raise ExtractError("The page redirected too many times.")
     except httpx.HTTPError as exc:
         raise ExtractError(f"Couldn't fetch the page: {exc}")
-
-    # A redirect could have bounced to an internal host — re-check the final one.
-    final_host = resp.url.host or ""
-    if final_host and final_host != (parsed.hostname or ""):
-        _validate_public_host(final_host)
-
-    if resp.status_code >= 400:
-        raise ExtractError(f"The page returned HTTP {resp.status_code}.")
-    if len(resp.content) > MAX_FETCH_BYTES:
-        raise ExtractError("That page is too large to import.")
-    ctype = resp.headers.get("content-type", "")
-    if ctype and "html" not in ctype and "xml" not in ctype and "text" not in ctype:
-        raise ExtractError(f"That link isn't a web page (content-type: {ctype}).")
-    return resp.text
 
 
 def extract_article_html(html: str, url: str | None = None) -> dict:
