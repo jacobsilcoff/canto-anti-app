@@ -526,7 +526,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
     """Return (header inner HTML, tab-bar HTML) with the active page marked.
 
     The header is desktop chrome (display:none below 1200px — mobile has no
-    top bar at all; Home hosts the stats/language/menu instead). The tab bar
+    top bar at all; Home hosts stats/language and the tab bar hosts More). The tab bar
     is injected as a direct <body> child by _html; pages that manage their
     own fixed viewport (tutor chat) pass tabbar=False and rely on an in-page
     back affordance instead."""
@@ -554,6 +554,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         "dashboard": f'<svg {_i}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
         "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        "more":      f'<svg {_i}><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
     }
 
     def link(href: str, label: str, icon: str, badge: bool = False, notif: bool = False) -> str:
@@ -602,6 +603,9 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
             tab("/cards",    "Cards",  "cards", badge="due-badge"),
             tab("/messages", "Chat",   "tutor", badge="notif-badge"),
             tab("/reader",   "Reader", "reader"),
+            ('    <button type="button" class="tab shell-more-tab" data-shell-more-trigger '
+             'aria-label="More destinations"><span class="tab-ico">'
+             + svgs["more"] + '</span>More</button>'),
         ]) + "\n</nav>\n"
     ) if tabbar else ""
 
@@ -609,7 +613,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
     # at the top, primary links, a "More" group of secondary links, then a
     # footer pinned to the bottom with the language pill, streak/XP stats and
     # sign-out. Below 1200px the whole header is display:none (mobile uses the
-    # bottom tab bar + the Home ⋯ sheet). Same markup drives both.
+    # bottom tab bar, whose More item opens the secondary sheet). Same markup drives both.
     header_html = (
         "  <h1><a class=\"logo-text\" href=\"/\">{{APP_NAME_HTML}}</a></h1>\n"
         "  <nav class=\"nav-desktop\">\n"

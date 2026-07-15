@@ -155,30 +155,102 @@
   }
 
   function installLanguageControl(data) {
-    if (document.getElementById('shell-lang-select')) return;
+    if (document.getElementById('shell-lang-control')) return;
     const languages = data.languages || [];
     if (languages.length < 2) return;
-    const current = data.settings && data.settings.default_target_lang || 'yue';
-    const select = document.createElement('select');
-    select.id = 'shell-lang-select';
-    select.className = 'shell-lang-select';
-    select.setAttribute('aria-label', 'Learning language');
-    languages.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(lang => {
-      const option = document.createElement('option');
-      option.value = lang.code;
-      option.textContent = (lang.flag ? lang.flag + ' ' : '') + lang.name;
-      option.selected = lang.code === current;
-      select.appendChild(option);
+    const sorted = languages.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const currentCode = data.settings && data.settings.default_target_lang || 'yue';
+    const wrap = document.createElement('div');
+    wrap.id = 'shell-lang-control';
+    wrap.className = 'shell-lang-control';
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'shell-lang-pill';
+    pill.setAttribute('aria-label', 'Change learning language');
+    pill.setAttribute('aria-haspopup', 'listbox');
+    pill.setAttribute('aria-expanded', 'false');
+    const flag = document.createElement('span');
+    flag.className = 'shell-lang-flag';
+    const name = document.createElement('span');
+    name.className = 'shell-lang-name';
+    const chevron = document.createElement('span');
+    chevron.className = 'shell-lang-chevron';
+    chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+    pill.append(flag, name, chevron);
+
+    const menu = document.createElement('div');
+    menu.className = 'shell-lang-menu';
+    menu.setAttribute('role', 'listbox');
+    function syncControl(code) {
+      const selected = sorted.find(lang => lang.code === code) || { code, name: code, flag: '🌐' };
+      flag.textContent = selected.flag || '🌐';
+      name.textContent = selected.name;
+      menu.querySelectorAll('[data-code]').forEach(option => {
+        const active = option.dataset.code === code;
+        option.classList.toggle('active', active);
+        option.setAttribute('aria-selected', active ? 'true' : 'false');
+        option.querySelector('.shell-lang-check').textContent = active ? '✓' : '';
+      });
+    }
+    function closeMenu() {
+      menu.classList.remove('open');
+      pill.setAttribute('aria-expanded', 'false');
+    }
+    function positionMenu() {
+      const rect = pill.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const below = rect.bottom + 6;
+      const top = below + menuRect.height <= innerHeight - 8
+        ? below : Math.max(8, rect.top - menuRect.height - 6);
+      const left = Math.max(8, Math.min(rect.left, innerWidth - menuRect.width - 8));
+      menu.style.top = top + 'px';
+      menu.style.left = left + 'px';
+    }
+    sorted.forEach(lang => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'shell-lang-option';
+      option.dataset.code = lang.code;
+      option.setAttribute('role', 'option');
+      const check = document.createElement('span');
+      check.className = 'shell-lang-check';
+      const label = document.createElement('span');
+      label.textContent = (lang.flag ? lang.flag + ' ' : '') + lang.name;
+      option.append(check, label);
+      option.onclick = async event => {
+        event.stopPropagation();
+        option.disabled = true;
+        await window.setAppLanguage(lang.code);
+        option.disabled = false;
+        closeMenu();
+      };
+      menu.appendChild(option);
     });
+    pill.onclick = event => {
+      event.stopPropagation();
+      const opening = !menu.classList.contains('open');
+      closeMenu();
+      if (opening) {
+        menu.classList.add('open');
+        pill.setAttribute('aria-expanded', 'true');
+        positionMenu();
+      }
+    };
+    wrap.append(pill, menu);
     const slot = matchMedia('(max-width: 1199px)').matches
       ? document.querySelector('[data-lang-slot]')
       : document.querySelector('[data-lang-slot-rail]');
-    if (slot) slot.appendChild(select);
+    if (slot) slot.appendChild(wrap);
     else {
       const menuSlot = document.querySelector('[data-shell-lang-slot]');
-      if (menuSlot) menuSlot.appendChild(select);
+      if (menuSlot) menuSlot.appendChild(wrap);
     }
-    select.addEventListener('change', () => window.setAppLanguage(select.value));
+    syncControl(currentCode);
+    window._syncLanguageControl = syncControl;
+    document.addEventListener('click', event => {
+      if (!wrap.contains(event.target)) closeMenu();
+    });
+    window.addEventListener('resize', closeMenu);
   }
 
   window.setAppLanguage = function (code) {
@@ -194,8 +266,7 @@
         snapshot.data.settings.default_target_lang = code;
         store(snapshot.data);
       }
-      const select = document.getElementById('shell-lang-select');
-      if (select) select.value = code;
+      if (window._syncLanguageControl) window._syncLanguageControl(code);
       const lang = snapshot.data.languages.find(item => item.code === code);
       document.dispatchEvent(new CustomEvent('langchange', { detail: { code, lang } }));
       return true;
@@ -234,41 +305,58 @@
   }
 
   const moreIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>';
+  const menuIcons = {
+    quick: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>',
+    browse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00-1.18-2.82H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009.92 4.6H10a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9v.08A1.65 1.65 0 0020.91 10H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z"/></svg>',
+    dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+    signout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  };
   function quickAddLink() {
     const link = document.createElement('a');
     link.className = 'more-link shell-quick-add';
     link.href = '/translate';
-    link.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Quick add / translate';
+    link.innerHTML = menuIcons.quick + 'Quick add / translate';
     return link;
   }
 
+  function menuLink(href, label, icon) {
+    return '<a class="shell-more-item" href="' + href + '">' + menuIcons[icon] + '<span>' + label + '</span></a>';
+  }
+
   function installMoreMenu(data) {
+    const navTrigger = document.querySelector('[data-shell-more-trigger]');
     const homeSheet = document.querySelector('.more-sheet');
     if (homeSheet) {
       if (!homeSheet.querySelector('.shell-quick-add')) homeSheet.insertBefore(quickAddLink(), homeSheet.children[1] || null);
+      if (navTrigger) navTrigger.onclick = () => window.openMore();
       return;
     }
-    if (document.getElementById('shell-more-btn')) return;
-    const button = document.createElement('button');
-    button.id = 'shell-more-btn'; button.className = 'shell-more-btn'; button.type = 'button';
-    button.setAttribute('aria-label', 'More destinations'); button.innerHTML = moreIcon;
+    if (document.getElementById('shell-more-overlay')) return;
+    let button = navTrigger;
+    if (!button) {
+      button = document.createElement('button');
+      button.id = 'shell-more-btn'; button.className = 'shell-more-btn in-toolbar'; button.type = 'button';
+      button.setAttribute('aria-label', 'More destinations'); button.innerHTML = moreIcon;
+      const tutorTop = document.querySelector('.tutor-top');
+      if (tutorTop) tutorTop.appendChild(button);
+    }
     const overlay = document.createElement('div');
     overlay.id = 'shell-more-overlay'; overlay.className = 'shell-more-overlay';
     overlay.innerHTML = '<div class="shell-more-sheet" role="dialog" aria-modal="true" aria-label="More destinations">' +
       '<div class="shell-more-handle"></div><div class="shell-more-lang" data-shell-lang-slot></div>' +
-      '<a href="/translate">Quick add / translate</a><a href="/browse">Browse & decks</a>' +
-      '<a href="/feedback">Feedback</a><a href="/settings">Settings</a>' +
-      (data.me && data.me.is_admin ? '<a href="/admin/dashboard">Admin dashboard</a>' : '') +
-      '<button type="button" class="danger" data-shell-logout>Sign out</button></div>';
-    button.onclick = () => overlay.classList.add('open');
-    overlay.addEventListener('click', event => { if (event.target === overlay) overlay.classList.remove('open'); });
+      menuLink('/translate', 'Quick add / translate', 'quick') +
+      menuLink('/browse', 'Browse & decks', 'browse') +
+      menuLink('/feedback', 'Feedback', 'feedback') +
+      menuLink('/settings', 'Settings', 'settings') +
+      (data.me && data.me.is_admin ? menuLink('/admin/dashboard', 'Admin dashboard', 'dashboard') : '') +
+      '<button type="button" class="shell-more-item danger" data-shell-logout>' + menuIcons.signout + '<span>Sign out</span></button></div>';
+    const close = () => { overlay.classList.remove('open'); button.setAttribute('aria-expanded', 'false'); };
+    button.onclick = () => { overlay.classList.add('open'); button.setAttribute('aria-expanded', 'true'); };
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
     overlay.querySelector('[data-shell-logout]').onclick = () => window.doLogout();
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') overlay.classList.remove('open'); });
-    const tutorTop = document.querySelector('.tutor-top');
-    if (tutorTop) {
-      button.classList.add('in-toolbar');
-      tutorTop.appendChild(button);
-    } else document.body.appendChild(button);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
     document.body.appendChild(overlay);
   }
 

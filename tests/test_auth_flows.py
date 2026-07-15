@@ -145,6 +145,11 @@ async def test_shared_shell_is_loaded_once_across_primary_pages(client):
         res = await client.get(path)
         assert res.status_code == 200, path
         assert res.text.count('/static/app-shell.js?v=') == 1, path
+        if path != "/tutor":
+            assert res.text.count('class="tab shell-more-tab"') == 1, path
+
+    home = await client.get("/")
+    assert 'class="more-btn"' not in home.text
 
 
 @pytest.mark.asyncio
