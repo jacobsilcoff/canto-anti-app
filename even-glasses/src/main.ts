@@ -26,9 +26,12 @@ import {
 import {
   LARGE_TEXT_HEIGHT,
   LARGE_TEXT_WIDTH,
+  renderBlankLargeText,
   renderLargeText,
   shouldRenderLarge,
 } from './glyph.js'
+import { cardAction } from './interaction.js'
+import type { CardAction, CardInput, CardPhase } from './interaction.js'
 
 const TEXT_ID = 1
 const TEXT_NAME = 'flashcard'
@@ -39,7 +42,12 @@ const IMAGE_Y = 58
 const BRIDGE_TIMEOUT_MS = 8_000
 const GRADE_ACK_MS = 450
 
-type Phase = 'prompt' | 'reveal'
+type Phase = CardPhase
+
+const PROMPT_CONTROLS = '● reveal   ▲ undo   ▼ skip   ●● exit'
+const REVEAL_CONTROLS = '● good   ●● again'
+const RESTART_CONTROLS = '● restart   ●● exit'
+const EXIT_CONTROLS = '●● exit'
 
 let bridge: EvenAppBridge
 let api: ApiClient | null = null
@@ -158,16 +166,21 @@ async function updateImage(data: number[]): Promise<boolean> {
       imageData: data,
     })),
   )
-  return (
+  const success = (
     result === ImageRawDataUpdateResult.success ||
     String(result).toLowerCase() === 'success'
   )
+  if (!success) {
+    console.warn(`Large-text image update failed: ${String(result)} (${data.length} bytes)`)
+  }
+  return success
 }
 
 async function clearLargeText(): Promise<void> {
   if (!largeTextActive) return
   largeTextActive = false
-  await updateImage(new Array<number>(LARGE_TEXT_WIDTH * LARGE_TEXT_HEIGHT).fill(0))
+  const blank = renderBlankLargeText()
+  if (blank) await updateImage(blank.data)
 }
 
 async function showText(content: string): Promise<void> {
@@ -180,19 +193,18 @@ function header(cardView: CardView): string {
 }
 
 async function showPrompt(cardView: CardView): Promise<void> {
-  const backHint = index > 0 ? '  ·  double tap = back' : '  ·  double tap = exit'
   if (shouldRenderLarge(cardView.prompt)) {
     const bitmap = renderLargeText(cardView.prompt)
     if (bitmap && (await updateImage(bitmap.data))) {
       largeTextActive = true
       await updateText(
-        `${header(cardView)}\n\n\n\n\n\n\n\n\nTap to reveal${backHint}`,
+        `${header(cardView)}\n\n\n\n\n\n\n\n\n${PROMPT_CONTROLS}`,
       )
       return
     }
   }
   await showText(
-    `${header(cardView)}\n\n\n${cardView.prompt}\n\n\nTap to reveal${backHint}`,
+    `${header(cardView)}\n\n\n${cardView.prompt}\n\n\n${PROMPT_CONTROLS}`,
   )
 }
 
@@ -209,7 +221,7 @@ async function renderCard(): Promise<void> {
   const notes = card.notes?.trim() ? `\n\n${card.notes.trim()}` : ''
   await showText(
     `${header(view)}\n\n${view.prompt}\n---\n${view.answer}${notes}\n\n` +
-      'Tap / swipe up = got it\nSwipe down = again',
+      REVEAL_CONTROLS,
   )
 }
 
@@ -240,7 +252,7 @@ async function begin(labelIds: number[] = deckLabels): Promise<void> {
   graded = 0
 
   if (queue.length === 0) {
-    await showText('All caught up!\n\nNo cards are due right now.\n\nTap to check again\nDouble tap to exit')
+    await showText(`All caught up!\n\nNo cards are due right now.\n\n${RESTART_CONTROLS}`)
     return
   }
   await renderCard()
@@ -258,19 +270,28 @@ async function grade(quality: Quality): Promise<void> {
   await showText(`\n\n${acknowledgment}`)
   await sleep(GRADE_ACK_MS)
 
-  index += 1
+  queue.splice(index, 1)
   phase = 'prompt'
   view = null
-  if (index >= queue.length) {
+  if (queue.length === 0) {
     await finish()
     return
   }
+  if (index >= queue.length) index = 0
   await renderCard()
 }
 
 async function goBack(): Promise<void> {
-  if (index <= 0) return
-  index -= 1
+  if (queue.length <= 1) return
+  index = (index - 1 + queue.length) % queue.length
+  phase = 'prompt'
+  view = null
+  await renderCard()
+}
+
+async function skip(): Promise<void> {
+  if (queue.length <= 1) return
+  index = (index + 1) % queue.length
   phase = 'prompt'
   view = null
   await renderCard()
@@ -289,7 +310,7 @@ async function finish(): Promise<void> {
   }
   await updateText(
     `Session done!\n\n${graded} cards   +${xp} XP${streak}\n\n` +
-      'Tap to check again\nDouble tap to exit',
+      RESTART_CONTROLS,
   )
 }
 
@@ -299,7 +320,7 @@ async function showError(error: unknown): Promise<void> {
     : 'Something went wrong.'
   if (startupReady) {
     try {
-      await showText(`Flashcards\n\n${message}\n\nDouble tap to exit`)
+      await showText(`Flashcards\n\n${message}\n\n${EXIT_CONTROLS}`)
     } catch {
       // The phone UI remains available if the BLE connection has failed.
     }
@@ -313,6 +334,28 @@ async function showError(error: unknown): Promise<void> {
 
 async function requestExit(): Promise<void> {
   await bridgeCall(() => bridge.shutDownPageContainer(1))
+}
+
+async function performCardAction(action: CardAction): Promise<void> {
+  if (action === 'none') return
+  if (action === 'reveal') {
+    phase = 'reveal'
+    await renderCard()
+    return
+  }
+  if (action === 'good' || action === 'again') {
+    await grade(action)
+    return
+  }
+  if (action === 'back') {
+    await goBack()
+    return
+  }
+  if (action === 'skip') {
+    await skip()
+    return
+  }
+  await requestExit()
 }
 
 function cleanup(): void {
@@ -345,26 +388,21 @@ async function handleEvent(event: EvenHubEvent): Promise<void> {
       return
     }
     if (type === OsEventTypeList.CLICK_EVENT) {
-      if (phase === 'prompt') {
-        phase = 'reveal'
-        await renderCard()
-      } else {
-        await grade('good')
-      }
+      await performCardAction(cardAction(phase, 'press'))
       return
     }
     if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-      if (phase === 'reveal') await grade('again')
-      else if (index > 0) await goBack()
-      else await requestExit()
+      await performCardAction(cardAction(phase, 'double-press'))
     }
     return
   }
 
-  if (!connected || !event.textEvent || phase !== 'reveal' || index >= queue.length) return
+  if (!connected || !event.textEvent || index >= queue.length) return
   const type = event.textEvent.eventType
-  if (type === OsEventTypeList.SCROLL_TOP_EVENT) await grade('good')
-  if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) await grade('again')
+  let input: CardInput | null = null
+  if (type === OsEventTypeList.SCROLL_TOP_EVENT) input = 'swipe-up'
+  if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) input = 'swipe-down'
+  if (input) await performCardAction(cardAction(phase, input))
 }
 
 function onEvent(event: EvenHubEvent): void {
@@ -466,7 +504,7 @@ async function main(): Promise<void> {
   const config = loadConfig()
   if (!config) {
     await createStartupPage(
-      'Setup needed\n\nOpen this plugin on your phone and paste the token from Settings → Even G2 glasses.\n\nDouble tap to exit',
+      `Setup needed\n\nOpen this plugin on your phone and paste the token from Settings → Even G2 glasses.\n\n${EXIT_CONTROLS}`,
     )
     showPhoneConfig()
     return
