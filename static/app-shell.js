@@ -305,6 +305,9 @@
   }
 
   const moreIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>';
+  const closeIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const bellOnIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+  const bellOffIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.6 2.9A7 7 0 0 1 19 9v4m-2 4H3s3-2 3-9c0-.6.1-1.2.3-1.7"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/><path d="M3 3l18 18"/></svg>';
   const menuIcons = {
     quick: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>',
     browse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
@@ -313,47 +316,51 @@
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
     signout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   };
-  function quickAddLink() {
-    const link = document.createElement('a');
-    link.className = 'more-link shell-quick-add';
-    link.href = '/translate';
-    link.innerHTML = menuIcons.quick + 'Quick add / translate';
-    return link;
-  }
-
   function menuLink(href, label, icon) {
     return '<a class="shell-more-item" href="' + href + '">' + menuIcons[icon] + '<span>' + label + '</span></a>';
   }
 
   function installMoreMenu(data) {
     const navTrigger = document.querySelector('[data-shell-more-trigger]');
-    const homeSheet = document.querySelector('.more-sheet');
-    if (homeSheet) {
-      if (!homeSheet.querySelector('.shell-quick-add')) homeSheet.insertBefore(quickAddLink(), homeSheet.children[1] || null);
-      if (navTrigger) navTrigger.onclick = () => window.openMore();
-      return;
-    }
     if (document.getElementById('shell-more-overlay')) return;
     let button = navTrigger;
     if (!button) {
       button = document.createElement('button');
       button.id = 'shell-more-btn'; button.className = 'shell-more-btn in-toolbar'; button.type = 'button';
-      button.setAttribute('aria-label', 'More destinations'); button.innerHTML = moreIcon;
+      button.setAttribute('aria-label', 'More'); button.innerHTML = moreIcon;
       const tutorTop = document.querySelector('.tutor-top');
       if (tutorTop) tutorTop.appendChild(button);
     }
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', 'shell-more-overlay');
     const overlay = document.createElement('div');
     overlay.id = 'shell-more-overlay'; overlay.className = 'shell-more-overlay';
-    overlay.innerHTML = '<div class="shell-more-sheet" role="dialog" aria-modal="true" aria-label="More destinations">' +
-      '<div class="shell-more-handle"></div><div class="shell-more-lang" data-shell-lang-slot></div>' +
+    overlay.innerHTML = '<div class="shell-more-sheet" role="dialog" aria-modal="true" aria-labelledby="shell-more-title">' +
+      '<div class="shell-more-head"><div><div class="shell-more-title" id="shell-more-title">More</div>' +
+      '<div class="shell-more-subtitle">App and account</div></div>' +
+      '<button type="button" class="shell-more-close" data-shell-more-close aria-label="Close menu">' + closeIcon + '</button></div>' +
+      '<div class="shell-more-lang" data-shell-lang-slot></div>' +
+      '<div class="shell-more-list" aria-label="More destinations">' +
       menuLink('/translate', 'Quick add / translate', 'quick') +
       menuLink('/browse', 'Browse & decks', 'browse') +
       menuLink('/feedback', 'Feedback', 'feedback') +
       menuLink('/settings', 'Settings', 'settings') +
       (data.me && data.me.is_admin ? menuLink('/admin/dashboard', 'Admin dashboard', 'dashboard') : '') +
-      '<button type="button" class="shell-more-item danger" data-shell-logout>' + menuIcons.signout + '<span>Sign out</span></button></div>';
-    const close = () => { overlay.classList.remove('open'); button.setAttribute('aria-expanded', 'false'); };
-    button.onclick = () => { overlay.classList.add('open'); button.setAttribute('aria-expanded', 'true'); };
+      '</div><div class="shell-more-account">' +
+      '<button type="button" class="shell-more-item danger" data-shell-logout>' + menuIcons.signout + '<span>Sign out</span></button></div></div>';
+    const closeButton = overlay.querySelector('[data-shell-more-close]');
+    const close = (restoreFocus = true) => {
+      if (!overlay.classList.contains('open')) return;
+      overlay.classList.remove('open');
+      button.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) button.focus();
+    };
+    button.onclick = () => {
+      overlay.classList.add('open');
+      button.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => closeButton.focus());
+    };
+    closeButton.onclick = () => close();
     overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
     overlay.querySelector('[data-shell-logout]').onclick = () => window.doLogout();
     document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
@@ -362,14 +369,40 @@
 
   function syncNotificationButton() {
     const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
-    const on = supported && Notification.permission === 'granted' && localStorage.getItem('push_subscribed') === '1';
+    const permission = supported ? Notification.permission : 'unsupported';
+    const on = supported && permission === 'granted' && localStorage.getItem('push_subscribed') === '1';
+    const blocked = permission === 'denied';
+    const label = !supported ? 'Push notifications are not supported in this browser'
+      : blocked ? 'Notifications are blocked in browser settings'
+      : on ? 'Notifications on. Click to turn off'
+      : 'Notifications off. Click to turn on';
     document.querySelectorAll('.notif-bell-btn').forEach(button => {
-      button.textContent = on ? 'Notifications on' : 'Enable notifications';
+      button.innerHTML = '<span class="notif-bell-icon">' + (on ? bellOnIcon : bellOffIcon) + '</span>' +
+        '<span class="notif-state-dot" aria-hidden="true"></span>';
       button.classList.toggle('enabled', on);
+      button.classList.toggle('blocked', blocked);
+      button.setAttribute('aria-pressed', String(on));
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.disabled = !supported;
     });
     document.querySelectorAll('.notif-status-desc').forEach(el => {
-      el.textContent = !supported ? 'Not supported in this browser' : on ? 'On' : 'Off';
+      el.textContent = !supported ? 'Not supported in this browser'
+        : blocked ? 'Blocked — change this in your browser settings'
+        : on ? 'On — messages and friend requests can notify you'
+        : 'Off';
     });
+  }
+
+  async function verifyNotificationState() {
+    if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) return;
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/');
+      if (!registration) return;
+      const subscription = await registration.pushManager.getSubscription();
+      localStorage.setItem('push_subscribed', subscription && Notification.permission === 'granted' ? '1' : '0');
+      syncNotificationButton();
+    } catch (_) {}
   }
 
   window.toggleNotifications = async function () {
@@ -378,7 +411,19 @@
       toast('Push notifications are not supported in this browser.'); return;
     }
     if (Notification.permission === 'denied') { toast('Notifications are blocked in browser settings.'); return; }
+    const buttons = Array.from(document.querySelectorAll('.notif-bell-btn'));
     try {
+      // iOS requires the permission prompt to happen directly from the click,
+      // before waiting for service-worker setup.
+      if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast('Notifications were not enabled.');
+          syncNotificationButton();
+          return;
+        }
+      }
+      buttons.forEach(button => { button.disabled = true; });
       const registration = await navigator.serviceWorker.ready;
       const existing = await registration.pushManager.getSubscription();
       if (existing) {
@@ -388,10 +433,11 @@
           method: 'DELETE', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: value.endpoint, p256dh: value.keys.p256dh, auth: value.keys.auth }),
         });
-        localStorage.setItem('push_subscribed', '0'); syncNotificationButton(); return;
+        localStorage.setItem('push_subscribed', '0');
+        toast('Notifications turned off.');
+        syncNotificationButton();
+        return;
       }
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') { syncNotificationButton(); return; }
       const keyResponse = await nativeFetch('/api/push/vapid-public-key').then(r => r.json());
       const padding = '='.repeat((4 - keyResponse.public_key.length % 4) % 4);
       const raw = atob((keyResponse.public_key + padding).replace(/-/g, '+').replace(/_/g, '/'));
@@ -402,8 +448,14 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: value.endpoint, p256dh: value.keys.p256dh, auth: value.keys.auth }),
       });
-      localStorage.setItem('push_subscribed', '1'); syncNotificationButton();
+      localStorage.setItem('push_subscribed', '1');
+      toast('Notifications turned on.');
+      syncNotificationButton();
     } catch (error) { toast('Could not update notifications.'); }
+    finally {
+      buttons.forEach(button => { button.disabled = false; });
+      syncNotificationButton();
+    }
   };
 
   window._refreshNotifCounts = function () {
@@ -420,7 +472,9 @@
     installLanguageControl(data);
     installPlanUi(data);
     syncNotificationButton();
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(verifyNotificationState).catch(() => {});
+    }
   }
 
   function onReady(data) {

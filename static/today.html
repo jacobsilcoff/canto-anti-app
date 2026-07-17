@@ -90,24 +90,6 @@
     .home-chips .streak-display { display: inline-flex; }
     @media (min-width: 1200px) { .home-chips { display: none; } }
 
-    /* ⋯ More bottom sheet (Browse / Feedback / Settings / Dashboard / Sign out) */
-    .more-overlay { position: fixed; inset: 0; z-index: 300; background: var(--overlay);
-      display: none; align-items: flex-end; }
-    .more-overlay.open { display: flex; }
-    .more-sheet { width: 100%; background: var(--surface); border-radius: 20px 20px 0 0;
-      box-shadow: var(--shadow-pop); padding: 8px 14px calc(16px + env(safe-area-inset-bottom));
-      animation: sheet-rise 0.18s ease; }
-    @keyframes sheet-rise { from { transform: translateY(30px); opacity: 0.6; } to { transform: none; opacity: 1; } }
-    .more-handle { width: 38px; height: 4px; border-radius: 2px; background: var(--border); margin: 4px auto 10px; }
-    .more-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 10px;
-      border: none; background: none; cursor: pointer; text-decoration: none; color: var(--text);
-      font-size: 0.98rem; font-weight: 600; border-radius: 12px; text-align: left; font-family: inherit; }
-    .more-link:active { background: var(--surface-alt); }
-    .more-link + .more-link { border-top: 1px solid var(--border); border-radius: 0; }
-    .more-link svg { width: 19px; height: 19px; color: var(--text-muted); flex-shrink: 0; }
-    .more-link.danger { color: var(--danger); }
-    .more-link.danger svg { color: var(--danger); }
-
     .today-loading { text-align: center; color: var(--text-muted); padding: 40px 0; }
     .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border);
       border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
@@ -136,7 +118,7 @@
 </main>
 
 <!-- ⋯ More sheet: the destinations that used to live in the top-bar menu -->
-<div class="more-overlay" id="more-overlay" onclick="if(event.target===this)closeMore()">
+<div class="more-overlay" id="more-overlay" hidden aria-hidden="true">
   <div class="more-sheet" role="menu">
     <div class="more-handle"></div>
     <a class="more-link" href="/browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Browse &amp; decks</a>

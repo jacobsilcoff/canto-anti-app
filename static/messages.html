@@ -28,9 +28,7 @@
     .msg-sidebar-title { font-weight: 700; font-size: 1.05rem; }
     .msg-friends-btn { background: var(--primary-soft); color: var(--primary); border: none;
       border-radius: 8px; padding: 5px 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-    .msg-notif-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
-      border-radius: 8px; padding: 5px 7px; display: flex; align-items: center;
-      transition: color 0.15s; }
+    .msg-notif-btn { flex-shrink: 0; }
     .msg-convs { flex: 1; overflow-y: auto; }
 
     /* Pinned AI-tutor contact at the top of the list */
@@ -515,7 +513,8 @@
   <div class="msg-sidebar" id="msg-sidebar">
     <div class="msg-sidebar-head">
       <span class="msg-sidebar-title">Messages</span>
-      <button class="msg-notif-btn notif-bell-btn" id="notif-bell-btn" onclick="toggleNotifications()"></button>
+      <button type="button" class="msg-notif-btn notif-bell-btn" id="notif-bell-btn"
+        aria-label="Notification settings" onclick="toggleNotifications()"></button>
       <button class="msg-friends-btn" onclick="openFriendsModal()">Friends ＋</button>
     </div>
     <div class="msg-convs" id="msg-convs">
@@ -2359,12 +2358,12 @@
     fit();
 
     // Stop iOS rubber-band: preventDefault touchmove everywhere except real
-    // scrollers (.msg-thread, .msg-convs, modal body) and the composer when
+    // scrollers (thread, conversations, modal/menu bodies) and the composer when
     // it overflows (long draft). overscroll-behavior alone doesn't stop
     // document bounce on iOS Safari when body is position:fixed.
     document.addEventListener('touchmove', e => {
       const t = e.target;
-      if (t.closest && t.closest('.msg-thread, .msg-convs, .modal-body')) return;
+      if (t.closest && t.closest('.msg-thread, .msg-convs, .modal-body, .shell-more-sheet, .shell-lang-menu')) return;
       const inp = t.closest && t.closest('#msg-input');
       if (inp && inp.scrollHeight > inp.clientHeight + 1) return;
       e.preventDefault();

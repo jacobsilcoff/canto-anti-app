@@ -222,6 +222,33 @@
     </div>
 
     <div class="settings-section">
+      <div class="settings-section-title">Even G2 glasses</div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div>
+          <div class="settings-label">Flashcard plugin token</div>
+          <div class="settings-desc">
+            Connects the Even Hub flashcard plugin to your account so reviews,
+            XP, and streak progress stay in sync.
+            <span id="even-token-status"></span>
+          </div>
+        </div>
+        <div id="even-token-reveal" style="display:none;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="even-token-value" class="settings-input" readonly onclick="this.select()" style="flex:1;min-width:180px;text-align:left;font-family:monospace">
+            <button class="settings-btn" type="button" onclick="copyEvenToken()">Copy</button>
+          </div>
+          <div class="settings-desc" style="padding:0;color:var(--warn-strong,#b26b00)">
+            Copy this now—it is shown only once. Paste it into the plugin on your phone.
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="settings-btn primary" type="button" id="even-token-generate" onclick="generateEvenToken()">Generate token</button>
+          <button class="settings-btn" type="button" id="even-token-revoke" onclick="revokeEvenToken()" style="display:none">Revoke</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-section-title">AI Tutor Profile</div>
       <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
         <div class="settings-label">Your background &amp; goals</div>
@@ -438,7 +465,8 @@
           <div class="settings-label">Push notifications</div>
           <div class="settings-desc notif-status-desc">Checking…</div>
         </div>
-        <button class="notif-bell-btn" onclick="toggleNotifications()"></button>
+        <button type="button" class="notif-bell-btn" aria-label="Notification settings"
+          onclick="toggleNotifications()"></button>
       </div>
     </div>
   </div>
@@ -690,7 +718,50 @@
         document.getElementById('profile-email-desc').innerHTML =
           'Email not yet verified. <a href="#" onclick="resendVerification(event)">Resend link</a>';
       }
+      renderEvenToken(data.has_even_hub_token);
     } catch {}
+  }
+
+  function renderEvenToken(hasToken) {
+    document.getElementById('even-token-status').textContent = hasToken ? ' · Connected ✓' : '';
+    document.getElementById('even-token-generate').textContent =
+      hasToken ? 'Regenerate token' : 'Generate token';
+    document.getElementById('even-token-revoke').style.display = hasToken ? '' : 'none';
+  }
+
+  async function generateEvenToken() {
+    try {
+      const res = await fetch('/api/profile/even-hub-token', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast(body.detail || 'Could not generate token.'); return; }
+      document.getElementById('even-token-value').value = body.token;
+      document.getElementById('even-token-reveal').style.display = 'flex';
+      renderEvenToken(true);
+    } catch { showToast('Could not generate token.'); }
+  }
+
+  function copyEvenToken() {
+    const el = document.getElementById('even-token-value');
+    el.select();
+    const copy = window.__copyToClipboard
+      ? window.__copyToClipboard(el.value)
+      : navigator.clipboard?.writeText(el.value);
+    Promise.resolve(copy).then(
+      () => showToast('Token copied.'),
+      () => showToast('Select the token and copy it manually.'),
+    );
+  }
+
+  async function revokeEvenToken() {
+    if (!confirm('Revoke the current glasses token? The plugin will stop syncing until you generate a new one.')) return;
+    try {
+      const res = await fetch('/api/profile/even-hub-token', { method: 'DELETE' });
+      if (!res.ok) { showToast('Could not revoke token.'); return; }
+      document.getElementById('even-token-reveal').style.display = 'none';
+      document.getElementById('even-token-value').value = '';
+      renderEvenToken(false);
+      showToast('Glasses token revoked.');
+    } catch { showToast('Could not revoke token.'); }
   }
 
   function renderAvatar(url, name) {

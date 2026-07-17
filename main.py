@@ -23,6 +23,7 @@ try:
 except ImportError:
     _PIL_OK = False
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -248,6 +249,14 @@ async def auth_middleware(request: Request, call_next):
     if token:
         user_id = await db.get_session_user(token)
 
+    # Even Hub plugins run in a cross-origin WebView and cannot use the site's
+    # session cookie. They authenticate with a long-lived token generated from
+    # Settings; only its SHA-256 hash is stored server-side.
+    if user_id is None:
+        scheme, _, bearer = request.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and bearer.strip():
+            user_id = await db.get_user_by_api_token(bearer.strip())
+
     if user_id is None:
         accept = request.headers.get("Accept", "")
         if "text/html" in accept:
@@ -310,6 +319,19 @@ async def security_headers_middleware(request: Request, call_next):
     for k, v in headers.items():
         response.headers.setdefault(k, v)
     return response
+
+
+# Register CORS after the function-based middleware so it is the outermost
+# layer. Browser preflight requests do not include Authorization, so they must
+# be answered before auth_middleware. Bearer tokens—not cookies—protect these
+# cross-origin API calls, making a wildcard origin safe without credentials.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 
 async def current_user(request: Request) -> dict:
@@ -1392,7 +1414,27 @@ async def get_profile(user: dict = Depends(current_user)):
         "email": user.get("email") or "",
         "email_verified": bool(user.get("email_verified", True)),
         "avatar_url": _avatar_url(user),
+        "has_even_hub_token": await db.has_api_token(user["id"]),
     }
+
+
+@app.post("/api/profile/even-hub-token")
+@limiter.limit("10/minute")
+async def create_even_hub_token(request: Request, user: dict = Depends(current_user)):
+    """Create the user's one active Even Hub Bearer token.
+
+    The raw token is returned only once. Generating another token immediately
+    revokes the previous one.
+    """
+    token = secrets.token_urlsafe(32)
+    await db.create_api_token(token, user["id"], label="even-hub-g2")
+    return {"token": token}
+
+
+@app.delete("/api/profile/even-hub-token")
+async def revoke_even_hub_token(user: dict = Depends(current_user)):
+    await db.revoke_api_tokens(user["id"])
+    return {"ok": True}
 
 
 class ProfileUpdate(BaseModel):

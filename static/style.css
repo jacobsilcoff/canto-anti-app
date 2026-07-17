@@ -252,11 +252,19 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .badge.visible { display: inline-block; }
 .badge.notif-badge { background: var(--danger, #ef4444); }
-.notif-bell-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
-  border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;
-  transition: color 0.15s, background 0.15s; }
-.notif-bell-btn:hover { background: var(--surface-alt); }
-.notif-bell-btn.enabled { color: var(--primary); }
+.notif-bell-btn { position: relative; width: 36px; height: 36px; background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; color: var(--text-muted);
+  border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 36px; transition: color 0.15s, background 0.15s, border-color 0.15s; }
+.notif-bell-btn:hover { background: var(--surface-alt); border-color: var(--text-faint); }
+.notif-bell-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.notif-bell-btn.enabled { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-soft-2); }
+.notif-bell-btn.blocked { color: var(--danger); }
+.notif-bell-icon, .notif-bell-icon svg { display: block; width: 19px; height: 19px; }
+.notif-state-dot { position: absolute; right: 2px; bottom: 2px; width: 9px; height: 9px;
+  border: 2px solid var(--surface); border-radius: 50%; background: var(--text-faint); }
+.notif-bell-btn.enabled .notif-state-dot { background: var(--primary); border-color: var(--primary-soft); }
+.notif-bell-btn.blocked .notif-state-dot { background: var(--danger); }
 .notif-bell-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Translate Page ─────────────────────────────────────────────────────── */
@@ -1690,27 +1698,43 @@ textarea.edit-input {
 .shell-more-overlay.open { display: flex; }
 .shell-more-sheet {
   width: 100%;
-  padding: 8px 14px calc(18px + env(safe-area-inset-bottom));
+  max-width: 520px;
+  max-height: min(86dvh, 680px);
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
   border-radius: 20px 20px 0 0;
   background: var(--surface);
   box-shadow: var(--shadow-pop);
+  animation: shell-sheet-rise 0.18s ease-out;
 }
-.shell-more-handle {
-  width: 38px;
-  height: 4px;
-  margin: 4px auto 10px;
-  border-radius: 999px;
-  background: var(--border);
+@keyframes shell-sheet-rise {
+  from { transform: translateY(24px); opacity: 0.72; }
+  to { transform: translateY(0); opacity: 1; }
 }
-.shell-more-lang { padding: 4px 10px 10px; }
+.shell-more-head { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 2px 14px; }
+.shell-more-title { color: var(--text); font-family: var(--display-font); font-size: 1.18rem;
+  font-weight: 800; line-height: 1.2; }
+.shell-more-subtitle { margin-top: 2px; color: var(--text-muted); font-size: 0.78rem; }
+.shell-more-close { display: inline-flex; width: 36px; height: 36px; align-items: center;
+  justify-content: center; flex: 0 0 36px; border: 1px solid var(--border); border-radius: 50%;
+  background: var(--surface-alt); color: var(--text-muted); cursor: pointer; }
+.shell-more-close:hover { color: var(--text); border-color: var(--text-faint); }
+.shell-more-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.shell-more-close svg { width: 18px; height: 18px; }
+.shell-more-lang { padding: 0 2px 12px; }
+.shell-more-list, .shell-more-account { padding: 5px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--bg); }
+.shell-more-account { margin-top: 10px; }
 .shell-more-item {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 13px 10px;
+  padding: 12px 11px;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-radius: 10px;
   background: none;
   color: var(--text);
   font: inherit;
@@ -1719,7 +1743,8 @@ textarea.edit-input {
   text-decoration: none;
   cursor: pointer;
 }
-.shell-more-item + .shell-more-item { border-top: 1px solid var(--border); }
+.shell-more-item:hover { background: var(--surface); }
+.shell-more-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .shell-more-item svg { width: 19px; height: 19px; flex: 0 0 19px; color: var(--text-muted); }
 .shell-more-item.danger { color: var(--danger); }
 .shell-more-item.danger svg { color: var(--danger); }
