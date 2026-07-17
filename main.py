@@ -2767,14 +2767,24 @@ async def review_card(card_id: int, req: ReviewRequest, user: dict = Depends(cur
     if not face_state:
         raise HTTPException(404, "Face not found")
     new_state = srs.update(face_state, req.quality)
-    await db.update_face_review(user["id"], card_id, req.face, new_state)
-    await db.record_study_activity(user["id"])
-    await db.bump_quest(user["id"], "reviews", 1)   # daily quest: flashcard reviews
-    xp = 0
-    if req.quality in ("good", "easy"):
-        xp = 7 if req.quality == "easy" else 5
-        await db.add_points(user["id"], card.get("target_lang", "yue"), xp, "review")
-    return {"success": True, "xp": xp, **new_state}
+    xp = 7 if req.quality == "easy" else 5 if req.quality == "good" else 0
+    review_id = await db.apply_card_review(
+        user["id"], card_id, req.face, new_state,
+        xp=xp, lang=card.get("target_lang", "yue"),
+    )
+    if review_id is None:
+        raise HTTPException(404, "Face not found")
+    return {"success": True, "xp": xp, "review_id": review_id, **new_state}
+
+
+@app.post("/api/reviews/{review_id}/undo")
+async def undo_review(review_id: int, user: dict = Depends(current_user)):
+    result = await db.undo_card_review(user["id"], review_id)
+    if result is None:
+        raise HTTPException(404, "Review is no longer available to undo")
+    if result.get("out_of_order"):
+        raise HTTPException(409, "Undo the most recent review first")
+    return {"success": True, "xp": result["xp"]}
 
 
 class UpdateCardRequest(BaseModel):

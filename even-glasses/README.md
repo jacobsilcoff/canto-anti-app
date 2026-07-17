@@ -9,9 +9,11 @@ app, including XP, streaks, and SRS scheduling.
 npm run beta
 ```
 
-The command synchronizes dependencies, type-checks, tests, builds, and creates
-`canto-flashcards.ehpk` in this directory. Upload that file as the beta build
-for the matching app in Even Developer Hub.
+The command synchronizes dependencies, type-checks, and tests. If those checks
+pass, it increments the patch version in `app.json`, `package.json`, and
+`package-lock.json`, then builds and creates `canto-flashcards.ehpk` in this
+directory. Upload that file as the beta build for the matching app in Even
+Developer Hub.
 
 ## First-run setup
 
@@ -19,8 +21,13 @@ for the matching app in Even Developer Hub.
 2. Generate and copy a plugin token.
 3. Open the plugin in Even Hub and paste the token on the phone screen.
 
-On the card front, press once to reveal, swipe up to return to the prior
-unreviewed card, swipe down to skip to the next one, or press twice to exit.
-On the revealed card, press once for “good” or twice for “again.” Short prompts,
-including Cantonese, are rasterized as a large, centered 4-bit image because
-the native G2 text container has no font-size control.
+On the card front, press once to reveal, swipe up to undo the latest answer (or
+return to the prior unreviewed card), swipe down to skip, or press twice to
+exit. On the revealed card, press once for “good” or twice for “again.” Undo
+restores the card's previous SRS schedule and reverses its XP and review-quest
+credit.
+
+Short prompts, including Cantonese, are rasterized as a large, centered PNG
+because the native G2 text container has no font-size control. The phone screen
+includes a live diagnostics panel showing canvas, image-transfer, input, and
+API events; use **Copy log** when diagnosing a hardware-only rendering problem.

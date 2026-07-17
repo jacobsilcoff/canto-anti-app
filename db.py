@@ -150,6 +150,33 @@ async def init():
         if not await _column_exists(db, "card_faces", "learning_step"):
             await db.execute("ALTER TABLE card_faces ADD COLUMN learning_step INTEGER DEFAULT NULL")
 
+        # Small reversible snapshots for review undo.  Keeping the server-side
+        # SRS state here means a glasses client can revisit an answered card
+        # without submitting a second review against an already-mutated face.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS review_history (
+                id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id                  INTEGER NOT NULL,
+                card_id                  INTEGER NOT NULL,
+                face                     TEXT NOT NULL,
+                previous_next_review     TEXT NOT NULL,
+                previous_interval_days   INTEGER NOT NULL,
+                previous_ease_factor     REAL NOT NULL,
+                previous_repetitions     INTEGER NOT NULL,
+                previous_first_seen_date TEXT,
+                previous_learning_step   INTEGER,
+                xp                       INTEGER NOT NULL DEFAULT 0,
+                points_ledger_id         INTEGER,
+                review_quest_bumped      INTEGER NOT NULL DEFAULT 0,
+                created_at               TEXT NOT NULL DEFAULT (datetime('now')),
+                undone_at                TEXT
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_review_history_user "
+            "ON review_history(user_id, id DESC)"
+        )
+
         # Labels: per-user, unique within user.
         await db.execute("""
             CREATE TABLE IF NOT EXISTS labels (
@@ -1847,6 +1874,165 @@ async def update_face_review(user_id: int, card_id: int, face: str, state: dict)
             (user_id,),
         )
         await db.commit()
+
+
+async def apply_card_review(
+    user_id: int,
+    card_id: int,
+    face: str,
+    state: dict,
+    *,
+    xp: int = 0,
+    lang: str = "yue",
+) -> int | None:
+    """Apply a review atomically and return its reversible history id.
+
+    The snapshot is intentionally compact and capped to the newest 100 reviews
+    per user.  Undo must happen newest-first, which prevents an old snapshot
+    from overwriting a newer answer to the same face.
+    """
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("BEGIN IMMEDIATE")
+        async with conn.execute(
+            """SELECT cf.next_review, cf.interval_days, cf.ease_factor,
+                      cf.repetitions, cf.first_seen_date, cf.learning_step
+               FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+               WHERE cf.card_id=? AND cf.face=? AND c.user_id=?""",
+            (card_id, face, user_id),
+        ) as cur:
+            previous = await cur.fetchone()
+        if not previous:
+            await conn.rollback()
+            return None
+
+        safe_xp = max(0, int(xp))
+        history_cur = await conn.execute(
+            """INSERT INTO review_history
+               (user_id, card_id, face, previous_next_review,
+                previous_interval_days, previous_ease_factor,
+                previous_repetitions, previous_first_seen_date,
+                previous_learning_step, xp)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                user_id, card_id, face, previous["next_review"],
+                previous["interval_days"], previous["ease_factor"],
+                previous["repetitions"], previous["first_seen_date"],
+                previous["learning_step"], safe_xp,
+            ),
+        )
+        history_id = history_cur.lastrowid
+
+        await conn.execute(
+            """UPDATE card_faces
+               SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
+                   learning_step=?,
+                   first_seen_date = CASE
+                       WHEN first_seen_date IS NULL THEN date('now')
+                       ELSE first_seen_date
+                   END
+               WHERE card_id=? AND face=?""",
+            (
+                state["interval_days"], state["ease_factor"], state["repetitions"],
+                state["next_review"], state.get("learning_step"), card_id, face,
+            ),
+        )
+        await conn.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
+
+        quest_cur = await conn.execute(
+            """UPDATE daily_quests SET progress = progress + 1
+               WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
+            (user_id,),
+        )
+        quest_bumped = int(quest_cur.rowcount > 0)
+
+        points_ledger_id = None
+        if safe_xp:
+            points_cur = await conn.execute(
+                """INSERT INTO points_ledger (user_id, lang, points, reason)
+                   VALUES (?, ?, ?, 'review')""",
+                (user_id, lang, safe_xp),
+            )
+            points_ledger_id = points_cur.lastrowid
+
+        await conn.execute(
+            """UPDATE review_history
+               SET points_ledger_id=?, review_quest_bumped=? WHERE id=?""",
+            (points_ledger_id, quest_bumped, history_id),
+        )
+        await conn.execute(
+            """DELETE FROM review_history
+               WHERE user_id=? AND id NOT IN (
+                   SELECT id FROM review_history
+                   WHERE user_id=? ORDER BY id DESC LIMIT 100
+               )""",
+            (user_id, user_id),
+        )
+        await conn.commit()
+        return int(history_id)
+
+
+async def undo_card_review(user_id: int, history_id: int) -> dict | None:
+    """Undo the user's latest active review, returning the reversed XP.
+
+    Returning ``None`` means the id is absent/already undone.  ``out_of_order``
+    protects newer scheduling work when a stale client attempts an old undo.
+    """
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("BEGIN IMMEDIATE")
+        async with conn.execute(
+            """SELECT * FROM review_history
+               WHERE user_id=? AND undone_at IS NULL
+               ORDER BY id DESC LIMIT 1""",
+            (user_id,),
+        ) as cur:
+            latest = await cur.fetchone()
+        if not latest or latest["id"] != history_id:
+            await conn.rollback()
+            if latest:
+                return {"out_of_order": True, "latest_id": latest["id"]}
+            return None
+
+        restored = await conn.execute(
+            """UPDATE card_faces
+               SET next_review=?, interval_days=?, ease_factor=?, repetitions=?,
+                   first_seen_date=?, learning_step=?
+               WHERE card_id=? AND face=? AND card_id IN
+                   (SELECT id FROM cards WHERE user_id=?)""",
+            (
+                latest["previous_next_review"], latest["previous_interval_days"],
+                latest["previous_ease_factor"], latest["previous_repetitions"],
+                latest["previous_first_seen_date"], latest["previous_learning_step"],
+                latest["card_id"], latest["face"], user_id,
+            ),
+        )
+        if restored.rowcount == 0:
+            await conn.rollback()
+            return None
+
+        if latest["points_ledger_id"] is not None:
+            await conn.execute(
+                "DELETE FROM points_ledger WHERE id=? AND user_id=?",
+                (latest["points_ledger_id"], user_id),
+            )
+        if latest["review_quest_bumped"]:
+            await conn.execute(
+                """UPDATE daily_quests SET progress = MAX(0, progress - 1)
+                   WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
+                (user_id,),
+            )
+        await conn.execute(
+            "UPDATE review_history SET undone_at=datetime('now') WHERE id=?",
+            (history_id,),
+        )
+        # We deliberately retain today's study_activity marker: another feature
+        # may have earned it, and a boolean day row cannot safely encode provenance.
+        await conn.commit()
+        return {"out_of_order": False, "xp": latest["xp"]}
 
 
 async def update_card(

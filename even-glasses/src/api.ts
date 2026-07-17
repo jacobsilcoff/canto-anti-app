@@ -29,6 +29,8 @@ export interface Label {
 export interface ReviewResult {
   success: boolean
   xp: number
+  /** Present once the server supports reversible reviews. */
+  review_id?: number
 }
 
 export interface Streak {
@@ -97,6 +99,10 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({ face, quality }),
     })
+  }
+
+  undoReview(reviewId: number): Promise<{ success: boolean; xp: number }> {
+    return this.request(`/api/reviews/${reviewId}/undo`, { method: 'POST' })
   }
 
   streak(): Promise<Streak> {

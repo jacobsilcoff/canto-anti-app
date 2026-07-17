@@ -1,6 +1,6 @@
 {
   "name": "canto-even-glasses",
-  "version": "1.1.0",
+  "version": "1.1.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "verify": "npm run typecheck && npm test && npm run build",
     "sync-deps": "npm install --prefer-offline --no-audit --no-fund",
     "prebeta": "npm run sync-deps",
-    "beta": "npm run verify && evenhub pack app.json dist -o canto-flashcards.ehpk",
+    "beta": "npm run typecheck && npm test && node scripts/bump-beta-version.mjs && npm run build && evenhub pack app.json dist -o canto-flashcards.ehpk",
     "pack": "npm run beta",
     "qr": "evenhub qr --http --port 5173"
   },

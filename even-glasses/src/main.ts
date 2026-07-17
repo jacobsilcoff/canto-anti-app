@@ -33,9 +33,13 @@ import {
 import { cardAction } from './interaction.js'
 import type { CardAction, CardInput, CardPhase } from './interaction.js'
 
-const TEXT_ID = 1
-const TEXT_NAME = 'flashcard'
-const IMAGE_ID = 2
+const HEADER_ID = 1
+const HEADER_NAME = 'header'
+const BODY_ID = 2
+const BODY_NAME = 'flashcard'
+const FOOTER_ID = 3
+const FOOTER_NAME = 'controls'
+const IMAGE_ID = 4
 const IMAGE_NAME = 'largeText'
 const IMAGE_X = Math.round((576 - LARGE_TEXT_WIDTH) / 2)
 const IMAGE_Y = 58
@@ -47,6 +51,7 @@ type Phase = CardPhase
 const PROMPT_CONTROLS = '● reveal   ▲ undo   ▼ skip   ●● exit'
 const REVEAL_CONTROLS = '● good   ●● again'
 const RESTART_CONTROLS = '● restart   ●● exit'
+const FINISH_CONTROLS = '▲ undo   ● restart   ●● exit'
 const EXIT_CONTROLS = '●● exit'
 
 let bridge: EvenAppBridge
@@ -62,8 +67,47 @@ let xp = 0
 let graded = 0
 let deckLabels: number[] = []
 let largeTextActive = false
+let reviewHistory: ReviewedCard[] = []
 let displayTail: Promise<unknown> = Promise.resolve()
 let actionTail: Promise<void> = Promise.resolve()
+
+interface ReviewedCard {
+  card: DueCard
+  reviewId: number
+  xp: number
+}
+
+type DiagnosticLevel = 'info' | 'warn' | 'error'
+
+interface DiagnosticEntry {
+  time: string
+  level: DiagnosticLevel
+  message: string
+}
+
+const diagnostics: DiagnosticEntry[] = []
+
+function refreshDiagnostics(): void {
+  const output = document.getElementById('diagnostic-log')
+  if (!output) return
+  output.textContent = diagnostics.length
+    ? diagnostics.map((entry) => `${entry.time} ${entry.level.toUpperCase()} ${entry.message}`).join('\n')
+    : 'No events yet.'
+  output.scrollTop = output.scrollHeight
+}
+
+function diagnostic(level: DiagnosticLevel, message: string): void {
+  diagnostics.push({
+    time: new Date().toISOString().slice(11, 23),
+    level,
+    message,
+  })
+  if (diagnostics.length > 80) diagnostics.splice(0, diagnostics.length - 80)
+  if (level === 'error') console.error(message)
+  else if (level === 'warn') console.warn(message)
+  else console.info(message)
+  refreshDiagnostics()
+}
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -106,24 +150,55 @@ function fitContent(content: string, max = 1_900): string {
 
 async function createStartupPage(content: string): Promise<void> {
   if (startupReady) throw new Error('The glasses page was already created.')
+  diagnostic('info', 'Creating fixed header/body/footer glasses layout (576×288).')
   const result = await bridgeCall(() =>
     bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
-      containerTotalNum: 2,
+      containerTotalNum: 4,
       textObject: [
         new TextContainerProperty({
-          containerID: TEXT_ID,
-          containerName: TEXT_NAME,
-          content: fitContent(content, 950),
+          containerID: HEADER_ID,
+          containerName: HEADER_NAME,
+          content: 'Canto Flashcards',
           xPosition: 0,
           yPosition: 0,
           width: 576,
-          height: 288,
+          height: 38,
+          borderWidth: 0,
+          borderColor: 0,
+          borderRadius: 0,
+          paddingLength: 4,
+          isEventCapture: 0,
+          zOrderIndex: 1,
+        }),
+        new TextContainerProperty({
+          containerID: BODY_ID,
+          containerName: BODY_NAME,
+          content: fitContent(content, 950),
+          xPosition: 0,
+          yPosition: 38,
+          width: 576,
+          height: 208,
           borderWidth: 0,
           borderColor: 0,
           borderRadius: 0,
           paddingLength: 8,
           isEventCapture: 1,
-          zOrderIndex: 1,
+          zOrderIndex: 2,
+        }),
+        new TextContainerProperty({
+          containerID: FOOTER_ID,
+          containerName: FOOTER_NAME,
+          content: EXIT_CONTROLS,
+          xPosition: 0,
+          yPosition: 246,
+          width: 576,
+          height: 42,
+          borderWidth: 0,
+          borderColor: 0,
+          borderRadius: 0,
+          paddingLength: 4,
+          isEventCapture: 0,
+          zOrderIndex: 3,
         }),
       ],
       imageObject: [
@@ -134,7 +209,7 @@ async function createStartupPage(content: string): Promise<void> {
           yPosition: IMAGE_Y,
           width: LARGE_TEXT_WIDTH,
           height: LARGE_TEXT_HEIGHT,
-          zOrderIndex: 2,
+          zOrderIndex: 4,
         }),
       ],
     })),
@@ -143,22 +218,44 @@ async function createStartupPage(content: string): Promise<void> {
     throw new Error(`The glasses rejected the startup page (code ${String(result)}).`)
   }
   startupReady = true
+  diagnostic('info', 'Glasses accepted the startup page.')
 }
 
-async function updateText(content: string): Promise<void> {
+async function updateTextContainer(
+  containerID: number,
+  containerName: string,
+  content: string,
+  max = 1_900,
+): Promise<void> {
   const ok = await bridgeCall(() =>
     bridge.textContainerUpgrade(new TextContainerUpgrade({
-      containerID: TEXT_ID,
-      containerName: TEXT_NAME,
+      containerID,
+      containerName,
       contentOffset: 0,
       contentLength: 0,
-      content: fitContent(content),
+      content: fitContent(content, max),
     })),
   )
-  if (!ok) throw new Error('The glasses could not update the flashcard text.')
+  if (!ok) throw new Error(`The glasses could not update ${containerName}.`)
 }
 
-async function updateImage(data: number[]): Promise<boolean> {
+async function updateLayout(
+  heading: string,
+  body: string,
+  footer: string,
+  clearImage = true,
+): Promise<void> {
+  if (clearImage) await clearLargeText()
+  await updateTextContainer(HEADER_ID, HEADER_NAME, heading, 180)
+  await updateTextContainer(BODY_ID, BODY_NAME, body)
+  await updateTextContainer(FOOTER_ID, FOOTER_NAME, footer, 180)
+}
+
+async function showMessage(heading: string, body: string, footer = EXIT_CONTROLS): Promise<void> {
+  await updateLayout(heading, body, footer)
+}
+
+async function updateImage(data: Uint8Array): Promise<boolean> {
   const result = await bridgeCall(() =>
     bridge.updateImageRawData(new ImageRawDataUpdate({
       containerID: IMAGE_ID,
@@ -171,7 +268,9 @@ async function updateImage(data: number[]): Promise<boolean> {
     String(result).toLowerCase() === 'success'
   )
   if (!success) {
-    console.warn(`Large-text image update failed: ${String(result)} (${data.length} bytes)`)
+    diagnostic('warn', `Image update rejected: ${String(result)}; PNG=${data.length} bytes.`)
+  } else {
+    diagnostic('info', `Image update accepted: ${data.length}-byte PNG.`)
   }
   return success
 }
@@ -179,13 +278,12 @@ async function updateImage(data: number[]): Promise<boolean> {
 async function clearLargeText(): Promise<void> {
   if (!largeTextActive) return
   largeTextActive = false
-  const blank = renderBlankLargeText()
-  if (blank) await updateImage(blank.data)
-}
-
-async function showText(content: string): Promise<void> {
-  await clearLargeText()
-  await updateText(content)
+  const blank = await renderBlankLargeText((message) => diagnostic('warn', message))
+  if (blank) {
+    await updateImage(blank.data)
+  } else {
+    diagnostic('warn', 'Could not create the blank image used to clear large text.')
+  }
 }
 
 function header(cardView: CardView): string {
@@ -194,18 +292,19 @@ function header(cardView: CardView): string {
 
 async function showPrompt(cardView: CardView): Promise<void> {
   if (shouldRenderLarge(cardView.prompt)) {
-    const bitmap = renderLargeText(cardView.prompt)
+    diagnostic('info', `Large-text candidate: “${cardView.prompt}”.`)
+    const bitmap = await renderLargeText(
+      cardView.prompt,
+      (message) => diagnostic(message.startsWith('Rendered') ? 'info' : 'warn', message),
+    )
     if (bitmap && (await updateImage(bitmap.data))) {
       largeTextActive = true
-      await updateText(
-        `${header(cardView)}\n\n\n\n\n\n\n\n\n${PROMPT_CONTROLS}`,
-      )
+      await updateLayout(header(cardView), '', PROMPT_CONTROLS, false)
       return
     }
+    diagnostic('warn', 'Falling back to native small text for this prompt.')
   }
-  await showText(
-    `${header(cardView)}\n\n\n${cardView.prompt}\n\n\n${PROMPT_CONTROLS}`,
-  )
+  await updateLayout(header(cardView), `\n\n${cardView.prompt}`, PROMPT_CONTROLS)
 }
 
 async function renderCard(): Promise<void> {
@@ -219,16 +318,18 @@ async function renderCard(): Promise<void> {
   }
 
   const notes = card.notes?.trim() ? `\n\n${card.notes.trim()}` : ''
-  await showText(
-    `${header(view)}\n\n${view.prompt}\n---\n${view.answer}${notes}\n\n` +
-      REVEAL_CONTROLS,
+  await updateLayout(
+    header(view),
+    `${view.prompt}\n---\n${view.answer}${notes}`,
+    REVEAL_CONTROLS,
   )
 }
 
 async function begin(labelIds: number[] = deckLabels): Promise<void> {
   if (!api) return
   deckLabels = labelIds
-  await showText('Loading your flashcards…')
+  diagnostic('info', `Loading due cards for ${labelIds.length ? `label ${labelIds.join(',')}` : 'all decks'}.`)
+  await showMessage('Canto Flashcards', 'Loading your flashcards…', EXIT_CONTROLS)
 
   let romanizable: Set<string>
   let cards: DueCard[]
@@ -250,11 +351,14 @@ async function begin(labelIds: number[] = deckLabels): Promise<void> {
   view = null
   xp = 0
   graded = 0
+  reviewHistory = []
 
   if (queue.length === 0) {
-    await showText(`All caught up!\n\nNo cards are due right now.\n\n${RESTART_CONTROLS}`)
+    diagnostic('info', 'No playable cards are due.')
+    await showMessage('All caught up!', 'No cards are due right now.', RESTART_CONTROLS)
     return
   }
+  diagnostic('info', `Loaded ${queue.length} playable card${queue.length === 1 ? '' : 's'}.`)
   await renderCard()
 }
 
@@ -265,9 +369,18 @@ async function grade(quality: Quality): Promise<void> {
   const gained = result.xp || 0
   xp += gained
   graded += 1
+  if (Number.isInteger(result.review_id)) {
+    reviewHistory.push({ card, reviewId: result.review_id!, xp: gained })
+    diagnostic(
+      'info',
+      `Reviewed card ${card.card_id}/${card.face} as ${quality}; review ${result.review_id}; +${gained} XP.`,
+    )
+  } else {
+    diagnostic('warn', 'The connected server does not support review undo yet.')
+  }
 
   const acknowledgment = quality === 'good' ? `Got it  +${gained} XP` : 'Again'
-  await showText(`\n\n${acknowledgment}`)
+  await showMessage('', `\n\n${acknowledgment}`, '')
   await sleep(GRADE_ACK_MS)
 
   queue.splice(index, 1)
@@ -282,6 +395,20 @@ async function grade(quality: Quality): Promise<void> {
 }
 
 async function goBack(): Promise<void> {
+  const previous = reviewHistory[reviewHistory.length - 1]
+  if (previous && api) {
+    diagnostic('info', `Undoing review ${previous.reviewId} for card ${previous.card.card_id}.`)
+    await api.undoReview(previous.reviewId)
+    reviewHistory.pop()
+    xp = Math.max(0, xp - previous.xp)
+    graded = Math.max(0, graded - 1)
+    queue.splice(index, 0, previous.card)
+    phase = 'prompt'
+    view = null
+    diagnostic('info', `Review ${previous.reviewId} undone; the card is active again.`)
+    await renderCard()
+    return
+  }
   if (queue.length <= 1) return
   index = (index - 1 + queue.length) % queue.length
   phase = 'prompt'
@@ -308,9 +435,11 @@ async function finish(): Promise<void> {
   } catch {
     // The session result is still useful if the summary request fails.
   }
-  await updateText(
-    `Session done!\n\n${graded} cards   +${xp} XP${streak}\n\n` +
-      RESTART_CONTROLS,
+  await updateLayout(
+    'Session done!',
+    `${graded} cards   +${xp} XP${streak}`,
+    FINISH_CONTROLS,
+    false,
   )
 }
 
@@ -318,9 +447,10 @@ async function showError(error: unknown): Promise<void> {
   const message = error instanceof ApiError || error instanceof Error
     ? error.message
     : 'Something went wrong.'
+  diagnostic('error', message)
   if (startupReady) {
     try {
-      await showText(`Flashcards\n\n${message}\n\n${EXIT_CONTROLS}`)
+      await showMessage('Flashcards', message, EXIT_CONTROLS)
     } catch {
       // The phone UI remains available if the BLE connection has failed.
     }
@@ -338,6 +468,7 @@ async function requestExit(): Promise<void> {
 
 async function performCardAction(action: CardAction): Promise<void> {
   if (action === 'none') return
+  diagnostic('info', `Input action: ${action} (${phase}).`)
   if (action === 'reveal') {
     phase = 'reveal'
     await renderCard()
@@ -366,6 +497,7 @@ function cleanup(): void {
 async function handleEvent(event: EvenHubEvent): Promise<void> {
   if (event.sysEvent) {
     const type = event.sysEvent.eventType ?? OsEventTypeList.CLICK_EVENT
+    diagnostic('info', `Glasses system event: ${String(type)}.`)
     if (type === OsEventTypeList.FOREGROUND_ENTER_EVENT) {
       if (connected && queue.length > 0 && index < queue.length) await renderCard()
       return
@@ -397,11 +529,16 @@ async function handleEvent(event: EvenHubEvent): Promise<void> {
     return
   }
 
-  if (!connected || !event.textEvent || index >= queue.length) return
+  if (!connected || !event.textEvent) return
   const type = event.textEvent.eventType
+  diagnostic('info', `Glasses text event: ${String(type)}.`)
   let input: CardInput | null = null
   if (type === OsEventTypeList.SCROLL_TOP_EVENT) input = 'swipe-up'
   if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) input = 'swipe-down'
+  if (index >= queue.length) {
+    if (input === 'swipe-up' && reviewHistory.length > 0) await goBack()
+    return
+  }
   if (input) await performCardAction(cardAction(phase, input))
 }
 
@@ -414,8 +551,34 @@ function phoneShell(content: string): void {
     <main style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
       ${content}
       <p id="phone-status" style="margin-top:12px;font-size:.88rem;color:#666"></p>
+      <details open style="margin-top:22px;border-top:1px solid #ddd;padding-top:14px">
+        <summary style="font-weight:650;cursor:pointer">Diagnostics</summary>
+        <p style="margin:8px 0;color:#666;font-size:.8rem">Live API, image-rendering, glasses-update, and input events.</p>
+        <pre id="diagnostic-log" style="box-sizing:border-box;width:100%;height:190px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;border-radius:7px;background:#111;color:#d7f7d7;font:11px/1.4 ui-monospace,SFMono-Regular,monospace"></pre>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="diagnostic-copy" style="padding:7px 10px;border:1px solid #aaa;border-radius:6px;background:#fff">Copy log</button>
+          <button id="diagnostic-clear" style="padding:7px 10px;border:1px solid #aaa;border-radius:6px;background:#fff">Clear</button>
+        </div>
+      </details>
     </main>
   `
+  refreshDiagnostics()
+  document.getElementById('diagnostic-copy')?.addEventListener('click', () => {
+    const text = document.getElementById('diagnostic-log')?.textContent || ''
+    void navigator.clipboard?.writeText(text).then(() => {
+      const status = document.getElementById('phone-status')
+      if (status) {
+        status.textContent = 'Diagnostic log copied.'
+        status.style.color = '#2d6a4f'
+      }
+    }).catch(() => {
+      diagnostic('warn', 'The phone WebView could not copy the diagnostic log.')
+    })
+  })
+  document.getElementById('diagnostic-clear')?.addEventListener('click', () => {
+    diagnostics.length = 0
+    refreshDiagnostics()
+  })
 }
 
 function showPhoneConfig(): void {
@@ -462,7 +625,7 @@ function showPhoneConfig(): void {
 function showPhonePanel(): void {
   phoneShell(`
     <h2 style="margin:0 0 6px">Canto Flashcards</h2>
-    <p style="color:#666;margin:0 0 18px">Review is running on your glasses.</p>
+    <p style="color:#666;margin:0 0 18px">Review is running on your glasses. Keep this screen open to watch diagnostics.</p>
     <label style="display:block;font-weight:600;font-size:.88rem">Study</label>
     <select id="deck-select" style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #bbb;border-radius:8px;background:#fff;font-size:1rem">
       <option value="">All due cards</option>
@@ -497,8 +660,10 @@ function showPhonePanel(): void {
 }
 
 async function main(): Promise<void> {
+  diagnostic('info', 'Plugin WebView started.')
   deckLabels = loadDeckLabels()
   bridge = await waitForEvenAppBridge()
+  diagnostic('info', 'Even App bridge connected.')
   unsubscribeEvents = bridge.onEvenHubEvent(onEvent)
 
   const config = loadConfig()

@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import {
   MAX_LARGE_TEXT_CODEPOINTS,
   gray8ToGray4,
+  hasPngSignature,
   hasVisiblePixels,
   shouldRenderLarge,
 } from './glyph.js'
@@ -31,4 +32,9 @@ test('gray conversion always produces G2 gray4 values', () => {
 test('all-black large-text bitmaps are rejected', () => {
   expect(hasVisiblePixels([0, 0, 0])).toBe(false)
   expect(hasVisiblePixels([0, 1, 0])).toBe(true)
+})
+
+test('large-text payloads must be encoded PNG images', () => {
+  expect(hasPngSignature(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true)
+  expect(hasPngSignature(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]))).toBe(false)
 })
