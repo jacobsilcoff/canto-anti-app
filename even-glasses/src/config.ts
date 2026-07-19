@@ -1,6 +1,7 @@
 const KEY_BASE_URL = 'canto_base_url'
 const KEY_TOKEN = 'canto_api_token'
 const KEY_DECK_LABELS = 'canto_deck_labels'
+const KEY_SHOW_HINTS = 'canto_show_hints'
 
 export const DEFAULT_BASE_URL = 'https://canto-anki.silcoff-labs.ca'
 
@@ -44,4 +45,13 @@ export function loadDeckLabels(): number[] {
 
 export function saveDeckLabels(labelIds: number[]): void {
   localStorage.setItem(KEY_DECK_LABELS, JSON.stringify(labelIds))
+}
+
+/** Whether the card front shows the touchpad-controls hint line (default on). */
+export function loadShowHints(): boolean {
+  return localStorage.getItem(KEY_SHOW_HINTS) !== 'false'
+}
+
+export function saveShowHints(show: boolean): void {
+  localStorage.setItem(KEY_SHOW_HINTS, show ? 'true' : 'false')
 }

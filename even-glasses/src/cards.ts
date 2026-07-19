@@ -3,6 +3,8 @@ import type { DueCard, Face } from './api.js'
 export interface CardView {
   hint: string
   prompt: string
+  /** Romanization shown directly under the prompt on the card back. */
+  reading?: string
   answer: string
 }
 
@@ -33,7 +35,8 @@ export function buildView(card: DueCard): CardView {
     return {
       hint,
       prompt: card.target_text,
-      answer: romanization ? `${card.source_text}\n(${romanization})` : card.source_text,
+      reading: romanization || undefined,
+      answer: card.source_text,
     }
   }
   return {

@@ -28,10 +28,17 @@ test('romanized pronunciation cards remain playable', () => {
   expect(playableCards([card({ face: 'pronunciation' })], new Set(['yue']))).toHaveLength(1)
 })
 
-test('target cards reveal meaning and romanization', () => {
+test('target cards reveal meaning with the reading under the prompt', () => {
   const view = buildView(card())
   expect(view.prompt).toBe('你好')
-  expect(view.answer).toBe('hello\n(nei5 hou2)')
+  expect(view.reading).toBe('nei5 hou2')
+  expect(view.answer).toBe('hello')
+})
+
+test('target cards without romanization omit the reading line', () => {
+  const view = buildView(card({ romanization: null }))
+  expect(view.reading).toBeUndefined()
+  expect(view.answer).toBe('hello')
 })
 
 test('source cards reveal the target and romanization', () => {
