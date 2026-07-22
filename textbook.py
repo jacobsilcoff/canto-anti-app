@@ -52,32 +52,66 @@ _SKELETON_CAP = 16_000            # chapter-detection prompt budget
 
 # ── Deterministic page cleanup ────────────────────────────────────────────────
 
-# Some PDFs render styled text as several overlapping layers, and extraction
-# emits the same phrase 3–5× back to back ("jóu sàhnjóu sàhnjóu sàhnjóu sàhn").
-# Collapse any unit repeated ≥4 times consecutively — legitimate exact 4×
-# adjacent repetition is vanishingly rare in prose, and this text feeds an LLM,
-# not the learner's screen. Digit-only units are kept ("10000" must not become
-# "10"); whitespace runs are left to clean_text.
-_ARTIFACT_RE = re.compile(r"(.{1,80}?)\1{3,}")
+# Some PDFs render styled/bold text as several overlapping layers, so extraction
+# emits the same phrase repeated back to back — sometimes 3–5× ("jóu sàhnjóu
+# sàhnjóu sàhnjóu sàhn"), but very often just DOUBLED, either with no separator
+# ("jóu sàhnjóu sàhn") or as two identical space-separated halves ("jóu sàhnjóu
+# sàhn jóu sàhnjóu sàhn"). All three are collapsed. This text feeds an LLM (and
+# the source-review UI), not the learner's screen, and collapsing it is also what
+# lets the unit planner's verbatim excerpt check match the book's clean wording.
+#
+# Short units (≤5 chars) collapse only at 4×+ repetition, so ordinary doublings
+# ("bye bye", "couscous") survive; longer units (≥6 chars, i.e. whole phrases)
+# collapse from a single doubling. Digit-only units are kept ("10000" must not
+# become "10"); whitespace runs are left to clean_text.
+_ARTIFACT_SHORT_RE = re.compile(r"(.{1,5}?)\1{3,}")   # short unit: needs 4×+
+_ARTIFACT_LONG_RE = re.compile(r"(.{6,80}?)\1{1,}")   # long unit: 2×+ collapses
+
+
+def _artifact_repl(m: "re.Match") -> str:
+    unit = m.group(1)
+    if unit.isdigit() or unit.isspace():
+        return m.group(0)
+    return unit
+
+
+def _collapse_line_halves(line: str) -> str:
+    """Collapse a whole line that is two identical halves (with an optional single
+    space between them) into one — the space-separated ``X X`` layer artifact the
+    doubled-substring regex can't reach across the gap."""
+    s = line.strip()
+    n = len(s)
+    if n < 10:
+        return line
+    if n % 2 == 0:
+        left, right = s[: n // 2], s[n // 2:]
+    elif s[n // 2] == " ":
+        left, right = s[: n // 2], s[n // 2 + 1:]
+    else:
+        return line
+    if left == right and len(left) >= 5 and any(c.isalpha() for c in left):
+        lead = line[: len(line) - len(line.lstrip())]
+        trail = line[len(line.rstrip()):]
+        return lead + left + trail
+    return line
 
 
 def clean_page_text(text: str) -> str:
     """Collapse the repeated-text-layer extraction artifact within one page."""
-    def _repl(m: re.Match) -> str:
-        unit = m.group(1)
-        if unit.isdigit() or unit.isspace():
-            return m.group(0)
-        return unit
-
     out = []
     for line in (text or "").splitlines():
         prev = None
-        # Fixed-point: nested repeats collapse layer by layer ("hóuuuu"→"hóu").
-        for _ in range(6):
+        # Fixed-point: nested/layered repeats collapse layer by layer
+        # ("jóu sàhnjóu sàhn jóu sàhnjóu sàhn" → … → "jóu sàhn").
+        for _ in range(8):
             if prev == line:
                 break
             prev = line
-            line = _ARTIFACT_RE.sub(_repl, line)
+            # Short before long: the long pass would otherwise collapse a 4×
+            # short-unit run down to 2× before the short pass can finish it.
+            line = _ARTIFACT_SHORT_RE.sub(_artifact_repl, line)
+            line = _ARTIFACT_LONG_RE.sub(_artifact_repl, line)
+            line = _collapse_line_halves(line)
         out.append(line)
     return "\n".join(out)
 
@@ -461,20 +495,35 @@ async def plan_source_lesson(source: str, target_lang: str, book_title: str,
     return normalized[0]
 
 
+def _fold_accents(s: str) -> str:
+    """Casefold + strip combining diacritics so romanization schemes that differ
+    only in accent (the book's OCR-extracted ``bâai``/``â`` vs. standard Yale
+    ``bāai``/``ā``, ``ô`` vs ``o``, etc.) still match. Verbatim quotes fail the
+    substring check otherwise, dropping whole lessons over cosmetic accent drift."""
+    import unicodedata
+    decomposed = unicodedata.normalize("NFD", s)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return unicodedata.normalize("NFC", stripped).casefold()
+
+
 def _source_contains_quote(source: str, quote: str) -> bool:
-    """Whitespace-tolerant but otherwise verbatim quote verification."""
-    haystack = re.sub(r"\s+", " ", source).strip().casefold()
-    needle = re.sub(r"\s+", " ", quote).strip().casefold()
+    """Whitespace-tolerant, accent-folded, but otherwise verbatim verification."""
+    haystack = _fold_accents(re.sub(r"\s+", " ", source).strip())
+    needle = _fold_accents(re.sub(r"\s+", " ", quote).strip())
     return len(needle) >= 3 and needle in haystack
 
 
 def _norm_source_unit(parsed: dict, source: str) -> dict:
-    """Validate a coverage-complete textbook unit plan.
+    """Validate a coverage-complete textbook unit plan — degrading, not rejecting.
 
-    Every inventoried concept must be assigned to exactly one lesson, and every
-    lesson must cite at least one excerpt that really occurs in the approved
-    source. A malformed/incomplete plan is rejected instead of silently dropping
-    textbook material.
+    Every lesson is placed by its ``covers`` list against the source inventory.
+    Verbatim ``source_excerpts`` are used as grounding WHEN they verify against the
+    approved text, but a lesson whose excerpts fail verification (common when the
+    book's OCR-extracted romanization or a leftover text-layer artifact differs
+    cosmetically from the model's clean transcription) is kept with labels-only
+    grounding rather than dropped — dropping it stranded its concepts as "missing"
+    and killed the whole unit over cosmetic drift. The unit is rejected only when
+    it collapses: no usable lessons, or the majority of concepts left unmapped.
     """
     inventory: list[dict] = []
     inventory_ids: set[str] = set()
@@ -504,43 +553,54 @@ def _norm_source_unit(parsed: dict, source: str) -> dict:
             concept_id = str(concept_id).strip().lower()
             if concept_id in inventory_ids and concept_id not in covers:
                 covers.append(concept_id)
+        if not covers:
+            # Without a coverage list we can't place the lesson in the unit's
+            # concept map, so it can't count toward completeness — skip it.
+            continue
         excerpts = []
         for quote in (raw.get("source_excerpts") or [])[:8]:
             quote = str(quote or "").strip()[:1200]
             if quote and _source_contains_quote(source, quote):
                 excerpts.append(quote)
-        if not covers or not excerpts:
-            continue
         for concept_id in covers:
             coverage_counts[concept_id] += 1
         lesson = normalized[0]
         labels = [c["label"] for c in inventory if c["id"] in covers]
         notes = str(raw.get("teaching_notes") or "").strip()[:1000]
-        grounding = (
-            "Required textbook coverage: " + "; ".join(labels) + "\n"
-            "Verbatim textbook excerpts:\n" +
-            "\n".join(f"• {quote}" for quote in excerpts)
-        )
+        if excerpts:
+            grounding = (
+                "Required textbook coverage: " + "; ".join(labels) + "\n"
+                "Verbatim textbook excerpts:\n" +
+                "\n".join(f"• {quote}" for quote in excerpts)
+            )
+        else:
+            # Labels-only fallback — the model's excerpts didn't verify against
+            # the approved text. Teach the listed coverage from the book anyway.
+            grounding = (
+                "Required textbook coverage: " + "; ".join(labels) + "\n"
+                "(No verbatim excerpts verified for this lesson — teach the listed "
+                "coverage faithfully from the book's own material for these pages.)"
+            )
         if notes:
             grounding += "\nPlanner notes (secondary to the excerpts): " + notes
         lesson["source"] = grounding[:_SOURCE_CAP]
         lesson["covers"] = covers
         lessons.append(lesson)
 
-    missing = [c["label"] for c in inventory if coverage_counts[c["id"]] == 0]
-    repeated = [c["label"] for c in inventory if coverage_counts[c["id"]] > 1]
-    if missing or repeated:
-        detail = []
-        if missing:
-            detail.append("missing: " + ", ".join(missing[:8]))
-        if repeated:
-            detail.append("assigned more than once: " + ", ".join(repeated[:8]))
-        raise ValueError(
-            "The unit plan did not map the textbook coverage cleanly (" +
-            "; ".join(detail) + "). Please try generating it again."
-        )
     if not lessons:
         raise ValueError("The selected chapter did not produce any grounded lessons.")
+    # A concept covered by no lesson is a real planner gap, but tolerate a few
+    # rather than discarding a mostly-good unit. Reject only if coverage collapsed
+    # (the majority unmapped) — reinforcing a concept across lessons is fine and
+    # never rejected.
+    missing = [c["label"] for c in inventory if coverage_counts[c["id"]] == 0]
+    if len(missing) > max(2, len(inventory) // 2):
+        raise ValueError(
+            "The unit plan left most of the textbook coverage unmapped (missing: "
+            + ", ".join(missing[:8])
+            + (", …" if len(missing) > 8 else "")
+            + "). Please try generating it again, or select a smaller page range."
+        )
     return {"concept_inventory": inventory, "lessons": lessons}
 
 

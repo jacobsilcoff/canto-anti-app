@@ -27,6 +27,18 @@ def test_clean_page_text_collapses_layer_artifact():
     assert textbook.clean_page_text("wáiwáiwáiwái") == "wái"
     # Nested repeats collapse layer by layer.
     assert textbook.clean_page_text("néih hónéih hónéih hónéih hóuuuu") == "néih hóu"
+    # The DOUBLED variant — the far more common CLC artifact: a whole phrase
+    # repeated once with no separator, or as two identical space-separated halves.
+    assert textbook.clean_page_text("jóu sàhnjóu sàhn") == "jóu sàhn"
+    assert textbook.clean_page_text(
+        "jóu sàhnjóu sàhn jóu sàhnjóu sàhn") == "jóu sàhn"
+    assert textbook.clean_page_text("bâai baaibâai baai") == "bâai baai"
+    # An embedded double inside a longer prose line still collapses.
+    assert textbook.clean_page_text(
+        'says " néih hóunéih hóu " to you') == 'says " néih hóu " to you'
+    # Short legitimate doublings (a whole word ≤5 chars) are left alone.
+    assert textbook.clean_page_text("bye bye") == "bye bye"
+    assert textbook.clean_page_text("no no no") == "no no no"
 
 
 def test_clean_page_text_preserves_numbers_and_prose():
@@ -283,22 +295,57 @@ def _source_unit_plan():
     }
 
 
-def test_source_unit_requires_exact_complete_coverage_and_verbatim_quotes():
+def test_source_unit_grounds_verbatim_and_tolerates_gaps():
     source = "Good morning\nSome explanation\nsee you again"
     plan = textbook._norm_source_unit(_source_unit_plan(), source)
     assert len(plan["lessons"]) == 2
     assert "Good morning" in plan["lessons"][0]["source"]
     assert plan["lessons"][1]["covers"] == ["c2"]
 
+    # A modest coverage gap (a minority of concepts unmapped) is tolerated, not
+    # rejected — the unit still ships with the lessons the planner did produce.
     incomplete = _source_unit_plan()
-    incomplete["lessons"][1]["covers"] = ["c1"]
-    with pytest.raises(ValueError, match="did not map.*cleanly"):
-        textbook._norm_source_unit(incomplete, source)
+    incomplete["lessons"][1]["covers"] = ["c1"]     # c2 now unmapped (1 of 2)
+    plan = textbook._norm_source_unit(incomplete, source)
+    assert len(plan["lessons"]) == 2
 
+    # A lesson whose excerpts fail verification (accent/layout drift) is KEPT
+    # with labels-only grounding, not dropped — so its concepts stay covered.
     invented_quote = _source_unit_plan()
     invented_quote["lessons"][0]["source_excerpts"] = ["not in the book"]
-    with pytest.raises(ValueError, match="did not map.*cleanly"):
-        textbook._norm_source_unit(invented_quote, source)
+    plan = textbook._norm_source_unit(invented_quote, source)
+    assert len(plan["lessons"]) == 2
+    first = plan["lessons"][0]
+    assert first["covers"] == ["c1"]
+    assert "No verbatim excerpts verified" in first["source"]
+    assert "Morning greetings" in first["source"]     # labels still guide it
+
+
+def test_source_unit_rejects_when_coverage_collapses():
+    """Only reject when the MAJORITY of concepts are left unmapped."""
+    source = "alpha\nbravo\ncharlie\ndelta"
+    parsed = {
+        "concept_inventory": [
+            {"id": f"c{i}", "label": f"Concept {i}"} for i in range(1, 5)
+        ],
+        # Four concepts, but only c1 is covered → c2/c3/c4 (majority) missing.
+        "lessons": [{**_lesson(1), "covers": ["c1"],
+                     "source_excerpts": ["alpha"]}],
+    }
+    with pytest.raises(ValueError, match="left most of the textbook coverage"):
+        textbook._norm_source_unit(parsed, source)
+
+
+def test_source_unit_accent_folds_excerpt_verification():
+    """The book's OCR romanization (â) still matches standard Yale (ā)."""
+    source = "bâai baai\ndô jeh"                       # circumflex, as extracted
+    parsed = {
+        "concept_inventory": [{"id": "c1", "label": "Farewells"}],
+        "lessons": [{**_lesson(1), "covers": ["c1"],
+                     "source_excerpts": ["bāai baai"]}],  # macron, model's form
+    }
+    plan = textbook._norm_source_unit(parsed, source)
+    assert "bāai baai" in plan["lessons"][0]["source"]   # excerpt accepted
 
 
 @pytest.mark.asyncio
