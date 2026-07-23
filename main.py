@@ -4376,6 +4376,205 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
     return response
 
 
+@app.post("/api/textbooks/{textbook_id}/vocab")
+@limiter.limit("20/hour;60/day")
+async def extract_textbook_vocab(request: Request, textbook_id: int,
+                                 payload: dict,
+                                 user: dict = Depends(current_user)):
+    """Extract a chapter's whole vocabulary as a reviewable word list.
+
+    A lighter sibling of `/lesson` + `/unit`: no lessons are authored — the
+    chapter's words are pulled into a flat list the learner reviews and turns
+    into a flashcard deck via `POST /api/vocab-deck`. Uses the SAME reviewed
+    page range / edited source text the lesson flow already collects.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    lang = course["target_lang"]
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    if start < 1 or end < start or end > book["num_pages"]:
+        raise HTTPException(
+            400, f"Choose pages between 1 and {book['num_pages']}, in order.")
+    if end - start + 1 > textbook.MAX_LESSON_SOURCE_PAGES:
+        raise HTTPException(400, (
+            f"Choose at most {textbook.MAX_LESSON_SOURCE_PAGES} pages at a time. "
+            "You can build another deck from the next pages."
+        ))
+
+    extracted_source = "\n\n".join(
+        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
+        for i in range(start - 1, end)
+    ).strip()
+    source_text = (payload.get("source_text") if "source_text" in payload
+                   else extracted_source)
+    source_text = str(source_text or "").strip()
+    if not source_text:
+        raise HTTPException(
+            422, "The selected pages contain no text. Choose different pages.")
+    if len(source_text) > textbook.MAX_LESSON_SOURCE_CHARS:
+        raise HTTPException(413, (
+            f"The selected text is {len(source_text):,} characters; a deck can use "
+            f"up to {textbook.MAX_LESSON_SOURCE_CHARS:,}. Choose fewer pages or "
+            "trim the text in the preview."
+        ))
+    guidance = str(payload.get("guidance") or "").strip()[:1000]
+
+    access = await _resolve_gemini(user, meter=False)
+    n_calls = max(1, len(textbook.chunk_text(source_text)))
+    metered = await _textbook_metering(user, n_calls, "Extracting chapter vocabulary")
+    try:
+        result = await textbook.extract_chapter_vocab(
+            source_text, lang, book["title"], guidance,
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=access.model_reader)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Textbook vocab extraction failed lang=%s: %s", lang, e,
+                     exc_info=True)
+        raise HTTPException(
+            502, _gen_error_detail(e, "Vocabulary extraction", access.model_reader))
+    if metered:
+        for _ in range(result.get("llm_calls", 1)):
+            await db.increment_usage(user["id"])
+
+    items = result["items"]
+    if not items:
+        raise HTTPException(
+            422, "No vocabulary was found in the selected pages. Try a different "
+                 "page range.")
+    # Offline-oracle romanization for display + deck-dedup flags.
+    logographic = bool(translation.LANG_INFO[lang].get("romanization"))
+    statuses = await db.get_word_statuses(
+        user["id"], [it["target"] for it in items], lang)
+    for it in items:
+        it["romanization"] = (tokenizer.romanize_text(it["target"], lang)
+                              if logographic else "")
+        it["in_deck"] = it["target"] in statuses
+
+    chapter = next((ch for ch in book["chapters"]
+                    if ch.get("start") == start and ch.get("end") == end), None)
+    section = (chapter["title"] if chapter else
+               (f"Pages {start}–{end}" if start != end else f"Page {start}"))
+    return {
+        "items": items,
+        "lang": lang,
+        "book": book["title"],
+        "start": start,
+        "end": end,
+        "section": section,
+        "new_count": sum(1 for it in items if not it["in_deck"]),
+    }
+
+
+class VocabDeckItem(BaseModel):
+    target_text: str
+    source_text: str
+    romanization: str = ""
+    notes: str | None = None
+    cefr_level: str | None = None
+
+
+class VocabDeckRequest(BaseModel):
+    lang: str
+    deck_name: str
+    items: list[VocabDeckItem]
+    save_shared: bool = False
+
+
+@app.post("/api/vocab-deck")
+@limiter.limit("30/hour")
+async def create_vocab_deck(request: Request, req: VocabDeckRequest,
+                            background_tasks: BackgroundTasks,
+                            user: dict = Depends(current_user)):
+    """Commit a reviewed vocab list as flashcards under one deck label.
+
+    Cards are created without audio (generated lazily on first play, like deck
+    imports) and get background embeddings. Words already in the deck are
+    skipped. Optionally also snapshots a shareable deck. Returns
+    {label_id, created, skipped, deck_id?}.
+    """
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, f"Unsupported target language: {req.lang}")
+    deck_name = (req.deck_name or "").strip()[:80]
+    if not deck_name:
+        raise HTTPException(400, "Give the deck a name.")
+    items = [it for it in req.items
+             if it.target_text.strip() and it.source_text.strip()][:textbook.MAX_VOCAB_ITEMS]
+    if not items:
+        raise HTTPException(400, "Select at least one word.")
+
+    label_name = deck_name if deck_name.startswith("📕") else f"📕 {deck_name}"
+    label_id = await db.get_or_create_label(user["id"], label_name)
+
+    logographic = bool(translation.LANG_INFO[req.lang].get("romanization"))
+    statuses = await db.get_word_statuses(
+        user["id"], [it.target_text.strip() for it in items], req.lang)
+
+    access = await _resolve_gemini(user, meter=False)
+    created: list[dict] = []
+    skipped = 0
+    for it in items:
+        target = it.target_text.strip()
+        if target in statuses:      # already in the deck — don't duplicate
+            skipped += 1
+            continue
+        romanization = it.romanization.strip()
+        if logographic:
+            oracle = tokenizer.romanize_text(target, req.lang)
+            if oracle:
+                romanization = oracle
+        card_id = await db.create_card(
+            user_id=user["id"],
+            source_text=it.source_text.strip(),
+            target_text=target,
+            romanization=romanization,
+            target_lang=req.lang,
+            audio_data=None,        # lazy — generated on first /api/audio play
+            notes=(it.notes or "").strip() or None,
+            label_ids=[label_id],
+            cefr_level=it.cefr_level,
+        )
+        created.append({
+            "card_id": card_id, "source_text": it.source_text.strip(),
+            "target_text": target, "romanization": romanization,
+            "notes": (it.notes or "").strip() or None,
+            "cefr_level": it.cefr_level,
+        })
+        # Background embedding, like the normal create-card path.
+        try:
+            background_tasks.add_task(
+                _generate_and_store_embedding, card_id,
+                f"{it.source_text.strip()} {target}", access.api_key)
+        except HTTPException:
+            pass
+
+    if created:
+        await db.bump_quest(user["id"], "add_cards", len(created))
+
+    deck_id = None
+    if req.save_shared and created:
+        deck_id = await db.create_shared_deck(
+            user["id"], label_name, f"Vocabulary from {deck_name}.",
+            req.lang, "private",
+            [{"source_text": c["source_text"], "target_text": c["target_text"],
+              "romanization": c["romanization"], "notes": c["notes"],
+              "target_lang": req.lang, "cefr_level": c["cefr_level"]}
+             for c in created],
+        )
+
+    return {"label_id": label_id, "created": len(created), "skipped": skipped,
+            "deck_id": deck_id}
+
+
 @app.post("/api/textbooks/{textbook_id}/unit")
 @limiter.limit("10/hour;30/day")
 async def create_textbook_unit(request: Request, textbook_id: int,

@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 23;
+  var TOUR_VERSION = 24;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -57,6 +57,8 @@
       body: 'On the Learn page, tap \ud83d\udcd5 My books to upload textbook or grammar-book PDFs. The app finds each book\u2019s chapters (you can check and fix the page ranges), and \u26a1 Generate turns any chapter into interactive lessons with drills \u2014 come back for more chapters whenever you\u2019re ready. Course chapters also show their length (\u201cLesson 2 of ~4\u201d) and close into units on their own.', v: 22 },
     { icon: '\u2728', title: 'AI can re-read messy PDFs',
       body: 'If a textbook\u2019s extracted text comes out garbled, out of order, or shows only romanization with no native script, tap \u201c\u2728 Re-read these pages with AI\u201d on the review screen. It reads the page images and rewrites them cleanly \u2014 recovering the native characters \u2014 so lessons are built from faithful source.', v: 23 },
+    { icon: '\ud83d\udcc7', title: 'Turn a chapter into a flashcard deck',
+      body: 'Just want the words? On the textbook review screen tap \ud83d\udcc7 Build vocab deck to pull every word from those pages into an editable list \u2014 uncheck any you don\u2019t want, then add them to your deck and study straight away. It skips words you already have, and it\u2019s quicker than building full lessons.', v: 24 },
   ];
 
   var steps, stepIdx;

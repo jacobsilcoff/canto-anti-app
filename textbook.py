@@ -44,6 +44,7 @@ MAX_LESSONS_PER_CHAPTER = 12      # queue cap per chapter generation
 MAX_LESSON_SOURCE_PAGES = 20      # one reviewed source selection
 MAX_LESSON_SOURCE_CHARS = 24_000  # keep planner + author prompts responsive
 MAX_ITEMS_PER_LESSON = 10
+MAX_VOCAB_ITEMS = 80             # cap per chapter vocab-deck extraction
 MAX_CHAPTERS = 60                 # structure-detection cap
 _SOURCE_CAP = 4000                # per-lesson textbook grounding
 _TITLE_CAP = 80
@@ -751,4 +752,118 @@ async def segment_chapter(pages: list[str], start: int, end: int,
                  "target_items": l["target_items"]},
         "source": l["source"],
     } for l in lessons]
+    return {"items": items, "llm_calls": calls}
+
+
+# ── Chapter vocab deck (flat word list → SRS flashcards) ──────────────────────
+# A lighter sibling of the lesson pipeline: extract EVERY vocabulary item a
+# chapter teaches into a flat, reviewable word list the learner turns into a
+# flashcard deck. One cheap LLM call per ~9k-char chunk — no grammar teaching,
+# no drill authoring. Romanization is always recomputed by the offline oracle
+# downstream (main), never trusted from the model, like every other card path.
+
+_VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+_GLOSS_CAP = 160
+_EXAMPLE_CAP = 200
+
+
+def _build_vocab_prompt(target_lang: str, chunk: str, part: int, total: int,
+                        book_title: str, guidance: str = "") -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    ctx = f' from "{book_title}"' if book_title else ""
+    direction = ("\n── LEARNER'S DIRECTION ──\n" + guidance.strip() + "\n"
+                 if guidance.strip() else "")
+    return (
+        f"You are building a vocabulary flashcard deck from part {part}/{total} of "
+        f"one chapter{ctx} of a {name} textbook a learner uploaded. Extract EVERY "
+        f"vocabulary item this text teaches, so each becomes one flashcard.\n\n"
+        f"{_lang_preamble(info)}"
+        f"{direction}"
+        f"── RULES ──\n"
+        f"• Prefer the book's OWN vocabulary lists, glossaries, and highlighted "
+        f"words. Also include content words from example sentences that are clearly "
+        f"being taught. Include single words AND short set phrases the book presents "
+        f"as units.\n"
+        f"• SKIP grammar particles taught only as grammar, page numbers, exercise "
+        f"instructions, proper nouns unless they are vocabulary, and anything not a "
+        f"learnable word/phrase.\n"
+        f"• target = the {name} word in native script, citation form. If the book "
+        f"shows only romanization, reconstruct the native script.\n"
+        f"• gloss = a short English meaning (a few words).\n"
+        f"• example = ONE short example phrase/sentence from the book that uses the "
+        f"word, in native script, if the text provides one — else omit it.\n"
+        f"• cefr = your best CEFR estimate (A1/A2/B1/B2/C1/C2) for the word.\n"
+        f"• Do NOT include romanization — our system computes it.\n"
+        f"• Do not repeat the same word twice.\n\n"
+        f"── TEXT (part {part}/{total}) ──\n{chunk}\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{"vocab": [\n'
+        '  {"target": "<native script>", "gloss": "<English>", '
+        '"example": "<native example or omit>", "cefr": "A1"}\n'
+        "]}"
+    )
+
+
+def _norm_vocab(parsed: dict) -> list[dict]:
+    """Strictly normalize one chunk's vocab list (filter-then-clip). An item needs
+    a non-empty target and gloss; cefr is validated, example capped."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for v in (parsed.get("vocab") or []):
+        if not isinstance(v, dict):
+            continue
+        target = (v.get("target") or "").strip()
+        gloss = (v.get("gloss") or "").strip()[:_GLOSS_CAP]
+        if not target or not gloss or target in seen:
+            continue
+        seen.add(target)
+        cefr = (v.get("cefr") or "").strip().upper()
+        out.append({
+            "target": target,
+            "gloss": gloss,
+            "example": (v.get("example") or "").strip()[:_EXAMPLE_CAP],
+            "cefr": cefr if cefr in _VALID_CEFR else None,
+        })
+    return out
+
+
+async def extract_chapter_vocab(source: str, target_lang: str, book_title: str,
+                                guidance: str = "", *, api_key: str,
+                                anthropic_key: str | None = None,
+                                model: str) -> dict:
+    """Extract a chapter's whole vocabulary as a flat list for a flashcard deck.
+
+    One LLM call per ~9k-char chunk of the approved source; deduped across chunks
+    by native target. Returns {"items": [{target, gloss, example, cefr}, ...],
+    "llm_calls": n}. Never authors lessons — just the words.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    source = (source or "").strip()
+    if not source:
+        raise ValueError("The selected pages do not contain any text.")
+    if len(source) > MAX_LESSON_SOURCE_CHARS:
+        raise ValueError(
+            f"The selected text is too long ({len(source):,} characters; "
+            f"maximum {MAX_LESSON_SOURCE_CHARS:,}). Choose fewer pages or trim it."
+        )
+    chunks = chunk_text(source)
+    items: list[dict] = []
+    seen: set[str] = set()
+    calls = 0
+    for i, ch in enumerate(chunks):
+        prompt = _build_vocab_prompt(target_lang, ch, i + 1, len(chunks),
+                                     (book_title or "").strip()[:_TITLE_CAP],
+                                     guidance)
+        raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                             anthropic_key=anthropic_key)
+        calls += 1
+        for v in _norm_vocab(_parse_json(raw) or {}):
+            if v["target"] not in seen:
+                seen.add(v["target"])
+                items.append(v)
+        if len(items) >= MAX_VOCAB_ITEMS:
+            items = items[:MAX_VOCAB_ITEMS]
+            break
     return {"items": items, "llm_calls": calls}

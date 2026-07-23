@@ -666,6 +666,34 @@
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
     .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
+    /* Chapter → vocab deck review */
+    .vocab-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+    .vocab-stat { flex: 1; border-radius: 12px; background: var(--surface-alt); padding: 9px 11px; }
+    .vocab-stat.new { background: var(--good-soft); }
+    .vocab-stat b { display: block; font-size: 1.3rem; line-height: 1.1; }
+    .vocab-stat.new b { color: var(--good-strong); }
+    .vocab-stat span { font-size: .68rem; color: var(--text-muted); }
+    .vocab-stat.new span { color: var(--good-strong); }
+    .vocab-selbar { display: flex; align-items: center; justify-content: space-between; font-size: .74rem; color: var(--text-muted); padding: 4px 2px 8px; }
+    .vocab-selbar button { border: none; background: none; color: var(--primary); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; padding: 3px 5px; }
+    .vocab-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .vocab-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .vocab-row:last-child { border-bottom: none; }
+    .vocab-row.in-deck { opacity: .55; }
+    .vocab-row input[type=checkbox] { width: 17px; height: 17px; flex-shrink: 0; accent-color: var(--primary); }
+    .vocab-row-main { flex: 1; min-width: 0; }
+    .vocab-row-rom { font-size: .68rem; color: var(--text-muted); }
+    .vocab-row-word { font-size: .96rem; font-weight: 600; }
+    .vocab-row-word .gl { font-weight: 400; color: var(--text-muted); font-size: .82rem; }
+    .vocab-badge { font-size: .62rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
+    .vocab-badge.have { background: var(--surface-alt); color: var(--text-muted); }
+    .vocab-more { text-align: center; padding: 9px; font-size: .76rem; color: var(--text-muted); }
+    .vocab-toggle { display: flex; align-items: center; gap: 9px; font-size: .8rem; color: var(--text-muted); margin-top: 12px; cursor: pointer; }
+    .vocab-toggle input { width: 16px; height: 16px; accent-color: var(--primary); }
+    .vocab-done { text-align: center; padding: 20px 6px; }
+    .vocab-done-icon { font-size: 2.4rem; }
+    .vocab-done h3 { margin: 10px 0 4px; font-size: 1.05rem; }
+    .vocab-done p { color: var(--text-muted); font-size: .82rem; margin: 0 0 16px; }
     .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
     .bk-title-row { display: flex; align-items: center; gap: 8px; }
     .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1576,6 +1604,14 @@
   let _pendingBookFile = null;
   let _pendingBookTitle = '';
   let _bookProgress = '';
+  // Chapter → vocab deck review state.
+  let _vocabItems = [];        // [{target, gloss, romanization, cefr, in_deck, _pick}]
+  let _vocabMeta = null;       // {section, book, start, end, lang}
+  let _vocabName = '';
+  let _vocabSaveShared = false;
+  let _vocabBusy = false;
+  let _vocabExpanded = false;
+  let _vocabDone = null;       // {created, skipped, label_id, deck_id} after commit
 
   function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
 
@@ -1599,8 +1635,9 @@
   }
 
   function lessonMakerBack() {
-    if (_bookBusy) return;
+    if (_bookBusy || _vocabBusy) return;
     if (_makerStep === 'manage') _makerStep = 'source';
+    else if (_makerStep === 'vocab') { _makerStep = 'source'; _vocabDone = null; }
     else if (_makerStep === 'source') _makerStep = 'books';
     else _makerStep = 'choose';
     _sourceError = '';
@@ -1657,6 +1694,7 @@
     }
     if (_makerStep === 'books') { renderBookPicker(body); return; }
     if (_makerStep === 'manage') { renderSectionManager(body); return; }
+    if (_makerStep === 'vocab') { renderVocabReview(body); return; }
     renderSourceReview(body);
   }
 
@@ -1760,9 +1798,153 @@
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions">
         <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="buildVocabDeck()"${(_bookBusy || _sourceLoading || _reReading) ? ' disabled' : ''} title="Pull every word from these pages into a flashcard deck">📇 Build vocab deck</button>
         <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Planning unit…' : 'Create multi-lesson unit'}</button>
       </div>`;
     updateSourceCount();
+  }
+
+  // ── Chapter → vocab deck ────────────────────────────────────────────────────
+
+  async function buildVocabDeck() {
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading || _vocabBusy) return;
+    if ((_sourceText || '').length > TEXTBOOK_SOURCE_CHAR_LIMIT) {
+      _sourceError = `This selection is too long. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} characters or choose fewer pages.`;
+      renderLessonMaker();
+      return;
+    }
+    _vocabBusy = true; _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/vocab`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: _sourceStart, end: _sourceEnd,
+          source_text: _sourceText, guidance: _sourceGuidance,
+        }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not extract vocabulary.');
+      _vocabItems = (data.items || []).map(it => ({ ...it, _pick: !it.in_deck }));
+      _vocabMeta = { section: data.section, book: data.book,
+                     start: data.start, end: data.end, lang: data.lang };
+      _vocabName = data.section || `Pages ${data.start}–${data.end}`;
+      _vocabSaveShared = false; _vocabExpanded = false; _vocabDone = null;
+      _makerStep = 'vocab';
+    } catch (e) {
+      _sourceError = e.message || 'Could not extract vocabulary.';
+    } finally {
+      _vocabBusy = false;
+      renderLessonMaker();
+    }
+  }
+
+  function _vocabSelCount() { return _vocabItems.filter(it => it._pick).length; }
+
+  function renderVocabReview(body) {
+    _makerHeader('Build vocab deck');
+    if (_vocabDone) { renderVocabDone(body); return; }
+    const total = _vocabItems.length;
+    const inDeck = _vocabItems.filter(it => it.in_deck).length;
+    const newCount = total - inDeck;
+    const sel = _vocabSelCount();
+    const CAP = 12;
+    const shown = _vocabExpanded ? _vocabItems : _vocabItems.slice(0, CAP);
+    const rows = shown.map((it, i) => {
+      const idx = _vocabItems.indexOf(it);
+      const rom = it.romanization ? `<div class="vocab-row-rom">${esc(it.romanization)}</div>` : '';
+      const badge = it.in_deck
+        ? '<span class="vocab-badge have">✓ in deck</span>'
+        : (it.cefr ? `<span class="vocab-badge">${esc(it.cefr)}</span>` : '');
+      return `<label class="vocab-row${it.in_deck ? ' in-deck' : ''}">
+        <input type="checkbox"${it._pick ? ' checked' : ''}${it.in_deck ? ' disabled' : ''} onchange="toggleVocabItem(${idx},this.checked)">
+        <div class="vocab-row-main">${rom}
+          <div class="vocab-row-word">${esc(it.target)} <span class="gl">— ${esc(it.gloss)}</span></div>
+        </div>${badge}</label>`;
+    }).join('');
+    const more = (!_vocabExpanded && total > CAP)
+      ? `<div class="vocab-more"><button class="maker-link" onclick="_vocabExpanded=true;renderLessonMaker()">Show all ${total} words</button></div>` : '';
+    body.innerHTML = `<p class="maker-intro">Every word ${_vocabMeta.section ? `from <b>${esc(_vocabMeta.section)}</b>` : 'in these pages'}, ready to study. Uncheck any you don't want, then add them to your deck.</p>
+      <div class="vocab-stats">
+        <div class="vocab-stat new"><b>${newCount}</b><span>new word${newCount === 1 ? '' : 's'}</span></div>
+        <div class="vocab-stat"><b>${inDeck}</b><span>already in deck</span></div>
+        <div class="vocab-stat"><b>${total}</b><span>found</span></div>
+      </div>
+      <div class="vocab-selbar"><span>${sel} selected</span>
+        <span><button onclick="selectAllVocab(true)">Select all new</button> · <button onclick="selectAllVocab(false)">Clear</button></span>
+      </div>
+      <div class="vocab-list">${rows}</div>${more}
+      <label class="maker-field" style="margin-top:14px"><span>Deck name</span>
+        <input class="maker-select" maxlength="80" value="${esc(_vocabName)}" oninput="_vocabName=this.value">
+      </label>
+      <label class="vocab-toggle"><input type="checkbox"${_vocabSaveShared ? ' checked' : ''} onchange="_vocabSaveShared=this.checked"> Also save as a shareable deck in Browse</label>
+      ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
+      <div class="maker-actions">
+        <button class="course-regen" onclick="lessonMakerBack()"${_vocabBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="commitVocabDeck(false)"${(_vocabBusy || !sel) ? ' disabled' : ''}>Add to deck</button>
+        <button class="cta-btn" onclick="commitVocabDeck(true)"${(_vocabBusy || !sel) ? ' disabled' : ''}>${_vocabBusy ? '<span class="spinner"></span> Adding…' : `Add ${sel} &amp; study →`}</button>
+      </div>`;
+  }
+
+  function toggleVocabItem(idx, checked) {
+    if (_vocabItems[idx]) _vocabItems[idx]._pick = checked;
+    renderLessonMaker();
+  }
+
+  function selectAllVocab(onlyNew) {
+    _vocabItems.forEach(it => { it._pick = onlyNew ? !it.in_deck : false; });
+    renderLessonMaker();
+  }
+
+  async function commitVocabDeck(study) {
+    if (_vocabBusy) return;
+    const picks = _vocabItems.filter(it => it._pick && !it.in_deck);
+    if (!picks.length) { _sourceError = 'Select at least one new word.'; renderLessonMaker(); return; }
+    const name = (_vocabName || '').trim();
+    if (!name) { _sourceError = 'Give the deck a name.'; renderLessonMaker(); return; }
+    _vocabBusy = true; _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await fetch('/api/vocab-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lang: _vocabMeta.lang, deck_name: name, save_shared: _vocabSaveShared,
+          items: picks.map(it => ({
+            target_text: it.target, source_text: it.gloss,
+            romanization: it.romanization || '', cefr_level: it.cefr || null,
+            notes: it.example || null,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not build the deck.');
+      _vocabDone = { ...data, name, study };
+      if (study && data.label_id) {
+        window.location.href = `/cards?label_id=${data.label_id}&study=1`;
+        return;
+      }
+      renderLessonMaker();
+    } catch (e) {
+      _sourceError = e.message || 'Could not build the deck.';
+    } finally {
+      _vocabBusy = false;
+      if (!_vocabDone) renderLessonMaker();
+    }
+  }
+
+  function renderVocabDone(body) {
+    const d = _vocabDone;
+    const skipNote = d.skipped ? ` <span style="color:var(--text-muted)">(${d.skipped} already in your deck)</span>` : '';
+    body.innerHTML = `<div class="vocab-done">
+        <div class="vocab-done-icon">📇</div>
+        <h3>Added ${d.created} word${d.created === 1 ? '' : 's'} to your deck</h3>
+        <p>Tagged 📕 ${esc(d.name)}${skipNote}. Study them any time from the Cards tab.</p>
+        <button class="cta-btn" onclick="window.location.href='/cards?label_id=${d.label_id}&study=1'">Study ${d.created} word${d.created === 1 ? '' : 's'} →</button>
+        <div style="margin-top:10px"><button class="maker-link" onclick="closeBooks()">Done</button></div>
+      </div>`;
   }
 
   function selectBookSection(value) {
