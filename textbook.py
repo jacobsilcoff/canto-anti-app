@@ -120,6 +120,92 @@ def clean_pages(pages: list[str]) -> list[str]:
     return strip_repeated_lines([clean_page_text(p) for p in pages])
 
 
+# ── Vision re-extraction (render page → transcribe with the model) ────────────
+#
+# Deterministic pypdf text mangles the books this feature targets: 2-up spreads
+# interleave two logical pages, interlinear layouts scramble the romanization ↔
+# gloss alignment, and romanization-only phrasebooks carry no native script at
+# all (scanned pages carry no text layer whatsoever). For those, we render the
+# page to an image and let the vision model transcribe it into clean, linear,
+# native-script text that the existing chapter/lesson planners can consume.
+
+MAX_VISION_PAGES = MAX_LESSON_SOURCE_PAGES   # bound one re-read request (≤20 pp.)
+_VISION_PAGE_CHARS = 8000                    # clamp one page's transcript
+
+
+def _build_transcription_prompt(target_lang: str) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    return (
+        f"You are transcribing ONE page of a {name} learning book (textbook, "
+        f"phrasebook, or grammar) for a learner. Read the page image and output "
+        f"its teachable content as clean, plain text.\n\n"
+        f"{_lang_preamble(info)}"
+        "── RULES ──\n"
+        "• Transcribe in natural READING ORDER. If the page is laid out in two "
+        "columns or as a two-page spread, read the whole left page top-to-bottom, "
+        "then the whole right page — never interleave the columns.\n"
+        f"• Preserve the native {name} script exactly as printed. Keep any "
+        "romanization and English meaning next to the item it belongs to, on the "
+        "same line, e.g. `native — romanization — English`.\n"
+        f"• If an entry shows ONLY romanization (no native {name} script), add the "
+        "correct native script yourself and keep the printed romanization beside "
+        "it. Do not drop or invent vocabulary.\n"
+        "• Keep the page's structure: unit/section headings, numbered items, and "
+        "the pairing between a word/phrase and its meaning. One entry per line.\n"
+        "• DROP page furniture: running headers/footers, page numbers, website "
+        "URLs, watermarks, and purely decorative text.\n"
+        "• Output ONLY the transcribed text — no commentary, no code fences, no "
+        "notes about what you did. If the page has no teachable content, output an "
+        "empty response.\n"
+    )
+
+
+async def transcribe_page_image(image_bytes: bytes, target_lang: str, *,
+                                api_key: str, anthropic_key: str | None = None,
+                                model: str) -> str:
+    """Transcribe one rendered page image to clean text (best-effort).
+
+    Reuses the deterministic page cleanup so the vision output goes through the
+    same repeated-layer/whitespace normalization as pypdf text.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = _build_transcription_prompt(target_lang)
+    raw = await llm.call_with_image(prompt, image_bytes, model=model,
+                                    gemini_key=api_key, anthropic_key=anthropic_key)
+    text = (raw or "").strip()
+    # Strip an accidental ``` fence if the model added one despite instructions.
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+    return clean_page_text(text)[:_VISION_PAGE_CHARS]
+
+
+async def transcribe_pages(images: dict[int, bytes], target_lang: str, *,
+                           api_key: str, anthropic_key: str | None = None,
+                           model: str) -> tuple[dict[int, str], int]:
+    """Transcribe rendered page images → ``({page_no: text}, llm_calls)``.
+
+    One vision call per page. Best-effort per page: a page that fails to
+    transcribe is omitted from the result so the caller can keep its original
+    extracted text. ``llm_calls`` counts only pages that were actually attempted
+    (for usage metering).
+    """
+    out: dict[int, str] = {}
+    calls = 0
+    for page_no in sorted(images)[:MAX_VISION_PAGES]:
+        calls += 1
+        try:
+            out[page_no] = await transcribe_page_image(
+                images[page_no], target_lang, api_key=api_key,
+                anthropic_key=anthropic_key, model=model)
+        except Exception:
+            # Leave this page's original extraction in place; keep going.
+            continue
+    return out, calls
+
+
 # ── Chapter detection (1 LLM call over a heading skeleton) ────────────────────
 
 _HEADING_RE = re.compile(

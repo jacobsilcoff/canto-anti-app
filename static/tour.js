@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 22;
+  var TOUR_VERSION = 23;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -55,6 +55,8 @@
       body: 'Set a profile photo in Settings \u2192 Account \u2014 it\u2019s cropped to a circle and shows up next to your chats. Add your name there too and Home will greet you by your first name.', v: 21 },
     { icon: '\ud83d\udcd5', title: 'Turn your textbooks into lessons',
       body: 'On the Learn page, tap \ud83d\udcd5 My books to upload textbook or grammar-book PDFs. The app finds each book\u2019s chapters (you can check and fix the page ranges), and \u26a1 Generate turns any chapter into interactive lessons with drills \u2014 come back for more chapters whenever you\u2019re ready. Course chapters also show their length (\u201cLesson 2 of ~4\u201d) and close into units on their own.', v: 22 },
+    { icon: '\u2728', title: 'AI can re-read messy PDFs',
+      body: 'If a textbook\u2019s extracted text comes out garbled, out of order, or shows only romanization with no native script, tap \u201c\u2728 Re-read these pages with AI\u201d on the review screen. It reads the page images and rewrites them cleanly \u2014 recovering the native characters \u2014 so lessons are built from faithful source.', v: 23 },
   ];
 
   var steps, stepIdx;

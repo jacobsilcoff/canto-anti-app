@@ -2976,18 +2976,38 @@ def _parse_textbook_visuals(raw: str | None) -> list[dict]:
 
 async def create_textbook(user_id: int, course_id: int, title: str,
                           filename: str, pages: list[str],
-                          visuals: list[dict] | None = None) -> int:
+                          visuals: list[dict] | None = None,
+                          pdf_media_id: str | None = None) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             """INSERT INTO textbooks (user_id, course_id, title, filename,
-                                      num_pages, pages_json, images_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                      num_pages, pages_json, images_json,
+                                      pdf_media_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, course_id, (title or "").strip()[:200],
              (filename or "").strip()[:200], len(pages), json.dumps(pages),
-             json.dumps(visuals or [], ensure_ascii=False)),
+             json.dumps(visuals or [], ensure_ascii=False), pdf_media_id),
         )
         await db.commit()
         return cur.lastrowid
+
+
+async def update_textbook_pages(user_id: int, textbook_id: int,
+                                pages: list[str]) -> bool:
+    """Overwrite a book's per-page text (ownership-checked).
+
+    Used by the vision re-extraction path to replace garbled pages with clean,
+    native-script transcripts. ``num_pages`` is kept in sync so page-range
+    validation elsewhere stays correct.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "UPDATE textbooks SET pages_json=?, num_pages=? WHERE id=? AND user_id=?",
+            (json.dumps(pages, ensure_ascii=False), len(pages),
+             textbook_id, user_id),
+        )
+        await db.commit()
+        return bool(cur.rowcount)
 
 
 async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
@@ -3025,7 +3045,8 @@ async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, user_id, course_id, title, filename, num_pages,
-                      pages_json, chapters_json, images_json, created_at
+                      pages_json, chapters_json, images_json, pdf_media_id,
+                      created_at
                FROM textbooks WHERE id=? AND user_id=?""",
             (textbook_id, user_id),
         ) as cur:
@@ -3053,17 +3074,20 @@ async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
 
 
 async def list_textbook_visual_ids(user_id: int, course_id: int) -> list[str]:
-    """Media ids to unlink when a whole course is deleted."""
+    """Media ids to unlink when a whole course is deleted (page visuals AND the
+    stored source PDF for each book)."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT images_json FROM textbooks WHERE user_id=? AND course_id=?",
+            "SELECT images_json, pdf_media_id FROM textbooks WHERE user_id=? AND course_id=?",
             (user_id, course_id),
         ) as cur:
             rows = await cur.fetchall()
-    return [
+    ids = [
         str(v.get("id")) for row in rows for v in _parse_textbook_visuals(row[0])
         if v.get("id")
     ]
+    ids += [str(row[1]) for row in rows if row[1]]
+    return ids
 
 
 async def delete_media_records(media_ids: list[str]) -> None:
@@ -3087,7 +3111,7 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
     """Delete a book + its still-queued lessons. Authored lessons are kept."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT images_json FROM textbooks WHERE id=? AND user_id=?",
+            "SELECT images_json, pdf_media_id FROM textbooks WHERE id=? AND user_id=?",
             (textbook_id, user_id),
         ) as media_cur:
             media_row = await media_cur.fetchone()
@@ -3095,6 +3119,8 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
             str(v.get("id")) for v in _parse_textbook_visuals(media_row[0])
             if v.get("id")
         ] if media_row else []
+        pdf_id = media_row[1] if media_row else None
+        media_ids = visual_ids + ([pdf_id] if pdf_id else [])
         cur = await db.execute(
             "DELETE FROM textbooks WHERE id=? AND user_id=?",
             (textbook_id, user_id),
@@ -3102,9 +3128,9 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
         if cur.rowcount:
             await db.execute(
                 "DELETE FROM lesson_queue WHERE textbook_id=?", (textbook_id,))
-            if visual_ids:
+            if media_ids:
                 await db.executemany(
-                    "DELETE FROM media WHERE id=?", [(mid,) for mid in visual_ids])
+                    "DELETE FROM media WHERE id=?", [(mid,) for mid in media_ids])
         await db.commit()
         return bool(cur.rowcount)
 

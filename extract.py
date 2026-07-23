@@ -396,6 +396,151 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
     return result
 
 
+# ── Page rendering (for vision re-extraction) ──────────────────────────────────
+
+# Render target: long edge ~2000 px is plenty for the vision model to read dense
+# interlinear text while keeping the JPEG small enough to send per page.
+RENDER_LONG_EDGE = 2000
+RENDER_MAX_SCALE = 4.0
+RENDER_JPEG_QUALITY = 85
+
+
+def render_pdf_pages(pdf_bytes: bytes, page_numbers: list[int] | None = None,
+                     long_edge: int = RENDER_LONG_EDGE) -> dict[int, bytes]:
+    """Rasterize selected PDF pages to JPEG bytes, keyed by 1-based page number.
+
+    Used by the vision re-extraction path: deterministic ``pypdf`` text loses the
+    structure of 2-up / interlinear / romanized books (and returns nothing for
+    scanned pages), so we render those pages and let the model transcribe them.
+
+    ``page_numbers`` is 1-based (out-of-range entries are ignored); ``None`` means
+    every page. Raises ``ExtractError`` if the renderer is unavailable or the PDF
+    can't be opened.
+    """
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        raise ExtractError(
+            "AI page re-reading is unavailable on this server "
+            "(the PDF renderer is not installed)."
+        )
+    try:
+        from PIL import Image  # noqa: F401  (pdfium.to_pil needs Pillow)
+    except ImportError:
+        raise ExtractError("AI page re-reading is unavailable on this server.")
+
+    import io
+    try:
+        doc = pdfium.PdfDocument(pdf_bytes)
+    except Exception as exc:
+        raise ExtractError(f"Couldn't open that PDF for rendering: {exc}")
+
+    out: dict[int, bytes] = {}
+    try:
+        total = len(doc)
+        wanted = (sorted({int(p) for p in page_numbers})
+                  if page_numbers is not None else range(1, total + 1))
+        for pno in wanted:
+            if pno < 1 or pno > total:
+                continue
+            page = doc[pno - 1]
+            try:
+                width, height = page.get_size()
+                scale = min(RENDER_MAX_SCALE,
+                            max(1.0, long_edge / max(1.0, max(width, height))))
+                pil = page.render(scale=scale).to_pil().convert("RGB")
+                buf = io.BytesIO()
+                pil.save(buf, format="JPEG", quality=RENDER_JPEG_QUALITY,
+                         optimize=True)
+                out[pno] = buf.getvalue()
+            finally:
+                page.close()
+    finally:
+        doc.close()
+    return out
+
+
+# ── Extraction quality heuristic (when to suggest AI re-reading) ────────────────
+
+def page_text_quality(text: str) -> float:
+    """Rough 0..1 confidence that a page's *extracted* text is clean and usable.
+
+    Low scores flag the failure modes deterministic PDF text hits on the books
+    this feature targets: a near-empty page (scanned / image-only), text whose
+    word boundaries collapsed (2-up columns merged into one run), or a page that
+    is mostly punctuation/symbol noise. It is intentionally conservative — a plain
+    short vocab list should still score well — because it only *suggests* AI
+    re-reading, which the user can always invoke regardless.
+    """
+    s = (text or "").strip()
+    if not s:
+        return 1.0  # a genuinely blank page (spacer) isn't a failure
+    letters = sum(c.isalpha() for c in s)
+    if letters < 4:
+        # Almost no letters but not blank → stray marks on an image/scanned page
+        # the text layer couldn't read. (A short-but-clean vocab line has more.)
+        return 0.2
+    non_space = [c for c in s if not c.isspace()]
+    alpha_ratio = letters / max(1, len(non_space))
+    # Word-boundary health: CJK/Thai run together legitimately, so only penalise
+    # when the text is largely Latin yet has almost no spaces (merged columns).
+    latin = sum(1 for c in s if ("a" <= c.lower() <= "z"))
+    spaces = s.count(" ")
+    score = 1.0
+    if alpha_ratio < 0.45:
+        score -= 0.4  # dominated by symbols/numbers → noisy extraction
+    if latin > 200 and spaces / max(1, len(s)) < 0.06:
+        score -= 0.4  # long Latin text with no spaces → boundaries lost
+    return max(0.0, min(1.0, score))
+
+
+def native_script_ratio(text: str) -> float:
+    """Fraction of non-space chars that are non-Latin *native script*.
+
+    Romanization (basic Latin + combining tone diacritics, U+0300–036F, and the
+    Latin Extended blocks) counts as 0; Greek/Cyrillic/Arabic/Indic/Thai/Hangul/
+    kana/CJK (U+0370 and up) count as native. Used to catch a non-Latin-language
+    book whose text layer carries only romanization — vision can reconstruct the
+    native script the planner needs.
+    """
+    non_space = [c for c in (text or "") if not c.isspace()]
+    if not non_space:
+        return 0.0
+    native = sum(1 for c in non_space if ord(c) >= 0x0370)
+    return native / len(non_space)
+
+
+def assess_page_quality(pages: list[str], min_content_pages: int = 4, *,
+                        expect_native_script: bool = False) -> dict:
+    """Aggregate ``page_text_quality`` across a book.
+
+    Returns ``{"low_quality": bool, "poor_pages": [1-based, ...], "score": float,
+    "reason": str}``. ``low_quality`` is a *hint* for the UI to surface AI
+    re-reading; it never blocks the deterministic flow. Flagged when: pages are
+    garbled/merged, the book extracts to almost nothing (scanned), OR — for a
+    non-Latin target language — the extracted text is almost all romanization
+    with no native script (``expect_native_script``).
+    """
+    scored = [(i + 1, page_text_quality(p)) for i, p in enumerate(pages)]
+    content = [(n, sc) for (n, sc), p in zip(scored, pages) if (p or "").strip()]
+    poor = [n for n, sc in scored if sc < 0.6]
+    total_chars = sum(len((p or "").strip()) for p in pages)
+    n_content = max(1, len(content))
+    avg = sum(sc for _, sc in content) / n_content if content else 1.0
+    sparse = len(content) >= min_content_pages and total_chars < 120 * len(content)
+    no_native = False
+    if expect_native_script and total_chars >= 400:
+        no_native = native_script_ratio("\n".join(pages)) < 0.03
+    low = (len(poor) >= max(2, 0.25 * n_content)) or sparse or (avg < 0.7) or no_native
+    reason = ("missing_native_script" if no_native else
+              "sparse_text" if sparse else
+              "garbled_text" if low else "")
+    return {"low_quality": bool(low),
+            "poor_pages": poor[:200],
+            "score": round(avg, 3),
+            "reason": reason}
+
+
 # ── Shared cleanup ─────────────────────────────────────────────────────────────
 
 def clean_text(text: str) -> str:

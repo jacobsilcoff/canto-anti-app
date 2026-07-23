@@ -1572,6 +1572,7 @@
   let _sourceError = '';
   let _sourceTimer = null;
   let _sourceRequest = 0;
+  let _reReading = false;
   let _pendingBookFile = null;
   let _pendingBookTitle = '';
   let _bookProgress = '';
@@ -1745,14 +1746,17 @@
         <label class="maker-page"><span>End page</span><input id="source-end" type="number" min="1" max="${b.num_pages}" value="${_sourceEnd}" onchange="sourceRangeChanged()"></label>
       </div>
       <label class="maker-field"><span>Extracted text for this unit</span>
-        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
+        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${(_sourceLoading || _reReading) ? ' disabled' : ''}>${esc(_reReading ? 'AI is re-reading these pages…' : _sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
+        <button class="maker-link" onclick="reReadSource()"${(_bookBusy || _sourceLoading || _reReading) ? ' disabled' : ''}>${_reReading ? '<span class="spinner"></span> AI is re-reading these pages…' : '✨ Re-read these pages with AI'}</button>
+        <span class="maker-help"><span>If the text above is garbled, out of order, or shows only romanization with no ${esc(langName || 'native')} characters, let AI read the page images and rewrite it cleanly.</span></span>
       </label>
       ${visuals}
       <label class="maker-field"><span>Guide the unit <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
       </label>
       <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into units</button>
+      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions">
         <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
@@ -1797,6 +1801,7 @@
     if (!b) return;
     const requestId = ++_sourceRequest;
     _sourceLoading = true;
+    _bookMsg = '';
     renderLessonMaker();
     try {
       const r = await fetch(`/api/textbooks/${b.id}/pages?start=${_sourceStart}&end=${_sourceEnd}`);
@@ -1819,6 +1824,41 @@
         _sourceLoading = false;
         renderLessonMaker();
       }
+    }
+  }
+
+  async function reReadSource() {
+    // Vision re-extraction: render the selected pages and let the model
+    // transcribe them into clean, native-script text (fixes 2-up / interlinear /
+    // romanization-only / scanned pages that pypdf mangles). Overwrites the
+    // stored page text for this range, then reloads the preview.
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading) return;
+    _reReading = true;
+    _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: _sourceStart, end: _sourceEnd }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not re-read these pages.');
+      _sourceText = (data.pages || []).map(
+        p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no text on this page)'}`
+      ).join('\n\n');
+      const n = (data.updated_pages || []).length;
+      _bookMsg = n ? `AI re-read ${n} page${n === 1 ? '' : 's'}. Review the text below before generating.`
+                   : 'AI re-reading produced no changes for these pages.';
+    } catch (e) {
+      _sourceError = e.name === 'AbortError'
+        ? 'AI re-reading took too long. Try a smaller page range.'
+        : (e.message || 'Could not re-read these pages.');
+    } finally {
+      _reReading = false;
+      renderLessonMaker();
+      updateSourceCount();
     }
   }
 
@@ -2057,6 +2097,11 @@
         await loadBooks(false);
         _bookBusy = false;
         _bookProgress = '';
+        _bookMsg = data.low_text_quality
+          ? (data.low_text_quality_reason === 'missing_native_script'
+              ? `This book's text seems to be romanization only, with no ${langName || 'native'} characters. Use “✨ Re-read these pages with AI” below to recover the native script before generating.`
+              : 'The extracted text looks garbled or incomplete. Use “✨ Re-read these pages with AI” below to clean it up before generating.')
+          : '';
         selectBook(data.id);
       } catch (analysisError) {
         await loadBooks(false);

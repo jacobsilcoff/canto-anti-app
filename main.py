@@ -3419,7 +3419,9 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
     visual_ids = await db.list_textbook_visual_ids(user["id"], course_id)
     await db.delete_course(user["id"], course_id)
     for media_id in visual_ids:
+        # ids cover both page-visual JPEGs and stored source PDFs; unlink either.
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+        (MEDIA_DIR / f"{media_id}.pdf").unlink(missing_ok=True)
     return {"success": True}
 
 
@@ -4024,15 +4026,27 @@ async def upload_textbook(request: Request, course_id: int,
 
     book_title = title.strip()[:200] or (extracted.get("title") or "").strip() or \
         re.sub(r"\.pdf$", "", file.filename or "textbook", flags=re.I)
+    expect_native = translation.SCRIPT_BY_LANG.get(
+        course["target_lang"], "latin") != "latin"
+    quality = extract.assess_page_quality(pages, expect_native_script=expect_native)
     visual_meta = []
     stored_visual_ids = []
+    stored_files: list[Path] = []
+    # Keep the source PDF so its pages can be re-rendered later for AI vision
+    # re-extraction (garbled / romanized / scanned books).
+    pdf_media_id = _uuid.uuid4().hex
     try:
+        (MEDIA_DIR / f"{pdf_media_id}.pdf").write_bytes(data)
+        stored_files.append(MEDIA_DIR / f"{pdf_media_id}.pdf")
+        await db.add_media_record(pdf_media_id, user["id"], None, len(data))
+        stored_visual_ids.append(pdf_media_id)
         for visual in extracted.get("visuals") or []:
             media_id = _uuid.uuid4().hex
             image_bytes = visual.get("data") or b""
             if not image_bytes:
                 continue
             (MEDIA_DIR / f"{media_id}.jpg").write_bytes(image_bytes)
+            stored_files.append(MEDIA_DIR / f"{media_id}.jpg")
             await db.add_media_record(media_id, user["id"], None, len(image_bytes))
             stored_visual_ids.append(media_id)
             visual_meta.append({
@@ -4042,15 +4056,19 @@ async def upload_textbook(request: Request, course_id: int,
             })
         tb_id = await db.create_textbook(
             user["id"], course_id, book_title, file.filename or "", pages,
-            visual_meta)
+            visual_meta, pdf_media_id=pdf_media_id)
     except Exception:
         await db.delete_media_records(stored_visual_ids)
-        for media_id in stored_visual_ids:
-            (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+        for path in stored_files:
+            path.unlink(missing_ok=True)
         raise
     return {"id": tb_id, "title": book_title, "num_pages": len(pages),
             "chapters": [], "visual_count": len(visual_meta),
-            "needs_analysis": True}
+            "needs_analysis": True,
+            "low_text_quality": quality["low_quality"],
+            "low_text_quality_reason": quality["reason"],
+            "poor_pages": quality["poor_pages"],
+            "can_transcribe": True}
 
 
 @app.get("/api/courses/{course_id}/textbooks")
@@ -4129,6 +4147,87 @@ async def textbook_pages(textbook_id: int, start: int = 1, end: int = 1,
             "visuals": visuals,
             "pages": [{"page": i + 1, "text": book["pages"][i]}
                       for i in range(start - 1, end)]}
+
+
+@app.post("/api/textbooks/{textbook_id}/transcribe")
+@limiter.limit("6/hour;20/day")
+async def transcribe_textbook_pages(request: Request, textbook_id: int,
+                                    payload: dict,
+                                    user: dict = Depends(current_user)):
+    """AI-re-read a page range with vision and replace its extracted text.
+
+    Deterministic ``pypdf`` text mangles 2-up spreads, interlinear layouts, and
+    romanization-only phrasebooks, and returns nothing for scanned pages. This
+    renders the selected pages from the stored source PDF and transcribes each
+    with the vision model into clean, native-script text, then overwrites those
+    pages so the normal chapter/lesson planners get faithful source. Bounded to
+    ``MAX_VISION_PAGES`` and metered one AI call per page.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    pdf_media_id = book.get("pdf_media_id")
+    pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+    if not pdf_media_id or not pdf_path or not pdf_path.exists():
+        raise HTTPException(409, (
+            "This book was uploaded before AI re-reading was available. "
+            "Re-upload the PDF to enable it."
+        ))
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    num_pages = book["num_pages"]
+    if start < 1 or end < start or end > num_pages:
+        raise HTTPException(400, f"Choose pages between 1 and {num_pages}, in order.")
+    if end - start + 1 > textbook.MAX_VISION_PAGES:
+        raise HTTPException(400, (
+            f"AI re-reading handles at most {textbook.MAX_VISION_PAGES} pages at "
+            "a time. Re-read the next pages in another pass."
+        ))
+    page_numbers = list(range(start, end + 1))
+
+    access = await _resolve_gemini(user, meter=False)
+    metered = await _textbook_metering(
+        user, len(page_numbers), "Re-reading pages with AI")
+    try:
+        pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
+        images = await asyncio.to_thread(
+            extract.render_pdf_pages, pdf_bytes, page_numbers)
+        transcribed, calls = await textbook.transcribe_pages(
+            images, course["target_lang"], api_key=access.api_key,
+            anthropic_key=access.anthropic_key, model=access.model_reader)
+    except extract.ExtractError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error("Textbook vision re-read failed tb=%s lang=%s: %s",
+                     textbook_id, course["target_lang"], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(
+            e, "AI page re-reading", access.model_reader))
+    if metered and calls:
+        for _ in range(calls):
+            await db.increment_usage(user["id"])
+
+    pages = list(book["pages"])
+    updated: list[int] = []
+    for pno, text in transcribed.items():
+        if 1 <= pno <= len(pages) and (text or "").strip():
+            pages[pno - 1] = text
+            updated.append(pno)
+    if updated:
+        await db.update_textbook_pages(user["id"], textbook_id, pages)
+    quality = extract.assess_page_quality(pages)
+    return {
+        "id": textbook_id,
+        "updated_pages": sorted(updated),
+        "attempted": len(page_numbers),
+        "low_text_quality": quality["low_quality"],
+        "pages": [{"page": i + 1, "text": pages[i]} for i in range(start - 1, end)],
+    }
 
 
 @app.put("/api/textbooks/{textbook_id}/chapters")
@@ -4479,10 +4578,13 @@ async def delete_textbook(textbook_id: int, user: dict = Depends(current_user)):
     if not book:
         raise HTTPException(404, "Book not found")
     visual_ids = [str(v.get("id")) for v in book.get("visuals") or [] if v.get("id")]
+    pdf_media_id = book.get("pdf_media_id")
     if not await db.delete_textbook(user["id"], textbook_id):
         raise HTTPException(404, "Book not found")
     for media_id in visual_ids:
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+    if pdf_media_id:
+        (MEDIA_DIR / f"{pdf_media_id}.pdf").unlink(missing_ok=True)
     return {"success": True}
 
 
