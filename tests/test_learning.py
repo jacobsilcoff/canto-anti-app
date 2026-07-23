@@ -746,3 +746,374 @@ async def test_mastery_ignores_bad_rows(fresh_db):
     summary = await db.get_mastery_summary(uid, "yue")
     assert len(summary) == 1
     assert summary[0]["concept_key"] == "valid_key"
+
+
+# ── Chapter budget + running summary (planner rework A) ──────────────────────
+
+def test_clamp_chapter_budget():
+    assert learning.clamp_chapter_budget(None) == learning.DEFAULT_CHAPTER_BUDGET
+    assert learning.clamp_chapter_budget("nope") == learning.DEFAULT_CHAPTER_BUDGET
+    assert learning.clamp_chapter_budget(99) == learning.CHAPTER_BUDGET_MAX
+    assert learning.clamp_chapter_budget(0) == learning.CHAPTER_BUDGET_MIN
+    assert learning.clamp_chapter_budget(3) == 3
+
+
+def test_roll_chapter_summary_joins_and_caps():
+    assert learning.roll_chapter_summary("", "first") == "first"
+    assert learning.roll_chapter_summary("first", "second") == "first; second"
+    # Oldest content drops first when over the cap.
+    rolled = learning.roll_chapter_summary("a" * 700, "TAIL", cap=100)
+    assert len(rolled) == 100 and rolled.endswith("TAIL")
+
+
+def test_chapter_block_progress_and_forced_close():
+    ch = {"title": "Food", "objective": "Order a meal", "summary": "so far", "budget": 3}
+    block = learning._chapter_block(ch, lessons_done=1, budget_reached=False)
+    assert "1 of ~3" in block and "Food" in block
+    forced = learning._chapter_block(ch, lessons_done=3, budget_reached=True)
+    assert "REACHED ITS PLANNED LENGTH" in forced
+    assert 'MUST open a new chapter' in forced
+
+
+def test_plan_prompt_units_and_feedback_sections():
+    p = learning._build_plan_prompt(
+        "fr", "A1", [], [],
+        unit_summaries=[{"title": "Greetings", "summary": "hi/bye"}],
+        avoid_feedback="You proposed X — already taught.",
+    )
+    assert "Completed units" in p and "Greetings" in p
+    assert "DO NOT REPEAT" in p and "already taught" in p
+    # planned_lessons is part of the requested schema.
+    assert "planned_lessons" in p
+    # Absent → no sections.
+    p2 = learning._build_plan_prompt("fr", "A1", [], [])
+    assert "Completed units" not in p2 and "DO NOT REPEAT" not in p2
+
+
+@pytest.mark.asyncio
+async def test_plan_next_lesson_normalizes_budget_and_forces_new(monkeypatch):
+    async def fake_call(prompt, **kw):
+        return json.dumps({
+            "chapter_action": "continue",
+            "chapter": {"title": "T", "objective": "O", "summary": "S",
+                        "planned_lessons": 99},
+            "skill": {"kind": "vocab", "key": "k", "label": "l", "gloss": "g"},
+            "target_items": [],
+        })
+    monkeypatch.setattr(learning.llm, "call", fake_call)
+    spec = await learning.plan_next_lesson(
+        "fr", "A1", api_key="x", current_chapter={"title": "T"})
+    assert spec["chapter"]["budget"] == learning.CHAPTER_BUDGET_MAX
+    assert spec["chapter_action"] == "continue"
+    # budget_reached deterministically overrides the model's "continue".
+    spec = await learning.plan_next_lesson(
+        "fr", "A1", api_key="x", current_chapter={"title": "T"}, budget_reached=True)
+    assert spec["chapter_action"] == "new"
+
+
+def test_lesson_prompt_source_block():
+    p = learning._build_lesson_prompt("fr", _CONCEPTS, [], source="THE BOOK'S RULE")
+    assert "SOURCE MATERIAL" in p and "THE BOOK'S RULE" in p
+    assert "SOURCE MATERIAL" not in learning._build_lesson_prompt("fr", _CONCEPTS, [])
+
+
+# ── Orchestration: budget forcing, summary rollup, replan, queue ─────────────
+
+def _mk_access():
+    return types.SimpleNamespace(api_key="x", anthropic_key=None,
+                                 model_reader="gemini-2.5-flash-lite")
+
+
+def _fake_author_factory(captured=None):
+    async def fake_author(target_lang, concepts, *a, **k):
+        if captured is not None:
+            captured.append(k)
+        authored = {"teach": [], "drills": [
+            {"kind": "recognition", "concept": concepts[0]["key"],
+             "target": concepts[0]["label"] or "x", "gloss": concepts[0]["gloss"] or "g",
+             "distractors": ["zz1", "zz2"]},
+        ]}
+        content = learning.assemble_lesson(target_lang, concepts, authored)
+        return {"title": "T", "objective": "O", "summary": "S-sum", "content": content,
+                "_raw_prompt": "AP", "_raw_response": "AR"}
+    return fake_author
+
+
+def _no_cefr(monkeypatch):
+    import main
+    async def no_cefr(*a, **k):
+        return ""
+    monkeypatch.setattr(main, "_known_cefr_stats", no_cefr)
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_budget_forces_new_chapter(fresh_db, monkeypatch):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+
+    # A chapter at its budget: 2 open lessons, budget 2.
+    await db.set_active_plan(cid, {"title": "Ch1", "objective": "o", "summary": "s", "budget": 2})
+    for i in (1, 2):
+        await db.create_lesson(cid, i, f"L{i}", "", [
+            {"kind": "vocab", "key": f"old{i}", "label": f"vieux{i}", "gloss": f"old{i}"},
+        ], {"segments": []}, f"s{i}")
+
+    async def fake_plan(*a, **k):
+        # The model stubbornly says "continue" — the backstop must override it.
+        assert k.get("budget_reached") is True
+        return {"chapter_action": "continue", "chapter": {},
+                "skill": {"kind": "vocab", "key": "num", "label": "un", "gloss": "one"},
+                "scope": "broad", "focus": "new",
+                "target_items": [{"label": "un", "gloss": "one"}],
+                "_raw_prompt": "P", "_raw_response": "R"}
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+
+    course_row = await db.get_course(uid, cid)
+    closed = [u for u in course_row["units"] if not u.get("in_progress")]
+    assert len(closed) == 1 and closed[0]["title"] == "Ch1"
+    chapter = await db.get_active_plan(cid)
+    # Forced-new with no chapter payload falls back to the skill label + default budget.
+    assert chapter["title"] == "un"
+    assert chapter["budget"] == learning.DEFAULT_CHAPTER_BUDGET
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_rolls_chapter_summary(fresh_db, monkeypatch):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+
+    async def fake_plan(*a, **k):
+        return {"chapter_action": "new",
+                "chapter": {"title": "Ch1", "objective": "o", "summary": "opened",
+                            "budget": 3},
+                "skill": {"kind": "vocab", "key": "num", "label": "un", "gloss": "one"},
+                "scope": "broad", "focus": "new",
+                "target_items": [{"label": "un", "gloss": "one"}],
+                "_raw_prompt": "P", "_raw_response": "R"}
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    chapter = await db.get_active_plan(cid)
+    # The authored lesson's summary is rolled into the chapter's running summary.
+    assert "opened" in chapter["summary"] and "S-sum" in chapter["summary"]
+    assert chapter["budget"] == 3
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_replans_on_duplicate(fresh_db, monkeypatch):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    # "salut" is already taught.
+    await db.create_lesson(cid, 1, "L1", "", [
+        {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
+    ], {"segments": []}, "s1")
+
+    calls = []
+    async def fake_plan(*a, **k):
+        calls.append(k)
+        if len(calls) == 1:
+            assert not k.get("avoid_feedback")
+            # Re-proposes only already-taught material.
+            return {"chapter_action": "continue", "chapter": {},
+                    "skill": {"kind": "vocab", "key": "greet2", "label": "salut", "gloss": "hi"},
+                    "scope": "broad", "focus": "new",
+                    "target_items": [{"label": "salut", "gloss": "hi"}],
+                    "_raw_prompt": "P1", "_raw_response": "R1"}
+        # Second call must carry explicit duplicate feedback.
+        assert "salut" in k.get("avoid_feedback", "")
+        return {"chapter_action": "continue", "chapter": {},
+                "skill": {"kind": "vocab", "key": "greet3", "label": "bonjour", "gloss": "hello"},
+                "scope": "broad", "focus": "new",
+                "target_items": [{"label": "bonjour", "gloss": "hello"}],
+                "_raw_prompt": "P2", "_raw_response": "R2"}
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    lid = await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert lid and len(calls) == 2
+    reg = (await db.get_next_lesson_context(cid))["concept_registry"]
+    assert "bonjour" in {c["label"] for c in reg}
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_502_when_replan_still_duplicate(fresh_db, monkeypatch):
+    import main
+    from fastapi import HTTPException
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    await db.create_lesson(cid, 1, "L1", "", [
+        {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
+    ], {"segments": []}, "s1")
+
+    async def fake_plan(*a, **k):
+        return {"chapter_action": "continue", "chapter": {},
+                "skill": {"kind": "vocab", "key": "greet_again", "label": "salut", "gloss": "hi"},
+                "scope": "broad", "focus": "new",
+                "target_items": [{"label": "salut", "gloss": "hi"}],
+                "_raw_prompt": "P", "_raw_response": "R"}
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    with pytest.raises(HTTPException) as e:
+        await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert e.value.status_code == 502
+    # No duplicate lesson shipped.
+    assert (await db.get_next_lesson_context(cid))["lesson_num"] == 2
+
+
+@pytest.mark.asyncio
+async def test_semantic_dedup_grammar_drops_paraphrase(fresh_db, monkeypatch):
+    import main
+    registry = [{"kind": "grammar", "key": "present_er",
+                 "label": "-er present tense", "gloss": "conjugating regular -er verbs"}]
+    dup = {"kind": "grammar", "key": "er_verbs_present",
+           "label": "regular -er verbs", "gloss": "present tense of -er verbs"}
+    distinct = {"kind": "grammar", "key": "negation",
+                "label": "negation ne...pas", "gloss": "negating verbs"}
+    vocab = {"kind": "vocab", "key": "pomme", "label": "pomme", "gloss": "apple"}
+
+    old_text = main._concept_embed_text(registry[0])
+    dup_text = main._concept_embed_text(dup)
+    vecs = {old_text: [1.0, 0.0], dup_text: [0.99, 0.14],
+            main._concept_embed_text(distinct): [0.0, 1.0]}
+
+    async def fake_embed(texts, api_key, **kw):
+        return [vecs[t] for t in texts]
+    monkeypatch.setattr(main.embeddings, "embed", fake_embed)
+
+    out = await main._semantic_dedup_grammar([dup, distinct, vocab], registry, "fr", "key")
+    assert [c["key"] for c in out] == ["negation", "pomme"]
+
+    # Second run hits the embedding_cache — no embed call needed.
+    async def boom(*a, **k):
+        raise AssertionError("embed should be cached")
+    monkeypatch.setattr(main.embeddings, "embed", boom)
+    out2 = await main._semantic_dedup_grammar([dup, distinct, vocab], registry, "fr", "key")
+    assert [c["key"] for c in out2] == ["negation", "pomme"]
+
+    # Best-effort: an embedding failure keeps the string-dedup result.
+    async def fail(*a, **k):
+        raise RuntimeError("api down")
+    monkeypatch.setattr(main.embeddings, "embed", fail)
+    out3 = await main._semantic_dedup_grammar([{**dup, "label": "brand new label x"}],
+                                              registry, "fr", "key")
+    assert len(out3) == 1
+
+
+@pytest.mark.asyncio
+async def test_maybe_close_chapter_on_completion(fresh_db):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.set_active_plan(cid, {"title": "Ch1", "objective": "o", "summary": "done stuff", "budget": 2})
+    l1 = await db.create_lesson(cid, 1, "L1", "", [], {"segments": []}, "")
+    l2 = await db.create_lesson(cid, 2, "L2", "", [], {"segments": []}, "")
+
+    await db.complete_lesson(uid, l1, 90)
+    await main._maybe_close_chapter(cid)
+    assert (await db.get_active_plan(cid))["title"] == "Ch1"   # not all done yet
+
+    await db.complete_lesson(uid, l2, 100)
+    await main._maybe_close_chapter(cid)
+    assert await db.get_active_plan(cid) is None
+    course_row = await db.get_course(uid, cid)
+    closed = [u for u in course_row["units"] if not u.get("in_progress")]
+    assert len(closed) == 1 and closed[0]["title"] == "Ch1"
+    assert closed[0]["summary"] == "done stuff"
+
+
+@pytest.mark.asyncio
+async def test_maybe_close_chapter_waits_for_budget_and_queue(fresh_db):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    # Budget 3, only 1 lesson generated + completed → chapter stays open.
+    await db.set_active_plan(cid, {"title": "Ch1", "objective": "", "summary": "", "budget": 3})
+    l1 = await db.create_lesson(cid, 1, "L1", "", [], {"segments": []}, "")
+    await db.complete_lesson(uid, l1, 100)
+    await main._maybe_close_chapter(cid)
+    assert (await db.get_active_plan(cid))["title"] == "Ch1"
+
+    # Queued textbook lessons for the SAME unit also hold the chapter open.
+    await db.set_active_plan(cid, {"title": "Ch1", "objective": "", "summary": "", "budget": 1})
+    await db.add_lesson_queue(cid, [{"unit_title": "Ch1", "unit_size": 2,
+                                     "spec": {"skill": {}}, "source": ""}])
+    await main._maybe_close_chapter(cid)
+    assert (await db.get_active_plan(cid))["title"] == "Ch1"
+    await db.clear_lesson_queue(cid)
+    await main._maybe_close_chapter(cid)
+    assert await db.get_active_plan(cid) is None
+
+
+# ── Lesson queue (textbook import) ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_lesson_queue_roundtrip(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    items = [
+        {"unit_title": "Ch 1", "unit_size": 2,
+         "spec": {"title": "A", "skill": {"kind": "vocab", "key": "a"}}, "source": "srcA"},
+        {"unit_title": "Ch 1", "unit_size": 2,
+         "spec": {"title": "B", "skill": {"kind": "grammar", "key": "b"}}, "source": "srcB"},
+    ]
+    assert await db.add_lesson_queue(cid, items) == 2
+    assert await db.count_lesson_queue(cid) == 2
+    first = await db.peek_lesson_queue(cid)
+    assert first["unit_title"] == "Ch 1" and first["spec"]["title"] == "A"
+    assert first["source"] == "srcA" and first["unit_size"] == 2
+    await db.pop_lesson_queue(first["id"])
+    second = await db.peek_lesson_queue(cid)
+    assert second["spec"]["title"] == "B"
+    await db.clear_lesson_queue(cid)
+    assert await db.count_lesson_queue(cid) == 0
+    assert await db.peek_lesson_queue(cid) is None
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_consumes_queue(fresh_db, monkeypatch):
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    await db.add_lesson_queue(cid, [{
+        "unit_title": "Book Ch 1", "unit_size": 2,
+        "spec": {"title": "Greetings from the book",
+                 "skill": {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
+                 "target_items": [{"label": "salut", "gloss": "hi"}]},
+        "source": "THE BOOK RULE: salut is informal.",
+    }])
+
+    async def fake_plan(*a, **k):
+        raise AssertionError("planner must be skipped while the queue is non-empty")
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    captured = []
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory(captured))
+
+    lid = await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert lid
+    # Author was grounded in the book's source notes.
+    assert captured[0].get("source") == "THE BOOK RULE: salut is informal."
+    # Chapter opened from the book's unit, budget = the unit's lesson count.
+    chapter = await db.get_active_plan(cid)
+    assert chapter["title"] == "Book Ch 1" and chapter["budget"] == 2
+    # Queue item consumed; concept registered.
+    assert await db.count_lesson_queue(cid) == 0
+    reg = (await db.get_next_lesson_context(cid))["concept_registry"]
+    assert "salut" in {c["label"] for c in reg}

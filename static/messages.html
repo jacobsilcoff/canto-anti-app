@@ -28,9 +28,7 @@
     .msg-sidebar-title { font-weight: 700; font-size: 1.05rem; }
     .msg-friends-btn { background: var(--primary-soft); color: var(--primary); border: none;
       border-radius: 8px; padding: 5px 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-    .msg-notif-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
-      border-radius: 8px; padding: 5px 7px; display: flex; align-items: center;
-      transition: color 0.15s; }
+    .msg-notif-btn { flex-shrink: 0; }
     .msg-convs { flex: 1; overflow-y: auto; }
 
     /* Pinned AI-tutor contact at the top of the list */
@@ -515,7 +513,8 @@
   <div class="msg-sidebar" id="msg-sidebar">
     <div class="msg-sidebar-head">
       <span class="msg-sidebar-title">Messages</span>
-      <button class="msg-notif-btn notif-bell-btn" id="notif-bell-btn" onclick="toggleNotifications()"></button>
+      <button type="button" class="msg-notif-btn notif-bell-btn" id="notif-bell-btn"
+        aria-label="Notification settings" onclick="toggleNotifications()"></button>
       <button class="msg-friends-btn" onclick="openFriendsModal()">Friends ＋</button>
     </div>
     <div class="msg-convs" id="msg-convs">
@@ -658,6 +657,7 @@
   let _activeConvType = null;  // 'inapp' | 'messenger'
   let _targetLang = 'yue';
   let _pollTimer = null;
+  let _eventStream = null;
   let _lastMsgId = 0;
   const _wordStatusCache = {};  // word → 'known'|'weak' (populated by preload; absent = unknown)
   const _msgVocab = {};  // msgId → [{target_text, english, romanization}] for "Add all"
@@ -1994,12 +1994,12 @@
     }
   }
 
-  // ── Polling ───────────────────────────────────────────────────────────────
-  // The conversation list (cheap) is the change detector: only re-fetch the
-  // active thread (which tokenizes server-side) when its last_message_at moves.
+  // ── Live updates ──────────────────────────────────────────────────────────
+  // An SSE signal makes the conversation list the cheap change detector; only
+  // re-fetch the active thread when its last_message_at moves.
   let _activeConvSeenAt = null;
   function startPolling() {
-    _pollTimer = setInterval(async () => {
+    async function refreshFromSignal() {
       if (document.hidden) return;   // don't burn radio/battery in a background tab
       await loadConvs();
       if (!_activeConvId) return;
@@ -2009,7 +2009,29 @@
         _activeConvSeenAt = at;
         await checkNewMessages();
       }
-    }, 5000);
+    }
+
+    // Prefer one server-sent event connection. A slow fallback remains for
+    // proxies or browsers that do not support EventSource.
+    if ('EventSource' in window) {
+      _eventStream = new EventSource('/api/events/messages');
+      _eventStream.onmessage = refreshFromSignal;
+      _eventStream.onopen = () => {
+        if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      };
+      _eventStream.onerror = () => {
+        if (!_pollTimer) _pollTimer = setInterval(refreshFromSignal, 30000);
+      };
+    } else {
+      _pollTimer = setInterval(refreshFromSignal, 30000);
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshFromSignal();
+    });
+    window.addEventListener('pagehide', () => {
+      if (_eventStream) _eventStream.close();
+      if (_pollTimer) clearInterval(_pollTimer);
+    }, { once: true });
   }
 
   async function checkNewMessages() {
@@ -2336,12 +2358,12 @@
     fit();
 
     // Stop iOS rubber-band: preventDefault touchmove everywhere except real
-    // scrollers (.msg-thread, .msg-convs, modal body) and the composer when
+    // scrollers (thread, conversations, modal/menu bodies) and the composer when
     // it overflows (long draft). overscroll-behavior alone doesn't stop
     // document bounce on iOS Safari when body is position:fixed.
     document.addEventListener('touchmove', e => {
       const t = e.target;
-      if (t.closest && t.closest('.msg-thread, .msg-convs, .modal-body')) return;
+      if (t.closest && t.closest('.msg-thread, .msg-convs, .modal-body, .shell-more-sheet, .shell-lang-menu')) return;
       const inp = t.closest && t.closest('#msg-input');
       if (inp && inp.scrollHeight > inp.clientHeight + 1) return;
       e.preventDefault();

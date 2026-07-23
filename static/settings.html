@@ -222,30 +222,28 @@
     </div>
 
     <div class="settings-section">
-      <div class="settings-section-title">Even glasses</div>
+      <div class="settings-section-title">Even G2 glasses</div>
       <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
         <div>
           <div class="settings-label">Flashcard plugin token</div>
           <div class="settings-desc">
-            Review your due flashcards on Even Realities glasses — earning XP and
-            syncing progress. Generate a token, then paste it (with this site's URL) into the
-            plugin's settings screen on the glasses.
-            <span id="glasses-token-status"></span>
+            Connects the Even Hub flashcard plugin to your account so reviews,
+            XP, and streak progress stay in sync.
+            <span id="even-token-status"></span>
           </div>
         </div>
-        <div id="glasses-token-reveal" style="display:none;flex-direction:column;gap:6px">
+        <div id="even-token-reveal" style="display:none;flex-direction:column;gap:6px">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="text" id="glasses-token-value" class="settings-input" readonly onclick="this.select()" style="flex:1;min-width:180px;text-align:left;font-family:monospace">
-            <button class="settings-btn" onclick="copyGlassesToken()">Copy</button>
+            <input type="text" id="even-token-value" class="settings-input" readonly onclick="this.select()" style="flex:1;min-width:180px;text-align:left;font-family:monospace">
+            <button class="settings-btn" type="button" onclick="copyEvenToken()">Copy</button>
           </div>
           <div class="settings-desc" style="padding:0;color:var(--warn-strong,#b26b00)">
-            Copy this now — it's shown only once. Paste it into the plugin's <em>API token</em>
-            setting.
+            Copy this now—it is shown only once. Paste it into the plugin on your phone.
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="settings-btn primary" id="glasses-token-gen" onclick="generateGlassesToken()">Generate token</button>
-          <button class="settings-btn" id="glasses-token-revoke" onclick="revokeGlassesToken()" style="display:none">Revoke</button>
+          <button class="settings-btn primary" type="button" id="even-token-generate" onclick="generateEvenToken()">Generate token</button>
+          <button class="settings-btn" type="button" id="even-token-revoke" onclick="revokeEvenToken()" style="display:none">Revoke</button>
         </div>
       </div>
     </div>
@@ -321,6 +319,16 @@
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="settings-ai-speak" onchange="saveAiSpeak()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Lesson warm-up</div>
+          <div class="settings-desc">Start lessons with a short review step. Turn this off to begin with the main material.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-warmup" onchange="saveWarmup()">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -457,7 +465,8 @@
           <div class="settings-label">Push notifications</div>
           <div class="settings-desc notif-status-desc">Checking…</div>
         </div>
-        <button class="notif-bell-btn" onclick="toggleNotifications()"></button>
+        <button type="button" class="notif-bell-btn" aria-label="Notification settings"
+          onclick="toggleNotifications()"></button>
       </div>
     </div>
   </div>
@@ -709,48 +718,49 @@
         document.getElementById('profile-email-desc').innerHTML =
           'Email not yet verified. <a href="#" onclick="resendVerification(event)">Resend link</a>';
       }
-      renderGlassesToken(data.has_api_token);
+      renderEvenToken(data.has_even_hub_token);
     } catch {}
   }
 
-  function renderGlassesToken(hasToken) {
-    document.getElementById('glasses-token-status').textContent =
-      hasToken ? ' · Connected ✓' : '';
-    document.getElementById('glasses-token-gen').textContent =
+  function renderEvenToken(hasToken) {
+    document.getElementById('even-token-status').textContent = hasToken ? ' · Connected ✓' : '';
+    document.getElementById('even-token-generate').textContent =
       hasToken ? 'Regenerate token' : 'Generate token';
-    document.getElementById('glasses-token-revoke').style.display =
-      hasToken ? '' : 'none';
+    document.getElementById('even-token-revoke').style.display = hasToken ? '' : 'none';
   }
 
-  async function generateGlassesToken() {
+  async function generateEvenToken() {
     try {
-      const res = await fetch('/api/profile/api-token', { method: 'POST' });
+      const res = await fetch('/api/profile/even-hub-token', { method: 'POST' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { showToast(body.detail || 'Could not generate token.'); return; }
-      document.getElementById('glasses-token-value').value = body.token;
-      document.getElementById('glasses-token-reveal').style.display = 'flex';
-      renderGlassesToken(true);
+      document.getElementById('even-token-value').value = body.token;
+      document.getElementById('even-token-reveal').style.display = 'flex';
+      renderEvenToken(true);
     } catch { showToast('Could not generate token.'); }
   }
 
-  function copyGlassesToken() {
-    const el = document.getElementById('glasses-token-value');
+  function copyEvenToken() {
+    const el = document.getElementById('even-token-value');
     el.select();
-    navigator.clipboard?.writeText(el.value).then(
+    const copy = window.__copyToClipboard
+      ? window.__copyToClipboard(el.value)
+      : navigator.clipboard?.writeText(el.value);
+    Promise.resolve(copy).then(
       () => showToast('Token copied.'),
-      () => showToast('Press ⌘/Ctrl-C to copy.'),
+      () => showToast('Select the token and copy it manually.'),
     );
   }
 
-  async function revokeGlassesToken() {
+  async function revokeEvenToken() {
     if (!confirm('Revoke the current glasses token? The plugin will stop syncing until you generate a new one.')) return;
     try {
-      const res = await fetch('/api/profile/api-token', { method: 'DELETE' });
+      const res = await fetch('/api/profile/even-hub-token', { method: 'DELETE' });
       if (!res.ok) { showToast('Could not revoke token.'); return; }
-      document.getElementById('glasses-token-reveal').style.display = 'none';
-      document.getElementById('glasses-token-value').value = '';
-      renderGlassesToken(false);
-      showToast('Token revoked.');
+      document.getElementById('even-token-reveal').style.display = 'none';
+      document.getElementById('even-token-value').value = '';
+      renderEvenToken(false);
+      showToast('Glasses token revoked.');
     } catch { showToast('Could not revoke token.'); }
   }
 
@@ -1036,6 +1046,7 @@
     goalSel.value = [10, 30, 50, 100].includes(goal) ? String(goal) : '50';
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
+    document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
     document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
@@ -1237,6 +1248,22 @@
       showToast(checked ? 'AI Speak practice on.' : 'AI Speak practice off.');
     } catch {
       document.getElementById('settings-ai-speak').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveWarmup() {
+    const checked = document.getElementById('settings-warmup').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_warmup: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.lesson_warmup = checked;
+      showToast(checked ? 'Lesson warm-ups on.' : 'Lesson warm-ups off.');
+    } catch {
+      document.getElementById('settings-warmup').checked = !checked;
       showToast('Failed to save setting.');
     }
   }
@@ -1495,8 +1522,21 @@
     if (sel && e.detail && e.detail.code) { sel.value = e.detail.code; renderLangDetail(); }
   });
 </script>
-<p style="text-align:center;font-size:0.72rem;color:var(--text-muted,#888);padding:16px 0 32px;margin:0">
-  v{{ASSET_VERSION}}
+<p style="text-align:center;font-size:0.72rem;color:var(--text-muted,#888);padding:16px 0 32px;margin:0" title="Tap to copy" id="version-line">
+  {{APP_VERSION_LINE}}
 </p>
+<script>
+  // One-tap copy of the build version (handy for bug reports).
+  (function(){
+    var el=document.getElementById('version-line'); if(!el) return;
+    el.style.cursor='pointer';
+    el.addEventListener('click', function(){
+      var txt=(el.textContent||'').trim();
+      var p=window.__copyToClipboard ? window.__copyToClipboard(txt)
+            : (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(txt):Promise.reject());
+      p.then(function(){ showToast&&showToast('Version copied'); })['catch'](function(){});
+    });
+  })();
+</script>
 </body>
 </html>

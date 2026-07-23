@@ -43,7 +43,23 @@
       "Bash(venv/bin/python -c ' *)",
       "Bash(venv/bin/python -c \"import learning, main, grammar_lessons, tutor; print\\('imports OK'\\)\")",
       "Bash(venv/bin/python -c \"import main, tutor, embeddings, db; print\\('imports OK'\\)\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(git ls-tree *)",
+      "Bash(sed -n '541,545p' static/learn.html)",
+      "Bash(sed -n '1690,1694p' static/reader.html)",
+      "Bash(sed -n '151p' static/feedback.html)",
+      "Bash(sed -n '248p' static/tutor.html)",
+      "Bash(sed -n '466p' static/browse.html)",
+      "Bash(sed -n '668,672p' main.py)",
+      "Bash(sed -n '783,800p' main.py)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(python3 *)",
+      "Bash(pkill -f \"uvicorn main:app --port 8931\")",
+      "Bash(venv/bin/python -)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "stripe"
+  ]
 }

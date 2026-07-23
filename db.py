@@ -150,6 +150,33 @@ async def init():
         if not await _column_exists(db, "card_faces", "learning_step"):
             await db.execute("ALTER TABLE card_faces ADD COLUMN learning_step INTEGER DEFAULT NULL")
 
+        # Small reversible snapshots for review undo.  Keeping the server-side
+        # SRS state here means a glasses client can revisit an answered card
+        # without submitting a second review against an already-mutated face.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS review_history (
+                id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id                  INTEGER NOT NULL,
+                card_id                  INTEGER NOT NULL,
+                face                     TEXT NOT NULL,
+                previous_next_review     TEXT NOT NULL,
+                previous_interval_days   INTEGER NOT NULL,
+                previous_ease_factor     REAL NOT NULL,
+                previous_repetitions     INTEGER NOT NULL,
+                previous_first_seen_date TEXT,
+                previous_learning_step   INTEGER,
+                xp                       INTEGER NOT NULL DEFAULT 0,
+                points_ledger_id         INTEGER,
+                review_quest_bumped      INTEGER NOT NULL DEFAULT 0,
+                created_at               TEXT NOT NULL DEFAULT (datetime('now')),
+                undone_at                TEXT
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_review_history_user "
+            "ON review_history(user_id, id DESC)"
+        )
+
         # Labels: per-user, unique within user.
         await db.execute("""
             CREATE TABLE IF NOT EXISTS labels (
@@ -756,6 +783,7 @@ async def delete_user(user_id: int):
             await db.execute(f"DELETE FROM cards WHERE id IN ({placeholders})", card_ids)
         await db.execute("DELETE FROM labels WHERE user_id=?", (user_id,))
         await db.execute("DELETE FROM user_settings WHERE user_id=?", (user_id,))
+        await db.execute("DELETE FROM api_tokens WHERE user_id=?", (user_id,))
         await db.execute("DELETE FROM users WHERE id=?", (user_id,))
         await db.commit()
 
@@ -819,10 +847,8 @@ async def purge_expired_sessions() -> None:
 
 
 # ── API tokens ────────────────────────────────────────────────────────────────
-# Long-lived bearer tokens for programmatic access (the Even glasses plugin).
-# Like sessions, only sha256(token) is stored. These never expire — they are
-# revoked explicitly. Generating a new one replaces any existing token(s) for
-# the user (one active token per user).
+# Long-lived credentials for the Even Hub WebView. Tokens never expire, are
+# stored only as SHA-256 hashes, and are replaced/revoked explicitly.
 
 async def create_api_token(token: str, user_id: int, label: str = "") -> None:
     async with aiosqlite.connect(DB_PATH) as db:
@@ -835,7 +861,6 @@ async def create_api_token(token: str, user_id: int, label: str = "") -> None:
 
 
 async def get_user_by_api_token(token: str) -> int | None:
-    """Return the user_id for a valid API token, or None."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT user_id FROM api_tokens WHERE token_hash=?", (_hash_token(token),)
@@ -1600,6 +1625,144 @@ async def get_all_cards(user_id: int) -> list[dict]:
     return cards
 
 
+async def get_cards_page(
+    user_id: int,
+    *,
+    offset: int = 0,
+    limit: int = 60,
+    search: str = "",
+    target_lang: str = "",
+    label_id: int | None = None,
+    cefr: set[str] | None = None,
+    strength: set[str] | None = None,
+    status: set[str] | None = None,
+    sort: str = "newest",
+) -> dict:
+    """Return a bounded, filtered card page without assembling the full deck."""
+    start = max(0, offset)
+    size = max(1, min(100, limit))
+    where = ["c.user_id = ?"]
+    params: list = [PRIMARY_FACE, user_id]
+
+    needle = search.strip().lower()
+    if needle:
+        where.append(
+            "(LOWER(c.source_text) LIKE ? OR LOWER(c.target_text) LIKE ? "
+            "OR LOWER(c.romanization) LIKE ? OR LOWER(COALESCE(c.notes, '')) LIKE ?)"
+        )
+        pattern = f"%{needle}%"
+        params.extend([pattern] * 4)
+    if target_lang:
+        where.append("c.target_lang = ?")
+        params.append(target_lang)
+    if label_id is not None:
+        where.append(
+            "EXISTS (SELECT 1 FROM card_labels cl JOIN labels l ON l.id=cl.label_id "
+            "WHERE cl.card_id=c.id AND cl.label_id=? AND l.user_id=?)"
+        )
+        params.extend([label_id, user_id])
+    if cefr:
+        values = sorted(cefr)
+        where.append(f"c.cefr_level IN ({','.join('?' for _ in values)})")
+        params.extend(values)
+
+    strength_sql = {
+        "new": "f.first_seen_date IS NULL",
+        "learning": "f.first_seen_date IS NOT NULL AND f.learning_step IS NOT NULL",
+        "strong": (
+            "f.first_seen_date IS NOT NULL AND f.learning_step IS NULL "
+            "AND COALESCE(f.interval_days, 1) >= 21 "
+            "AND COALESCE(f.ease_factor, 2.5) >= 2.0"
+        ),
+        "familiar": (
+            "f.first_seen_date IS NOT NULL AND f.learning_step IS NULL "
+            "AND NOT (COALESCE(f.interval_days, 1) >= 21 "
+            "AND COALESCE(f.ease_factor, 2.5) >= 2.0)"
+        ),
+    }
+    if strength:
+        where.append("(" + " OR ".join(strength_sql[value] for value in sorted(strength)) + ")")
+
+    status_sql = {
+        "active": "COALESCE(c.suspended, 0)=0 AND COALESCE(c.tutor_flag, 0)=0",
+        "suspended": "COALESCE(c.suspended, 0)<>0",
+        "flagged": "COALESCE(c.tutor_flag, 0)<>0",
+    }
+    if status:
+        where.append("(" + " OR ".join(status_sql[value] for value in sorted(status)) + ")")
+
+    strength_rank = (
+        "CASE WHEN f.first_seen_date IS NULL THEN 0 "
+        "WHEN f.learning_step IS NOT NULL THEN 1 "
+        "WHEN COALESCE(f.interval_days, 1) >= 21 AND COALESCE(f.ease_factor, 2.5) >= 2.0 THEN 3 "
+        "ELSE 2 END"
+    )
+    order_by = {
+        "newest": "c.created_at DESC, c.id DESC",
+        "oldest": "c.created_at ASC, c.id ASC",
+        "priority": "COALESCE(c.priority, 3) DESC, c.id DESC",
+        "alpha": "c.target_text COLLATE NOCASE ASC, c.id DESC",
+        "cefr": (
+            "CASE c.cefr_level WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B1' THEN 3 "
+            "WHEN 'B2' THEN 4 WHEN 'C1' THEN 5 WHEN 'C2' THEN 6 ELSE 99 END, c.id DESC"
+        ),
+        "strength": f"{strength_rank} ASC, c.id DESC",
+    }.get(sort, "c.created_at DESC, c.id DESC")
+
+    joined = "FROM cards c LEFT JOIN card_faces f ON f.card_id=c.id AND f.face=?"
+    predicate = " AND ".join(where)
+    select_cols = (
+        "c.id, c.source_text, c.target_text, c.romanization, c.target_lang, c.notes, "
+        "c.priority, c.tutor_flag, c.suspended, c.classifier, c.canonical_card_id, "
+        "c.cefr_level, c.created_at, f.ease_factor, f.repetitions, f.interval_days, "
+        "f.learning_step, f.first_seen_date"
+    )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT COUNT(*) {joined} WHERE {predicate}", tuple(params),
+        ) as cur:
+            total = (await cur.fetchone())[0]
+        async with db.execute(
+            f"SELECT {select_cols} {joined} WHERE {predicate} "
+            f"ORDER BY {order_by} LIMIT ? OFFSET ?",
+            tuple(params) + (size, start),
+        ) as cur:
+            cards = [dict(row) for row in await cur.fetchall()]
+
+        label_rows = []
+        if cards:
+            ids = [card["id"] for card in cards]
+            placeholders = ",".join("?" for _ in ids)
+            async with db.execute(
+                f"""SELECT cl.card_id, l.id, l.name
+                    FROM card_labels cl JOIN labels l ON l.id=cl.label_id
+                    WHERE cl.card_id IN ({placeholders}) AND l.user_id=?""",
+                tuple(ids) + (user_id,),
+            ) as cur:
+                label_rows = await cur.fetchall()
+
+    labels_by_card: dict[int, list[dict]] = {}
+    for row in label_rows:
+        labels_by_card.setdefault(row["card_id"], []).append(
+            {"id": row["id"], "name": row["name"]}
+        )
+    for card in cards:
+        card["labels"] = labels_by_card.get(card["id"], [])
+        card["ease_factor"] = card.get("ease_factor") or 2.5
+        card["repetitions"] = card.get("repetitions") or 0
+        card["interval_days"] = card.get("interval_days") or 1
+
+    return {
+        "cards": cards,
+        "total": total,
+        "offset": start,
+        "limit": size,
+        "has_more": start + size < total,
+    }
+
+
 async def get_due_count(
     user_id: int,
     label_ids: list[int] | None = None,
@@ -1711,6 +1874,165 @@ async def update_face_review(user_id: int, card_id: int, face: str, state: dict)
             (user_id,),
         )
         await db.commit()
+
+
+async def apply_card_review(
+    user_id: int,
+    card_id: int,
+    face: str,
+    state: dict,
+    *,
+    xp: int = 0,
+    lang: str = "yue",
+) -> int | None:
+    """Apply a review atomically and return its reversible history id.
+
+    The snapshot is intentionally compact and capped to the newest 100 reviews
+    per user.  Undo must happen newest-first, which prevents an old snapshot
+    from overwriting a newer answer to the same face.
+    """
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("BEGIN IMMEDIATE")
+        async with conn.execute(
+            """SELECT cf.next_review, cf.interval_days, cf.ease_factor,
+                      cf.repetitions, cf.first_seen_date, cf.learning_step
+               FROM card_faces cf JOIN cards c ON c.id = cf.card_id
+               WHERE cf.card_id=? AND cf.face=? AND c.user_id=?""",
+            (card_id, face, user_id),
+        ) as cur:
+            previous = await cur.fetchone()
+        if not previous:
+            await conn.rollback()
+            return None
+
+        safe_xp = max(0, int(xp))
+        history_cur = await conn.execute(
+            """INSERT INTO review_history
+               (user_id, card_id, face, previous_next_review,
+                previous_interval_days, previous_ease_factor,
+                previous_repetitions, previous_first_seen_date,
+                previous_learning_step, xp)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                user_id, card_id, face, previous["next_review"],
+                previous["interval_days"], previous["ease_factor"],
+                previous["repetitions"], previous["first_seen_date"],
+                previous["learning_step"], safe_xp,
+            ),
+        )
+        history_id = history_cur.lastrowid
+
+        await conn.execute(
+            """UPDATE card_faces
+               SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
+                   learning_step=?,
+                   first_seen_date = CASE
+                       WHEN first_seen_date IS NULL THEN date('now')
+                       ELSE first_seen_date
+                   END
+               WHERE card_id=? AND face=?""",
+            (
+                state["interval_days"], state["ease_factor"], state["repetitions"],
+                state["next_review"], state.get("learning_step"), card_id, face,
+            ),
+        )
+        await conn.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
+            (user_id,),
+        )
+
+        quest_cur = await conn.execute(
+            """UPDATE daily_quests SET progress = progress + 1
+               WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
+            (user_id,),
+        )
+        quest_bumped = int(quest_cur.rowcount > 0)
+
+        points_ledger_id = None
+        if safe_xp:
+            points_cur = await conn.execute(
+                """INSERT INTO points_ledger (user_id, lang, points, reason)
+                   VALUES (?, ?, ?, 'review')""",
+                (user_id, lang, safe_xp),
+            )
+            points_ledger_id = points_cur.lastrowid
+
+        await conn.execute(
+            """UPDATE review_history
+               SET points_ledger_id=?, review_quest_bumped=? WHERE id=?""",
+            (points_ledger_id, quest_bumped, history_id),
+        )
+        await conn.execute(
+            """DELETE FROM review_history
+               WHERE user_id=? AND id NOT IN (
+                   SELECT id FROM review_history
+                   WHERE user_id=? ORDER BY id DESC LIMIT 100
+               )""",
+            (user_id, user_id),
+        )
+        await conn.commit()
+        return int(history_id)
+
+
+async def undo_card_review(user_id: int, history_id: int) -> dict | None:
+    """Undo the user's latest active review, returning the reversed XP.
+
+    Returning ``None`` means the id is absent/already undone.  ``out_of_order``
+    protects newer scheduling work when a stale client attempts an old undo.
+    """
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("BEGIN IMMEDIATE")
+        async with conn.execute(
+            """SELECT * FROM review_history
+               WHERE user_id=? AND undone_at IS NULL
+               ORDER BY id DESC LIMIT 1""",
+            (user_id,),
+        ) as cur:
+            latest = await cur.fetchone()
+        if not latest or latest["id"] != history_id:
+            await conn.rollback()
+            if latest:
+                return {"out_of_order": True, "latest_id": latest["id"]}
+            return None
+
+        restored = await conn.execute(
+            """UPDATE card_faces
+               SET next_review=?, interval_days=?, ease_factor=?, repetitions=?,
+                   first_seen_date=?, learning_step=?
+               WHERE card_id=? AND face=? AND card_id IN
+                   (SELECT id FROM cards WHERE user_id=?)""",
+            (
+                latest["previous_next_review"], latest["previous_interval_days"],
+                latest["previous_ease_factor"], latest["previous_repetitions"],
+                latest["previous_first_seen_date"], latest["previous_learning_step"],
+                latest["card_id"], latest["face"], user_id,
+            ),
+        )
+        if restored.rowcount == 0:
+            await conn.rollback()
+            return None
+
+        if latest["points_ledger_id"] is not None:
+            await conn.execute(
+                "DELETE FROM points_ledger WHERE id=? AND user_id=?",
+                (latest["points_ledger_id"], user_id),
+            )
+        if latest["review_quest_bumped"]:
+            await conn.execute(
+                """UPDATE daily_quests SET progress = MAX(0, progress - 1)
+                   WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
+                (user_id,),
+            )
+        await conn.execute(
+            "UPDATE review_history SET undone_at=datetime('now') WHERE id=?",
+            (history_id,),
+        )
+        # We deliberately retain today's study_activity marker: another feature
+        # may have earned it, and a boolean day row cannot safely encode provenance.
+        await conn.commit()
+        return {"out_of_order": False, "xp": latest["xp"]}
 
 
 async def update_card(
@@ -2190,13 +2512,23 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT id, target_lang, level, status, created_at FROM courses WHERE id=? AND user_id=?",
+            "SELECT id, target_lang, level, status, created_at, active_plan "
+            "FROM courses WHERE id=? AND user_id=?",
             (course_id, user_id),
         ) as cur:
             course = await cur.fetchone()
         if not course:
             return None
         course = dict(course)
+        try:
+            active_plan = json.loads(course.pop("active_plan") or "null")
+        except (ValueError, TypeError):
+            active_plan = None
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE course_id=?", (course_id,)
+        ) as cur:
+            course["queued_lessons"] = (await cur.fetchone())[0]
 
         # Completed units (those with assigned lessons)
         async with db.execute(
@@ -2256,6 +2588,16 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
                 "title": None, "summary": None, "theme": "",
                 "lessons": pending, "in_progress": True,
             })
+
+        # The in-progress chapter's header info (title + lesson budget), so the
+        # roadmap can show "Chapter · Lesson 2 of ~4" instead of a bare
+        # "In progress".
+        if active_plan and (active_plan.get("title") or "").strip():
+            course["active_chapter"] = {
+                "title":  active_plan["title"],
+                "budget": active_plan.get("budget"),
+                "lessons_done": len(pending),
+            }
 
         course["units"] = units
         course["lesson_count"] = sum(len(u["lessons"]) for u in units)
@@ -2351,9 +2693,23 @@ async def delete_course(user_id: int, course_id: int) -> None:
         ) as cur:
             if not await cur.fetchone():
                 return
+        async with db.execute(
+            "SELECT images_json FROM textbooks WHERE course_id=? AND user_id=?",
+            (course_id, user_id),
+        ) as cur:
+            visual_rows = await cur.fetchall()
+        visual_ids = [
+            str(v.get("id")) for row in visual_rows
+            for v in _parse_textbook_visuals(row[0]) if v.get("id")
+        ]
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM textbooks WHERE course_id=?", (course_id,))
+        if visual_ids:
+            await db.executemany(
+                "DELETE FROM media WHERE id=?", [(mid,) for mid in visual_ids])
         await db.execute("DELETE FROM courses WHERE id=? AND user_id=?", (course_id, user_id))
         await db.commit()
 
@@ -2374,10 +2730,25 @@ async def delete_ai_lessons(course_id: int) -> None:
         await db.execute("DELETE FROM course_lessons WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_units WHERE course_id=?", (course_id,))
         await db.execute("DELETE FROM course_concepts WHERE course_id=?", (course_id,))
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.execute("UPDATE courses SET active_plan=NULL WHERE id=?", (course_id,))
         await db.execute(
             "DELETE FROM concept_mastery WHERE user_id=? AND lang=?", (user_id, lang)
         )
+        # Textbooks SURVIVE a course restart (the parse is the valuable part) —
+        # but their chapters' "queued" statuses point at the queue we just wiped,
+        # so reset them to let the user re-generate.
+        async with db.execute(
+            "SELECT id, chapters_json FROM textbooks WHERE course_id=?", (course_id,)
+        ) as cur:
+            books = await cur.fetchall()
+        for tb_id, chapters_json in books:
+            chapters = _parse_chapters(chapters_json)
+            for ch in chapters:
+                if isinstance(ch, dict):
+                    ch["status"] = ""
+            await db.execute("UPDATE textbooks SET chapters_json=? WHERE id=?",
+                             (json.dumps(chapters, ensure_ascii=False), tb_id))
         await db.commit()
 
     # Re-seed foundations from code so fixes are picked up.
@@ -2415,7 +2786,8 @@ async def set_active_plan(course_id: int, plan: dict | None) -> None:
 
 async def get_next_lesson_context(course_id: int) -> dict:
     """Return everything needed to generate the next lesson:
-    lesson_num, concept_registry, unit_summaries, recent_summaries, prior_concepts."""
+    lesson_num, open_lessons, concept_registry, unit_summaries, recent_summaries,
+    prior_concepts."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
@@ -2423,6 +2795,14 @@ async def get_next_lesson_context(course_id: int) -> dict:
             "SELECT COUNT(*) FROM course_lessons WHERE course_id=?", (course_id,)
         ) as cur:
             lesson_num = (await cur.fetchone())[0] + 1
+
+        # Lessons in the in-progress chapter (unitless). Derived, not stored, so
+        # the chapter-budget check is self-healing across old/new plan formats.
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_lessons WHERE course_id=? AND unit_id IS NULL",
+            (course_id,),
+        ) as cur:
+            open_lessons = (await cur.fetchone())[0]
 
         async with db.execute(
             "SELECT kind, key, label, gloss FROM course_concepts WHERE course_id=? ORDER BY id",
@@ -2447,6 +2827,7 @@ async def get_next_lesson_context(course_id: int) -> dict:
 
         return {
             "lesson_num":       lesson_num,
+            "open_lessons":     open_lessons,
             "concept_registry": concept_registry,
             "unit_summaries":   unit_summaries,
             "recent_summaries": recent_summaries,
@@ -2520,6 +2901,255 @@ async def close_unit(course_id: int, title: str, summary: str) -> int:
         )
         await db.commit()
         return unit_id
+
+
+async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
+    """(total, completed) among the in-progress (unitless) lessons — used to close
+    the chapter into a unit at COMPLETION time once its budget is fully done."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*),
+                      COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END), 0)
+               FROM course_lessons WHERE course_id=? AND unit_id IS NULL""",
+            (course_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return (row[0], row[1])
+
+
+# ── Lesson queue (textbook import) ────────────────────────────────────────────
+# Queued lesson specs from a textbook PDF import, consumed FIFO by lesson
+# generation: while the queue is non-empty the planner is skipped (the book IS
+# the plan) and the author is grounded in the item's `source` excerpt.
+
+async def add_lesson_queue(course_id: int, items: list[dict],
+                           textbook_id: int | None = None,
+                           chapter_idx: int | None = None,
+                           front: bool = False) -> int:
+    """Add queue items ({unit_title, unit_size, spec, source}). Returns count.
+    `textbook_id`/`chapter_idx` tag the items with the book chapter they came
+    from (so deleting a book drops its still-queued lessons). ``front`` is used
+    for a user-approved one-off source so it cannot be displaced by a legacy
+    batch already waiting in the queue."""
+    if not items:
+        return 0
+    async with aiosqlite.connect(DB_PATH) as db:
+        order_fn = "MIN" if front else "MAX"
+        default_idx = 0 if front else -1
+        async with db.execute(
+            f"SELECT COALESCE({order_fn}(idx), ?) FROM lesson_queue WHERE course_id=?",
+            (default_idx, course_id),
+        ) as cur:
+            edge = (await cur.fetchone())[0]
+        next_idx = edge - len(items) if front else edge + 1
+        for i, it in enumerate(items):
+            await db.execute(
+                """INSERT INTO lesson_queue (course_id, idx, unit_title, unit_size,
+                                             spec_json, source, textbook_id, chapter_idx)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (course_id, next_idx + i, (it.get("unit_title") or "").strip(),
+                 max(1, int(it.get("unit_size") or 1)),
+                 json.dumps(it.get("spec") or {}), it.get("source") or "",
+                 textbook_id, chapter_idx),
+            )
+        await db.commit()
+        return len(items)
+
+
+async def peek_lesson_queue(course_id: int) -> dict | None:
+    """The next queued lesson spec (lowest idx), or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, idx, unit_title, unit_size, spec_json, source
+               FROM lesson_queue WHERE course_id=? ORDER BY idx LIMIT 1""",
+            (course_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    item = dict(row)
+    try:
+        item["spec"] = json.loads(item.pop("spec_json") or "{}")
+    except (ValueError, TypeError):
+        item["spec"] = {}
+    return item
+
+
+async def pop_lesson_queue(queue_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM lesson_queue WHERE id=?", (queue_id,))
+        await db.commit()
+
+
+async def count_lesson_queue(course_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE course_id=?", (course_id,)
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
+async def clear_lesson_queue(course_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
+        await db.commit()
+
+
+# ── Textbook library (import v2) ──────────────────────────────────────────────
+# Uploaded books persist with their per-page extracted text + an editable
+# chapter structure, so parsing survives the upload: the user can correct page
+# ranges and reuse them as source-selection presets for individual lessons.
+
+def _parse_chapters(raw: str | None) -> list[dict]:
+    try:
+        chapters = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        chapters = []
+    return chapters if isinstance(chapters, list) else []
+
+
+def _parse_textbook_visuals(raw: str | None) -> list[dict]:
+    try:
+        visuals = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        visuals = []
+    return [v for v in visuals if isinstance(v, dict)] if isinstance(visuals, list) else []
+
+
+async def create_textbook(user_id: int, course_id: int, title: str,
+                          filename: str, pages: list[str],
+                          visuals: list[dict] | None = None) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO textbooks (user_id, course_id, title, filename,
+                                      num_pages, pages_json, images_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, course_id, (title or "").strip()[:200],
+             (filename or "").strip()[:200], len(pages), json.dumps(pages),
+             json.dumps(visuals or [], ensure_ascii=False)),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
+    """Books for a course (no page text — the list stays light). Each chapter
+    row also reports how many of its lessons are still queued."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, title, filename, num_pages, chapters_json, images_json,
+                      created_at
+               FROM textbooks WHERE user_id=? AND course_id=? ORDER BY id""",
+            (user_id, course_id),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+        out = []
+        for r in rows:
+            chapters = _parse_chapters(r.pop("chapters_json"))
+            visuals = _parse_textbook_visuals(r.pop("images_json"))
+            async with db.execute(
+                """SELECT chapter_idx, COUNT(*) FROM lesson_queue
+                   WHERE textbook_id=? GROUP BY chapter_idx""", (r["id"],),
+            ) as cur:
+                queued = {row[0]: row[1] for row in await cur.fetchall()}
+            for i, ch in enumerate(chapters):
+                ch["queued"] = queued.get(i, 0)
+            r["chapters"] = chapters
+            r["visual_count"] = len(visuals)
+            out.append(r)
+        return out
+
+
+async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
+    """One book incl. its pages (ownership-checked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, user_id, course_id, title, filename, num_pages,
+                      pages_json, chapters_json, images_json, created_at
+               FROM textbooks WHERE id=? AND user_id=?""",
+            (textbook_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    book = dict(row)
+    try:
+        book["pages"] = json.loads(book.pop("pages_json") or "[]")
+    except (ValueError, TypeError):
+        book["pages"] = []
+    book["chapters"] = _parse_chapters(book.pop("chapters_json"))
+    book["visuals"] = _parse_textbook_visuals(book.pop("images_json"))
+    return book
+
+
+async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "UPDATE textbooks SET title=? WHERE id=? AND user_id=?",
+            ((title or "").strip()[:200], textbook_id, user_id),
+        )
+        await db.commit()
+        return bool(cur.rowcount)
+
+
+async def list_textbook_visual_ids(user_id: int, course_id: int) -> list[str]:
+    """Media ids to unlink when a whole course is deleted."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT images_json FROM textbooks WHERE user_id=? AND course_id=?",
+            (user_id, course_id),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [
+        str(v.get("id")) for row in rows for v in _parse_textbook_visuals(row[0])
+        if v.get("id")
+    ]
+
+
+async def delete_media_records(media_ids: list[str]) -> None:
+    if not media_ids:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany("DELETE FROM media WHERE id=?", [(mid,) for mid in media_ids])
+        await db.commit()
+
+
+async def update_textbook_chapters(textbook_id: int, chapters: list[dict]) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE textbooks SET chapters_json=? WHERE id=?",
+            (json.dumps(chapters, ensure_ascii=False), textbook_id),
+        )
+        await db.commit()
+
+
+async def delete_textbook(user_id: int, textbook_id: int) -> bool:
+    """Delete a book + its still-queued lessons. Authored lessons are kept."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT images_json FROM textbooks WHERE id=? AND user_id=?",
+            (textbook_id, user_id),
+        ) as media_cur:
+            media_row = await media_cur.fetchone()
+        visual_ids = [
+            str(v.get("id")) for v in _parse_textbook_visuals(media_row[0])
+            if v.get("id")
+        ] if media_row else []
+        cur = await db.execute(
+            "DELETE FROM textbooks WHERE id=? AND user_id=?",
+            (textbook_id, user_id),
+        )
+        if cur.rowcount:
+            await db.execute(
+                "DELETE FROM lesson_queue WHERE textbook_id=?", (textbook_id,))
+            if visual_ids:
+                await db.executemany(
+                    "DELETE FROM media WHERE id=?", [(mid,) for mid in visual_ids])
+        await db.commit()
+        return bool(cur.rowcount)
 
 
 async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
@@ -3824,6 +4454,22 @@ async def get_friends(user_id: int) -> dict:
     return {"friends": friends, "sent": sent, "received": received}
 
 
+async def are_friends(user_id: int, other_user_id: int) -> bool:
+    """Return whether two distinct users have an accepted friendship."""
+    if user_id == other_user_id:
+        return False
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM friendships
+               WHERE status='accepted' AND (
+                 (requester_id=? AND addressee_id=?) OR
+                 (requester_id=? AND addressee_id=?)
+               )""",
+            (user_id, other_user_id, other_user_id, user_id),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+
 # ── Conversations + Messages ───────────────────────────────────────────────────
 
 async def get_or_create_conversation(user1_id: int, user2_id: int) -> dict:
@@ -3972,9 +4618,19 @@ async def get_reactions_for_messages(message_ids: list[int], viewer_user_id: int
     return result
 
 
-async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool:
-    """Add reaction if not present, remove if already present. Returns True if now added."""
+async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool | None:
+    """Toggle a participant's reaction; return None when access is denied."""
     async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM messages m
+               JOIN conversations c ON c.id=m.conversation_id
+               WHERE m.id=? AND (
+                 c.user1_id=? OR c.user2_id=? OR c.owner_user_id=?
+               )""",
+            (message_id, user_id, user_id, user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return None
         async with db.execute(
             "SELECT id FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
             (message_id, user_id, emoji),
@@ -4045,8 +4701,10 @@ async def get_message(msg_id: int, user_id: int) -> dict | None:
                       m.original_text, m.original_lang, m.translations, m.analysis
                FROM messages m
                JOIN conversations c ON c.id = m.conversation_id
-               WHERE m.id = ? AND (c.user1_id = ? OR c.user2_id = ?)""",
-            (msg_id, user_id, user_id),
+               WHERE m.id = ? AND (
+                 c.user1_id = ? OR c.user2_id = ? OR c.owner_user_id = ?
+               )""",
+            (msg_id, user_id, user_id, user_id),
         )
         if not row:
             return None
@@ -4070,8 +4728,15 @@ async def update_message_analysis(msg_id: int, translations: dict, analysis: dic
         await conn.commit()
 
 
-async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> None:
+async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """SELECT 1 FROM conversations
+               WHERE id=? AND (user1_id=? OR user2_id=? OR owner_user_id=?)""",
+            (conversation_id, reader_user_id, reader_user_id, reader_user_id),
+        ) as cur:
+            if not await cur.fetchone():
+                return False
         await db.execute(
             """UPDATE messages SET read_at=datetime('now')
                WHERE conversation_id=? AND read_at IS NULL
@@ -4079,6 +4744,7 @@ async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> N
             (conversation_id, reader_user_id),
         )
         await db.commit()
+        return True
 
 
 async def get_total_unread(user_id: int) -> int:
@@ -4130,9 +4796,12 @@ async def get_push_subscriptions(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def remove_push_subscription(endpoint: str) -> None:
+async def remove_push_subscription(user_id: int, endpoint: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
+        await db.execute(
+            "DELETE FROM push_subscriptions WHERE user_id=? AND endpoint=?",
+            (user_id, endpoint),
+        )
         await db.commit()
 
 

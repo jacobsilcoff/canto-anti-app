@@ -53,6 +53,8 @@
       body: 'Need to stop mid-lesson? Just quit \u2014 your progress is saved and the overview offers Resume. Tap \u2190 to step back to a previous card, and switch \u2728 AI Speak practice on or off (per-lesson or in Settings) to trade speed for depth.', v: 20 },
     { icon: '\ud83d\udcf7', title: 'Add a profile picture',
       body: 'Set a profile photo in Settings \u2192 Account \u2014 it\u2019s cropped to a circle and shows up next to your chats. Add your name there too and Home will greet you by your first name.', v: 21 },
+    { icon: '\ud83d\udcd5', title: 'Turn your textbooks into lessons',
+      body: 'On the Learn page, tap \ud83d\udcd5 My books to upload textbook or grammar-book PDFs. The app finds each book\u2019s chapters (you can check and fix the page ranges), and \u26a1 Generate turns any chapter into interactive lessons with drills \u2014 come back for more chapters whenever you\u2019re ready. Course chapters also show their length (\u201cLesson 2 of ~4\u201d) and close into units on their own.', v: 22 },
     { icon: '\u26a1', title: 'Practice, lightning & streak freezes',
       body: 'Tap \ud83c\udfaf Practice on the Learn page for a \u26a1 lightning round (a 60-second remix of your drills) or a review of the concepts you find hardest. Finish lessons to earn \ud83d\udee1 streak freezes that save your streak if you miss a day \u2014 and give a lesson a \ud83d\udc4d/\ud83d\udc4e afterwards to shape what comes next.', v: 22 },
     { icon: '\ud83d\udc53', title: 'Review on Even Realities glasses',

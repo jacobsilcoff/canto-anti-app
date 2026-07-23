@@ -4,8 +4,23 @@
     {
       "name": "app",
       "runtimeExecutable": "venv/bin/uvicorn",
-      "runtimeArgs": ["main:app", "--port", "8000"],
+      "runtimeArgs": [
+        "main:app",
+        "--port",
+        "8000"
+      ],
       "port": 8000
+    },
+    {
+      "name": "glasses",
+      "cwd": "even-glasses",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
     }
   ]
 }

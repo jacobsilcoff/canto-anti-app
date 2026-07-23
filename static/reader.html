@@ -1028,12 +1028,12 @@
       const btn = document.createElement('button');
       btn.className = 'quiz-opt';
       btn.textContent = opt;
-      btn.onclick = () => answerQuiz(i, data.correct, data.options, optsEl);
+      btn.onclick = () => answerQuiz(i, data.correct, data.options, optsEl, data.claim_token);
       optsEl.appendChild(btn);
     });
   }
 
-  async function answerQuiz(chosen, correct, options, optsEl) {
+  async function answerQuiz(chosen, correct, options, optsEl, claimToken) {
     const btns = optsEl.querySelectorAll('.quiz-opt');
     btns.forEach(b => { b.disabled = true; });
     btns[correct].classList.add('correct');
@@ -1047,7 +1047,7 @@
       try {
         await fetch('/api/reader/comprehension/xp', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lang: currentTargetLang }),
+          body: JSON.stringify({ lang: currentTargetLang, claim_token: claimToken }),
         });
         loadStreak();
       } catch {}

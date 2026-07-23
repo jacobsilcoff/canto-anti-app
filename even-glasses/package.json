@@ -1,18 +1,22 @@
 {
   "name": "canto-even-glasses",
-  "version": "1.0.0",
+  "version": "1.1.20",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "qr": "evenhub qr --http --port 5173 --ip \"$(ipconfig getifaddr en0 || ipconfig getifaddr en1)\"",
-    "pack": "npm run build && evenhub pack app.json dist -o flashcards.ehpk",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm test && npm run build",
+    "sync-deps": "npm install --prefer-offline --no-audit --no-fund",
+    "prebeta": "npm run sync-deps",
+    "beta": "npm run typecheck && npm test && node scripts/bump-beta-version.mjs && npm run build && evenhub pack app.json dist -o canto-flashcards.ehpk",
+    "pack": "npm run beta",
+    "qr": "evenhub qr --http --port 5173"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.10"
+    "@evenrealities/even_hub_sdk": "0.0.11"
   },
   "devDependencies": {
     "@evenrealities/evenhub-cli": "^0.1.5",

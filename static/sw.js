@@ -5,6 +5,7 @@ const MEDIA_CACHE = 'cantonese-media-v1';
 
 const SHELL = [
   '/static/style.css',
+  '/static/app-shell.js',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',

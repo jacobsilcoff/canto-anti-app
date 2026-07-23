@@ -23,7 +23,11 @@ jobs:
             touch ~/canto-anti-app-staging/.env
             # Reuse the same secrets as prod by default; swap to staging-specific
             # secrets here if you want an isolated Gemini key / admin login.
-            set_if_missing GEMINI_API_KEY "${{ secrets.GEMINI_API_KEY }}"
+            # Always overwrite the Gemini key so key rotations (e.g. moving to a
+            # billed/higher-tier project) actually take effect — set_if_missing
+            # would leave the VM pinned to whatever key was first deployed.
+            sed -i '/^GEMINI_API_KEY=/d' ~/canto-anti-app-staging/.env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> ~/canto-anti-app-staging/.env
             set_if_missing APP_PASSWORD "${{ secrets.APP_PASSWORD }}"
             set_if_missing APP_ADMIN_USERNAME "${{ secrets.APP_ADMIN_USERNAME }}"
             set_if_missing APP_ADMIN_EMAIL "${{ secrets.APP_ADMIN_EMAIL }}"
@@ -74,5 +78,11 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             git fetch origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
+            # Build-version identity, baked into the image so /api/version and the
+            # Settings footer show exactly what's deployed (a backend-only deploy
+            # doesn't move the static-asset hash).
+            export GIT_SHA="$(git rev-parse --short HEAD)"
+            export GIT_BRANCH="$BRANCH"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             docker rm -f canto-app-staging 2>/dev/null || true
             docker compose -p staging -f docker-compose.staging.yml up -d --build

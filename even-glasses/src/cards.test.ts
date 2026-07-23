@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest'
-import { buildView, playableCards } from './cards.js'
 import type { DueCard } from './api.js'
+import { buildView, playableCards } from './cards.js'
 
-function card(p: Partial<DueCard>): DueCard {
+function card(overrides: Partial<DueCard> = {}): DueCard {
   return {
     card_id: 1,
     face: 'target',
@@ -11,53 +11,38 @@ function card(p: Partial<DueCard>): DueCard {
     romanization: 'nei5 hou2',
     target_lang: 'yue',
     notes: null,
-    ...p,
+    ...overrides,
   }
 }
 
-const ROMANIZABLE = new Set(['yue', 'cmn', 'ja', 'ko', 'hi', 'ru', 'th'])
-
-test('Latin pronunciation faces (audio-only) are skipped', () => {
+test('audio-only Latin pronunciation cards are skipped', () => {
   const cards = [
     card({ face: 'source', target_lang: 'fr', romanization: null }),
     card({ face: 'target', target_lang: 'fr', romanization: null }),
-    card({ face: 'pronunciation', target_lang: 'fr', romanization: null }), // audio-only -> drop
+    card({ face: 'pronunciation', target_lang: 'fr', romanization: null }),
   ]
-  const kept = playableCards(cards, ROMANIZABLE)
-  expect(kept.map((c) => c.face)).toEqual(['source', 'target'])
+  expect(playableCards(cards, new Set(['yue']))).toHaveLength(2)
 })
 
-test('non-Latin pronunciation faces are kept', () => {
-  const cards = [card({ face: 'pronunciation', target_lang: 'yue' })]
-  expect(playableCards(cards, ROMANIZABLE)).toHaveLength(1)
+test('romanized pronunciation cards remain playable', () => {
+  expect(playableCards([card({ face: 'pronunciation' })], new Set(['yue']))).toHaveLength(1)
 })
 
-test('pronunciation face shows romanization as the prompt', () => {
-  const v = buildView(card({ face: 'pronunciation', romanization: 'nei5 hou2' }))
-  expect(v.prompt).toBe('nei5 hou2')
-  expect(v.answer).toContain('你好')
-  expect(v.answer).toContain('hello')
+test('target cards reveal meaning with the reading under the prompt', () => {
+  const view = buildView(card())
+  expect(view.prompt).toBe('你好')
+  expect(view.reading).toBe('nei5 hou2')
+  expect(view.answer).toBe('hello')
 })
 
-test('target face reveals meaning + romanization; romanization not in prompt', () => {
-  const v = buildView(card({ face: 'target' }))
-  expect(v.prompt).toBe('你好')
-  expect(v.prompt).not.toContain('nei5')
-  expect(v.answer).toContain('hello')
-  expect(v.answer).toContain('nei5 hou2')
+test('target cards without romanization omit the reading line', () => {
+  const view = buildView(card({ romanization: null }))
+  expect(view.reading).toBeUndefined()
+  expect(view.answer).toBe('hello')
 })
 
-test('source face prompts in English, reveals target + romanization', () => {
-  const v = buildView(card({ face: 'source' }))
-  expect(v.prompt).toBe('hello')
-  expect(v.answer).toContain('你好')
-  expect(v.answer).toContain('nei5 hou2')
-})
-
-test('Latin target face has no romanization anywhere', () => {
-  const v = buildView(
-    card({ face: 'target', target_lang: 'fr', target_text: 'bonjour', romanization: null }),
-  )
-  expect(v.prompt).toBe('bonjour')
-  expect(v.answer).toBe('hello')
+test('source cards reveal the target and romanization', () => {
+  const view = buildView(card({ face: 'source' }))
+  expect(view.prompt).toBe('hello')
+  expect(view.answer).toBe('你好\nnei5 hou2')
 })

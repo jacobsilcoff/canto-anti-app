@@ -61,3 +61,21 @@ async def call(prompt: str, *, model: str, gemini_key: str,
             )
         return await asyncio.to_thread(_call_anthropic, prompt, anthropic_key, model)
     return await asyncio.to_thread(translation._call, prompt, gemini_key, model)
+
+
+async def call_with_image(prompt: str, image_bytes: bytes, *, model: str,
+                          gemini_key: str,
+                          anthropic_key: str | None = None) -> str:
+    """Run a completion with one JPEG attachment.
+
+    Textbook structure/planning always uses the Gemini reader model, so that is
+    the current multimodal path. Keeping this beside ``call`` prevents textbook
+    code from reaching into the provider module directly.
+    """
+    if is_claude(model):
+        # No current caller selects Claude for source planning. Falling back to
+        # text is safer than silently constructing a provider-specific payload.
+        return await call(prompt, model=model, gemini_key=gemini_key,
+                          anthropic_key=anthropic_key)
+    return await asyncio.to_thread(
+        translation._call_with_image, prompt, image_bytes, gemini_key, model)

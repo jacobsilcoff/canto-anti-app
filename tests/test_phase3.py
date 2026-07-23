@@ -95,6 +95,21 @@ def test_review_lessons_get_the_larger_budget():
     assert "12–16 drills" in p
 
 
+def test_author_prompt_keeps_warmup_optional_and_nonessential():
+    p = _author_prompt()
+    assert "optional at play time" in p
+    assert "NO unique teaching or required concept" in p
+
+
+@pytest.mark.asyncio
+async def test_warmup_setting_defaults_on_and_can_be_disabled(fresh_db):
+    import main
+    user = await db.get_user(fresh_db)
+    assert (await main.get_settings(user))["lesson_warmup"] is True
+    await main.update_settings(main.SettingsUpdate(lesson_warmup=False), user)
+    assert (await main.get_settings(user))["lesson_warmup"] is False
+
+
 def test_norm_tier_clamps_to_known_values():
     assert learning._norm_tier("core") == "core"
     assert learning._norm_tier("EXTRA") == "extra"
@@ -138,3 +153,5 @@ def test_setting_validators_fall_back():
     assert main._valid_course_focus("conversation") == "conversation"
     assert main._valid_course_focus(None) == "balanced"
     assert main._valid_course_focus("x") == "balanced"
+    assert learning.clamp_chapter_budget(10) == 6
+    assert learning.clamp_chapter_budget(10, floor=1, ceiling=12) == 10

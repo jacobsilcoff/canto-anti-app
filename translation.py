@@ -1,4 +1,3 @@
-import os
 import json
 import re
 import time
@@ -9,23 +8,98 @@ from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
 
-# Statuses worth retrying: 503/500/etc. = model overloaded (ServerError), 429 =
-# rate-limited / quota (ClientError). The shared free-tier key is hit by many
-# users at once, so a burst of lessons/translations trips 429 constantly — a
-# short backoff-and-retry turns most of those transient limits into a success
-# instead of a user-facing error.
-_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
-# 429 usually clears in a couple seconds once the per-minute window rolls; give
-# it more headroom than the 5xx path. Total worst-case wait ≈ 12s.
-_RETRY_DELAYS = (1, 3, 8)
-
-
-def _retry_status(e: Exception) -> int | None:
-    """The HTTP-ish status for a genai error if it's one we should retry, else None."""
-    status = getattr(e, "status_code", None) or getattr(e, "code", None)
-    return status if status in _RETRY_STATUSES else None
-
 _clients: dict[str, "genai.Client"] = {}
+
+# HTTP statuses worth retrying inline with a short backoff: provider overload /
+# transient 5xx, which clear within seconds. 429 is NOT here unconditionally —
+# there are two kinds and they need opposite handling (see _retryable):
+#   - QUOTA 429 (body carries a QuotaFailure metric): a per-minute/day limit;
+#     retrying 1–3s later just adds load inside the same window. Fail fast.
+#   - CAPACITY 429 (bare RESOURCE_EXHAUSTED, no metric): Google-side load
+#     shedding on the model itself, independent of your quota (the dashboard
+#     shows headroom). Clears like a 503 — a short delayed retry genuinely helps.
+_RETRY_STATUS = frozenset({500, 502, 503, 504})
+
+
+def _retryable(e: Exception) -> bool:
+    status = _api_status(e)
+    if status in _RETRY_STATUS:
+        return True
+    return status == 429 and not quota_info(e).get("metric")
+
+
+def _api_status(e: Exception) -> int | None:
+    """HTTP status of a genai APIError, tolerant of SDK attribute renames.
+
+    Older google-genai exposed `.status_code`; current versions expose `.code`.
+    A bare `e.status_code` access therefore raises AttributeError on the new SDK,
+    which is exactly how a retryable 503/429 got turned into an opaque 500."""
+    return getattr(e, "status_code", None) or getattr(e, "code", None)
+
+
+def quota_info(e: Exception) -> dict:
+    """Pull the quota dimension out of a Gemini 429 (RESOURCE_EXHAUSTED) body.
+
+    A 429 on a paid/Tier-1 project is only explicable from *which* quota tripped:
+    the metric names the model + window (requests-per-day/minute, tokens-per-minute)
+    and, crucially, whether it's a `free_tier` metric — a free-tier metric on a paid
+    project means the API key is metered against a *different* (unbilled) project
+    than the one whose Tier-1 quotas you're reading. Returns
+    {metric, quota_id, retry_delay, free_tier} (any field may be None/absent)."""
+    out: dict = {}
+    details = getattr(e, "details", None)
+    # The SDK's APIError.details is the raw response body, whose shape varies by
+    # call path: normal HTTP responses carry the full envelope {"error": {...}},
+    # but streaming/segmented responses carry the INNER error object directly
+    # ({"code", "status", "details": [...]}) — see errors.py raise_for_response.
+    # Handle both (plus a JSON string / 1-element list, which the SDK also emits).
+    if isinstance(details, str):
+        try:
+            details = json.loads(details)
+        except ValueError:
+            details = None
+    if isinstance(details, list) and len(details) == 1:
+        details = details[0]
+    detail_list = None
+    if isinstance(details, dict):
+        inner = details.get("error", details)
+        if isinstance(inner, dict):
+            detail_list = inner.get("details")
+    for d in detail_list or []:
+        if not isinstance(d, dict):
+            continue
+        t = d.get("@type", "")
+        if t.endswith("QuotaFailure"):
+            v = (d.get("violations") or [{}])[0]
+            metric = v.get("quotaMetric")
+            out["metric"] = metric
+            out["quota_id"] = v.get("quotaId")
+            if metric:
+                out["free_tier"] = "free_tier" in metric or "FreeTier" in (v.get("quotaId") or "")
+        elif t.endswith("RetryInfo"):
+            out["retry_delay"] = d.get("retryDelay")
+    if not out.get("metric"):
+        # Last resort: str(APIError) embeds the whole response body (the SDK's
+        # __init__ formats it in), so fish the fields out of the text. Matches
+        # both JSON double quotes and Python-dict single quotes.
+        s = str(e)
+        m = re.search(r'''["']quotaMetric["']:\s*["']([^"']+)["']''', s)
+        qid = re.search(r'''["']quotaId["']:\s*["']([^"']+)["']''', s)
+        rd = re.search(r'''["']retryDelay["']:\s*["']([^"']+)["']''', s)
+        if m:
+            out["metric"] = m.group(1)
+            out["free_tier"] = ("free_tier" in m.group(1)
+                                or "FreeTier" in (qid.group(1) if qid else ""))
+        if qid:
+            out["quota_id"] = qid.group(1)
+        if rd and not out.get("retry_delay"):
+            out["retry_delay"] = rd.group(1)
+    # Which model the failing call targeted — attached by _call/_call_stream/
+    # _call_with_image. A 429 on gemini-2.5-flash vs -lite vs -pro points at a
+    # completely different quota row in the AI Studio dashboard.
+    if getattr(e, "model", None):
+        out["model"] = e.model
+    return out
 
 
 def _get_client(api_key: str):
@@ -509,6 +583,28 @@ LANG_INFO = {
             "- Use the definite article enclitic system correctly (e.g. casa = the house)"
         ),
     },
+    "ga": {
+        "name": "Irish",
+        "full_name": "Irish (Gaeilge)",
+        "flag": "🇮🇪",
+        "script": "Latin script",
+        "romanization": None,
+        "frequency_examples": (
+            "5 = extremely common (pronouns, the copula 'is' / verb 'tá', basic verbs/nouns), "
+            "4 = common (food, family, daily life), "
+            "3 = intermediate (work, conversation, travel), "
+            "2 = less common (formal, specific topics), "
+            "1 = rare or advanced (literary, archaic, highly specialised)"
+        ),
+        "rules": (
+            "- Use standard Irish (An Caighdeán Oifigiúil)\n"
+            "- Preserve the síneadh fada (long-vowel accents): á, é, í, ó, ú\n"
+            "- Apply initial mutations correctly — séimhiú (lenition, e.g. bh, ch, dh, mh) "
+            "and urú (eclipsis, e.g. mb, gc, nd, bhf)\n"
+            "- Use VSO (verb–subject–object) word order, and distinguish the copula 'is' "
+            "from the substantive verb 'tá'"
+        ),
+    },
     "uk": {
         "name": "Ukrainian",
         "flag": "🇺🇦",
@@ -609,14 +705,27 @@ def _call(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
         config = _types.GenerateContentConfig(
             thinking_config=_types.ThinkingConfig(thinking_budget=thinking_budget)
         )
-    for attempt, delay in enumerate([0] + list(_RETRY_DELAYS)):
+    delays = [1, 3]
+    for attempt, delay in enumerate([0] + delays):
         if delay:
             time.sleep(delay)
         try:
-            return _get_client(api_key).models.generate_content(
-                model=model, contents=prompt, config=config).text.strip()
+            resp = _get_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config)
+            text = resp.text
+            # `.text` is None when the response carried no text part (safety
+            # block / empty candidate). `.strip()` on None raises AttributeError
+            # and hides the real cause — surface it instead.
+            if text is None:
+                reason = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+                if reason is None:
+                    cands = getattr(resp, "candidates", None) or []
+                    reason = getattr(cands[0], "finish_reason", "unknown") if cands else "no candidates"
+                raise ValueError(f"Model returned no text (reason: {reason})")
+            return text.strip()
         except APIError as e:
-            if _retry_status(e) and attempt < len(_RETRY_DELAYS):
+            e.model = model            # which quota row to look at (see quota_info)
+            if _retryable(e) and attempt < len(delays):
                 continue
             raise
 
@@ -653,6 +762,8 @@ async def _call_stream(prompt: str, api_key: str, model: str = DEFAULT_MODEL,
                 if text:
                     loop.call_soon_threadsafe(queue.put_nowait, text)
         except Exception as exc:                    # surfaced to the consumer
+            if isinstance(exc, APIError):
+                exc.model = model      # which quota row to look at (see quota_info)
             loop.call_soon_threadsafe(queue.put_nowait, exc)
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, _DONE)
@@ -674,7 +785,8 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                      model: str = DEFAULT_MODEL) -> str:
     from google.genai import types as _types
     part_img = _types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
-    for attempt, delay in enumerate([0] + list(_RETRY_DELAYS)):
+    delays = [1, 3]
+    for attempt, delay in enumerate([0] + delays):
         if delay:
             time.sleep(delay)
         try:
@@ -694,7 +806,8 @@ def _call_with_image(prompt: str, image_bytes: bytes, api_key: str,
                 raise ValueError(f"Vision model returned no text (reason: {reason})")
             return text.strip()
         except APIError as e:
-            if _retry_status(e) and attempt < len(_RETRY_DELAYS):
+            e.model = model            # which quota row to look at (see quota_info)
+            if _retryable(e) and attempt < len(delays):
                 continue
             raise
 
@@ -1316,13 +1429,18 @@ async def translate_article_to_reading(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            # Rate-limit / overload — do NOT split-and-retry: fanning out more
+            # calls into a rate limit is what turns one 429 into a storm. Abort
+            # the whole generation with one clean error (gather cancels siblings).
+            raise
         except Exception:
             raw = None
 
         if isinstance(raw, list) and len(raw) == len(chunk):
             return [_as_target(x) for x in raw]
 
-        # Misaligned / failed response — split to keep the rest aligned.
+        # Misaligned but successful response — split to keep the rest aligned.
         if len(chunk) > 1:
             mid = len(chunk) // 2
             left, right = await asyncio.gather(
@@ -1338,6 +1456,8 @@ async def translate_article_to_reading(
                     f'no romanisation). Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [""]
 
@@ -1423,6 +1543,8 @@ async def simplify_article(
         try:
             async with sem:
                 raw = await asyncio.to_thread(lambda: _parse_json(_call(prompt, api_key, model)))
+        except APIError:
+            raise  # rate-limit / overload — don't fan out (see _translate_chunk)
         except Exception:
             raw = None
         if isinstance(raw, list) and len(raw) == len(chunk):
@@ -1441,6 +1563,8 @@ async def simplify_article(
                     f'Return ONLY JSON: {{"target": "..."}}\n\n'
                     f"Sentence: {chunk[0]}", api_key, model)))
             return [_as_target((single or {}).get("target", ""))]
+        except APIError:
+            raise
         except Exception:
             return [chunk[0]]
 

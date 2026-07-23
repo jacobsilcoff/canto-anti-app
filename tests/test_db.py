@@ -35,6 +35,30 @@ async def test_create_and_fetch_card(fresh_db):
 
 
 @pytest.mark.asyncio
+async def test_cards_page_is_bounded_and_server_filtered(fresh_db):
+    user_id = fresh_db
+    for i in range(7):
+        await db.create_card(
+            user_id, f"English {i}", f"目標 {i}", f"roman {i}", target_lang="yue",
+        )
+
+    first = await db.get_cards_page(user_id, limit=3)
+    assert first["total"] == 7
+    assert len(first["cards"]) == 3
+    assert first["has_more"] is True
+
+    second = await db.get_cards_page(user_id, offset=3, limit=3)
+    assert len(second["cards"]) == 3
+    assert {c["id"] for c in first["cards"]}.isdisjoint(
+        {c["id"] for c in second["cards"]}
+    )
+
+    match = await db.get_cards_page(user_id, search="English 6", limit=10)
+    assert match["total"] == 1
+    assert match["cards"][0]["source_text"] == "English 6"
+
+
+@pytest.mark.asyncio
 async def test_create_card_makes_three_faces(fresh_db):
     user_id = fresh_db
     card_id = await db.create_card(user_id, "Hello", "你好", "nei5 hou2")
@@ -70,6 +94,57 @@ async def test_delete_user_sessions(fresh_db):
     await db.delete_user_sessions(user_id)
     assert await db.get_session_user("a") is None
     assert await db.get_session_user("b") is None
+
+
+@pytest.mark.asyncio
+async def test_push_unsubscribe_is_scoped_to_owner(fresh_db):
+    owner_id = fresh_db
+    other_id = await db.create_user("other", auth.hash_password("password123"))
+    endpoint = "https://push.example.test/subscription"
+    await db.add_push_subscription(owner_id, endpoint, "p256dh", "auth")
+
+    await db.remove_push_subscription(other_id, endpoint)
+    assert len(await db.get_push_subscriptions(owner_id)) == 1
+
+    await db.remove_push_subscription(owner_id, endpoint)
+    assert await db.get_push_subscriptions(owner_id) == []
+
+
+@pytest.mark.asyncio
+async def test_message_mutations_require_conversation_membership(fresh_db):
+    owner_id = fresh_db
+    participant_id = await db.create_user(
+        "participant", auth.hash_password("password123"),
+    )
+    outsider_id = await db.create_user(
+        "outsider", auth.hash_password("password123"),
+    )
+    conv_id = (await db.get_or_create_conversation(owner_id, participant_id))["id"]
+    msg_id = await db.add_message(
+        conv_id, participant_id, "hello", "en", {},
+    )
+
+    assert await db.toggle_reaction(msg_id, outsider_id, "👍") is None
+    assert await db.mark_conversation_read(conv_id, outsider_id) is False
+    messages = await db.get_messages(conv_id, owner_id)
+    assert messages[0]["read_at"] is None
+
+    assert await db.toggle_reaction(msg_id, owner_id, "👍") is True
+    assert await db.mark_conversation_read(conv_id, owner_id) is True
+    messages = await db.get_messages(conv_id, owner_id)
+    assert messages[0]["read_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_are_friends_requires_accepted_relationship(fresh_db):
+    user_id = fresh_db
+    other_id = await db.create_user("friend", auth.hash_password("password123"))
+    assert await db.are_friends(user_id, other_id) is False
+
+    assert (await db.send_friend_request(user_id, other_id))["ok"] is True
+    pending = (await db.get_friends(other_id))["received"][0]
+    await db.respond_friend_request(pending["id"], other_id, accept=True)
+    assert await db.are_friends(user_id, other_id) is True
 
 
 @pytest.mark.asyncio

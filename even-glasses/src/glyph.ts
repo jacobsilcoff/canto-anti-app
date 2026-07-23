@@ -1,106 +1,246 @@
-/**
- * Big-glyph rendering for the glasses HUD.
- *
- * The Even Hub text container has no font-size control, so a single-character
- * prompt (a lone CJK 字, say) renders tiny and hard to read. To draw it BIG we
- * fall back to the image path: rasterize the glyph to an offscreen canvas,
- * hand the pixels to `bridge.updateImageRawData`, and let the host convert to
- * the display's gray4.
- *
- * This is best-effort by design — the exact wire format for image data isn't
- * documented in the SDK types, so the caller checks the result and falls back
- * to plain text on any failure. Nothing here talks to the SDK; the pure
- * predicate `shouldRenderAsGlyph` is unit-tested, `renderGlyph` needs a DOM.
- */
+// The REAL hardware limit for image containers is 200×100 (verified by the
+// community; the SDK README's 288×144 is wrong). An oversized container is
+// accepted by the bridge but the firmware silently renders nothing, while
+// the simulator enforces no image limits at all.
+export const LARGE_TEXT_WIDTH = 200
+export const LARGE_TEXT_HEIGHT = 100
+export const MAX_LARGE_TEXT_CODEPOINTS = 12
+export const GLYPH_BINARY_THRESHOLD = 96
+const LARGE_TEXT_FONT = '"PingFang HK", "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif'
 
-// Image container bounds (SDK: width 20~288, height 20~144).
-//
-// Kept deliberately small: the raw pixel buffer is sent over BLE to the
-// glasses, and a full 240×136 (≈32 KB) buffer fails with `sendFailed`. The
-// glasses' known-good on-air images are well under ~10 KB, so 112×80 (8,960 B)
-// stays safely inside that budget while still rendering a glyph ~3× the size of
-// the default HUD text. Scale up once a send is confirmed working.
-export const GLYPH_W = 112
-export const GLYPH_H = 80
-
-// Longest prompt (in code points) still worth scaling up. renderGlyph shrinks
-// the font to fit, so longer would render too — but past ~4 CJK chars each
-// glyph is no bigger than the default text, so it stops being a win. Single
-// vocab words (1–4 chars) are the sweet spot; multi-word phrases stay as text.
-export const MAX_GLYPH_CHARS = 4
-
-export interface GlyphBitmap {
+export interface LargeTextBitmap {
   width: number
   height: number
-  /** Row-major grayscale, one byte (0–255) per pixel; brighter = lit. */
+  /** Encoded PNG bytes as number[], the host bridge's preferred List<int> shape. */
   data: number[]
 }
 
-/** Count Unicode code points (so a CJK char counts as 1, not 2 UTF-16 units). */
-function codePointLength(s: string): number {
-  let n = 0
-  for (const _ of s) n++
-  return n
+export type RenderDiagnostic = (message: string) => void
+
+export function codePointLength(value: string): number {
+  return [...value].length
+}
+
+export function shouldRenderLarge(prompt: string): boolean {
+  const value = (prompt || '').trim()
+  if (!value || value.includes('\n')) return false
+  return codePointLength(value) <= MAX_LARGE_TEXT_CODEPOINTS
 }
 
 /**
- * Whether a prompt is short enough that scaling it up as an image is worth it.
- * True for a lone character or a very short token (no internal whitespace) —
- * i.e. exactly the single-CJK-character cards that render too small as text.
+ * Convert antialiased RGBA glyph pixels to an opaque white-on-black mask.
+ * Every pixel stays fully opaque — the phone-side gray4 conversion composites
+ * the decoded image, and transparent pixels convert unpredictably.
  */
-export function shouldRenderAsGlyph(prompt: string): boolean {
-  const t = (prompt || '').trim()
-  if (!t) return false
-  if (/\s/.test(t)) return false // multi-word phrases stay as text
-  return codePointLength(t) <= MAX_GLYPH_CHARS
-}
-
-/**
- * Rasterize `text` centered on a GLYPH_W×GLYPH_H grayscale bitmap. Returns null
- * when no 2-D canvas is available (caller falls back to text).
- */
-export function renderGlyph(text: string): GlyphBitmap | null {
-  if (typeof document === 'undefined') return null
-  const canvas = document.createElement('canvas')
-  canvas.width = GLYPH_W
-  canvas.height = GLYPH_H
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-
-  // Black background, white glyph — the host maps brighter pixels to lit ones.
-  ctx.fillStyle = '#000'
-  ctx.fillRect(0, 0, GLYPH_W, GLYPH_H)
-  ctx.fillStyle = '#fff'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  // Grow the font until the glyph nearly fills the box, then back off a touch.
-  let size = GLYPH_H
-  const maxW = GLYPH_W * 0.9
-  const maxH = GLYPH_H * 0.9
-  for (; size > 8; size -= 2) {
-    ctx.font = `${size}px sans-serif`
-    const m = ctx.measureText(text)
-    const h =
-      (m.actualBoundingBoxAscent || size * 0.8) +
-      (m.actualBoundingBoxDescent || size * 0.2)
-    if (m.width <= maxW && h <= maxH) break
+export function binarizeRgba(
+  data: Uint8ClampedArray,
+  threshold = GLYPH_BINARY_THRESHOLD,
+): number {
+  let visiblePixels = 0
+  for (let index = 0; index < data.length; index += 4) {
+    const luminance =
+      0.299 * data[index] +
+      0.587 * data[index + 1] +
+      0.114 * data[index + 2]
+    const value = luminance >= threshold ? 255 : 0
+    data[index] = value
+    data[index + 1] = value
+    data[index + 2] = value
+    data[index + 3] = 255
+    if (value) visiblePixels += 1
   }
-  ctx.font = `${size}px sans-serif`
-  ctx.fillText(text, GLYPH_W / 2, GLYPH_H / 2)
+  return visiblePixels
+}
 
-  let img: ImageData
+// --- Compact PNG encoding ---------------------------------------------------
+// The bridge ships image bytes over BLE at roughly 200 bytes/second, so payload
+// size IS the on-glasses render latency. The binarized glyph frame is pure
+// black/white, which a 1-bit grayscale PNG (a baseline format every conformant
+// PNG decoder must support) stores 3-5× smaller than the browser encoder's
+// 32-bit RGBA output.
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+let crcTable: Uint32Array | null = null
+
+function crc32(bytes: Uint8Array): number {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256)
+    for (let n = 0; n < 256; n += 1) {
+      let c = n
+      for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+      crcTable[n] = c >>> 0
+    }
+  }
+  let crc = 0xffffffff
+  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function pngChunk(type: string, body: Uint8Array): Uint8Array {
+  const chunk = new Uint8Array(12 + body.length)
+  const view = new DataView(chunk.buffer)
+  view.setUint32(0, body.length)
+  for (let index = 0; index < 4; index += 1) chunk[4 + index] = type.charCodeAt(index)
+  chunk.set(body, 8)
+  view.setUint32(8 + body.length, crc32(chunk.subarray(4, 8 + body.length)))
+  return chunk
+}
+
+/** Pack binarized RGBA into 1-bit PNG scanlines: a 0 filter byte per row, then MSB-first bits. */
+export function packMonoScanlines(
+  rgba: ArrayLike<number>,
+  width: number,
+  height: number,
+): Uint8Array<ArrayBuffer> {
+  const rowBytes = Math.ceil(width / 8)
+  const lines = new Uint8Array((rowBytes + 1) * height)
+  for (let y = 0; y < height; y += 1) {
+    const row = y * (rowBytes + 1) + 1
+    for (let x = 0; x < width; x += 1) {
+      if (rgba[(y * width + x) * 4] >= 128) {
+        lines[row + (x >> 3)] |= 0x80 >> (x & 7)
+      }
+    }
+  }
+  return lines
+}
+
+/** 1-bit grayscale PNG from binarized RGBA pixels; null when the runtime can't deflate. */
+export async function encodeMonoPng(
+  rgba: ArrayLike<number>,
+  width: number,
+  height: number,
+): Promise<number[] | null> {
+  if (typeof CompressionStream === 'undefined') return null
   try {
-    img = ctx.getImageData(0, 0, GLYPH_W, GLYPH_H)
+    const scanlines = packMonoScanlines(rgba, width, height)
+    const stream = new Blob([scanlines])
+      .stream()
+      .pipeThrough(new CompressionStream('deflate'))
+    const idat = new Uint8Array(await new Response(stream).arrayBuffer())
+    const ihdr = new Uint8Array(13)
+    const view = new DataView(ihdr.buffer)
+    view.setUint32(0, width)
+    view.setUint32(4, height)
+    ihdr[8] = 1 // bit depth: 1
+    ihdr[9] = 0 // color type: grayscale
+    return [
+      ...PNG_SIGNATURE,
+      ...pngChunk('IHDR', ihdr),
+      ...pngChunk('IDAT', idat),
+      ...pngChunk('IEND', new Uint8Array(0)),
+    ]
   } catch {
     return null
   }
+}
 
-  // RGBA → grayscale luminance.
-  const px = img.data
-  const data: number[] = new Array(GLYPH_W * GLYPH_H)
-  for (let i = 0, p = 0; i < px.length; i += 4, p++) {
-    data[p] = Math.round(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2])
+/**
+ * Encode the canvas as PNG bytes — the transport format the phone app is
+ * known to decode. (A hand-rolled 1-bit BMP was previously sent here; the
+ * bridge reported success but the phone decoded it to a blank frame on real
+ * hardware, while the simulator's browser decoder rendered it fine.)
+ */
+async function encodePng(canvas: HTMLCanvasElement): Promise<number[]> {
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error('PNG encoding failed.'))),
+      'image/png',
+    )
+  })
+  return Array.from(new Uint8Array(await blob.arrayBuffer()))
+}
+
+function createCanvas(diagnostic?: RenderDiagnostic): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') {
+    diagnostic?.('No document is available to create the large-text canvas.')
+    return null
   }
-  return { width: GLYPH_W, height: GLYPH_H, data }
+  const canvas = document.createElement('canvas')
+  canvas.width = LARGE_TEXT_WIDTH
+  canvas.height = LARGE_TEXT_HEIGHT
+  return canvas
+}
+
+let blankBitmap: LargeTextBitmap | null = null
+
+export async function renderBlankLargeText(
+  diagnostic?: RenderDiagnostic,
+): Promise<LargeTextBitmap | null> {
+  if (blankBitmap) return blankBitmap
+  const mono = await encodeMonoPng(
+    new Uint8ClampedArray(LARGE_TEXT_WIDTH * LARGE_TEXT_HEIGHT * 4),
+    LARGE_TEXT_WIDTH,
+    LARGE_TEXT_HEIGHT,
+  )
+  if (mono) {
+    blankBitmap = { width: LARGE_TEXT_WIDTH, height: LARGE_TEXT_HEIGHT, data: mono }
+    return blankBitmap
+  }
+  const canvas = createCanvas(diagnostic)
+  const context = canvas?.getContext('2d')
+  if (!canvas || !context) {
+    diagnostic?.('The 2D canvas context is unavailable for the blank image.')
+    return null
+  }
+  context.fillStyle = '#000'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  const data = await encodePng(canvas)
+  blankBitmap = { width: canvas.width, height: canvas.height, data }
+  return blankBitmap
+}
+
+export async function renderLargeText(
+  text: string,
+  diagnostic?: RenderDiagnostic,
+): Promise<LargeTextBitmap | null> {
+  const canvas = createCanvas(diagnostic)
+  const context = canvas?.getContext('2d')
+  if (!canvas || !context) {
+    diagnostic?.('The 2D canvas context is unavailable for large text.')
+    return null
+  }
+
+  // Solid black background: black pixels are "off" on the glasses, and an
+  // opaque canvas avoids transparent pixels in the encoded PNG entirely.
+  context.fillStyle = '#000'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.fillStyle = '#fff'
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+
+  const value = text.trim()
+  const maxWidth = canvas.width * 0.97
+  const maxHeight = canvas.height * 0.94
+  let fontSize = 120
+  while (fontSize > 22) {
+    context.font = `${fontSize}px ${LARGE_TEXT_FONT}`
+    const metrics = context.measureText(value)
+    const height =
+      (metrics.actualBoundingBoxAscent || fontSize * 0.8) +
+      (metrics.actualBoundingBoxDescent || fontSize * 0.2)
+    if (metrics.width <= maxWidth && height <= maxHeight) break
+    fontSize -= 2
+  }
+  context.font = `${fontSize}px ${LARGE_TEXT_FONT}`
+  context.fillText(value, canvas.width / 2, canvas.height / 2)
+
+  let image: ImageData
+  try {
+    image = context.getImageData(0, 0, canvas.width, canvas.height)
+  } catch (error) {
+    diagnostic?.(`Reading canvas pixels threw: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+
+  const visiblePixels = binarizeRgba(image.data)
+  if (!visiblePixels) {
+    diagnostic?.(`The selected font rendered no visible pixels for “${value}”.`)
+    return null
+  }
+  context.putImageData(image, 0, 0)
+  const data =
+    (await encodeMonoPng(image.data, canvas.width, canvas.height)) ?? (await encodePng(canvas))
+  return { width: canvas.width, height: canvas.height, data }
 }

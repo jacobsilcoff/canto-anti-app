@@ -1,16 +1,3 @@
-/**
- * Thin client for the flashcard site's REST API, authenticated with a
- * long-lived bearer token (generated in the site's Settings > Even glasses).
- *
- * Only the endpoints the glasses review loop needs are wrapped here:
- *   GET  /api/languages          - which languages have romanization
- *   GET  /api/labels             - the user's labels/decks (for the deck picker)
- *   GET  /api/cards/due          - the study session (due reviews + new cards),
- *                                  optionally scoped to a set of label ids
- *   POST /api/cards/{id}/review  - grade a face; awards XP + syncs streak/quests
- *   GET  /api/streak             - streak + XP totals (for the summary screen)
- */
-
 export type Quality = 'again' | 'hard' | 'good' | 'easy'
 export type Face = 'source' | 'target' | 'pronunciation'
 
@@ -26,16 +13,11 @@ export interface DueCard {
 
 export interface StudySession {
   cards: DueCard[]
-  review_count: number
-  new_count: number
-  daily_new_used: number
-  daily_new_limit: number
 }
 
 export interface LanguageInfo {
   code: string
-  name: string
-  logographic: boolean // true when the language has romanization (non-Latin)
+  logographic: boolean
 }
 
 export interface Label {
@@ -47,11 +29,12 @@ export interface Label {
 export interface ReviewResult {
   success: boolean
   xp: number
+  /** Present once the server supports reversible reviews. */
+  review_id?: number
 }
 
 export interface Streak {
   streak: number
-  points: number
   points_today: number
   daily_goal: number
 }
@@ -67,16 +50,15 @@ export class ApiClient {
   private readonly base: string
 
   constructor(baseUrl: string, private readonly token: string) {
-    // Tolerate trailing slashes / missing scheme in a hand-entered URL.
-    let b = baseUrl.trim().replace(/\/+$/, '')
-    if (b && !/^https?:\/\//i.test(b)) b = 'https://' + b
-    this.base = b
+    let base = baseUrl.trim().replace(/\/+$/, '')
+    if (base && !/^https?:\/\//i.test(base)) base = `https://${base}`
+    this.base = base
   }
 
-  private async req<T>(path: string, init?: RequestInit): Promise<T> {
-    let res: Response
+  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    let response: Response
     try {
-      res = await fetch(this.base + path, {
+      response = await fetch(this.base + path, {
         ...init,
         headers: {
           Authorization: `Bearer ${this.token}`,
@@ -84,45 +66,46 @@ export class ApiClient {
           ...(init?.headers || {}),
         },
       })
-    } catch (e) {
-      throw new ApiError(`Can't reach the site (${(e as Error).message}).`)
+    } catch (error) {
+      throw new ApiError(`Can't reach the site (${(error as Error).message}).`)
     }
-    if (res.status === 401) {
-      throw new ApiError('Token rejected — regenerate it in Settings.', 401)
+    if (response.status === 401) {
+      throw new ApiError('Token rejected — generate a new one in Settings.', 401)
     }
-    if (!res.ok) {
-      throw new ApiError(`Request failed (${res.status}).`, res.status)
+    if (!response.ok) {
+      throw new ApiError(`Request failed (${response.status}).`, response.status)
     }
-    return (await res.json()) as T
+    return (await response.json()) as T
   }
 
-  /** Set of language codes that have romanization (non-Latin scripts). */
   async romanizableLangs(): Promise<Set<string>> {
-    const data = await this.req<{ languages: LanguageInfo[] }>('/api/languages')
-    return new Set(data.languages.filter((l) => l.logographic).map((l) => l.code))
+    const data = await this.request<{ languages: LanguageInfo[] }>('/api/languages')
+    return new Set(data.languages.filter((lang) => lang.logographic).map((lang) => lang.code))
   }
 
-  /** The user's labels (deck labels are prefixed with 📦), for the deck picker. */
   async listLabels(): Promise<Label[]> {
-    const data = await this.req<{ labels: Label[] }>('/api/labels')
+    const data = await this.request<{ labels: Label[] }>('/api/labels')
     return data.labels || []
   }
 
-  /** Due session, optionally scoped to a set of label ids (empty = all due). */
-  dueSession(labelIds?: number[]): Promise<StudySession> {
-    const ids = (labelIds || []).filter((n) => Number.isFinite(n))
-    const q = ids.length ? `?label_ids=${ids.join(',')}` : ''
-    return this.req<StudySession>(`/api/cards/due${q}`)
+  dueSession(labelIds: number[] = []): Promise<StudySession> {
+    const ids = labelIds.filter(Number.isFinite)
+    const query = ids.length ? `?label_ids=${ids.join(',')}` : ''
+    return this.request<StudySession>(`/api/cards/due${query}`)
   }
 
   review(cardId: number, face: Face, quality: Quality): Promise<ReviewResult> {
-    return this.req<ReviewResult>(`/api/cards/${cardId}/review`, {
+    return this.request<ReviewResult>(`/api/cards/${cardId}/review`, {
       method: 'POST',
       body: JSON.stringify({ face, quality }),
     })
   }
 
+  undoReview(reviewId: number): Promise<{ success: boolean; xp: number }> {
+    return this.request(`/api/reviews/${reviewId}/undo`, { method: 'POST' })
+  }
+
   streak(): Promise<Streak> {
-    return this.req<Streak>('/api/streak')
+    return this.request<Streak>('/api/streak')
   }
 }

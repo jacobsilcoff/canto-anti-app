@@ -253,11 +253,19 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .badge.visible { display: inline-block; }
 .badge.notif-badge { background: var(--danger, #ef4444); }
-.notif-bell-btn { background: none; border: none; cursor: pointer; color: var(--text-muted);
-  border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;
-  transition: color 0.15s, background 0.15s; }
-.notif-bell-btn:hover { background: var(--surface-alt); }
-.notif-bell-btn.enabled { color: var(--primary); }
+.notif-bell-btn { position: relative; width: 36px; height: 36px; background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; color: var(--text-muted);
+  border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 36px; transition: color 0.15s, background 0.15s, border-color 0.15s; }
+.notif-bell-btn:hover { background: var(--surface-alt); border-color: var(--text-faint); }
+.notif-bell-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.notif-bell-btn.enabled { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-soft-2); }
+.notif-bell-btn.blocked { color: var(--danger); }
+.notif-bell-icon, .notif-bell-icon svg { display: block; width: 19px; height: 19px; }
+.notif-state-dot { position: absolute; right: 2px; bottom: 2px; width: 9px; height: 9px;
+  border: 2px solid var(--surface); border-radius: 50%; background: var(--text-faint); }
+.notif-bell-btn.enabled .notif-state-dot { background: var(--primary); border-color: var(--primary-soft); }
+.notif-bell-btn.blocked .notif-state-dot { background: var(--danger); }
 .notif-bell-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Translate Page ─────────────────────────────────────────────────────── */
@@ -1464,21 +1472,17 @@ textarea.edit-input {
   .nav-foot .nav-link { color: var(--text-muted); }
 }
 
-/* Nav collapses to hamburger at 1200px (raised from 1040px when Home joined
-   the nav — h1 ~145px + nav ~985px + 32px margin must fit; admins see the
-   Dashboard link too). Below this the header shows the compact h1 + hamburger,
-   and the bottom tab bar carries the five daily destinations. */
+/* The desktop rail collapses at 1200px; the bottom bar carries the daily
+   destinations plus a consistent More entry. */
 @media (max-width: 1199px) {
   /* No top bar on mobile at all — the bottom tab bar is the only fixed
-     chrome. The header's jobs move into the Home page (streak/XP pills,
-     language pill via [data-lang-slot], and the ⋯ More sheet for Browse/
-     Feedback/Settings/Dashboard/Sign out). The header element stays in the
-     DOM because the shared nav <script> lives inside it. */
+     chrome. Stats and the language pill remain on Home; More opens secondary
+     destinations without introducing a floating control over page content. */
   header { display: none; }
 }
 
 /* ── Bottom tab bar (mobile) ─────────────────────────────────────────────
-   The five daily destinations, always one tap away below the collapse
+   The daily destinations and More, always one tap away below the collapse
    breakpoint. Injected by _build_nav for every nav page except the tutor
    chat (which manages its own fixed viewport and shows a back button).
    Pages that enter a full-focus state (lesson player, open reader story,
@@ -1565,3 +1569,188 @@ textarea.edit-input {
   font-size: 1rem; color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
 }
 .tour-skip:hover { background: var(--bg); }
+
+/* ── Cached application shell ────────────────────────────────────────────── */
+.shell-lang-control {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+.shell-lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 5px 11px 5px 8px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: none;
+  appearance: none;
+}
+.shell-lang-pill:hover { border-color: var(--primary); }
+.shell-lang-pill:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.shell-lang-chevron { display: inline-flex; width: 10px; height: 10px; color: var(--text-muted); }
+.shell-lang-chevron svg { width: 100%; height: 100%; }
+.shell-lang-menu {
+  display: none;
+  position: fixed;
+  z-index: 520;
+  width: min(220px, calc(100vw - 16px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+.shell-lang-menu.open { display: grid; }
+.shell-lang-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.shell-lang-option:hover { background: var(--bg); }
+.shell-lang-option.active { color: var(--primary); }
+.shell-lang-option:disabled { opacity: 0.55; }
+.shell-lang-check { width: 14px; flex: 0 0 14px; font-size: 0.78rem; }
+.shell-more-lang .shell-lang-pill { margin: 0; }
+
+.tabbar .shell-more-tab {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#plan-pill {
+  margin-left: 8px;
+  font-size: 0.6em;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  text-decoration: none;
+  vertical-align: middle;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.shell-upgrade-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.86rem;
+}
+.shell-upgrade-bar a { color: inherit; font-weight: 700; }
+.shell-upgrade-bar button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.shell-more-btn {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.shell-more-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  align-items: flex-end;
+  background: var(--overlay);
+}
+.shell-more-overlay.open { display: flex; }
+.shell-more-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: min(86dvh, 680px);
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  animation: shell-sheet-rise 0.18s ease-out;
+}
+@keyframes shell-sheet-rise {
+  from { transform: translateY(24px); opacity: 0.72; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.shell-more-head { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 2px 14px; }
+.shell-more-title { color: var(--text); font-family: var(--display-font); font-size: 1.18rem;
+  font-weight: 800; line-height: 1.2; }
+.shell-more-subtitle { margin-top: 2px; color: var(--text-muted); font-size: 0.78rem; }
+.shell-more-close { display: inline-flex; width: 36px; height: 36px; align-items: center;
+  justify-content: center; flex: 0 0 36px; border: 1px solid var(--border); border-radius: 50%;
+  background: var(--surface-alt); color: var(--text-muted); cursor: pointer; }
+.shell-more-close:hover { color: var(--text); border-color: var(--text-faint); }
+.shell-more-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.shell-more-close svg { width: 18px; height: 18px; }
+.shell-more-lang { padding: 0 2px 12px; }
+.shell-more-list, .shell-more-account { padding: 5px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--bg); }
+.shell-more-account { margin-top: 10px; }
+.shell-more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell-more-item:hover { background: var(--surface); }
+.shell-more-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.shell-more-item svg { width: 19px; height: 19px; flex: 0 0 19px; color: var(--text-muted); }
+.shell-more-item.danger { color: var(--danger); }
+.shell-more-item.danger svg { color: var(--danger); }
+
+@media (max-width: 359px) {
+  .tabbar .tab-ico { width: 42px; }
+  .tabbar .tab { font-size: 0.6rem; }
+}

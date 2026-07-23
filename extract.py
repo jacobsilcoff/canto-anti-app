@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -74,35 +74,51 @@ def _validate_public_host(host: str) -> None:
 async def fetch_url(url: str) -> str:
     """Fetch a public web page and return its HTML (SSRF-guarded, size-capped)."""
     url = (url or "").strip()
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ExtractError("Enter a full http(s):// URL.")
-    _validate_public_host(parsed.hostname or "")
-
     try:
         async with httpx.AsyncClient(
             timeout=FETCH_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=5,
+            follow_redirects=False,
             headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"},
         ) as client:
-            resp = await client.get(url)
+            current_url = url
+            for _ in range(6):
+                parsed = urlparse(current_url)
+                if parsed.scheme not in ("http", "https"):
+                    raise ExtractError("Enter a full http(s):// URL.")
+                _validate_public_host(parsed.hostname or "")
+
+                async with client.stream("GET", current_url) as resp:
+                    if resp.status_code in (301, 302, 303, 307, 308):
+                        location = resp.headers.get("location")
+                        if not location:
+                            raise ExtractError("The page returned an invalid redirect.")
+                        # Validate the target before issuing the next request. Letting
+                        # httpx auto-follow would contact an internal redirect target
+                        # before we had a chance to apply the SSRF guard.
+                        current_url = urljoin(str(resp.url), location)
+                        continue
+
+                    if resp.status_code >= 400:
+                        raise ExtractError(
+                            f"The page returned HTTP {resp.status_code}."
+                        )
+                    ctype = resp.headers.get("content-type", "")
+                    if (ctype and "html" not in ctype and "xml" not in ctype
+                            and "text" not in ctype):
+                        raise ExtractError(
+                            f"That link isn't a web page (content-type: {ctype})."
+                        )
+
+                    body = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > MAX_FETCH_BYTES:
+                            raise ExtractError("That page is too large to import.")
+                    encoding = resp.charset_encoding or "utf-8"
+                    return bytes(body).decode(encoding, errors="replace")
+            raise ExtractError("The page redirected too many times.")
     except httpx.HTTPError as exc:
         raise ExtractError(f"Couldn't fetch the page: {exc}")
-
-    # A redirect could have bounced to an internal host — re-check the final one.
-    final_host = resp.url.host or ""
-    if final_host and final_host != (parsed.hostname or ""):
-        _validate_public_host(final_host)
-
-    if resp.status_code >= 400:
-        raise ExtractError(f"The page returned HTTP {resp.status_code}.")
-    if len(resp.content) > MAX_FETCH_BYTES:
-        raise ExtractError("That page is too large to import.")
-    ctype = resp.headers.get("content-type", "")
-    if ctype and "html" not in ctype and "xml" not in ctype and "text" not in ctype:
-        raise ExtractError(f"That link isn't a web page (content-type: {ctype}).")
-    return resp.text
 
 
 def extract_article_html(html: str, url: str | None = None) -> dict:
@@ -145,11 +161,82 @@ async def fetch_and_extract_url(url: str) -> dict:
 
 # ── PDF extraction ─────────────────────────────────────────────────────────────
 
-def extract_pdf(pdf_bytes: bytes) -> dict:
+def _matrix_mult(m: list[float], n: list[float]) -> list[float]:
+    """Multiply two compressed PDF transformation matrices."""
+    return [
+        m[0] * n[0] + m[1] * n[2],
+        m[0] * n[1] + m[1] * n[3],
+        m[2] * n[0] + m[3] * n[2],
+        m[2] * n[1] + m[3] * n[3],
+        m[4] * n[0] + m[5] * n[2] + n[4],
+        m[4] * n[1] + m[5] * n[3] + n[5],
+    ]
+
+
+def _extract_visible_page_text(page) -> str:
+    """Extract only text positioned inside a page's visible crop box.
+
+    Split-spread PDFs often create two logical pages from one shared content
+    stream by assigning each copy a different CropBox. ``pypdf.extract_text``
+    reads the entire stream and ignores that box, making both logical pages
+    contain both halves. Detect meaningful out-of-box text and, only then,
+    rebuild the visible lines from pypdf's positioned text callbacks. Ordinary
+    PDFs retain pypdf's normal extraction unchanged.
+    """
+    positioned: list[tuple[str, float, float]] = []
+    outside_chars = 0
+    try:
+        box = page.cropbox
+        left, right = float(box.left), float(box.right)
+        bottom, top = float(box.bottom), float(box.top)
+
+        def visit(text, cm, tm, _font, _size):
+            nonlocal outside_chars
+            if not text or not text.strip():
+                return
+            matrix = _matrix_mult([float(v) for v in tm],
+                                  [float(v) for v in cm])
+            x, y = matrix[4], matrix[5]
+            if left - 2 <= x <= right + 2 and bottom - 2 <= y <= top + 2:
+                positioned.append((text.replace("\r", ""), x, y))
+            else:
+                outside_chars += len(text.strip())
+
+        raw = page.extract_text(visitor_text=visit) or ""
+    except Exception:
+        return page.extract_text() or ""
+
+    visible_chars = sum(len(text.strip()) for text, _, _ in positioned)
+    # A few out-of-bounds page numbers or printer marks are not enough to
+    # replace pypdf's usually-superior default line assembly.
+    if outside_chars < 40 or outside_chars < visible_chars * 0.05:
+        return raw
+    if not positioned:
+        return ""
+
+    rebuilt: list[str] = []
+    previous_y: float | None = None
+    previous_x: float | None = None
+    for text, x, y in positioned:
+        if previous_y is not None and abs(y - previous_y) > 2:
+            if rebuilt and not rebuilt[-1].endswith("\n"):
+                rebuilt.append("\n")
+        elif (rebuilt and previous_x is not None and x > previous_x and
+              rebuilt[-1] and not rebuilt[-1][-1].isspace() and
+              text and not text[0].isspace()):
+            rebuilt.append(" ")
+        rebuilt.append(text)
+        previous_y, previous_x = y, x
+    return "".join(rebuilt)
+
+
+def extract_pdf(pdf_bytes: bytes, max_chars: int = MAX_TEXT_CHARS) -> dict:
     """Pull selectable text out of a PDF. Returns {"title", "text"}.
 
     Scanned/image-only PDFs have no text layer — we raise a clear error rather
-    than returning gibberish (OCR is out of scope).
+    than returning gibberish (OCR is out of scope). `max_chars` bounds the kept
+    text: the reader default is small (per-sentence translate/TTS is costly),
+    while the textbook import passes a much larger cap.
     """
     try:
         from pypdf import PdfReader
@@ -165,7 +252,7 @@ def extract_pdf(pdf_bytes: bytes) -> dict:
     parts: list[str] = []
     for page in reader.pages:
         try:
-            parts.append(page.extract_text() or "")
+            parts.append(_extract_visible_page_text(page))
         except Exception:
             continue
     text = clean_text("\n".join(parts))
@@ -180,7 +267,133 @@ def extract_pdf(pdf_bytes: bytes) -> dict:
             title = str(reader.metadata.title).strip()
     except Exception:
         pass
-    return {"title": title, "text": text[:MAX_TEXT_CHARS]}
+    return {"title": title, "text": text[:max_chars]}
+
+
+MAX_PDF_PAGES = 600
+MAX_PDF_VISUALS = 80
+MAX_VISUALS_PER_PAGE = 4
+MIN_VISUAL_WIDTH = 180
+MIN_VISUAL_HEIGHT = 120
+MIN_VISUAL_AREA = 40_000
+MAX_VISUAL_EDGE = 1400
+
+
+def _extract_page_visuals(page, page_num: int) -> list[dict]:
+    """Extract useful embedded raster images from one PDF page.
+
+    Tiny icons, tracking pixels, decorative rules, and extreme-aspect assets are
+    ignored. Images are normalized to bounded JPEGs so textbook storage and the
+    source-review UI remain predictable. Vector-only diagrams are not exposed by
+    pypdf's image API and therefore are not captured here.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return []
+
+    import io
+    out: list[dict] = []
+    try:
+        image_files = page.images
+    except Exception:
+        return out
+    for image_file in image_files[:12]:
+        try:
+            im = image_file.image
+            if im is None:
+                im = Image.open(io.BytesIO(image_file.data))
+            im.load()
+            width, height = im.size
+            if (width < MIN_VISUAL_WIDTH or height < MIN_VISUAL_HEIGHT or
+                    width * height < MIN_VISUAL_AREA):
+                continue
+            ratio = max(width / max(1, height), height / max(1, width))
+            if ratio > 8:
+                continue
+            if im.mode in ("RGBA", "LA") or "transparency" in im.info:
+                rgba = im.convert("RGBA")
+                bg = Image.new("RGB", rgba.size, "white")
+                bg.paste(rgba, mask=rgba.getchannel("A"))
+                im = bg
+            else:
+                im = im.convert("RGB")
+            im.thumbnail((MAX_VISUAL_EDGE, MAX_VISUAL_EDGE), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            im.save(buf, format="JPEG", quality=84, optimize=True)
+            data = buf.getvalue()
+            out.append({
+                "page": page_num, "width": im.width, "height": im.height,
+                "data": data,
+            })
+            if len(out) >= MAX_VISUALS_PER_PAGE:
+                break
+        except Exception:
+            continue
+    return out
+
+
+def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
+                      include_images: bool = False) -> dict:
+    """Pull selectable text out of a PDF, KEEPING page boundaries.
+
+    Returns {"title", "pages": [str, ...]} — one entry per page (empty pages
+    stay as "" so page numbers line up with the source PDF). With
+    ``include_images=True``, also returns deduplicated, page-linked ``visuals``
+    as bounded JPEG bytes. The textbook import uses both in its source review.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise ExtractError("PDF import is unavailable on this server.")
+
+    import io
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+    except Exception as exc:
+        raise ExtractError(f"Couldn't read that PDF: {exc}")
+
+    if len(reader.pages) > max_pages:
+        raise ExtractError(f"That PDF has too many pages (max {max_pages}).")
+
+    pages: list[str] = []
+    visuals: list[dict] = []
+    visual_by_hash: dict[str, dict] = {}
+    for page_num, page in enumerate(reader.pages, 1):
+        try:
+            pages.append(clean_text(_extract_visible_page_text(page)))
+        except Exception:
+            pages.append("")
+        if include_images and len(visuals) < MAX_PDF_VISUALS:
+            import hashlib
+            for visual in _extract_page_visuals(page, page_num):
+                digest = hashlib.sha256(visual["data"]).hexdigest()
+                existing = visual_by_hash.get(digest)
+                if existing:
+                    if page_num not in existing["pages"]:
+                        existing["pages"].append(page_num)
+                    continue
+                visual["pages"] = [visual.pop("page")]
+                visual["sha256"] = digest
+                visuals.append(visual)
+                visual_by_hash[digest] = visual
+                if len(visuals) >= MAX_PDF_VISUALS:
+                    break
+    if sum(len(p) for p in pages) < 80:
+        raise ExtractError(
+            "No selectable text found in that PDF "
+            "(it may be a scanned image — OCR isn't supported yet)."
+        )
+    title = ""
+    try:
+        if reader.metadata and reader.metadata.title:
+            title = str(reader.metadata.title).strip()
+    except Exception:
+        pass
+    result = {"title": title, "pages": pages}
+    if include_images:
+        result["visuals"] = visuals
+    return result
 
 
 # ── Shared cleanup ─────────────────────────────────────────────────────────────

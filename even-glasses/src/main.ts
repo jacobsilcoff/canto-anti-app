@@ -1,532 +1,687 @@
-/**
- * Even glasses flashcard plugin (Even Hub).
- *
- * Drives a hands-free review of your due flashcards on Even Realities G2
- * glasses. Every grade is sent to your account, so you earn XP and keep your
- * streak / daily quests in sync — the same as reviewing on the web.
- *
- * Controls (G2 TouchBar / R1 Ring):
- *   - before reveal:  tap             -> show the answer
- *                     double-tap      -> go back to the previous card
- *   - after reveal:   tap             -> "got it"    (SRS "good")
- *                     double-tap      -> "missed it" (SRS "again")
- *                     swipe up        -> "got it"
- *                     swipe down      -> "missed it"
- * Every grade shows a brief 👍/👎 confirmation so a finicky ring tap is
- * visibly acknowledged.
- *
- * Because the glasses have no speaker, audio is never used:
- *   - Non-Latin languages show romanization as the prompt on the pronunciation
- *     face and in the reveal on other faces.
- *   - Latin pronunciation faces (audio-only) are skipped automatically.
- *
- * Short prompts (a lone CJK character) are drawn BIG via the image path for
- * legibility, falling back to text when the image can't be sent.
- */
 import {
-  waitForEvenAppBridge,
   CreateStartUpPageContainer,
-  TextContainerProperty,
-  TextContainerUpgrade,
   ImageContainerProperty,
   ImageRawDataUpdate,
   ImageRawDataUpdateResult,
   OsEventTypeList,
+  RebuildPageContainer,
+  StartUpPageCreateResult,
+  TextContainerProperty,
+  TextContainerUpgrade,
+  waitForEvenAppBridge,
 } from '@evenrealities/even_hub_sdk'
 import type { EvenAppBridge, EvenHubEvent } from '@evenrealities/even_hub_sdk'
 
 import { ApiClient, ApiError } from './api.js'
-import type { DueCard, Quality, Label } from './api.js'
+import type { DueCard, Label, Quality } from './api.js'
 import { buildView, playableCards } from './cards.js'
 import type { CardView } from './cards.js'
 import {
-  loadConfig,
+  clearConfig,
   loadBaseUrl,
+  loadConfig,
   loadDeckLabels,
+  loadShowHints,
+  saveConfig,
   saveDeckLabels,
+  saveShowHints,
 } from './config.js'
-import { shouldRenderAsGlyph, renderGlyph, GLYPH_W, GLYPH_H } from './glyph.js'
+import {
+  LARGE_TEXT_HEIGHT,
+  LARGE_TEXT_WIDTH,
+  renderBlankLargeText,
+  renderLargeText,
+  shouldRenderLarge,
+} from './glyph.js'
+import { safeContainerContent } from './display.js'
+import { cardAction } from './interaction.js'
+import type { CardAction, CardInput, CardPhase } from './interaction.js'
 
-// ── Display constants ────────────────────────────────────────────────────────
-const CONTAINER_ID = 1
-const CONTAINER_NAME = 'flashcard'
-const IMAGE_ID = 2
-const IMAGE_NAME = 'glyph'
-
-// Full usable text area with a small margin.
-const X = 20
-const Y = 10
-const W = 536
-const H = 268
-
-// Glyph image centered inside the text area.
-const IX = X + Math.round((W - GLYPH_W) / 2)
-const IY = Y + Math.round((H - GLYPH_H) / 2)
-
-// How long to hold the 👍/👎 grade confirmation before advancing.
+const HEADER_ID = 1
+const HEADER_NAME = 'header'
+const BODY_ID = 2
+const BODY_NAME = 'flashcard'
+const FOOTER_ID = 3
+const FOOTER_NAME = 'controls'
+const IMAGE_ID = 4
+const IMAGE_NAME = 'largeText'
+const IMAGE_X = Math.round((576 - LARGE_TEXT_WIDTH) / 2)
+const IMAGE_Y = Math.round(38 + (208 - LARGE_TEXT_HEIGHT) / 2)
+const BRIDGE_TIMEOUT_MS = 8_000
+// Image frames transfer over BLE at ~1s/200 bytes in the wild; a 2KB PNG has
+// been observed to take 10+ seconds, so image sends get a much longer leash.
+const IMAGE_TIMEOUT_MS = 30_000
 const GRADE_ACK_MS = 450
 
-// ── State ────────────────────────────────────────────────────────────────────
-type Phase = 'prompt' | 'reveal'
+type Phase = CardPhase
+
+const PROMPT_CONTROLS = '● reveal   ▲ undo   ▼ skip   ●● exit'
+const REVEAL_CONTROLS = '● good   ●● again'
+const RESTART_CONTROLS = '● restart   ●● exit'
+const FINISH_CONTROLS = '▲ undo   ● restart   ●● exit'
+const EXIT_CONTROLS = '●● exit'
+const BACK_DIVIDER = '─'.repeat(14)
 
 let bridge: EvenAppBridge
-let api: ApiClient
-
+let api: ApiClient | null = null
+let unsubscribeEvents: (() => void) | null = null
+let startupReady = false
+let connected = false
 let queue: DueCard[] = []
-let idx = 0
+let index = 0
 let phase: Phase = 'prompt'
 let view: CardView | null = null
 let xp = 0
 let graded = 0
-let busy = false
 let deckLabels: number[] = []
+let largeTextActive = false
+let reviewHistory: ReviewedCard[] = []
+let displayTail: Promise<unknown> = Promise.resolve()
+let actionTail: Promise<void> = Promise.resolve()
+let displayLayout: DisplayLayout = 'front'
 
-/** XP awarded per graded card, so a "go back" can subtract it cleanly. */
-let awarded: number[] = []
-/** Whether a glyph image is currently drawn (so we know to clear it). */
-let glyphActive = false
+type DisplayLayout = 'front' | 'back'
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-// ── Display helpers ──────────────────────────────────────────────────────────
-
-/** Show the initial page container (text + image), called once. */
-async function showStartup(text: string): Promise<void> {
-  await bridge.createStartUpPageContainer(
-    new CreateStartUpPageContainer({
-      containerTotalNum: 2,
-      textObject: [
-        new TextContainerProperty({
-          containerID: CONTAINER_ID,
-          containerName: CONTAINER_NAME,
-          content: text,
-          xPosition: X,
-          yPosition: Y,
-          width: W,
-          height: H,
-          borderWidth: 1,
-          borderColor: 8,
-          borderRadius: 4,
-          paddingLength: 10,
-          isEventCapture: 1,
-        }),
-      ],
-      imageObject: [
-        new ImageContainerProperty({
-          containerID: IMAGE_ID,
-          containerName: IMAGE_NAME,
-          xPosition: IX,
-          yPosition: IY,
-          width: GLYPH_W,
-          height: GLYPH_H,
-        }),
-      ],
-    }),
-  )
+interface ReviewedCard {
+  card: DueCard
+  reviewId: number
+  xp: number
 }
 
-/** Update the text in the existing container (no flicker). */
-async function updateText(text: string): Promise<void> {
-  await bridge.textContainerUpgrade(
-    new TextContainerUpgrade({
-      containerID: CONTAINER_ID,
-      containerName: CONTAINER_NAME,
-      content: text,
-    }),
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+function bridgeCall<T>(operation: () => Promise<T>, timeoutMs = BRIDGE_TIMEOUT_MS): Promise<T> {
+  // Every SDK call waits for the prior raw call, even if the caller times out.
+  // That prevents a slow BLE hop from overlapping the next bridge operation.
+  const raw = displayTail.then(operation, operation)
+  displayTail = raw.then(
+    () => undefined,
+    () => undefined,
   )
-}
-
-// Temporary: surface why the big-glyph image path did/didn't render, right on
-// the glasses (the WebView has no easy console). Set false to hide.
-const DEBUG_GLYPH = true
-let lastGlyphNote = ''
-
-/** Push a grayscale bitmap to the image container. Returns true on success. */
-async function drawImage(data: number[]): Promise<boolean> {
-  try {
-    const res = await bridge.updateImageRawData(
-      new ImageRawDataUpdate({
-        containerID: IMAGE_ID,
-        containerName: IMAGE_NAME,
-        imageData: data,
-      }),
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(
+      () => reject(new Error('Glasses connection timed out.')),
+      timeoutMs,
     )
-    const ok =
-      res === ImageRawDataUpdateResult.success ||
-      (res as unknown as string) === 'success'
-    lastGlyphNote = `img=${String(res)}(${data.length}B)`
-    return ok
-  } catch (e) {
-    lastGlyphNote = `img-ex:${(e as Error).message}`
-    return false
+    raw.then(
+      (result) => {
+        window.clearTimeout(timeout)
+        resolve(result)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout)
+        reject(error)
+      },
+    )
+  })
+}
+
+function enqueueAction(action: () => Promise<void>): void {
+  actionTail = actionTail.then(action).catch(async (error: unknown) => {
+    await showError(error)
+  })
+}
+
+function fitContent(content: string, max = 1_900): string {
+  if (content.length <= max) return content
+  return `${content.slice(0, max - 1)}…`
+}
+
+function textContainers(
+  heading: string,
+  body: string,
+  footer: string,
+  layout: DisplayLayout,
+): TextContainerProperty[] {
+  const back = layout === 'back'
+  // SDK pinned to 0.0.11: 0.0.12 LZ4-compresses image payloads (compressMode 2),
+  // which the current Even app (2.2.6) rejects with sendFailed. No zOrderIndex
+  // either — that field is also 0.0.12+. Revisit both when the app catches up.
+  const header = new TextContainerProperty({
+    containerID: HEADER_ID,
+    containerName: HEADER_NAME,
+    content: safeContainerContent(heading),
+    xPosition: 0,
+    yPosition: 0,
+    width: 576,
+    height: 38,
+    borderWidth: 0,
+    borderColor: 0,
+    borderRadius: 0,
+    paddingLength: 4,
+    isEventCapture: 0,
+  })
+  const content = [
+    new TextContainerProperty({
+      containerID: BODY_ID,
+      containerName: BODY_NAME,
+      content: fitContent(safeContainerContent(body), 950),
+      xPosition: 0,
+      yPosition: back ? 0 : 38,
+      width: 576,
+      height: back ? 246 : 208,
+      borderWidth: 0,
+      borderColor: 0,
+      borderRadius: 0,
+      paddingLength: 8,
+      isEventCapture: 1,
+    }),
+    new TextContainerProperty({
+      containerID: FOOTER_ID,
+      containerName: FOOTER_NAME,
+      content: safeContainerContent(footer),
+      xPosition: 0,
+      yPosition: 246,
+      width: 576,
+      height: 42,
+      borderWidth: 0,
+      borderColor: 0,
+      borderRadius: 0,
+      paddingLength: 4,
+      isEventCapture: 0,
+    }),
+  ]
+  return back ? content : [header, ...content]
+}
+
+function imageContainers(): ImageContainerProperty[] {
+  return [
+    new ImageContainerProperty({
+      containerID: IMAGE_ID,
+      containerName: IMAGE_NAME,
+      xPosition: IMAGE_X,
+      yPosition: IMAGE_Y,
+      width: LARGE_TEXT_WIDTH,
+      height: LARGE_TEXT_HEIGHT,
+    }),
+  ]
+}
+
+async function createStartupPage(content: string): Promise<void> {
+  if (startupReady) throw new Error('The glasses page was already created.')
+  const result = await bridgeCall(() =>
+    bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
+      containerTotalNum: 4,
+      textObject: textContainers('Canto Flashcards', content, EXIT_CONTROLS, 'front'),
+      imageObject: imageContainers(),
+    })),
+  )
+  if (result !== StartUpPageCreateResult.success && Number(result) !== 0) {
+    throw new Error(`The glasses rejected the startup page (code ${String(result)}).`)
   }
+  startupReady = true
+  displayLayout = 'front'
 }
 
-/** Blank the glyph image (all-black) so text mode isn't overlapped by it. */
-async function clearGlyph(): Promise<void> {
-  if (!glyphActive) return
-  glyphActive = false
-  await drawImage(new Array(GLYPH_W * GLYPH_H).fill(0))
+async function rebuildLayout(
+  heading: string,
+  body: string,
+  footer: string,
+  layout: DisplayLayout,
+): Promise<void> {
+  const ok = await bridgeCall(() =>
+    bridge.rebuildPageContainer(new RebuildPageContainer({
+      containerTotalNum: layout === 'front' ? 4 : 2,
+      textObject: textContainers(heading, body, footer, layout),
+      ...(layout === 'front' ? { imageObject: imageContainers() } : {}),
+    })),
+  )
+  if (!ok) throw new Error(`The glasses could not switch to the ${layout} layout.`)
+  largeTextActive = false
+  displayLayout = layout
 }
 
-/** Show plain text, clearing any glyph first. */
-async function showText(text: string): Promise<void> {
-  await clearGlyph()
-  await updateText(text)
+async function updateTextContainer(
+  containerID: number,
+  containerName: string,
+  content: string,
+  max = 1_900,
+): Promise<void> {
+  const ok = await bridgeCall(() =>
+    bridge.textContainerUpgrade(new TextContainerUpgrade({
+      containerID,
+      containerName,
+      contentOffset: 0,
+      contentLength: 0,
+      content: fitContent(safeContainerContent(content), max),
+    })),
+  )
+  if (!ok) throw new Error(`The glasses could not update ${containerName}.`)
 }
 
-// ── Review loop ──────────────────────────────────────────────────────────────
+async function updateLayout(
+  heading: string,
+  body: string,
+  footer: string,
+  clearImage = true,
+  layout: DisplayLayout = 'front',
+): Promise<void> {
+  if (layout !== displayLayout) {
+    await rebuildLayout(heading, body, footer, layout)
+    return
+  }
+  if (clearImage) await clearLargeText()
+  if (layout === 'front') {
+    await updateTextContainer(HEADER_ID, HEADER_NAME, heading, 180)
+  }
+  await updateTextContainer(BODY_ID, BODY_NAME, body)
+  await updateTextContainer(FOOTER_ID, FOOTER_NAME, footer, 180)
+}
+
+async function showMessage(heading: string, body: string, footer = EXIT_CONTROLS): Promise<void> {
+  await updateLayout(heading, body, footer)
+}
+
+async function sendImage(data: number[]): Promise<ImageRawDataUpdateResult> {
+  return bridgeCall(() =>
+    bridge.updateImageRawData(new ImageRawDataUpdate({
+      containerID: IMAGE_ID,
+      containerName: IMAGE_NAME,
+      imageData: data,
+    })),
+  IMAGE_TIMEOUT_MS)
+}
+
+async function updateImage(data: number[]): Promise<boolean> {
+  let result = await sendImage(data)
+  if (
+    result === ImageRawDataUpdateResult.sendFailed ||
+    String(result).toLowerCase() === 'sendfailed'
+  ) {
+    await sleep(300)
+    result = await sendImage(data)
+  }
+  const success = (
+    result === ImageRawDataUpdateResult.success ||
+    String(result).toLowerCase() === 'success'
+  )
+  if (!success) console.warn(`Image update rejected: ${String(result)}.`)
+  return success
+}
+
+async function clearLargeText(): Promise<void> {
+  if (!largeTextActive) return
+  largeTextActive = false
+  const blank = await renderBlankLargeText((message) => console.warn(message))
+  if (blank) await updateImage(blank.data)
+}
+
+function header(cardView: CardView): string {
+  return `${cardView.hint}  |  ${index + 1}/${queue.length}`
+}
+
+async function showPrompt(cardView: CardView): Promise<void> {
+  const footer = loadShowHints() ? PROMPT_CONTROLS : ''
+  if (shouldRenderLarge(cardView.prompt)) {
+    const bitmap = await renderLargeText(cardView.prompt, (message) => console.warn(message))
+    if (bitmap) {
+      // The image frame takes seconds over BLE, so show the prompt as regular
+      // text at the top of the body right away (clear of the image area), and
+      // remove it once the large-text frame has arrived.
+      await updateLayout(header(cardView), cardView.prompt, footer)
+      if (await updateImage(bitmap.data)) {
+        largeTextActive = true
+        await updateTextContainer(BODY_ID, BODY_NAME, '')
+      }
+      return
+    }
+  }
+  await updateLayout(header(cardView), `\n\n${cardView.prompt}`, footer)
+}
+
+async function renderCard(): Promise<void> {
+  const card = queue[index]
+  if (!card) return
+  if (phase === 'prompt' || !view) view = buildView(card)
+
+  if (phase === 'prompt') {
+    await showPrompt(view)
+    return
+  }
+
+  const reading = view.reading ? `\n${view.reading}` : ''
+  const notes = card.notes?.trim() ? `\n\n${card.notes.trim()}` : ''
+  await updateLayout(
+    '',
+    `${view.prompt}${reading}\n${BACK_DIVIDER}\n${view.answer}${notes}`,
+    REVEAL_CONTROLS,
+    true,
+    'back',
+  )
+}
 
 async function begin(labelIds: number[] = deckLabels): Promise<void> {
+  if (!api) return
   deckLabels = labelIds
-  await showText('Loading your flashcards...')
+  await showMessage('Canto Flashcards', 'Loading your flashcards…', EXIT_CONTROLS)
 
   let romanizable: Set<string>
   let cards: DueCard[]
   try {
-    ;[romanizable, { cards }] = await Promise.all([
+    const [languages, session] = await Promise.all([
       api.romanizableLangs(),
-      api.dueSession(labelIds).then((s) => ({ cards: s.cards })),
+      api.dueSession(labelIds),
     ])
-  } catch (e) {
-    return showError(e)
+    romanizable = languages
+    cards = session.cards
+  } catch (error) {
+    await showError(error)
+    return
   }
 
   queue = playableCards(cards, romanizable)
-  idx = 0
+  index = 0
+  phase = 'prompt'
+  view = null
   xp = 0
   graded = 0
-  awarded = []
-  phase = 'prompt'
+  reviewHistory = []
 
   if (queue.length === 0) {
-    await showText('All caught up!\n\nNo cards due right now.\n\n( tap to check again )')
+    await showMessage('All caught up!', 'No cards are due right now.', RESTART_CONTROLS)
     return
   }
-
-  await render()
-}
-
-/** Header line: what's being tested + progress. */
-function header(v: CardView): string {
-  return `${v.hint}  |  ${idx + 1}/${queue.length}`
-}
-
-async function render(): Promise<void> {
-  const card = queue[idx]
-  if (phase === 'prompt') view = buildView(card)
-  const v = view!
-
-  if (phase === 'prompt') {
-    const backHint = idx > 0 ? '  ·  2× tap = back' : ''
-    // Draw a lone character BIG via the image path; keep the instructions as
-    // two compact lines up top, with the glyph centered below.
-    lastGlyphNote = ''
-    if (shouldRenderAsGlyph(v.prompt)) {
-      const bmp = renderGlyph(v.prompt)
-      if (!bmp) lastGlyphNote = 'render=null'
-      if (bmp && (await drawImage(bmp.data))) {
-        glyphActive = true
-        await updateText(`${header(v)}\n( tap to reveal${backHint} )`)
-        return
-      }
-    } else {
-      lastGlyphNote = `noglyph(len=${[...v.prompt.trim()].length})`
-    }
-    const dbg = DEBUG_GLYPH && lastGlyphNote ? `\n\n[${lastGlyphNote}]` : ''
-    await showText(`${header(v)}\n\n\n${v.prompt}\n\n\n( tap to reveal${backHint} )${dbg}`)
-  } else {
-    const notes = card.notes && card.notes.trim() ? `\n\n${card.notes.trim()}` : ''
-    await showText(
-      `${header(v)}\n\n` +
-        `${v.prompt}\n---\n${v.answer}${notes}\n\n` +
-        `tap = got it  ·  swipe ↓ = again`,
-    )
-  }
+  await renderCard()
 }
 
 async function grade(quality: Quality): Promise<void> {
-  const card = queue[idx]
-  busy = true
-
-  let gained = 0
-  try {
-    const res = await api.review(card.card_id, card.face, quality)
-    gained = res.xp || 0
-  } catch (e) {
-    busy = false
-    return showError(e)
+  const card = queue[index]
+  if (!api || !card) return
+  const result = await api.review(card.card_id, card.face, quality)
+  const gained = result.xp || 0
+  xp += gained
+  graded += 1
+  if (Number.isInteger(result.review_id)) {
+    reviewHistory.push({ card, reviewId: result.review_id!, xp: gained })
+  } else {
+    console.warn('The connected server does not support review undo yet.')
   }
 
-  // Acknowledge the input explicitly — the ring can be finicky, so show that
-  // the grade registered before moving on.
-  xp += gained
-  awarded[idx] = gained
-  graded += 1
-  const ack = quality === 'good' ? `👍 Got it   +${gained} XP` : '👎 Again'
-  await showText(`\n\n${ack}`)
+  const acknowledgment = quality === 'good' ? `Got it  +${gained} XP` : 'Again'
+  await updateLayout('', `\n\n${acknowledgment}`, '', true, 'back')
   await sleep(GRADE_ACK_MS)
 
-  idx += 1
+  queue.splice(index, 1)
   phase = 'prompt'
-  busy = false
-  if (idx >= queue.length) return finish()
-  await render()
+  view = null
+  if (queue.length === 0) {
+    await finish()
+    return
+  }
+  if (index >= queue.length) index = 0
+  await renderCard()
 }
 
-/** Prompt-phase "go back": re-show the previous card so it can be re-read. */
 async function goBack(): Promise<void> {
-  if (idx <= 0) return
-  busy = true
-  idx -= 1
-  // The previous card was already graded; walk its award back so the running
-  // totals stay honest. (There's no server endpoint to reverse an SRS review,
-  // so re-grading it simply schedules a fresh review.)
-  const prev = awarded[idx] || 0
-  xp = Math.max(0, xp - prev)
-  graded = Math.max(0, graded - 1)
-  awarded.length = idx
+  const previous = reviewHistory[reviewHistory.length - 1]
+  if (previous && api) {
+    await api.undoReview(previous.reviewId)
+    reviewHistory.pop()
+    xp = Math.max(0, xp - previous.xp)
+    graded = Math.max(0, graded - 1)
+    queue.splice(index, 0, previous.card)
+    phase = 'prompt'
+    view = null
+    await renderCard()
+    return
+  }
+  if (queue.length <= 1) return
+  index = (index - 1 + queue.length) % queue.length
   phase = 'prompt'
-  busy = false
-  await render()
+  view = null
+  await renderCard()
+}
+
+async function skip(): Promise<void> {
+  if (queue.length <= 1) return
+  index = (index + 1) % queue.length
+  phase = 'prompt'
+  view = null
+  await renderCard()
 }
 
 async function finish(): Promise<void> {
-  await clearGlyph()
-  let tail = ''
+  await clearLargeText()
+  let streak = ''
   try {
-    const s = await api.streak()
-    tail = `\n\nStreak: ${s.streak}   XP today: ${s.points_today}/${s.daily_goal}`
+    const summary = await api?.streak()
+    if (summary) {
+      streak = `\n\nStreak: ${summary.streak}   XP today: ${summary.points_today}/${summary.daily_goal}`
+    }
   } catch {
-    /* summary is best-effort */
+    // The session result is still useful if the summary request fails.
   }
-  await updateText(
-    `Session done!\n\n${graded} cards   +${xp} XP${tail}\n\n( tap to check for more )`,
+  await updateLayout(
+    'Session done!',
+    `${graded} cards   +${xp} XP${streak}`,
+    FINISH_CONTROLS,
+    false,
   )
 }
 
-function showError(e: unknown): void {
-  const msg = e instanceof ApiError ? e.message : 'Something went wrong.'
-  void showText(`Flashcards\n\n${msg}`)
+async function showError(error: unknown): Promise<void> {
+  const message = error instanceof ApiError || error instanceof Error
+    ? error.message
+    : 'Something went wrong.'
+  console.error(message)
+  if (startupReady) {
+    try {
+      await showMessage('Flashcards', message, EXIT_CONTROLS)
+    } catch {
+      // The phone UI remains available if the BLE connection has failed.
+    }
+  }
+  const status = document.getElementById('phone-status')
+  if (status) {
+    status.textContent = message
+    status.style.color = '#b42318'
+  }
 }
 
-// ── Event handling ───────────────────────────────────────────────────────────
+async function requestExit(): Promise<void> {
+  await bridgeCall(() => bridge.shutDownPageContainer(1))
+}
 
-function resolveEventType(event: EvenHubEvent): number | undefined {
-  if (event.textEvent) return event.textEvent.eventType
-  if (event.sysEvent) return event.sysEvent.eventType
-  if (event.listEvent) return event.listEvent.eventType
-  return undefined
+async function performCardAction(action: CardAction): Promise<void> {
+  if (action === 'none') return
+  if (action === 'reveal') {
+    phase = 'reveal'
+    await renderCard()
+    return
+  }
+  if (action === 'good' || action === 'again') {
+    await grade(action)
+    return
+  }
+  if (action === 'back') {
+    await goBack()
+    return
+  }
+  if (action === 'skip') {
+    await skip()
+    return
+  }
+  await requestExit()
+}
+
+function cleanup(): void {
+  unsubscribeEvents?.()
+  unsubscribeEvents = null
+}
+
+async function handleEvent(event: EvenHubEvent): Promise<void> {
+  if (event.sysEvent) {
+    const type = event.sysEvent.eventType ?? OsEventTypeList.CLICK_EVENT
+    if (type === OsEventTypeList.FOREGROUND_ENTER_EVENT) {
+      if (connected && queue.length > 0 && index < queue.length) await renderCard()
+      return
+    }
+    if (type === OsEventTypeList.FOREGROUND_EXIT_EVENT) return
+    if (
+      type === OsEventTypeList.ABNORMAL_EXIT_EVENT ||
+      type === OsEventTypeList.SYSTEM_EXIT_EVENT
+    ) {
+      cleanup()
+      return
+    }
+    if (!connected) {
+      if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) await requestExit()
+      return
+    }
+    if (index >= queue.length) {
+      if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) await requestExit()
+      else if (type === OsEventTypeList.CLICK_EVENT) await begin()
+      return
+    }
+    if (type === OsEventTypeList.CLICK_EVENT) {
+      await performCardAction(cardAction(phase, 'press'))
+      return
+    }
+    if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+      await performCardAction(cardAction(phase, 'double-press'))
+    }
+    return
+  }
+
+  if (!connected || !event.textEvent) return
+  const type = event.textEvent.eventType
+  let input: CardInput | null = null
+  if (type === OsEventTypeList.SCROLL_TOP_EVENT) input = 'swipe-up'
+  if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) input = 'swipe-down'
+  if (index >= queue.length) {
+    if (input === 'swipe-up' && reviewHistory.length > 0) await goBack()
+    return
+  }
+  if (input) await performCardAction(cardAction(phase, input))
 }
 
 function onEvent(event: EvenHubEvent): void {
-  if (busy) return
-
-  const eventType = resolveEventType(event)
-
-  // Finished / empty screen -> any press restarts with the current deck scope.
-  if (idx >= queue.length) {
-    void begin()
-    return
-  }
-
-  switch (eventType) {
-    // Tap -> reveal or "got it"
-    case OsEventTypeList.CLICK_EVENT:
-    case undefined: // SDK normalizes 0 (CLICK) to undefined
-      if (phase === 'prompt') {
-        phase = 'reveal'
-        void render()
-      } else {
-        void grade('good')
-      }
-      break
-
-    // Double-tap -> go back (prompt) / "missed it" (reveal)
-    case OsEventTypeList.DOUBLE_CLICK_EVENT:
-      if (phase === 'reveal') {
-        void grade('again')
-      } else {
-        void goBack()
-      }
-      break
-
-    // Swipe up -> "got it"
-    case OsEventTypeList.SCROLL_TOP_EVENT:
-      if (phase === 'reveal') {
-        void grade('good')
-      }
-      break
-
-    // Swipe down -> "missed it"
-    case OsEventTypeList.SCROLL_BOTTOM_EVENT:
-      if (phase === 'reveal') {
-        void grade('again')
-      }
-      break
-  }
+  enqueueAction(() => handleEvent(event))
 }
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
+function phoneShell(content: string): void {
+  document.body.innerHTML = `
+    <main style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
+      ${content}
+      <p id="phone-status" style="margin-top:12px;font-size:.88rem;color:#666"></p>
+    </main>
+  `
+}
+
+function showPhoneConfig(): void {
+  phoneShell(`
+    <h2 style="margin:0 0 8px">Connect your glasses</h2>
+    <ol style="color:#555;padding-left:1.2em;line-height:1.5">
+      <li>Open the flashcard site’s <strong>Settings → Even G2 glasses</strong>.</li>
+      <li>Generate and copy a token.</li>
+      <li>Paste it here.</li>
+    </ol>
+    <label style="display:block;font-weight:600;font-size:.88rem">API token</label>
+    <input id="config-token" type="text" autocomplete="off" placeholder="Paste token"
+      style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #bbb;border-radius:8px;font:1rem monospace">
+    <label style="display:block;font-weight:600;font-size:.88rem;margin-top:14px">Site</label>
+    <select id="config-url" style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #bbb;border-radius:8px;background:#fff;font-size:1rem">
+      <option value="https://canto-anki.silcoff-labs.ca">Production</option>
+      <option value="https://dev.canto-anki.silcoff-labs.ca">Beta / development</option>
+    </select>
+    <button id="config-save" style="width:100%;margin-top:18px;padding:13px;background:#2d6a4f;color:#fff;border:0;border-radius:8px;font-size:1rem;font-weight:650">Connect</button>
+  `)
+  const url = document.getElementById('config-url') as HTMLSelectElement
+  url.value = loadBaseUrl()
+  document.getElementById('config-save')?.addEventListener('click', () => {
+    enqueueAction(async () => {
+      const token = (document.getElementById('config-token') as HTMLInputElement).value.trim()
+      const status = document.getElementById('phone-status')!
+      if (!token) {
+        status.textContent = 'Paste your token first.'
+        status.style.color = '#b42318'
+        return
+      }
+      status.textContent = 'Testing connection…'
+      const candidate = new ApiClient(url.value, token)
+      await candidate.streak()
+      saveConfig({ baseUrl: url.value, token })
+      api = candidate
+      connected = true
+      showPhonePanel()
+      await begin(deckLabels)
+    })
+  })
+}
+
+function showPhonePanel(): void {
+  phoneShell(`
+    <h2 style="margin:0 0 6px">Canto Flashcards</h2>
+    <p style="color:#666;margin:0 0 18px">Review is running on your glasses.</p>
+    <label style="display:block;font-weight:600;font-size:.88rem">Study</label>
+    <select id="deck-select" style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #bbb;border-radius:8px;background:#fff;font-size:1rem">
+      <option value="">All due cards</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:10px;margin-top:16px;font-size:.95rem">
+      <input id="hints-toggle" type="checkbox" style="width:18px;height:18px;accent-color:#2d6a4f">
+      Show button hints on the card front
+    </label>
+    <p style="margin:4px 0 0 28px;color:#888;font-size:.8rem">Turn off for a cleaner display once you know the controls.</p>
+    <button id="deck-start" style="width:100%;margin-top:16px;padding:13px;background:#2d6a4f;color:#fff;border:0;border-radius:8px;font-size:1rem;font-weight:650">Start review</button>
+    <button id="change-token" style="margin-top:22px;background:none;border:0;color:#777;text-decoration:underline">Change token / site</button>
+  `)
+  const hints = document.getElementById('hints-toggle') as HTMLInputElement
+  hints.checked = loadShowHints()
+  hints.addEventListener('change', () => {
+    saveShowHints(hints.checked)
+    // Repaint the current card so the change is visible immediately.
+    if (connected && phase === 'prompt' && index < queue.length) {
+      enqueueAction(() => renderCard())
+    }
+  })
+  const select = document.getElementById('deck-select') as HTMLSelectElement
+  void api?.listLabels().then((labels: Label[]) => {
+    const withCards = labels.filter((label) => label.card_count > 0)
+    withCards.sort((a, b) => a.name.localeCompare(b.name))
+    for (const label of withCards) {
+      const option = document.createElement('option')
+      option.value = String(label.id)
+      option.textContent = `${label.name} (${label.card_count})`
+      select.appendChild(option)
+    }
+    if (deckLabels.length === 1) select.value = String(deckLabels[0])
+  }).catch((error: unknown) => showError(error))
+
+  document.getElementById('deck-start')?.addEventListener('click', () => {
+    const selected = select.value ? [Number(select.value)] : []
+    saveDeckLabels(selected)
+    enqueueAction(() => begin(selected))
+  })
+  document.getElementById('change-token')?.addEventListener('click', () => {
+    clearConfig()
+    connected = false
+    api = null
+    showPhoneConfig()
+  })
+}
 
 async function main(): Promise<void> {
-  const cfg = loadConfig()
   deckLabels = loadDeckLabels()
-
   bridge = await waitForEvenAppBridge()
-  bridge.onEvenHubEvent(onEvent)
+  unsubscribeEvents = bridge.onEvenHubEvent(onEvent)
 
-  if (!cfg) {
-    await showStartup(
-      'Setup needed\n\n' +
-        'Open this plugin on your phone\n' +
-        'and paste your API token.\n\n' +
-        '(Generate one in the site\'s\n' +
-        'Settings > Even glasses)',
+  const config = loadConfig()
+  if (!config) {
+    await createStartupPage(
+      'Setup needed\n\nOpen this plugin on your phone and paste the token from Settings → Even G2 glasses.',
     )
-    showPhoneConfigUI()
+    showPhoneConfig()
     return
   }
 
-  api = new ApiClient(cfg.baseUrl, cfg.token)
-  await showStartup('Connecting...')
-  // Auto-start on the glasses with the saved deck scope, and also show the
-  // phone panel so the deck / token can be changed and the review restarted.
+  api = new ApiClient(config.baseUrl, config.token)
+  connected = true
+  await createStartupPage('Connecting…')
   showPhonePanel()
   await begin(deckLabels)
 }
 
-/**
- * First-run setup form in the phone's WebView. Token-first (all a deployed
- * user needs); the site URL defaults to production behind an "Advanced" line.
- */
-function showPhoneConfigUI(): void {
-  document.body.innerHTML = `
-    <div style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
-      <h2 style="margin:0 0 6px">Connect your glasses</h2>
-      <ol style="font-size:0.92em;color:#555;padding-left:1.1em;margin:0 0 16px;line-height:1.5">
-        <li>In the flashcard site, open <strong>Settings &rarr; Even glasses</strong>.</li>
-        <li>Tap <strong>Generate token</strong> and copy it.</li>
-        <li>Paste it below and tap Connect.</li>
-      </ol>
-      <label style="display:block;font-weight:600;font-size:0.85em">API Token</label>
-      <input id="cfg-token" type="text" placeholder="Paste your token here"
-        style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:1em;font-family:monospace">
-      <details style="margin-top:14px">
-        <summary style="cursor:pointer;font-size:0.85em;color:#2d6a4f">Advanced: site URL</summary>
-        <input id="cfg-url" type="url"
-          style="width:100%;box-sizing:border-box;padding:10px;margin-top:8px;border:1px solid #ccc;border-radius:6px;font-size:0.95em"
-          value="${loadBaseUrl()}">
-        <p style="font-size:0.78em;color:#888;margin:6px 0 0">Only change this if you self-host at a different address.</p>
-      </details>
-      <button id="cfg-save" style="display:block;width:100%;margin-top:18px;padding:13px;
-        background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer">
-        Connect
-      </button>
-      <p id="cfg-status" style="margin-top:10px;font-size:0.85em;color:#666"></p>
-    </div>
-  `
-  document.getElementById('cfg-save')!.addEventListener('click', async () => {
-    const token = (document.getElementById('cfg-token') as HTMLInputElement).value.trim()
-    const urlInput = (document.getElementById('cfg-url') as HTMLInputElement | null)
-    const url = (urlInput?.value || loadBaseUrl()).trim()
-    const status = document.getElementById('cfg-status')!
-
-    if (!token) {
-      status.textContent = 'Please paste your API token.'
-      status.style.color = '#c0392b'
-      return
-    }
-
-    status.textContent = 'Testing connection...'
-    status.style.color = '#666'
-
-    const testApi = new ApiClient(url, token)
-    try {
-      await testApi.streak()
-    } catch (e) {
-      status.textContent =
-        e instanceof ApiError ? e.message : 'Could not connect. Check the URL.'
-      status.style.color = '#c0392b'
-      return
-    }
-
-    localStorage.setItem('canto_base_url', url)
-    localStorage.setItem('canto_api_token', token)
-    status.textContent = 'Connected!'
-    status.style.color = '#27ae60'
-
-    api = new ApiClient(url, token)
-    showPhonePanel()
-    await begin(deckLabels)
-  })
-}
-
-/**
- * The persistent phone control panel (shown once connected): pick a deck/label
- * to study and (re)start the glasses review. Reachable even when the plugin was
- * launched from the glasses, so the deck can always be changed.
- */
-function showPhonePanel(): void {
-  document.body.innerHTML = `
-    <div style="max-width:420px;margin:32px auto;padding:20px;font-family:system-ui,sans-serif;color:#222">
-      <h2 style="margin:0 0 4px">Flashcards on your glasses</h2>
-      <p style="font-size:0.9em;color:#666;margin:0 0 18px">Review is running on your glasses. Pick what to study, then Start.</p>
-      <label style="display:block;font-weight:600;font-size:0.85em">Study</label>
-      <select id="deck-select"
-        style="width:100%;box-sizing:border-box;padding:12px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:1em;background:#fff">
-        <option value="">All due cards</option>
-      </select>
-      <button id="deck-start" style="display:block;width:100%;margin-top:16px;padding:13px;
-        background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer">
-        Start review
-      </button>
-      <p id="deck-status" style="margin-top:10px;font-size:0.85em;color:#666"></p>
-      <button id="deck-reset" style="display:block;margin-top:22px;background:none;border:none;
-        color:#999;font-size:0.8em;text-decoration:underline;cursor:pointer">Change token / site</button>
-    </div>
-  `
-
-  const select = document.getElementById('deck-select') as HTMLSelectElement
-  const status = document.getElementById('deck-status')!
-
-  // Populate deck / label options; 📦 deck labels first, then categories.
-  void api
-    .listLabels()
-    .then((labels: Label[]) => {
-      const withCards = labels.filter((l) => (l.card_count || 0) > 0)
-      const isDeck = (l: Label) => l.name.startsWith('📦')
-      withCards.sort((a, b) => {
-        if (isDeck(a) !== isDeck(b)) return isDeck(a) ? -1 : 1
-        return a.name.localeCompare(b.name)
-      })
-      for (const l of withCards) {
-        const opt = document.createElement('option')
-        opt.value = String(l.id)
-        opt.textContent = `${l.name} (${l.card_count})`
-        select.appendChild(opt)
-      }
-      // Restore the saved scope (single label; empty = all).
-      if (deckLabels.length === 1) select.value = String(deckLabels[0])
-    })
-    .catch(() => {
-      status.textContent = 'Could not load your decks (still reviewing all due cards).'
-    })
-
-  document.getElementById('deck-start')!.addEventListener('click', async () => {
-    const val = select.value
-    const labels = val ? [Number(val)] : []
-    saveDeckLabels(labels)
-    deckLabels = labels
-    status.textContent = 'Starting on your glasses...'
-    status.style.color = '#27ae60'
-    await begin(labels)
-  })
-
-  document.getElementById('deck-reset')!.addEventListener('click', () => {
-    localStorage.removeItem('canto_api_token')
-    showPhoneConfigUI()
-  })
-}
-
-main()
+void main().catch((error: unknown) => {
+  phoneShell('<h2 style="margin:0 0 8px">Canto Flashcards could not start</h2>')
+  void showError(error)
+})
