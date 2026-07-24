@@ -66,8 +66,6 @@
       display: flex; align-items: center; font-size: 1.05rem; line-height: 1; }
     .tbr-icon:hover { background: var(--surface-alt); }
     .tbr-icon.on { color: var(--primary); }
-    .tbr-chap { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
-      padding: 4px 8px; font-size: .78rem; max-width: 42vw; }
     .tbr-stage { flex: 1; display: flex; overflow: hidden; min-height: 0; }
     .tbr-imgwrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 12px;
       -webkit-overflow-scrolling: touch; }
@@ -136,6 +134,31 @@
     .tb-vselbar button { background: none; border: none; color: var(--primary); cursor: pointer; font-size: .78rem; font-family: inherit; }
     .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Chapters (TOC + editor) ── */
+    .tbr-chapcap { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 3px 12px 0; background: var(--surface); flex-shrink: 0; }
+    .toc-tools { display: flex; gap: 8px; margin: 0 0 12px; }
+    .toc-tools button { background: var(--surface-alt); border: none; border-radius: 9px; padding: 7px 12px; font-size: .8rem; cursor: pointer; color: var(--text); font-family: inherit; }
+    .toc-tools button:hover { background: var(--border); }
+    .toc-list { display: flex; flex-direction: column; gap: 4px; max-height: 54vh; overflow: auto; margin-bottom: 12px; }
+    .toc-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--bg); }
+    .toc-row:hover { border-color: var(--primary); }
+    .toc-row.here { border-color: var(--primary); background: var(--primary-soft); }
+    .toc-row-main { flex: 1; min-width: 0; }
+    .toc-row-title { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toc-row-pages { font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+    .toc-skip { font-size: .6rem; padding: 1px 6px; border-radius: 999px; background: var(--warn-soft); color: var(--warn-strong); }
+    .toc-go { color: var(--text-muted); font-size: 1.1rem; flex-shrink: 0; }
+    .toc-erow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .toc-erow .tb-input { padding: 6px 9px; font-size: .85rem; }
+    .toc-erow .toc-etitle { flex: 1; min-width: 0; }
+    .toc-numin { width: 52px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 6px 4px; font-size: .85rem; font-family: inherit; text-align: center; }
+    .toc-dash { color: var(--text-muted); font-size: .8rem; }
+    .toc-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 2px 6px; line-height: 1; }
+    .toc-del:hover { color: var(--danger); }
+    .toc-add { background: var(--surface-alt); border: 1px dashed var(--border); border-radius: 9px; padding: 8px; width: 100%; box-sizing: border-box; cursor: pointer; color: var(--text-muted); font-family: inherit; font-size: .82rem; margin-top: 8px; }
+    .toc-add:hover { color: var(--primary); border-color: var(--primary); }
+    .toc-empty { text-align: center; color: var(--text-muted); font-size: .85rem; padding: 14px 8px 18px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -157,10 +180,11 @@
   <div class="tbr-top">
     <button class="tbr-icon" onclick="closeReader()" aria-label="Back">‹</button>
     <span class="tbr-title" id="tbr-title"></span>
-    <select class="tbr-chap settings-select" id="tbr-chap" onchange="jumpChapter(this.value)" style="display:none"></select>
+    <button class="tbr-icon" id="tbr-contents" onclick="openChapters(_rb && _rb.id, true)" title="Chapters" aria-label="Chapters">☰</button>
     <button class="tbr-icon" id="tbr-bookmark" onclick="toggleBookmark()" title="Bookmark this page">☆</button>
     <button class="tbr-icon" id="tbr-texttoggle" onclick="toggleTextPane()" title="Show extracted text">Aa</button>
   </div>
+  <div class="tbr-chapcap" id="tbr-chapcap"></div>
   <div class="tbr-actions">
     <button onclick="readerBuildVocab()">📇 Build vocab deck (this chapter)</button>
     <button onclick="readerCreateLessons()">📘 Turn chapter into lessons</button>
@@ -237,6 +261,7 @@
           <div class="tb-bar"><span style="width:${pct}%"></span></div>
           <div class="tb-card-actions">
             <button class="tb-read-btn" onclick="openReader(${b.id})">${pct > 0 ? 'Resume' : 'Read'}</button>
+            <button class="tb-mini" onclick="event.stopPropagation();openChapters(${b.id})">Chapters</button>
             <button class="tb-mini" onclick="renameBook(${b.id})">Rename</button>
             <button class="tb-mini danger" onclick="deleteBook(${b.id})">Delete</button>
           </div>
@@ -321,13 +346,6 @@
     _bookmarks = new Set(_rb.bookmarks || []);
     _page = Math.min(Math.max(1, _rb.last_page || 1), _rb.num_pages || 1);
     document.getElementById('tbr-title').textContent = _rb.title;
-    // Chapter jump
-    const sel = document.getElementById('tbr-chap');
-    if ((_rb.chapters || []).length) {
-      sel.style.display = '';
-      sel.innerHTML = '<option value="">Jump to chapter…</option>' +
-        _rb.chapters.map((c, i) => `<option value="${c.start}">${esc(c.title)} · p${c.start}</option>`).join('');
-    } else { sel.style.display = 'none'; }
     document.body.classList.add('hide-tabbar');
     document.getElementById('reader').classList.add('open');
     renderPage();
@@ -369,7 +387,16 @@
     }
     // Side/drawer text
     document.getElementById('tbr-text').innerHTML = _pageText(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
+    updateChapterCaption();
     scheduleSave();
+  }
+
+  function updateChapterCaption() {
+    const cap = document.getElementById('tbr-chapcap');
+    if (!cap) return;
+    const ch = (_rb && _rb.chapters || []).find(c => _page >= c.start && _page <= c.end);
+    cap.textContent = ch ? `${ch.title} · p${_page} of ${ch.start}–${ch.end}` : '';
+    cap.style.display = ch ? '' : 'none';
   }
 
   function _pageText(n) {
@@ -385,10 +412,163 @@
     renderPage();
   }
 
-  function jumpChapter(v) {
-    const p = parseInt(v, 10);
-    if (p && _rb) { _page = Math.min(Math.max(1, p), _rb.num_pages); renderPage(); }
-    document.getElementById('tbr-chap').value = '';
+  // ── Chapters: TOC + inline editor + AI (re)detect ──────────────────────────
+  let _chBook = null;      // { id, title, num_pages, chapters, fromReader }
+  let _chEdit = false;
+  let _chDraft = null;     // working copy while editing
+
+  function _bookById(id) {
+    if (_rb && _rb.id === id) return _rb;
+    return _books.find(b => b.id === id) || null;
+  }
+
+  function openChapters(id, fromReader) {
+    const b = _bookById(id);
+    if (!b) return;
+    _chBook = { id: b.id, title: b.title, num_pages: b.num_pages,
+                chapters: (b.chapters || []).map(c => ({ ...c })), fromReader: !!fromReader };
+    _chEdit = false; _chDraft = null;
+    renderChapters();
+  }
+
+  function startEditChapters() {
+    _chDraft = (_chBook.chapters || []).map(c => ({ ...c }));
+    if (!_chDraft.length) _chDraft.push({ title: '', start: 1, end: _chBook.num_pages, skip_hint: false, status: '' });
+    _chEdit = true;
+    renderChapters();
+  }
+
+  function _syncDraft() {
+    if (!_chDraft) return;
+    document.querySelectorAll('.toc-erow input').forEach(inp => {
+      const i = +inp.dataset.i, k = inp.dataset.k;
+      if (!_chDraft[i]) return;
+      _chDraft[i][k] = k === 'title' ? inp.value : (parseInt(inp.value, 10) || 0);
+    });
+  }
+
+  function addChapterRow() {
+    _syncDraft();
+    const last = _chDraft[_chDraft.length - 1];
+    const start = last ? Math.min(_chBook.num_pages, (last.end || 0) + 1) : 1;
+    _chDraft.push({ title: '', start, end: start, skip_hint: false, status: '' });
+    renderChapters();
+  }
+
+  function deleteChapterRow(i) { _syncDraft(); _chDraft.splice(i, 1); renderChapters(); }
+
+  function renderChapters() {
+    const b = _chBook;
+    const curCh = (_rb && _rb.id === b.id) ? _page : null;
+    let body;
+    if (_chEdit) {
+      body = `<div class="toc-list">` + _chDraft.map((c, i) => `
+        <div class="toc-erow">
+          <input class="tb-input toc-etitle" data-i="${i}" data-k="title" value="${esc(c.title)}" placeholder="Chapter title">
+          <input class="toc-numin" data-i="${i}" data-k="start" type="number" min="1" max="${b.num_pages}" value="${c.start}" title="First page">
+          <span class="toc-dash">–</span>
+          <input class="toc-numin" data-i="${i}" data-k="end" type="number" min="1" max="${b.num_pages}" value="${c.end}" title="Last page">
+          <button class="toc-del" onclick="deleteChapterRow(${i})" title="Remove chapter">✕</button>
+        </div>`).join('') + `</div>
+        <button class="toc-add" onclick="addChapterRow()">＋ Add chapter</button>
+        <div id="ch-status"></div>
+        <div class="tb-row-actions">
+          <button class="tb-btn ghost" onclick="_chEdit=false;renderChapters()">Cancel</button>
+          <button class="tb-btn" id="ch-save" onclick="saveChapters()">Save chapters</button>
+        </div>`;
+    } else if (!b.chapters.length) {
+      body = `<div class="toc-empty">No chapters yet.<br>Let AI find them from the book's structure, or add them by hand.</div>
+        <div id="ch-status"></div>
+        <div class="tb-row-actions" style="justify-content:center">
+          <button class="tb-btn ghost" onclick="startEditChapters()">＋ Add manually</button>
+          <button class="tb-btn" id="ch-redetect" onclick="redetectChapters()">✨ Detect with AI</button>
+        </div>`;
+    } else {
+      body = `<div class="toc-tools">
+          <button onclick="startEditChapters()">✏️ Edit divisions</button>
+          <button id="ch-redetect" onclick="redetectChapters()">✨ Re-detect with AI</button>
+        </div>
+        <div id="ch-status"></div>
+        <div class="toc-list">` + b.chapters.map(c => {
+          const here = curCh != null && curCh >= c.start && curCh <= c.end;
+          const tags = [];
+          if (c.skip_hint) tags.push('<span class="toc-skip">skip</span>');
+          if (c.status === 'queued') tags.push('lessons made');
+          return `<div class="toc-row${here ? ' here' : ''}" onclick="gotoChapter(${c.start})">
+            <div class="toc-row-main">
+              <div class="toc-row-title">${esc(c.title)}</div>
+              <div class="toc-row-pages">pages ${c.start}–${c.end}${tags.length ? ' · ' + tags.join(' · ') : ''}</div>
+            </div>
+            <span class="toc-go">›</span>
+          </div>`;
+        }).join('') + `</div>`;
+    }
+    const sub = _chEdit ? 'Set each chapter’s page range' : (b.chapters.length ? 'Tap a chapter to read from there' : '');
+    openModal(`<h2>Chapters</h2><p class="tb-sub">${esc(b.title)}${sub ? ' · ' + sub : ''}</p>${body}`);
+  }
+
+  function _applyChapters(chs) {
+    _chBook.chapters = (chs || []).map(c => ({ ...c }));
+    const b = _books.find(x => x.id === _chBook.id); if (b) b.chapters = chs || [];
+    if (_rb && _rb.id === _chBook.id) { _rb.chapters = chs || []; updateChapterCaption(); }
+    renderLibrary();
+  }
+
+  async function saveChapters() {
+    _syncDraft();
+    const chapters = _chDraft
+      .map(c => ({ title: (c.title || '').trim(), start: c.start, end: c.end,
+                   skip_hint: !!c.skip_hint, status: c.status || '' }))
+      .filter(c => c.title && c.start && c.end);
+    const st = document.getElementById('ch-status');
+    const btn = document.getElementById('ch-save'); if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`/api/textbooks/${_chBook.id}/chapters`, { method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chapters }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Could not save chapters.');
+      _applyChapters(data.chapters);
+      _chEdit = false;
+      renderChapters();
+    } catch (e) {
+      if (st) st.innerHTML = `<div class="tb-error">${esc(e.message || 'Could not save.')}</div>`;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function redetectChapters() {
+    const st = document.getElementById('ch-status');
+    const btn = document.getElementById('ch-redetect'); if (btn) btn.disabled = true;
+    if (st) st.innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Scanning the book for chapter boundaries…</div>';
+    try {
+      const r = await fetch(`/api/textbooks/${_chBook.id}/analyze`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Detection failed.');
+      _applyChapters(data.chapters);
+      _chEdit = false;
+      if (!(data.chapters || []).length) {
+        renderChapters();
+        const st2 = document.getElementById('ch-status');
+        if (st2) st2.innerHTML = '<div class="tb-error">AI couldn’t find clear chapter breaks. Add them by hand instead.</div>';
+      } else {
+        renderChapters();
+      }
+    } catch (e) {
+      if (st) st.innerHTML = `<div class="tb-error">${esc(e.message || 'Detection failed.')}</div>`;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function gotoChapter(p) {
+    const id = _chBook.id;
+    const page = Math.min(Math.max(1, p), _chBook.num_pages);
+    closeModal();
+    if (_rb && _rb.id === id && document.getElementById('reader').classList.contains('open')) {
+      _page = page; renderPage();
+    } else {
+      openReader(id).then(() => { _page = page; renderPage(); });
+    }
   }
 
   function toggleTextPane() {
@@ -423,6 +603,10 @@
 
   // Keyboard nav (desktop)
   document.addEventListener('keydown', (e) => {
+    if (document.getElementById('tb-modal').classList.contains('open')) {
+      if (e.key === 'Escape') closeModal();
+      return;
+    }
     if (!document.getElementById('reader').classList.contains('open')) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (e.key === 'ArrowLeft') turnPage(-1);
