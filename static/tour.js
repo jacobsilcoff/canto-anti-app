@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 24;
+  var TOUR_VERSION = 25;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -59,6 +59,8 @@
       body: 'If a textbook\u2019s extracted text comes out garbled, out of order, or shows only romanization with no native script, tap \u201c\u2728 Re-read these pages with AI\u201d on the review screen. It reads the page images and rewrites them cleanly \u2014 recovering the native characters \u2014 so lessons are built from faithful source.', v: 23 },
     { icon: '\ud83d\udcc7', title: 'Turn a chapter into a flashcard deck',
       body: 'Just want the words? On the textbook review screen tap \ud83d\udcc7 Build vocab deck to pull every word from those pages into an editable list \u2014 uncheck any you don\u2019t want, then add them to your deck and study straight away. It skips words you already have, and it\u2019s quicker than building full lessons.', v: 24 },
+    { icon: '\ud83d\udcd5', title: 'A home for your textbooks',
+      body: 'Your books now live on their own \u201cTextbooks\u201d page (in the More menu). Upload a PDF and read it page by page \u2014 it remembers where you left off and lets you bookmark pages. From any chapter, tap \ud83d\udcc7 Build vocab deck or \ud83d\udcd8 Turn into lessons. Textbook units now sit in their own \u201cFrom your textbooks\u201d section on the Learn page, separate from your AI course, and you generate their lessons one tap at a time.', v: 25 },
   ];
 
   var steps, stepIdx;

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script>(function(){var t=localStorage.getItem('theme')||'auto';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  <meta name="theme-color" content="#f5f4ef">
+  <script src="/static/theme.js" defer></script>
+  <title>{{APP_NAME}} — Textbooks</title>
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Naskh+Arabic:wght@400;500&family=Noto+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .tb-page { max-width: 860px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px 16px 80px; }
+    .tb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .tb-head h1 { font-family: var(--display-font); font-size: 1.5rem; margin: 0; }
+    .tb-head p { color: var(--text-muted); font-size: .85rem; margin: 2px 0 0; }
+
+    /* ── Library grid ── */
+    .tb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .tb-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column; box-shadow: var(--shadow); }
+    .tb-cover { aspect-ratio: 3 / 4; background: var(--surface-alt); position: relative; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .tb-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tb-cover-fallback { font-family: var(--display-font); font-size: 2.6rem; font-weight: 800; color: var(--on-primary); width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center; }
+    .tb-cover-badge { position: absolute; top: 6px; right: 6px; background: var(--overlay); color: #fff; font-size: .62rem;
+      padding: 2px 6px; border-radius: 999px; }
+    .tb-card-body { padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .tb-card-title { font-weight: 600; font-size: .92rem; line-height: 1.25; }
+    .tb-card-meta { color: var(--text-muted); font-size: .74rem; }
+    .tb-bar { height: 5px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+    .tb-bar > span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+    .tb-card-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
+    .tb-mini { background: var(--surface-alt); border: none; border-radius: 8px; padding: 5px 9px; font-size: .74rem;
+      cursor: pointer; color: var(--text); font-family: inherit; }
+    .tb-mini:hover { background: var(--border); }
+    .tb-mini.danger:hover { color: var(--danger); }
+    .tb-read-btn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 8px; padding: 6px 12px;
+      font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; flex: 1; }
+    .tb-upload-card { border: 2px dashed var(--border); border-radius: 14px; background: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted);
+      font-family: inherit; aspect-ratio: 3 / 4; font-size: .85rem; padding: 12px; text-align: center; }
+    .tb-upload-card:hover { border-color: var(--primary); color: var(--primary); }
+    .tb-upload-card .plus { font-size: 1.8rem; }
+
+    .tb-empty { text-align: center; color: var(--text-muted); padding: 40px 16px; }
+    .tb-empty h2 { font-family: var(--display-font); color: var(--text); margin-bottom: 6px; }
+
+    .tb-progress-note { display: flex; align-items: center; gap: 9px; background: var(--surface-alt);
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: .85rem; }
+
+    /* ── Reader ── */
+    .tbr { position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column; z-index: 50; }
+    .tbr.open { display: flex; }
+    .tbr-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-top));
+      border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .tbr-top .tbr-title { font-weight: 600; font-size: .92rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tbr-icon { background: none; border: none; cursor: pointer; color: var(--text); padding: 6px; border-radius: 8px;
+      display: flex; align-items: center; font-size: 1.05rem; line-height: 1; }
+    .tbr-icon:hover { background: var(--surface-alt); }
+    .tbr-icon.on { color: var(--primary); }
+    .tbr-chap { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
+      padding: 4px 8px; font-size: .78rem; max-width: 42vw; }
+    .tbr-stage { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .tbr-imgwrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 12px;
+      -webkit-overflow-scrolling: touch; }
+    .tbr-imgwrap img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+    .tbr-imgwrap.loading::after { content: ''; }
+    .tbr-textpane { width: 0; overflow: hidden; transition: width .2s; border-left: 1px solid var(--border);
+      background: var(--surface); }
+    .tbr.show-text .tbr-textpane { width: 46%; overflow: auto; }
+    .tbr-textpane-inner { padding: 16px; font-size: .95rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .tbr-textpane-inner .tbr-text-empty { color: var(--text-muted); font-style: italic; }
+    .tbr-spin { align-self: center; margin: auto; }
+    .tbr-nav { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .tbr-nav button { background: var(--surface-alt); border: none; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+      color: var(--text); font-family: inherit; font-size: .9rem; }
+    .tbr-nav button:disabled { opacity: .4; cursor: default; }
+    .tbr-nav .tbr-pageno { font-size: .82rem; color: var(--text-muted); min-width: 92px; text-align: center; }
+    .tbr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 12px 8px; background: var(--surface); }
+    .tbr-actions button { background: var(--surface-alt); border: none; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+      color: var(--text); font-family: inherit; font-size: .8rem; }
+    .tbr-actions button.primary { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+    /* Mobile: text pane becomes a bottom drawer overlay */
+    @media (max-width: 720px) {
+      .tbr.show-text .tbr-textpane { position: absolute; left: 0; right: 0; bottom: 0; top: 45%; width: auto;
+        border-left: none; border-top: 1px solid var(--border); z-index: 5; box-shadow: var(--shadow-pop); }
+    }
+
+    /* ── Modal (upload / vocab review) ── */
+    .tb-modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 60; }
+    .tb-modal.open { display: flex; }
+    .tb-sheet { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; max-height: 88vh; overflow: auto;
+      padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+    @media (min-width: 560px) { .tb-modal { align-items: center; } .tb-sheet { border-radius: 18px; } }
+    .tb-sheet h2 { font-family: var(--display-font); font-size: 1.15rem; margin: 0 0 4px; }
+    .tb-sheet .tb-sub { color: var(--text-muted); font-size: .85rem; margin: 0 0 14px; }
+    .tb-field { display: block; margin-bottom: 12px; }
+    .tb-field span { display: block; font-size: .8rem; color: var(--text-muted); margin-bottom: 5px; }
+    .tb-input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
+      color: var(--text); padding: 9px 12px; font-size: .95rem; font-family: inherit; }
+    .tb-row-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .tb-btn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 10px; padding: 10px 16px;
+      font-weight: 600; cursor: pointer; font-family: inherit; font-size: .9rem; }
+    .tb-btn.ghost { background: var(--surface-alt); color: var(--text); font-weight: 500; }
+    .tb-btn:disabled { opacity: .5; cursor: default; }
+    .tb-error { color: var(--danger); font-size: .85rem; margin: 8px 0; }
+
+    /* Vocab review */
+    .tb-vloading { text-align: center; padding: 30px 14px; }
+    .tb-vloading .spinner { width: 30px; height: 30px; border-width: 4px; }
+    .tb-vloading h3 { margin: 14px 0 6px; font-size: 1.05rem; }
+    .tb-vloading p { color: var(--text-muted); font-size: .85rem; max-width: 340px; margin: 0 auto; line-height: 1.5; }
+    .tb-vstats { display: flex; gap: 8px; margin: 6px 0 12px; }
+    .tb-vstat { flex: 1; background: var(--surface-alt); border-radius: 10px; padding: 8px; text-align: center; }
+    .tb-vstat b { display: block; font-size: 1.1rem; }
+    .tb-vstat span { font-size: .68rem; color: var(--text-muted); }
+    .tb-vstat.new b { color: var(--primary); }
+    .tb-vlist { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow: auto; margin-bottom: 10px; }
+    .tb-vrow { display: flex; align-items: center; gap: 9px; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+    .tb-vrow.in { opacity: .55; }
+    .tb-vrow-main { flex: 1; }
+    .tb-vrow-rom { font-size: .72rem; color: var(--text-muted); }
+    .tb-vrow-word .gl { color: var(--text-muted); font-weight: 400; }
+    .tb-vbadge { font-size: .64rem; padding: 2px 6px; border-radius: 999px; background: var(--surface-alt); color: var(--text-muted); }
+    .tb-vbadge.have { background: var(--good-soft); color: var(--good-strong); }
+    .tb-vselbar { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; color: var(--text-muted); margin-bottom: 8px; }
+    .tb-vselbar button { background: none; border: none; color: var(--primary); cursor: pointer; font-size: .78rem; font-family: inherit; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>{{NAV}}</header>
+
+<main class="tb-page" id="library-view">
+  <div class="tb-head">
+    <div>
+      <h1>Textbooks</h1>
+      <p>Upload a PDF, read it by chapter, and turn chapters into decks or lessons.</p>
+    </div>
+  </div>
+  <div id="tb-body"><div class="tb-empty"><span class="spinner"></span></div></div>
+</main>
+
+<!-- Reader -->
+<div class="tbr" id="reader">
+  <div class="tbr-top">
+    <button class="tbr-icon" onclick="closeReader()" aria-label="Back">‹</button>
+    <span class="tbr-title" id="tbr-title"></span>
+    <select class="tbr-chap settings-select" id="tbr-chap" onchange="jumpChapter(this.value)" style="display:none"></select>
+    <button class="tbr-icon" id="tbr-bookmark" onclick="toggleBookmark()" title="Bookmark this page">☆</button>
+    <button class="tbr-icon" id="tbr-texttoggle" onclick="toggleTextPane()" title="Show extracted text">Aa</button>
+  </div>
+  <div class="tbr-actions">
+    <button onclick="readerBuildVocab()">📇 Build vocab deck (this chapter)</button>
+    <button onclick="readerCreateLessons()">📘 Turn chapter into lessons</button>
+  </div>
+  <div class="tbr-stage">
+    <div class="tbr-imgwrap" id="tbr-imgwrap"></div>
+    <div class="tbr-textpane"><div class="tbr-textpane-inner" id="tbr-text"></div></div>
+  </div>
+  <div class="tbr-nav">
+    <button id="tbr-prev" onclick="turnPage(-1)">‹ Prev</button>
+    <span class="tbr-pageno" id="tbr-pageno"></span>
+    <button id="tbr-next" onclick="turnPage(1)">Next ›</button>
+  </div>
+</div>
+
+<!-- Generic modal (upload / vocab / rename) -->
+<div class="tb-modal" id="tb-modal" onclick="if(event.target===this)closeModal()">
+  <div class="tb-sheet" id="tb-sheet"></div>
+</div>
+
+<input type="file" id="tb-file" accept="application/pdf" style="display:none">
+
+<script>
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  let _courseId = null, _lang = null, _books = [];
+  let _busy = false;
+
+  async function boot() {
+    const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+    if (!course) {
+      document.getElementById('tb-body').innerHTML =
+        `<div class="tb-empty"><h2>No course yet</h2>
+         <p>Start a learning course first, then upload textbooks for that language.</p>
+         <a class="tb-btn" href="/learn" style="display:inline-block;margin-top:10px;text-decoration:none">Go to Learn</a></div>`;
+      return;
+    }
+    _courseId = course.id; _lang = course.target_lang;
+    await loadBooks();
+  }
+
+  async function loadBooks() {
+    try {
+      const r = await fetch(`/api/courses/${_courseId}/textbooks`);
+      const data = await r.json();
+      _books = data.textbooks || [];
+    } catch (e) { _books = []; }
+    renderLibrary();
+  }
+
+  function _pct(b) { return b.num_pages ? Math.round(100 * (b.last_page || 0) / b.num_pages) : 0; }
+
+  function renderLibrary() {
+    const wrap = document.getElementById('tb-body');
+    const uploadCard = `<button class="tb-upload-card" onclick="pickFile()">
+      <span class="plus">＋</span><span>Upload a textbook PDF</span></button>`;
+    if (!_books.length) {
+      wrap.innerHTML = `<div class="tb-grid">${uploadCard}</div>
+        <div class="tb-empty" style="padding-top:24px"><p>No textbooks yet. Upload a PDF to start reading it by chapter.</p></div>`;
+      return;
+    }
+    const cards = _books.map(b => {
+      const pct = _pct(b);
+      const cover = b.has_pdf
+        ? `<img src="/api/textbooks/${b.id}/page/1.jpg" alt="" loading="lazy"
+             onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tb-cover-fallback',textContent:${JSON.stringify((b.title||'?').slice(0,1))},style:'background:var(--primary)'}))">`
+        : `<div class="tb-cover-fallback" style="background:var(--primary)">${esc((b.title || '?').slice(0, 1))}</div>`;
+      const badge = b.has_pdf ? '' : '<span class="tb-cover-badge">text only</span>';
+      const ch = (b.chapters || []).length;
+      return `<div class="tb-card">
+        <div class="tb-cover" onclick="openReader(${b.id})">${cover}${badge}</div>
+        <div class="tb-card-body">
+          <div class="tb-card-title">${esc(b.title)}</div>
+          <div class="tb-card-meta">${b.num_pages} pages${ch ? ` · ${ch} chapter${ch === 1 ? '' : 's'}` : ''}</div>
+          <div class="tb-bar"><span style="width:${pct}%"></span></div>
+          <div class="tb-card-actions">
+            <button class="tb-read-btn" onclick="openReader(${b.id})">${pct > 0 ? 'Resume' : 'Read'}</button>
+            <button class="tb-mini" onclick="renameBook(${b.id})">Rename</button>
+            <button class="tb-mini danger" onclick="deleteBook(${b.id})">Delete</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    wrap.innerHTML = `<div class="tb-grid">${cards}${uploadCard}</div>`;
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  function pickFile() { document.getElementById('tb-file').click(); }
+  document.getElementById('tb-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) { alert('That PDF is larger than 25 MB.'); return; }
+    const defaultTitle = file.name.replace(/\.pdf$/i, '');
+    openModal(`<h2>Upload textbook</h2>
+      <p class="tb-sub">${esc(file.name)} · ${(file.size / 1048576).toFixed(1)} MB</p>
+      <label class="tb-field"><span>Name this textbook</span>
+        <input class="tb-input" id="up-title" maxlength="200" value="${esc(defaultTitle)}"></label>
+      <div id="up-status"></div>
+      <div class="tb-row-actions">
+        <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="tb-btn" id="up-go">Upload & parse</button>
+      </div>`);
+    document.getElementById('up-go').onclick = () => doUpload(file);
+  });
+
+  async function doUpload(file) {
+    if (_busy) return;
+    const title = (document.getElementById('up-title').value || '').trim();
+    if (!title) { document.getElementById('up-status').innerHTML = '<div class="tb-error">Give the textbook a name.</div>'; return; }
+    _busy = true;
+    document.getElementById('up-go').disabled = true;
+    document.getElementById('up-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Extracting text and page structure…</div>';
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('title', title);
+      const r = await fetch(`/api/courses/${_courseId}/textbooks`, { method: 'POST', body: fd });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Upload failed.');
+      // Detect chapters in the background (best-effort — the book is usable already).
+      fetch(`/api/textbooks/${data.id}/analyze`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+      closeModal();
+      await loadBooks();
+    } catch (e) {
+      document.getElementById('up-status').innerHTML = `<div class="tb-error">${esc(e.message || 'Upload failed.')}</div>`;
+      document.getElementById('up-go').disabled = false;
+    } finally { _busy = false; }
+  }
+
+  async function renameBook(id) {
+    const b = _books.find(x => x.id === id); if (!b) return;
+    const name = prompt('Rename textbook', b.title);
+    if (name == null) return;
+    const t = name.trim(); if (!t) return;
+    await fetch(`/api/textbooks/${id}`, { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: t }) }).catch(() => {});
+    await loadBooks();
+  }
+
+  async function deleteBook(id) {
+    const b = _books.find(x => x.id === id); if (!b) return;
+    if (!confirm(`Delete “${b.title}”? This removes the book and its page images (any lessons already built are kept).`)) return;
+    await fetch(`/api/textbooks/${id}`, { method: 'DELETE' }).catch(() => {});
+    await loadBooks();
+  }
+
+  // ── Reader ────────────────────────────────────────────────────────────────
+  let _rb = null;          // current book (from /reader)
+  let _page = 1;           // 1-based
+  let _bookmarks = new Set();
+  let _saveTimer = null;
+
+  async function openReader(id) {
+    const r = await fetch(`/api/textbooks/${id}/reader`);
+    if (!r.ok) { alert('Could not open this book.'); return; }
+    _rb = await r.json();
+    _bookmarks = new Set(_rb.bookmarks || []);
+    _page = Math.min(Math.max(1, _rb.last_page || 1), _rb.num_pages || 1);
+    document.getElementById('tbr-title').textContent = _rb.title;
+    // Chapter jump
+    const sel = document.getElementById('tbr-chap');
+    if ((_rb.chapters || []).length) {
+      sel.style.display = '';
+      sel.innerHTML = '<option value="">Jump to chapter…</option>' +
+        _rb.chapters.map((c, i) => `<option value="${c.start}">${esc(c.title)} · p${c.start}</option>`).join('');
+    } else { sel.style.display = 'none'; }
+    document.body.classList.add('hide-tabbar');
+    document.getElementById('reader').classList.add('open');
+    renderPage();
+  }
+
+  function closeReader() {
+    document.getElementById('reader').classList.remove('open');
+    document.body.classList.remove('hide-tabbar');
+    saveReading(true);
+    _rb = null;
+    loadBooks();   // refresh progress bars
+  }
+
+  function renderPage() {
+    if (!_rb) return;
+    const n = _rb.num_pages;
+    document.getElementById('tbr-pageno').textContent = `Page ${_page} / ${n}`;
+    document.getElementById('tbr-prev').disabled = _page <= 1;
+    document.getElementById('tbr-next').disabled = _page >= n;
+    // Bookmark state
+    const bm = document.getElementById('tbr-bookmark');
+    const marked = _bookmarks.has(_page);
+    bm.textContent = marked ? '★' : '☆';
+    bm.classList.toggle('on', marked);
+    // Image or text-only fallback
+    const wrap = document.getElementById('tbr-imgwrap');
+    if (_rb.has_pages) {
+      wrap.innerHTML = '<div class="spinner tbr-spin"></div>';
+      const img = new Image();
+      img.alt = `Page ${_page}`;
+      img.onload = () => { if (wrap.dataset.page == String(_page)) wrap.replaceChildren(img); };
+      img.onerror = () => { if (wrap.dataset.page == String(_page)) wrap.innerHTML = '<div class="tbr-text-empty" style="margin:auto">Couldn’t render this page.</div>'; };
+      wrap.dataset.page = String(_page);
+      img.src = `/api/textbooks/${_rb.id}/page/${_page}.jpg`;
+      // Preload the next page
+      if (_page < n) new Image().src = `/api/textbooks/${_rb.id}/page/${_page + 1}.jpg`;
+    } else {
+      wrap.innerHTML = `<div class="tbr-textpane-inner" style="max-width:640px">${_pageText(_page) || '<span class="tbr-text-empty">No text on this page.</span>'}</div>`;
+    }
+    // Side/drawer text
+    document.getElementById('tbr-text').innerHTML = _pageText(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
+    scheduleSave();
+  }
+
+  function _pageText(n) {
+    const p = (_rb.pages || []).find(x => x.page === n);
+    return p ? esc(p.text) : '';
+  }
+
+  function turnPage(d) {
+    if (!_rb) return;
+    const t = _page + d;
+    if (t < 1 || t > _rb.num_pages) return;
+    _page = t;
+    renderPage();
+  }
+
+  function jumpChapter(v) {
+    const p = parseInt(v, 10);
+    if (p && _rb) { _page = Math.min(Math.max(1, p), _rb.num_pages); renderPage(); }
+    document.getElementById('tbr-chap').value = '';
+  }
+
+  function toggleTextPane() {
+    const el = document.getElementById('reader');
+    const on = el.classList.toggle('show-text');
+    document.getElementById('tbr-texttoggle').classList.toggle('on', on);
+  }
+
+  function toggleBookmark() {
+    if (!_rb) return;
+    if (_bookmarks.has(_page)) _bookmarks.delete(_page); else _bookmarks.add(_page);
+    renderPage();
+    saveReading();
+  }
+
+  function scheduleSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => saveReading(), 800);
+  }
+  async function saveReading(now) {
+    if (!_rb) return;
+    const body = JSON.stringify({ last_page: _page, bookmarks: [..._bookmarks] });
+    try {
+      if (now && navigator.sendBeacon) {
+        navigator.sendBeacon(`/api/textbooks/${_rb.id}/reading`, new Blob([body], { type: 'application/json' }));
+      } else {
+        await fetch(`/api/textbooks/${_rb.id}/reading`, { method: 'PUT',
+          headers: { 'Content-Type': 'application/json' }, body });
+      }
+    } catch (e) { /* best-effort */ }
+  }
+
+  // Keyboard nav (desktop)
+  document.addEventListener('keydown', (e) => {
+    if (!document.getElementById('reader').classList.contains('open')) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.key === 'ArrowLeft') turnPage(-1);
+    else if (e.key === 'ArrowRight') turnPage(1);
+    else if (e.key === 'Escape') closeReader();
+  });
+
+  // ── Which chapter contains the current page (for reader actions) ───────────
+  function _currentChapter() {
+    if (!_rb) return null;
+    const ch = (_rb.chapters || []).find(c => _page >= c.start && _page <= c.end);
+    if (ch) return { start: ch.start, end: ch.end, title: ch.title };
+    return { start: _page, end: _page, title: `Page ${_page}` };
+  }
+
+  // ── Turn chapter into lessons (creates a textbook unit) ────────────────────
+  async function readerCreateLessons() {
+    const ch = _currentChapter();
+    openModal(`<h2>Turn into lessons</h2>
+      <p class="tb-sub">Create a multi-lesson unit from <b>${esc(ch.title)}</b> (pages ${ch.start}–${ch.end}). It appears in Learn under “From your textbooks”.</p>
+      <div id="cl-status"></div>
+      <div class="tb-row-actions">
+        <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="tb-btn" id="cl-go">Create unit</button>
+      </div>`);
+    document.getElementById('cl-go').onclick = async () => {
+      if (_busy) return; _busy = true;
+      document.getElementById('cl-go').disabled = true;
+      document.getElementById('cl-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Planning the unit and writing the first lesson… this can take a moment.</div>';
+      try {
+        const r = await fetch(`/api/textbooks/${_rb.id}/unit`, { method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ start: ch.start, end: ch.end, section_title: ch.title }) });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.detail || 'Could not create the unit.');
+        const up = data.unit_plan || {};
+        openModal(`<h2>Unit created 📘</h2>
+          <p class="tb-sub">“${esc(up.title || ch.title)}” — ${up.lesson_count || 1} lesson${up.lesson_count === 1 ? '' : 's'}. The first is ready; generate the rest from Learn.</p>
+          <div class="tb-row-actions">
+            <button class="tb-btn ghost" onclick="closeModal()">Keep reading</button>
+            <a class="tb-btn" href="/learn" style="text-decoration:none">Go to Learn →</a>
+          </div>`);
+      } catch (e) {
+        document.getElementById('cl-status').innerHTML = `<div class="tb-error">${esc(e.message || 'Could not create the unit.')}</div>`;
+        const go = document.getElementById('cl-go'); if (go) go.disabled = false;
+      } finally { _busy = false; }
+    };
+  }
+
+  // ── Build vocab deck from the current chapter ──────────────────────────────
+  let _vItems = [], _vMeta = null, _vName = '';
+  async function readerBuildVocab() {
+    const ch = _currentChapter();
+    _vItems = []; _vMeta = null;
+    openModal(`<div class="tb-vloading"><span class="spinner"></span>
+      <h3>Reading pages ${ch.start}–${ch.end} for vocabulary…</h3>
+      <p>Pulling every word out of the chapter and checking it against your deck. Longer chapters take a little while.</p></div>`);
+    try {
+      const r = await fetch(`/api/textbooks/${_rb.id}/vocab`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: ch.start, end: ch.end }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Could not extract vocabulary.');
+      _vItems = (data.items || []).map(it => ({ ...it, _pick: !it.in_deck }));
+      _vMeta = { section: data.section, lang: data.lang, start: data.start, end: data.end };
+      _vName = data.section || ch.title || `Pages ${ch.start}–${ch.end}`;
+      renderVocabReview();
+    } catch (e) {
+      openModal(`<div class="tb-vloading"><div style="font-size:2rem">🔍</div>
+        <h3>No vocabulary found</h3><p>${esc(e.message || "We couldn't pull words from these pages. Try a different chapter, or re-read the pages with AI from the review screen.")}</p>
+        <div class="tb-row-actions" style="justify-content:center;margin-top:12px"><button class="tb-btn ghost" onclick="closeModal()">Close</button></div></div>`);
+    }
+  }
+
+  function renderVocabReview() {
+    if (!_vItems.length) {
+      document.getElementById('tb-sheet').innerHTML = `<div class="tb-vloading"><div style="font-size:2rem">🔍</div>
+        <h3>No vocabulary found</h3><p>These pages had no extractable vocabulary.</p>
+        <div class="tb-row-actions" style="justify-content:center;margin-top:12px"><button class="tb-btn ghost" onclick="closeModal()">Close</button></div></div>`;
+      return;
+    }
+    const inDeck = _vItems.filter(it => it.in_deck).length;
+    const total = _vItems.length, newC = total - inDeck;
+    const sel = _vItems.filter(it => it._pick).length;
+    const rows = _vItems.map((it, i) => `<label class="tb-vrow${it.in_deck ? ' in' : ''}">
+      <input type="checkbox" ${it._pick ? 'checked' : ''} ${it.in_deck ? 'disabled' : ''} onchange="_vItems[${i}]._pick=this.checked;renderVocabReview()">
+      <div class="tb-vrow-main">${it.romanization ? `<div class="tb-vrow-rom">${esc(it.romanization)}</div>` : ''}
+        <div class="tb-vrow-word">${esc(it.target)} <span class="gl">— ${esc(it.gloss)}</span></div></div>
+      ${it.in_deck ? '<span class="tb-vbadge have">✓ in deck</span>' : (it.cefr ? `<span class="tb-vbadge">${esc(it.cefr)}</span>` : '')}
+    </label>`).join('');
+    document.getElementById('tb-sheet').innerHTML = `<h2>Build vocab deck</h2>
+      <p class="tb-sub">Every word ${_vMeta.section ? `from <b>${esc(_vMeta.section)}</b>` : 'in these pages'}. Uncheck any you don't want.</p>
+      <div class="tb-vstats">
+        <div class="tb-vstat new"><b>${newC}</b><span>new</span></div>
+        <div class="tb-vstat"><b>${inDeck}</b><span>in deck</span></div>
+        <div class="tb-vstat"><b>${total}</b><span>found</span></div></div>
+      <div class="tb-vselbar"><span>${sel} selected</span>
+        <span><button onclick="_vItems.forEach(it=>it._pick=!it.in_deck);renderVocabReview()">Select all new</button> ·
+          <button onclick="_vItems.forEach(it=>it._pick=false);renderVocabReview()">Clear</button></span></div>
+      <div class="tb-vlist">${rows}</div>
+      <label class="tb-field"><span>Deck name</span><input class="tb-input" id="v-name" value="${esc(_vName)}" maxlength="80"></label>
+      <div id="v-status"></div>
+      <div class="tb-row-actions">
+        <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="tb-btn" id="v-go" ${sel ? '' : 'disabled'} onclick="commitVocab()">Add ${sel} to deck</button>
+      </div>`;
+  }
+
+  async function commitVocab() {
+    if (_busy) return;
+    const picks = _vItems.filter(it => it._pick && !it.in_deck);
+    const name = (document.getElementById('v-name').value || '').trim();
+    if (!picks.length) { document.getElementById('v-status').innerHTML = '<div class="tb-error">Select at least one new word.</div>'; return; }
+    if (!name) { document.getElementById('v-status').innerHTML = '<div class="tb-error">Give the deck a name.</div>'; return; }
+    _busy = true; document.getElementById('v-go').disabled = true;
+    document.getElementById('v-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Adding words…</div>';
+    try {
+      const r = await fetch('/api/vocab-deck', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: _vMeta.lang, deck_name: name,
+          items: picks.map(it => ({ target_text: it.target, source_text: it.gloss,
+            romanization: it.romanization || '', cefr_level: it.cefr || null, notes: it.example || null })) }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Could not build the deck.');
+      openModal(`<div class="tb-vloading"><div style="font-size:2.4rem">📇</div>
+        <h3>Added ${data.created} word${data.created === 1 ? '' : 's'}</h3>
+        <p>Tagged 📕 ${esc(name)}. Study them any time from Cards.</p>
+        <div class="tb-row-actions" style="justify-content:center;margin-top:14px">
+          <button class="tb-btn ghost" onclick="closeModal()">Keep reading</button>
+          ${data.label_id ? `<a class="tb-btn" href="/cards?label_id=${data.label_id}&study=1" style="text-decoration:none">Study ${data.created} →</a>` : ''}
+        </div></div>`);
+    } catch (e) {
+      document.getElementById('v-status').innerHTML = `<div class="tb-error">${esc(e.message || 'Could not build the deck.')}</div>`;
+      const go = document.getElementById('v-go'); if (go) go.disabled = false;
+    } finally { _busy = false; }
+  }
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  function openModal(html) {
+    document.getElementById('tb-sheet').innerHTML = html;
+    document.getElementById('tb-modal').classList.add('open');
+  }
+  function closeModal() { document.getElementById('tb-modal').classList.remove('open'); }
+
+  window.addEventListener('pagehide', () => { if (_rb) saveReading(true); });
+  boot();
+</script>
+
+</body>
+</html>
