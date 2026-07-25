@@ -666,6 +666,20 @@
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
     .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
+    /* ── Mid-page unit split editor ── */
+    .split-box { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); padding: 10px 11px; }
+    .split-help { margin: 0 0 9px; color: var(--text-muted); font-size: .72rem; line-height: 1.45; }
+    .split-btns { display: flex; flex-wrap: wrap; gap: 7px; }
+    .split-toggle { flex: 1 1 auto; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: .74rem; font-weight: 600; cursor: pointer; text-align: left; }
+    .split-toggle.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+    .split-picker { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 9px; }
+    .split-hint { margin: 0 0 8px; color: var(--text-muted); font-size: .7rem; line-height: 1.4; }
+    .split-lines { display: flex; flex-direction: column; gap: 1px; max-height: 240px; overflow: auto; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+    .split-line { display: block; width: 100%; text-align: left; border: none; background: none; color: var(--text); font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 5px 9px; cursor: pointer; white-space: pre-wrap; word-break: break-word; border-left: 3px solid transparent; }
+    .split-line:hover { background: var(--primary-soft); }
+    .split-line.trimmed { color: var(--text-muted); opacity: .5; text-decoration: line-through; }
+    .split-line.active { border-left-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+    .split-clear { margin-top: 8px; border: none; background: none; color: var(--primary); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; padding: 3px 0; }
     .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
     .bk-title-row { display: flex; align-items: center; gap: 8px; }
     .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1565,6 +1579,11 @@
   let _sourceStart = 1;
   let _sourceEnd = 1;
   let _sourceText = '';
+  let _sourcePages = [];      // [{page, text}] for the current range (for split editing)
+  let _startAnchor = '';      // verbatim line where THIS unit begins on its first page
+  let _endAnchor = '';        // verbatim line where the NEXT unit begins on this unit's last page
+  let _splitOpen = '';        // '', 'start', or 'end' — which line picker is expanded
+  let _persistTimer = null;
   let _sourceVisuals = [];
   let _selectedVisualIds = new Set();
   let _sourceGuidance = '';
@@ -1707,12 +1726,133 @@
     _sourceSection = first ? '0' : 'custom';
     _sourceStart = first ? first.start : 1;
     _sourceEnd = first ? first.end : Math.min(5, b.num_pages);
+    _splitOpen = '';
+    _startAnchor = (first && _sourceSection === '0' && first.start_anchor) || '';
+    _endAnchor = (first && _sourceSection === '0' && first.end_anchor) || '';
     if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
       _sourceEnd = _sourceStart + TEXTBOOK_SOURCE_PAGE_LIMIT - 1;
       _sourceSection = 'custom';
+      _startAnchor = ''; _endAnchor = '';
     }
     _makerStep = 'source';
     loadSourcePreview();
+  }
+
+  // ── Mid-page unit split (mirror of textbook.py so preview == generation) ──
+  function _normLine(s) { return (s || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function _anchorLineIndex(text, anchor) {
+    const target = _normLine(anchor);
+    if (!target) return -1;
+    const lines = (text || '').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const n = _normLine(lines[i]);
+      if (n && (n === target || n.startsWith(target) || target.startsWith(n))) return i;
+    }
+    return -1;
+  }
+  function _splitPage(text, headAnchor, tailAnchor) {
+    const lines = (text || '').split('\n');
+    let lo = 0, hi = lines.length;
+    const t = _anchorLineIndex(text, tailAnchor); if (t >= 0) hi = t;
+    const h = _anchorLineIndex(text, headAnchor); if (h >= 0 && h <= hi) lo = h;
+    return { head: lines.slice(0, lo).join('\n'), text: lines.slice(lo, hi).join('\n'),
+             tail: lines.slice(hi).join('\n') };
+  }
+  function _unitSegments() {
+    const n = _sourcePages.length;
+    return _sourcePages.map((p, idx) => ({
+      page: p.page,
+      ..._splitPage(p.text || '', idx === 0 ? _startAnchor : '',
+                    idx === n - 1 ? _endAnchor : ''),
+    }));
+  }
+  function _rebuildSourceText() {
+    if (!_sourcePages.length) { _sourceText = ''; return; }
+    _sourceText = _unitSegments().map(s =>
+      `— PDF page ${s.page} —\n${s.text.trim() || '(no extracted text on this page)'}`
+    ).join('\n\n');
+  }
+
+  function _boundaryEditorHtml() {
+    if (_sourceLoading || !_sourcePages.length) return '';
+    const segs = _unitSegments();
+    const first = segs[0], last = segs[segs.length - 1];
+    const marked = _startAnchor || _endAnchor;
+    const summary = marked
+      ? 'A mid-page break is set. The greyed, struck-through lines below belong to a neighbouring unit and are left out of generation.'
+      : 'If a page is shared with another unit, mark where the break falls so the other unit’s vocab and content are left out.';
+    const startPicker = _splitOpen === 'start' ? _linePickerHtml('start', _sourcePages[0]) : '';
+    const endPicker = _splitOpen === 'end' ? _linePickerHtml('end', _sourcePages[_sourcePages.length - 1]) : '';
+    return `<div class="maker-field"><span>Unit boundaries <span style="font-weight:400;color:var(--text-muted)">(split shared pages)</span></span>
+      <div class="split-box">
+        <p class="split-help">${summary}</p>
+        <div class="split-btns">
+          <button type="button" class="split-toggle${_splitOpen === 'start' ? ' on' : ''}" onclick="toggleSplitEditor('start')">${_startAnchor ? '✂︎ ' : ''}Where this unit begins (page ${first.page})</button>
+          <button type="button" class="split-toggle${_splitOpen === 'end' ? ' on' : ''}" onclick="toggleSplitEditor('end')">${_endAnchor ? '✂︎ ' : ''}Where this unit ends (page ${last.page})</button>
+        </div>
+        ${startPicker}${endPicker}
+      </div></div>`;
+  }
+
+  function _linePickerHtml(side, page) {
+    const lines = (page.text || '').split('\n');
+    const anchor = side === 'start' ? _startAnchor : _endAnchor;
+    const activeIdx = _anchorLineIndex(page.text || '', anchor);
+    const rows = lines.map((ln, i) => {
+      let cls = 'split-line';
+      const trimmed = side === 'start' ? (activeIdx >= 0 && i < activeIdx)
+                                       : (activeIdx >= 0 && i >= activeIdx);
+      if (trimmed) cls += ' trimmed';
+      if (activeIdx === i) cls += ' active';
+      return `<button type="button" class="${cls}" onclick="setSplitLine('${side}',${i})">${esc(ln.trim() || '·')}</button>`;
+    }).join('') || '<div class="split-hint" style="padding:8px 9px">This page has no extracted text.</div>';
+    const hint = side === 'start'
+      ? 'Tap the first line that belongs to THIS unit — the lines above it are treated as the previous unit and excluded.'
+      : 'Tap the first line that belongs to the NEXT unit — that line and everything below it are excluded.';
+    const clearLabel = side === 'start' ? 'Start from the top of the page' : 'Use the whole page';
+    return `<div class="split-picker"><p class="split-hint">${hint}</p>
+      <div class="split-lines">${rows}</div>
+      ${anchor ? `<button type="button" class="split-clear" onclick="clearSplit('${side}')">${clearLabel}</button>` : ''}
+    </div>`;
+  }
+
+  function toggleSplitEditor(side) {
+    _splitOpen = _splitOpen === side ? '' : side;
+    renderLessonMaker();
+  }
+  function setSplitLine(side, idx) {
+    const page = side === 'start' ? _sourcePages[0] : _sourcePages[_sourcePages.length - 1];
+    const line = ((page.text || '').split('\n')[idx] || '').replace(/\s+/g, ' ').trim();
+    if (side === 'start') _startAnchor = line; else _endAnchor = line;
+    _onSplitChanged();
+  }
+  function clearSplit(side) {
+    if (side === 'start') _startAnchor = ''; else _endAnchor = '';
+    _onSplitChanged();
+  }
+  function _onSplitChanged() {
+    _rebuildSourceText();
+    _persistAnchors();
+    _sourceError = _sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT
+      ? `This selection is ${_sourceText.length.toLocaleString()} characters. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} or choose fewer pages.` : '';
+    renderLessonMaker();
+  }
+  function _persistAnchors() {
+    // Best-effort: remember the split on the detected unit so it survives reopen.
+    // The anchors also ride in the generate payload, so persistence isn't required
+    // for correctness (custom ranges just aren't remembered).
+    const b = _sourceBook();
+    if (!b || _sourceSection === 'custom') return;
+    const ch = (b.chapters || [])[Number(_sourceSection)];
+    if (!ch || ch.start !== _sourceStart || ch.end !== _sourceEnd) return;
+    ch.start_anchor = _startAnchor; ch.end_anchor = _endAnchor;
+    if (_persistTimer) clearTimeout(_persistTimer);
+    _persistTimer = setTimeout(() => {
+      fetch(`/api/textbooks/${b.id}/chapters`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapters: b.chapters.map(({ _dirty, queued, ...c }) => c) }),
+      }).catch(() => {});
+    }, 600);
   }
 
   function renderSourceReview(body) {
@@ -1748,6 +1888,7 @@
         <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
       </label>
+      ${_boundaryEditorHtml()}
       ${visuals}
       <label class="maker-field"><span>Guide the unit <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
@@ -1764,6 +1905,8 @@
   function selectBookSection(value) {
     const b = _sourceBook();
     _sourceSection = value;
+    _splitOpen = '';
+    _startAnchor = ''; _endAnchor = '';
     if (value !== 'custom' && b && b.chapters[Number(value)]) {
       const ch = b.chapters[Number(value)];
       _sourceStart = ch.start;
@@ -1771,7 +1914,11 @@
       if (_sourceEnd !== ch.end) {
         _sourceSection = 'custom';
         _sourceError = `“${ch.title}” is longer than ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. Split it into smaller textbook units before generating.`;
-      } else _sourceError = '';
+      } else {
+        _sourceError = '';
+        _startAnchor = ch.start_anchor || '';
+        _endAnchor = ch.end_anchor || '';
+      }
       loadSourcePreview();
     }
   }
@@ -1783,6 +1930,8 @@
     _sourceEnd = Math.max(_sourceStart, Math.min(b.num_pages, parseInt(document.getElementById('source-end').value, 10) || _sourceStart));
     _sourceSection = 'custom';
     _sourceError = '';
+    // The pages changed, so any previous split no longer applies.
+    _splitOpen = ''; _startAnchor = ''; _endAnchor = '';
     if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
       _sourceEnd = Math.min(b.num_pages, _sourceStart + TEXTBOOK_SOURCE_PAGE_LIMIT - 1);
       _sourceError = `One textbook unit can use up to ${TEXTBOOK_SOURCE_PAGE_LIMIT} pages. The end page was adjusted.`;
@@ -1805,7 +1954,8 @@
       if (requestId !== _sourceRequest) return;
       _sourceStart = data.start;
       _sourceEnd = data.end;
-      _sourceText = (data.pages || []).map(p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no extracted text on this page)'}`).join('\n\n');
+      _sourcePages = data.pages || [];
+      _rebuildSourceText();
       _sourceVisuals = data.visuals || [];
       _selectedVisualIds = new Set(_sourceVisuals.slice(0, 6).map(v => v.id));
       _sourceError = _sourceText.length > TEXTBOOK_SOURCE_CHAR_LIMIT
@@ -1860,6 +2010,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start: _sourceStart, end: _sourceEnd,
           source_text: _sourceText, guidance: _sourceGuidance,
+          start_anchor: _startAnchor, end_anchor: _endAnchor,
           visual_ids: [..._selectedVisualIds],
           section_title: ch ? ch.title : `Pages ${_sourceStart}–${_sourceEnd}` }),
       });
@@ -1914,7 +2065,11 @@
   function chEdit(bi, ci, field, value) {
     const ch = _books[bi].chapters[ci];
     if (field === 'title') ch.title = value;
-    else ch[field] = Math.max(1, Math.min(_books[bi].num_pages, parseInt(value, 10) || 1));
+    else {
+      ch[field] = Math.max(1, Math.min(_books[bi].num_pages, parseInt(value, 10) || 1));
+      // A different page range invalidates any stored mid-page split markers.
+      ch.start_anchor = ''; ch.end_anchor = '';
+    }
     ch._dirty = true;
     renderLessonMaker();
   }

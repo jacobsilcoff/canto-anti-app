@@ -48,6 +48,7 @@ MAX_CHAPTERS = 60                 # structure-detection cap
 _SOURCE_CAP = 4000                # per-lesson textbook grounding
 _TITLE_CAP = 80
 _SKELETON_CAP = 16_000            # chapter-detection prompt budget
+_ANCHOR_CAP = 240                 # stored mid-page split marker (one line of text)
 
 
 # ── Deterministic page cleanup ────────────────────────────────────────────────
@@ -189,11 +190,25 @@ def _build_chapter_prompt(target_lang: str, skeleton: str, num_pages: int) -> st
 _CHAPTER_STATUSES = ("", "queued")     # "queued" = lessons generated already
 
 
+def _clean_anchor(value) -> str:
+    """A mid-page split marker is one verbatim line of the shared page. Collapse
+    inner whitespace, strip, and cap — matching is line-based + whitespace
+    tolerant, so we don't need to preserve the exact spacing."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    return text[:_ANCHOR_CAP]
+
+
 def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
     """Clamp/repair a chapter list (from the detector OR a user edit): ranges
     forced inside the book, ordered by start page, overlaps resolved in favour
     of the earlier chapter, empty/malformed entries dropped. A valid `status`
-    survives (user edits round-trip through this too)."""
+    survives (user edits round-trip through this too).
+
+    Mid-page splits: a chapter may carry `start_anchor`/`end_anchor` — verbatim
+    lines marking where its content begins/ends WITHIN its first/last page. When
+    the next chapter is anchored to the shared boundary page, we let the two units
+    overlap on that single page (each keeps its own half) instead of forcing them
+    apart; unanchored overlaps are still resolved forward as before."""
     out: list[dict] = []
     for ch in (parsed.get("chapters") or [])[: MAX_CHAPTERS * 2]:
         if not isinstance(ch, dict):
@@ -209,16 +224,90 @@ def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
             continue
         status = ch.get("status") if ch.get("status") in _CHAPTER_STATUSES else ""
         out.append({"title": title, "start": start, "end": end,
-                    "skip_hint": bool(ch.get("skip_hint")), "status": status})
+                    "skip_hint": bool(ch.get("skip_hint")), "status": status,
+                    "start_anchor": _clean_anchor(ch.get("start_anchor")),
+                    "end_anchor": _clean_anchor(ch.get("end_anchor"))})
     out.sort(key=lambda c: (c["start"], c["end"]))
     fixed: list[dict] = []
     for ch in out:
-        if fixed and ch["start"] <= fixed[-1]["end"]:
-            ch["start"] = fixed[-1]["end"] + 1
-            if ch["start"] > ch["end"]:
-                continue
+        if fixed:
+            prev = fixed[-1]
+            # Allow a deliberate mid-page split to share exactly the boundary
+            # page (start == prev end) when either side marks the split point.
+            share_boundary = (ch["start"] == prev["end"]
+                              and (ch["start_anchor"] or prev["end_anchor"]))
+            if ch["start"] <= prev["end"] and not share_boundary:
+                ch["start"] = prev["end"] + 1
+                if ch["start"] > ch["end"]:
+                    continue
         fixed.append(ch)
     return fixed[:MAX_CHAPTERS]
+
+
+# ── Mid-page unit boundaries (split a physical page between two units) ─────────
+
+def _anchor_line_index(page_text: str, anchor: str) -> int | None:
+    """Index of the first line of `page_text` that matches the split `anchor`
+    (whitespace-tolerant, casefolded). Anchors are stored as one verbatim line
+    picked from the page, so a prefix/equality match is robust to minor edits;
+    returns None when the anchor no longer occurs (→ the page is kept whole)."""
+    target = re.sub(r"\s+", " ", anchor or "").strip().casefold()
+    if not target:
+        return None
+    for i, line in enumerate((page_text or "").split("\n")):
+        norm = re.sub(r"\s+", " ", line).strip().casefold()
+        if norm and (norm == target or norm.startswith(target)
+                     or target.startswith(norm)):
+            return i
+    return None
+
+
+def split_page(page_text: str, *, head_anchor: str = "",
+               tail_anchor: str = "") -> tuple[str, str, str]:
+    """Split one page's text into (head_trim, kept, tail_trim) by line anchors.
+
+    `head_anchor` marks where THIS unit's content begins (lines above it belong
+    to the previous unit); `tail_anchor` marks where the NEXT unit begins (that
+    line and everything after it belong to the next unit). Either may be empty."""
+    lines = (page_text or "").split("\n")
+    lo, hi = 0, len(lines)
+    tail_idx = _anchor_line_index(page_text, tail_anchor)
+    if tail_idx is not None:
+        hi = tail_idx
+    head_idx = _anchor_line_index(page_text, head_anchor)
+    if head_idx is not None and head_idx <= hi:
+        lo = head_idx
+    return ("\n".join(lines[:lo]), "\n".join(lines[lo:hi]),
+            "\n".join(lines[hi:]))
+
+
+def unit_pages(pages: list[str], start: int, end: int,
+               start_anchor: str = "", end_anchor: str = "") -> list[dict]:
+    """Per-page view of a unit's pages [start, end] (1-based, inclusive) with any
+    mid-page trim applied: only the first page can carry a head trim and only the
+    last page a tail trim (a single-page unit can carry both). Returns
+    [{page, head_trim, text, tail_trim}] — `text` is the portion kept for the
+    unit; head/tail hold the greyed-out neighbouring-unit text for the preview."""
+    out: list[dict] = []
+    for p in range(start, end + 1):
+        raw = pages[p - 1] if 1 <= p <= len(pages) else ""
+        head, kept, tail = split_page(
+            raw,
+            head_anchor=start_anchor if p == start else "",
+            tail_anchor=end_anchor if p == end else "")
+        out.append({"page": p, "head_trim": head, "text": kept,
+                    "tail_trim": tail})
+    return out
+
+
+def format_unit_source(pages: list[str], start: int, end: int,
+                       start_anchor: str = "", end_anchor: str = "") -> str:
+    """The reviewed source text for a unit, page-labelled and mid-page trimmed —
+    the same shape the review UI shows and the generation routes fall back to."""
+    return "\n\n".join(
+        f"— PDF page {seg['page']} —\n{seg['text'].strip()}"
+        for seg in unit_pages(pages, start, end, start_anchor, end_anchor)
+    ).strip()
 
 
 async def detect_chapters(pages: list[str], target_lang: str, *, api_key: str,

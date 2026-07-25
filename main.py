@@ -4177,10 +4177,10 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
             "lesson. You can create another lesson from the next pages."
         ))
 
-    extracted_source = "\n\n".join(
-        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
-        for i in range(start - 1, end)
-    ).strip()
+    start_anchor = textbook._clean_anchor(payload.get("start_anchor"))
+    end_anchor = textbook._clean_anchor(payload.get("end_anchor"))
+    extracted_source = textbook.format_unit_source(
+        book["pages"], start, end, start_anchor, end_anchor)
     # Supplying source_text means the learner edited/approved the textarea.
     source_text = (payload.get("source_text") if "source_text" in payload
                    else extracted_source)
@@ -4309,10 +4309,10 @@ async def create_textbook_unit(request: Request, textbook_id: int,
             "textbook unit. Split oversized chapters into smaller units."
         ))
 
-    extracted_source = "\n\n".join(
-        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
-        for i in range(start - 1, end)
-    ).strip()
+    start_anchor = textbook._clean_anchor(payload.get("start_anchor"))
+    end_anchor = textbook._clean_anchor(payload.get("end_anchor"))
+    extracted_source = textbook.format_unit_source(
+        book["pages"], start, end, start_anchor, end_anchor)
     source_text = (payload.get("source_text") if "source_text" in payload
                    else extracted_source)
     source_text = str(source_text or "").strip()

@@ -105,6 +105,81 @@ def test_norm_chapters_preserves_valid_status():
     assert out[1]["status"] == ""
 
 
+# ── Mid-page unit split boundaries ────────────────────────────────────────────
+
+def test_norm_chapters_preserves_and_cleans_anchors():
+    out = textbook._norm_chapters({"chapters": [
+        {"title": "A", "start": 1, "end": 3,
+         "start_anchor": "  Lesson\tOne  ", "end_anchor": "x" * 400},
+    ]}, num_pages=10)
+    assert out[0]["start_anchor"] == "Lesson One"        # whitespace collapsed
+    assert len(out[0]["end_anchor"]) == textbook._ANCHOR_CAP
+
+
+def test_norm_chapters_allows_anchored_boundary_page_share():
+    out = textbook._norm_chapters({"chapters": [
+        {"title": "A", "start": 1, "end": 12, "end_anchor": "Lesson 4"},
+        {"title": "B", "start": 12, "end": 18, "start_anchor": "Lesson 4"},
+    ]}, num_pages=30)
+    # Both units keep page 12 (each trims its own half via the anchor).
+    assert [(c["start"], c["end"]) for c in out] == [(1, 12), (12, 18)]
+
+
+def test_norm_chapters_shares_boundary_only_when_anchored():
+    # No anchor → the shared boundary page is still resolved forward as before.
+    out = textbook._norm_chapters({"chapters": [
+        {"title": "A", "start": 1, "end": 12},
+        {"title": "B", "start": 12, "end": 18},
+    ]}, num_pages=30)
+    assert [(c["start"], c["end"]) for c in out] == [(1, 12), (13, 18)]
+
+
+def test_split_page_trims_head_and_tail_by_anchor():
+    page = "Unit 3 tail\nmore unit 3\nUnit 4 title\nunit 4 body"
+    head, kept, tail = textbook.split_page(page, head_anchor="Unit 4 title")
+    assert head == "Unit 3 tail\nmore unit 3"
+    assert kept == "Unit 4 title\nunit 4 body"
+    assert tail == ""
+    head, kept, tail = textbook.split_page(page, tail_anchor="Unit 4 title")
+    assert kept == "Unit 3 tail\nmore unit 3"
+    assert tail == "Unit 4 title\nunit 4 body"
+
+
+def test_split_page_whitespace_tolerant_and_missing_anchor():
+    page = "First   line\nSecond line"
+    _, kept, _ = textbook.split_page(page, head_anchor="second   line")
+    assert kept == "Second line"
+    # Unknown anchor keeps the whole page rather than crashing.
+    head, kept, tail = textbook.split_page(page, head_anchor="nope")
+    assert head == "" and kept == page and tail == ""
+
+
+def test_unit_pages_only_trims_first_and_last():
+    pages = ["p1 top\nUnit here\np1 more", "p2 all", "p3 keep\nNext unit\np3 tail"]
+    segs = textbook.unit_pages(pages, 1, 3, start_anchor="Unit here",
+                               end_anchor="Next unit")
+    assert segs[0]["text"] == "Unit here\np1 more"
+    assert segs[0]["head_trim"] == "p1 top"
+    assert segs[1]["text"] == "p2 all"          # middle page untouched
+    assert segs[2]["text"] == "p3 keep"
+    assert segs[2]["tail_trim"] == "Next unit\np3 tail"
+
+
+def test_unit_pages_single_page_carries_both_anchors():
+    pages = ["prev tail\nMine starts\nmine body\nNext unit\nnext body"]
+    segs = textbook.unit_pages(pages, 1, 1, start_anchor="Mine starts",
+                               end_anchor="Next unit")
+    assert segs[0]["head_trim"] == "prev tail"
+    assert segs[0]["text"] == "Mine starts\nmine body"
+    assert segs[0]["tail_trim"] == "Next unit\nnext body"
+
+
+def test_format_unit_source_labels_and_trims():
+    pages = ["intro\nUnit 4\nbody", "second page"]
+    src = textbook.format_unit_source(pages, 1, 2, start_anchor="Unit 4")
+    assert src == "— PDF page 1 —\nUnit 4\nbody\n\n— PDF page 2 —\nsecond page"
+
+
 @pytest.mark.asyncio
 async def test_detect_chapters_normalizes(monkeypatch):
     async def fake_call(prompt, **kw):
