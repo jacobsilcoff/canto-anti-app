@@ -44,6 +44,7 @@ MAX_LESSONS_PER_CHAPTER = 12      # queue cap per chapter generation
 MAX_LESSON_SOURCE_PAGES = 20      # one reviewed source selection
 MAX_LESSON_SOURCE_CHARS = 24_000  # keep planner + author prompts responsive
 MAX_ITEMS_PER_LESSON = 10
+MAX_VOCAB_ITEMS = 80             # cap per chapter vocab-deck extraction
 MAX_CHAPTERS = 60                 # structure-detection cap
 _SOURCE_CAP = 4000                # per-lesson textbook grounding
 _TITLE_CAP = 80
@@ -119,6 +120,92 @@ def strip_repeated_lines(pages: list[str]) -> list[str]:
 def clean_pages(pages: list[str]) -> list[str]:
     """The full deterministic cleanup applied once at upload."""
     return strip_repeated_lines([clean_page_text(p) for p in pages])
+
+
+# ── Vision re-extraction (render page → transcribe with the model) ────────────
+#
+# Deterministic pypdf text mangles the books this feature targets: 2-up spreads
+# interleave two logical pages, interlinear layouts scramble the romanization ↔
+# gloss alignment, and romanization-only phrasebooks carry no native script at
+# all (scanned pages carry no text layer whatsoever). For those, we render the
+# page to an image and let the vision model transcribe it into clean, linear,
+# native-script text that the existing chapter/lesson planners can consume.
+
+MAX_VISION_PAGES = MAX_LESSON_SOURCE_PAGES   # bound one re-read request (≤20 pp.)
+_VISION_PAGE_CHARS = 8000                    # clamp one page's transcript
+
+
+def _build_transcription_prompt(target_lang: str) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    return (
+        f"You are transcribing ONE page of a {name} learning book (textbook, "
+        f"phrasebook, or grammar) for a learner. Read the page image and output "
+        f"its teachable content as clean, plain text.\n\n"
+        f"{_lang_preamble(info)}"
+        "── RULES ──\n"
+        "• Transcribe in natural READING ORDER. If the page is laid out in two "
+        "columns or as a two-page spread, read the whole left page top-to-bottom, "
+        "then the whole right page — never interleave the columns.\n"
+        f"• Preserve the native {name} script exactly as printed. Keep any "
+        "romanization and English meaning next to the item it belongs to, on the "
+        "same line, e.g. `native — romanization — English`.\n"
+        f"• If an entry shows ONLY romanization (no native {name} script), add the "
+        "correct native script yourself and keep the printed romanization beside "
+        "it. Do not drop or invent vocabulary.\n"
+        "• Keep the page's structure: unit/section headings, numbered items, and "
+        "the pairing between a word/phrase and its meaning. One entry per line.\n"
+        "• DROP page furniture: running headers/footers, page numbers, website "
+        "URLs, watermarks, and purely decorative text.\n"
+        "• Output ONLY the transcribed text — no commentary, no code fences, no "
+        "notes about what you did. If the page has no teachable content, output an "
+        "empty response.\n"
+    )
+
+
+async def transcribe_page_image(image_bytes: bytes, target_lang: str, *,
+                                api_key: str, anthropic_key: str | None = None,
+                                model: str) -> str:
+    """Transcribe one rendered page image to clean text (best-effort).
+
+    Reuses the deterministic page cleanup so the vision output goes through the
+    same repeated-layer/whitespace normalization as pypdf text.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    prompt = _build_transcription_prompt(target_lang)
+    raw = await llm.call_with_image(prompt, image_bytes, model=model,
+                                    gemini_key=api_key, anthropic_key=anthropic_key)
+    text = (raw or "").strip()
+    # Strip an accidental ``` fence if the model added one despite instructions.
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+    return clean_page_text(text)[:_VISION_PAGE_CHARS]
+
+
+async def transcribe_pages(images: dict[int, bytes], target_lang: str, *,
+                           api_key: str, anthropic_key: str | None = None,
+                           model: str) -> tuple[dict[int, str], int]:
+    """Transcribe rendered page images → ``({page_no: text}, llm_calls)``.
+
+    One vision call per page. Best-effort per page: a page that fails to
+    transcribe is omitted from the result so the caller can keep its original
+    extracted text. ``llm_calls`` counts only pages that were actually attempted
+    (for usage metering).
+    """
+    out: dict[int, str] = {}
+    calls = 0
+    for page_no in sorted(images)[:MAX_VISION_PAGES]:
+        calls += 1
+        try:
+            out[page_no] = await transcribe_page_image(
+                images[page_no], target_lang, api_key=api_key,
+                anthropic_key=anthropic_key, model=model)
+        except Exception:
+            # Leave this page's original extraction in place; keep going.
+            continue
+    return out, calls
 
 
 # ── Chapter detection (1 LLM call over a heading skeleton) ────────────────────
@@ -754,4 +841,118 @@ async def segment_chapter(pages: list[str], start: int, end: int,
                  "target_items": l["target_items"]},
         "source": l["source"],
     } for l in lessons]
+    return {"items": items, "llm_calls": calls}
+
+
+# ── Chapter vocab deck (flat word list → SRS flashcards) ──────────────────────
+# A lighter sibling of the lesson pipeline: extract EVERY vocabulary item a
+# chapter teaches into a flat, reviewable word list the learner turns into a
+# flashcard deck. One cheap LLM call per ~9k-char chunk — no grammar teaching,
+# no drill authoring. Romanization is always recomputed by the offline oracle
+# downstream (main), never trusted from the model, like every other card path.
+
+_VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
+_GLOSS_CAP = 160
+_EXAMPLE_CAP = 200
+
+
+def _build_vocab_prompt(target_lang: str, chunk: str, part: int, total: int,
+                        book_title: str, guidance: str = "") -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    ctx = f' from "{book_title}"' if book_title else ""
+    direction = ("\n── LEARNER'S DIRECTION ──\n" + guidance.strip() + "\n"
+                 if guidance.strip() else "")
+    return (
+        f"You are building a vocabulary flashcard deck from part {part}/{total} of "
+        f"one chapter{ctx} of a {name} textbook a learner uploaded. Extract EVERY "
+        f"vocabulary item this text teaches, so each becomes one flashcard.\n\n"
+        f"{_lang_preamble(info)}"
+        f"{direction}"
+        f"── RULES ──\n"
+        f"• Prefer the book's OWN vocabulary lists, glossaries, and highlighted "
+        f"words. Also include content words from example sentences that are clearly "
+        f"being taught. Include single words AND short set phrases the book presents "
+        f"as units.\n"
+        f"• SKIP grammar particles taught only as grammar, page numbers, exercise "
+        f"instructions, proper nouns unless they are vocabulary, and anything not a "
+        f"learnable word/phrase.\n"
+        f"• target = the {name} word in native script, citation form. If the book "
+        f"shows only romanization, reconstruct the native script.\n"
+        f"• gloss = a short English meaning (a few words).\n"
+        f"• example = ONE short example phrase/sentence from the book that uses the "
+        f"word, in native script, if the text provides one — else omit it.\n"
+        f"• cefr = your best CEFR estimate (A1/A2/B1/B2/C1/C2) for the word.\n"
+        f"• Do NOT include romanization — our system computes it.\n"
+        f"• Do not repeat the same word twice.\n\n"
+        f"── TEXT (part {part}/{total}) ──\n{chunk}\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{"vocab": [\n'
+        '  {"target": "<native script>", "gloss": "<English>", '
+        '"example": "<native example or omit>", "cefr": "A1"}\n'
+        "]}"
+    )
+
+
+def _norm_vocab(parsed: dict) -> list[dict]:
+    """Strictly normalize one chunk's vocab list (filter-then-clip). An item needs
+    a non-empty target and gloss; cefr is validated, example capped."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for v in (parsed.get("vocab") or []):
+        if not isinstance(v, dict):
+            continue
+        target = (v.get("target") or "").strip()
+        gloss = (v.get("gloss") or "").strip()[:_GLOSS_CAP]
+        if not target or not gloss or target in seen:
+            continue
+        seen.add(target)
+        cefr = (v.get("cefr") or "").strip().upper()
+        out.append({
+            "target": target,
+            "gloss": gloss,
+            "example": (v.get("example") or "").strip()[:_EXAMPLE_CAP],
+            "cefr": cefr if cefr in _VALID_CEFR else None,
+        })
+    return out
+
+
+async def extract_chapter_vocab(source: str, target_lang: str, book_title: str,
+                                guidance: str = "", *, api_key: str,
+                                anthropic_key: str | None = None,
+                                model: str) -> dict:
+    """Extract a chapter's whole vocabulary as a flat list for a flashcard deck.
+
+    One LLM call per ~9k-char chunk of the approved source; deduped across chunks
+    by native target. Returns {"items": [{target, gloss, example, cefr}, ...],
+    "llm_calls": n}. Never authors lessons — just the words.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    source = (source or "").strip()
+    if not source:
+        raise ValueError("The selected pages do not contain any text.")
+    if len(source) > MAX_LESSON_SOURCE_CHARS:
+        raise ValueError(
+            f"The selected text is too long ({len(source):,} characters; "
+            f"maximum {MAX_LESSON_SOURCE_CHARS:,}). Choose fewer pages or trim it."
+        )
+    chunks = chunk_text(source)
+    items: list[dict] = []
+    seen: set[str] = set()
+    calls = 0
+    for i, ch in enumerate(chunks):
+        prompt = _build_vocab_prompt(target_lang, ch, i + 1, len(chunks),
+                                     (book_title or "").strip()[:_TITLE_CAP],
+                                     guidance)
+        raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                             anthropic_key=anthropic_key)
+        calls += 1
+        for v in _norm_vocab(_parse_json(raw) or {}):
+            if v["target"] not in seen:
+                seen.add(v["target"])
+                items.append(v)
+        if len(items) >= MAX_VOCAB_ITEMS:
+            items = items[:MAX_VOCAB_ITEMS]
+            break
     return {"items": items, "llm_calls": calls}

@@ -180,6 +180,18 @@ def test_format_unit_source_labels_and_trims():
     assert src == "— PDF page 1 —\nUnit 4\nbody\n\n— PDF page 2 —\nsecond page"
 
 
+def test_chapter_anchors_falls_back_to_matching_chapter():
+    # The /textbooks "Turn into lessons" action sends only {start,end}; a split
+    # saved on the matching chapter must still reach generation.
+    book = {"chapters": [
+        {"title": "A", "start": 1, "end": 12, "end_anchor": "Lesson 4"},
+        {"title": "B", "start": 12, "end": 18, "start_anchor": "Lesson 4"},
+    ]}
+    assert main._chapter_anchors(book, 12, 18) == ("Lesson 4", "")
+    assert main._chapter_anchors(book, 1, 12) == ("", "Lesson 4")
+    assert main._chapter_anchors(book, 3, 9) == ("", "")     # no chapter matches
+
+
 @pytest.mark.asyncio
 async def test_detect_chapters_normalizes(monkeypatch):
     async def fake_call(prompt, **kw):
@@ -556,14 +568,14 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
         assert kwargs["visuals"][0]["data"].startswith(b"\xff\xd8")
         return _lesson(9)
 
-    async def fake_author(course, resolved_access, model, user_id):
-        queued = await db.peek_lesson_queue(course["id"])
-        assert queued["unit_title"] == "📕 Greetings"
+    async def fake_author(course, unit_id, resolved_access, model, user_id):
+        queued = await db.peek_lesson_queue_for_unit(unit_id)
+        assert queued["unit_title"] == "Greetings"
         assert "edited approved text" in queued["source"]
         assert "Focus on polite greetings" in queued["source"]
         lesson_id = await db.create_lesson(
             course["id"], 1, "Polite greetings", "Say hello", [],
-            {"segments": []}, "Greeting lesson")
+            {"segments": []}, "Greeting lesson", unit_id=unit_id)
         await db.pop_lesson_queue(queued["id"])
         return lesson_id
 
@@ -571,7 +583,7 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
     monkeypatch.setattr(main, "_textbook_metering", fake_meter)
     monkeypatch.setattr(main, "_resolve_lesson_model", fake_model)
     monkeypatch.setattr(textbook, "plan_source_lesson", fake_plan)
-    monkeypatch.setattr(main, "_author_next_lesson", fake_author)
+    monkeypatch.setattr(main, "_author_textbook_lesson", fake_author)
 
     response = await main.create_textbook_lesson.__wrapped__(
         None, tb_id, {
@@ -584,13 +596,17 @@ async def test_create_textbook_lesson_uses_edited_source_and_consumes_queue(
     assert response["title"] == "Polite greetings"
     assert response["source"]["start"] == 1
     assert response["source"]["visual_count"] == 1
+    assert response["unit_id"]
     assert await db.count_lesson_queue(cid) == 0
+    # The authored lesson landed in its own textbook unit.
+    full = await db.get_course(uid, cid)
+    assert [u for u in full["units"] if u.get("theme") == "textbook"]
 
     async def failed_author(*args, **kwargs):
-        assert await db.peek_lesson_queue(cid) is not None
+        assert await db.count_lesson_queue(cid) > 0
         raise RuntimeError("author unavailable")
 
-    monkeypatch.setattr(main, "_author_next_lesson", failed_author)
+    monkeypatch.setattr(main, "_author_textbook_lesson", failed_author)
     with pytest.raises(RuntimeError, match="author unavailable"):
         await main.create_textbook_lesson.__wrapped__(
             None, tb_id, {
@@ -641,13 +657,13 @@ async def test_create_textbook_unit_queues_complete_unit_and_authors_first(
             "lessons": lessons,
         }
 
-    async def fake_author(course, resolved_access, model, user_id):
-        queued = await db.peek_lesson_queue(course["id"])
-        assert queued["unit_title"] == "📕 Useful Expressions"
+    async def fake_author(course, unit_id, resolved_access, model, user_id):
+        queued = await db.peek_lesson_queue_for_unit(unit_id)
+        assert queued["unit_title"] == "Useful Expressions"
         assert "Good morning" in queued["source"]
         lesson_id = await db.create_lesson(
             course["id"], 1, "Greetings", "Greet people", [],
-            {"segments": []}, "Greeting lesson")
+            {"segments": []}, "Greeting lesson", unit_id=unit_id)
         await db.pop_lesson_queue(queued["id"])
         return lesson_id
 
@@ -655,7 +671,7 @@ async def test_create_textbook_unit_queues_complete_unit_and_authors_first(
     monkeypatch.setattr(main, "_textbook_metering", fake_meter)
     monkeypatch.setattr(main, "_resolve_lesson_model", fake_model)
     monkeypatch.setattr(textbook, "plan_source_unit", fake_plan)
-    monkeypatch.setattr(main, "_author_next_lesson", fake_author)
+    monkeypatch.setattr(main, "_author_textbook_lesson", fake_author)
 
     response = await main.create_textbook_unit.__wrapped__(
         None, tb_id, {
@@ -665,13 +681,20 @@ async def test_create_textbook_unit_queues_complete_unit_and_authors_first(
             "section_title": "Useful Expressions",
         }, user)
 
-    assert response["unit_plan"] == {
+    up = response["unit_plan"]
+    unit_id = up.pop("unit_id")
+    assert up == {
         "title": "Useful Expressions", "lesson_count": 2,
         "remaining": 1, "concept_count": 2,
     }
-    assert await db.count_lesson_queue(cid) == 1
-    remaining = await db.peek_lesson_queue(cid)
+    # The remaining lesson stays queued, scoped to the new textbook unit.
+    assert await db.count_lesson_queue_for_unit(unit_id) == 1
+    remaining = await db.peek_lesson_queue_for_unit(unit_id)
     assert remaining["spec"]["title"] == "L2"
+    full = await db.get_course(uid, cid)
+    tb = [u for u in full["units"] if u.get("theme") == "textbook"]
+    assert len(tb) == 1 and tb[0]["id"] == unit_id
+    assert tb[0]["queued_remaining"] == 1 and len(tb[0]["lessons"]) == 1
     book = await db.get_textbook(uid, tb_id)
     assert book["chapters"][0]["status"] == "queued"
 
@@ -698,3 +721,65 @@ async def test_textbooks_survive_restart_but_not_course_delete(fresh_db):
     # Deleting the whole course removes its books too (no orphans).
     await db.delete_course(uid, cid)
     assert await db.list_textbooks(uid, cid) == []
+
+
+@pytest.mark.asyncio
+async def test_textbook_reading_progress_and_bookmarks(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf",
+                                     ["p1", "p2", "p3"], pdf_media_id="ab" * 16)
+
+    book = await db.get_textbook(uid, tb_id)
+    assert book["last_page"] == 0 and book["bookmarks"] == [] and book["has_pdf"] is True
+
+    # Partial update: page only, then bookmarks only (deduped + sorted + sanitized).
+    assert await db.set_textbook_reading(uid, tb_id, last_page=2)
+    assert await db.set_textbook_reading(uid, tb_id, bookmarks=[3, 1, 1, 0, -5])
+    book = await db.get_textbook(uid, tb_id)
+    assert book["last_page"] == 2 and book["bookmarks"] == [1, 3]
+
+    # list_textbooks surfaces the same reading state + has_pdf flag.
+    row = (await db.list_textbooks(uid, cid))[0]
+    assert row["has_pdf"] is True and row["bookmarks"] == [1, 3]
+
+    # Ownership-checked: another user can't read or write this book's state.
+    other = await db.create_user("other", auth.hash_password("x"))
+    assert await db.set_textbook_reading(other, tb_id, last_page=9) is False
+    assert await db.get_textbook(other, tb_id) is None
+
+    # No-op update returns False.
+    assert await db.set_textbook_reading(uid, tb_id) is False
+
+
+@pytest.mark.asyncio
+async def test_textbook_unit_row_and_scoped_queue(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1")
+
+    # Unit is ownership-checked and typed.
+    unit = await db.get_textbook_unit(uid, unit_id)
+    assert unit and unit["theme"] == "textbook" and unit["course_id"] == cid
+    other = await db.create_user("other2", auth.hash_password("x"))
+    assert await db.get_textbook_unit(other, unit_id) is None
+
+    # Empty unit is removable; with a lesson it's kept.
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 1", "unit_size": 2,
+                                     "spec": {"title": "L1"}, "source": "s"}],
+                              unit_id=unit_id)
+    assert await db.count_lesson_queue_for_unit(unit_id) == 1
+    peek = await db.peek_lesson_queue_for_unit(unit_id)
+    assert peek["spec"]["title"] == "L1"
+
+    lid = await db.create_lesson(cid, 1, "L1", "", [], {"segments": []}, "", unit_id=unit_id)
+    await db.delete_course_unit_if_empty(unit_id)   # has a lesson → kept
+    assert await db.get_textbook_unit(uid, unit_id) is not None
+
+    # Clearing the queue then deleting an empty unit works.
+    unit2 = await db.create_textbook_unit_row(cid, "Chapter 2")
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 2", "unit_size": 1,
+                                     "spec": {}, "source": ""}], unit_id=unit2)
+    assert await db.clear_lesson_queue_for_unit(unit2) == 1
+    await db.delete_course_unit_if_empty(unit2)      # no lesson → removed
+    assert await db.get_textbook_unit(uid, unit2) is None

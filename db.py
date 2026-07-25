@@ -2539,34 +2539,58 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
             units = [dict(r) for r in await cur.fetchall()]
 
         # Locking: Foundations (reading) lessons are SKIPPABLE — always available
-        # if not done, so the learner can do them in any order or jump straight to
-        # vocab. The AI vocab lessons keep strict sequential locking among THEMSELVES
-        # (first incomplete one available), independent of foundations progress.
+        # if not done. Textbook units are self-contained — each gets its OWN
+        # sequential cursor (first incomplete lesson available, rest locked),
+        # independent of the AI path, so a book's lessons aren't gated behind AI
+        # lessons and vice-versa. The AI vocab lessons keep strict sequential
+        # locking among THEMSELVES (first incomplete one available).
         ai_available_set = False
 
-        def _status(lesson: dict, is_foundation: bool) -> str:
+        def _status_ai(lesson: dict) -> str:
             nonlocal ai_available_set
             if lesson["completed_at"] is not None:
                 return "done"
-            if is_foundation:
-                return "available"          # skippable — never gated
             if not ai_available_set:
                 ai_available_set = True
                 return "available"
             return "locked"
 
+        def _status_sequential(lessons: list[dict]) -> None:
+            """First not-done lesson available, the rest locked (own cursor)."""
+            cursor_set = False
+            for l in lessons:
+                if l["completed_at"] is not None:
+                    l["status"] = "done"
+                elif not cursor_set:
+                    cursor_set = True
+                    l["status"] = "available"
+                else:
+                    l["status"] = "locked"
+
         for unit in units:
-            is_foundation = unit.get("theme") == "foundations"
+            theme = unit.get("theme")
+            is_foundation = theme == "foundations"
+            is_textbook = theme == "textbook"
             async with db.execute(
-                """SELECT id, lesson_num, title, objective, score, completed_at,
+                """SELECT id, lesson_num, title, objective, score, completed_at, crown_level,
                           (SELECT COUNT(*) FROM course_concepts
                            WHERE introduced_lesson_id = course_lessons.id) AS concept_count
                    FROM course_lessons WHERE unit_id=? ORDER BY lesson_num""",
                 (unit["id"],),
             ) as cur:
                 lessons = [dict(r) for r in await cur.fetchall()]
-            for l in lessons:
-                l["status"] = _status(l, is_foundation)
+            if is_foundation:
+                for l in lessons:
+                    l["status"] = "done" if l["completed_at"] is not None else "available"
+            elif is_textbook:
+                _status_sequential(lessons)
+                async with db.execute(
+                    "SELECT COUNT(*) FROM lesson_queue WHERE unit_id=?", (unit["id"],)
+                ) as cur:
+                    unit["queued_remaining"] = (await cur.fetchone())[0]
+            else:
+                for l in lessons:
+                    l["status"] = _status_ai(l)
             unit["lessons"] = lessons
 
         # Pending lessons (unit_id IS NULL) = current in-progress AI unit (never foundations)
@@ -2580,7 +2604,7 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
             pending = [dict(r) for r in await cur.fetchall()]
 
         for l in pending:
-            l["status"] = _status(l, False)
+            l["status"] = _status_ai(l)
 
         if pending:
             units.append({
@@ -2801,14 +2825,17 @@ async def create_lesson(
     content: dict | None,
     summary: str,
     llm_debug: dict | None = None,
+    unit_id: int | None = None,
 ) -> int:
-    """Persist a generated lesson (unit_id NULL until a unit is closed).
+    """Persist a generated lesson. `unit_id` NULL = the in-progress AI chapter
+    (assigned to a unit later by close_unit); non-NULL = a textbook unit the
+    lesson is attached to directly (the textbook path bypasses active_plan).
     Inserts concepts into the registry. Returns lesson_id."""
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             """INSERT INTO course_lessons
-               (course_id, lesson_num, title, objective, content, concepts_json, summary, llm_debug_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (course_id, lesson_num, title, objective, content, concepts_json, summary, llm_debug_json, unit_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 course_id, lesson_num,
                 (title or "").strip(), (objective or "").strip(),
@@ -2816,6 +2843,7 @@ async def create_lesson(
                 json.dumps(concepts),
                 (summary or "").strip(),
                 json.dumps(llm_debug) if llm_debug else None,
+                unit_id,
             ),
         )
         lesson_id = cur.lastrowid
@@ -2860,6 +2888,54 @@ async def close_unit(course_id: int, title: str, summary: str) -> int:
         return unit_id
 
 
+async def create_textbook_unit_row(course_id: int, title: str, summary: str = "") -> int:
+    """Create an EMPTY textbook unit (theme='textbook') up front. Unlike
+    close_unit it does NOT back-assign unitless lessons — textbook lessons attach
+    to it directly via create_lesson(unit_id=...), so they never touch the AI
+    course's active_plan/close_unit flow. Returns unit_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
+        ) as cur:
+            next_idx = (await cur.fetchone())[0] + 1
+        cur = await db.execute(
+            "INSERT INTO course_units (course_id, idx, title, summary, theme) "
+            "VALUES (?, ?, ?, ?, 'textbook')",
+            (course_id, next_idx, (title or "").strip(), (summary or "").strip()),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def get_textbook_unit(user_id: int, unit_id: int) -> dict | None:
+    """A textbook unit row + its course, ownership-checked. None if not found,
+    not owned, or not a textbook unit."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.id, u.course_id, u.title, u.theme, c.target_lang, c.level
+               FROM course_units u JOIN courses c ON c.id = u.course_id
+               WHERE u.id=? AND c.user_id=? AND u.theme='textbook'""",
+            (unit_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_course_unit_if_empty(unit_id: int) -> None:
+    """Drop a unit row iff it has no lessons (used to roll back a failed
+    textbook-unit creation) plus any queue rows still scoped to it."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM course_lessons WHERE unit_id=?", (unit_id,)
+        ) as cur:
+            if (await cur.fetchone())[0]:
+                return
+        await db.execute("DELETE FROM lesson_queue WHERE unit_id=?", (unit_id,))
+        await db.execute("DELETE FROM course_units WHERE id=?", (unit_id,))
+        await db.commit()
+
+
 async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
     """(total, completed) among the in-progress (unitless) lessons — used to close
     the chapter into a unit at COMPLETION time once its budget is fully done."""
@@ -2882,12 +2958,15 @@ async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
 async def add_lesson_queue(course_id: int, items: list[dict],
                            textbook_id: int | None = None,
                            chapter_idx: int | None = None,
-                           front: bool = False) -> int:
+                           front: bool = False,
+                           unit_id: int | None = None) -> int:
     """Add queue items ({unit_title, unit_size, spec, source}). Returns count.
     `textbook_id`/`chapter_idx` tag the items with the book chapter they came
-    from (so deleting a book drops its still-queued lessons). ``front`` is used
-    for a user-approved one-off source so it cannot be displaced by a legacy
-    batch already waiting in the queue."""
+    from (so deleting a book drops its still-queued lessons). `unit_id` scopes
+    the items to a textbook course_units row so they are consumed only by that
+    unit's dedicated authoring route (never the AI path). ``front`` is a legacy
+    knob (kept for the old signature); textbook items rely on `unit_id`, not
+    ordering, so they pass front=False."""
     if not items:
         return 0
     async with aiosqlite.connect(DB_PATH) as db:
@@ -2902,19 +2981,30 @@ async def add_lesson_queue(course_id: int, items: list[dict],
         for i, it in enumerate(items):
             await db.execute(
                 """INSERT INTO lesson_queue (course_id, idx, unit_title, unit_size,
-                                             spec_json, source, textbook_id, chapter_idx)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                             spec_json, source, textbook_id, chapter_idx, unit_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (course_id, next_idx + i, (it.get("unit_title") or "").strip(),
                  max(1, int(it.get("unit_size") or 1)),
                  json.dumps(it.get("spec") or {}), it.get("source") or "",
-                 textbook_id, chapter_idx),
+                 textbook_id, chapter_idx, unit_id),
             )
         await db.commit()
         return len(items)
 
 
+def _row_to_queue_item(row) -> dict:
+    item = dict(row)
+    try:
+        item["spec"] = json.loads(item.pop("spec_json") or "{}")
+    except (ValueError, TypeError):
+        item["spec"] = {}
+    return item
+
+
 async def peek_lesson_queue(course_id: int) -> dict | None:
-    """The next queued lesson spec (lowest idx), or None."""
+    """The next queued lesson spec (lowest idx), or None. Legacy course-wide
+    peek — retained for backward compatibility; the textbook path now uses
+    peek_lesson_queue_for_unit."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -2923,14 +3013,20 @@ async def peek_lesson_queue(course_id: int) -> dict | None:
             (course_id,),
         ) as cur:
             row = await cur.fetchone()
-    if not row:
-        return None
-    item = dict(row)
-    try:
-        item["spec"] = json.loads(item.pop("spec_json") or "{}")
-    except (ValueError, TypeError):
-        item["spec"] = {}
-    return item
+    return _row_to_queue_item(row) if row else None
+
+
+async def peek_lesson_queue_for_unit(unit_id: int) -> dict | None:
+    """The next queued lesson spec for a specific textbook unit, or None."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, idx, unit_title, unit_size, spec_json, source
+               FROM lesson_queue WHERE unit_id=? ORDER BY idx LIMIT 1""",
+            (unit_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return _row_to_queue_item(row) if row else None
 
 
 async def pop_lesson_queue(queue_id: int) -> None:
@@ -2947,10 +3043,26 @@ async def count_lesson_queue(course_id: int) -> int:
             return (await cur.fetchone())[0]
 
 
+async def count_lesson_queue_for_unit(unit_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE unit_id=?", (unit_id,)
+        ) as cur:
+            return (await cur.fetchone())[0]
+
+
 async def clear_lesson_queue(course_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.commit()
+
+
+async def clear_lesson_queue_for_unit(unit_id: int) -> int:
+    """Drop remaining queued lessons for one textbook unit. Returns rows removed."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("DELETE FROM lesson_queue WHERE unit_id=?", (unit_id,))
+        await db.commit()
+        return cur.rowcount
 
 
 # ── Textbook library (import v2) ──────────────────────────────────────────────
@@ -2974,20 +3086,50 @@ def _parse_textbook_visuals(raw: str | None) -> list[dict]:
     return [v for v in visuals if isinstance(v, dict)] if isinstance(visuals, list) else []
 
 
+def _parse_bookmarks(raw: str | None) -> list[int]:
+    """Bookmarked 1-based page numbers, deduped + sorted."""
+    try:
+        marks = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        marks = []
+    return sorted({int(p) for p in marks if isinstance(p, (int, float)) and int(p) >= 1}) \
+        if isinstance(marks, list) else []
+
+
 async def create_textbook(user_id: int, course_id: int, title: str,
                           filename: str, pages: list[str],
-                          visuals: list[dict] | None = None) -> int:
+                          visuals: list[dict] | None = None,
+                          pdf_media_id: str | None = None) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             """INSERT INTO textbooks (user_id, course_id, title, filename,
-                                      num_pages, pages_json, images_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                      num_pages, pages_json, images_json,
+                                      pdf_media_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, course_id, (title or "").strip()[:200],
              (filename or "").strip()[:200], len(pages), json.dumps(pages),
-             json.dumps(visuals or [], ensure_ascii=False)),
+             json.dumps(visuals or [], ensure_ascii=False), pdf_media_id),
         )
         await db.commit()
         return cur.lastrowid
+
+
+async def update_textbook_pages(user_id: int, textbook_id: int,
+                                pages: list[str]) -> bool:
+    """Overwrite a book's per-page text (ownership-checked).
+
+    Used by the vision re-extraction path to replace garbled pages with clean,
+    native-script transcripts. ``num_pages`` is kept in sync so page-range
+    validation elsewhere stays correct.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "UPDATE textbooks SET pages_json=?, num_pages=? WHERE id=? AND user_id=?",
+            (json.dumps(pages, ensure_ascii=False), len(pages),
+             textbook_id, user_id),
+        )
+        await db.commit()
+        return bool(cur.rowcount)
 
 
 async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
@@ -2997,7 +3139,7 @@ async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, title, filename, num_pages, chapters_json, images_json,
-                      created_at
+                      pdf_media_id, last_page, bookmarks_json, created_at
                FROM textbooks WHERE user_id=? AND course_id=? ORDER BY id""",
             (user_id, course_id),
         ) as cur:
@@ -3015,6 +3157,8 @@ async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
                 ch["queued"] = queued.get(i, 0)
             r["chapters"] = chapters
             r["visual_count"] = len(visuals)
+            r["has_pdf"] = bool(r.pop("pdf_media_id", None))
+            r["bookmarks"] = _parse_bookmarks(r.pop("bookmarks_json", None))
             out.append(r)
         return out
 
@@ -3025,7 +3169,8 @@ async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, user_id, course_id, title, filename, num_pages,
-                      pages_json, chapters_json, images_json, created_at
+                      pages_json, chapters_json, images_json, pdf_media_id,
+                      last_page, bookmarks_json, created_at
                FROM textbooks WHERE id=? AND user_id=?""",
             (textbook_id, user_id),
         ) as cur:
@@ -3039,7 +3184,35 @@ async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
         book["pages"] = []
     book["chapters"] = _parse_chapters(book.pop("chapters_json"))
     book["visuals"] = _parse_textbook_visuals(book.pop("images_json"))
+    book["bookmarks"] = _parse_bookmarks(book.pop("bookmarks_json", None))
+    book["has_pdf"] = bool(book.get("pdf_media_id"))
     return book
+
+
+async def set_textbook_reading(user_id: int, textbook_id: int,
+                               last_page: int | None = None,
+                               bookmarks: list[int] | None = None) -> bool:
+    """Persist reading progress / bookmarks for the textbook reader (partial
+    update, ownership-checked). Returns False if the book isn't owned."""
+    sets, params = [], []
+    if last_page is not None:
+        sets.append("last_page=?")
+        params.append(max(0, int(last_page)))
+    if bookmarks is not None:
+        clean = sorted({int(p) for p in bookmarks
+                        if isinstance(p, (int, float)) and int(p) >= 1})
+        sets.append("bookmarks_json=?")
+        params.append(json.dumps(clean))
+    if not sets:
+        return False
+    params += [textbook_id, user_id]
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"UPDATE textbooks SET {', '.join(sets)} WHERE id=? AND user_id=?",
+            params,
+        )
+        await db.commit()
+        return bool(cur.rowcount)
 
 
 async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
@@ -3053,17 +3226,20 @@ async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
 
 
 async def list_textbook_visual_ids(user_id: int, course_id: int) -> list[str]:
-    """Media ids to unlink when a whole course is deleted."""
+    """Media ids to unlink when a whole course is deleted (page visuals AND the
+    stored source PDF for each book)."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT images_json FROM textbooks WHERE user_id=? AND course_id=?",
+            "SELECT images_json, pdf_media_id FROM textbooks WHERE user_id=? AND course_id=?",
             (user_id, course_id),
         ) as cur:
             rows = await cur.fetchall()
-    return [
+    ids = [
         str(v.get("id")) for row in rows for v in _parse_textbook_visuals(row[0])
         if v.get("id")
     ]
+    ids += [str(row[1]) for row in rows if row[1]]
+    return ids
 
 
 async def delete_media_records(media_ids: list[str]) -> None:
@@ -3087,7 +3263,7 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
     """Delete a book + its still-queued lessons. Authored lessons are kept."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT images_json FROM textbooks WHERE id=? AND user_id=?",
+            "SELECT images_json, pdf_media_id FROM textbooks WHERE id=? AND user_id=?",
             (textbook_id, user_id),
         ) as media_cur:
             media_row = await media_cur.fetchone()
@@ -3095,6 +3271,8 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
             str(v.get("id")) for v in _parse_textbook_visuals(media_row[0])
             if v.get("id")
         ] if media_row else []
+        pdf_id = media_row[1] if media_row else None
+        media_ids = visual_ids + ([pdf_id] if pdf_id else [])
         cur = await db.execute(
             "DELETE FROM textbooks WHERE id=? AND user_id=?",
             (textbook_id, user_id),
@@ -3102,9 +3280,9 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
         if cur.rowcount:
             await db.execute(
                 "DELETE FROM lesson_queue WHERE textbook_id=?", (textbook_id,))
-            if visual_ids:
+            if media_ids:
                 await db.executemany(
-                    "DELETE FROM media WHERE id=?", [(mid,) for mid in visual_ids])
+                    "DELETE FROM media WHERE id=?", [(mid,) for mid in media_ids])
         await db.commit()
         return bool(cur.rowcount)
 

@@ -576,6 +576,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         "dashboard": f'<svg {_i}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
         "signout":   f'<svg {_i}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         "browse":    f'<svg {_i}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        "book":      f'<svg {_i}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
         "more":      f'<svg {_i}><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
     }
 
@@ -598,6 +599,7 @@ def _build_nav(active: str = "", tabbar: bool = True) -> tuple[str, str]:
         link("/reader",   "Reader",     "reader"),
     ]
     secondary_links = [
+        link("/textbooks", "Textbooks", "book"),
         link("/browse",   "Browse",     "browse"),
         link("/feedback", "Feedback",   "feedback"),
         link("/settings", "Settings",   "settings"),
@@ -1575,6 +1577,11 @@ async def messages_page():
 @app.get("/browse", response_class=HTMLResponse)
 async def browse_page():
     return _html("browse.html", active="/browse")
+
+
+@app.get("/textbooks", response_class=HTMLResponse)
+async def textbooks_page():
+    return _html("textbooks.html", active="/textbooks")
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -3417,9 +3424,15 @@ async def get_course_vocab(course_id: int, user: dict = Depends(current_user)):
 @app.delete("/api/courses/{course_id}")
 async def delete_course(course_id: int, user: dict = Depends(current_user)):
     visual_ids = await db.list_textbook_visual_ids(user["id"], course_id)
+    book_ids = [b["id"] for b in await db.list_textbooks(user["id"], course_id)]
     await db.delete_course(user["id"], course_id)
     for media_id in visual_ids:
+        # ids cover both page-visual JPEGs and stored source PDFs; unlink either.
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+        (MEDIA_DIR / f"{media_id}.pdf").unlink(missing_ok=True)
+    for book_id in book_ids:      # cached rendered reader page images
+        for cached in MEDIA_DIR.glob(f"tbpage_{book_id}_*.jpg"):
+            cached.unlink(missing_ok=True)
     return {"success": True}
 
 
@@ -3653,20 +3666,84 @@ async def _maybe_close_chapter(course_id: int) -> None:
     total, done = await db.get_open_lesson_stats(course_id)
     if total == 0 or done < total:
         return
-    ceiling = (textbook.MAX_LESSONS_PER_CHAPTER if chapter.get("textbook")
-               else learning.CHAPTER_BUDGET_MAX)
     if total < learning.clamp_chapter_budget(
-            chapter.get("budget"), floor=1, ceiling=ceiling):
+            chapter.get("budget"), floor=1, ceiling=learning.CHAPTER_BUDGET_MAX):
         return    # chapter not fully generated yet — more lessons belong to it
-    queued = await db.peek_lesson_queue(course_id)
-    if queued and (queued.get("unit_title") or "") == chapter.get("title"):
-        return    # more textbook lessons still queued for this unit
     await db.close_unit(course_id, chapter["title"], chapter.get("summary") or "")
     await db.set_active_plan(course_id, None)
 
 
+async def _load_learner_state(user_id: int | None, lang: str, access) -> dict:
+    """Live cross-app signals both the AI planner and the textbook author read:
+    mastery, known/weak/recent deck words, learner profile, CEFR spread, focus."""
+    state = {
+        "mastery": [], "known_words": [], "weak_words": [], "recent_cards": [],
+        "learner_profile": "", "cefr_spread": "", "course_focus": "balanced",
+    }
+    if user_id:
+        state["mastery"] = await db.get_mastery_summary(user_id, lang)
+        state["known_words"] = await db.get_known_words(user_id, lang)
+        state["weak_words"] = await db.get_weak_cards(user_id, lang)
+        state["recent_cards"] = await db.get_recent_cards(user_id, lang)
+        state["learner_profile"] = await db.get_setting(user_id, "learner_profile") or ""
+        state["course_focus"] = _valid_course_focus(await db.get_setting(user_id, "course_focus"))
+        try:
+            state["cefr_spread"] = await _known_cefr_stats(user_id, lang, access.api_key)
+        except Exception:
+            state["cefr_spread"] = ""
+    state["known_texts"] = {(w.get("target_text") or "").strip() for w in state["known_words"]}
+    return state
+
+
+async def _author_and_persist(course: dict, ctx: dict, concepts: list[dict],
+                              brief: dict, review, source: str, access, lesson_model: str,
+                              state: dict, plan_prompt: str, plan_response: str,
+                              unit_id: int | None = None) -> tuple[int, dict]:
+    """AUTHOR the lesson for `concepts` + persist it. Shared by the AI planner
+    path (unit_id=None → in-progress chapter) and the textbook path (unit_id set
+    → attached directly to a textbook unit). Returns (lesson_id, authored)."""
+    lang = course["target_lang"]
+    try:
+        authored = await learning.author_lesson(
+            lang, concepts, ctx["recent_summaries"],
+            api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
+            taught=ctx["concept_registry"], review=review,
+            known_words=state["known_words"], weak_words=state["weak_words"], brief=brief,
+            source=source or None,
+        )
+    except Exception as e:
+        logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
+                     lang, [c.get("key") for c in concepts], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Lesson generation", lesson_model))
+
+    content = authored["content"]
+    total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
+    if not total_ex:
+        logger.error("Lesson has no exercises lang=%s concepts=%s raw=%r",
+                     lang, [c.get("key") for c in concepts],
+                     authored.get("_raw_response", "")[:500])
+        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
+
+    sep = "\n\n══════ LESSON AUTHOR ══════\n\n"
+    debug = {
+        "prompt":   (plan_prompt + sep + authored["_raw_prompt"]) if plan_prompt else authored["_raw_prompt"],
+        "response": (plan_response + sep + authored["_raw_response"]) if plan_response else authored["_raw_response"],
+    }
+
+    lesson_id = await db.create_lesson(
+        course["id"], ctx["lesson_num"],
+        authored["title"], authored["objective"],
+        concepts,             # skill + vocab items get registered
+        content,
+        authored["summary"],
+        debug,
+        unit_id=unit_id,
+    )
+    return lesson_id, authored
+
+
 async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: int | None = None) -> int:
-    """Plan + author + persist ONE lesson, just-in-time from live learner state.
+    """Plan + author + persist ONE AI-planned lesson, just-in-time from live state.
 
     Two LLM calls: a cheap PLANNER picks the next skill + how broad to teach it
     (continuing or opening a chapter), then the AUTHOR writes teach blocks + drills.
@@ -3677,9 +3754,9 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     planner sees progress, and once `budget` lessons are open the next plan is
     FORCED to open a new chapter (closing the old one into a unit via close_unit).
 
-    If the course has a lesson_queue (textbook import), the next queued spec is
-    consumed INSTEAD of calling the planner — the book is the plan — and the
-    author is grounded in the item's `source` excerpt.
+    Textbook units NO LONGER flow through here — they are authored by
+    `_author_textbook_lesson`, attached to their own unit, so this path is always
+    a genuine AI-planned lesson and never drains the textbook queue.
 
     A plan whose concepts are ALL already taught/known is never shipped: the
     planner is re-run once with explicit feedback, then the request fails with a
@@ -3702,139 +3779,71 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     if chapter and not (chapter.get("title") or "").strip():
         chapter = None
 
-    # Queued textbook lesson? Then the book is the plan — skip the planner.
-    queued = await db.peek_lesson_queue(course_id)
+    state = await _load_learner_state(user_id, lang, access)
+    known_texts = state["known_texts"]
 
-    mastery: list[dict] = []
-    known_words: list[dict] = []
-    weak_words: list[dict] = []
-    recent_cards: list[dict] = []
-    learner_profile = ""
-    cefr_spread = ""
-    course_focus = "balanced"      # D2 · planner steering
-    if user_id:
-        mastery = await db.get_mastery_summary(user_id, lang)
-        known_words = await db.get_known_words(user_id, lang)
-        weak_words = await db.get_weak_cards(user_id, lang)
-        recent_cards = await db.get_recent_cards(user_id, lang)
-        learner_profile = await db.get_setting(user_id, "learner_profile") or ""
-        course_focus = _valid_course_focus(await db.get_setting(user_id, "course_focus"))
-        try:
-            cefr_spread = await _known_cefr_stats(user_id, lang, access.api_key)
-        except Exception:
-            cefr_spread = ""
-    known_texts = {(w.get("target_text") or "").strip() for w in known_words}
+    # 1. PLAN the next lesson from live state.
+    budget_reached = bool(chapter) and \
+        ctx["open_lessons"] >= learning.clamp_chapter_budget(chapter.get("budget"))
+    plan_kwargs = dict(
+        concept_registry=ctx["concept_registry"],
+        recent_summaries=ctx["recent_summaries"],
+        current_chapter=chapter,
+        learner_profile=state["learner_profile"], mastery=state["mastery"],
+        known_words=state["known_words"], weak_words=state["weak_words"],
+        recent_cards=state["recent_cards"], cefr_spread=state["cefr_spread"],
+        course_focus=state["course_focus"],
+        unit_summaries=ctx["unit_summaries"],
+        lessons_done=ctx["open_lessons"], budget_reached=budget_reached,
+        api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
+    )
+    try:
+        spec = await learning.plan_next_lesson(lang, course["level"], **plan_kwargs)
+    except Exception as e:
+        logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
+    plan_prompt = spec.pop("_raw_prompt", "")
+    plan_response = spec.pop("_raw_response", "")
+    # Deterministic backstop: at budget the chapter closes no matter what the
+    # model answered.
+    if budget_reached and spec.get("chapter_action") != "new":
+        spec["chapter_action"] = "new"
 
-    source = ""
-    challenge = ""
-    if queued:
-        # 1a. Spec straight from the queue. The chapter continues while queued
-        #     items share a unit_title; a title change opens the next book chapter
-        #     (budget = the chapter's lesson count from the segmentation).
-        qspec = queued.get("spec") or {}
-        source = queued.get("source") or ""
-        # Adaptive difficulty: the book fixes WHAT to teach, but the learner's
-        # deck still shapes HOW. If they already know most of this lesson's
-        # items, skip the gentle introduction and drill harder.
-        q_items = [(it.get("label") or "").strip()
-                   for it in (qspec.get("target_items") or [])]
-        n_known = sum(1 for t in q_items if t and t in known_texts)
-        if q_items and n_known >= max(2, (len(q_items) + 1) // 2):
-            challenge = (
-                f"The learner ALREADY KNOWS {n_known} of the {len(q_items)} "
-                f"words/forms this lesson covers (they're in their flashcard deck). "
-                f"Keep teach blocks brief, use fresh example contexts instead of "
-                f"re-introducing the words, and skew the drill mix HARDER — "
-                f"production, reorder and cloze over recognition."
-            )
-        spec = {
-            "chapter_action": "continue" if (chapter and chapter.get("title") == queued["unit_title"]) else "new",
-            "chapter": {"title": queued["unit_title"], "objective": "",
-                        "summary": "", "budget": queued.get("unit_size") or 1,
-                        "textbook": True},
-            "skill": qspec.get("skill") or {},
-            "scope": "broad", "focus": "new",
-            "target_items": qspec.get("target_items") or [],
-        }
-        plan_prompt = f"(queued textbook lesson #{queued['idx'] + 1} — planner skipped)"
-        plan_response = json.dumps(spec, ensure_ascii=False, indent=1)
-        # Textbook material is explicit user intent: if dedup empties it (the
-        # learner already knows this part of the book), teach it anyway.
-        try:
-            raw_concepts, deduped = await _dedup_plan_concepts(
-                spec, ctx, known_texts, lang, access.api_key, semantic=False)
-        except HTTPException:
-            # A malformed queue item would otherwise 502 on EVERY retry and wedge
-            # the whole queue — drop it so the next Generate moves on.
-            await db.pop_lesson_queue(queued["id"])
-            raise HTTPException(502, (
-                "That queued textbook lesson was malformed and has been skipped — "
-                "tap Generate again for the next one."
-            ))
-        concepts = deduped or raw_concepts
-    else:
-        # 1b. PLAN the next lesson from live state.
-        budget_reached = bool(chapter) and \
-            ctx["open_lessons"] >= learning.clamp_chapter_budget(chapter.get("budget"))
-        plan_kwargs = dict(
-            concept_registry=ctx["concept_registry"],
-            recent_summaries=ctx["recent_summaries"],
-            current_chapter=chapter,
-            learner_profile=learner_profile, mastery=mastery,
-            known_words=known_words, weak_words=weak_words,
-            recent_cards=recent_cards, cefr_spread=cefr_spread,
-            course_focus=course_focus,
-            unit_summaries=ctx["unit_summaries"],
-            lessons_done=ctx["open_lessons"], budget_reached=budget_reached,
-            api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
+    # 2. Dedup against the registry + known deck words. A fully-duplicate plan
+    #    is NEVER shipped: re-plan once with explicit feedback, then fail.
+    raw_concepts, deduped = await _dedup_plan_concepts(
+        spec, ctx, known_texts, lang, access.api_key)
+    if not deduped:
+        feedback = (
+            "Your previous plan proposed: "
+            + "; ".join(f'{c.get("key")} ("{c.get("label")}" = {c.get("gloss")})'
+                        for c in raw_concepts)
+            + ". ALL of it is already taught in this course (or already in the "
+              "learner's flashcard deck). Pick a genuinely DIFFERENT skill — "
+              "re-read WHAT'S BEEN TAUGHT carefully before answering."
         )
+        logger.info("Plan was all duplicates (lang=%s, keys=%s) — re-planning once",
+                    lang, [c.get("key") for c in raw_concepts])
         try:
-            spec = await learning.plan_next_lesson(lang, course["level"], **plan_kwargs)
+            spec = await learning.plan_next_lesson(
+                lang, course["level"], avoid_feedback=feedback, **plan_kwargs)
         except Exception as e:
-            logger.error("Lesson planning failed lang=%s: %s", lang, e, exc_info=True)
+            logger.error("Lesson re-planning failed lang=%s: %s", lang, e, exc_info=True)
             raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
-        plan_prompt = spec.pop("_raw_prompt", "")
-        plan_response = spec.pop("_raw_response", "")
-        # Deterministic backstop: at budget the chapter closes no matter what the
-        # model answered.
+        sep = "\n\n══════ RE-PLAN (first plan was all duplicates) ══════\n\n"
+        plan_prompt += sep + spec.pop("_raw_prompt", "")
+        plan_response += sep + spec.pop("_raw_response", "")
         if budget_reached and spec.get("chapter_action") != "new":
             spec["chapter_action"] = "new"
-
-        # 2. Dedup against the registry + known deck words. A fully-duplicate plan
-        #    is NEVER shipped: re-plan once with explicit feedback, then fail.
         raw_concepts, deduped = await _dedup_plan_concepts(
             spec, ctx, known_texts, lang, access.api_key)
         if not deduped:
-            feedback = (
-                "Your previous plan proposed: "
-                + "; ".join(f'{c.get("key")} ("{c.get("label")}" = {c.get("gloss")})'
-                            for c in raw_concepts)
-                + ". ALL of it is already taught in this course (or already in the "
-                  "learner's flashcard deck). Pick a genuinely DIFFERENT skill — "
-                  "re-read WHAT'S BEEN TAUGHT carefully before answering."
-            )
-            logger.info("Plan was all duplicates (lang=%s, keys=%s) — re-planning once",
-                        lang, [c.get("key") for c in raw_concepts])
-            try:
-                spec = await learning.plan_next_lesson(
-                    lang, course["level"], avoid_feedback=feedback, **plan_kwargs)
-            except Exception as e:
-                logger.error("Lesson re-planning failed lang=%s: %s", lang, e, exc_info=True)
-                raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
-            sep = "\n\n══════ RE-PLAN (first plan was all duplicates) ══════\n\n"
-            plan_prompt += sep + spec.pop("_raw_prompt", "")
-            plan_response += sep + spec.pop("_raw_response", "")
-            if budget_reached and spec.get("chapter_action") != "new":
-                spec["chapter_action"] = "new"
-            raw_concepts, deduped = await _dedup_plan_concepts(
-                spec, ctx, known_texts, lang, access.api_key)
-            if not deduped:
-                raise HTTPException(502, (
-                    "The lesson planner keeps proposing material you've already been "
-                    "taught. Try again in a moment — or add a few new flashcards / "
-                    "update your tutor profile to steer it somewhere new."
-                ))
-        concepts = deduped
+            raise HTTPException(502, (
+                "The lesson planner keeps proposing material you've already been "
+                "taught. Try again in a moment — or add a few new flashcards / "
+                "update your tutor profile to steer it somewhere new."
+            ))
+    concepts = deduped
 
     # 3. CHAPTER bookkeeping (from the FINAL spec — a re-plan may have changed it).
     #    Opening a new chapter closes the previous one into a unit.
@@ -3842,18 +3851,12 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         if chapter:
             await db.close_unit(course_id, chapter.get("title") or "Unit", chapter.get("summary") or "")
         new_ch = spec.get("chapter") or {}
-        is_textbook = bool(new_ch.get("textbook"))
         chapter = {
             "title":     (new_ch.get("title") or spec.get("skill", {}).get("label") or "Lesson").strip(),
             "objective": (new_ch.get("objective") or "").strip(),
             "summary":   (new_ch.get("summary") or "").strip(),
-            # Textbook units can mirror up to twelve source-grounded lessons;
-            # ordinary AI-planned units retain the tighter 2–6 arc.
             "budget": learning.clamp_chapter_budget(
-                new_ch.get("budget"), floor=1,
-                ceiling=(textbook.MAX_LESSONS_PER_CHAPTER if is_textbook
-                         else learning.CHAPTER_BUDGET_MAX)),
-            "textbook": is_textbook,
+                new_ch.get("budget"), floor=1, ceiling=learning.CHAPTER_BUDGET_MAX),
         }
         await db.set_active_plan(course_id, chapter)
 
@@ -3862,47 +3865,14 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         "objective": spec.get("skill", {}).get("gloss", ""),
         "scope":     spec.get("scope", "broad"),
         "focus":     spec.get("focus", "new"),
-        "challenge": challenge,
+        "challenge": "",
     }
-    review = _pick_review_concepts(ctx["concept_registry"], concepts, mastery, ctx["lesson_num"])
+    review = _pick_review_concepts(ctx["concept_registry"], concepts, state["mastery"], ctx["lesson_num"])
 
-    # 4. AUTHOR the lesson for this skill + items.
-    try:
-        authored = await learning.author_lesson(
-            lang, concepts, ctx["recent_summaries"],
-            api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
-            taught=ctx["concept_registry"], review=review,
-            known_words=known_words, weak_words=weak_words, brief=brief,
-            source=source or None,
-        )
-    except Exception as e:
-        logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
-                     lang, [c.get("key") for c in concepts], e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Lesson generation", lesson_model))
-
-    content = authored["content"]
-    total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
-    if not total_ex:
-        logger.error("Lesson has no exercises lang=%s concepts=%s raw=%r",
-                     lang, [c.get("key") for c in concepts],
-                     authored.get("_raw_response", "")[:500])
-        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
-
-    # Merge both LLM calls into the {prompt, response} the debug panel reads.
-    sep = "\n\n══════ LESSON AUTHOR ══════\n\n"
-    debug = {
-        "prompt":   (plan_prompt + sep + authored["_raw_prompt"]) if plan_prompt else authored["_raw_prompt"],
-        "response": (plan_response + sep + authored["_raw_response"]) if plan_response else authored["_raw_response"],
-    }
-
-    lesson_id = await db.create_lesson(
-        course_id, ctx["lesson_num"],
-        authored["title"], authored["objective"],
-        concepts,             # skill + vocab items get registered
-        content,
-        authored["summary"],
-        debug,
-    )
+    # 4. AUTHOR + persist.
+    lesson_id, authored = await _author_and_persist(
+        course, ctx, concepts, brief, review, "", access, lesson_model, state,
+        plan_prompt, plan_response, unit_id=None)
 
     # 5. Roll this lesson's summary into the chapter's running summary so the NEXT
     #    plan can see progress toward the objective (a frozen summary made every
@@ -3910,9 +3880,84 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     chapter["summary"] = learning.roll_chapter_summary(
         chapter.get("summary"), authored["summary"] or authored["title"])
     await db.set_active_plan(course_id, chapter)
+    return lesson_id
 
-    if queued:
+
+async def _author_textbook_lesson(course: dict, unit_id: int, access,
+                                  lesson_model: str, user_id: int | None = None) -> int:
+    """Author + persist the next queued lesson for ONE textbook unit.
+
+    The book is the plan, so the planner is skipped: the next queued spec for
+    this unit is authored (grounded in its `source` excerpt) and attached
+    DIRECTLY to `unit_id` — no active_plan / close_unit juggling, no touching the
+    AI course path. The three feedback stores still fire (concepts registered at
+    author time via create_lesson; mastery + deck vocab on completion), so the AI
+    planner keeps seeing what the book taught.
+
+    Raises HTTPException(409) when the unit's queue is empty, 502 on gen failure."""
+    course_id = course["id"]
+    lang = course["target_lang"]
+    ctx = await db.get_next_lesson_context(course_id)
+    queued = await db.peek_lesson_queue_for_unit(unit_id)
+    if not queued:
+        raise HTTPException(409, "This textbook unit is fully generated.")
+
+    state = await _load_learner_state(user_id, lang, access)
+    known_texts = state["known_texts"]
+
+    qspec = queued.get("spec") or {}
+    source = queued.get("source") or ""
+    # Adaptive difficulty: the book fixes WHAT to teach, but the learner's deck
+    # still shapes HOW. If they already know most of this lesson's items, skip the
+    # gentle introduction and drill harder.
+    q_items = [(it.get("label") or "").strip()
+               for it in (qspec.get("target_items") or [])]
+    n_known = sum(1 for t in q_items if t and t in known_texts)
+    challenge = ""
+    if q_items and n_known >= max(2, (len(q_items) + 1) // 2):
+        challenge = (
+            f"The learner ALREADY KNOWS {n_known} of the {len(q_items)} "
+            f"words/forms this lesson covers (they're in their flashcard deck). "
+            f"Keep teach blocks brief, use fresh example contexts instead of "
+            f"re-introducing the words, and skew the drill mix HARDER — "
+            f"production, reorder and cloze over recognition."
+        )
+    spec = {
+        "skill": qspec.get("skill") or {},
+        "scope": "broad", "focus": "new",
+        "target_items": qspec.get("target_items") or [],
+    }
+    plan_prompt = f"(queued textbook lesson #{queued['idx'] + 1} — planner skipped)"
+    plan_response = json.dumps(spec, ensure_ascii=False, indent=1)
+
+    # Textbook material is explicit user intent: if dedup empties it (the learner
+    # already knows this part of the book), teach it anyway.
+    try:
+        raw_concepts, deduped = await _dedup_plan_concepts(
+            spec, ctx, known_texts, lang, access.api_key, semantic=False)
+    except HTTPException:
+        # A malformed queue item would otherwise 502 on EVERY retry and wedge the
+        # unit — drop it so the next Generate moves on.
         await db.pop_lesson_queue(queued["id"])
+        raise HTTPException(502, (
+            "That queued textbook lesson was malformed and has been skipped — "
+            "tap Generate again for the next one."
+        ))
+    concepts = deduped or raw_concepts
+
+    brief = {
+        "title":     (queued.get("unit_title") or "").strip(),
+        "objective": spec.get("skill", {}).get("gloss", ""),
+        "scope":     "broad", "focus": "new",
+        "challenge": challenge,
+    }
+    review = _pick_review_concepts(ctx["concept_registry"], concepts, state["mastery"], ctx["lesson_num"])
+
+    lesson_id, _ = await _author_and_persist(
+        course, ctx, concepts, brief, review, source, access, lesson_model, state,
+        plan_prompt, plan_response, unit_id=unit_id)
+
+    await db.pop_lesson_queue(queued["id"])
     return lesson_id
 
 
@@ -3980,6 +4025,48 @@ async def next_lesson(request: Request, course_id: int, count: int = 1,
     return {"generated": len(lesson_ids), "lesson_ids": lesson_ids}
 
 
+@app.post("/api/course-units/{unit_id}/next-lesson")
+@limiter.limit("10/minute;40/day")
+async def next_textbook_unit_lesson(request: Request, unit_id: int,
+                                    user: dict = Depends(current_user)):
+    """Author the next queued lesson for one textbook unit (explicit, unit-scoped
+    action — never the AI course path). Returns the full lesson for the player."""
+    unit = await db.get_textbook_unit(user["id"], unit_id)
+    if not unit:
+        raise HTTPException(404, "Textbook unit not found")
+    course = await db.get_course(user["id"], unit["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+
+    access = await _resolve_gemini(user, meter=False)
+    lesson_model = await _resolve_lesson_model(user, access)
+    own_enc = await db.get_setting(user["id"], "gemini_api_key")
+    metered = not own_enc and not user.get("is_admin")
+    if metered and await db.get_usage(user["id"]) >= _plan_limit(user):
+        raise HTTPException(402, (
+            f"You've used your {_plan_limit(user)} free AI lessons this month. "
+            "Add your own Gemini key in Settings for unlimited use."
+        ))
+    lesson_id = await _author_textbook_lesson(course, unit_id, access, lesson_model, user["id"])
+    if metered:
+        await db.increment_usage(user["id"])
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    return _lesson_response(lesson, lesson["content"])
+
+
+@app.delete("/api/course-units/{unit_id}/queue")
+async def clear_textbook_unit_queue(unit_id: int, user: dict = Depends(current_user)):
+    """Drop a textbook unit's remaining (not-yet-authored) queued lessons.
+    Already-authored lessons in the unit are kept."""
+    unit = await db.get_textbook_unit(user["id"], unit_id)
+    if not unit:
+        raise HTTPException(404, "Textbook unit not found")
+    removed = await db.clear_lesson_queue_for_unit(unit_id)
+    # If the unit never got a lesson authored, it's an empty husk — remove it.
+    await db.delete_course_unit_if_empty(unit_id)
+    return {"success": True, "removed": removed}
+
+
 # ── Textbook import: PDF → reviewed source → one lesson ──────────────────────
 
 _TEXTBOOK_MAX_PDF = 25 * 1024 * 1024   # request-size guard
@@ -3997,6 +4084,18 @@ async def _textbook_metering(user: dict, n_calls: int, what: str):
             f"for unlimited use."
         ))
     return metered
+
+
+def _chapter_anchors(book: dict, start: int, end: int) -> tuple[str, str]:
+    """Stored mid-page split markers for the chapter matching (start, end), so a
+    split set in the divisions editor applies to generation even when the caller
+    (e.g. the /textbooks "Turn into lessons" action) sends only start/end. Empty
+    when no chapter matches or none is set."""
+    for ch in book.get("chapters") or []:
+        if ch.get("start") == start and ch.get("end") == end:
+            return (textbook._clean_anchor(ch.get("start_anchor")),
+                    textbook._clean_anchor(ch.get("end_anchor")))
+    return "", ""
 
 
 @app.post("/api/courses/{course_id}/textbooks")
@@ -4024,15 +4123,27 @@ async def upload_textbook(request: Request, course_id: int,
 
     book_title = title.strip()[:200] or (extracted.get("title") or "").strip() or \
         re.sub(r"\.pdf$", "", file.filename or "textbook", flags=re.I)
+    expect_native = translation.SCRIPT_BY_LANG.get(
+        course["target_lang"], "latin") != "latin"
+    quality = extract.assess_page_quality(pages, expect_native_script=expect_native)
     visual_meta = []
     stored_visual_ids = []
+    stored_files: list[Path] = []
+    # Keep the source PDF so its pages can be re-rendered later for AI vision
+    # re-extraction (garbled / romanized / scanned books).
+    pdf_media_id = _uuid.uuid4().hex
     try:
+        (MEDIA_DIR / f"{pdf_media_id}.pdf").write_bytes(data)
+        stored_files.append(MEDIA_DIR / f"{pdf_media_id}.pdf")
+        await db.add_media_record(pdf_media_id, user["id"], None, len(data))
+        stored_visual_ids.append(pdf_media_id)
         for visual in extracted.get("visuals") or []:
             media_id = _uuid.uuid4().hex
             image_bytes = visual.get("data") or b""
             if not image_bytes:
                 continue
             (MEDIA_DIR / f"{media_id}.jpg").write_bytes(image_bytes)
+            stored_files.append(MEDIA_DIR / f"{media_id}.jpg")
             await db.add_media_record(media_id, user["id"], None, len(image_bytes))
             stored_visual_ids.append(media_id)
             visual_meta.append({
@@ -4042,15 +4153,19 @@ async def upload_textbook(request: Request, course_id: int,
             })
         tb_id = await db.create_textbook(
             user["id"], course_id, book_title, file.filename or "", pages,
-            visual_meta)
+            visual_meta, pdf_media_id=pdf_media_id)
     except Exception:
         await db.delete_media_records(stored_visual_ids)
-        for media_id in stored_visual_ids:
-            (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+        for path in stored_files:
+            path.unlink(missing_ok=True)
         raise
     return {"id": tb_id, "title": book_title, "num_pages": len(pages),
             "chapters": [], "visual_count": len(visual_meta),
-            "needs_analysis": True}
+            "needs_analysis": True,
+            "low_text_quality": quality["low_quality"],
+            "low_text_quality_reason": quality["reason"],
+            "poor_pages": quality["poor_pages"],
+            "can_transcribe": True}
 
 
 @app.get("/api/courses/{course_id}/textbooks")
@@ -4131,6 +4246,170 @@ async def textbook_pages(textbook_id: int, start: int = 1, end: int = 1,
                       for i in range(start - 1, end)]}
 
 
+# Screen-appropriate page render (smaller than the 2000px vision render).
+_TEXTBOOK_PAGE_LONG_EDGE = 1400
+
+
+@app.get("/api/textbooks/{textbook_id}/reader")
+async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
+    """Everything the chapter reader needs in one call: chapters, cleaned per-page
+    text, page count, reading progress, bookmarks, and whether page images are
+    available (the source PDF is on disk)."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    return {
+        "id": book["id"], "title": book["title"], "num_pages": book["num_pages"],
+        "chapters": book["chapters"],
+        "last_page": book.get("last_page") or 0,
+        "bookmarks": book.get("bookmarks") or [],
+        "has_pages": bool(book.get("has_pdf")),
+        "pages": [{"page": i + 1, "text": t}
+                  for i, t in enumerate(book.get("pages") or [])],
+    }
+
+
+@app.get("/api/textbooks/{textbook_id}/page/{page}.jpg")
+async def textbook_page_image(textbook_id: int, page: int,
+                              user: dict = Depends(current_user)):
+    """Render one PDF page to a JPEG for the reader, lazily + cached on disk.
+
+    Full page images aren't stored at upload; we rasterize on first request from
+    the retained source PDF and cache `tbpage_{id}_{n}.jpg` so repeats are free."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    if page < 1 or page > book["num_pages"]:
+        raise HTTPException(404, "Page out of range")
+    cache_path = MEDIA_DIR / f"tbpage_{textbook_id}_{page}.jpg"
+    if not cache_path.exists():
+        pdf_media_id = book.get("pdf_media_id")
+        pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+        if not pdf_media_id or not pdf_path or not pdf_path.exists():
+            raise HTTPException(409, (
+                "This book has no page images (it was uploaded before the reader "
+                "existed). Re-upload the PDF to read it by page."
+            ))
+        try:
+            pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
+            images = await asyncio.to_thread(
+                extract.render_pdf_pages, pdf_bytes, [page], _TEXTBOOK_PAGE_LONG_EDGE)
+        except extract.ExtractError as e:
+            raise HTTPException(400, str(e))
+        except Exception as e:
+            logger.error("Textbook page render failed tb=%s page=%s: %s",
+                         textbook_id, page, e, exc_info=True)
+            raise HTTPException(502, "Couldn't render that page.")
+        data = images.get(page)
+        if not data:
+            raise HTTPException(404, "Page could not be rendered")
+        await asyncio.to_thread(cache_path.write_bytes, data)
+    return FileResponse(
+        cache_path, media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
+@app.put("/api/textbooks/{textbook_id}/reading")
+async def update_textbook_reading(textbook_id: int, payload: dict,
+                                  user: dict = Depends(current_user)):
+    """Persist the reader's resume point and/or bookmarks (partial update)."""
+    last_page = payload.get("last_page")
+    bookmarks = payload.get("bookmarks")
+    if last_page is None and bookmarks is None:
+        raise HTTPException(400, "Nothing to update.")
+    if bookmarks is not None and not isinstance(bookmarks, list):
+        raise HTTPException(400, "bookmarks must be a list of page numbers.")
+    try:
+        last_page = int(last_page) if last_page is not None else None
+    except (TypeError, ValueError):
+        raise HTTPException(400, "last_page must be a number.")
+    if not await db.set_textbook_reading(user["id"], textbook_id,
+                                         last_page=last_page, bookmarks=bookmarks):
+        raise HTTPException(404, "Book not found")
+    return {"success": True}
+
+
+@app.post("/api/textbooks/{textbook_id}/transcribe")
+@limiter.limit("6/hour;20/day")
+async def transcribe_textbook_pages(request: Request, textbook_id: int,
+                                    payload: dict,
+                                    user: dict = Depends(current_user)):
+    """AI-re-read a page range with vision and replace its extracted text.
+
+    Deterministic ``pypdf`` text mangles 2-up spreads, interlinear layouts, and
+    romanization-only phrasebooks, and returns nothing for scanned pages. This
+    renders the selected pages from the stored source PDF and transcribes each
+    with the vision model into clean, native-script text, then overwrites those
+    pages so the normal chapter/lesson planners get faithful source. Bounded to
+    ``MAX_VISION_PAGES`` and metered one AI call per page.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    pdf_media_id = book.get("pdf_media_id")
+    pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+    if not pdf_media_id or not pdf_path or not pdf_path.exists():
+        raise HTTPException(409, (
+            "This book was uploaded before AI re-reading was available. "
+            "Re-upload the PDF to enable it."
+        ))
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    num_pages = book["num_pages"]
+    if start < 1 or end < start or end > num_pages:
+        raise HTTPException(400, f"Choose pages between 1 and {num_pages}, in order.")
+    if end - start + 1 > textbook.MAX_VISION_PAGES:
+        raise HTTPException(400, (
+            f"AI re-reading handles at most {textbook.MAX_VISION_PAGES} pages at "
+            "a time. Re-read the next pages in another pass."
+        ))
+    page_numbers = list(range(start, end + 1))
+
+    access = await _resolve_gemini(user, meter=False)
+    metered = await _textbook_metering(
+        user, len(page_numbers), "Re-reading pages with AI")
+    try:
+        pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
+        images = await asyncio.to_thread(
+            extract.render_pdf_pages, pdf_bytes, page_numbers)
+        transcribed, calls = await textbook.transcribe_pages(
+            images, course["target_lang"], api_key=access.api_key,
+            anthropic_key=access.anthropic_key, model=access.model_reader)
+    except extract.ExtractError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error("Textbook vision re-read failed tb=%s lang=%s: %s",
+                     textbook_id, course["target_lang"], e, exc_info=True)
+        raise HTTPException(502, _gen_error_detail(
+            e, "AI page re-reading", access.model_reader))
+    if metered and calls:
+        for _ in range(calls):
+            await db.increment_usage(user["id"])
+
+    pages = list(book["pages"])
+    updated: list[int] = []
+    for pno, text in transcribed.items():
+        if 1 <= pno <= len(pages) and (text or "").strip():
+            pages[pno - 1] = text
+            updated.append(pno)
+    if updated:
+        await db.update_textbook_pages(user["id"], textbook_id, pages)
+    quality = extract.assess_page_quality(pages)
+    return {
+        "id": textbook_id,
+        "updated_pages": sorted(updated),
+        "attempted": len(page_numbers),
+        "low_text_quality": quality["low_quality"],
+        "pages": [{"page": i + 1, "text": pages[i]} for i in range(start - 1, end)],
+    }
+
+
 @app.put("/api/textbooks/{textbook_id}/chapters")
 async def save_textbook_chapters(textbook_id: int, payload: dict,
                                  user: dict = Depends(current_user)):
@@ -4179,6 +4458,9 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
 
     start_anchor = textbook._clean_anchor(payload.get("start_anchor"))
     end_anchor = textbook._clean_anchor(payload.get("end_anchor"))
+    if not start_anchor and not end_anchor:
+        # No split in the payload → honor one saved on the matching chapter.
+        start_anchor, end_anchor = _chapter_anchors(book, start, end)
     extracted_source = textbook.format_unit_source(
         book["pages"], start, end, start_anchor, end_anchor)
     # Supplying source_text means the learner edited/approved the textarea.
@@ -4241,7 +4523,7 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
            if selected_visuals and spec.get("source") else "")
     )
     item = {
-        "unit_title": f"📕 {section_title}",
+        "unit_title": section_title,
         "unit_size": 1,
         "spec": {"title": spec["title"], "skill": spec["skill"],
                  "target_items": spec["target_items"]},
@@ -4251,19 +4533,16 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
         i for i, ch in enumerate(book["chapters"])
         if ch.get("start") == start and ch.get("end") == end
     ), None)
+    # One-lesson textbook unit, scoped to its own unit_id (never the AI path).
+    unit_id = await db.create_textbook_unit_row(book["course_id"], section_title)
     await db.add_lesson_queue(
         book["course_id"], [item], textbook_id=textbook_id,
-        chapter_idx=chapter_idx, front=True)
-    queued = await db.peek_lesson_queue(book["course_id"])
-    queued_id = queued["id"] if queued else None
+        chapter_idx=chapter_idx, unit_id=unit_id)
     try:
-        lesson_id = await _author_next_lesson(
-            course, access, lesson_model, user["id"])
+        lesson_id = await _author_textbook_lesson(
+            course, unit_id, access, lesson_model, user["id"])
     except Exception:
-        # This one-off source should not turn into an invisible retry queue when
-        # authoring fails. The learner still has the book and can retry explicitly.
-        if queued_id is not None:
-            await db.pop_lesson_queue(queued_id)
+        await db.delete_course_unit_if_empty(unit_id)
         raise
     if metered:
         await db.increment_usage(user["id"])
@@ -4274,7 +4553,207 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
         "start": start, "end": end, "section": section_title,
         "visual_count": len(selected_visuals),
     }
+    response["unit_id"] = unit_id
     return response
+
+
+@app.post("/api/textbooks/{textbook_id}/vocab")
+@limiter.limit("20/hour;60/day")
+async def extract_textbook_vocab(request: Request, textbook_id: int,
+                                 payload: dict,
+                                 user: dict = Depends(current_user)):
+    """Extract a chapter's whole vocabulary as a reviewable word list.
+
+    A lighter sibling of `/lesson` + `/unit`: no lessons are authored — the
+    chapter's words are pulled into a flat list the learner reviews and turns
+    into a flashcard deck via `POST /api/vocab-deck`. Uses the SAME reviewed
+    page range / edited source text the lesson flow already collects.
+    """
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    course = await db.get_course(user["id"], book["course_id"])
+    if not course:
+        raise HTTPException(404, "Course not found")
+    lang = course["target_lang"]
+    try:
+        start = int(payload.get("start"))
+        end = int(payload.get("end"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Choose a valid start and end page.")
+    if start < 1 or end < start or end > book["num_pages"]:
+        raise HTTPException(
+            400, f"Choose pages between 1 and {book['num_pages']}, in order.")
+    if end - start + 1 > textbook.MAX_LESSON_SOURCE_PAGES:
+        raise HTTPException(400, (
+            f"Choose at most {textbook.MAX_LESSON_SOURCE_PAGES} pages at a time. "
+            "You can build another deck from the next pages."
+        ))
+
+    extracted_source = "\n\n".join(
+        f"— PDF page {i + 1} —\n{book['pages'][i].strip()}"
+        for i in range(start - 1, end)
+    ).strip()
+    source_text = (payload.get("source_text") if "source_text" in payload
+                   else extracted_source)
+    source_text = str(source_text or "").strip()
+    if not source_text:
+        raise HTTPException(
+            422, "The selected pages contain no text. Choose different pages.")
+    if len(source_text) > textbook.MAX_LESSON_SOURCE_CHARS:
+        raise HTTPException(413, (
+            f"The selected text is {len(source_text):,} characters; a deck can use "
+            f"up to {textbook.MAX_LESSON_SOURCE_CHARS:,}. Choose fewer pages or "
+            "trim the text in the preview."
+        ))
+    guidance = str(payload.get("guidance") or "").strip()[:1000]
+
+    access = await _resolve_gemini(user, meter=False)
+    n_calls = max(1, len(textbook.chunk_text(source_text)))
+    metered = await _textbook_metering(user, n_calls, "Extracting chapter vocabulary")
+    try:
+        result = await textbook.extract_chapter_vocab(
+            source_text, lang, book["title"], guidance,
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=access.model_reader)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Textbook vocab extraction failed lang=%s: %s", lang, e,
+                     exc_info=True)
+        raise HTTPException(
+            502, _gen_error_detail(e, "Vocabulary extraction", access.model_reader))
+    if metered:
+        for _ in range(result.get("llm_calls", 1)):
+            await db.increment_usage(user["id"])
+
+    items = result["items"]
+    if not items:
+        raise HTTPException(
+            422, "No vocabulary was found in the selected pages. Try a different "
+                 "page range.")
+    # Offline-oracle romanization for display + deck-dedup flags.
+    logographic = bool(translation.LANG_INFO[lang].get("romanization"))
+    statuses = await db.get_word_statuses(
+        user["id"], [it["target"] for it in items], lang)
+    for it in items:
+        it["romanization"] = (tokenizer.romanize_text(it["target"], lang)
+                              if logographic else "")
+        it["in_deck"] = it["target"] in statuses
+
+    chapter = next((ch for ch in book["chapters"]
+                    if ch.get("start") == start and ch.get("end") == end), None)
+    section = (chapter["title"] if chapter else
+               (f"Pages {start}–{end}" if start != end else f"Page {start}"))
+    return {
+        "items": items,
+        "lang": lang,
+        "book": book["title"],
+        "start": start,
+        "end": end,
+        "section": section,
+        "new_count": sum(1 for it in items if not it["in_deck"]),
+    }
+
+
+class VocabDeckItem(BaseModel):
+    target_text: str
+    source_text: str
+    romanization: str = ""
+    notes: str | None = None
+    cefr_level: str | None = None
+
+
+class VocabDeckRequest(BaseModel):
+    lang: str
+    deck_name: str
+    items: list[VocabDeckItem]
+    save_shared: bool = False
+
+
+@app.post("/api/vocab-deck")
+@limiter.limit("30/hour")
+async def create_vocab_deck(request: Request, req: VocabDeckRequest,
+                            background_tasks: BackgroundTasks,
+                            user: dict = Depends(current_user)):
+    """Commit a reviewed vocab list as flashcards under one deck label.
+
+    Cards are created without audio (generated lazily on first play, like deck
+    imports) and get background embeddings. Words already in the deck are
+    skipped. Optionally also snapshots a shareable deck. Returns
+    {label_id, created, skipped, deck_id?}.
+    """
+    if req.lang not in translation.LANG_INFO:
+        raise HTTPException(400, f"Unsupported target language: {req.lang}")
+    deck_name = (req.deck_name or "").strip()[:80]
+    if not deck_name:
+        raise HTTPException(400, "Give the deck a name.")
+    items = [it for it in req.items
+             if it.target_text.strip() and it.source_text.strip()][:textbook.MAX_VOCAB_ITEMS]
+    if not items:
+        raise HTTPException(400, "Select at least one word.")
+
+    label_name = deck_name if deck_name.startswith("📕") else f"📕 {deck_name}"
+    label_id = await db.get_or_create_label(user["id"], label_name)
+
+    logographic = bool(translation.LANG_INFO[req.lang].get("romanization"))
+    statuses = await db.get_word_statuses(
+        user["id"], [it.target_text.strip() for it in items], req.lang)
+
+    access = await _resolve_gemini(user, meter=False)
+    created: list[dict] = []
+    skipped = 0
+    for it in items:
+        target = it.target_text.strip()
+        if target in statuses:      # already in the deck — don't duplicate
+            skipped += 1
+            continue
+        romanization = it.romanization.strip()
+        if logographic:
+            oracle = tokenizer.romanize_text(target, req.lang)
+            if oracle:
+                romanization = oracle
+        card_id = await db.create_card(
+            user_id=user["id"],
+            source_text=it.source_text.strip(),
+            target_text=target,
+            romanization=romanization,
+            target_lang=req.lang,
+            audio_data=None,        # lazy — generated on first /api/audio play
+            notes=(it.notes or "").strip() or None,
+            label_ids=[label_id],
+            cefr_level=it.cefr_level,
+        )
+        created.append({
+            "card_id": card_id, "source_text": it.source_text.strip(),
+            "target_text": target, "romanization": romanization,
+            "notes": (it.notes or "").strip() or None,
+            "cefr_level": it.cefr_level,
+        })
+        # Background embedding, like the normal create-card path.
+        try:
+            background_tasks.add_task(
+                _generate_and_store_embedding, card_id,
+                f"{it.source_text.strip()} {target}", access.api_key)
+        except HTTPException:
+            pass
+
+    if created:
+        await db.bump_quest(user["id"], "add_cards", len(created))
+
+    deck_id = None
+    if req.save_shared and created:
+        deck_id = await db.create_shared_deck(
+            user["id"], label_name, f"Vocabulary from {deck_name}.",
+            req.lang, "private",
+            [{"source_text": c["source_text"], "target_text": c["target_text"],
+              "romanization": c["romanization"], "notes": c["notes"],
+              "target_lang": req.lang, "cefr_level": c["cefr_level"]}
+             for c in created],
+        )
+
+    return {"label_id": label_id, "created": len(created), "skipped": skipped,
+            "deck_id": deck_id}
 
 
 @app.post("/api/textbooks/{textbook_id}/unit")
@@ -4289,12 +4768,8 @@ async def create_textbook_unit(request: Request, textbook_id: int,
     course = await db.get_course(user["id"], book["course_id"])
     if not course:
         raise HTTPException(404, "Course not found")
-    if await db.count_lesson_queue(book["course_id"]):
-        raise HTTPException(409, (
-            "Another textbook unit still has lessons waiting to be generated. "
-            "Continue that unit from the course map, or clear its remaining "
-            "textbook lessons before creating a new unit."
-        ))
+    # Textbook units are self-contained now (each scoped to its own unit_id), so
+    # multiple may coexist — no course-wide queue guard.
     try:
         start = int(payload.get("start"))
         end = int(payload.get("end"))
@@ -4311,6 +4786,9 @@ async def create_textbook_unit(request: Request, textbook_id: int,
 
     start_anchor = textbook._clean_anchor(payload.get("start_anchor"))
     end_anchor = textbook._clean_anchor(payload.get("end_anchor"))
+    if not start_anchor and not end_anchor:
+        # No split in the payload → honor one saved on the matching chapter.
+        start_anchor, end_anchor = _chapter_anchors(book, start, end)
     extracted_source = textbook.format_unit_source(
         book["pages"], start, end, start_anchor, end_anchor)
     source_text = (payload.get("source_text") if "source_text" in payload
@@ -4375,9 +4853,8 @@ async def create_textbook_unit(request: Request, textbook_id: int,
           "required coverage and verbatim excerpts below; reuse the book's "
           "wording and examples where they work as learner-facing material.\n\n"
     )
-    queue_title = f"📕 {unit_title}"
     items = [{
-        "unit_title": queue_title,
+        "unit_title": unit_title,
         "unit_size": len(lessons),
         "spec": {"title": lesson["title"], "skill": lesson["skill"],
                  "target_items": lesson["target_items"]},
@@ -4387,20 +4864,19 @@ async def create_textbook_unit(request: Request, textbook_id: int,
         i for i, ch in enumerate(book["chapters"])
         if ch.get("start") == start and ch.get("end") == end
     ), None)
+    # Create the textbook unit row UP FRONT and scope the whole queued batch to
+    # it; lesson one is authored now, the rest just-in-time via the unit's own
+    # "Generate next lesson" action (never the AI course path).
+    unit_id = await db.create_textbook_unit_row(book["course_id"], unit_title)
     await db.add_lesson_queue(
         book["course_id"], items, textbook_id=textbook_id,
-        chapter_idx=chapter_idx, front=True)
+        chapter_idx=chapter_idx, unit_id=unit_id)
     try:
-        lesson_id = await _author_next_lesson(
-            course, access, lesson_model, user["id"])
+        lesson_id = await _author_textbook_lesson(
+            course, unit_id, access, lesson_model, user["id"])
     except Exception:
-        # Remove only the new front batch; failed authoring must not leave an
-        # invisible partial unit waiting in the queue.
-        for _ in items:
-            queued = await db.peek_lesson_queue(book["course_id"])
-            if not queued or queued.get("unit_title") != queue_title:
-                break
-            await db.pop_lesson_queue(queued["id"])
+        # Failed authoring must not leave an empty invisible unit + orphan queue.
+        await db.delete_course_unit_if_empty(unit_id)
         raise
     if metered:
         await db.increment_usage(user["id"])
@@ -4416,6 +4892,7 @@ async def create_textbook_unit(request: Request, textbook_id: int,
         "visual_count": len(selected_visuals),
     }
     response["unit_plan"] = {
+        "unit_id": unit_id,
         "title": unit_title, "lesson_count": len(lessons),
         "remaining": max(0, len(lessons) - 1),
         "concept_count": len(plan["concept_inventory"]),
@@ -4464,12 +4941,15 @@ async def generate_chapter_lessons(request: Request, textbook_id: int,
             "Couldn't find teachable lessons in that chapter — check its page "
             "range covers the chapter's content (use the preview)."
         ))
+    # Scope the whole batch to its own textbook unit; lessons are authored via the
+    # unit's "Generate next lesson" action (never the AI course path).
+    unit_id = await db.create_textbook_unit_row(book["course_id"], ch["title"])
     added = await db.add_lesson_queue(book["course_id"], seg["items"],
                                       textbook_id=textbook_id,
-                                      chapter_idx=chapter_idx)
+                                      chapter_idx=chapter_idx, unit_id=unit_id)
     ch["status"] = "queued"
     await db.update_textbook_chapters(textbook_id, book["chapters"])
-    return {"queued": added, "chapter": ch["title"]}
+    return {"queued": added, "chapter": ch["title"], "unit_id": unit_id}
 
 
 @app.delete("/api/textbooks/{textbook_id}")
@@ -4479,10 +4959,16 @@ async def delete_textbook(textbook_id: int, user: dict = Depends(current_user)):
     if not book:
         raise HTTPException(404, "Book not found")
     visual_ids = [str(v.get("id")) for v in book.get("visuals") or [] if v.get("id")]
+    pdf_media_id = book.get("pdf_media_id")
     if not await db.delete_textbook(user["id"], textbook_id):
         raise HTTPException(404, "Book not found")
     for media_id in visual_ids:
         (MEDIA_DIR / f"{media_id}.jpg").unlink(missing_ok=True)
+    if pdf_media_id:
+        (MEDIA_DIR / f"{pdf_media_id}.pdf").unlink(missing_ok=True)
+    # Cached rendered page images for the reader (tbpage_{id}_{n}.jpg).
+    for cached in MEDIA_DIR.glob(f"tbpage_{textbook_id}_*.jpg"):
+        cached.unlink(missing_ok=True)
     return {"success": True}
 
 
