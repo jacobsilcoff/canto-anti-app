@@ -413,6 +413,131 @@ async def detect_chapters(pages: list[str], target_lang: str, *, api_key: str,
     return _norm_chapters(_parse_json(raw) or {}, len(pages))
 
 
+# ── Second pass: find mid-page boundaries the page-range detector can't ────────
+# The skeleton detector only ever emits whole-page ranges, so a unit that starts
+# partway down a shared page is always missed. This pass looks at the actual text
+# on BOTH sides of each consecutive boundary and asks the model for the exact
+# line where the next unit begins — turning a page break into a mid-page split
+# (start_anchor/end_anchor + shared page) when the real boundary is inside a page.
+
+MAX_REFINE_BOUNDARIES = 12       # bound the extra LLM calls per detect
+_REFINE_WINDOW_LINES = 45        # lines shown from each side of the boundary
+
+
+def _page_lines(pages: list[str], page_no: int) -> list[str]:
+    return (pages[page_no - 1] if 1 <= page_no <= len(pages) else "").split("\n")
+
+
+def _first_content_line(lines: list[str]) -> int:
+    for i, ln in enumerate(lines):
+        if ln.strip():
+            return i
+    return -1
+
+
+def _build_boundary_prompt(target_lang: str, a_title: str, b_title: str,
+                           a_page: int, b_page: int, a_tail: str,
+                           b_head: str) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    return (
+        f"You are refining where one unit ends and the next begins in a {name} "
+        f"textbook a learner uploaded. Two consecutive units were detected:\n"
+        f'• EARLIER unit: "{a_title}" (last page ≈ {a_page})\n'
+        f'• LATER unit: "{b_title}" (first page ≈ {b_page})\n\n'
+        f"Below is the text on BOTH sides of their boundary, labelled by page. "
+        f'Find the EXACT line where the LATER unit "{b_title}" actually begins — '
+        f"its heading or its first real line of content.\n\n"
+        f"── RULES ──\n"
+        f'• If "{b_title}" begins at the very top of page {b_page} (a clean page '
+        f'break — nothing of it appears on page {a_page}, and page {a_page} is '
+        f'entirely the earlier unit), there is NO mid-page split: return '
+        f'{{"split": false}}.\n'
+        f"• Otherwise the boundary falls WITHIN a page. Return the verbatim line "
+        f"where the later unit begins and which page that line is on. Copy the "
+        f"line EXACTLY as printed (the server verifies it).\n"
+        f"• Ignore running headers/footers and page numbers when deciding.\n\n"
+        f"── TEXT ──\n[page {a_page}]\n{a_tail}\n\n[page {b_page}]\n{b_head}\n\n"
+        f"Return ONLY JSON, no other text:\n"
+        '{"split": true|false, "line": "<verbatim line the later unit starts on>", '
+        '"page": <page number that line is on>}'
+    )
+
+
+async def _refine_one_boundary(pages: list[str], a: dict, b: dict,
+                               target_lang: str, *, api_key: str,
+                               anthropic_key: str | None, model: str) -> bool:
+    """Look at one A→B boundary; set anchors + share the page in place when the
+    real split is mid-page. Returns True if a split was applied. Best-effort:
+    any parse/verify failure leaves the boundary as a clean page break."""
+    a_page, b_page = a["end"], b["start"]
+    a_lines = _page_lines(pages, a_page)
+    b_lines = _page_lines(pages, b_page)
+    a_tail = "\n".join(a_lines[-_REFINE_WINDOW_LINES:]).strip()
+    b_head = "\n".join(b_lines[:_REFINE_WINDOW_LINES]).strip()
+    if not a_tail and not b_head:
+        return False
+    prompt = _build_boundary_prompt(target_lang, a["title"], b["title"],
+                                    a_page, b_page, a_tail, b_head)
+    raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                         anthropic_key=anthropic_key)
+    parsed = _parse_json(raw) or {}
+    if not parsed.get("split"):
+        return False
+    line = _clean_anchor(parsed.get("line"))
+    try:
+        page = int(parsed.get("page"))
+    except (TypeError, ValueError):
+        return False
+    if not line:
+        return False
+    if page == a_page and _source_contains_quote(pages[a_page - 1], line):
+        # The later unit starts partway down the earlier unit's last page:
+        # share that page, trimming each side at the split line.
+        b["start"] = a_page
+        a["end_anchor"] = line
+        b["start_anchor"] = line
+        return True
+    if page == b_page and _source_contains_quote(pages[b_page - 1], line):
+        idx = _anchor_line_index(pages[b_page - 1], line)
+        # A clean top-of-page start is not a mid-page split.
+        if idx is None or idx <= _first_content_line(b_lines):
+            return False
+        # The earlier unit runs into the top of the later unit's first page.
+        a["end"] = b_page
+        a["end_anchor"] = line
+        b["start_anchor"] = line
+        return True
+    return False
+
+
+async def refine_chapter_boundaries(
+        pages: list[str], chapters: list[dict], target_lang: str, *,
+        api_key: str, anthropic_key: str | None = None, model: str
+) -> tuple[list[dict], int]:
+    """Second detection pass: promote page-break boundaries to mid-page splits
+    where the text shows the next unit begins inside a shared page. One LLM call
+    per eligible consecutive boundary (bounded). Returns (chapters, llm_calls)."""
+    if target_lang not in LANG_INFO or len(chapters) < 2:
+        return chapters, 0
+    calls = 0
+    for i in range(len(chapters) - 1):
+        if calls >= MAX_REFINE_BOUNDARIES:
+            break
+        a, b = chapters[i], chapters[i + 1]
+        # Only consecutive, un-split, gap-free boundaries can hide a mid-page one.
+        if b["start"] != a["end"] + 1 or a.get("end_anchor") or b.get("start_anchor"):
+            continue
+        calls += 1
+        try:
+            await _refine_one_boundary(
+                pages, a, b, target_lang, api_key=api_key,
+                anthropic_key=anthropic_key, model=model)
+        except Exception:
+            continue     # keep the clean page break; move on
+    return _norm_chapters({"chapters": chapters}, len(pages)), calls
+
+
 # ── Lesson segmentation (per chapter) ─────────────────────────────────────────
 
 def chunk_text(text: str, size: int = CHUNK_CHARS) -> list[str]:

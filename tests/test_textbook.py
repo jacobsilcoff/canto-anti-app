@@ -192,6 +192,79 @@ def test_chapter_anchors_falls_back_to_matching_chapter():
     assert main._chapter_anchors(book, 3, 9) == ("", "")     # no chapter matches
 
 
+def _refine_chapters():
+    return [{"title": "Unit 1", "start": 1, "end": 2, "skip_hint": False,
+             "status": "", "start_anchor": "", "end_anchor": ""},
+            {"title": "Unit 2", "start": 3, "end": 4, "skip_hint": False,
+             "status": "", "start_anchor": "", "end_anchor": ""}]
+
+
+_REFINE_PAGES = ["intro", "A body\nmore A\nUnit 2: Greetings\ngreeting line",
+                 "greetings continued", "more greetings"]
+
+
+@pytest.mark.asyncio
+async def test_refine_promotes_page_break_to_midpage_split(monkeypatch):
+    async def fake_call(prompt, **kw):
+        assert "[page 2]" in prompt and "[page 3]" in prompt   # both sides shown
+        return json.dumps({"split": True, "line": "Unit 2: Greetings", "page": 2})
+    monkeypatch.setattr(textbook.llm, "call", fake_call)
+
+    chapters, calls = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES, _refine_chapters(), "yue", api_key="x", model="m")
+    assert calls == 1
+    assert chapters[0]["end_anchor"] == "Unit 2: Greetings"
+    assert (chapters[1]["start"], chapters[1]["start_anchor"]) == (2, "Unit 2: Greetings")
+
+
+@pytest.mark.asyncio
+async def test_refine_leaves_clean_page_break(monkeypatch):
+    async def fake_call(prompt, **kw):
+        return json.dumps({"split": False})
+    monkeypatch.setattr(textbook.llm, "call", fake_call)
+
+    chapters, calls = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES, _refine_chapters(), "yue", api_key="x", model="m")
+    assert calls == 1
+    assert chapters[1]["start"] == 3 and not chapters[1]["start_anchor"]
+
+
+@pytest.mark.asyncio
+async def test_refine_rejects_unverifiable_or_top_of_page_line(monkeypatch):
+    # A line that isn't verbatim in the named page is ignored (no split).
+    async def bad_line(prompt, **kw):
+        return json.dumps({"split": True, "line": "not on the page", "page": 2})
+    monkeypatch.setattr(textbook.llm, "call", bad_line)
+    chapters, _ = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES, _refine_chapters(), "yue", api_key="x", model="m")
+    assert not chapters[0]["end_anchor"] and chapters[1]["start"] == 3
+
+    # The very first content line of the later page = a clean top-of-page start.
+    async def top_line(prompt, **kw):
+        return json.dumps({"split": True, "line": "greetings continued", "page": 3})
+    monkeypatch.setattr(textbook.llm, "call", top_line)
+    chapters, _ = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES, _refine_chapters(), "yue", api_key="x", model="m")
+    assert chapters[1]["start"] == 3 and not chapters[1]["start_anchor"]
+
+
+@pytest.mark.asyncio
+async def test_refine_skips_non_consecutive_or_already_split(monkeypatch):
+    calls_made = []
+
+    async def spy(prompt, **kw):
+        calls_made.append(1)
+        return json.dumps({"split": False})
+    monkeypatch.setattr(textbook.llm, "call", spy)
+
+    gapped = _refine_chapters()
+    gapped[1]["start"] = 5          # a gap → not a shared/adjacent boundary
+    gapped[1]["end"] = 6
+    _, calls = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES + ["p5", "p6"], gapped, "yue", api_key="x", model="m")
+    assert calls == 0 and not calls_made
+
+
 @pytest.mark.asyncio
 async def test_detect_chapters_normalizes(monkeypatch):
     async def fake_call(prompt, **kw):

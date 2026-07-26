@@ -4205,6 +4205,33 @@ async def analyze_textbook(request: Request, textbook_id: int,
             e, "Textbook unit detection", access.model_reader))
     if metered:
         await db.increment_usage(user["id"])
+
+    # Second pass: promote missed page-break boundaries to mid-page splits.
+    # Best-effort and separately quota-gated — if the learner can't afford the
+    # extra calls (or it errors) we still return the page-range chapters.
+    n_boundaries = sum(
+        1 for i in range(len(chapters) - 1)
+        if chapters[i + 1]["start"] == chapters[i]["end"] + 1
+        and not chapters[i].get("end_anchor")
+        and not chapters[i + 1].get("start_anchor"))
+    n_boundaries = min(n_boundaries, textbook.MAX_REFINE_BOUNDARIES)
+    if n_boundaries:
+        try:
+            refine_metered = await _textbook_metering(
+                user, n_boundaries, "Refining unit splits")
+            chapters, calls = await textbook.refine_chapter_boundaries(
+                book["pages"], chapters, course["target_lang"],
+                api_key=access.api_key, anthropic_key=access.anthropic_key,
+                model=access.model_reader)
+            if refine_metered:
+                for _ in range(calls):
+                    await db.increment_usage(user["id"])
+        except HTTPException:
+            pass          # over quota for refinement — keep page-range chapters
+        except Exception as e:
+            logger.warning("Boundary refinement failed lang=%s: %s",
+                           course["target_lang"], e)
+
     await db.update_textbook_chapters(textbook_id, chapters)
     return {"id": textbook_id, "chapters": chapters}
 
