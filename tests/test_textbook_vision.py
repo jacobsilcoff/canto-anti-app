@@ -75,6 +75,17 @@ def test_render_pdf_pages_returns_jpeg_and_ignores_out_of_range():
     assert set(extract.render_pdf_pages(_blank_pdf(3))) == {1, 2, 3}
 
 
+def test_render_pdf_pages_accepts_a_path(tmp_path):
+    """The reader renders straight off the stored file so a big PDF isn't copied
+    into memory for every page request."""
+    pytest.importorskip("pypdfium2")
+    path = tmp_path / "book.pdf"
+    path.write_bytes(_blank_pdf(3))
+    images = extract.render_pdf_pages(str(path), [2])
+    assert images[2][:3] == b"\xff\xd8\xff"
+    assert extract.pdf_page_count(str(path)) == 3
+
+
 # ── Vision transcription orchestration ────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -198,3 +209,78 @@ async def test_transcribe_route_409_without_stored_pdf(fresh_db, monkeypatch, tm
         await main.transcribe_textbook_pages.__wrapped__(
             None, tb_id, {"start": 1, "end": 1}, user)
     assert exc.value.status_code == 409
+
+
+# ── Route: /page/{n}.jpg — caching + failure diagnosis ────────────────────────
+
+@pytest.mark.asyncio
+async def test_page_image_rerenders_a_truncated_cache_file(fresh_db, monkeypatch,
+                                                           tmp_path):
+    """A half-written cache file (e.g. the disk filled mid-write) must not be
+    served forever as a broken image — it is treated as absent."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / "book.pdf").write_bytes(b"%PDF-fake")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1", "p2"],
+                                     [], pdf_media_id="book")
+    (tmp_path / f"tbpage_{tb_id}_1.jpg").write_bytes(b"\xff\xd8")   # truncated
+
+    rendered = []
+
+    def fake_render(source, pages, long_edge=None):
+        rendered.append(pages)
+        return {pages[0]: b"x" * 4096}
+
+    monkeypatch.setattr(main.extract, "render_pdf_pages", fake_render)
+    res = await main.textbook_page_image(tb_id, 1, user)
+    assert rendered == [[1]]                       # re-rendered, not served stale
+    assert (tmp_path / f"tbpage_{tb_id}_1.jpg").stat().st_size == 4096
+    assert res.media_type == "image/jpeg"
+    assert not list(tmp_path.glob("*.part"))       # atomic write leaves no scrap
+
+
+@pytest.mark.asyncio
+async def test_page_image_explains_pages_the_renderer_cannot_reach(
+        fresh_db, monkeypatch, tmp_path):
+    """Text extraction and the renderer can disagree about a damaged book's page
+    count; the learner gets told that rather than a bare failure."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / "book.pdf").write_bytes(b"%PDF-fake")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf",
+                                     [f"p{i}" for i in range(1, 61)], [],
+                                     pdf_media_id="book")
+    monkeypatch.setattr(main.extract, "render_pdf_pages",
+                        lambda *a, **k: {})
+    monkeypatch.setattr(main.extract, "pdf_page_count", lambda source: 40)
+
+    with pytest.raises(main.HTTPException) as exc:
+        await main.textbook_page_image(tb_id, 45, user)
+    assert exc.value.status_code == 404
+    assert "only renders 40 of its 60 pages" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_reader_reports_a_short_renderable_page_count(fresh_db, monkeypatch,
+                                                            tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / "book.pdf").write_bytes(b"%PDF-fake")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf",
+                                     [f"p{i}" for i in range(1, 61)], [],
+                                     pdf_media_id="book")
+    monkeypatch.setattr(main.extract, "pdf_page_count", lambda source: 40)
+    res = await main.textbook_reader(tb_id, user)
+    assert (res["num_pages"], res["renderable_pages"]) == (60, 40)
+
+    # A renderer that can't answer must not break opening the book.
+    def boom(source):
+        raise RuntimeError("no renderer")
+    monkeypatch.setattr(main.extract, "pdf_page_count", boom)
+    assert (await main.textbook_reader(tb_id, user))["renderable_pages"] == 60

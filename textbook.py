@@ -28,7 +28,9 @@ malformed chapters/units/lessons are dropped, ranges are clamped, counts are
 capped, and keys are synthesized downstream by main._concepts_from_spec when
 missing.
 """
+import asyncio
 import re
+import time
 
 import llm
 from translation import LANG_INFO, _parse_json
@@ -397,20 +399,47 @@ def format_unit_source(pages: list[str], start: int, end: int,
     ).strip()
 
 
+DETECT_ATTEMPTS = 2       # one automatic retry — see detect_chapters
+
+
 async def detect_chapters(pages: list[str], target_lang: str, *, api_key: str,
-                          anthropic_key: str | None = None, model: str) -> list[dict]:
-    """One LLM call: propose the book's chapter structure as page ranges.
-    Returns [{title, start, end, skip_hint, status}] (may be empty — the user
-    can still define chapters by hand in the review UI)."""
+                          anthropic_key: str | None = None, model: str,
+                          attempts: int = DETECT_ATTEMPTS) -> tuple[list[dict], int]:
+    """Propose the book's chapter structure as page ranges.
+
+    Returns ``(chapters, llm_calls)`` — chapters are
+    [{title, start, end, skip_hint, status}] and may be empty (the user can
+    still define chapters by hand in the review UI).
+
+    The call is retried once on a *soft* failure — the transport-level retry in
+    ``translation._call`` only covers provider 5xx, so an empty candidate, a
+    truncated reply, or JSON the parser can't recover left the user staring at
+    "AI couldn't find clear chapter breaks" and hitting the button again by
+    hand. Retrying here makes that automatic; ``llm_calls`` reports what was
+    actually spent so metering stays honest.
+    """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     skeleton = build_skeleton(pages)
     if not skeleton.strip():
-        return []
+        return [], 0
     prompt = _build_chapter_prompt(target_lang, skeleton, len(pages))
-    raw = await llm.call(prompt, model=model, gemini_key=api_key,
-                         anthropic_key=anthropic_key)
-    return _norm_chapters(_parse_json(raw) or {}, len(pages))
+    calls = 0
+    last_error: Exception | None = None
+    for attempt in range(max(1, attempts)):
+        calls += 1
+        try:
+            raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                                 anthropic_key=anthropic_key)
+            chapters = _norm_chapters(_parse_json(raw) or {}, len(pages))
+        except Exception as e:          # noqa: BLE001 — retried, then re-raised
+            last_error = e
+            chapters = []
+        if chapters:
+            return chapters, calls
+        if attempt + 1 >= max(1, attempts) and last_error is not None:
+            raise last_error
+    return [], calls
 
 
 # ── Second pass: find mid-page boundaries the page-range detector can't ────────
@@ -421,6 +450,8 @@ async def detect_chapters(pages: list[str], target_lang: str, *, api_key: str,
 # (start_anchor/end_anchor + shared page) when the real boundary is inside a page.
 
 MAX_REFINE_BOUNDARIES = 12       # bound the extra LLM calls per detect
+REFINE_CONCURRENCY = 4           # boundaries examined in parallel
+REFINE_BUDGET_S = 45.0           # wall-clock ceiling for the whole second pass
 _REFINE_WINDOW_LINES = 45        # lines shown from each side of the boundary
 
 
@@ -464,78 +495,115 @@ def _build_boundary_prompt(target_lang: str, a_title: str, b_title: str,
     )
 
 
-async def _refine_one_boundary(pages: list[str], a: dict, b: dict,
+async def _plan_boundary_split(pages: list[str], a: dict, b: dict,
                                target_lang: str, *, api_key: str,
-                               anthropic_key: str | None, model: str) -> bool:
-    """Look at one A→B boundary; set anchors + share the page in place when the
-    real split is mid-page. Returns True if a split was applied. Best-effort:
-    any parse/verify failure leaves the boundary as a clean page break."""
+                               anthropic_key: str | None, model: str
+                               ) -> dict | None:
+    """Look at one A→B boundary and decide where the later unit really starts.
+
+    Pure: returns the change to apply (``{"share": page, "line": …}`` when the
+    later unit starts partway down the earlier unit's last page, or
+    ``{"extend": page, "line": …}`` when the earlier unit runs into the top of
+    the later unit's first page) or None for a clean page break. Deciding and
+    applying are separate so boundaries can be examined concurrently and the
+    results still applied in a deterministic order.
+    """
     a_page, b_page = a["end"], b["start"]
     a_lines = _page_lines(pages, a_page)
     b_lines = _page_lines(pages, b_page)
     a_tail = "\n".join(a_lines[-_REFINE_WINDOW_LINES:]).strip()
     b_head = "\n".join(b_lines[:_REFINE_WINDOW_LINES]).strip()
     if not a_tail and not b_head:
-        return False
+        return None
     prompt = _build_boundary_prompt(target_lang, a["title"], b["title"],
                                     a_page, b_page, a_tail, b_head)
     raw = await llm.call(prompt, model=model, gemini_key=api_key,
                          anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}
     if not parsed.get("split"):
-        return False
+        return None
     line = _clean_anchor(parsed.get("line"))
     try:
         page = int(parsed.get("page"))
     except (TypeError, ValueError):
-        return False
+        return None
     if not line:
-        return False
+        return None
     if page == a_page and _source_contains_quote(pages[a_page - 1], line):
         # The later unit starts partway down the earlier unit's last page:
         # share that page, trimming each side at the split line.
-        b["start"] = a_page
-        a["end_anchor"] = line
-        b["start_anchor"] = line
-        return True
+        return {"share": a_page, "line": line}
     if page == b_page and _source_contains_quote(pages[b_page - 1], line):
         idx = _anchor_line_index(pages[b_page - 1], line)
         # A clean top-of-page start is not a mid-page split.
         if idx is None or idx <= _first_content_line(b_lines):
-            return False
+            return None
         # The earlier unit runs into the top of the later unit's first page.
-        a["end"] = b_page
-        a["end_anchor"] = line
-        b["start_anchor"] = line
-        return True
-    return False
+        return {"extend": b_page, "line": line}
+    return None
 
 
 async def refine_chapter_boundaries(
         pages: list[str], chapters: list[dict], target_lang: str, *,
-        api_key: str, anthropic_key: str | None = None, model: str
+        api_key: str, anthropic_key: str | None = None, model: str,
+        budget_s: float = REFINE_BUDGET_S,
 ) -> tuple[list[dict], int]:
     """Second detection pass: promote page-break boundaries to mid-page splits
     where the text shows the next unit begins inside a shared page. One LLM call
-    per eligible consecutive boundary (bounded). Returns (chapters, llm_calls)."""
+    per eligible consecutive boundary (bounded). Returns (chapters, llm_calls).
+
+    The calls run CONCURRENTLY (``REFINE_CONCURRENCY`` at a time) under a
+    wall-clock ``budget_s``: run serially, a dozen boundaries stacked into
+    minutes of latency on top of detection, which is what made the whole
+    /analyze request time out and look like a flaky failure. Every boundary is
+    independent and best-effort — one that errors or runs past the budget keeps
+    its clean page break instead of failing the pass.
+    """
     if target_lang not in LANG_INFO or len(chapters) < 2:
         return chapters, 0
-    calls = 0
-    for i in range(len(chapters) - 1):
-        if calls >= MAX_REFINE_BOUNDARIES:
-            break
-        a, b = chapters[i], chapters[i + 1]
+    eligible = [
+        i for i in range(len(chapters) - 1)
         # Only consecutive, un-split, gap-free boundaries can hide a mid-page one.
-        if b["start"] != a["end"] + 1 or a.get("end_anchor") or b.get("start_anchor"):
+        if chapters[i + 1]["start"] == chapters[i]["end"] + 1
+        and not chapters[i].get("end_anchor")
+        and not chapters[i + 1].get("start_anchor")
+    ][:MAX_REFINE_BOUNDARIES]
+    if not eligible:
+        return chapters, 0
+
+    deadline = time.monotonic() + max(0.01, budget_s)
+    sem = asyncio.Semaphore(REFINE_CONCURRENCY)
+    issued = 0
+
+    async def run(i: int) -> dict | None:
+        nonlocal issued
+        async with sem:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None      # out of budget — never sent, never charged
+            issued += 1
+            try:
+                return await asyncio.wait_for(
+                    _plan_boundary_split(
+                        pages, chapters[i], chapters[i + 1], target_lang,
+                        api_key=api_key, anthropic_key=anthropic_key,
+                        model=model),
+                    timeout=remaining)
+            except Exception:
+                return None      # keep the clean page break; move on
+
+    plans = await asyncio.gather(*(run(i) for i in eligible))
+    for i, plan in zip(eligible, plans):
+        if not plan:
             continue
-        calls += 1
-        try:
-            await _refine_one_boundary(
-                pages, a, b, target_lang, api_key=api_key,
-                anthropic_key=anthropic_key, model=model)
-        except Exception:
-            continue     # keep the clean page break; move on
-    return _norm_chapters({"chapters": chapters}, len(pages)), calls
+        a, b = chapters[i], chapters[i + 1]
+        if "share" in plan:
+            b["start"] = plan["share"]
+        else:
+            a["end"] = plan["extend"]
+        a["end_anchor"] = plan["line"]
+        b["start_anchor"] = plan["line"]
+    return _norm_chapters({"chapters": chapters}, len(pages)), issued
 
 
 # ── Lesson segmentation (per chapter) ─────────────────────────────────────────

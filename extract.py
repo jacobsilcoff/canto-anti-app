@@ -405,35 +405,61 @@ RENDER_MAX_SCALE = 4.0
 RENDER_JPEG_QUALITY = 85
 
 
-def render_pdf_pages(pdf_bytes: bytes, page_numbers: list[int] | None = None,
-                     long_edge: int = RENDER_LONG_EDGE) -> dict[int, bytes]:
-    """Rasterize selected PDF pages to JPEG bytes, keyed by 1-based page number.
+def _open_for_render(source):
+    """Open a PDF for rasterizing. ``source`` is raw bytes OR a filesystem path.
 
-    Used by the vision re-extraction path: deterministic ``pypdf`` text loses the
-    structure of 2-up / interlinear / romanized books (and returns nothing for
-    scanned pages), so we render those pages and let the model transcribe them.
-
-    ``page_numbers`` is 1-based (out-of-range entries are ignored); ``None`` means
-    every page. Raises ``ExtractError`` if the renderer is unavailable or the PDF
-    can't be opened.
+    Prefer the path form: pdfium reads the file itself, so a 25 MB textbook
+    doesn't have to sit in Python memory for the lifetime of every single page
+    request (several page turns at once used to mean several full copies).
     """
     try:
         import pypdfium2 as pdfium
     except ImportError:
         raise ExtractError(
-            "AI page re-reading is unavailable on this server "
+            "PDF page rendering is unavailable on this server "
             "(the PDF renderer is not installed)."
         )
     try:
         from PIL import Image  # noqa: F401  (pdfium.to_pil needs Pillow)
     except ImportError:
-        raise ExtractError("AI page re-reading is unavailable on this server.")
-
-    import io
+        raise ExtractError("PDF page rendering is unavailable on this server.")
     try:
-        doc = pdfium.PdfDocument(pdf_bytes)
+        return pdfium.PdfDocument(source)
     except Exception as exc:
         raise ExtractError(f"Couldn't open that PDF for rendering: {exc}")
+
+
+def pdf_page_count(source) -> int:
+    """How many pages the RENDERER sees in a PDF (bytes or path).
+
+    Text extraction (pypdf) and rendering (pdfium) walk the page tree
+    independently, and a damaged or unusual book can leave them disagreeing —
+    which shows up as "every page past N fails to render" while the extracted
+    text for those pages is right there. Callers use this to say so plainly.
+    """
+    doc = _open_for_render(source)
+    try:
+        return len(doc)
+    finally:
+        doc.close()
+
+
+def render_pdf_pages(source, page_numbers: list[int] | None = None,
+                     long_edge: int = RENDER_LONG_EDGE) -> dict[int, bytes]:
+    """Rasterize selected PDF pages to JPEG bytes, keyed by 1-based page number.
+
+    ``source`` is raw PDF bytes or a path to one. Used by the textbook reader
+    (screen-size renders, cached on disk) and by the vision re-extraction path:
+    deterministic ``pypdf`` text loses the structure of 2-up / interlinear /
+    romanized books (and returns nothing for scanned pages), so we render those
+    pages and let the model transcribe them.
+
+    ``page_numbers`` is 1-based (out-of-range entries are ignored); ``None`` means
+    every page. Raises ``ExtractError`` if the renderer is unavailable or the PDF
+    can't be opened.
+    """
+    import io
+    doc = _open_for_render(source)
 
     out: dict[int, bytes] = {}
     try:
@@ -453,6 +479,11 @@ def render_pdf_pages(pdf_bytes: bytes, page_numbers: list[int] | None = None,
                 pil.save(buf, format="JPEG", quality=RENDER_JPEG_QUALITY,
                          optimize=True)
                 out[pno] = buf.getvalue()
+            except Exception:
+                # Per-page best-effort: one damaged page in a batch must not
+                # cost the caller every other page it asked for. The page is
+                # simply absent from the result.
+                continue
             finally:
                 page.close()
     finally:

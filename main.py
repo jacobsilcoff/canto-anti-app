@@ -4184,6 +4184,13 @@ async def analyze_textbook(request: Request, textbook_id: int,
 
     Keeping this separate from upload means a transient model failure never
     discards a successfully parsed book or encourages duplicate re-uploads.
+
+    Two passes, and the FIRST is persisted before the second starts: page-range
+    detection is one call, while mid-page refinement is up to a dozen more. If
+    refinement is slow, over quota, or errors, the learner still keeps the
+    chapters that were found — previously the whole request was all-or-nothing,
+    so any hiccup in the long tail threw away good detection and the only
+    recourse was to run the whole thing again.
     """
     book = await db.get_textbook(user["id"], textbook_id)
     if not book:
@@ -4194,7 +4201,7 @@ async def analyze_textbook(request: Request, textbook_id: int,
     access = await _resolve_gemini(user, meter=False)
     metered = await _textbook_metering(user, 1, "Detecting textbook units")
     try:
-        chapters = await textbook.detect_chapters(
+        chapters, detect_calls = await textbook.detect_chapters(
             book["pages"], course["target_lang"],
             api_key=access.api_key, anthropic_key=access.anthropic_key,
             model=access.model_reader)
@@ -4204,7 +4211,11 @@ async def analyze_textbook(request: Request, textbook_id: int,
         raise HTTPException(502, _gen_error_detail(
             e, "Textbook unit detection", access.model_reader))
     if metered:
-        await db.increment_usage(user["id"])
+        for _ in range(max(1, detect_calls)):
+            await db.increment_usage(user["id"])
+    if not chapters:
+        return {"id": textbook_id, "chapters": [], "refined": False}
+    await db.update_textbook_chapters(textbook_id, chapters)
 
     # Second pass: promote missed page-break boundaries to mid-page splits.
     # Best-effort and separately quota-gated — if the learner can't afford the
@@ -4215,6 +4226,7 @@ async def analyze_textbook(request: Request, textbook_id: int,
         and not chapters[i].get("end_anchor")
         and not chapters[i + 1].get("start_anchor"))
     n_boundaries = min(n_boundaries, textbook.MAX_REFINE_BOUNDARIES)
+    refined = False
     if n_boundaries:
         try:
             refine_metered = await _textbook_metering(
@@ -4223,17 +4235,18 @@ async def analyze_textbook(request: Request, textbook_id: int,
                 book["pages"], chapters, course["target_lang"],
                 api_key=access.api_key, anthropic_key=access.anthropic_key,
                 model=access.model_reader)
+            refined = True
             if refine_metered:
                 for _ in range(calls):
                     await db.increment_usage(user["id"])
+            await db.update_textbook_chapters(textbook_id, chapters)
         except HTTPException:
             pass          # over quota for refinement — keep page-range chapters
         except Exception as e:
             logger.warning("Boundary refinement failed lang=%s: %s",
                            course["target_lang"], e)
 
-    await db.update_textbook_chapters(textbook_id, chapters)
-    return {"id": textbook_id, "chapters": chapters}
+    return {"id": textbook_id, "chapters": chapters, "refined": refined}
 
 
 @app.patch("/api/textbooks/{textbook_id}")
@@ -4275,22 +4288,91 @@ async def textbook_pages(textbook_id: int, start: int = 1, end: int = 1,
 
 # Screen-appropriate page render (smaller than the 2000px vision render).
 _TEXTBOOK_PAGE_LONG_EDGE = 1400
+# Rasterizing is the heaviest thing a reader page-turn can trigger. Bound how
+# many run at once so flipping quickly through a big book (each turn also
+# preloads the next page) can't pile up renders and starve the box of memory.
+_TEXTBOOK_RENDER_SEM = asyncio.Semaphore(2)
+# A JPEG smaller than this is a failed/truncated write (e.g. the disk filled up
+# mid-write), not a real page. Cached blindly, it renders as a broken image
+# forever, so we treat it as absent and re-render.
+_MIN_PAGE_JPEG_BYTES = 512
+
+
+def _usable_cached_page(path: Path) -> bool:
+    """True if a cached page render exists AND looks like a whole JPEG."""
+    try:
+        return path.stat().st_size >= _MIN_PAGE_JPEG_BYTES
+    except OSError:
+        return False
+
+
+def _write_page_cache(path: Path, data: bytes) -> None:
+    """Write a rendered page atomically (temp file + rename) so a failed write
+    never leaves a truncated JPEG behind to be served forever."""
+    tmp = path.with_suffix(".part")
+    try:
+        tmp.write_bytes(data)
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+async def _page_render_failure_detail(textbook_id: int, page: int,
+                                      pdf_path: Path, num_pages: int) -> str:
+    """Explain WHY one page produced no image, rather than a bare 404.
+
+    The common cause is a book whose renderer page count is short of the page
+    count text extraction produced — every page past that point fails while its
+    extracted text still displays, so the failure looks inexplicable from the
+    reader. Say which case it is; the message is shown to the learner."""
+    try:
+        total = await asyncio.to_thread(extract.pdf_page_count, str(pdf_path))
+    except Exception:
+        total = 0
+    if total and page > total:
+        logger.warning(
+            "Textbook page beyond the renderer's page count tb=%s page=%s "
+            "rendered_pages=%s stored_pages=%s", textbook_id, page, total, num_pages)
+        return (
+            f"This PDF only renders {total} of its {num_pages} pages, so page "
+            f"{page} has no image. The extracted text for it is still available "
+            f"— re-upload the PDF (or a repaired copy) to read these pages as "
+            f"images."
+        )
+    logger.warning("Textbook page rendered empty tb=%s page=%s", textbook_id, page)
+    return f"Page {page} of this PDF couldn't be rendered to an image."
 
 
 @app.get("/api/textbooks/{textbook_id}/reader")
 async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
     """Everything the chapter reader needs in one call: chapters, cleaned per-page
     text, page count, reading progress, bookmarks, and whether page images are
-    available (the source PDF is on disk)."""
+    available (the source PDF is on disk).
+
+    `renderable_pages` is how many pages the RASTERIZER can reach. It normally
+    equals `num_pages`; when a book is damaged the two disagree, and every page
+    past that point fails to render while its extracted text still shows. Report
+    it up front so the reader can say so instead of the learner discovering it
+    mid-book."""
     book = await db.get_textbook(user["id"], textbook_id)
     if not book:
         raise HTTPException(404, "Book not found")
+    renderable = book["num_pages"]
+    pdf_media_id = book.get("pdf_media_id")
+    pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+    if pdf_path and pdf_path.exists():
+        try:
+            renderable = await asyncio.to_thread(extract.pdf_page_count, str(pdf_path))
+        except Exception as e:
+            logger.warning("Textbook page count unavailable tb=%s: %s",
+                           textbook_id, e)
     return {
         "id": book["id"], "title": book["title"], "num_pages": book["num_pages"],
         "chapters": book["chapters"],
         "last_page": book.get("last_page") or 0,
         "bookmarks": book.get("bookmarks") or [],
         "has_pages": bool(book.get("has_pdf")),
+        "renderable_pages": renderable,
         "pages": [{"page": i + 1, "text": t}
                   for i, t in enumerate(book.get("pages") or [])],
     }
@@ -4302,14 +4384,18 @@ async def textbook_page_image(textbook_id: int, page: int,
     """Render one PDF page to a JPEG for the reader, lazily + cached on disk.
 
     Full page images aren't stored at upload; we rasterize on first request from
-    the retained source PDF and cache `tbpage_{id}_{n}.jpg` so repeats are free."""
+    the retained source PDF and cache `tbpage_{id}_{n}.jpg` so repeats are free.
+
+    Renders are serialized (`_TEXTBOOK_RENDER_SEM`) and written atomically: a
+    half-written cache file would otherwise be served as a broken image on every
+    later visit, which reads as "these pages stopped rendering"."""
     book = await db.get_textbook(user["id"], textbook_id)
     if not book:
         raise HTTPException(404, "Book not found")
     if page < 1 or page > book["num_pages"]:
         raise HTTPException(404, "Page out of range")
     cache_path = MEDIA_DIR / f"tbpage_{textbook_id}_{page}.jpg"
-    if not cache_path.exists():
+    if not _usable_cached_page(cache_path):
         pdf_media_id = book.get("pdf_media_id")
         pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
         if not pdf_media_id or not pdf_path or not pdf_path.exists():
@@ -4318,9 +4404,10 @@ async def textbook_page_image(textbook_id: int, page: int,
                 "existed). Re-upload the PDF to read it by page."
             ))
         try:
-            pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
-            images = await asyncio.to_thread(
-                extract.render_pdf_pages, pdf_bytes, [page], _TEXTBOOK_PAGE_LONG_EDGE)
+            async with _TEXTBOOK_RENDER_SEM:
+                images = await asyncio.to_thread(
+                    extract.render_pdf_pages, str(pdf_path), [page],
+                    _TEXTBOOK_PAGE_LONG_EDGE)
         except extract.ExtractError as e:
             raise HTTPException(400, str(e))
         except Exception as e:
@@ -4329,8 +4416,16 @@ async def textbook_page_image(textbook_id: int, page: int,
             raise HTTPException(502, "Couldn't render that page.")
         data = images.get(page)
         if not data:
-            raise HTTPException(404, "Page could not be rendered")
-        await asyncio.to_thread(cache_path.write_bytes, data)
+            raise HTTPException(404, await _page_render_failure_detail(
+                textbook_id, page, pdf_path, book["num_pages"]))
+        try:
+            await asyncio.to_thread(_write_page_cache, cache_path, data)
+        except OSError as e:
+            # Out of disk (or a read-only volume): serve the render we already
+            # have rather than 500-ing, and say so in the log.
+            logger.error("Textbook page cache write failed tb=%s page=%s: %s",
+                         textbook_id, page, e)
+            return Response(content=data, media_type="image/jpeg")
     return FileResponse(
         cache_path, media_type="image/jpeg",
         headers={"Cache-Control": "public, max-age=31536000, immutable"})
@@ -4402,9 +4497,9 @@ async def transcribe_textbook_pages(request: Request, textbook_id: int,
     metered = await _textbook_metering(
         user, len(page_numbers), "Re-reading pages with AI")
     try:
-        pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
-        images = await asyncio.to_thread(
-            extract.render_pdf_pages, pdf_bytes, page_numbers)
+        async with _TEXTBOOK_RENDER_SEM:
+            images = await asyncio.to_thread(
+                extract.render_pdf_pages, str(pdf_path), page_numbers)
         transcribed, calls = await textbook.transcribe_pages(
             images, course["target_lang"], api_key=access.api_key,
             anthropic_key=access.anthropic_key, model=access.model_reader)

@@ -4,6 +4,7 @@ Deterministic parts only: page cleanup (repeated-text-layer collapse, running
 header/footer stripping), the chapter-detection skeleton + normalization,
 lesson-spec normalization, per-chapter segmentation orchestration (LLM faked),
 and the textbooks table round-trip."""
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -266,6 +267,47 @@ async def test_refine_skips_non_consecutive_or_already_split(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_refine_runs_boundaries_concurrently(monkeypatch):
+    """Serial refinement stacked a dozen calls onto detection and timed the whole
+    request out; boundaries are independent, so they go in parallel."""
+    inflight = concurrent = 0
+
+    async def slow(prompt, **kw):
+        nonlocal inflight, concurrent
+        inflight += 1
+        concurrent = max(concurrent, inflight)
+        await asyncio.sleep(0.05)
+        inflight -= 1
+        return json.dumps({"split": False})
+    monkeypatch.setattr(textbook.llm, "call", slow)
+
+    pages = [f"page {i} text" for i in range(1, 9)]
+    chapters = [{"title": f"U{i}", "start": i, "end": i, "skip_hint": False,
+                 "status": "", "start_anchor": "", "end_anchor": ""}
+                for i in range(1, 9)]
+    _, calls = await textbook.refine_chapter_boundaries(
+        pages, chapters, "yue", api_key="x", model="m")
+    assert calls == 7
+    assert concurrent > 1
+
+
+@pytest.mark.asyncio
+async def test_refine_stops_at_its_time_budget(monkeypatch):
+    """Out of budget = never sent, so nothing is charged and the clean page
+    break is kept."""
+    async def slow(prompt, **kw):
+        await asyncio.sleep(0.2)
+        return json.dumps({"split": True, "line": "Unit 2: Greetings", "page": 2})
+    monkeypatch.setattr(textbook.llm, "call", slow)
+
+    chapters, calls = await textbook.refine_chapter_boundaries(
+        _REFINE_PAGES, _refine_chapters(), "yue", api_key="x", model="m",
+        budget_s=0.01)
+    assert calls == 1                       # issued, then abandoned at the deadline
+    assert not chapters[0]["end_anchor"] and chapters[1]["start"] == 3
+
+
+@pytest.mark.asyncio
 async def test_detect_chapters_normalizes(monkeypatch):
     async def fake_call(prompt, **kw):
         assert "[p.1]" in prompt
@@ -274,10 +316,40 @@ async def test_detect_chapters_normalizes(monkeypatch):
             {"title": "Ch 2", "start": 3, "end": 99},
         ]})
     monkeypatch.setattr(textbook.llm, "call", fake_call)
-    chapters = await textbook.detect_chapters(
+    chapters, calls = await textbook.detect_chapters(
         ["page one text", "page two", "page three"], "fr", api_key="x", model="m")
+    assert calls == 1
     assert [(c["start"], c["end"]) for c in chapters] == [(1, 2), (3, 3)]
     assert chapters[0]["skip_hint"] is True
+
+
+@pytest.mark.asyncio
+async def test_detect_chapters_retries_a_soft_failure(monkeypatch):
+    """An unparseable/empty first reply is retried instead of surfacing as
+    "no chapters found" and making the user press the button again."""
+    replies = ["sorry, I can't do that", json.dumps(
+        {"chapters": [{"title": "Ch 1", "start": 1, "end": 2}]})]
+
+    async def flaky(prompt, **kw):
+        return replies.pop(0)
+    monkeypatch.setattr(textbook.llm, "call", flaky)
+    chapters, calls = await textbook.detect_chapters(
+        ["page one text", "page two"], "fr", api_key="x", model="m")
+    assert calls == 2 and [c["title"] for c in chapters] == ["Ch 1"]
+
+
+@pytest.mark.asyncio
+async def test_detect_chapters_reraises_after_retrying_an_error(monkeypatch):
+    attempts = []
+
+    async def boom(prompt, **kw):
+        attempts.append(1)
+        raise RuntimeError("model overloaded")
+    monkeypatch.setattr(textbook.llm, "call", boom)
+    with pytest.raises(RuntimeError):
+        await textbook.detect_chapters(["page one text"], "fr",
+                                       api_key="x", model="m")
+    assert len(attempts) == textbook.DETECT_ATTEMPTS
 
 
 # ── Lesson-spec normalization ─────────────────────────────────────────────────
@@ -572,7 +644,7 @@ async def test_upload_saves_book_before_retryable_unit_detection(
     async def detect_after_save(pages, *args, **kwargs):
         assert pages == ["page one", "page two"]
         return [{"title": "Unit one", "start": 1, "end": 2,
-                 "skip_hint": False, "status": ""}]
+                 "skip_hint": False, "status": ""}], 1
 
     monkeypatch.setattr(main, "_resolve_gemini", fake_access)
     monkeypatch.setattr(main, "_textbook_metering", fake_meter)
@@ -581,6 +653,46 @@ async def test_upload_saves_book_before_retryable_unit_detection(
     assert analyzed["chapters"][0]["title"] == "Unit one"
     saved = await db.get_textbook(uid, result["id"])
     assert saved["chapters"][0]["start"] == 1
+
+
+@pytest.mark.asyncio
+async def test_analyze_keeps_detected_chapters_when_refinement_fails(
+        fresh_db, monkeypatch, tmp_path):
+    """Pass 1 is persisted before the (slow, many-call) mid-page refinement, so
+    a failure there never sends the learner back to square one."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "book.pdf",
+                                     ["p1", "p2", "p3", "p4"])
+    access = SimpleNamespace(api_key="key", anthropic_key=None,
+                             model_reader="reader")
+
+    async def fake_access(*args, **kwargs):
+        return access
+
+    async def fake_meter(*args, **kwargs):
+        return False
+
+    async def detect(pages, *args, **kwargs):
+        return [{"title": "One", "start": 1, "end": 2, "skip_hint": False,
+                 "status": "", "start_anchor": "", "end_anchor": ""},
+                {"title": "Two", "start": 3, "end": 4, "skip_hint": False,
+                 "status": "", "start_anchor": "", "end_anchor": ""}], 1
+
+    async def refine_boom(*args, **kwargs):
+        raise RuntimeError("refinement timed out")
+
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+    monkeypatch.setattr(main.textbook, "detect_chapters", detect)
+    monkeypatch.setattr(main.textbook, "refine_chapter_boundaries", refine_boom)
+
+    out = await main.analyze_textbook.__wrapped__(None, tb_id, user)
+    assert [c["title"] for c in out["chapters"]] == ["One", "Two"]
+    assert out["refined"] is False
+    saved = await db.get_textbook(uid, tb_id)
+    assert [c["title"] for c in saved["chapters"]] == ["One", "Two"]
 
 
 @pytest.mark.asyncio

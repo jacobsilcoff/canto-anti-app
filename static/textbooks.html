@@ -137,6 +137,7 @@
 
     /* ── Chapters (TOC + editor) ── */
     .tbr-chapcap { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 3px 12px 0; background: var(--surface); flex-shrink: 0; }
+    .tbr-note { font-size: .74rem; color: var(--warn-strong); background: var(--warn-soft); text-align: center; padding: 6px 12px; flex-shrink: 0; line-height: 1.4; }
     .toc-tools { display: flex; gap: 8px; margin: 0 0 12px; }
     .toc-tools button { background: var(--surface-alt); border: none; border-radius: 9px; padding: 7px 12px; font-size: .8rem; cursor: pointer; color: var(--text); font-family: inherit; }
     .toc-tools button:hover { background: var(--border); }
@@ -200,6 +201,7 @@
     <button class="tbr-icon" id="tbr-texttoggle" onclick="toggleTextPane()" title="Show extracted text">Aa</button>
   </div>
   <div class="tbr-chapcap" id="tbr-chapcap"></div>
+  <div class="tbr-note" id="tbr-note" style="display:none"></div>
   <div class="tbr-actions">
     <button onclick="readerBuildVocab()">📇 Build vocab deck (this chapter)</button>
     <button onclick="readerCreateLessons()">📘 Turn chapter into lessons</button>
@@ -363,6 +365,16 @@
     document.getElementById('tbr-title').textContent = _rb.title;
     document.body.classList.add('hide-tabbar');
     document.getElementById('reader').classList.add('open');
+    // Say it once, up front, when the PDF can't rasterize its whole page range —
+    // otherwise it just looks like the book breaks partway through.
+    const rp = _rb.renderable_pages;
+    const note = document.getElementById('tbr-note');
+    if (_rb.has_pages && rp && rp < _rb.num_pages) {
+      note.textContent = `⚠️ This PDF only renders ${rp} of its ${_rb.num_pages} pages — pages ${rp + 1}+ show their extracted text instead.`;
+      note.style.display = '';
+    } else {
+      note.textContent = ''; note.style.display = 'none';
+    }
     renderPage();
   }
 
@@ -385,18 +397,21 @@
     const marked = _bookmarks.has(_page);
     bm.textContent = marked ? '★' : '☆';
     bm.classList.toggle('on', marked);
-    // Image or text-only fallback
+    // Image or text-only fallback. A page the rasterizer can't reach goes
+    // straight to text — requesting an image we know will fail just costs a
+    // round trip and shows an error.
     const wrap = document.getElementById('tbr-imgwrap');
-    if (_rb.has_pages) {
+    const renderable = _rb.renderable_pages || _rb.num_pages;
+    if (_rb.has_pages && _page <= renderable) {
       wrap.innerHTML = '<div class="spinner tbr-spin"></div>';
       const img = new Image();
       img.alt = `Page ${_page}`;
       img.onload = () => { if (wrap.dataset.page == String(_page)) wrap.replaceChildren(img); };
-      img.onerror = () => { if (wrap.dataset.page == String(_page)) wrap.innerHTML = '<div class="tbr-text-empty" style="margin:auto">Couldn’t render this page.</div>'; };
+      img.onerror = () => showPageImageError(_page);
       wrap.dataset.page = String(_page);
       img.src = `/api/textbooks/${_rb.id}/page/${_page}.jpg`;
       // Preload the next page
-      if (_page < n) new Image().src = `/api/textbooks/${_rb.id}/page/${_page + 1}.jpg`;
+      if (_page < Math.min(n, renderable)) new Image().src = `/api/textbooks/${_rb.id}/page/${_page + 1}.jpg`;
     } else {
       wrap.innerHTML = `<div class="tbr-textpane-inner" style="max-width:640px">${_pageText(_page) || '<span class="tbr-text-empty">No text on this page.</span>'}</div>`;
     }
@@ -404,6 +419,29 @@
     document.getElementById('tbr-text').innerHTML = _pageText(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
     updateChapterCaption();
     scheduleSave();
+  }
+
+  // An <img> only reports "it failed", never why. Re-request the same URL so the
+  // server's actual reason (page beyond what the PDF renders, book uploaded
+  // before page images, session expired…) is shown instead of a dead end — and
+  // keep the page readable by falling back to its extracted text.
+  async function showPageImageError(pageNo) {
+    const wrap = document.getElementById('tbr-imgwrap');
+    if (wrap.dataset.page != String(pageNo) || pageNo !== _page) return;
+    let detail = '';
+    try {
+      const r = await fetch(`/api/textbooks/${_rb.id}/page/${pageNo}.jpg`);
+      if (r.status === 401) detail = 'Your session expired — reload the page to sign back in.';
+      else if (!r.ok) detail = ((await r.json().catch(() => ({}))).detail) || '';
+    } catch (e) { detail = 'Network error while loading this page image.'; }
+    if (wrap.dataset.page != String(pageNo) || pageNo !== _page) return;
+    const text = _pageText(pageNo);
+    wrap.innerHTML =
+      `<div style="max-width:640px;margin:auto">
+         <div class="tb-error">${esc(detail || 'Couldn’t render this page.')}</div>
+         ${text ? `<div class="tbr-textpane-inner" style="padding-left:0;padding-right:0">${text}</div>`
+                : '<div class="tbr-text-empty">No extracted text for this page either.</div>'}
+       </div>`;
   }
 
   function updateChapterCaption() {
@@ -646,7 +684,7 @@
   async function redetectChapters() {
     const st = document.getElementById('ch-status');
     const btn = document.getElementById('ch-redetect'); if (btn) btn.disabled = true;
-    if (st) st.innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Scanning the book for chapter boundaries…</div>';
+    if (st) st.innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Scanning the book for chapter boundaries, then checking for units that start mid-page…</div>';
     try {
       const r = await fetch(`/api/textbooks/${_chBook.id}/analyze`, { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -654,17 +692,40 @@
       if (!r.ok) throw new Error(data.detail || 'Detection failed.');
       _applyChapters(data.chapters);
       _chEdit = false;
-      if (!(data.chapters || []).length) {
-        renderChapters();
-        const st2 = document.getElementById('ch-status');
-        if (st2) st2.innerHTML = '<div class="tb-error">AI couldn’t find clear chapter breaks. Add them by hand instead.</div>';
-      } else {
-        renderChapters();
+      renderChapters();
+      const st2 = document.getElementById('ch-status');
+      if (!(data.chapters || []).length && st2) {
+        st2.innerHTML = '<div class="tb-error">AI couldn’t find clear chapter breaks. Add them by hand instead.</div>';
+      } else if (st2 && data.refined === false) {
+        // Detection is saved even when the mid-page pass doesn't finish, so this
+        // is a partial success, not a failure to redo from scratch.
+        st2.innerHTML = '<p class="split-hint">Chapters saved. Mid-page splits weren’t checked this time — re-run detection, or set a split by hand in “Edit divisions”.</p>';
       }
     } catch (e) {
-      if (st) st.innerHTML = `<div class="tb-error">${esc(e.message || 'Detection failed.')}</div>`;
+      // The first pass is persisted server-side before refinement runs, so a
+      // timeout here may still have produced chapters. Show whatever landed.
+      const saved = await _refetchChapters();
+      if (saved && saved.length) {
+        _applyChapters(saved);
+        _chEdit = false;
+        renderChapters();
+        const st2 = document.getElementById('ch-status');
+        if (st2) st2.innerHTML = `<p class="split-hint">${esc(e.message || 'Detection was interrupted')} — but the chapters it had already found are saved below.</p>`;
+        return;
+      }
+      if (st) st.innerHTML = `<div class="tb-error">${esc(e.message || 'Detection failed.')} Try again.</div>`;
       if (btn) btn.disabled = false;
     }
+  }
+
+  async function _refetchChapters() {
+    try {
+      const r = await fetch(`/api/courses/${_courseId}/textbooks`);
+      const data = await r.json();
+      _books = data.textbooks || [];
+      const b = _books.find(x => x.id === _chBook.id);
+      return b ? (b.chapters || []) : null;
+    } catch (e) { return null; }
   }
 
   function gotoChapter(p) {
