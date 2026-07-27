@@ -477,7 +477,10 @@
     // otherwise it just looks like the book breaks partway through.
     const rp = _rb.renderable_pages;
     const note = document.getElementById('tbr-note');
-    if (_rb.has_pages && rp && rp < _rb.num_pages) {
+    if (_rb.has_pages && rp === 0) {
+      note.textContent = '⚠️ This PDF can’t be converted to page images, so it reads as extracted text. Everything the AI uses is still here.';
+      note.style.display = '';
+    } else if (_rb.has_pages && rp && rp < _rb.num_pages) {
       note.textContent = `⚠️ This PDF only renders ${rp} of its ${_rb.num_pages} pages — pages ${rp + 1}+ show their extracted text instead.`;
       note.style.display = '';
     } else {
@@ -510,7 +513,10 @@
     // straight to text — requesting an image we know will fail just costs a
     // round trip and shows an error.
     const wrap = document.getElementById('tbr-imgwrap');
-    const renderable = _rb.renderable_pages || _rb.num_pages;
+    // 0 is meaningful (nothing rasterizes) — don't let `||` turn it into "all
+    // pages", which would request an image for every page that can't exist.
+    const renderable = _rb.renderable_pages == null
+      ? _rb.num_pages : _rb.renderable_pages;
     if (_rb.has_pages && _page <= renderable) {
       wrap.innerHTML = '<div class="spinner tbr-spin"></div>';
       const img = new Image();

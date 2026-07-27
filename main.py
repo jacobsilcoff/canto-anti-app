@@ -4132,6 +4132,21 @@ async def upload_textbook(request: Request, course_id: int,
     # Keep the source PDF so its pages can be re-rendered later for AI vision
     # re-extraction (garbled / romanized / scanned books).
     pdf_media_id = _uuid.uuid4().hex
+    # pypdf just read this book, but the rasterizer is stricter (junk before the
+    # `%PDF-` header, a corrupt xref) and would refuse every page while the text
+    # displays fine. Repair it now rather than on first read.
+    try:
+        renderable = await asyncio.to_thread(extract.can_render, data)
+    except extract.RendererUnavailable:
+        renderable = True     # a server gap, not a defect in this book
+    if not renderable:
+        repaired = await asyncio.to_thread(extract.repair_pdf, data)
+        if repaired:
+            logger.info("Repaired an unrenderable upload (%s -> %s bytes)",
+                        len(data), len(repaired))
+            data, renderable = repaired, True
+        else:
+            logger.warning("Uploaded PDF cannot be rasterized: %s", file.filename)
     try:
         (MEDIA_DIR / f"{pdf_media_id}.pdf").write_bytes(data)
         stored_files.append(MEDIA_DIR / f"{pdf_media_id}.pdf")
@@ -4165,7 +4180,9 @@ async def upload_textbook(request: Request, course_id: int,
             "low_text_quality": quality["low_quality"],
             "low_text_quality_reason": quality["reason"],
             "poor_pages": quality["poor_pages"],
-            "can_transcribe": True}
+            # Vision re-extraction rasterizes too, so it's only offerable when
+            # the rasterizer can actually open the book.
+            "can_transcribe": renderable}
 
 
 @app.get("/api/courses/{course_id}/textbooks")
@@ -4298,6 +4315,64 @@ _TEXTBOOK_RENDER_SEM = asyncio.Semaphore(2)
 _MIN_PAGE_JPEG_BYTES = 512
 
 
+# Books whose stored PDF a repair pass already failed to make renderable. Every
+# page request would otherwise re-attempt the (whole-file) repair and fail again.
+_unrepairable_pdfs: set[str] = set()
+
+
+async def _ensure_renderable_pdf(pdf_path: Path, fallback: int = 0) -> int:
+    """Pages the rasterizer can reach in a stored book, repairing it if needed.
+
+    A PDF whose text extracted fine can still be unopenable for rasterizing —
+    most often because junk sits in front of its `%PDF-` header, which pypdf
+    scans past and pdfium refuses outright ("Data format error"). Rather than
+    telling the learner to find a repaired copy, repair it here and replace the
+    stored file, so the book renders from then on. Returns 0 when it truly
+    cannot be rasterized (the reader then reads it as text).
+
+    `fallback` is returned when there's no rasterizer to ask at all — a server
+    problem, not a bad book, so don't rewrite the file or declare its pages
+    unrenderable."""
+    try:
+        return await asyncio.to_thread(extract.pdf_page_count, str(pdf_path))
+    except extract.RendererUnavailable as e:
+        logger.warning("No PDF rasterizer available: %s", e)
+        return fallback
+    except Exception as e:
+        logger.warning("Stored PDF unopenable for rendering %s: %s", pdf_path, e)
+    if str(pdf_path) in _unrepairable_pdfs:
+        return 0
+    try:
+        repaired = await asyncio.to_thread(extract.repair_pdf, str(pdf_path))
+    except Exception as e:
+        logger.warning("PDF repair raised for %s: %s", pdf_path, e)
+        repaired = None
+    if not repaired:
+        _unrepairable_pdfs.add(str(pdf_path))
+        return 0
+    try:
+        await asyncio.to_thread(_replace_stored_pdf, pdf_path, repaired)
+    except OSError as e:
+        logger.error("Couldn't store repaired PDF %s: %s", pdf_path, e)
+        return 0
+    logger.info("Repaired an unrenderable stored PDF %s (%s bytes)",
+                pdf_path, len(repaired))
+    try:
+        return await asyncio.to_thread(extract.pdf_page_count, str(pdf_path))
+    except Exception:
+        return 0
+
+
+def _replace_stored_pdf(pdf_path: Path, data: bytes) -> None:
+    """Swap a stored source PDF for a repaired copy, atomically."""
+    tmp = pdf_path.with_suffix(".pdf.repair")
+    try:
+        tmp.write_bytes(data)
+        tmp.replace(pdf_path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def _usable_cached_page(path: Path) -> bool:
     """True if a cached page render exists AND looks like a whole JPEG."""
     try:
@@ -4353,7 +4428,9 @@ async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
     equals `num_pages`; when a book is damaged the two disagree, and every page
     past that point fails to render while its extracted text still shows. Report
     it up front so the reader can say so instead of the learner discovering it
-    mid-book."""
+    mid-book. **0 means no page images at all** — the whole book reads as text.
+    Opening also repairs a stored PDF the rasterizer can't open, so books
+    uploaded before that check existed heal on their next open."""
     book = await db.get_textbook(user["id"], textbook_id)
     if not book:
         raise HTTPException(404, "Book not found")
@@ -4361,11 +4438,8 @@ async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
     pdf_media_id = book.get("pdf_media_id")
     pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
     if pdf_path and pdf_path.exists():
-        try:
-            renderable = await asyncio.to_thread(extract.pdf_page_count, str(pdf_path))
-        except Exception as e:
-            logger.warning("Textbook page count unavailable tb=%s: %s",
-                           textbook_id, e)
+        renderable = await _ensure_renderable_pdf(pdf_path,
+                                                 fallback=book["num_pages"])
     return {
         "id": book["id"], "title": book["title"], "num_pages": book["num_pages"],
         "chapters": book["chapters"],
@@ -4473,11 +4547,28 @@ async def textbook_page_image(textbook_id: int, page: int,
                     return FileResponse(
                         cache_path, media_type="image/jpeg",
                         headers={"Cache-Control": "public, max-age=31536000, immutable"})
-                images = await asyncio.to_thread(
-                    extract.render_pdf_pages, str(pdf_path), [page],
-                    _TEXTBOOK_PAGE_LONG_EDGE)
+                try:
+                    images = await asyncio.to_thread(
+                        extract.render_pdf_pages, str(pdf_path), [page],
+                        _TEXTBOOK_PAGE_LONG_EDGE)
+                except extract.ExtractError:
+                    # The rasterizer can't open this book at all (a header it
+                    # won't look far enough to find, a corrupt xref). Repair the
+                    # stored file and try once more — the library cover asks for
+                    # page 1 before anything has opened the reader, so this path
+                    # can't rely on the reader's repair having run.
+                    if not await _ensure_renderable_pdf(pdf_path):
+                        raise HTTPException(409, (
+                            "This PDF can't be converted to page images, so the "
+                            "book reads as extracted text. Its text is all here."
+                        ))
+                    images = await asyncio.to_thread(
+                        extract.render_pdf_pages, str(pdf_path), [page],
+                        _TEXTBOOK_PAGE_LONG_EDGE)
         except extract.ExtractError as e:
             raise HTTPException(400, str(e))
+        except HTTPException:
+            raise      # our own 409 above — not a render crash to relabel 502
         except Exception as e:
             logger.error("Textbook page render failed tb=%s page=%s: %s",
                          textbook_id, page, e, exc_info=True)

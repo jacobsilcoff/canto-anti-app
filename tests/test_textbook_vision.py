@@ -279,11 +279,22 @@ async def test_reader_reports_a_short_renderable_page_count(fresh_db, monkeypatc
     res = await main.textbook_reader(tb_id, user)
     assert (res["num_pages"], res["renderable_pages"]) == (60, 40)
 
-    # A renderer that can't answer must not break opening the book.
-    def boom(source):
-        raise RuntimeError("no renderer")
-    monkeypatch.setattr(main.extract, "pdf_page_count", boom)
+    # No rasterizer on the server at all says nothing about the book: stay
+    # optimistic and let individual page requests fail, rather than declaring a
+    # perfectly good book text-only (and "repairing" it).
+    def unavailable(source):
+        raise extract.RendererUnavailable("not installed")
+    monkeypatch.setattr(main.extract, "pdf_page_count", unavailable)
     assert (await main.textbook_reader(tb_id, user))["renderable_pages"] == 60
+
+    # Any other failure IS this book failing to open — repair it, and report 0
+    # when it can't be salvaged so the reader shows text instead of broken
+    # images. (The fixture is a stub, so there's nothing to salvage.)
+    def boom(source):
+        raise RuntimeError("Data format error")
+    monkeypatch.setattr(main.extract, "pdf_page_count", boom)
+    main._unrepairable_pdfs.discard(str(tmp_path / "book.pdf"))
+    assert (await main.textbook_reader(tb_id, user))["renderable_pages"] == 0
 
 
 # ── Mid-page split markers (locating the boundary for the reader) ─────────────
@@ -432,3 +443,120 @@ async def test_splits_route_locates_the_boundary(fresh_db, monkeypatch, tmp_path
     # so the reader still flags it in the extracted text.
     monkeypatch.setattr(main.extract, "locate_page_lines", lambda *a, **k: {})
     assert (await main.textbook_splits(tb_id, user))["splits"][0]["y"] is None
+
+
+# ── Repairing a PDF the rasterizer refuses to open ─────────────────────────────
+#
+# pypdf finds the `%PDF-` header at any offset and rebuilds a broken xref by
+# scanning for objects; pdfium checks only the start of the file and gives up
+# with "Data format error". So a book can extract every page of its text — proof
+# we parsed it — and still render nothing at all.
+
+def _junk_header_pdf() -> bytes:
+    """A valid PDF with 1.4 KB of junk in front of its header."""
+    return b"\r\n<!-- generated -->\r\n" * 64 + _split_pdf()
+
+
+def test_junk_before_the_header_extracts_but_will_not_rasterize():
+    pdf = _junk_header_pdf()
+    assert pdf.find(b"%PDF-") > 1024              # past pdfium's search window
+    # Text extraction is unaffected — this is exactly the confusing case.
+    assert "Unit 2: Ordering food" in extract.extract_pdf_pages(pdf)["pages"][0]
+    assert extract.can_render(pdf) is False
+
+
+def test_repair_trims_junk_before_the_header():
+    repaired = extract.repair_pdf(_junk_header_pdf())
+    assert repaired is not None
+    assert repaired.startswith(b"%PDF-")
+    assert extract.can_render(repaired) is True
+    # Byte-preserving: the original document is kept intact, only re-based.
+    assert repaired == _split_pdf()
+
+
+def test_repair_rebuilds_a_pdf_with_no_usable_xref():
+    """Nothing to trim, so the repair falls through to re-serializing."""
+    good = _split_pdf()
+    broken = good.replace(b"xref\n0 6", b"xref\n0 9", 1)
+    broken = broken[:broken.rfind(b"startxref")] + b"startxref\n17\n%%EOF\n"
+    repaired = extract.repair_pdf(broken)
+    if repaired is None:
+        pytest.skip("pdfium recovered this xref on its own")
+    assert extract.can_render(repaired) is True
+    assert repaired.startswith(b"%PDF-")
+
+
+def test_repair_reads_from_a_path_and_gives_up_on_a_non_pdf(tmp_path):
+    path = tmp_path / "book.pdf"
+    path.write_bytes(_junk_header_pdf())
+    assert extract.can_render(extract.repair_pdf(str(path))) is True
+
+    (tmp_path / "nope.pdf").write_bytes(b"this is not a PDF at all")
+    assert extract.repair_pdf(str(tmp_path / "nope.pdf")) is None
+    assert extract.repair_pdf(str(tmp_path / "missing.pdf")) is None
+
+
+@pytest.mark.asyncio
+async def test_opening_a_book_repairs_its_unrenderable_pdf(fresh_db, monkeypatch,
+                                                           tmp_path):
+    """A book uploaded before the check existed heals on its next open, instead
+    of asking the learner to find a repaired copy."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(_junk_header_pdf())
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1"], [],
+                                     pdf_media_id="book")
+    main._unrepairable_pdfs.discard(str(pdf_path))
+
+    res = await main.textbook_reader(tb_id, user)
+    assert res["renderable_pages"] == 1            # not 0, and not an error
+    assert extract.can_render(str(pdf_path)) is True   # fixed on disk, in place
+
+    # And the page it now renders really is the book's page.
+    await main.textbook_page_image(tb_id, 1, user)
+    assert (tmp_path / f"tbpage_{tb_id}_1.jpg").exists()
+
+
+@pytest.mark.asyncio
+async def test_an_unrepairable_book_reads_as_text_instead_of_erroring(
+        fresh_db, monkeypatch, tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"not a PDF, and not fixable")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1", "p2"], [],
+                                     pdf_media_id="book")
+    main._unrepairable_pdfs.discard(str(pdf_path))
+
+    # 0 tells the reader to show extracted text for every page rather than
+    # requesting images that can only fail.
+    assert (await main.textbook_reader(tb_id, user))["renderable_pages"] == 0
+
+    with pytest.raises(main.HTTPException) as err:
+        await main.textbook_page_image(tb_id, 1, user)
+    assert err.value.status_code == 409
+    assert "reads as extracted text" in err.value.detail
+
+    # The failed repair is remembered, so page requests stop re-attempting it.
+    assert str(pdf_path) in main._unrepairable_pdfs
+
+
+@pytest.mark.asyncio
+async def test_upload_repairs_the_pdf_it_stores(fresh_db, monkeypatch, tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    upload = main.UploadFile(filename="book.pdf",
+                             file=io.BytesIO(_junk_header_pdf()))
+
+    res = await main.upload_textbook.__wrapped__(None, cid, upload, "Book", user)
+    assert res["can_transcribe"] is True
+    book = await db.get_textbook(uid, res["id"])
+    stored = tmp_path / f"{book['pdf_media_id']}.pdf"
+    assert extract.can_render(str(stored)) is True    # stored already repaired

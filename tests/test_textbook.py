@@ -62,6 +62,39 @@ def test_strip_repeated_lines_short_books_untouched():
     assert textbook.strip_repeated_lines(pages) == pages
 
 
+def test_strip_repeated_lines_never_empties_a_page_of_real_content():
+    """Digits are masked before counting, so a book whose pages differ only by a
+    number (numbered drills, a repeated table scaffold) has EVERY line looking
+    like a running header. Stripping the page to nothing would silently destroy
+    the source that chapter detection and lesson authoring both read."""
+    pages = ["\n".join([f"Lesson {p}: practice"]
+                       + [f"Page {p} line {i}: nei5 hou2 means hello" for i in range(12)]
+                       + [f"{p}"])
+             for p in range(1, 9)]
+    out = textbook.strip_repeated_lines(pages)
+    assert "nei5 hou2 means hello" in out[0]
+    assert all(p.strip() for p in out)          # no page lost entirely
+    for line in out[0].splitlines():            # bare page numbers still go
+        assert line.strip() != "1"
+
+
+def test_strip_repeated_lines_still_empties_a_header_only_page():
+    """The salvage above is for pages with real content — a page carrying only a
+    running header and its number must still clean out to nothing."""
+    words = ["greetings", "family", "food", "travel", "weather", "numbers",
+             "colours", "work"]
+    pages = ["\n".join(["Cantonese for Beginners", f"Unit {1 + (p - 1) // 3}",
+                        f"This page covers {words[p - 1]} vocabulary politely.",
+                        f"Practise the {words[p - 1]} words before moving on.",
+                        f"{p}"])
+             for p in range(1, 9)]
+    pages[2] = "Cantonese for Beginners\n3"      # a near-blank spacer page
+    out = textbook.strip_repeated_lines(pages)
+    assert out[2].strip() == ""
+    assert "Cantonese for Beginners" not in out[0]   # header still stripped
+    assert "greetings vocabulary" in out[0]          # prose still kept
+
+
 # ── Chapter-detection skeleton + normalization ────────────────────────────────
 
 def test_build_skeleton_tags_pages_and_picks_headings():

@@ -86,6 +86,12 @@ def clean_page_text(text: str) -> str:
     return "\n".join(out)
 
 
+# A page holding at least this much text is never stripped down to nothing (see
+# the salvage branch below) — losing a whole page of source is worse than leaving
+# a running header on it.
+_MIN_PAGE_CHARS_TO_PROTECT = 120
+
+
 def strip_repeated_lines(pages: list[str]) -> list[str]:
     """Drop running headers/footers/watermarks: shortish lines whose normalized
     form (digits masked) recurs on a large share of the book's pages."""
@@ -116,7 +122,25 @@ def strip_repeated_lines(pages: list[str]) -> list[str]:
         # Bare page numbers ("9", "· 23 ·") are never teachable text.
         return not re.fullmatch(r"[\W#]*", key)
 
-    return ["\n".join(l for l in p.splitlines() if keep(l)) for p in pages]
+    def numbered_only(line: str) -> bool:
+        return bool(re.fullmatch(r"[\W#]*", norm(line)))
+
+    out = []
+    for p in pages:
+        lines = p.splitlines()
+        kept = [l for l in lines if keep(l)]
+        if not kept:
+            # Every line looked like a running header. On a page with real
+            # content that's a false positive of the digit masking (numbered
+            # drills, a repeated table scaffold), and emptying the page silently
+            # destroys the source every downstream planner reads. Keep it whole
+            # apart from bare page numbers; a genuinely header-only page has too
+            # little text to qualify and still cleans out.
+            salvage = [l for l in lines if not numbered_only(l)]
+            if sum(len(l.strip()) for l in salvage) >= _MIN_PAGE_CHARS_TO_PROTECT:
+                kept = salvage
+        out.append("\n".join(kept))
+    return out
 
 
 def clean_pages(pages: list[str]) -> list[str]:

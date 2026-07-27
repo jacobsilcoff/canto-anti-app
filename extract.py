@@ -40,6 +40,14 @@ class ExtractError(Exception):
     """User-fixable extraction failure (bad URL, blocked host, empty body…)."""
 
 
+class RendererUnavailable(ExtractError):
+    """The PDF rasterizer isn't usable on this server.
+
+    Distinct from a PDF we can't open: nothing is wrong with the book, so callers
+    must not "repair" it or conclude that its pages don't render.
+    """
+
+
 # ── URL fetching (SSRF-guarded) ────────────────────────────────────────────────
 
 def _is_blocked_ip(ip: str) -> bool:
@@ -561,18 +569,101 @@ def _open_for_render(source):
     try:
         import pypdfium2 as pdfium
     except ImportError:
-        raise ExtractError(
+        raise RendererUnavailable(
             "PDF page rendering is unavailable on this server "
             "(the PDF renderer is not installed)."
         )
     try:
         from PIL import Image  # noqa: F401  (pdfium.to_pil needs Pillow)
     except ImportError:
-        raise ExtractError("PDF page rendering is unavailable on this server.")
+        raise RendererUnavailable(
+            "PDF page rendering is unavailable on this server.")
     try:
         return pdfium.PdfDocument(source)
     except Exception as exc:
         raise ExtractError(f"Couldn't open that PDF for rendering: {exc}")
+
+
+def can_render(source) -> bool:
+    """True if the rasterizer can open this PDF at all (bytes or path).
+
+    Raises `RendererUnavailable` when there is no rasterizer to ask — that says
+    nothing about the book, so callers must not treat it as a `False`.
+    """
+    try:
+        doc = _open_for_render(source)
+    except RendererUnavailable:
+        raise
+    except Exception:
+        return False
+    try:
+        return len(doc) > 0
+    except Exception:
+        return False
+    finally:
+        doc.close()
+
+
+_PDF_HEADER = b"%PDF-"
+# pdfium only looks for the header at the very start of a file; pypdf scans for
+# it. Search a generous window so a book with a page of junk in front of it is
+# still recognised as the PDF it is.
+_HEADER_SEARCH_BYTES = 64 * 1024
+
+
+def repair_pdf(source) -> bytes | None:
+    """Rewrite a PDF the rasterizer refuses to open. Returns bytes, or None.
+
+    pypdf is far more forgiving than pdfium: it finds the ``%PDF-`` header at
+    ANY offset and rebuilds a broken cross-reference table by scanning for
+    objects. pdfium checks only the first bytes and gives up with "Data format
+    error". So a book can extract all its text perfectly — proving we parsed it
+    — and still fail to rasterize a single page, which reads to the learner as
+    the whole reader being broken.
+
+    Two repairs, cheapest first: drop leading junk before the header (byte for
+    byte identical otherwise, so page geometry and the xref stay valid), then
+    re-serialize the parsed document (a fresh xref and trailer, which also
+    recovers a truncated or corrupt one). Each candidate is verified against the
+    rasterizer before being returned, so a repair can never make things worse.
+    """
+    try:
+        if isinstance(source, (bytes, bytearray)):
+            raw = bytes(source)
+        else:
+            with open(source, "rb") as fh:
+                raw = fh.read()
+    except OSError:
+        return None
+
+    try:
+        offset = raw[:_HEADER_SEARCH_BYTES].find(_PDF_HEADER)
+        if offset > 0 and can_render(raw[offset:]):
+            return raw[offset:]
+    except RendererUnavailable:
+        return None       # nothing to verify a repair against
+
+    try:
+        import io
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(raw), strict=False)
+        if reader.is_encrypted:
+            # An empty user password is the only one we can try; a real
+            # password-protected book is the learner's to unlock.
+            reader.decrypt("")
+        writer = PdfWriter(clone_from=reader)
+        buf = io.BytesIO()
+        writer.write(buf)
+    except Exception:
+        return None
+    rebuilt = buf.getvalue()
+    try:
+        return rebuilt if rebuilt and can_render(rebuilt) else None
+    except RendererUnavailable:
+        return None
 
 
 def pdf_page_count(source) -> int:
