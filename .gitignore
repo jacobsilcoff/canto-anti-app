@@ -12,3 +12,6 @@ spike_output/
 .mcp.json
 verbecc.log
 data/vapid_keys.json
+
+# Even glasses SDK debug logs
+even-terminal-*.log

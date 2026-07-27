@@ -117,6 +117,7 @@
 
   const flame = '<svg viewBox="0 0 16 20" width="12" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>';
   const star = '<svg viewBox="0 0 20 20" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M10 1l2.2 6.8H19l-5.6 4.1 2.1 6.6L10 14.4l-5.5 4.1 2.1-6.6L1 7.8h6.8z"/></svg>';
+  const shield = '<svg viewBox="0 0 18 20" width="11" height="12" aria-hidden="true"><path fill="currentColor" d="M9 0L1 3v7c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V3z"/></svg>';
 
   function compactNumber(value) {
     if (value >= 10000) return Math.round(value / 1000) + 'k';
@@ -124,9 +125,15 @@
     return String(value);
   }
 
-  window.renderHeaderStats = function (streak, points) {
+  // B5 streak-freeze count: pages that only pass (streak, points) must not wipe
+  // the shield, so a call without an explicit freezes value keeps the last one.
+  let lastFreezes = 0;
+
+  window.renderHeaderStats = function (streak, points, freezes) {
+    if (freezes == null) freezes = lastFreezes; else lastFreezes = freezes;
     const parts = [];
     if (streak > 0) parts.push('<span class="hstat hstat-streak" title="' + streak.toLocaleString() + '-day streak">' + flame + compactNumber(streak) + '</span>');
+    if (freezes > 0) parts.push('<span class="hstat hstat-freeze" title="' + freezes + ' streak freeze' + (freezes > 1 ? 's' : '') + ' — protects your streak if you miss a day">' + shield + (freezes > 1 ? freezes : '') + '</span>');
     if (points > 0) parts.push('<span class="hstat hstat-xp" title="' + points.toLocaleString() + ' XP">' + star + compactNumber(points) + '</span>');
     document.querySelectorAll('.streak-display').forEach(el => {
       el.innerHTML = parts.join('');
@@ -151,7 +158,7 @@
     if (data.me && data.me.is_admin) {
       document.querySelectorAll('.nav-admin,.more-admin').forEach(el => { el.style.display = ''; });
     }
-    if (data.streak) window.renderHeaderStats(data.streak.streak || 0, data.streak.points || 0);
+    if (data.streak) window.renderHeaderStats(data.streak.streak || 0, data.streak.points || 0, data.streak.streak_freezes || 0);
   }
 
   function installLanguageControl(data) {
@@ -314,6 +321,7 @@
     feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00-1.18-2.82H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009.92 4.6H10a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9v.08A1.65 1.65 0 0020.91 10H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z"/></svg>',
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+    book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
     signout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   };
   function menuLink(href, label, icon) {
@@ -342,6 +350,7 @@
       '<div class="shell-more-lang" data-shell-lang-slot></div>' +
       '<div class="shell-more-list" aria-label="More destinations">' +
       menuLink('/translate', 'Quick add / translate', 'quick') +
+      menuLink('/textbooks', 'Textbooks', 'book') +
       menuLink('/browse', 'Browse & decks', 'browse') +
       menuLink('/feedback', 'Feedback', 'feedback') +
       menuLink('/settings', 'Settings', 'settings') +

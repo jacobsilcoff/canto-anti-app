@@ -140,7 +140,9 @@
 
     /* ── Ask-the-tutor pop-over (contextual study Q&A) ─────────────────────── */
     .ask-overlay {
-      position: fixed; inset: 0; z-index: 60;
+      /* Above the bottom tab bar (.tabbar is z-index 90) — at 60 the bar sat ON
+         TOP of the sheet's composer and swallowed taps meant for Send. */
+      position: fixed; inset: 0; z-index: 100;
       background: var(--overlay);
       display: none; align-items: flex-end; justify-content: center;
       /* Float the sheet off the screen edges: side gutters + a bottom gap that
@@ -148,6 +150,13 @@
       padding: 0 12px calc(14px + env(safe-area-inset-bottom));
     }
     .ask-overlay.open { display: flex; }
+    @media (max-width: 1199px) {
+      /* Keep the sheet clear of the tab bar itself, so the nav stays visible
+         and the composer never overlaps it. */
+      body:not(.hide-tabbar) .ask-overlay {
+        padding-bottom: max(78px, calc(74px + env(safe-area-inset-bottom)));
+      }
+    }
     .ask-sheet {
       width: 100%; max-width: 460px;
       background: var(--surface);

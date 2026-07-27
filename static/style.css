@@ -238,6 +238,7 @@ button svg.icon, a svg.icon { pointer-events: none; }
 }
 .hstat-streak { background: var(--energy-soft); color: var(--energy); }
 .hstat-xp { background: var(--gold-soft); color: var(--gold); }
+.hstat-freeze { background: var(--primary-soft); color: var(--primary); }
 
 .badge {
   background: var(--primary);

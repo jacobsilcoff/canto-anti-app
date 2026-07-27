@@ -215,6 +215,9 @@ COURSE_FOCUSES = {
                      "phrase patterns, vocab chosen for dialogue."),
 }
 
+# D4 · how many recent 👍/👎 feedback entries the planner is shown.
+_LESSON_FEEDBACK_SAMPLE = 8
+
 
 def _build_plan_prompt(
     target_lang: str, level_target: str,
@@ -224,6 +227,7 @@ def _build_plan_prompt(
     known_words: list[dict] | None = None, weak_words: list[dict] | None = None,
     recent_cards: list[dict] | None = None, cefr_spread: str = "",
     course_focus: str = "balanced",
+    lesson_feedback: list[dict] | None = None,
     unit_summaries: list[dict] | None = None,
     lessons_done: int = 0, budget_reached: bool = False,
     avoid_feedback: str = "",
@@ -234,6 +238,28 @@ def _build_plan_prompt(
     profile_section = ""
     if (learner_profile or "").strip():
         profile_section = f"── LEARNER BACKGROUND ──\n{learner_profile.strip()}\n\n"
+
+    # D4 · recent 👍/👎 signals — steer toward liked lessons, away from disliked.
+    feedback_section = ""
+    if lesson_feedback:
+        liked, disliked = [], []
+        for fb in lesson_feedback[-_LESSON_FEEDBACK_SAMPLE:]:
+            title = (fb.get("title") or "").strip()
+            if not title:
+                continue
+            (liked if fb.get("rating") == "up" else disliked).append(title)
+        lines = []
+        if liked:
+            lines.append(f"Liked: {', '.join(liked[-5:])}")
+        if disliked:
+            lines.append(f"Disliked: {', '.join(disliked[-5:])}")
+        if lines:
+            feedback_section = (
+                "── LESSON FEEDBACK (learner rated these) ──\n"
+                + "\n".join(lines)
+                + "\nLean toward the style/topics of liked lessons; avoid repeating "
+                  "what the learner disliked.\n\n"
+            )
 
     focus_section = ""
     focus_line = COURSE_FOCUSES.get(course_focus, "")
@@ -303,6 +329,7 @@ def _build_plan_prompt(
         f"from the learner's live state — not a fixed syllabus.\n\n"
         f"{_lang_preamble(info)}"
         f"{profile_section}"
+        f"{feedback_section}"
         f"{focus_section}"
         f"{level_section}"
         f"{mastery_section}"
@@ -368,6 +395,7 @@ async def plan_next_lesson(
     recent_cards: list[dict] | None = None,
     cefr_spread: str = "",
     course_focus: str = "balanced",
+    lesson_feedback: list[dict] | None = None,
     unit_summaries: list[dict] | None = None,
     lessons_done: int = 0,
     budget_reached: bool = False,
@@ -391,7 +419,7 @@ async def plan_next_lesson(
         learner_profile=learner_profile, mastery=mastery,
         known_words=known_words, weak_words=weak_words,
         recent_cards=recent_cards, cefr_spread=cefr_spread,
-        course_focus=course_focus,
+        course_focus=course_focus, lesson_feedback=lesson_feedback,
         unit_summaries=unit_summaries, lessons_done=lessons_done,
         budget_reached=budget_reached, avoid_feedback=avoid_feedback,
     )

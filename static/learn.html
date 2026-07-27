@@ -39,6 +39,25 @@
     .course-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
     .course-regen { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; font-size: 0.82rem; }
     .course-regen:hover { border-color: var(--again); color: var(--again); }
+    /* Header action buttons — clean, consistent chips that collapse to icon-only
+       circles on narrow screens so the header never becomes a wrapping jumble. */
+    .course-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .hdr-btn {
+      display: inline-flex; align-items: center; gap: 6px; line-height: 1;
+      background: var(--surface-alt); border: none; border-radius: 999px;
+      color: var(--text); cursor: pointer; padding: 8px 14px;
+      font-size: 0.83rem; font-weight: 600; font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hdr-btn:hover { background: var(--primary-soft); color: var(--primary); }
+    .hdr-btn .hdr-ic { font-size: 1.02rem; }
+    .hdr-btn.icon-only { padding: 0; width: 38px; height: 38px; justify-content: center; font-size: 1.02rem; }
+    .hdr-btn.danger { color: var(--danger); }
+    .hdr-btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+    @media (max-width: 560px) {
+      .hdr-btn { padding: 0; width: 38px; height: 38px; justify-content: center; font-size: 1.02rem; }
+      .hdr-btn .hdr-lbl { display: none; }
+    }
 
     /* Units + lessons (vertical path) */
     .unit { margin-bottom: 20px; }
@@ -271,6 +290,21 @@
     .intro-step .stime { margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
       flex-shrink: 0; font-variant-numeric: tabular-nums; }
     .intro-rail { width: 2px; height: 10px; background: var(--border); margin-left: 16px; }
+    /* B6 · practice hub cards */
+    .practice-cards { display: flex; flex-direction: column; gap: 9px; margin-top: 6px; }
+    .practice-group-label { font-size: 0.72rem; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text-muted); margin: 12px 0 2px; }
+    .practice-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      padding: 12px 14px; border-radius: 14px; border: 1px solid var(--neutral-border);
+      background: var(--surface); cursor: pointer; transition: background .15s ease, transform .1s ease; }
+    .practice-card:hover { background: var(--surface-alt, var(--neutral-soft)); transform: translateY(-1px); }
+    .practice-card .pc-ico { width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+      background: var(--primary-soft); }
+    .practice-card .pc-text { display: flex; flex-direction: column; gap: 1px; }
+    .practice-card .pc-name { font-size: 0.92rem; font-weight: 700; }
+    .practice-card .pc-sub { font-size: 0.76rem; color: var(--text-muted); }
+    .practice-card .pc-arrow { margin-left: auto; color: var(--text-muted); font-size: 1.3rem; }
     .intro-concepts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
     .intro-concepts .chip { background: var(--surface-alt, var(--neutral-soft)); border-radius: 999px;
       padding: 5px 12px; font-size: 0.8rem; font-weight: 600; }
@@ -316,6 +350,25 @@
     .recap.open .recap-body { display: block; }
     /* B1 · quest ticks on the results screen */
     .results-quests { margin: 14px auto 0; max-width: 520px; text-align: left; }
+    /* D4 · per-lesson feedback */
+    .results-fb { display: flex; align-items: center; justify-content: center; gap: 12px;
+      margin: 16px auto 0; max-width: 520px; }
+    .results-fb .rfb-q { color: var(--text-muted); font-size: .95rem; }
+    .rfb-btns { display: flex; gap: 8px; }
+    .rfb-btn { font-size: 1.15rem; line-height: 1; padding: 7px 12px; border-radius: 12px;
+      border: 1px solid var(--neutral-border); background: var(--surface); cursor: pointer;
+      transition: transform .1s ease, background .15s ease; }
+    .rfb-btn:hover:not(:disabled) { background: var(--surface-alt); transform: translateY(-1px); }
+    .rfb-btn:disabled { cursor: default; opacity: .5; }
+    .rfb-btn.picked { opacity: 1; background: var(--primary-soft); border-color: var(--primary); }
+    /* B5 · streak-freeze toast */
+    .learn-toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom));
+      transform: translate(-50%, 20px); z-index: 9999; max-width: 90vw;
+      background: var(--tooltip-bg); color: #fff; padding: 11px 16px; border-radius: 12px;
+      font-weight: 600; font-size: .9rem; box-shadow: var(--shadow-pop);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
+    .learn-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (min-width: 1200px) { .learn-toast { bottom: 28px; } }
 
     /* ── Lesson player ── */
     .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; }
@@ -575,22 +628,42 @@
     .vocab-head-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
     .vocab-head-count { font-size: 0.82rem; color: var(--text-muted); }
     .vocab-body {
-      flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px;
-      display: flex; flex-direction: column; gap: 6px;
+      flex: 1; min-height: 0; overflow-y: auto; padding: 6px 14px 14px;
     }
+    /* Lesson group heading — sticks to the top as you scroll the group. */
+    .vocab-group-head {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 12px 2px 6px; background: var(--surface);
+      font-family: var(--display-font, inherit);
+      font-weight: 700; font-size: 0.9rem; color: var(--text);
+    }
+    .vocab-group-head .vg-count { font-weight: 600; font-size: 0.76rem; color: var(--text-muted); }
+    .vocab-group { display: flex; flex-direction: column; gap: 6px; }
     .vocab-row {
-      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-      border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+      display: flex; align-items: center; gap: 12px; padding: 9px 11px;
+      border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
     }
-    .vocab-word { font-weight: 600; font-size: 0.95rem; font-family: var(--script-font, inherit); }
-    .vocab-gloss { font-size: 0.84rem; color: var(--text-muted); flex: 1; min-width: 0; }
-    .vocab-lesson { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+    /* Reserve ruby height so romanization loading in never re-spaces the row. */
+    .vocab-word {
+      font-weight: 700; font-size: 1.15rem; line-height: 2;
+      font-family: var(--script-font, inherit); flex-shrink: 0;
+    }
+    .vocab-word ruby { line-height: 1; }
+    .vocab-word rt { font-size: 0.55em; font-weight: 500; color: var(--text-muted); }
+    .vocab-gloss { font-size: 0.86rem; color: var(--text-muted); flex: 1; min-width: 0; }
     .vocab-deck-badge {
-      font-size: 0.7rem; font-weight: 600; border-radius: 6px; padding: 2px 7px;
+      font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 3px 9px;
       white-space: nowrap; flex-shrink: 0;
     }
     .vocab-deck-badge.in { background: var(--good-soft); color: var(--good-strong); }
-    .vocab-deck-badge.out { background: var(--warn-soft); color: var(--warn-strong); }
+    .vocab-deck-badge.out { background: var(--neutral-soft, var(--surface-alt)); color: var(--text-muted); }
+    button.vocab-deck-badge.out {
+      border: none; cursor: pointer; background: var(--primary-soft); color: var(--primary);
+      transition: opacity .15s ease;
+    }
+    button.vocab-deck-badge.out:hover { opacity: 0.8; }
+    button.vocab-deck-badge.out:disabled { cursor: default; opacity: 0.6; }
     .vocab-empty { text-align: center; color: var(--text-muted); padding: 20px 10px; font-size: 0.9rem; }
 
     /* ── Add-lesson / textbook source sheet ── */
@@ -666,6 +739,43 @@
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
     .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
+    /* Chapter → vocab deck review */
+    .vocab-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+    .vocab-stat { flex: 1; border-radius: 12px; background: var(--surface-alt); padding: 9px 11px; }
+    .vocab-stat.new { background: var(--good-soft); }
+    .vocab-stat b { display: block; font-size: 1.3rem; line-height: 1.1; }
+    .vocab-stat.new b { color: var(--good-strong); }
+    .vocab-stat span { font-size: .68rem; color: var(--text-muted); }
+    .vocab-stat.new span { color: var(--good-strong); }
+    .vocab-selbar { display: flex; align-items: center; justify-content: space-between; font-size: .74rem; color: var(--text-muted); padding: 4px 2px 8px; }
+    .vocab-selbar button { border: none; background: none; color: var(--primary); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; padding: 3px 5px; }
+    .vocab-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .vocab-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .vocab-row:last-child { border-bottom: none; }
+    .vocab-row.in-deck { opacity: .55; }
+    .vocab-row input[type=checkbox] { width: 17px; height: 17px; flex-shrink: 0; accent-color: var(--primary); }
+    .vocab-row-main { flex: 1; min-width: 0; }
+    .vocab-row-rom { font-size: .68rem; color: var(--text-muted); }
+    .vocab-row-word { font-size: .96rem; font-weight: 600; }
+    .vocab-row-word .gl { font-weight: 400; color: var(--text-muted); font-size: .82rem; }
+    .vocab-badge { font-size: .62rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
+    .vocab-badge.have { background: var(--surface-alt); color: var(--text-muted); }
+    .vocab-more { text-align: center; padding: 9px; font-size: .76rem; color: var(--text-muted); }
+    .vocab-toggle { display: flex; align-items: center; gap: 9px; font-size: .8rem; color: var(--text-muted); margin-top: 12px; cursor: pointer; }
+    .vocab-toggle input { width: 16px; height: 16px; accent-color: var(--primary); }
+    .vocab-done { text-align: center; padding: 20px 6px; }
+    .vocab-done-icon { font-size: 2.4rem; }
+    .vocab-done h3 { margin: 10px 0 4px; font-size: 1.05rem; }
+    .vocab-done p { color: var(--text-muted); font-size: .82rem; margin: 0 0 16px; }
+    .vocab-loading { text-align: center; padding: 30px 14px; }
+    .vocab-loading .spinner { width: 30px; height: 30px; border-width: 4px; }
+    .vocab-loading .vocab-done-icon { font-size: 2.4rem; }
+    .vocab-loading h3 { margin: 14px 0 6px; font-size: 1.05rem; }
+    .vocab-loading p { color: var(--text-muted); font-size: .85rem; margin: 0 auto; max-width: 340px; line-height: 1.5; }
+    .tb-gen { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 12px 0 4px; }
+    .tb-gen-left { opacity: .7; font-weight: 500; }
+    .tb-gen-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .72rem; padding: 3px 8px; }
+    .tb-gen-clear:hover { color: var(--danger); }
     .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
     .bk-title-row { display: flex; align-items: center; gap: 8px; }
     .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -887,12 +997,15 @@
         <div class="course-title" id="course-title"></div>
         <div class="course-sub" id="course-sub"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="course-actions">
         <div class="daily-ring" id="daily-ring" style="display:none" title="Daily XP goal"></div>
-        <button class="course-regen" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
-        <button class="course-regen" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
-        <button class="course-regen" onclick="openVocabReview()" title="Review all vocab from your lessons">📚 Words</button>
-        <button class="course-regen" onclick="resetAiLessons()" title="Clear all AI lessons and start the course over (your reading track is kept)">↻ Restart course</button>
+        <button class="hdr-btn" id="practice-hub-btn" style="display:none" onclick="openPracticeHub()" title="Practice everything you've learned">
+          <span class="hdr-ic">🎯</span><span class="hdr-lbl">Practice</span></button>
+        <button class="hdr-btn" onclick="openVocabReview()" title="Review all vocab from your lessons">
+          <span class="hdr-ic">📚</span><span class="hdr-lbl">Words</span></button>
+        <button class="hdr-btn icon-only" id="mute-toggle" onclick="toggleMute()" title="Toggle sound"></button>
+        <button class="hdr-btn icon-only" id="unlock-toggle" onclick="toggleUnlockAll()" title="Unlock every lesson for testing"></button>
+        <button class="hdr-btn icon-only danger" onclick="resetAiLessons()" title="Restart course — clears all AI lessons and starts over (your reading track is kept)">↻</button>
       </div>
     </div>
     <div id="quest-card"></div>
@@ -931,6 +1044,11 @@
   <!-- D3 · lesson intro sheet -->
   <div class="intro-overlay" id="intro-overlay" onclick="if(event.target===this)closeLessonIntro()">
     <div class="intro-sheet" id="intro-sheet"></div>
+  </div>
+
+  <!-- B6 · practice hub -->
+  <div class="intro-overlay" id="practice-overlay" onclick="if(event.target===this)closePracticeHub()">
+    <div class="intro-sheet" id="practice-sheet"></div>
   </div>
 
   <!-- B2 · full league list sheet -->
@@ -1002,6 +1120,7 @@
     <p id="results-msg">Lesson complete!</p>
     <div id="results-recap"></div>
     <div id="results-vocab"></div>
+    <div id="results-feedback"></div>
     <div id="results-quests"></div>
     <div style="margin-top:14px"><button class="cta-btn" id="results-continue" onclick="backToMap()">Continue</button></div>
     <div style="margin-top:12px"><button class="cta-btn secondary" id="results-retry" onclick="retryLesson()">Practice again</button></div>
@@ -1026,6 +1145,8 @@
   let _generating = false;    // true while a /next API call is in-flight
   let _genCount = 0;          // lessons still to author this batch (for the label)
   let _genError = null;       // last error message from generation
+  let _tbGenerating = null;   // textbook unit_id currently authoring its next lesson
+  let _tbError = null;        // last error from a textbook-unit generation
 
   function show(state) {
     _currentState = state;
@@ -1096,12 +1217,42 @@
     loadLeague();
   }
 
+  // B5 · lightweight toast (streak-freeze earned / consumed messages).
+  let _toastTimer = null;
+  function learnToast(msg) {
+    let el = document.getElementById('learn-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'learn-toast';
+      el.className = 'learn-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  // Toast once when a streak freeze was just consumed to bridge yesterday.
+  function _checkFreezeConsumed(info) {
+    try {
+      const used = info && info.streak_freeze_used_date;
+      if (!used) return;
+      const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      if (used !== yest) return;   // only a freshly-used freeze (yesterday)
+      if (localStorage.getItem('freezeUsedSeen') === used) return;
+      localStorage.setItem('freezeUsedSeen', used);
+      learnToast('🛡 Streak freeze used — your streak is safe!');
+    } catch {}
+  }
+
   let _streakInfo = null;
   async function loadStreak() {
     try {
       const info = await fetch('/api/streak').then(r => r.json());
       _streakInfo = info;
-      if (window.renderHeaderStats) { window.renderHeaderStats(info.streak || 0, info.points || 0); renderDailyRing(); return; }
+      _checkFreezeConsumed(info);
+      if (window.renderHeaderStats) { window.renderHeaderStats(info.streak || 0, info.points || 0, info.streak_freezes || 0); renderDailyRing(); return; }
       const fmtN = n => n >= 10000 ? Math.round(n/1000)+'k' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n);
       const numSpan = n => { const s=fmtN(n),f=n.toLocaleString(); return s===f?s:`<span style="cursor:pointer" title="${f}" onclick="this.textContent=this.textContent==='${s}'?'${f}':'${s}'">${s}</span>`; };
       const ic = n => `<span style="display:inline-flex;align-items:center;gap:3px">${n}</span>`;
@@ -1336,6 +1487,12 @@
         body: JSON.stringify({ key: 'listening', amount: player.listeningHits }),
       }));
     }
+    if (player.lightning) {   // B4 · finishing a lightning round ticks its quest
+      posts.push(fetch('/api/quests/progress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'lightning', amount: 1 }),
+      }));
+    }
     try { await Promise.all(posts); } catch {}
   }
 
@@ -1416,21 +1573,60 @@
       const lang = currentCourse && currentCourse.target_lang;
       body.innerHTML = '';
       if (lang) body.classList.add(scriptClassFor(lang));
+
+      // Group words by the lesson that introduced them so the list reads in
+      // teaching order instead of one undifferentiated pile. Words with no known
+      // lesson fall into a trailing "Other" group.
+      const groups = [];
+      const byKey = new Map();
       vocab.forEach(v => {
-        const row = document.createElement('div');
-        row.className = 'vocab-row';
-        const badge = v.in_deck
-          ? '<span class="vocab-deck-badge in">In deck</span>'
-          : '<span class="vocab-deck-badge out">Not in deck</span>';
-        row.innerHTML =
-          `<div style="flex:1;min-width:0">` +
-            `<div class="vocab-word">${esc(v.label)}</div>` +
-            `<div class="vocab-gloss">${esc(v.gloss)}</div>` +
-          `</div>` +
-          badge;
-        if (v.lesson_title) row.title = 'From: ' + v.lesson_title;
-        body.appendChild(row);
+        const key = v.lesson_title || '';
+        let g = byKey.get(key);
+        if (!g) {
+          g = { title: v.lesson_title || 'Other words', num: v.lesson_num || 9999, items: [] };
+          byKey.set(key, g);
+          groups.push(g);
+        }
+        g.items.push(v);
       });
+      groups.sort((a, b) => a.num - b.num);
+
+      groups.forEach(g => {
+        const head = document.createElement('div');
+        head.className = 'vocab-group-head';
+        head.innerHTML = `<span>${esc(g.title)}</span>` +
+          `<span class="vg-count">${g.items.length} word${g.items.length === 1 ? '' : 's'}</span>`;
+        body.appendChild(head);
+        const wrap = document.createElement('div');
+        wrap.className = 'vocab-group';
+        g.items.forEach(v => {
+          const row = document.createElement('div');
+          row.className = 'vocab-row';
+          // The word carries a `.needs-ruby` hook so applyRuby annotates it with
+          // romanization (offline oracle) — non-Latin scripts are unreadable on
+          // mobile without it.
+          const wordHtml = lang && needsRuby(lang)
+            ? `<span class="needs-ruby" data-text="${esc(v.label)}" data-lang="${esc(lang)}">${esc(v.label)}</span>`
+            : esc(v.label);
+          row.innerHTML =
+            `<div class="vocab-word">${wordHtml}</div>` +
+            `<div class="vocab-gloss">${esc(v.gloss)}</div>`;
+          if (v.in_deck) {
+            row.insertAdjacentHTML('beforeend', '<span class="vocab-deck-badge in">✓ In deck</span>');
+          } else {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'vocab-deck-badge out vocab-add-btn';
+            btn.textContent = '＋ Add';
+            btn.onclick = () => addVocabWord(v, btn, lang);
+            row.appendChild(btn);
+          }
+          wrap.appendChild(row);
+        });
+        body.appendChild(wrap);
+      });
+      // Resolve all the romanization ruby in one batched pass.
+      if (lang && needsRuby(lang)) applyRuby(body, null, false, false);
     } catch {
       body.innerHTML = '<div class="vocab-empty">Failed to load vocab.</div>';
     }
@@ -1438,6 +1634,28 @@
 
   function closeVocabReview() {
     document.getElementById('vocab-overlay').classList.remove('open');
+  }
+
+  // Add a word from the vocab review drawer straight to the SRS deck.
+  async function addVocabWord(v, btn, lang) {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await fetch('/api/cards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: v.gloss, target_text: v.label,
+          target_lang: lang, priority: 3,
+          notes: 'From lesson: ' + (v.lesson_title || ''),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      v.in_deck = true;
+      btn.outerHTML = '<span class="vocab-deck-badge in">✓ In deck</span>';
+    } catch {
+      btn.disabled = false; btn.textContent = '＋ Add';
+      learnToast('Failed to add word — try again');
+    }
   }
 
   function toggleUnlockAll() {
@@ -1572,9 +1790,19 @@
   let _sourceError = '';
   let _sourceTimer = null;
   let _sourceRequest = 0;
+  let _reReading = false;
   let _pendingBookFile = null;
   let _pendingBookTitle = '';
   let _bookProgress = '';
+  // Chapter → vocab deck review state.
+  let _vocabItems = [];        // [{target, gloss, romanization, cefr, in_deck, _pick}]
+  let _vocabMeta = null;       // {section, book, start, end, lang}
+  let _vocabName = '';
+  let _vocabSaveShared = false;
+  let _vocabBusy = false;
+  let _vocabExtracting = false; // true only during the LLM extraction call (not the commit)
+  let _vocabExpanded = false;
+  let _vocabDone = null;       // {created, skipped, label_id, deck_id} after commit
 
   function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
 
@@ -1598,8 +1826,9 @@
   }
 
   function lessonMakerBack() {
-    if (_bookBusy) return;
+    if (_bookBusy || _vocabBusy) return;
     if (_makerStep === 'manage') _makerStep = 'source';
+    else if (_makerStep === 'vocab') { _makerStep = 'source'; _vocabDone = null; }
     else if (_makerStep === 'source') _makerStep = 'books';
     else _makerStep = 'choose';
     _sourceError = '';
@@ -1647,15 +1876,16 @@
             <span class="maker-option-icon">✨</span><b>Continue my course</b>
             <small>AI chooses the next topic from your progress, deck, and course focus.</small>
           </button>
-          <button class="maker-option" onclick="chooseLessonSource('textbook')">
+          <button class="maker-option" onclick="window.location.href='/textbooks'">
             <span class="maker-option-icon">📕</span><b>From a textbook</b>
-            <small>Review exact pages, then create a faithful unit covering the whole chapter.</small>
+            <small>Read your books by chapter, then turn a chapter into a vocab deck or a lesson unit.</small>
           </button>
         </div>`;
       return;
     }
     if (_makerStep === 'books') { renderBookPicker(body); return; }
     if (_makerStep === 'manage') { renderSectionManager(body); return; }
+    if (_makerStep === 'vocab') { renderVocabReview(body); return; }
     renderSourceReview(body);
   }
 
@@ -1745,20 +1975,191 @@
         <label class="maker-page"><span>End page</span><input id="source-end" type="number" min="1" max="${b.num_pages}" value="${_sourceEnd}" onchange="sourceRangeChanged()"></label>
       </div>
       <label class="maker-field"><span>Extracted text for this unit</span>
-        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
+        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${(_sourceLoading || _reReading) ? ' disabled' : ''}>${esc(_reReading ? 'AI is re-reading these pages…' : _sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
+        <button class="maker-link" onclick="reReadSource()"${(_bookBusy || _sourceLoading || _reReading) ? ' disabled' : ''}>${_reReading ? '<span class="spinner"></span> AI is re-reading these pages…' : '✨ Re-read these pages with AI'}</button>
+        <span class="maker-help"><span>If the text above is garbled, out of order, or shows only romanization with no ${esc(langName || 'native')} characters, let AI read the page images and rewrite it cleanly.</span></span>
       </label>
       ${visuals}
       <label class="maker-field"><span>Guide the unit <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
       </label>
       <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into units</button>
+      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions">
         <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="buildVocabDeck()"${(_bookBusy || _sourceLoading || _reReading || _vocabBusy) ? ' disabled' : ''} title="Pull every word from these pages into a flashcard deck">${_vocabBusy ? '<span class="spinner"></span> Reading chapter…' : '📇 Build vocab deck'}</button>
         <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Planning unit…' : 'Create multi-lesson unit'}</button>
       </div>`;
     updateSourceCount();
+  }
+
+  // ── Chapter → vocab deck ────────────────────────────────────────────────────
+
+  async function buildVocabDeck() {
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading || _vocabBusy) return;
+    if ((_sourceText || '').length > TEXTBOOK_SOURCE_CHAR_LIMIT) {
+      _sourceError = `This selection is too long. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} characters or choose fewer pages.`;
+      renderLessonMaker();
+      return;
+    }
+    // Switch to the vocab step right away so the learner sees a loading screen
+    // (the LLM extraction can take many seconds over a multi-page chapter).
+    _vocabBusy = true; _vocabExtracting = true; _sourceError = '';
+    _vocabItems = []; _vocabDone = null; _vocabExpanded = false;
+    _makerStep = 'vocab';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/vocab`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: _sourceStart, end: _sourceEnd,
+          source_text: _sourceText, guidance: _sourceGuidance,
+        }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not extract vocabulary.');
+      _vocabItems = (data.items || []).map(it => ({ ...it, _pick: !it.in_deck }));
+      _vocabMeta = { section: data.section, book: data.book,
+                     start: data.start, end: data.end, lang: data.lang };
+      _vocabName = data.section || `Pages ${data.start}–${data.end}`;
+      _vocabSaveShared = false;
+    } catch (e) {
+      _sourceError = e.message || 'Could not extract vocabulary.';
+    } finally {
+      _vocabBusy = false; _vocabExtracting = false;
+      renderLessonMaker();
+    }
+  }
+
+  function _vocabSelCount() { return _vocabItems.filter(it => it._pick).length; }
+
+  function renderVocabReview(body) {
+    _makerHeader('Build vocab deck');
+    if (_vocabExtracting) {
+      const b = _sourceBook();
+      const where = b ? `pages ${_sourceStart}–${_sourceEnd} of ${esc(b.title)}` : 'these pages';
+      body.innerHTML = `<div class="vocab-loading">
+          <span class="spinner"></span>
+          <h3>Reading ${where} for vocabulary…</h3>
+          <p>Pulling every word out of the chapter and checking it against your deck. This can take a little while for longer chapters.</p>
+        </div>`;
+      return;
+    }
+    if (_vocabDone) { renderVocabDone(body); return; }
+    if (!_vocabItems.length) {
+      body.innerHTML = `<div class="vocab-loading">
+          <div class="vocab-done-icon">🔍</div>
+          <h3>No vocabulary found</h3>
+          <p>${_sourceError
+            ? esc(_sourceError)
+            : `We couldn't pull any words from these pages. Try a different page range, or re-read the pages with AI if the extracted text looked garbled.`}</p>
+          <div style="margin-top:12px"><button class="cta-btn secondary" onclick="lessonMakerBack()">Back to pages</button></div>
+        </div>`;
+      return;
+    }
+    const total = _vocabItems.length;
+    const inDeck = _vocabItems.filter(it => it.in_deck).length;
+    const newCount = total - inDeck;
+    const sel = _vocabSelCount();
+    const CAP = 12;
+    const shown = _vocabExpanded ? _vocabItems : _vocabItems.slice(0, CAP);
+    const rows = shown.map((it, i) => {
+      const idx = _vocabItems.indexOf(it);
+      const rom = it.romanization ? `<div class="vocab-row-rom">${esc(it.romanization)}</div>` : '';
+      const badge = it.in_deck
+        ? '<span class="vocab-badge have">✓ in deck</span>'
+        : (it.cefr ? `<span class="vocab-badge">${esc(it.cefr)}</span>` : '');
+      return `<label class="vocab-row${it.in_deck ? ' in-deck' : ''}">
+        <input type="checkbox"${it._pick ? ' checked' : ''}${it.in_deck ? ' disabled' : ''} onchange="toggleVocabItem(${idx},this.checked)">
+        <div class="vocab-row-main">${rom}
+          <div class="vocab-row-word">${esc(it.target)} <span class="gl">— ${esc(it.gloss)}</span></div>
+        </div>${badge}</label>`;
+    }).join('');
+    const more = (!_vocabExpanded && total > CAP)
+      ? `<div class="vocab-more"><button class="maker-link" onclick="_vocabExpanded=true;renderLessonMaker()">Show all ${total} words</button></div>` : '';
+    body.innerHTML = `<p class="maker-intro">Every word ${_vocabMeta.section ? `from <b>${esc(_vocabMeta.section)}</b>` : 'in these pages'}, ready to study. Uncheck any you don't want, then add them to your deck.</p>
+      <div class="vocab-stats">
+        <div class="vocab-stat new"><b>${newCount}</b><span>new word${newCount === 1 ? '' : 's'}</span></div>
+        <div class="vocab-stat"><b>${inDeck}</b><span>already in deck</span></div>
+        <div class="vocab-stat"><b>${total}</b><span>found</span></div>
+      </div>
+      <div class="vocab-selbar"><span>${sel} selected</span>
+        <span><button onclick="selectAllVocab(true)">Select all new</button> · <button onclick="selectAllVocab(false)">Clear</button></span>
+      </div>
+      <div class="vocab-list">${rows}</div>${more}
+      <label class="maker-field" style="margin-top:14px"><span>Deck name</span>
+        <input class="maker-select" maxlength="80" value="${esc(_vocabName)}" oninput="_vocabName=this.value">
+      </label>
+      <label class="vocab-toggle"><input type="checkbox"${_vocabSaveShared ? ' checked' : ''} onchange="_vocabSaveShared=this.checked"> Also save as a shareable deck in Browse</label>
+      ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
+      <div class="maker-actions">
+        <button class="course-regen" onclick="lessonMakerBack()"${_vocabBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="commitVocabDeck(false)"${(_vocabBusy || !sel) ? ' disabled' : ''}>Add to deck</button>
+        <button class="cta-btn" onclick="commitVocabDeck(true)"${(_vocabBusy || !sel) ? ' disabled' : ''}>${_vocabBusy ? '<span class="spinner"></span> Adding…' : `Add ${sel} &amp; study →`}</button>
+      </div>`;
+  }
+
+  function toggleVocabItem(idx, checked) {
+    if (_vocabItems[idx]) _vocabItems[idx]._pick = checked;
+    renderLessonMaker();
+  }
+
+  function selectAllVocab(onlyNew) {
+    _vocabItems.forEach(it => { it._pick = onlyNew ? !it.in_deck : false; });
+    renderLessonMaker();
+  }
+
+  async function commitVocabDeck(study) {
+    if (_vocabBusy) return;
+    const picks = _vocabItems.filter(it => it._pick && !it.in_deck);
+    if (!picks.length) { _sourceError = 'Select at least one new word.'; renderLessonMaker(); return; }
+    const name = (_vocabName || '').trim();
+    if (!name) { _sourceError = 'Give the deck a name.'; renderLessonMaker(); return; }
+    _vocabBusy = true; _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await fetch('/api/vocab-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lang: _vocabMeta.lang, deck_name: name, save_shared: _vocabSaveShared,
+          items: picks.map(it => ({
+            target_text: it.target, source_text: it.gloss,
+            romanization: it.romanization || '', cefr_level: it.cefr || null,
+            notes: it.example || null,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not build the deck.');
+      _vocabDone = { ...data, name, study };
+      if (study && data.label_id) {
+        window.location.href = `/cards?label_id=${data.label_id}&study=1`;
+        return;
+      }
+      renderLessonMaker();
+    } catch (e) {
+      _sourceError = e.message || 'Could not build the deck.';
+    } finally {
+      _vocabBusy = false;
+      if (!_vocabDone) renderLessonMaker();
+    }
+  }
+
+  function renderVocabDone(body) {
+    const d = _vocabDone;
+    const skipNote = d.skipped ? ` <span style="color:var(--text-muted)">(${d.skipped} already in your deck)</span>` : '';
+    body.innerHTML = `<div class="vocab-done">
+        <div class="vocab-done-icon">📇</div>
+        <h3>Added ${d.created} word${d.created === 1 ? '' : 's'} to your deck</h3>
+        <p>Tagged 📕 ${esc(d.name)}${skipNote}. Study them any time from the Cards tab.</p>
+        <button class="cta-btn" onclick="window.location.href='/cards?label_id=${d.label_id}&study=1'">Study ${d.created} word${d.created === 1 ? '' : 's'} →</button>
+        <div style="margin-top:10px"><button class="maker-link" onclick="closeBooks()">Done</button></div>
+      </div>`;
   }
 
   function selectBookSection(value) {
@@ -1797,6 +2198,7 @@
     if (!b) return;
     const requestId = ++_sourceRequest;
     _sourceLoading = true;
+    _bookMsg = '';
     renderLessonMaker();
     try {
       const r = await fetch(`/api/textbooks/${b.id}/pages?start=${_sourceStart}&end=${_sourceEnd}`);
@@ -1819,6 +2221,41 @@
         _sourceLoading = false;
         renderLessonMaker();
       }
+    }
+  }
+
+  async function reReadSource() {
+    // Vision re-extraction: render the selected pages and let the model
+    // transcribe them into clean, native-script text (fixes 2-up / interlinear /
+    // romanization-only / scanned pages that pypdf mangles). Overwrites the
+    // stored page text for this range, then reloads the preview.
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading) return;
+    _reReading = true;
+    _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: _sourceStart, end: _sourceEnd }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not re-read these pages.');
+      _sourceText = (data.pages || []).map(
+        p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no text on this page)'}`
+      ).join('\n\n');
+      const n = (data.updated_pages || []).length;
+      _bookMsg = n ? `AI re-read ${n} page${n === 1 ? '' : 's'}. Review the text below before generating.`
+                   : 'AI re-reading produced no changes for these pages.';
+    } catch (e) {
+      _sourceError = e.name === 'AbortError'
+        ? 'AI re-reading took too long. Try a smaller page range.'
+        : (e.message || 'Could not re-read these pages.');
+    } finally {
+      _reReading = false;
+      renderLessonMaker();
+      updateSourceCount();
     }
   }
 
@@ -2057,6 +2494,11 @@
         await loadBooks(false);
         _bookBusy = false;
         _bookProgress = '';
+        _bookMsg = data.low_text_quality
+          ? (data.low_text_quality_reason === 'missing_native_script'
+              ? `This book's text seems to be romanization only, with no ${langName || 'native'} characters. Use “✨ Re-read these pages with AI” below to recover the native script before generating.`
+              : 'The extracted text looks garbled or incomplete. Use “✨ Re-read these pages with AI” below to clean it up before generating.')
+          : '';
         selectBook(data.id);
       } catch (analysisError) {
         await loadBooks(false);
@@ -2106,9 +2548,38 @@
     await loadBooks();
   }
 
-  async function clearTextbookQueue(courseId) {
-    if (!confirm('Drop the remaining lessons from the old textbook queue? Lessons already built are kept.')) return;
-    await fetch(`/api/courses/${courseId}/textbook`, { method: 'DELETE' }).catch(() => {});
+  function toggleTextbooks() {
+    const isNowCollapsed = localStorage.getItem('learn_textbooks_collapsed') !== '1';
+    localStorage.setItem('learn_textbooks_collapsed', isNowCollapsed ? '1' : '0');
+    const body    = document.getElementById('textbooks-body');
+    const chevron = document.getElementById('textbooks-chevron');
+    if (body)    body.style.display = isNowCollapsed ? 'none' : '';
+    if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
+  }
+
+  // Author the next queued lesson for ONE textbook unit (explicit, unit-scoped —
+  // never the AI course path).
+  async function generateTextbookLesson(unitId) {
+    if (_tbGenerating) return;
+    _tbGenerating = unitId; _tbError = null;
+    if (currentCourse) renderCourse(currentCourse);
+    try {
+      const res = await fetch(`/api/course-units/${unitId}/next-lesson`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not generate the next lesson.');
+      const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+      if (course) { currentCourse = course; }
+    } catch (e) {
+      _tbError = e.message || 'Could not generate the next lesson.';
+    } finally {
+      _tbGenerating = null;
+      if (currentCourse) renderCourse(currentCourse);
+    }
+  }
+
+  async function clearTextbookUnitQueue(unitId) {
+    if (!confirm('Drop the remaining un-generated lessons for this textbook unit? Lessons already built are kept.')) return;
+    await fetch(`/api/course-units/${unitId}/queue`, { method: 'DELETE' }).catch(() => {});
     const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
     if (course) { currentCourse = course; renderCourse(course); }
   }
@@ -2281,14 +2752,22 @@
     currentCourse = course;
     renderDailyRing();   // show the daily-XP ring if streak data is already loaded
     document.getElementById('mute-toggle').textContent = muted ? '🔇' : '🔊';
-    document.getElementById('unlock-toggle').textContent = unlockAll ? '🔓 All unlocked' : '🔒 Unlock all';
+    const ut = document.getElementById('unlock-toggle');
+    ut.textContent = unlockAll ? '🔓' : '🔒';
+    ut.title = unlockAll ? 'All lessons unlocked (testing) — tap to re-lock' : 'Unlock every lesson for testing';
     document.getElementById('state-course').dataset.courseId = course.id;
     document.getElementById('course-title').textContent =
       (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
 
     const allUnits  = course.units || [];
-    const foundUnits = allUnits.filter(u => u.theme === 'foundations');
-    const aiUnits    = allUnits.filter(u => u.theme !== 'foundations');
+    const foundUnits    = allUnits.filter(u => u.theme === 'foundations');
+    const textbookUnits = allUnits.filter(u => u.theme === 'textbook');
+    const aiUnits       = allUnits.filter(u => u.theme !== 'foundations' && u.theme !== 'textbook');
+
+    // B6 · the Practice hub needs at least one finished AI lesson to remix.
+    const aiDone = aiUnits.reduce((n, u) =>
+      n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+    document.getElementById('practice-hub-btn').style.display = aiDone > 0 ? '' : 'none';
 
     const nLessons = course.lesson_count || 0;
     const nDone    = course.done_count   || 0;
@@ -2372,6 +2851,56 @@
       requestAnimationFrame(drawPathConnectors);
     }
 
+    // ── Textbook units — their own section, separate from the AI course path ────
+    if (textbookUnits.length > 0) {
+      // Default EXPANDED (the learner just built these). '1' = collapsed.
+      const collapsed = localStorage.getItem('learn_textbooks_collapsed') === '1';
+      const tTotal = textbookUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+      const tDone  = textbookUnits.reduce((n, u) =>
+        n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+
+      const section = document.createElement('div');
+      section.className = 'foundations-section';
+      section.innerHTML = `
+        <button class="foundations-toggle" onclick="toggleTextbooks()">
+          <span class="foundations-icon">📕</span>
+          <span class="foundations-label">From your textbooks</span>
+          <span class="foundations-progress">${tDone}/${tTotal}</span>
+          <span class="foundations-chevron" id="textbooks-chevron"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="foundations-body" id="textbooks-body"
+          style="${collapsed ? 'display:none' : ''}"></div>`;
+
+      const body = section.querySelector('#textbooks-body');
+      textbookUnits.forEach(u => {
+        const unitDiv = document.createElement('div');
+        unitDiv.className = 'unit';
+        const remaining = u.queued_remaining || 0;
+        const gen = _tbGenerating === u.id;
+        let html = `<div class="unit-head">
+          <div class="unit-title">${esc(u.title || 'Textbook unit')}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+        (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
+        if (remaining > 0) {
+          html += `<div class="tb-gen">
+            <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id})">
+              ${gen ? '<span class="spinner"></span> Building next lesson…'
+                    : `＋ Generate next lesson <span class="tb-gen-left">${remaining} left</span>`}</button>
+            <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>
+          </div>`;
+        }
+        if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
+        unitDiv.innerHTML = html;
+        body.appendChild(unitDiv);
+      });
+      if (_tbError && !_tbGenerating)
+        body.insertAdjacentHTML('beforeend',
+          `<div class="gen-label" style="color:var(--danger);padding:0 8px 8px">${esc(_tbError)}</div>`);
+      wrap.appendChild(section);
+    }
+
     // ── Inline generation area (path-style skeleton matching lrow/lnode) ────────
     const genArea = document.getElementById('course-gen-area');
     if (_generating) {
@@ -2393,14 +2922,10 @@
     // One entry point for lesson creation. The sheet then offers the adaptive
     // AI path or an explicitly reviewed textbook source.
     const cta = document.getElementById('course-cta');
-    const nQueued = course.queued_lessons || 0;
     cta.innerHTML = `<div style="text-align:center;padding:16px 0 4px">
       <button class="course-regen"${_generating ? ' disabled' : ''}
         onclick="openLessonMaker(${course.id})">＋ Add lesson</button>
       ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
-      ${nQueued ? `<div class="learn-note" style="margin-top:8px">📕 ${nQueued} lesson${nQueued === 1 ? '' : 's'} remain in an earlier textbook batch. Continuing the course will build the next one.
-        <button class="course-regen" style="margin-left:6px;font-size:.72rem;padding:3px 8px"
-          onclick="clearTextbookQueue(${course.id})">Clear old batch</button></div>` : ''}
     </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
 
@@ -3388,6 +3913,166 @@
     }
   }
 
+  // ── B4 · Lightning round (AI-lesson material) ───────────────────────────────
+  // A 60-second timed remix built entirely from a lesson's own stored choice
+  // drills (recognition / production / cloze). Reuses the foundations speed_round
+  // widget; client-side assembly, formative (combo XP, no mastery writes).
+  function _lightningItems(segments) {
+    const drills = [];
+    (segments || []).forEach(sg => (sg.exercises || []).forEach(ex => {
+      if (ex.type === 'choice' && ex.prompt && Array.isArray(ex.options)
+          && ex.answer != null && ex.options[ex.answer]) drills.push(ex);
+    }));
+    return shuffle(drills).slice(0, 12).map(ex => {
+      const correct = ex.options[ex.answer];
+      const distractors = ex.options.filter((_, i) => i !== ex.answer).slice(0, 2);
+      return { symbol: ex.prompt, roman: correct, distractors };
+    }).filter(it => it.distractors.length >= 1);
+  }
+
+  function _lightningCount(segments) { return _lightningItems(segments).length; }
+
+  // Launch a lightning round from a set of already-fetched segments.
+  function _startLightning(segments, lang, title) {
+    const items = _lightningItems(segments);
+    if (items.length < 4) { alert('Not enough material for a lightning round yet.'); show('course'); return false; }
+    const speed = { type: 'speed_round', time_limit: 60, items, hide_roman: true };
+    const content = { segments: [{ teach: null, exercises: [speed] }] };
+    _prefetchLesson(content, lang);
+    player = {
+      lessonId: 0, lang, title: title || '⚡ Lightning',
+      segments: content.segments, segTotals: [1], segIdx: 0, segAnswered: 0,
+      queue: [], idx: 0, total: 1, answered: 0,
+      firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+      combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+      controller: null, graded: false,
+      conceptResults: {}, vocabGlossary: {},
+      concepts: [], theme: 'lightning', skipTeach: true, drillsOnly: false,
+      practiceGame: 'lightning', lightning: true,
+      lightningSource: segments, lightningTitle: title,
+    };
+    const sc = scriptClassFor(lang);
+    document.getElementById('state-player').className = sc;
+    document.getElementById('state-teach').className = sc;
+    document.getElementById('state-results').className = 'learn-center ' + sc;
+    startSegment(0);
+    return true;
+  }
+
+  async function openLightning(lessonId) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/lessons/' + lessonId);
+      if (!res.ok) throw new Error();
+      const lesson = await res.json();
+      const content = lesson.content || {};
+      _startLightning(content.segments || [], lesson.target_lang,
+                      '⚡ Lightning · ' + (lesson.title || 'Lesson'));
+    } catch {
+      alert('Could not start the lightning round — please try again.');
+      show('course');
+    }
+  }
+
+  // ── B6 · Practice hub ───────────────────────────────────────────────────────
+  // A single sheet that recombines a course's OWN stored content: a course-wide
+  // lightning round, a weak-concept mistakes review, and (if present) the
+  // foundations mini-games. No LLM, no new content.
+  function openPracticeHub() {
+    const c = currentCourse;
+    if (!c) return;
+    // Foundations mini-games draw on the whole reading track, so they're available
+    // as soon as the track exists (no need to have finished a reading lesson).
+    const foundations = (c.units || []).some(u => u.theme === 'foundations'
+      && (u.lessons || []).length);
+    const sheet = document.getElementById('practice-sheet');
+    const card = (icon, name, sub, onclick) => `
+      <button class="practice-card" onclick="${onclick}">
+        <span class="pc-ico">${icon}</span>
+        <span class="pc-text"><span class="pc-name">${name}</span><span class="pc-sub">${sub}</span></span>
+        <span class="pc-arrow">›</span>
+      </button>`;
+    let games = '';
+    if (foundations) {
+      games = `<div class="practice-group-label">Reading games</div>
+        ${card('⚡', 'Speed Round', 'Rapid character → sound', `_practiceGame('speed_round')`)}
+        ${card('🔊', 'Audio Blitz', 'Hear it, tap the character', `_practiceGame('audio_blitz')`)}
+        ${card('🃏', 'Memory Match', 'Flip-card concentration', `_practiceMemory()`)}`;
+    }
+    sheet.className = 'intro-sheet ' + scriptClassFor(c.target_lang);
+    sheet.innerHTML = `
+      <div class="intro-grab"></div>
+      <div class="intro-kicker">Practice</div>
+      <h2>🎯 Practice hub</h2>
+      <p class="intro-obj">Sharpen what you've learned — built from your own lessons.</p>
+      <div class="practice-cards">
+        ${card('⚡', 'Lightning round', '60-second timed remix of your drills', `_practiceCourse('lightning')`)}
+        ${card('🔁', 'Review mistakes', 'Re-drill the concepts you find hardest', `_practiceCourse('mistakes')`)}
+        ${games}
+      </div>`;
+    document.getElementById('practice-overlay').classList.add('open');
+  }
+  function closePracticeHub() {
+    document.getElementById('practice-overlay').classList.remove('open');
+  }
+  function _practiceCourse(mode) {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) openCoursePractice(id, mode);
+  }
+  function _practiceGame(game) {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) openPracticeGame(id, game);
+  }
+  function _practiceMemory() {
+    const id = currentCourse && currentCourse.id;
+    closePracticeHub();
+    if (id) showMemoryMatchSettings(id);
+  }
+
+  // Fetch a course practice set (mistakes / lightning) and play it. Lightning is
+  // remixed client-side into a speed round; mistakes plays as a drills-only run.
+  async function openCoursePractice(courseId, mode) {
+    show('lesson-loading');
+    try {
+      const res = await fetch('/api/courses/' + courseId + '/practice?mode=' + mode);
+      if (!res.ok) {
+        const m = (await res.json().catch(() => ({}))).detail || 'Could not start practice.';
+        throw new Error(m);
+      }
+      const data = await res.json();
+      const content = data.content || {};
+      const segments = content.segments || [];
+      if (mode === 'lightning') {
+        _startLightning(segments, data.target_lang, data.title || '⚡ Lightning');
+        return;
+      }
+      const segTotals = segments.map(sg => (sg.exercises || []).length);
+      const total = segTotals.reduce((a, b) => a + b, 0);
+      if (!total) throw new Error('empty');
+      _prefetchLesson(content, data.target_lang);
+      player = {
+        lessonId: 0, lang: data.target_lang, title: data.title || 'Practice',
+        segments, segTotals, segIdx: 0, segAnswered: 0, queue: [], idx: 0, total, answered: 0,
+        firstPassCorrect: 0, mistakes: [], reviewStarted: false,
+        combo: 0, maxCombo: 0, xp: 0, listeningHits: 0,
+        controller: null, graded: false,
+        conceptResults: {}, vocabGlossary: {},
+        concepts: [], theme: 'practice', skipTeach: true, drillsOnly: false,
+        practiceGame: 'mistakes', practiceCourseId: courseId,
+      };
+      const sc = scriptClassFor(player.lang);
+      document.getElementById('state-player').className = sc;
+      document.getElementById('state-teach').className = sc;
+      document.getElementById('state-results').className = 'learn-center ' + sc;
+      startSegment(0);
+    } catch (e) {
+      alert(e.message || 'Could not start practice — please try again.');
+      show('course');
+    }
+  }
+
   // ── D3 · lesson intro sheet ─────────────────────────────────────────────────
   let _introLesson = null;      // the fetched lesson behind the open sheet
   const GRADEABLE_TYPES = new Set(['choice', 'listening', 'word_bank', 'match']);
@@ -3554,6 +4239,11 @@
     closeLessonIntro();
     if (id) resumeLesson(id);
   }
+  function _introLightning() {
+    const id = _introLesson && _introLesson.id;
+    closeLessonIntro();
+    if (id) openLightning(id);
+  }
 
   // Flatten segments into displayed step rows. Non-speak segments surface their
   // embedded AI practice (older lessons bury a construction_drill in a step) as
@@ -3606,6 +4296,8 @@
     const mins = _estMinutes(segments);
     const hasSpeak = _aiSpeak && _hasAiSpeak(segments);
     const canTestOut = !lesson.completed && _gradeableExercises(fullSegments).length >= 4;
+    // B4 · lightning round is offered on lessons the learner has finished.
+    const canLightning = lesson.completed && _lightningCount(fullSegments) >= 4;
     const resume = _loadResume(lesson.id);
 
     const stepRows = _introStepRows(segments);
@@ -3660,6 +4352,7 @@
           <button class="cta-btn secondary" onclick="_introPlay('skip')">⚡ Practice only</button>
           ${hasSpeak ? `<button class="cta-btn secondary" onclick="_introPlay('llm')">✨ AI Speak</button>` : ''}
           ${canTestOut ? `<button class="cta-btn secondary" onclick="startTestOut()">🎓 Test out</button>` : ''}
+          ${canLightning ? `<button class="cta-btn secondary" onclick="_introLightning()">⚡ Lightning</button>` : ''}
         </div>
       </div>`;
   }
@@ -4323,6 +5016,23 @@
   // romanization is the lesson and a "translation" would be meaningless).
   function _liveLookupOn() { return !!player && player.theme !== 'foundations'; }
 
+  // C4 · listening-first variant. Sometimes present a production drill (English
+  // prompt → pick the target) as a listening drill (hear the target → pick it),
+  // so replays of a lesson stop being identical. Client-only; the options are
+  // already target-language, so the answer key is untouched. Skipped for
+  // checkpoints/test-out (deterministic quizzes) and foundations/practice.
+  function _maybeListeningVariant(ex) {
+    if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english') return ex;
+    if (!player || player.checkpointUnitId || player.testOut
+        || player.theme === 'foundations' || player.practiceGame) return ex;
+    const opts = ex.options || [];
+    const ans = ex.answer;
+    if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
+    if (Math.random() > 0.35) return ex;   // ~1 in 3 production drills
+    return { ...ex, type: 'listening', instruction: 'What did you hear?',
+             audio: opts[ans], prompt: '', prompt_roman: '', audio_roman: '' };
+  }
+
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
     const seg = player.segments[player.segIdx];
     // Build the queue once per segment. Returning here via the back button (teach
@@ -4332,6 +5042,7 @@
       let exs = (seg.exercises || []).map(e => ({ ...e }));
       // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
       if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
+      else exs = exs.map(_maybeListeningVariant);   // C4 · vary replays
       player.queue = exs;
       player.idx = 0;
       player._queueSeg = player.segIdx;
@@ -4499,6 +5210,7 @@
       renderResultsXp(info && info.xp_awarded ? info.xp_awarded : 0, false, player.maxCombo, 0, false);
       document.getElementById('results-recap').innerHTML = '';
       document.getElementById('results-vocab').innerHTML = '';
+      document.getElementById('results-feedback').innerHTML = '';
       show('results');
       renderResultsQuests();
       emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
@@ -4520,6 +5232,7 @@
       renderResultsXp(0, false, player.maxCombo, 0, false);
       document.getElementById('results-recap').innerHTML = '';
       document.getElementById('results-vocab').innerHTML = '';
+      document.getElementById('results-feedback').innerHTML = '';
       contBtn.textContent = 'Start the full lesson →';
       contBtn.onclick = () => openLesson(lessonId);
       retryBtn.textContent = 'Back to map'; retryBtn.onclick = backToMap;
@@ -4542,12 +5255,20 @@
         serverInfo = await res.json();
       } catch {}
     }
-    document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
     const emoji = document.getElementById('results-emoji');
-    emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
-    document.getElementById('results-msg').textContent =
-      total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
-    renderResultsXp(xpEarned, perfect, player.maxCombo,
+    if (player.practiceGame) {
+      // Mini-games (foundations + B4 lightning) score themselves on their own
+      // screen; the "1 of 1" lesson tally would be meaningless here.
+      document.getElementById('results-score').textContent = 'Done!';
+      emoji.textContent = player.lightning ? '⚡' : '🎉';
+      document.getElementById('results-msg').textContent = 'Nice practice — keep the combo going!';
+    } else {
+      document.getElementById('results-score').textContent = total ? score + '%' : 'Done!';
+      emoji.textContent = perfect ? '🏆' : (score >= 80 ? '🎉' : (score >= 50 ? '👍' : '💪'));
+      document.getElementById('results-msg').textContent =
+        total ? `You got ${player.firstPassCorrect} of ${total} correct.` : 'Nice — keep going!';
+    }
+    renderResultsXp(xpEarned, player.practiceGame ? false : perfect, player.maxCombo,
                     serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
     if (player.testOut) {
       document.getElementById('results-badges').insertAdjacentHTML('beforeend',
@@ -4556,12 +5277,16 @@
     show('results');
     renderResultsRecap();   // C3 · "What you learned" recap card
     renderResultsVocab();   // async fill of the "New words → deck" panel
+    renderResultsFeedback();// D4 · 👍/👎 "How was this lesson?"
     renderResultsQuests();  // B1 · quest ticks advancing
     emoji.classList.remove('bounce-in'); void emoji.offsetWidth; emoji.classList.add('bounce-in');
     sfx.complete();
     if (score >= 60) confetti();
     if (perfect) setTimeout(confetti, 350);   // double burst for a flawless run
     try { if (navigator.vibrate) navigator.vibrate([0, 40, 40, 80]); } catch {}
+    if (serverInfo && serverInfo.freeze_earned) {   // B5 · earned a streak freeze
+      setTimeout(() => learnToast('🛡 You earned a streak freeze!'), 900);
+    }
     loadStreak();   // refresh the ⭐ header total + daily-goal ring with the new XP
   }
 
@@ -4596,6 +5321,37 @@
     card.querySelector('.recap-body').appendChild(el);
     wrap.appendChild(card);
     applyRuby(card, player.vocabGlossary);
+  }
+
+  // D4 · lightweight 👍/👎 rating. One tap posts to the lesson-feedback ring
+  // buffer the planner reads. Only for real AI-lesson completions (not
+  // foundations/practice/checkpoints/test-out).
+  function renderResultsFeedback() {
+    const wrap = document.getElementById('results-feedback');
+    wrap.innerHTML = '';
+    if (!player || !player.lessonId || player.theme === 'foundations'
+        || player.practiceGame || player.checkpointUnitId || player.testOut) return;
+    const lessonId = player.lessonId;
+    wrap.innerHTML = `<div class="results-fb" id="results-fb">
+        <span class="rfb-q">How was this lesson?</span>
+        <div class="rfb-btns">
+          <button class="rfb-btn" data-rating="up" aria-label="Good">👍</button>
+          <button class="rfb-btn" data-rating="down" aria-label="Not great">👎</button>
+        </div></div>`;
+    wrap.querySelectorAll('.rfb-btn').forEach(btn => {
+      btn.onclick = () => {
+        const rating = btn.dataset.rating;
+        wrap.querySelectorAll('.rfb-btn').forEach(b => {
+          b.disabled = true;
+          b.classList.toggle('picked', b === btn);
+        });
+        wrap.querySelector('.rfb-q').textContent = 'Thanks — noted for your next lessons!';
+        fetch('/api/lessons/' + lessonId + '/feedback', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating }),
+        }).catch(() => {});
+      };
+    });
   }
 
   // B1 · compact quest state on the results screen (fresh fetch shows the
@@ -4839,7 +5595,12 @@
   }
   function retryLesson() {
     if (!player) return;
-    if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
+    if (player.lightning) {   // B4 · re-roll a fresh lightning set from the source
+      const src = player.lightningSource, lang = player.lang, title = player.lightningTitle;
+      show('lesson-loading'); _startLightning(src, lang, title);
+    }
+    else if (player.practiceGame === 'mistakes') openCoursePractice(player.practiceCourseId, 'mistakes');
+    else if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
     else if (player.checkpointUnitId) openCheckpoint(player.checkpointUnitId);
     else openLesson(player.lessonId, player.mode || '');
   }

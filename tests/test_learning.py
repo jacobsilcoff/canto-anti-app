@@ -1049,13 +1049,10 @@ async def test_maybe_close_chapter_waits_for_budget_and_queue(fresh_db):
     await main._maybe_close_chapter(cid)
     assert (await db.get_active_plan(cid))["title"] == "Ch1"
 
-    # Queued textbook lessons for the SAME unit also hold the chapter open.
+    # Budget met + all open lessons complete → chapter closes into a unit.
+    # (Textbook lessons no longer flow through active_plan/the queue no longer
+    # gates chapter closure — they live in their own units.)
     await db.set_active_plan(cid, {"title": "Ch1", "objective": "", "summary": "", "budget": 1})
-    await db.add_lesson_queue(cid, [{"unit_title": "Ch1", "unit_size": 2,
-                                     "spec": {"skill": {}}, "source": ""}])
-    await main._maybe_close_chapter(cid)
-    assert (await db.get_active_plan(cid))["title"] == "Ch1"
-    await db.clear_lesson_queue(cid)
     await main._maybe_close_chapter(cid)
     assert await db.get_active_plan(cid) is None
 
@@ -1086,34 +1083,47 @@ async def test_lesson_queue_roundtrip(fresh_db):
 
 
 @pytest.mark.asyncio
-async def test_author_next_lesson_consumes_queue(fresh_db, monkeypatch):
+async def test_author_textbook_lesson_consumes_unit_queue(fresh_db, monkeypatch):
+    """Textbook lessons are authored via the unit-scoped path: planner skipped,
+    lesson attached DIRECTLY to its textbook unit, active_plan untouched."""
     import main
     uid = fresh_db
     cid = await db.create_course(uid, "fr", "A1")
     course = {"id": cid, "target_lang": "fr", "level": "A1"}
     _no_cefr(monkeypatch)
+    unit_id = await db.create_textbook_unit_row(cid, "Book Ch 1")
     await db.add_lesson_queue(cid, [{
         "unit_title": "Book Ch 1", "unit_size": 2,
         "spec": {"title": "Greetings from the book",
                  "skill": {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
                  "target_items": [{"label": "salut", "gloss": "hi"}]},
         "source": "THE BOOK RULE: salut is informal.",
-    }])
+    }, {
+        "unit_title": "Book Ch 1", "unit_size": 2,
+        "spec": {"title": "More greetings",
+                 "skill": {"kind": "vocab", "key": "bye", "label": "au revoir", "gloss": "bye"},
+                 "target_items": [{"label": "au revoir", "gloss": "bye"}]},
+        "source": "THE BOOK RULE: au revoir is formal.",
+    }], unit_id=unit_id)
 
     async def fake_plan(*a, **k):
-        raise AssertionError("planner must be skipped while the queue is non-empty")
+        raise AssertionError("planner must be skipped for textbook lessons")
     monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
     captured = []
     monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory(captured))
 
-    lid = await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    lid = await main._author_textbook_lesson(course, unit_id, _mk_access(), "gemini-2.5-flash-lite", uid)
     assert lid
-    # Author was grounded in the book's source notes.
+    # Author was grounded in the first queued item's source notes.
     assert captured[0].get("source") == "THE BOOK RULE: salut is informal."
-    # Chapter opened from the book's unit, budget = the unit's lesson count.
-    chapter = await db.get_active_plan(cid)
-    assert chapter["title"] == "Book Ch 1" and chapter["budget"] == 2
-    # Queue item consumed; concept registered.
-    assert await db.count_lesson_queue(cid) == 0
+    # No AI chapter opened — textbook lessons never touch active_plan.
+    assert await db.get_active_plan(cid) is None
+    # Lesson attached directly to the textbook unit; one still queued.
+    full = await db.get_course(uid, cid)
+    tb = [u for u in full["units"] if u.get("theme") == "textbook"]
+    assert len(tb) == 1 and tb[0]["id"] == unit_id
+    assert len(tb[0]["lessons"]) == 1 and tb[0]["queued_remaining"] == 1
+    assert await db.count_lesson_queue_for_unit(unit_id) == 1
+    # Concept registered so the AI planner sees it as taught.
     reg = (await db.get_next_lesson_context(cid))["concept_registry"]
     assert "salut" in {c["label"] for c in reg}
