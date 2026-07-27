@@ -560,3 +560,80 @@ async def test_upload_repairs_the_pdf_it_stores(fresh_db, monkeypatch, tmp_path)
     book = await db.get_textbook(uid, res["id"])
     stored = tmp_path / f"{book['pdf_media_id']}.pdf"
     assert extract.can_render(str(stored)) is True    # stored already repaired
+
+
+# ── Placing a split by dragging over the rendered page ────────────────────────
+#
+# A split is stored as a verbatim LINE (that's what the generator trims on), so a
+# drag has to snap to a real line: the client needs every line's position.
+
+def test_page_line_positions_are_ordered_and_match_the_rule_placement():
+    pdf = _split_pdf()
+    lines = extract.page_line_positions(pdf, 1)
+    texts = [l["text"] for l in lines]
+    assert "Unit 2: Ordering food" in texts
+    ys = [l["y"] for l in lines]
+    assert ys == sorted(ys)                       # top-down
+    assert all(0.0 <= y <= 1.0 for y in ys)
+
+    # The height offered for dragging is exactly where the rule for that anchor
+    # is drawn — so what you drop is where the line lands.
+    located = extract.locate_page_lines(pdf, 1, ["Unit 2: Ordering food"])
+    dragged = next(l["y"] for l in lines if l["text"] == "Unit 2: Ordering food")
+    assert dragged == pytest.approx(located["Unit 2: Ordering food"])
+
+
+def test_split_rule_clears_the_glyphs_of_the_line_it_marks():
+    """The midpoint between two baselines lands at the cap height of the line
+    below, so a rule drawn there clips the tops of its letters — it has to sit
+    well up into the whitespace instead."""
+    spacing, first = 20.0, 700.0
+    pdf = _text_pdf([(f"line {i}", first - i * spacing) for i in range(8)])
+    lines = extract.page_line_positions(pdf, 1)
+    page_h = 842.0                                  # _text_pdf's MediaBox
+
+    for i in (3, 5):
+        rule_y = page_h - lines[i]["y"] * page_h    # back to PDF user space
+        baseline = first - i * spacing
+        above = baseline + spacing
+        assert baseline < rule_y < above            # inside the gap
+        # Above a 13pt font's cap height (~9.4pt) with room to spare.
+        assert rule_y - baseline > 11.0
+        # And still below the previous line's descenders.
+        assert above - rule_y > 5.0
+
+
+def test_page_line_positions_apply_the_page_cleaner():
+    """The anchor a drag produces must match the CLEANED text the trimmer reads."""
+    raw = "Unit 2: Ordering" * 4         # the repeated-text-layer artifact
+    pdf = _text_pdf([(f"line {i}", 700 - i * 20) for i in range(4)] + [(raw, 600)])
+    lines = extract.page_line_positions(pdf, 1, textbook.clean_page_text)
+    assert "Unit 2: Ordering" in [l["text"] for l in lines]
+
+
+def test_page_line_positions_empty_for_a_page_with_no_text_layer():
+    assert extract.page_line_positions(_text_pdf([]), 1) == []
+
+
+@pytest.mark.asyncio
+async def test_page_lines_route(fresh_db, monkeypatch, tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / "book.pdf").write_bytes(_split_pdf())
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1", "p2"], [],
+                                     pdf_media_id="book")
+
+    res = await main.textbook_page_lines(tb_id, 1, user)
+    assert res["reason"] == ""
+    assert "Unit 2: Ordering food" in [l["text"] for l in res["lines"]]
+
+    with pytest.raises(main.HTTPException) as err:
+        await main.textbook_page_lines(tb_id, 9, user)
+    assert err.value.status_code == 404
+
+    # A book with no stored PDF says so, rather than looking like an empty page.
+    tb2 = await db.create_textbook(uid, cid, "No PDF", "x.pdf", ["p1"], [])
+    assert (await main.textbook_page_lines(tb2, 1, user)) == {"lines": [],
+                                                             "reason": "no_pdf"}

@@ -4513,6 +4513,40 @@ async def textbook_splits(textbook_id: int, user: dict = Depends(current_user)):
     return {"splits": marks}
 
 
+_MAX_PAGE_LINES = 400        # a page with more "lines" than this is noise
+
+
+@app.get("/api/textbooks/{textbook_id}/page/{page}/lines")
+async def textbook_page_lines(textbook_id: int, page: int,
+                              user: dict = Depends(current_user)):
+    """Every line on one page with the height a split rule for it would sit at.
+
+    Backs dragging a split over the rendered page: the drag snaps to a line, and
+    the split is stored as that line's verbatim text — never a coordinate — so
+    what the learner drags is exactly what the generator trims on. Empty when
+    the page has no text layer (a scan, a vision-transcribed page), which the
+    client shows as "this page can't be split visually"."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    if page < 1 or page > book["num_pages"]:
+        raise HTTPException(404, "Page out of range")
+    pdf_media_id = book.get("pdf_media_id")
+    pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+    if not pdf_media_id or not pdf_path or not pdf_path.exists():
+        return {"lines": [], "reason": "no_pdf"}
+    try:
+        lines = await asyncio.to_thread(
+            extract.page_line_positions, str(pdf_path), page,
+            textbook.clean_page_text)
+    except Exception as e:
+        logger.warning("Page line positions failed tb=%s page=%s: %s",
+                       textbook_id, page, e)
+        return {"lines": [], "reason": "unreadable"}
+    return {"lines": lines[:_MAX_PAGE_LINES],
+            "reason": "" if lines else "no_text_layer"}
+
+
 @app.get("/api/textbooks/{textbook_id}/page/{page}.jpg")
 async def textbook_page_image(textbook_id: int, page: int,
                               user: dict = Depends(current_user)):

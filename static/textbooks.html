@@ -86,6 +86,48 @@
       color: #fff; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
       max-width: 60%; overflow: hidden; text-overflow: ellipsis; opacity: .92; }
     .tbr-imgwrap.loading::after { content: ''; }
+    /* ── Visual split editing: drag the rule over the rendered page ─────────── */
+    /* The overlay captures taps/drags only in edit mode, so ordinary reading is
+       untouched. A drag SNAPS to a real text line — the split is stored as that
+       line's verbatim text, never a coordinate. */
+    /* No tint: dimming the page would obscure the very heading being validated. */
+    .tbr-splitedit { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+    .tbr-splitedit .se-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+      background: var(--tooltip-bg); color: #fff; font-size: .66rem; font-weight: 600; padding: 5px 12px;
+      border-radius: 999px; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+      pointer-events: none; }
+    /* The candidate line under the pointer, so it's obvious what will be cut. */
+    .tbr-se-ghost { position: absolute; left: 0; right: 0; border-top: 2px dotted var(--neutral-strong);
+      pointer-events: none; }
+    .tbr-se-rule { position: absolute; left: 0; right: 0; border-top: 3px dashed var(--energy);
+      cursor: grab; touch-action: none; }
+    .tbr-se-rule.dragging { cursor: grabbing; }
+    .tbr-se-rule::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 28px; }
+    /* Both controls live in the RIGHT margin: a rule sits between two lines, so
+       anything anchored to it at the left would cover the words being validated. */
+    .tbr-se-grip { position: absolute; right: 30px; top: -12px; background: var(--energy); color: #fff;
+      font-size: .6rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+      box-shadow: var(--shadow-pop); user-select: none; }
+    .tbr-se-del { position: absolute; right: 2px; top: -12px; width: 24px; height: 24px; border: none;
+      border-radius: 50%; background: var(--danger); color: #fff; font-size: .8rem; line-height: 1;
+      cursor: pointer; box-shadow: var(--shadow-pop); }
+    .tbr-splitbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; justify-content: space-between;
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--warn-soft); flex-shrink: 0; }
+    .tbr-splitbar-msg { font-size: .74rem; color: var(--text); flex: 1; min-width: 180px; line-height: 1.4; }
+    .tbr-splitbar-msg b { color: var(--energy); }
+    .tbr-splitbar-name { display: flex; flex-direction: column; gap: 3px; font-size: .62rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+    .tbr-splitbar-name input { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+      font-size: .8rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text);
+      background: var(--surface); min-width: 150px; min-height: 0; }
+    .tbr-splitbar-btns { display: flex; gap: 8px; }
+    .tbr-splitbar button { border: none; border-radius: 10px; padding: 8px 14px; cursor: pointer;
+      font-size: .78rem; font-weight: 600; }
+    .tbr-sb-ghost { background: var(--surface-alt); color: var(--text); }
+    .tbr-sb-danger { background: var(--danger-soft); color: var(--danger-strong); }
+    .tbr-sb-go { background: var(--primary); color: var(--on-primary); }
+    .tbr-splitbar button:disabled { opacity: .45; cursor: default; }
+    .tbr-icon.on { background: var(--energy-soft); color: var(--energy); }
     .tbr-textpane { width: 0; overflow: hidden; transition: width .2s; border-left: 1px solid var(--border);
       background: var(--surface); }
     .tbr.show-text .tbr-textpane { width: 46%; overflow: auto; }
@@ -224,6 +266,7 @@
     <button class="tbr-icon" onclick="closeReader()" aria-label="Back">‹</button>
     <span class="tbr-title" id="tbr-title"></span>
     <button class="tbr-icon" id="tbr-contents" onclick="openChapters(_rb && _rb.id, true)" title="Chapters" aria-label="Chapters">☰</button>
+    <button class="tbr-icon" id="tbr-splitedit" onclick="toggleSplitEdit()" title="Edit the unit split on this page" aria-label="Edit unit split">✂︎</button>
     <button class="tbr-icon" id="tbr-bookmark" onclick="toggleBookmark()" title="Bookmark this page">☆</button>
     <button class="tbr-icon" id="tbr-texttoggle" onclick="toggleTextPane()" title="Show extracted text">Aa</button>
   </div>
@@ -236,6 +279,19 @@
   <div class="tbr-stage">
     <div class="tbr-imgwrap" id="tbr-imgwrap"></div>
     <div class="tbr-textpane"><div class="tbr-textpane-inner" id="tbr-text"></div></div>
+  </div>
+  <div class="tbr-splitbar" id="tbr-splitbar" style="display:none">
+    <div class="tbr-splitbar-msg" id="tbr-splitbar-msg"></div>
+    <label class="tbr-splitbar-name" id="tbr-splitbar-name" style="display:none">
+      New unit name
+      <input type="text" id="tbr-sb-title" maxlength="120" oninput="renameSplitUnit(this.value)"
+             placeholder="Name this unit">
+    </label>
+    <div class="tbr-splitbar-btns">
+      <button class="tbr-sb-ghost" onclick="cancelSplitEdit()">Cancel</button>
+      <button class="tbr-sb-danger" id="tbr-sb-remove" onclick="removeSplitHere()">Remove split</button>
+      <button class="tbr-sb-go" id="tbr-sb-save" onclick="saveSplitEdit()">Save split</button>
+    </div>
   </div>
   <div class="tbr-nav">
     <button id="tbr-prev" onclick="turnPage(-1)">‹ Prev</button>
@@ -491,6 +547,7 @@
   }
 
   function closeReader() {
+    if (_seOn) cancelSplitEdit();
     document.getElementById('reader').classList.remove('open');
     document.body.classList.remove('hide-tabbar');
     saveReading(true);
@@ -529,6 +586,7 @@
         box.className = 'tbr-imgbox';
         box.appendChild(img);
         for (const el of _splitOverlays(_page)) box.appendChild(el);
+        if (_seOn) box.appendChild(_seOverlay());
         wrap.replaceChildren(box);
       };
       img.onerror = () => showPageImageError(_page);
@@ -542,7 +600,25 @@
     // Side/drawer text
     document.getElementById('tbr-text').innerHTML = _pageTextHtml(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
     updateChapterCaption();
+    if (_seOn) _seUpdateBar();
     scheduleSave();
+  }
+
+  // Redraw ONLY the split overlay + text marker. Re-running renderPage on every
+  // drag would rebuild the <img> and flicker the page underneath the rule.
+  function _seRefresh() {
+    const box = document.querySelector('#tbr-imgwrap .tbr-imgbox');
+    if (box) {
+      const old = box.querySelector('.tbr-splitedit');
+      if (old) old.remove();
+      if (_seOn) box.appendChild(_seOverlay());
+    } else {
+      renderPage();        // text-only page (no image to preserve)
+      return;
+    }
+    document.getElementById('tbr-text').innerHTML =
+      _pageTextHtml(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
+    _seUpdateBar();
   }
 
   // ── Mid-page unit boundaries, made visible for validation ──────────────────
@@ -567,7 +643,20 @@
     } catch (e) { /* best-effort: the reader works without markers */ }
   }
 
-  function _splitsOn(pageNo) { return _splits.filter(s => s.page === pageNo); }
+  function _splitsOn(pageNo) {
+    // While editing, both views must show the DRAFT boundary — the text pane is
+    // the copy generation actually trims, so it's what validates the drag.
+    if (_seOn && _seDraft && pageNo === _page) {
+      if (!_seAnchor) return [];
+      const i = _seBoundaryIdx();
+      // y stays null: the rule on the image is the interactive one drawn by
+      // `_seOverlay`, so the static marker must not double up on it.
+      return [{ page: pageNo, line: _seAnchor, y: null,
+                above: i >= 0 ? (_seDraft[i].title || '') : '',
+                below: i >= 0 ? (_seDraft[i + 1].title || '') : '' }];
+    }
+    return _splits.filter(s => s.page === pageNo);
+  }
 
   function _splitOverlays(pageNo) {
     const out = [];
@@ -587,6 +676,320 @@
       out.push(rule);
     }
     return out;
+  }
+
+  // ── Visual split editing: drag the boundary over the rendered page ─────────
+  //
+  // A split is stored as one VERBATIM LINE of the shared page (that's what
+  // `textbook.split_page` trims on), never a coordinate — so a drag has to snap
+  // to a real line. `/page/{n}/lines` returns every line with the height its
+  // rule would sit at, and dragging picks the nearest one. What you drag is
+  // exactly what generation cuts on.
+  let _seOn = false;          // split-edit mode active
+  let _seLines = null;        // [{text, y}] for the page being edited (null = loading)
+  let _seReason = '';         // why there are no lines, if so
+  let _seDraft = null;        // working copy of the chapter list
+  let _seAnchor = null;       // the line currently chosen (null = no split on this page)
+  let _seInserted = -1;       // draft index of a chapter this session created (undo on remove)
+  let _seBusy = false;
+  let _seDragging = false;
+  let _seTitleTouched = false;   // don't overwrite a name the learner typed
+
+  function toggleSplitEdit() {
+    if (_seOn) { cancelSplitEdit(); return; }
+    if (!_rb) return;
+    _seOn = true;
+    _seLines = null; _seReason = ''; _seInserted = -1; _seBusy = false;
+    _seTitleTouched = false;
+    _seDraft = (_rb.chapters || []).map(c => ({ ...c }));
+    _seAnchor = _seCurrentAnchor();
+    document.getElementById('tbr-splitedit').classList.add('on');
+    document.getElementById('tbr-splitbar').style.display = '';
+    renderPage();
+    loadSplitLines();
+  }
+
+  function cancelSplitEdit() {
+    _seOn = false; _seDraft = null; _seLines = null; _seAnchor = null; _seInserted = -1;
+    document.getElementById('tbr-splitedit').classList.remove('on');
+    document.getElementById('tbr-splitbar').style.display = 'none';
+    renderPage();
+  }
+
+  async function loadSplitLines() {
+    const id = _rb.id, page = _page;
+    try {
+      const r = await fetch(`/api/textbooks/${id}/page/${page}/lines`);
+      const data = await r.json().catch(() => ({}));
+      if (!_seOn || !_rb || _rb.id !== id || _page !== page) return;
+      _seLines = data.lines || [];
+      _seReason = data.reason || '';
+    } catch (e) {
+      _seLines = []; _seReason = 'unreadable';
+    }
+    _seRefresh();
+  }
+
+  // Which chapter boundary (if any) already falls on this page, from the draft.
+  function _seBoundaryIdx() {
+    if (!_seDraft) return -1;
+    for (let i = 0; i < _seDraft.length - 1; i++) {
+      const a = _seDraft[i], b = _seDraft[i + 1];
+      if (b.start === a.end && a.end === _page) return i;   // shared → split here
+    }
+    return -1;
+  }
+
+  function _seCurrentAnchor() {
+    const i = _seBoundaryIdx();
+    if (i < 0) return null;
+    return _seDraft[i].end_anchor || _seDraft[i + 1].start_anchor || null;
+  }
+
+  // The chapter this page reads as, for splitting a page that isn't yet a boundary.
+  function _seChapterAt(page) {
+    if (!_seDraft) return -1;
+    for (let i = 0; i < _seDraft.length; i++) {
+      if (page >= _seDraft[i].start && page <= _seDraft[i].end) return i;
+    }
+    return -1;
+  }
+
+  // Snap a 0–1 height to the nearest line's rule position.
+  function _seNearest(frac) {
+    if (!_seLines || !_seLines.length) return null;
+    let best = _seLines[0], dist = Math.abs(_seLines[0].y - frac);
+    for (const ln of _seLines) {
+      const d = Math.abs(ln.y - frac);
+      if (d < dist) { dist = d; best = ln; }
+    }
+    return best;
+  }
+
+  // Place (or move) the split at `line`, reshaping the draft chapters.
+  function _seSetAnchor(line) {
+    const text = (line.text || '').trim();
+    if (!text) return;
+    let i = _seBoundaryIdx();
+    if (i < 0) {
+      // No boundary here yet — cut the chapter this page belongs to in two.
+      const ci = _seChapterAt(_page);
+      if (ci < 0) return;
+      const c = _seDraft[ci];
+      const tail = { title: text.slice(0, 80), start: _page, end: c.end,
+                     skip_hint: false, status: '', start_anchor: text, end_anchor: c.end_anchor || '' };
+      c.end = _page;
+      c.end_anchor = text;
+      _seDraft.splice(ci + 1, 0, tail);
+      _seInserted = ci + 1;
+      i = ci;
+    } else {
+      _seDraft[i].end_anchor = text;
+      _seDraft[i + 1].start_anchor = text;
+      if (_seInserted === i + 1 && !_seTitleTouched) {
+        _seDraft[i + 1].title = text.slice(0, 80);   // follow the drag
+      }
+    }
+    _seAnchor = text;
+    _seRefresh();
+  }
+
+  function removeSplitHere() {
+    const i = _seBoundaryIdx();
+    if (i < 0) return;
+    if (_seInserted === i + 1) {
+      // Undo a split made in this session: give the pages back to one chapter.
+      const a = _seDraft[i], b = _seDraft[i + 1];
+      a.end = b.end;
+      a.end_anchor = b.end_anchor || '';
+      _seDraft.splice(i + 1, 1);
+      _seInserted = -1;
+    } else {
+      // A pre-existing boundary: drop the mid-page cut, keep the two chapters
+      // divided at a clean page break.
+      const a = _seDraft[i], b = _seDraft[i + 1];
+      a.end_anchor = ''; b.start_anchor = '';
+      if (b.start === a.end) b.start = Math.min(_rb.num_pages, a.end + 1);
+    }
+    _seAnchor = null;
+    _seRefresh();
+  }
+
+  async function saveSplitEdit() {
+    if (_seBusy || !_seDraft) return;
+    _seBusy = true;
+    const bar = document.getElementById('tbr-splitbar-msg');
+    const save = document.getElementById('tbr-sb-save');
+    if (save) save.disabled = true;
+    if (_seInserted >= 0 && _seDraft[_seInserted] && !(_seDraft[_seInserted].title || '').trim()) {
+      _seDraft[_seInserted].title = (_seAnchor || '').slice(0, 80) || 'Untitled unit';
+    }
+    const chapters = _seDraft
+      .map(c => ({ title: (c.title || '').trim(), start: c.start, end: c.end,
+                   skip_hint: !!c.skip_hint, status: c.status || '',
+                   start_anchor: c.start_anchor || '', end_anchor: c.end_anchor || '' }))
+      .filter(c => c.title && c.start && c.end);
+    try {
+      const r = await fetch(`/api/textbooks/${_rb.id}/chapters`, { method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chapters }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Could not save the split.');
+      _rb.chapters = data.chapters || [];
+      const lib = _books.find(x => x.id === _rb.id); if (lib) lib.chapters = _rb.chapters;
+      if (_chBook && _chBook.id === _rb.id) _chBook.chapters = _rb.chapters.map(c => ({ ...c }));
+      cancelSplitEdit();
+      updateChapterCaption();
+      renderLibrary();
+      await loadSplits();          // redraw the saved boundary from the server
+      renderPage();
+    } catch (e) {
+      if (bar) bar.innerHTML = `<span class="tb-error">${esc(e.message || 'Could not save.')}</span>`;
+      if (save) save.disabled = false;
+    } finally { _seBusy = false; }
+  }
+
+  function _seUpdateBar() {
+    const msg = document.getElementById('tbr-splitbar-msg');
+    const rm = document.getElementById('tbr-sb-remove');
+    const save = document.getElementById('tbr-sb-save');
+    if (!msg) return;
+    if (!document.querySelector('#tbr-imgwrap .tbr-imgbox')) {
+      // Dragging needs a rendered page to drag over; this book reads as text.
+      msg.textContent = 'This page has no image to drag over. Use Chapters → Edit divisions to set the split by line.';
+    } else if (_seLines === null) { msg.textContent = 'Reading this page…'; }
+    else if (!_seLines.length) {
+      msg.textContent = _seReason === 'no_pdf'
+        ? 'This book has no stored PDF, so a split can’t be placed visually. Use Chapters → Edit divisions.'
+        : 'This page has no text layer to split on (a scan, or a page re-read by AI). Use Chapters → Edit divisions.';
+    } else if (_seAnchor) {
+      const i = _seBoundaryIdx();
+      const above = i >= 0 ? (_seDraft[i].title || 'this unit') : 'this unit';
+      const below = i >= 0 ? (_seDraft[i + 1].title || '') : '';
+      const line = esc(_seAnchor.slice(0, 44));
+      // Don't stutter when the new unit is still named after the line itself.
+      const named = below && _tbNormLine(below) !== _tbNormLine(_seAnchor);
+      msg.innerHTML = `Drag the rule to move it. <b>${esc(above)}</b> ends above it; ` +
+        (named ? `<b>${esc(below)}</b> starts` : 'a new unit starts') + ` at “${line}”.`;
+    } else {
+      msg.textContent = 'Tap the page where the next unit begins. The line you pick is what generation cuts on.';
+    }
+    if (rm) rm.style.display = _seAnchor ? '' : 'none';
+    if (save) save.disabled = false;
+    // A split that CREATED a unit needs a name — the anchor line is only a
+    // guess (right when it's a heading, noise when it isn't), and an unnamed
+    // unit would show up in the table of contents as that raw line.
+    const nameWrap = document.getElementById('tbr-splitbar-name');
+    const nameInp = document.getElementById('tbr-sb-title');
+    const naming = _seInserted >= 0 && !!_seDraft && !!_seDraft[_seInserted];
+    if (nameWrap) nameWrap.style.display = naming ? '' : 'none';
+    if (naming && nameInp && document.activeElement !== nameInp) {
+      nameInp.value = _seDraft[_seInserted].title || '';
+    }
+  }
+
+  function renameSplitUnit(value) {
+    if (_seInserted < 0 || !_seDraft || !_seDraft[_seInserted]) return;
+    _seTitleTouched = true;
+    _seDraft[_seInserted].title = value;
+  }
+
+  // Overlay for edit mode: a draggable rule, a live ghost of the line under the
+  // pointer, and tap-to-place when there's no split yet.
+  function _seOverlay() {
+    const box = document.createElement('div');
+    box.className = 'tbr-splitedit';
+    const hint = document.createElement('div');
+    hint.className = 'se-hint';
+    hint.textContent = _seLines === null ? 'Reading this page…'
+      : (!_seLines.length ? 'No text layer on this page' : '✂︎ Split mode');
+    box.appendChild(hint);
+
+    const ghost = document.createElement('div');
+    ghost.className = 'tbr-se-ghost';
+    ghost.style.display = 'none';
+    box.appendChild(ghost);
+
+    const fracOf = (clientY) => {
+      const r = box.getBoundingClientRect();
+      return r.height ? Math.min(1, Math.max(0, (clientY - r.top) / r.height)) : 0;
+    };
+    const preview = (clientY) => {
+      const near = _seNearest(fracOf(clientY));
+      if (!near) return null;
+      ghost.style.display = '';
+      ghost.style.top = (near.y * 100) + '%';
+      hint.textContent = '✂︎ ' + (near.text.slice(0, 46) || '·');
+      return near;
+    };
+
+    if (_seLines && _seLines.length) {
+      box.addEventListener('pointermove', (e) => { if (!_seDragging) preview(e.clientY); });
+      box.addEventListener('pointerleave', () => {
+        if (_seDragging) return;
+        ghost.style.display = 'none';
+        hint.textContent = '✂︎ Split mode';
+      });
+      box.addEventListener('pointerdown', (e) => {
+        if (e.target !== box && e.target !== ghost && e.target !== hint) return;
+        const near = preview(e.clientY);
+        if (near) _seSetAnchor(near);
+      });
+    }
+
+    if (_seAnchor) {
+      const y = _seAnchorY();
+      const rule = document.createElement('div');
+      rule.className = 'tbr-se-rule';
+      rule.style.top = (y * 100) + '%';
+      const grip = document.createElement('div');
+      grip.className = 'tbr-se-grip';
+      grip.textContent = '⇕ drag';
+      rule.appendChild(grip);
+      const del = document.createElement('button');
+      del.className = 'tbr-se-del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.title = 'Remove this split';
+      del.addEventListener('pointerdown', (e) => e.stopPropagation());
+      del.addEventListener('click', (e) => { e.stopPropagation(); removeSplitHere(); });
+      rule.appendChild(del);
+      rule.addEventListener('pointerdown', (e) => {
+        if (e.target === del) return;
+        e.preventDefault(); e.stopPropagation();
+        _seDragging = true;
+        rule.classList.add('dragging');
+        rule.setPointerCapture(e.pointerId);
+      });
+      rule.addEventListener('pointermove', (e) => {
+        if (!_seDragging) return;
+        const near = preview(e.clientY);
+        if (near) rule.style.top = (near.y * 100) + '%';
+      });
+      const drop = (e) => {
+        if (!_seDragging) return;
+        _seDragging = false;
+        rule.classList.remove('dragging');
+        const near = _seNearest(fracOf(e.clientY));
+        ghost.style.display = 'none';
+        if (near) _seSetAnchor(near); else _seRefresh();
+      };
+      rule.addEventListener('pointerup', drop);
+      rule.addEventListener('pointercancel', drop);
+      box.appendChild(rule);
+    }
+    return box;
+  }
+
+  // Where the chosen anchor sits on the page (falls back to the server's own
+  // placement for a split whose line isn't in this page's text layer).
+  function _seAnchorY() {
+    if (!_seAnchor) return 0.5;
+    const hit = _seLines && _seLines.find(l => _tbNormLine(l.text) === _tbNormLine(_seAnchor));
+    if (hit) return hit.y;
+    const idx = _seLines ? _tbAnchorIdx(_seLines.map(l => l.text), _seAnchor) : -1;
+    if (idx >= 0) return _seLines[idx].y;
+    const saved = _splitsOn(_page).find(s => s.y != null);
+    return saved ? saved.y : 0.5;
   }
 
   // Page text with the split boundary marked: lines above it dimmed (they belong
@@ -675,6 +1078,13 @@
     const t = _page + d;
     if (t < 1 || t > _rb.num_pages) return;
     _page = t;
+    if (_seOn) {
+      // Keep editing across pages — the draft is book-wide, so several splits
+      // can be placed and saved together. Re-target it at the new page.
+      _seLines = null; _seReason = '';
+      _seAnchor = _seCurrentAnchor();
+      loadSplitLines();
+    }
     renderPage();
   }
 

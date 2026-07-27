@@ -497,6 +497,79 @@ def _positioned_lines(page) -> tuple[list[tuple[str, float]], float, float]:
     return [(t, y) for t, y in lines if t.strip()], top, bottom
 
 
+# How far up from a line's baseline toward the previous one a split rule sits.
+# The usable band is between this line's cap height (~0.72 em) and the previous
+# line's descenders (~0.21 em below ITS baseline); at normal leading that's
+# roughly 0.45–0.88 of the gap, so sit near the middle of it. Lower values look
+# like the rule is touching the text it marks.
+_RULE_GAP_FRACTION = 0.68
+
+
+def _page_rule_positions(source, page_no: int):
+    """`([(line_text, rule_fraction)], ok)` for one page, top-down.
+
+    `rule_fraction` is where a split rule for that line belongs: 0 at the top of
+    the crop box, 1 at the bottom. The text visitor reports each line's
+    BASELINE, so a rule drawn there would strike through the first line of the
+    next unit — it goes in the whitespace above instead.
+
+    Not the midpoint between the two baselines: that lands right at the cap
+    height of the line below, so the rule clips the tops of its glyphs. Sit
+    `_RULE_GAP_FRACTION` of the way up toward the previous baseline, which
+    clears the ascenders below while staying under the descenders above.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return [], False
+    try:
+        import io
+        reader = PdfReader(io.BytesIO(source) if isinstance(source, bytes) else source)
+        page = reader.pages[page_no - 1]
+        lines, top, bottom = _positioned_lines(page)
+    except Exception:
+        return [], False
+    height = top - bottom
+    if height <= 0 or not lines:
+        return [], False
+    gaps = sorted(lines[i - 1][1] - lines[i][1] for i in range(1, len(lines)))
+    typical = gaps[len(gaps) // 2] if gaps else height / 40
+    out = []
+    for i, (text, y) in enumerate(lines):
+        above = lines[i - 1][1] if i else y + typical
+        rule_y = y + _RULE_GAP_FRACTION * (above - y)
+        out.append((text, min(1.0, max(0.0, (top - rule_y) / height))))
+    return out, True
+
+
+def page_line_positions(source, page_no: int, cleaner=None) -> list[dict]:
+    """Every line on one page with the height a split rule for it would sit at.
+
+    The inverse of `locate_page_lines`, for placing a split by DRAGGING: the
+    client snaps a drag to the nearest line, and a split is stored as that
+    line's verbatim text (never a coordinate), so what's dragged is exactly what
+    the generator later trims on. `cleaner` normalizes the text the same way the
+    stored page text was cleaned, so the anchor we hand back matches the copy
+    the trimmer reads.
+    """
+    lines, ok = _page_rule_positions(source, page_no)
+    if not ok:
+        return []
+    out = []
+    for text, frac in lines:
+        clean = cleaner(text) if cleaner else text
+        clean = _norm_line_text(clean)
+        if clean:
+            out.append({"text": clean, "y": frac})
+    return out
+
+
+def _norm_line_text(text: str) -> str:
+    """Collapse whitespace without casefolding — anchors are stored verbatim."""
+    import re
+    return re.sub(r"\s+", " ", (text or "").replace("\n", " ")).strip()
+
+
 def locate_page_lines(source, page_no: int, anchors: list[str],
                       cleaner=None) -> dict[str, float]:
     """Vertical position of each anchor line on one PDF page.
@@ -513,26 +586,9 @@ def locate_page_lines(source, page_no: int, anchors: list[str],
     wanted = [a for a in anchors if _norm_line(a)]
     if not wanted:
         return {}
-    try:
-        from pypdf import PdfReader
-    except ImportError:
+    lines, ok = _page_rule_positions(source, page_no)
+    if not ok:
         return {}
-    try:
-        import io
-        reader = PdfReader(io.BytesIO(source) if isinstance(source, bytes) else source)
-        page = reader.pages[page_no - 1]
-        lines, top, bottom = _positioned_lines(page)
-    except Exception:
-        return {}
-    height = top - bottom
-    if height <= 0 or not lines:
-        return {}
-    # The visitor reports each line's BASELINE. A rule drawn there would strike
-    # through the first line of the next unit, so place it in the whitespace
-    # above: midway to the previous line's baseline (or half a typical line up,
-    # for a match on the page's first line).
-    gaps = sorted(lines[i - 1][1] - lines[i][1] for i in range(1, len(lines)))
-    typical = gaps[len(gaps) // 2] if gaps else height / 40
     out: dict[str, float] = {}
     for anchor in wanted:
         # Exact match anywhere on the page beats a partial one at the top.
@@ -543,10 +599,7 @@ def locate_page_lines(source, page_no: int, anchors: list[str],
                         if _line_matches(t, anchor, cleaner)), None)
         if hit is None:
             continue
-        y = lines[hit][1]
-        above = lines[hit - 1][1] if hit else y + typical
-        rule_y = (above + y) / 2
-        out[anchor] = min(1.0, max(0.0, (top - rule_y) / height))
+        out[anchor] = lines[hit][1]
     return out
 
 
