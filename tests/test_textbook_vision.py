@@ -284,3 +284,111 @@ async def test_reader_reports_a_short_renderable_page_count(fresh_db, monkeypatc
         raise RuntimeError("no renderer")
     monkeypatch.setattr(main.extract, "pdf_page_count", boom)
     assert (await main.textbook_reader(tb_id, user))["renderable_pages"] == 60
+
+
+# ── Mid-page split markers (locating the boundary for the reader) ─────────────
+
+def _text_pdf(lines: list[tuple[str, float]]) -> bytes:
+    """A minimal one-page PDF with each line drawn at a known baseline.
+
+    Hand-built rather than via a PDF writer so the geometry these tests check
+    (where a line sits on the page) is fixed by the fixture itself, and so they
+    need no extra dependency to run.
+    """
+    content = ("BT /F1 12 Tf\n" + "".join(
+        f"1 0 0 1 72 {y} Tm ({t}) Tj\n" for t, y in lines) + "ET\n").encode("latin-1")
+    objs = [
+        b"<</Type/Catalog/Pages 2 0 R>>",
+        b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]"
+        b"/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>",
+        b"<</Length %d>>stream\n" % len(content) + content + b"endstream",
+        b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>",
+    ]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj" % i + body + b"endobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += (b"trailer<</Size %d/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF\n"
+            % (len(objs) + 1, xref))
+    return bytes(out)
+
+
+def _split_pdf() -> bytes:
+    """Two blocks of text on one page with a unit heading between them."""
+    lines = [(f"Unit 1 line {i}", 780 - i * 20) for i in range(10)]
+    lines.append(("Unit 2: Ordering food", 566))          # after a wider gap
+    lines += [(f"Unit 2 line {i}", 542 - i * 20) for i in range(6)]
+    return _text_pdf(lines)
+
+
+def test_locate_page_lines_finds_the_anchor_between_its_neighbours():
+    pdf = _split_pdf()
+    found = extract.locate_page_lines(pdf, 1, ["Unit 2: Ordering food"])
+    y = found["Unit 2: Ordering food"]
+    # Ten lines of unit 1 above, six of unit 2 below → roughly a third down, and
+    # strictly between the last unit-1 line and the heading itself.
+    above = extract.locate_page_lines(pdf, 1, ["Unit 1 line 9"])["Unit 1 line 9"]
+    below = extract.locate_page_lines(pdf, 1, ["Unit 2 line 0"])["Unit 2 line 0"]
+    assert above < y < below
+    assert 0.2 < y < 0.5
+
+
+def test_locate_page_lines_is_whitespace_tolerant_and_omits_misses():
+    pdf = _split_pdf()
+    found = extract.locate_page_lines(
+        pdf, 1, ["  unit 2:   Ordering   food ", "not on this page", ""])
+    assert list(found) == ["  unit 2:   Ordering   food "]
+    # A page that doesn't exist degrades to "no marker", never an exception.
+    assert extract.locate_page_lines(pdf, 9, ["Unit 2: Ordering food"]) == {}
+
+
+def test_split_marks_dedupes_the_two_sides_of_one_boundary():
+    chapters = [
+        {"title": "Unit 1", "start": 1, "end": 3, "start_anchor": "",
+         "end_anchor": "Unit 2: Ordering food"},
+        {"title": "Unit 2", "start": 3, "end": 6,
+         "start_anchor": "Unit 2: Ordering food", "end_anchor": ""},
+    ]
+    marks = main._split_marks(chapters)
+    assert len(marks) == 1                      # one boundary, not two
+    assert marks[0]["page"] == 3
+    assert (marks[0]["above"], marks[0]["below"]) == ("Unit 1", "Unit 2")
+    assert marks[0]["y"] is None                # filled in by the route
+
+    # An unanchored book has no markers at all.
+    assert main._split_marks([{"title": "A", "start": 1, "end": 3},
+                              {"title": "B", "start": 4, "end": 6}]) == []
+
+
+@pytest.mark.asyncio
+async def test_splits_route_locates_the_boundary(fresh_db, monkeypatch, tmp_path):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    monkeypatch.setattr(main, "MEDIA_DIR", tmp_path)
+    (tmp_path / "book.pdf").write_bytes(_split_pdf())
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf",
+                                     ["p1", "p2", "p3"], [], pdf_media_id="book")
+    await db.update_textbook_chapters(tb_id, [
+        {"title": "Unit 1", "start": 1, "end": 1,
+         "end_anchor": "Unit 2: Ordering food", "start_anchor": "",
+         "skip_hint": False, "status": ""},
+        {"title": "Unit 2", "start": 1, "end": 3,
+         "start_anchor": "Unit 2: Ordering food", "end_anchor": "",
+         "skip_hint": False, "status": ""}])
+
+    res = await main.textbook_splits(tb_id, user)
+    assert len(res["splits"]) == 1
+    mark = res["splits"][0]
+    assert mark["line"] == "Unit 2: Ordering food"
+    assert 0.2 < mark["y"] < 0.5                # located on the rendered page
+
+    # No stored PDF (or an unlocatable anchor) → the marker survives with y=None
+    # so the reader still flags it in the extracted text.
+    monkeypatch.setattr(main.extract, "locate_page_lines", lambda *a, **k: {})
+    assert (await main.textbook_splits(tb_id, user))["splits"][0]["y"] is None

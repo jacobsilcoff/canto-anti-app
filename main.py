@@ -4378,6 +4378,66 @@ async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
     }
 
 
+_MAX_SPLIT_MARKS = 24        # bound the per-page text re-extraction below
+
+
+def _split_marks(chapters: list[dict]) -> list[dict]:
+    """Mid-page unit boundaries as page-anchored markers.
+
+    A split is stored on BOTH sides (the earlier unit's `end_anchor` and the
+    later unit's `start_anchor`), so collect from either side and dedupe by
+    (page, line) — that also catches a one-sided anchor left by a hand edit."""
+    marks: dict[tuple[int, str], dict] = {}
+    for i, ch in enumerate(chapters):
+        for anchor, page, above, below in (
+            (ch.get("start_anchor"), ch.get("start"),
+             chapters[i - 1]["title"] if i else "", ch.get("title")),
+            (ch.get("end_anchor"), ch.get("end"), ch.get("title"),
+             chapters[i + 1]["title"] if i + 1 < len(chapters) else ""),
+        ):
+            line = textbook._clean_anchor(anchor)
+            if not line or not page:
+                continue
+            key = (int(page), line.casefold())
+            mark = marks.setdefault(key, {"page": int(page), "line": line,
+                                          "above": "", "below": "", "y": None})
+            mark["above"] = mark["above"] or (above or "")
+            mark["below"] = mark["below"] or (below or "")
+    return sorted(marks.values(), key=lambda m: m["page"])[:_MAX_SPLIT_MARKS]
+
+
+@app.get("/api/textbooks/{textbook_id}/splits")
+async def textbook_splits(textbook_id: int, user: dict = Depends(current_user)):
+    """Where each mid-page unit boundary sits, for the reader to draw.
+
+    `y` is a 0–1 fraction down the rendered page (null when the anchor can't be
+    located in the PDF's text layer — e.g. a page re-transcribed by vision — in
+    which case the reader still marks the line in the extracted-text view).
+    Separate from `/reader` so opening a book stays fast."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    marks = _split_marks(book["chapters"])
+    pdf_media_id = book.get("pdf_media_id")
+    pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
+    if marks and pdf_path and pdf_path.exists():
+        by_page: dict[int, list[str]] = {}
+        for m in marks:
+            by_page.setdefault(m["page"], []).append(m["line"])
+        located: dict[int, dict[str, float]] = {}
+        for page, anchors in by_page.items():
+            try:
+                located[page] = await asyncio.to_thread(
+                    extract.locate_page_lines, str(pdf_path), page, anchors)
+            except Exception as e:      # best-effort: no rule beats a wrong rule
+                logger.warning("Split locate failed tb=%s page=%s: %s",
+                               textbook_id, page, e)
+                located[page] = {}
+        for m in marks:
+            m["y"] = located.get(m["page"], {}).get(m["line"])
+    return {"splits": marks}
+
+
 @app.get("/api/textbooks/{textbook_id}/page/{page}.jpg")
 async def textbook_page_image(textbook_id: int, page: int,
                               user: dict = Depends(current_user)):

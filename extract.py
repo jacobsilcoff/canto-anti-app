@@ -396,6 +396,95 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
     return result
 
 
+# ── Locating a line ON a page (mid-page split markers) ─────────────────────────
+#
+# A textbook unit boundary can fall partway down a page, and it is stored as one
+# verbatim line of that page's text. To DRAW that boundary over the rendered page
+# image we need the line's vertical position, which the text itself doesn't carry
+# — so re-extract the page with the positioning visitor, rebuild its lines, and
+# report the matching line's height as a fraction of the crop box.
+
+_LINE_TOLERANCE = 2.0        # user-space units within which text is "the same line"
+
+
+def _norm_line(text: str) -> str:
+    import re
+    return re.sub(r"\s+", " ", text or "").strip().casefold()
+
+
+def _positioned_lines(page) -> tuple[list[tuple[str, float]], float, float]:
+    """[(line_text, y)] inside the page's crop box, top-down, plus (top, bottom)."""
+    box = page.cropbox
+    left, right = float(box.left), float(box.right)
+    bottom, top = float(box.bottom), float(box.top)
+    items: list[tuple[str, float, float]] = []
+
+    def visit(text, cm, tm, _font, _size):
+        if not text or not text.strip():
+            return
+        matrix = _matrix_mult([float(v) for v in tm], [float(v) for v in cm])
+        x, y = matrix[4], matrix[5]
+        if left - 2 <= x <= right + 2 and bottom - 2 <= y <= top + 2:
+            items.append((text, x, y))
+
+    page.extract_text(visitor_text=visit)
+    lines: list[tuple[str, float]] = []
+    for text, x, y in sorted(items, key=lambda it: (-it[2], it[1])):
+        if lines and abs(y - lines[-1][1]) <= _LINE_TOLERANCE:
+            lines[-1] = (lines[-1][0] + text, lines[-1][1])
+        else:
+            lines.append((text, y))
+    return [(t, y) for t, y in lines if t.strip()], top, bottom
+
+
+def locate_page_lines(source, page_no: int,
+                      anchors: list[str]) -> dict[str, float]:
+    """Vertical position of each anchor line on one PDF page.
+
+    ``source`` is PDF bytes or a path; ``anchors`` are verbatim lines (as stored
+    for a mid-page split). Returns ``{anchor: fraction}`` where fraction is 0 at
+    the top of the crop box and 1 at the bottom — ready to place an overlay on
+    the rendered page image. Anchors that can't be located (a re-transcribed
+    page, an edited anchor, a page with no text layer) are simply omitted, so
+    callers degrade to not drawing a line rather than drawing a wrong one.
+    """
+    wanted = [a for a in anchors if _norm_line(a)]
+    if not wanted:
+        return {}
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return {}
+    try:
+        import io
+        reader = PdfReader(io.BytesIO(source) if isinstance(source, bytes) else source)
+        page = reader.pages[page_no - 1]
+        lines, top, bottom = _positioned_lines(page)
+    except Exception:
+        return {}
+    height = top - bottom
+    if height <= 0 or not lines:
+        return {}
+    # The visitor reports each line's BASELINE. A rule drawn there would strike
+    # through the first line of the next unit, so place it in the whitespace
+    # above: midway to the previous line's baseline (or half a typical line up,
+    # for a match on the page's first line).
+    gaps = sorted(lines[i - 1][1] - lines[i][1] for i in range(1, len(lines)))
+    typical = gaps[len(gaps) // 2] if gaps else height / 40
+    out: dict[str, float] = {}
+    for anchor in wanted:
+        target = _norm_line(anchor)
+        for i, (text, y) in enumerate(lines):
+            norm = _norm_line(text)
+            if norm and (norm == target or norm.startswith(target)
+                         or target.startswith(norm)):
+                above = lines[i - 1][1] if i else y + typical
+                rule_y = (above + y) / 2
+                out[anchor] = min(1.0, max(0.0, (top - rule_y) / height))
+                break
+    return out
+
+
 # ── Page rendering (for vision re-extraction) ──────────────────────────────────
 
 # Render target: long edge ~2000 px is plenty for the vision model to read dense

@@ -72,13 +72,33 @@
     .tbr-stage { flex: 1; display: flex; overflow: hidden; min-height: 0; }
     .tbr-imgwrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 12px;
       -webkit-overflow-scrolling: touch; }
-    .tbr-imgwrap img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+    .tbr-imgwrap img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: var(--shadow); background: #fff; display: block; }
+    /* Mid-page unit boundary drawn over the page image (see /splits) */
+    .tbr-imgbox { position: relative; align-self: flex-start; max-width: 100%; }
+    .tbr-split { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--energy); pointer-events: none; }
+    .tbr-split::before, .tbr-split::after { content: ''; position: absolute; top: -5px; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--energy); }
+    .tbr-split::before { left: -4px; }
+    .tbr-split::after { right: -4px; }
+    /* Sits ABOVE the rule and hugs the right edge: a centred tag covered the very
+       heading the split is being validated against. */
+    .tbr-split-tag { position: absolute; right: 2px; bottom: 3px; background: var(--energy);
+      color: #fff; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+      max-width: 60%; overflow: hidden; text-overflow: ellipsis; opacity: .92; }
     .tbr-imgwrap.loading::after { content: ''; }
     .tbr-textpane { width: 0; overflow: hidden; transition: width .2s; border-left: 1px solid var(--border);
       background: var(--surface); }
     .tbr.show-text .tbr-textpane { width: 46%; overflow: auto; }
     .tbr-textpane-inner { padding: 16px; font-size: .95rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
     .tbr-textpane-inner .tbr-text-empty { color: var(--text-muted); font-style: italic; }
+    /* The same boundary, marked in the extracted text — the exact line the
+       generator trims on, so a split can be validated against the words. */
+    .tbr-splitline { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; white-space: normal; }
+    .tbr-splitline::before, .tbr-splitline::after { content: ''; flex: 1; border-top: 2px dashed var(--energy); }
+    .tbr-splitline span { font-size: .64rem; font-weight: 700; color: var(--energy); text-transform: uppercase;
+      letter-spacing: .04em; }
+    .tbr-textpane-inner .tbr-above { color: var(--text-muted); }
+    .tbr-anchorline { background: var(--energy-soft); border-radius: 4px; }
     .tbr-spin { align-self: center; margin: auto; }
     .tbr-nav { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
@@ -166,6 +186,8 @@
     .toc-add:hover { color: var(--primary); border-color: var(--primary); }
     .toc-empty { text-align: center; color: var(--text-muted); font-size: .85rem; padding: 14px 8px 18px; line-height: 1.5; }
     .toc-split { font-size: .6rem; padding: 1px 6px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+    .toc-row-cut { font-size: .68rem; color: var(--energy); margin-top: 3px; line-height: 1.35; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     /* Mid-page split editor (between two chapter rows) */
     .toc-splitrow { padding: 2px 0 6px; }
     .toc-splitbtn { width: 100%; box-sizing: border-box; border: 1px dashed var(--border); background: none; color: var(--text-muted); border-radius: 8px; padding: 6px 9px; font: inherit; font-size: .72rem; cursor: pointer; text-align: left; }
@@ -462,6 +484,7 @@
       note.textContent = ''; note.style.display = 'none';
     }
     renderPage();
+    loadSplits();     // non-blocking: markers appear a moment after the page
   }
 
   function closeReader() {
@@ -492,19 +515,103 @@
       wrap.innerHTML = '<div class="spinner tbr-spin"></div>';
       const img = new Image();
       img.alt = `Page ${_page}`;
-      img.onload = () => { if (wrap.dataset.page == String(_page)) wrap.replaceChildren(img); };
+      img.onload = () => {
+        if (wrap.dataset.page != String(_page)) return;
+        // The page goes in a positioned box so any mid-page unit boundary can be
+        // drawn over it at its measured height.
+        const box = document.createElement('div');
+        box.className = 'tbr-imgbox';
+        box.appendChild(img);
+        for (const el of _splitOverlays(_page)) box.appendChild(el);
+        wrap.replaceChildren(box);
+      };
       img.onerror = () => showPageImageError(_page);
       wrap.dataset.page = String(_page);
       img.src = `/api/textbooks/${_rb.id}/page/${_page}.jpg`;
       // Preload the next page
       if (_page < Math.min(n, renderable)) new Image().src = `/api/textbooks/${_rb.id}/page/${_page + 1}.jpg`;
     } else {
-      wrap.innerHTML = `<div class="tbr-textpane-inner" style="max-width:640px">${_pageText(_page) || '<span class="tbr-text-empty">No text on this page.</span>'}</div>`;
+      wrap.innerHTML = `<div class="tbr-textpane-inner" style="max-width:640px">${_pageTextHtml(_page) || '<span class="tbr-text-empty">No text on this page.</span>'}</div>`;
     }
     // Side/drawer text
-    document.getElementById('tbr-text').innerHTML = _pageText(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
+    document.getElementById('tbr-text').innerHTML = _pageTextHtml(_page) || '<span class="tbr-text-empty">No extracted text for this page.</span>';
     updateChapterCaption();
     scheduleSave();
+  }
+
+  // ── Mid-page unit boundaries, made visible for validation ──────────────────
+  // Splits are stored as one verbatim line of a shared page, which tells us
+  // nothing about where that is on the printed page — so the server locates the
+  // line in the PDF's text layer (`/splits` → y as a 0–1 fraction) and we draw a
+  // dashed rule there. The same boundary is marked in the extracted text, which
+  // is the copy the generator actually trims, so both views can be cross-checked.
+  let _splits = [];
+
+  async function loadSplits() {
+    _splits = [];
+    if (!_rb) return;
+    const id = _rb.id;
+    try {
+      const r = await fetch(`/api/textbooks/${id}/splits`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!_rb || _rb.id !== id) return;      // reader moved on
+      _splits = data.splits || [];
+      if (_splits.length) renderPage();       // redraw with the markers
+    } catch (e) { /* best-effort: the reader works without markers */ }
+  }
+
+  function _splitsOn(pageNo) { return _splits.filter(s => s.page === pageNo); }
+
+  function _splitOverlays(pageNo) {
+    const out = [];
+    for (const s of _splitsOn(pageNo)) {
+      if (s.y == null) continue;              // couldn't be located — text view only
+      const pct = Math.min(99.5, Math.max(0.5, s.y * 100));
+      const rule = document.createElement('div');
+      rule.className = 'tbr-split';
+      rule.style.top = pct + '%';
+      const tag = document.createElement('div');
+      tag.className = 'tbr-split-tag';
+      tag.textContent = '✂︎ split';
+      // The full "X ends · Y begins" wording lives in the caption and the text
+      // view; the tag stays short so it never hides the page's own words.
+      tag.title = s.below ? `“${s.below}” starts here` : 'next unit starts here';
+      rule.appendChild(tag);
+      out.push(rule);
+    }
+    return out;
+  }
+
+  // Page text with the split boundary marked: lines above it dimmed (they belong
+  // to the previous unit), a labelled dashed rule, then the anchor line itself
+  // highlighted.
+  function _pageTextHtml(pageNo) {
+    const raw = _pageTextRaw(pageNo);
+    if (!raw) return '';
+    const marks = _splitsOn(pageNo);
+    if (!marks.length) return esc(raw);
+    const lines = raw.split('\n');
+    const idxFor = (line) => _tbAnchorIdx(lines, line);
+    const cuts = marks.map(m => ({ at: idxFor(m.line), m }))
+                      .filter(c => c.at >= 0)
+                      .sort((a, b) => a.at - b.at);
+    if (!cuts.length) return esc(raw);
+    const out = [];
+    let cut = 0;
+    lines.forEach((line, i) => {
+      if (cut < cuts.length && i === cuts[cut].at) {
+        const m = cuts[cut].m;
+        out.push(`<div class="tbr-splitline"><span>✂︎ ${esc(m.above || 'previous unit')} ends · ${esc(m.below || 'next unit')} begins</span></div>`);
+        out.push(`<span class="tbr-anchorline">${esc(line)}</span>`);
+        cut++;
+        return;
+      }
+      // Before the first cut = the earlier unit's half of this page.
+      out.push(cut === 0 && cuts.length
+        ? `<span class="tbr-above">${esc(line)}</span>` : esc(line));
+    });
+    return out.join('\n');
   }
 
   // An <img> only reports "it failed", never why. Re-request the same URL so the
@@ -521,7 +628,7 @@
       else if (!r.ok) detail = ((await r.json().catch(() => ({}))).detail) || '';
     } catch (e) { detail = 'Network error while loading this page image.'; }
     if (wrap.dataset.page != String(pageNo) || pageNo !== _page) return;
-    const text = _pageText(pageNo);
+    const text = _pageTextHtml(pageNo);
     wrap.innerHTML =
       `<div style="max-width:640px;margin:auto">
          <div class="tb-error">${esc(detail || 'Couldn’t render this page.')}</div>
@@ -533,14 +640,28 @@
   function updateChapterCaption() {
     const cap = document.getElementById('tbr-chapcap');
     if (!cap) return;
-    const ch = (_rb && _rb.chapters || []).find(c => _page >= c.start && _page <= c.end);
-    cap.textContent = ch ? `${ch.title} · p${_page} of ${ch.start}–${ch.end}` : '';
-    cap.style.display = ch ? '' : 'none';
+    // A mid-page split makes the boundary page belong to BOTH units, so name
+    // both rather than silently showing whichever comes first.
+    const here = (_rb && _rb.chapters || []).filter(c => _page >= c.start && _page <= c.end);
+    if (here.length > 1) {
+      cap.textContent = `✂︎ ${here.map(c => c.title).join(' → ')} · both share p${_page}`;
+    } else if (here.length === 1) {
+      const ch = here[0];
+      cap.textContent = `${ch.title} · p${_page} of ${ch.start}–${ch.end}`;
+    } else {
+      cap.textContent = '';
+    }
+    cap.style.display = here.length ? '' : 'none';
   }
 
   function _pageText(n) {
     const p = (_rb.pages || []).find(x => x.page === n);
     return p ? esc(p.text) : '';
+  }
+
+  function _pageTextRaw(n) {
+    const p = (_rb.pages || []).find(x => x.page === n);
+    return p ? (p.text || '') : '';
   }
 
   function turnPage(d) {
@@ -724,10 +845,16 @@
           if (c.skip_hint) tags.push('<span class="toc-skip">skip</span>');
           if (c.status === 'queued') tags.push('lessons made');
           if (c.start_anchor || c.end_anchor) tags.push('<span class="toc-split">✂︎ split</span>');
+          // Spell out where a shared page is cut, so the split can be sanity-
+          // checked from the contents list without opening the page.
+          const cuts = [];
+          if (c.start_anchor) cuts.push(`starts on p${c.start} at “${esc(c.start_anchor)}”`);
+          if (c.end_anchor) cuts.push(`ends on p${c.end} before “${esc(c.end_anchor)}”`);
           return `<div class="toc-row${here ? ' here' : ''}" onclick="gotoChapter(${c.start})">
             <div class="toc-row-main">
               <div class="toc-row-title">${esc(c.title)}</div>
               <div class="toc-row-pages">pages ${c.start}–${c.end}${tags.length ? ' · ' + tags.join(' · ') : ''}</div>
+              ${cuts.length ? `<div class="toc-row-cut">✂︎ ${cuts.join(' · ')}</div>` : ''}
             </div>
             <span class="toc-go">›</span>
           </div>`;
