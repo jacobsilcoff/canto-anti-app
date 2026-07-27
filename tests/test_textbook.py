@@ -968,3 +968,46 @@ async def test_textbook_unit_row_and_scoped_queue(fresh_db):
     assert await db.clear_lesson_queue_for_unit(unit2) == 1
     await db.delete_course_unit_if_empty(unit2)      # no lesson → removed
     assert await db.get_textbook_unit(uid, unit2) is None
+
+
+def test_anchor_index_prefers_an_exact_line_over_an_early_partial():
+    """An anchor is stored verbatim FROM the page, so an exact match is the
+    normal case. Taking the first loose prefix instead let a short earlier line
+    hijack the boundary — on a word-positioned PDF whose extracted text puts
+    "Unit" on its own line, the earlier unit trimmed away to nothing."""
+    page = "Unit\n1\npractice\nline\nUnit 2: Ordering food\nmore"
+    assert textbook._anchor_line_index(page, "Unit 2: Ordering food") == 4
+    head, kept, tail = textbook.split_page(page, tail_anchor="Unit 2: Ordering food")
+    assert kept == "Unit\n1\npractice\nline"
+    assert tail == "Unit 2: Ordering food\nmore"
+
+
+def test_anchor_index_keeps_whitespace_tolerance_and_long_prefix_fallback():
+    # Still whitespace-tolerant for an exact line.
+    assert textbook._anchor_line_index(
+        "x\n  Unit  2:   Ordering food ", "Unit 2: Ordering food") == 1
+    # No exact line → a substantial partial still matches (text drifted).
+    assert textbook._anchor_line_index(
+        "x\nUnit 2: Ordering food and drinks", "Unit 2: Ordering food") == 1
+    # …but a too-short partial never claims the boundary.
+    assert textbook._anchor_line_index("Unit\nsomething else", "Unit 2: X") is None
+
+
+def test_anchor_index_finds_an_anchor_spread_over_several_lines():
+    """A PDF that positions each word separately extracts one word per line, and
+    the AI's anchor is verified against the page as a WHOLE — so it can name a
+    "line" the page never stores as one. Without rejoining, the split verified
+    fine and then silently did nothing."""
+    page = "Unit\n1\npractice\nUnit\n2:\nOrdering\nfood\nmore"
+    assert textbook._source_contains_quote(page, "Unit 2: Ordering food")  # accepted
+    assert textbook._anchor_line_index(page, "Unit 2: Ordering food") == 3
+    _, kept, tail = textbook.split_page(page, tail_anchor="Unit 2: Ordering food")
+    assert kept == "Unit\n1\npractice"
+    assert tail == "Unit\n2:\nOrdering\nfood\nmore"
+
+
+def test_anchor_index_span_works_without_spaces_and_never_invents_a_match():
+    # CJK lines rejoin with no spaces between them.
+    assert textbook._anchor_line_index("前文\n第二課\n食飯\n後文", "第二課 食飯") == 1
+    # A genuinely absent anchor is still None (page kept whole).
+    assert textbook._anchor_line_index("a\nb\nc", "Unit 2: Ordering food") is None

@@ -412,6 +412,58 @@ def _norm_line(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip().casefold()
 
 
+def _squeeze(text: str) -> str:
+    """All whitespace removed — the comparison of last resort.
+
+    A PDF that positions each word separately gives no space glyphs to extract,
+    so a rebuilt line can read "Unit 2: Orderingfood" where the stored text (and
+    therefore the anchor) reads "Unit 2: Ordering food". Whitespace can't be
+    trusted between the two representations; the characters can.
+    """
+    import re
+    return re.sub(r"\s+", "", text or "").casefold()
+
+
+_MIN_PREFIX_MATCH = 8      # chars before a partial line may claim the anchor
+
+
+def _line_matches(line: str, anchor: str, cleaner=None, *,
+                  exact_only: bool = False) -> bool:
+    """Does this rebuilt page line correspond to the stored anchor line?
+
+    Compares whitespace-collapsed first, then whitespace-free. ``cleaner`` is the
+    same per-page cleanup the STORED text went through (the caller passes it in,
+    so this module stays free of textbook-pipeline imports) — without it, a page
+    whose repeated-text-layer artifact was collapsed on storage would never match
+    its own raw line. With ``exact_only`` no prefix fallback is allowed, so a
+    caller can try every line for an exact hit before settling for a partial one.
+    """
+    candidates = [line]
+    if cleaner:
+        try:
+            candidates.append(cleaner(line))
+        except Exception:
+            pass
+    target, target_sq = _norm_line(anchor), _squeeze(anchor)
+    for cand in candidates:
+        norm, sq = _norm_line(cand), _squeeze(cand)
+        if norm and norm == target:
+            return True
+        if sq and target_sq and sq == target_sq:
+            return True
+        if exact_only:
+            continue
+        # Prefix matching needs a substantial run of characters, or a short line
+        # ("Unit") claims a boundary that belongs further down the page.
+        if norm and min(len(norm), len(target)) >= _MIN_PREFIX_MATCH and (
+                norm.startswith(target) or target.startswith(norm)):
+            return True
+        if sq and target_sq and min(len(sq), len(target_sq)) >= _MIN_PREFIX_MATCH \
+                and (sq.startswith(target_sq) or target_sq.startswith(sq)):
+            return True
+    return False
+
+
 def _positioned_lines(page) -> tuple[list[tuple[str, float]], float, float]:
     """[(line_text, y)] inside the page's crop box, top-down, plus (top, bottom)."""
     box = page.cropbox
@@ -437,12 +489,14 @@ def _positioned_lines(page) -> tuple[list[tuple[str, float]], float, float]:
     return [(t, y) for t, y in lines if t.strip()], top, bottom
 
 
-def locate_page_lines(source, page_no: int,
-                      anchors: list[str]) -> dict[str, float]:
+def locate_page_lines(source, page_no: int, anchors: list[str],
+                      cleaner=None) -> dict[str, float]:
     """Vertical position of each anchor line on one PDF page.
 
     ``source`` is PDF bytes or a path; ``anchors`` are verbatim lines (as stored
-    for a mid-page split). Returns ``{anchor: fraction}`` where fraction is 0 at
+    for a mid-page split); ``cleaner`` is the per-page text cleanup the stored
+    text went through, so an anchor taken from cleaned text can still be matched
+    against the raw page. Returns ``{anchor: fraction}`` where fraction is 0 at
     the top of the crop box and 1 at the bottom — ready to place an overlay on
     the rendered page image. Anchors that can't be located (a re-transcribed
     page, an edited anchor, a page with no text layer) are simply omitted, so
@@ -473,15 +527,18 @@ def locate_page_lines(source, page_no: int,
     typical = gaps[len(gaps) // 2] if gaps else height / 40
     out: dict[str, float] = {}
     for anchor in wanted:
-        target = _norm_line(anchor)
-        for i, (text, y) in enumerate(lines):
-            norm = _norm_line(text)
-            if norm and (norm == target or norm.startswith(target)
-                         or target.startswith(norm)):
-                above = lines[i - 1][1] if i else y + typical
-                rule_y = (above + y) / 2
-                out[anchor] = min(1.0, max(0.0, (top - rule_y) / height))
-                break
+        # Exact match anywhere on the page beats a partial one at the top.
+        hit = next((i for i, (t, _) in enumerate(lines)
+                    if _line_matches(t, anchor, cleaner, exact_only=True)), None)
+        if hit is None:
+            hit = next((i for i, (t, _) in enumerate(lines)
+                        if _line_matches(t, anchor, cleaner)), None)
+        if hit is None:
+            continue
+        y = lines[hit][1]
+        above = lines[hit - 1][1] if hit else y + typical
+        rule_y = (above + y) / 2
+        out[anchor] = min(1.0, max(0.0, (top - rule_y) / height))
     return out
 
 

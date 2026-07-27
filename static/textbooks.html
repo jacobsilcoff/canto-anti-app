@@ -724,12 +724,32 @@
 
   // ── Mid-page split between two adjacent units (mirror of textbook.py) ───────
   function _tbNormLine(s) { return (s || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  // Mirrors textbook._anchor_line_index: an EXACT line match anywhere beats a
+  // partial one, and a partial match needs a substantial run of characters —
+  // otherwise a short early line ("Unit") claims a boundary further down.
+  const _TB_MIN_PREFIX = 8, _TB_MAX_SPAN = 12;
   function _tbAnchorIdx(lines, anchor) {
     const t = _tbNormLine(anchor);
     if (!t) return -1;
-    for (let i = 0; i < lines.length; i++) {
-      const n = _tbNormLine(lines[i]);
-      if (n && (n === t || n.startsWith(t) || t.startsWith(n))) return i;
+    const norm = lines.map(_tbNormLine);
+    for (let i = 0; i < norm.length; i++) if (norm[i] && norm[i] === t) return i;
+    // The anchor may be spread over consecutive lines (a PDF that positions each
+    // word separately extracts one word per line) — rejoin a short run.
+    const squeezed = t.replace(/ /g, '');
+    for (let i = 0; i < norm.length; i++) {
+      if (!norm[i]) continue;
+      let joined = '';
+      for (let j = i; j < Math.min(i + _TB_MAX_SPAN, norm.length); j++) {
+        if (!norm[j]) break;
+        joined = (joined + ' ' + norm[j]).trim();
+        if (joined === t || joined.replace(/ /g, '') === squeezed) return i;
+        if (joined.length > t.length + 2) break;
+      }
+    }
+    for (let i = 0; i < norm.length; i++) {
+      const n = norm[i];
+      if (n && Math.min(n.length, t.length) >= _TB_MIN_PREFIX &&
+          (n.startsWith(t) || t.startsWith(n))) return i;
     }
     return -1;
   }

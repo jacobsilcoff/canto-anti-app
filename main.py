@@ -4428,7 +4428,8 @@ async def textbook_splits(textbook_id: int, user: dict = Depends(current_user)):
         for page, anchors in by_page.items():
             try:
                 located[page] = await asyncio.to_thread(
-                    extract.locate_page_lines, str(pdf_path), page, anchors)
+                    extract.locate_page_lines, str(pdf_path), page, anchors,
+                    textbook.clean_page_text)
             except Exception as e:      # best-effort: no rule beats a wrong rule
                 logger.warning("Split locate failed tb=%s page=%s: %s",
                                textbook_id, page, e)

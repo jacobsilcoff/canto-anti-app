@@ -288,15 +288,16 @@ async def test_reader_reports_a_short_renderable_page_count(fresh_db, monkeypatc
 
 # ── Mid-page split markers (locating the boundary for the reader) ─────────────
 
-def _text_pdf(lines: list[tuple[str, float]]) -> bytes:
+def _text_pdf(lines: list, positioned: bool = False) -> bytes:
     """A minimal one-page PDF with each line drawn at a known baseline.
 
     Hand-built rather than via a PDF writer so the geometry these tests check
     (where a line sits on the page) is fixed by the fixture itself, and so they
     need no extra dependency to run.
     """
+    runs = lines if positioned else [(t, y, 72) for t, y in lines]
     content = ("BT /F1 12 Tf\n" + "".join(
-        f"1 0 0 1 72 {y} Tm ({t}) Tj\n" for t, y in lines) + "ET\n").encode("latin-1")
+        f"1 0 0 1 {x} {y} Tm ({t}) Tj\n" for t, y, x in runs) + "ET\n").encode("latin-1")
     objs = [
         b"<</Type/Catalog/Pages 2 0 R>>",
         b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
@@ -345,6 +346,45 @@ def test_locate_page_lines_is_whitespace_tolerant_and_omits_misses():
     assert list(found) == ["  unit 2:   Ordering   food "]
     # A page that doesn't exist degrades to "no marker", never an exception.
     assert extract.locate_page_lines(pdf, 9, ["Unit 2: Ordering food"]) == {}
+
+
+def _words_pdf() -> bytes:
+    """A page whose words are each positioned separately — extremely common in
+    real textbook PDFs, and the case where no space glyphs exist to extract."""
+    lines = []
+    y = 700
+    for i in range(6):
+        x = 72
+        for word in ("Unit", "1", "line", str(i)):
+            lines.append((word, y, x))
+            x += 34
+        y -= 20
+    x = 72
+    for word in ("Unit", "2:", "Ordering", "food"):
+        lines.append((word, y - 14, x))
+        x += 42
+    return _text_pdf(lines, positioned=True)
+
+
+def test_locate_page_lines_matches_word_positioned_text():
+    """pypdf rebuilds such a page as e.g. "Unit 2: Orderingfood"; the stored
+    anchor has the space. Whitespace can't be trusted between the two."""
+    found = extract.locate_page_lines(_words_pdf(), 1, ["Unit 2: Ordering food"])
+    assert 0.2 < found["Unit 2: Ordering food"] < 0.5
+
+
+def test_locate_page_lines_matches_through_the_page_cleaner():
+    """The stored text (and so the anchor) has the repeated-text-layer artifact
+    collapsed; the raw page still carries it. The caller passes the same cleaner
+    so the two representations can meet."""
+    raw = "Unit 2: OrderingUnit 2: OrderingUnit 2: OrderingUnit 2: Ordering"
+    stored_anchor = textbook.clean_page_text(raw)
+    assert stored_anchor == "Unit 2: Ordering"          # what got stored
+    pdf = _text_pdf([(f"Unit 1 line {i}", 700 - i * 20) for i in range(5)]
+                    + [(raw, 586)])
+    found = extract.locate_page_lines(pdf, 1, [stored_anchor],
+                                      textbook.clean_page_text)
+    assert 0.1 < found[stored_anchor] < 0.5
 
 
 def test_split_marks_dedupes_the_two_sides_of_one_boundary():

@@ -335,18 +335,53 @@ def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
 
 # ── Mid-page unit boundaries (split a physical page between two units) ─────────
 
+_MIN_PREFIX_MATCH = 8      # chars before a partial line may claim the anchor
+_MAX_SPAN_LINES = 12       # lines an anchor may be spread across when rejoined
+
+
 def _anchor_line_index(page_text: str, anchor: str) -> int | None:
-    """Index of the first line of `page_text` that matches the split `anchor`
-    (whitespace-tolerant, casefolded). Anchors are stored as one verbatim line
-    picked from the page, so a prefix/equality match is robust to minor edits;
-    returns None when the anchor no longer occurs (→ the page is kept whole)."""
+    """Index of the line of `page_text` that matches the split `anchor`
+    (whitespace-tolerant, casefolded), or None when it no longer occurs (→ the
+    page is kept whole).
+
+    EXACT matches win outright. Only if no line matches exactly do we fall back
+    to a prefix match, and only for a substantial run of characters — an anchor
+    is stored verbatim FROM the page, so an exact match is the normal case, and
+    accepting the first loose prefix instead let a short earlier line ("Unit",
+    "Lesson") hijack the boundary and trim the unit down to nothing.
+    """
     target = re.sub(r"\s+", " ", anchor or "").strip().casefold()
     if not target:
         return None
-    for i, line in enumerate((page_text or "").split("\n")):
-        norm = re.sub(r"\s+", " ", line).strip().casefold()
-        if norm and (norm == target or norm.startswith(target)
-                     or target.startswith(norm)):
+    lines = [re.sub(r"\s+", " ", l).strip().casefold()
+             for l in (page_text or "").split("\n")]
+    for i, norm in enumerate(lines):
+        if norm and norm == target:
+            return i
+    # The anchor may be spread over consecutive lines: a PDF that positions
+    # words individually can extract one word per line, and the AI's anchor is
+    # verified against the page as a whole (`_source_contains_quote`), so it can
+    # legitimately name a "line" the page never stores as one. Rejoin a short run
+    # and match that, or the split verifies fine and then silently does nothing.
+    squeezed = target.replace(" ", "")
+    for i in range(len(lines)):
+        if not lines[i]:
+            continue
+        joined = ""
+        for j in range(i, min(i + _MAX_SPAN_LINES, len(lines))):
+            if not lines[j]:
+                break
+            joined = f"{joined} {lines[j]}".strip()
+            if joined == target or joined.replace(" ", "") == squeezed:
+                return i
+            if len(joined) > len(target) + 2:
+                break
+    for i, norm in enumerate(lines):
+        if not norm:
+            continue
+        shorter = min(len(norm), len(target))
+        if shorter >= _MIN_PREFIX_MATCH and (norm.startswith(target)
+                                             or target.startswith(norm)):
             return i
     return None
 
