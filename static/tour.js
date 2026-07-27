@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 23;
+  var TOUR_VERSION = 26;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -59,6 +59,12 @@
       body: 'Tap \ud83c\udfaf Practice on the Learn page for a \u26a1 lightning round (a 60-second remix of your drills) or a review of the concepts you find hardest. Finish lessons to earn \ud83d\udee1 streak freezes that save your streak if you miss a day \u2014 and give a lesson a \ud83d\udc4d/\ud83d\udc4e afterwards to shape what comes next.', v: 22 },
     { icon: '\ud83d\udc53', title: 'Review on Even Realities glasses',
       body: 'Connect your Even Realities G2 glasses to review flashcards hands-free \u2014 tap to reveal, tap again for \u201cgot it\u201d or double-tap for \u201cmissed it.\u201d XP, streak, and quests all stay in sync. Generate an API token in Settings \u2192 Even glasses.', v: 23 },
+    { icon: '\u2728', title: 'AI can re-read messy PDFs',
+      body: 'If a textbook\u2019s extracted text comes out garbled, out of order, or shows only romanization with no native script, tap \u201c\u2728 Re-read these pages with AI\u201d on the review screen. It reads the page images and rewrites them cleanly \u2014 recovering the native characters \u2014 so lessons are built from faithful source.', v: 24 },
+    { icon: '\ud83d\udcc7', title: 'Turn a chapter into a flashcard deck',
+      body: 'Just want the words? On the textbook review screen tap \ud83d\udcc7 Build vocab deck to pull every word from those pages into an editable list \u2014 uncheck any you don\u2019t want, then add them to your deck and study straight away. It skips words you already have, and it\u2019s quicker than building full lessons.', v: 25 },
+    { icon: '\ud83d\udcd5', title: 'A home for your textbooks',
+      body: 'Your books now live on their own \u201cTextbooks\u201d page (in the More menu). Upload a PDF and read it page by page \u2014 it remembers where you left off and lets you bookmark pages. Tap \u2630 Contents (or a book\u2019s \u201cChapters\u201d button) to jump straight to any chapter, fix the chapter page ranges by hand, or re-detect them with AI. When a unit begins or ends partway down a page, tap \u2702 in the reader and mark the break right on the page: tap where the next unit starts, drag the dashed line to fine-tune (it snaps to the actual text lines), or \u2715 to remove it. The same break is marked in the extracted text so you can double-check it landed in the right spot, and lessons for each unit then skip the neighbouring unit\u2019s text. From any chapter, tap \ud83d\udcc7 Build vocab deck or \ud83d\udcd8 Turn into lessons. Textbook units now sit in their own \u201cFrom your textbooks\u201d section on the Learn page, separate from your AI course, and you generate their lessons one tap at a time.', v: 26 },
   ];
 
   var steps, stepIdx;

@@ -40,6 +40,14 @@ class ExtractError(Exception):
     """User-fixable extraction failure (bad URL, blocked host, empty body…)."""
 
 
+class RendererUnavailable(ExtractError):
+    """The PDF rasterizer isn't usable on this server.
+
+    Distinct from a PDF we can't open: nothing is wrong with the book, so callers
+    must not "repair" it or conclude that its pages don't render.
+    """
+
+
 # ── URL fetching (SSRF-guarded) ────────────────────────────────────────────────
 
 def _is_blocked_ip(ip: str) -> bool:
@@ -394,6 +402,464 @@ def extract_pdf_pages(pdf_bytes: bytes, max_pages: int = MAX_PDF_PAGES,
     if include_images:
         result["visuals"] = visuals
     return result
+
+
+# ── Locating a line ON a page (mid-page split markers) ─────────────────────────
+#
+# A textbook unit boundary can fall partway down a page, and it is stored as one
+# verbatim line of that page's text. To DRAW that boundary over the rendered page
+# image we need the line's vertical position, which the text itself doesn't carry
+# — so re-extract the page with the positioning visitor, rebuild its lines, and
+# report the matching line's height as a fraction of the crop box.
+
+_LINE_TOLERANCE = 2.0        # user-space units within which text is "the same line"
+
+
+def _norm_line(text: str) -> str:
+    import re
+    return re.sub(r"\s+", " ", text or "").strip().casefold()
+
+
+def _squeeze(text: str) -> str:
+    """All whitespace removed — the comparison of last resort.
+
+    A PDF that positions each word separately gives no space glyphs to extract,
+    so a rebuilt line can read "Unit 2: Orderingfood" where the stored text (and
+    therefore the anchor) reads "Unit 2: Ordering food". Whitespace can't be
+    trusted between the two representations; the characters can.
+    """
+    import re
+    return re.sub(r"\s+", "", text or "").casefold()
+
+
+_MIN_PREFIX_MATCH = 8      # chars before a partial line may claim the anchor
+
+
+def _line_matches(line: str, anchor: str, cleaner=None, *,
+                  exact_only: bool = False) -> bool:
+    """Does this rebuilt page line correspond to the stored anchor line?
+
+    Compares whitespace-collapsed first, then whitespace-free. ``cleaner`` is the
+    same per-page cleanup the STORED text went through (the caller passes it in,
+    so this module stays free of textbook-pipeline imports) — without it, a page
+    whose repeated-text-layer artifact was collapsed on storage would never match
+    its own raw line. With ``exact_only`` no prefix fallback is allowed, so a
+    caller can try every line for an exact hit before settling for a partial one.
+    """
+    candidates = [line]
+    if cleaner:
+        try:
+            candidates.append(cleaner(line))
+        except Exception:
+            pass
+    target, target_sq = _norm_line(anchor), _squeeze(anchor)
+    for cand in candidates:
+        norm, sq = _norm_line(cand), _squeeze(cand)
+        if norm and norm == target:
+            return True
+        if sq and target_sq and sq == target_sq:
+            return True
+        if exact_only:
+            continue
+        # Prefix matching needs a substantial run of characters, or a short line
+        # ("Unit") claims a boundary that belongs further down the page.
+        if norm and min(len(norm), len(target)) >= _MIN_PREFIX_MATCH and (
+                norm.startswith(target) or target.startswith(norm)):
+            return True
+        if sq and target_sq and min(len(sq), len(target_sq)) >= _MIN_PREFIX_MATCH \
+                and (sq.startswith(target_sq) or target_sq.startswith(sq)):
+            return True
+    return False
+
+
+def _positioned_lines(page) -> tuple[list[tuple[str, float]], float, float]:
+    """[(line_text, y)] inside the page's crop box, top-down, plus (top, bottom)."""
+    box = page.cropbox
+    left, right = float(box.left), float(box.right)
+    bottom, top = float(box.bottom), float(box.top)
+    items: list[tuple[str, float, float]] = []
+
+    def visit(text, cm, tm, _font, _size):
+        if not text or not text.strip():
+            return
+        matrix = _matrix_mult([float(v) for v in tm], [float(v) for v in cm])
+        x, y = matrix[4], matrix[5]
+        if left - 2 <= x <= right + 2 and bottom - 2 <= y <= top + 2:
+            items.append((text, x, y))
+
+    page.extract_text(visitor_text=visit)
+    lines: list[tuple[str, float]] = []
+    for text, x, y in sorted(items, key=lambda it: (-it[2], it[1])):
+        if lines and abs(y - lines[-1][1]) <= _LINE_TOLERANCE:
+            lines[-1] = (lines[-1][0] + text, lines[-1][1])
+        else:
+            lines.append((text, y))
+    return [(t, y) for t, y in lines if t.strip()], top, bottom
+
+
+# How far up from a line's baseline toward the previous one a split rule sits.
+# The usable band is between this line's cap height (~0.72 em) and the previous
+# line's descenders (~0.21 em below ITS baseline); at normal leading that's
+# roughly 0.45–0.88 of the gap, so sit near the middle of it. Lower values look
+# like the rule is touching the text it marks.
+_RULE_GAP_FRACTION = 0.68
+
+
+def _page_rule_positions(source, page_no: int):
+    """`([(line_text, rule_fraction)], ok)` for one page, top-down.
+
+    `rule_fraction` is where a split rule for that line belongs: 0 at the top of
+    the crop box, 1 at the bottom. The text visitor reports each line's
+    BASELINE, so a rule drawn there would strike through the first line of the
+    next unit — it goes in the whitespace above instead.
+
+    Not the midpoint between the two baselines: that lands right at the cap
+    height of the line below, so the rule clips the tops of its glyphs. Sit
+    `_RULE_GAP_FRACTION` of the way up toward the previous baseline, which
+    clears the ascenders below while staying under the descenders above.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return [], False
+    try:
+        import io
+        reader = PdfReader(io.BytesIO(source) if isinstance(source, bytes) else source)
+        page = reader.pages[page_no - 1]
+        lines, top, bottom = _positioned_lines(page)
+    except Exception:
+        return [], False
+    height = top - bottom
+    if height <= 0 or not lines:
+        return [], False
+    gaps = sorted(lines[i - 1][1] - lines[i][1] for i in range(1, len(lines)))
+    typical = gaps[len(gaps) // 2] if gaps else height / 40
+    out = []
+    for i, (text, y) in enumerate(lines):
+        above = lines[i - 1][1] if i else y + typical
+        rule_y = y + _RULE_GAP_FRACTION * (above - y)
+        out.append((text, min(1.0, max(0.0, (top - rule_y) / height))))
+    return out, True
+
+
+def page_line_positions(source, page_no: int, cleaner=None) -> list[dict]:
+    """Every line on one page with the height a split rule for it would sit at.
+
+    The inverse of `locate_page_lines`, for placing a split by DRAGGING: the
+    client snaps a drag to the nearest line, and a split is stored as that
+    line's verbatim text (never a coordinate), so what's dragged is exactly what
+    the generator later trims on. `cleaner` normalizes the text the same way the
+    stored page text was cleaned, so the anchor we hand back matches the copy
+    the trimmer reads.
+    """
+    lines, ok = _page_rule_positions(source, page_no)
+    if not ok:
+        return []
+    out = []
+    for text, frac in lines:
+        clean = cleaner(text) if cleaner else text
+        clean = _norm_line_text(clean)
+        if clean:
+            out.append({"text": clean, "y": frac})
+    return out
+
+
+def _norm_line_text(text: str) -> str:
+    """Collapse whitespace without casefolding — anchors are stored verbatim."""
+    import re
+    return re.sub(r"\s+", " ", (text or "").replace("\n", " ")).strip()
+
+
+def locate_page_lines(source, page_no: int, anchors: list[str],
+                      cleaner=None) -> dict[str, float]:
+    """Vertical position of each anchor line on one PDF page.
+
+    ``source`` is PDF bytes or a path; ``anchors`` are verbatim lines (as stored
+    for a mid-page split); ``cleaner`` is the per-page text cleanup the stored
+    text went through, so an anchor taken from cleaned text can still be matched
+    against the raw page. Returns ``{anchor: fraction}`` where fraction is 0 at
+    the top of the crop box and 1 at the bottom — ready to place an overlay on
+    the rendered page image. Anchors that can't be located (a re-transcribed
+    page, an edited anchor, a page with no text layer) are simply omitted, so
+    callers degrade to not drawing a line rather than drawing a wrong one.
+    """
+    wanted = [a for a in anchors if _norm_line(a)]
+    if not wanted:
+        return {}
+    lines, ok = _page_rule_positions(source, page_no)
+    if not ok:
+        return {}
+    out: dict[str, float] = {}
+    for anchor in wanted:
+        # Exact match anywhere on the page beats a partial one at the top.
+        hit = next((i for i, (t, _) in enumerate(lines)
+                    if _line_matches(t, anchor, cleaner, exact_only=True)), None)
+        if hit is None:
+            hit = next((i for i, (t, _) in enumerate(lines)
+                        if _line_matches(t, anchor, cleaner)), None)
+        if hit is None:
+            continue
+        out[anchor] = lines[hit][1]
+    return out
+
+
+# ── Page rendering (for vision re-extraction) ──────────────────────────────────
+
+# Render target: long edge ~2000 px is plenty for the vision model to read dense
+# interlinear text while keeping the JPEG small enough to send per page.
+RENDER_LONG_EDGE = 2000
+RENDER_MAX_SCALE = 4.0
+RENDER_JPEG_QUALITY = 85
+
+
+def _open_for_render(source):
+    """Open a PDF for rasterizing. ``source`` is raw bytes OR a filesystem path.
+
+    Prefer the path form: pdfium reads the file itself, so a 25 MB textbook
+    doesn't have to sit in Python memory for the lifetime of every single page
+    request (several page turns at once used to mean several full copies).
+    """
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        raise RendererUnavailable(
+            "PDF page rendering is unavailable on this server "
+            "(the PDF renderer is not installed)."
+        )
+    try:
+        from PIL import Image  # noqa: F401  (pdfium.to_pil needs Pillow)
+    except ImportError:
+        raise RendererUnavailable(
+            "PDF page rendering is unavailable on this server.")
+    try:
+        return pdfium.PdfDocument(source)
+    except Exception as exc:
+        raise ExtractError(f"Couldn't open that PDF for rendering: {exc}")
+
+
+def can_render(source) -> bool:
+    """True if the rasterizer can open this PDF at all (bytes or path).
+
+    Raises `RendererUnavailable` when there is no rasterizer to ask — that says
+    nothing about the book, so callers must not treat it as a `False`.
+    """
+    try:
+        doc = _open_for_render(source)
+    except RendererUnavailable:
+        raise
+    except Exception:
+        return False
+    try:
+        return len(doc) > 0
+    except Exception:
+        return False
+    finally:
+        doc.close()
+
+
+_PDF_HEADER = b"%PDF-"
+# pdfium only looks for the header at the very start of a file; pypdf scans for
+# it. Search a generous window so a book with a page of junk in front of it is
+# still recognised as the PDF it is.
+_HEADER_SEARCH_BYTES = 64 * 1024
+
+
+def repair_pdf(source) -> bytes | None:
+    """Rewrite a PDF the rasterizer refuses to open. Returns bytes, or None.
+
+    pypdf is far more forgiving than pdfium: it finds the ``%PDF-`` header at
+    ANY offset and rebuilds a broken cross-reference table by scanning for
+    objects. pdfium checks only the first bytes and gives up with "Data format
+    error". So a book can extract all its text perfectly — proving we parsed it
+    — and still fail to rasterize a single page, which reads to the learner as
+    the whole reader being broken.
+
+    Two repairs, cheapest first: drop leading junk before the header (byte for
+    byte identical otherwise, so page geometry and the xref stay valid), then
+    re-serialize the parsed document (a fresh xref and trailer, which also
+    recovers a truncated or corrupt one). Each candidate is verified against the
+    rasterizer before being returned, so a repair can never make things worse.
+    """
+    try:
+        if isinstance(source, (bytes, bytearray)):
+            raw = bytes(source)
+        else:
+            with open(source, "rb") as fh:
+                raw = fh.read()
+    except OSError:
+        return None
+
+    try:
+        offset = raw[:_HEADER_SEARCH_BYTES].find(_PDF_HEADER)
+        if offset > 0 and can_render(raw[offset:]):
+            return raw[offset:]
+    except RendererUnavailable:
+        return None       # nothing to verify a repair against
+
+    try:
+        import io
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(raw), strict=False)
+        if reader.is_encrypted:
+            # An empty user password is the only one we can try; a real
+            # password-protected book is the learner's to unlock.
+            reader.decrypt("")
+        writer = PdfWriter(clone_from=reader)
+        buf = io.BytesIO()
+        writer.write(buf)
+    except Exception:
+        return None
+    rebuilt = buf.getvalue()
+    try:
+        return rebuilt if rebuilt and can_render(rebuilt) else None
+    except RendererUnavailable:
+        return None
+
+
+def pdf_page_count(source) -> int:
+    """How many pages the RENDERER sees in a PDF (bytes or path).
+
+    Text extraction (pypdf) and rendering (pdfium) walk the page tree
+    independently, and a damaged or unusual book can leave them disagreeing —
+    which shows up as "every page past N fails to render" while the extracted
+    text for those pages is right there. Callers use this to say so plainly.
+    """
+    doc = _open_for_render(source)
+    try:
+        return len(doc)
+    finally:
+        doc.close()
+
+
+def render_pdf_pages(source, page_numbers: list[int] | None = None,
+                     long_edge: int = RENDER_LONG_EDGE) -> dict[int, bytes]:
+    """Rasterize selected PDF pages to JPEG bytes, keyed by 1-based page number.
+
+    ``source`` is raw PDF bytes or a path to one. Used by the textbook reader
+    (screen-size renders, cached on disk) and by the vision re-extraction path:
+    deterministic ``pypdf`` text loses the structure of 2-up / interlinear /
+    romanized books (and returns nothing for scanned pages), so we render those
+    pages and let the model transcribe them.
+
+    ``page_numbers`` is 1-based (out-of-range entries are ignored); ``None`` means
+    every page. Raises ``ExtractError`` if the renderer is unavailable or the PDF
+    can't be opened.
+    """
+    import io
+    doc = _open_for_render(source)
+
+    out: dict[int, bytes] = {}
+    try:
+        total = len(doc)
+        wanted = (sorted({int(p) for p in page_numbers})
+                  if page_numbers is not None else range(1, total + 1))
+        for pno in wanted:
+            if pno < 1 or pno > total:
+                continue
+            page = doc[pno - 1]
+            try:
+                width, height = page.get_size()
+                scale = min(RENDER_MAX_SCALE,
+                            max(1.0, long_edge / max(1.0, max(width, height))))
+                pil = page.render(scale=scale).to_pil().convert("RGB")
+                buf = io.BytesIO()
+                pil.save(buf, format="JPEG", quality=RENDER_JPEG_QUALITY,
+                         optimize=True)
+                out[pno] = buf.getvalue()
+            except Exception:
+                # Per-page best-effort: one damaged page in a batch must not
+                # cost the caller every other page it asked for. The page is
+                # simply absent from the result.
+                continue
+            finally:
+                page.close()
+    finally:
+        doc.close()
+    return out
+
+
+# ── Extraction quality heuristic (when to suggest AI re-reading) ────────────────
+
+def page_text_quality(text: str) -> float:
+    """Rough 0..1 confidence that a page's *extracted* text is clean and usable.
+
+    Low scores flag the failure modes deterministic PDF text hits on the books
+    this feature targets: a near-empty page (scanned / image-only), text whose
+    word boundaries collapsed (2-up columns merged into one run), or a page that
+    is mostly punctuation/symbol noise. It is intentionally conservative — a plain
+    short vocab list should still score well — because it only *suggests* AI
+    re-reading, which the user can always invoke regardless.
+    """
+    s = (text or "").strip()
+    if not s:
+        return 1.0  # a genuinely blank page (spacer) isn't a failure
+    letters = sum(c.isalpha() for c in s)
+    if letters < 4:
+        # Almost no letters but not blank → stray marks on an image/scanned page
+        # the text layer couldn't read. (A short-but-clean vocab line has more.)
+        return 0.2
+    non_space = [c for c in s if not c.isspace()]
+    alpha_ratio = letters / max(1, len(non_space))
+    # Word-boundary health: CJK/Thai run together legitimately, so only penalise
+    # when the text is largely Latin yet has almost no spaces (merged columns).
+    latin = sum(1 for c in s if ("a" <= c.lower() <= "z"))
+    spaces = s.count(" ")
+    score = 1.0
+    if alpha_ratio < 0.45:
+        score -= 0.4  # dominated by symbols/numbers → noisy extraction
+    if latin > 200 and spaces / max(1, len(s)) < 0.06:
+        score -= 0.4  # long Latin text with no spaces → boundaries lost
+    return max(0.0, min(1.0, score))
+
+
+def native_script_ratio(text: str) -> float:
+    """Fraction of non-space chars that are non-Latin *native script*.
+
+    Romanization (basic Latin + combining tone diacritics, U+0300–036F, and the
+    Latin Extended blocks) counts as 0; Greek/Cyrillic/Arabic/Indic/Thai/Hangul/
+    kana/CJK (U+0370 and up) count as native. Used to catch a non-Latin-language
+    book whose text layer carries only romanization — vision can reconstruct the
+    native script the planner needs.
+    """
+    non_space = [c for c in (text or "") if not c.isspace()]
+    if not non_space:
+        return 0.0
+    native = sum(1 for c in non_space if ord(c) >= 0x0370)
+    return native / len(non_space)
+
+
+def assess_page_quality(pages: list[str], min_content_pages: int = 4, *,
+                        expect_native_script: bool = False) -> dict:
+    """Aggregate ``page_text_quality`` across a book.
+
+    Returns ``{"low_quality": bool, "poor_pages": [1-based, ...], "score": float,
+    "reason": str}``. ``low_quality`` is a *hint* for the UI to surface AI
+    re-reading; it never blocks the deterministic flow. Flagged when: pages are
+    garbled/merged, the book extracts to almost nothing (scanned), OR — for a
+    non-Latin target language — the extracted text is almost all romanization
+    with no native script (``expect_native_script``).
+    """
+    scored = [(i + 1, page_text_quality(p)) for i, p in enumerate(pages)]
+    content = [(n, sc) for (n, sc), p in zip(scored, pages) if (p or "").strip()]
+    poor = [n for n, sc in scored if sc < 0.6]
+    total_chars = sum(len((p or "").strip()) for p in pages)
+    n_content = max(1, len(content))
+    avg = sum(sc for _, sc in content) / n_content if content else 1.0
+    sparse = len(content) >= min_content_pages and total_chars < 120 * len(content)
+    no_native = False
+    if expect_native_script and total_chars >= 400:
+        no_native = native_script_ratio("\n".join(pages)) < 0.03
+    low = (len(poor) >= max(2, 0.25 * n_content)) or sparse or (avg < 0.7) or no_native
+    reason = ("missing_native_script" if no_native else
+              "sparse_text" if sparse else
+              "garbled_text" if low else "")
+    return {"low_quality": bool(low),
+            "poor_pages": poor[:200],
+            "score": round(avg, 3),
+            "reason": reason}
 
 
 # ── Shared cleanup ─────────────────────────────────────────────────────────────

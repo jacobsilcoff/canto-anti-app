@@ -739,6 +739,43 @@
     .maker-actions .cta-btn { flex: 1; margin: 0; }
     .maker-link { border: none; background: none; color: var(--primary); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 5px 0; }
     .maker-error { border-radius: 10px; background: var(--danger-soft); color: var(--danger); padding: 9px 11px; font-size: .78rem; margin: 10px 0; }
+    /* Chapter → vocab deck review */
+    .vocab-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+    .vocab-stat { flex: 1; border-radius: 12px; background: var(--surface-alt); padding: 9px 11px; }
+    .vocab-stat.new { background: var(--good-soft); }
+    .vocab-stat b { display: block; font-size: 1.3rem; line-height: 1.1; }
+    .vocab-stat.new b { color: var(--good-strong); }
+    .vocab-stat span { font-size: .68rem; color: var(--text-muted); }
+    .vocab-stat.new span { color: var(--good-strong); }
+    .vocab-selbar { display: flex; align-items: center; justify-content: space-between; font-size: .74rem; color: var(--text-muted); padding: 4px 2px 8px; }
+    .vocab-selbar button { border: none; background: none; color: var(--primary); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; padding: 3px 5px; }
+    .vocab-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .vocab-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .vocab-row:last-child { border-bottom: none; }
+    .vocab-row.in-deck { opacity: .55; }
+    .vocab-row input[type=checkbox] { width: 17px; height: 17px; flex-shrink: 0; accent-color: var(--primary); }
+    .vocab-row-main { flex: 1; min-width: 0; }
+    .vocab-row-rom { font-size: .68rem; color: var(--text-muted); }
+    .vocab-row-word { font-size: .96rem; font-weight: 600; }
+    .vocab-row-word .gl { font-weight: 400; color: var(--text-muted); font-size: .82rem; }
+    .vocab-badge { font-size: .62rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
+    .vocab-badge.have { background: var(--surface-alt); color: var(--text-muted); }
+    .vocab-more { text-align: center; padding: 9px; font-size: .76rem; color: var(--text-muted); }
+    .vocab-toggle { display: flex; align-items: center; gap: 9px; font-size: .8rem; color: var(--text-muted); margin-top: 12px; cursor: pointer; }
+    .vocab-toggle input { width: 16px; height: 16px; accent-color: var(--primary); }
+    .vocab-done { text-align: center; padding: 20px 6px; }
+    .vocab-done-icon { font-size: 2.4rem; }
+    .vocab-done h3 { margin: 10px 0 4px; font-size: 1.05rem; }
+    .vocab-done p { color: var(--text-muted); font-size: .82rem; margin: 0 0 16px; }
+    .vocab-loading { text-align: center; padding: 30px 14px; }
+    .vocab-loading .spinner { width: 30px; height: 30px; border-width: 4px; }
+    .vocab-loading .vocab-done-icon { font-size: 2.4rem; }
+    .vocab-loading h3 { margin: 14px 0 6px; font-size: 1.05rem; }
+    .vocab-loading p { color: var(--text-muted); font-size: .85rem; margin: 0 auto; max-width: 340px; line-height: 1.5; }
+    .tb-gen { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 12px 0 4px; }
+    .tb-gen-left { opacity: .7; font-weight: 500; }
+    .tb-gen-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .72rem; padding: 3px 8px; }
+    .tb-gen-clear:hover { color: var(--danger); }
     .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
     .bk-title-row { display: flex; align-items: center; gap: 8px; }
     .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1108,6 +1145,8 @@
   let _generating = false;    // true while a /next API call is in-flight
   let _genCount = 0;          // lessons still to author this batch (for the label)
   let _genError = null;       // last error message from generation
+  let _tbGenerating = null;   // textbook unit_id currently authoring its next lesson
+  let _tbError = null;        // last error from a textbook-unit generation
 
   function show(state) {
     _currentState = state;
@@ -1751,9 +1790,19 @@
   let _sourceError = '';
   let _sourceTimer = null;
   let _sourceRequest = 0;
+  let _reReading = false;
   let _pendingBookFile = null;
   let _pendingBookTitle = '';
   let _bookProgress = '';
+  // Chapter → vocab deck review state.
+  let _vocabItems = [];        // [{target, gloss, romanization, cefr, in_deck, _pick}]
+  let _vocabMeta = null;       // {section, book, start, end, lang}
+  let _vocabName = '';
+  let _vocabSaveShared = false;
+  let _vocabBusy = false;
+  let _vocabExtracting = false; // true only during the LLM extraction call (not the commit)
+  let _vocabExpanded = false;
+  let _vocabDone = null;       // {created, skipped, label_id, deck_id} after commit
 
   function _sourceBook() { return _books.find(b => b.id === _sourceBookId) || null; }
 
@@ -1777,8 +1826,9 @@
   }
 
   function lessonMakerBack() {
-    if (_bookBusy) return;
+    if (_bookBusy || _vocabBusy) return;
     if (_makerStep === 'manage') _makerStep = 'source';
+    else if (_makerStep === 'vocab') { _makerStep = 'source'; _vocabDone = null; }
     else if (_makerStep === 'source') _makerStep = 'books';
     else _makerStep = 'choose';
     _sourceError = '';
@@ -1826,15 +1876,16 @@
             <span class="maker-option-icon">✨</span><b>Continue my course</b>
             <small>AI chooses the next topic from your progress, deck, and course focus.</small>
           </button>
-          <button class="maker-option" onclick="chooseLessonSource('textbook')">
+          <button class="maker-option" onclick="window.location.href='/textbooks'">
             <span class="maker-option-icon">📕</span><b>From a textbook</b>
-            <small>Review exact pages, then create a faithful unit covering the whole chapter.</small>
+            <small>Read your books by chapter, then turn a chapter into a vocab deck or a lesson unit.</small>
           </button>
         </div>`;
       return;
     }
     if (_makerStep === 'books') { renderBookPicker(body); return; }
     if (_makerStep === 'manage') { renderSectionManager(body); return; }
+    if (_makerStep === 'vocab') { renderVocabReview(body); return; }
     renderSourceReview(body);
   }
 
@@ -1924,20 +1975,191 @@
         <label class="maker-page"><span>End page</span><input id="source-end" type="number" min="1" max="${b.num_pages}" value="${_sourceEnd}" onchange="sourceRangeChanged()"></label>
       </div>
       <label class="maker-field"><span>Extracted text for this unit</span>
-        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${_sourceLoading ? ' disabled' : ''}>${esc(_sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
+        <textarea id="source-text" class="maker-textarea" oninput="_sourceText=this.value;updateSourceCount()"${(_sourceLoading || _reReading) ? ' disabled' : ''}>${esc(_reReading ? 'AI is re-reading these pages…' : _sourceLoading ? 'Loading extracted text…' : _sourceText)}</textarea>
         <span class="maker-help"><span>Review this carefully. You can remove irrelevant text or fix extraction errors.</span><span class="maker-count" id="source-count"></span></span>
+        <button class="maker-link" onclick="reReadSource()"${(_bookBusy || _sourceLoading || _reReading) ? ' disabled' : ''}>${_reReading ? '<span class="spinner"></span> AI is re-reading these pages…' : '✨ Re-read these pages with AI'}</button>
+        <span class="maker-help"><span>If the text above is garbled, out of order, or shows only romanization with no ${esc(langName || 'native')} characters, let AI read the page images and rewrite it cleanly.</span></span>
       </label>
       ${visuals}
       <label class="maker-field"><span>Guide the unit <span style="font-weight:400;color:var(--text-muted)">(optional)</span></span>
         <textarea class="maker-guidance" maxlength="1000" placeholder="For example: focus on the classifier examples, use exercise 3, and make the practice conversation-heavy." oninput="_sourceGuidance=this.value">${esc(_sourceGuidance)}</textarea>
       </label>
       <button class="maker-link" onclick="openSectionManager()">Edit how this textbook is divided into units</button>
+      ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
       ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
       <div class="maker-actions">
         <button class="course-regen" onclick="lessonMakerBack()"${_bookBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="buildVocabDeck()"${(_bookBusy || _sourceLoading || _reReading || _vocabBusy) ? ' disabled' : ''} title="Pull every word from these pages into a flashcard deck">${_vocabBusy ? '<span class="spinner"></span> Reading chapter…' : '📇 Build vocab deck'}</button>
         <button class="cta-btn" onclick="createTextbookLesson()"${(_bookBusy || _sourceLoading) ? ' disabled' : ''}>${_bookBusy ? '<span class="spinner"></span> Planning unit…' : 'Create multi-lesson unit'}</button>
       </div>`;
     updateSourceCount();
+  }
+
+  // ── Chapter → vocab deck ────────────────────────────────────────────────────
+
+  async function buildVocabDeck() {
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading || _vocabBusy) return;
+    if ((_sourceText || '').length > TEXTBOOK_SOURCE_CHAR_LIMIT) {
+      _sourceError = `This selection is too long. Trim it below ${TEXTBOOK_SOURCE_CHAR_LIMIT.toLocaleString()} characters or choose fewer pages.`;
+      renderLessonMaker();
+      return;
+    }
+    // Switch to the vocab step right away so the learner sees a loading screen
+    // (the LLM extraction can take many seconds over a multi-page chapter).
+    _vocabBusy = true; _vocabExtracting = true; _sourceError = '';
+    _vocabItems = []; _vocabDone = null; _vocabExpanded = false;
+    _makerStep = 'vocab';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/vocab`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: _sourceStart, end: _sourceEnd,
+          source_text: _sourceText, guidance: _sourceGuidance,
+        }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not extract vocabulary.');
+      _vocabItems = (data.items || []).map(it => ({ ...it, _pick: !it.in_deck }));
+      _vocabMeta = { section: data.section, book: data.book,
+                     start: data.start, end: data.end, lang: data.lang };
+      _vocabName = data.section || `Pages ${data.start}–${data.end}`;
+      _vocabSaveShared = false;
+    } catch (e) {
+      _sourceError = e.message || 'Could not extract vocabulary.';
+    } finally {
+      _vocabBusy = false; _vocabExtracting = false;
+      renderLessonMaker();
+    }
+  }
+
+  function _vocabSelCount() { return _vocabItems.filter(it => it._pick).length; }
+
+  function renderVocabReview(body) {
+    _makerHeader('Build vocab deck');
+    if (_vocabExtracting) {
+      const b = _sourceBook();
+      const where = b ? `pages ${_sourceStart}–${_sourceEnd} of ${esc(b.title)}` : 'these pages';
+      body.innerHTML = `<div class="vocab-loading">
+          <span class="spinner"></span>
+          <h3>Reading ${where} for vocabulary…</h3>
+          <p>Pulling every word out of the chapter and checking it against your deck. This can take a little while for longer chapters.</p>
+        </div>`;
+      return;
+    }
+    if (_vocabDone) { renderVocabDone(body); return; }
+    if (!_vocabItems.length) {
+      body.innerHTML = `<div class="vocab-loading">
+          <div class="vocab-done-icon">🔍</div>
+          <h3>No vocabulary found</h3>
+          <p>${_sourceError
+            ? esc(_sourceError)
+            : `We couldn't pull any words from these pages. Try a different page range, or re-read the pages with AI if the extracted text looked garbled.`}</p>
+          <div style="margin-top:12px"><button class="cta-btn secondary" onclick="lessonMakerBack()">Back to pages</button></div>
+        </div>`;
+      return;
+    }
+    const total = _vocabItems.length;
+    const inDeck = _vocabItems.filter(it => it.in_deck).length;
+    const newCount = total - inDeck;
+    const sel = _vocabSelCount();
+    const CAP = 12;
+    const shown = _vocabExpanded ? _vocabItems : _vocabItems.slice(0, CAP);
+    const rows = shown.map((it, i) => {
+      const idx = _vocabItems.indexOf(it);
+      const rom = it.romanization ? `<div class="vocab-row-rom">${esc(it.romanization)}</div>` : '';
+      const badge = it.in_deck
+        ? '<span class="vocab-badge have">✓ in deck</span>'
+        : (it.cefr ? `<span class="vocab-badge">${esc(it.cefr)}</span>` : '');
+      return `<label class="vocab-row${it.in_deck ? ' in-deck' : ''}">
+        <input type="checkbox"${it._pick ? ' checked' : ''}${it.in_deck ? ' disabled' : ''} onchange="toggleVocabItem(${idx},this.checked)">
+        <div class="vocab-row-main">${rom}
+          <div class="vocab-row-word">${esc(it.target)} <span class="gl">— ${esc(it.gloss)}</span></div>
+        </div>${badge}</label>`;
+    }).join('');
+    const more = (!_vocabExpanded && total > CAP)
+      ? `<div class="vocab-more"><button class="maker-link" onclick="_vocabExpanded=true;renderLessonMaker()">Show all ${total} words</button></div>` : '';
+    body.innerHTML = `<p class="maker-intro">Every word ${_vocabMeta.section ? `from <b>${esc(_vocabMeta.section)}</b>` : 'in these pages'}, ready to study. Uncheck any you don't want, then add them to your deck.</p>
+      <div class="vocab-stats">
+        <div class="vocab-stat new"><b>${newCount}</b><span>new word${newCount === 1 ? '' : 's'}</span></div>
+        <div class="vocab-stat"><b>${inDeck}</b><span>already in deck</span></div>
+        <div class="vocab-stat"><b>${total}</b><span>found</span></div>
+      </div>
+      <div class="vocab-selbar"><span>${sel} selected</span>
+        <span><button onclick="selectAllVocab(true)">Select all new</button> · <button onclick="selectAllVocab(false)">Clear</button></span>
+      </div>
+      <div class="vocab-list">${rows}</div>${more}
+      <label class="maker-field" style="margin-top:14px"><span>Deck name</span>
+        <input class="maker-select" maxlength="80" value="${esc(_vocabName)}" oninput="_vocabName=this.value">
+      </label>
+      <label class="vocab-toggle"><input type="checkbox"${_vocabSaveShared ? ' checked' : ''} onchange="_vocabSaveShared=this.checked"> Also save as a shareable deck in Browse</label>
+      ${_sourceError ? `<div class="maker-error">${esc(_sourceError)}</div>` : ''}
+      <div class="maker-actions">
+        <button class="course-regen" onclick="lessonMakerBack()"${_vocabBusy ? ' disabled' : ''}>Back</button>
+        <button class="cta-btn secondary" onclick="commitVocabDeck(false)"${(_vocabBusy || !sel) ? ' disabled' : ''}>Add to deck</button>
+        <button class="cta-btn" onclick="commitVocabDeck(true)"${(_vocabBusy || !sel) ? ' disabled' : ''}>${_vocabBusy ? '<span class="spinner"></span> Adding…' : `Add ${sel} &amp; study →`}</button>
+      </div>`;
+  }
+
+  function toggleVocabItem(idx, checked) {
+    if (_vocabItems[idx]) _vocabItems[idx]._pick = checked;
+    renderLessonMaker();
+  }
+
+  function selectAllVocab(onlyNew) {
+    _vocabItems.forEach(it => { it._pick = onlyNew ? !it.in_deck : false; });
+    renderLessonMaker();
+  }
+
+  async function commitVocabDeck(study) {
+    if (_vocabBusy) return;
+    const picks = _vocabItems.filter(it => it._pick && !it.in_deck);
+    if (!picks.length) { _sourceError = 'Select at least one new word.'; renderLessonMaker(); return; }
+    const name = (_vocabName || '').trim();
+    if (!name) { _sourceError = 'Give the deck a name.'; renderLessonMaker(); return; }
+    _vocabBusy = true; _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await fetch('/api/vocab-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lang: _vocabMeta.lang, deck_name: name, save_shared: _vocabSaveShared,
+          items: picks.map(it => ({
+            target_text: it.target, source_text: it.gloss,
+            romanization: it.romanization || '', cefr_level: it.cefr || null,
+            notes: it.example || null,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not build the deck.');
+      _vocabDone = { ...data, name, study };
+      if (study && data.label_id) {
+        window.location.href = `/cards?label_id=${data.label_id}&study=1`;
+        return;
+      }
+      renderLessonMaker();
+    } catch (e) {
+      _sourceError = e.message || 'Could not build the deck.';
+    } finally {
+      _vocabBusy = false;
+      if (!_vocabDone) renderLessonMaker();
+    }
+  }
+
+  function renderVocabDone(body) {
+    const d = _vocabDone;
+    const skipNote = d.skipped ? ` <span style="color:var(--text-muted)">(${d.skipped} already in your deck)</span>` : '';
+    body.innerHTML = `<div class="vocab-done">
+        <div class="vocab-done-icon">📇</div>
+        <h3>Added ${d.created} word${d.created === 1 ? '' : 's'} to your deck</h3>
+        <p>Tagged 📕 ${esc(d.name)}${skipNote}. Study them any time from the Cards tab.</p>
+        <button class="cta-btn" onclick="window.location.href='/cards?label_id=${d.label_id}&study=1'">Study ${d.created} word${d.created === 1 ? '' : 's'} →</button>
+        <div style="margin-top:10px"><button class="maker-link" onclick="closeBooks()">Done</button></div>
+      </div>`;
   }
 
   function selectBookSection(value) {
@@ -1976,6 +2198,7 @@
     if (!b) return;
     const requestId = ++_sourceRequest;
     _sourceLoading = true;
+    _bookMsg = '';
     renderLessonMaker();
     try {
       const r = await fetch(`/api/textbooks/${b.id}/pages?start=${_sourceStart}&end=${_sourceEnd}`);
@@ -1998,6 +2221,41 @@
         _sourceLoading = false;
         renderLessonMaker();
       }
+    }
+  }
+
+  async function reReadSource() {
+    // Vision re-extraction: render the selected pages and let the model
+    // transcribe them into clean, native-script text (fixes 2-up / interlinear /
+    // romanization-only / scanned pages that pypdf mangles). Overwrites the
+    // stored page text for this range, then reloads the preview.
+    const b = _sourceBook();
+    if (!b || _bookBusy || _sourceLoading || _reReading) return;
+    _reReading = true;
+    _sourceError = '';
+    renderLessonMaker();
+    try {
+      const res = await textbookFetch(`/api/textbooks/${b.id}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: _sourceStart, end: _sourceEnd }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not re-read these pages.');
+      _sourceText = (data.pages || []).map(
+        p => `— PDF page ${p.page} —\n${(p.text || '').trim() || '(no text on this page)'}`
+      ).join('\n\n');
+      const n = (data.updated_pages || []).length;
+      _bookMsg = n ? `AI re-read ${n} page${n === 1 ? '' : 's'}. Review the text below before generating.`
+                   : 'AI re-reading produced no changes for these pages.';
+    } catch (e) {
+      _sourceError = e.name === 'AbortError'
+        ? 'AI re-reading took too long. Try a smaller page range.'
+        : (e.message || 'Could not re-read these pages.');
+    } finally {
+      _reReading = false;
+      renderLessonMaker();
+      updateSourceCount();
     }
   }
 
@@ -2236,6 +2494,11 @@
         await loadBooks(false);
         _bookBusy = false;
         _bookProgress = '';
+        _bookMsg = data.low_text_quality
+          ? (data.low_text_quality_reason === 'missing_native_script'
+              ? `This book's text seems to be romanization only, with no ${langName || 'native'} characters. Use “✨ Re-read these pages with AI” below to recover the native script before generating.`
+              : 'The extracted text looks garbled or incomplete. Use “✨ Re-read these pages with AI” below to clean it up before generating.')
+          : '';
         selectBook(data.id);
       } catch (analysisError) {
         await loadBooks(false);
@@ -2285,9 +2548,38 @@
     await loadBooks();
   }
 
-  async function clearTextbookQueue(courseId) {
-    if (!confirm('Drop the remaining lessons from the old textbook queue? Lessons already built are kept.')) return;
-    await fetch(`/api/courses/${courseId}/textbook`, { method: 'DELETE' }).catch(() => {});
+  function toggleTextbooks() {
+    const isNowCollapsed = localStorage.getItem('learn_textbooks_collapsed') !== '1';
+    localStorage.setItem('learn_textbooks_collapsed', isNowCollapsed ? '1' : '0');
+    const body    = document.getElementById('textbooks-body');
+    const chevron = document.getElementById('textbooks-chevron');
+    if (body)    body.style.display = isNowCollapsed ? 'none' : '';
+    if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
+  }
+
+  // Author the next queued lesson for ONE textbook unit (explicit, unit-scoped —
+  // never the AI course path).
+  async function generateTextbookLesson(unitId) {
+    if (_tbGenerating) return;
+    _tbGenerating = unitId; _tbError = null;
+    if (currentCourse) renderCourse(currentCourse);
+    try {
+      const res = await fetch(`/api/course-units/${unitId}/next-lesson`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Could not generate the next lesson.');
+      const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+      if (course) { currentCourse = course; }
+    } catch (e) {
+      _tbError = e.message || 'Could not generate the next lesson.';
+    } finally {
+      _tbGenerating = null;
+      if (currentCourse) renderCourse(currentCourse);
+    }
+  }
+
+  async function clearTextbookUnitQueue(unitId) {
+    if (!confirm('Drop the remaining un-generated lessons for this textbook unit? Lessons already built are kept.')) return;
+    await fetch(`/api/course-units/${unitId}/queue`, { method: 'DELETE' }).catch(() => {});
     const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
     if (course) { currentCourse = course; renderCourse(course); }
   }
@@ -2468,8 +2760,9 @@
       (LANGS.find(x => x.code === course.target_lang) || {}).name || course.target_lang;
 
     const allUnits  = course.units || [];
-    const foundUnits = allUnits.filter(u => u.theme === 'foundations');
-    const aiUnits    = allUnits.filter(u => u.theme !== 'foundations');
+    const foundUnits    = allUnits.filter(u => u.theme === 'foundations');
+    const textbookUnits = allUnits.filter(u => u.theme === 'textbook');
+    const aiUnits       = allUnits.filter(u => u.theme !== 'foundations' && u.theme !== 'textbook');
 
     // B6 · the Practice hub needs at least one finished AI lesson to remix.
     const aiDone = aiUnits.reduce((n, u) =>
@@ -2558,6 +2851,56 @@
       requestAnimationFrame(drawPathConnectors);
     }
 
+    // ── Textbook units — their own section, separate from the AI course path ────
+    if (textbookUnits.length > 0) {
+      // Default EXPANDED (the learner just built these). '1' = collapsed.
+      const collapsed = localStorage.getItem('learn_textbooks_collapsed') === '1';
+      const tTotal = textbookUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+      const tDone  = textbookUnits.reduce((n, u) =>
+        n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
+
+      const section = document.createElement('div');
+      section.className = 'foundations-section';
+      section.innerHTML = `
+        <button class="foundations-toggle" onclick="toggleTextbooks()">
+          <span class="foundations-icon">📕</span>
+          <span class="foundations-label">From your textbooks</span>
+          <span class="foundations-progress">${tDone}/${tTotal}</span>
+          <span class="foundations-chevron" id="textbooks-chevron"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="foundations-body" id="textbooks-body"
+          style="${collapsed ? 'display:none' : ''}"></div>`;
+
+      const body = section.querySelector('#textbooks-body');
+      textbookUnits.forEach(u => {
+        const unitDiv = document.createElement('div');
+        unitDiv.className = 'unit';
+        const remaining = u.queued_remaining || 0;
+        const gen = _tbGenerating === u.id;
+        let html = `<div class="unit-head">
+          <div class="unit-title">${esc(u.title || 'Textbook unit')}</div>
+          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+        </div>`;
+        (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
+        if (remaining > 0) {
+          html += `<div class="tb-gen">
+            <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id})">
+              ${gen ? '<span class="spinner"></span> Building next lesson…'
+                    : `＋ Generate next lesson <span class="tb-gen-left">${remaining} left</span>`}</button>
+            <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>
+          </div>`;
+        }
+        if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
+        unitDiv.innerHTML = html;
+        body.appendChild(unitDiv);
+      });
+      if (_tbError && !_tbGenerating)
+        body.insertAdjacentHTML('beforeend',
+          `<div class="gen-label" style="color:var(--danger);padding:0 8px 8px">${esc(_tbError)}</div>`);
+      wrap.appendChild(section);
+    }
+
     // ── Inline generation area (path-style skeleton matching lrow/lnode) ────────
     const genArea = document.getElementById('course-gen-area');
     if (_generating) {
@@ -2579,14 +2922,10 @@
     // One entry point for lesson creation. The sheet then offers the adaptive
     // AI path or an explicitly reviewed textbook source.
     const cta = document.getElementById('course-cta');
-    const nQueued = course.queued_lessons || 0;
     cta.innerHTML = `<div style="text-align:center;padding:16px 0 4px">
       <button class="course-regen"${_generating ? ' disabled' : ''}
         onclick="openLessonMaker(${course.id})">＋ Add lesson</button>
       ${_bookMsg ? `<div class="learn-note" style="margin-top:8px">${esc(_bookMsg)}</div>` : ''}
-      ${nQueued ? `<div class="learn-note" style="margin-top:8px">📕 ${nQueued} lesson${nQueued === 1 ? '' : 's'} remain in an earlier textbook batch. Continuing the course will build the next one.
-        <button class="course-regen" style="margin-left:6px;font-size:.72rem;padding:3px 8px"
-          onclick="clearTextbookQueue(${course.id})">Clear old batch</button></div>` : ''}
     </div>`;
     document.getElementById('course-note').style.display = nLessons > 0 ? '' : 'none';
 
