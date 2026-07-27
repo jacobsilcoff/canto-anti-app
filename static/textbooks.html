@@ -35,6 +35,9 @@
     .tb-card-body { padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
     .tb-card-title { font-weight: 600; font-size: .92rem; line-height: 1.25; }
     .tb-card-meta { color: var(--text-muted); font-size: .74rem; }
+    .tb-card-meta .tb-working { color: var(--primary); white-space: nowrap; }
+    .tb-card-meta .tb-working .spinner { width: 9px; height: 9px; border-width: 2px; vertical-align: 0; }
+    .tb-card-meta .tb-warn { color: var(--warn-strong); text-decoration: underline; cursor: pointer; }
     .tb-bar { height: 5px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
     .tb-bar > span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
     .tb-card-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
@@ -93,11 +96,13 @@
         border-left: none; border-top: 1px solid var(--border); z-index: 5; box-shadow: var(--shadow-pop); }
     }
 
-    /* ── Modal (upload / vocab review) ── */
-    .tb-modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 60; }
+    /* ── Modal (upload / vocab review) ──
+       z-index must clear the mobile tab bar (.tabbar is 90) — at 60 the bar sat
+       ON TOP of the sheet and swallowed its action buttons. */
+    .tb-modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
     .tb-modal.open { display: flex; }
-    .tb-sheet { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; max-height: 88vh; overflow: auto;
-      padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+    .tb-sheet { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; max-height: 88dvh; overflow: auto;
+      padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); }
     @media (min-width: 560px) { .tb-modal { align-items: center; } .tb-sheet { border-radius: 18px; } }
     .tb-sheet h2 { font-family: var(--display-font); font-size: 1.15rem; margin: 0 0 4px; }
     .tb-sheet .tb-sub { color: var(--text-muted); font-size: .85rem; margin: 0 0 14px; }
@@ -270,11 +275,18 @@
         : `<div class="tb-cover-fallback" style="background:var(--primary)">${esc((b.title || '?').slice(0, 1))}</div>`;
       const badge = b.has_pdf ? '' : '<span class="tb-cover-badge">text only</span>';
       const ch = (b.chapters || []).length;
+      // Chapter detection is an AI call that can take a while — say so on the
+      // card instead of leaving "0 chapters" looking like the final answer.
+      let chapMeta;
+      if (_analyzing.has(b.id)) chapMeta = ' · <span class="tb-working"><span class="spinner"></span> finding chapters…</span>';
+      else if (ch) chapMeta = ` · ${ch} chapter${ch === 1 ? '' : 's'}`;
+      else if (_analyzeFailed.has(b.id)) chapMeta = ` · <span class="tb-warn" role="button" onclick="event.stopPropagation();detectChaptersFor(${b.id})">no chapters — retry</span>`;
+      else chapMeta = '';
       return `<div class="tb-card">
         <div class="tb-cover" onclick="openReader(${b.id})">${cover}${badge}</div>
         <div class="tb-card-body">
           <div class="tb-card-title">${esc(b.title)}</div>
-          <div class="tb-card-meta">${b.num_pages} pages${ch ? ` · ${ch} chapter${ch === 1 ? '' : 's'}` : ''}</div>
+          <div class="tb-card-meta">${b.num_pages} pages${chapMeta}</div>
           <div class="tb-bar"><span style="width:${pct}%"></span></div>
           <div class="tb-card-actions">
             <button class="tb-read-btn" onclick="openReader(${b.id})">${pct > 0 ? 'Resume' : 'Read'}</button>
@@ -302,35 +314,93 @@
         <input class="tb-input" id="up-title" maxlength="200" value="${esc(defaultTitle)}"></label>
       <div id="up-status"></div>
       <div class="tb-row-actions">
-        <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="tb-btn ghost" id="up-cancel" onclick="closeModal()">Cancel</button>
         <button class="tb-btn" id="up-go">Upload & parse</button>
       </div>`);
     document.getElementById('up-go').onclick = () => doUpload(file);
   });
 
+  // Upload goes through XHR, not fetch, purely for upload.onprogress: a 20 MB
+  // PDF over a phone connection is most of the wait, and a bare spinner for it
+  // looks like nothing is happening.
+  function _uploadWithProgress(url, fd, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch (err) {}
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data.detail || `Upload failed (${xhr.status}).`));
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload.'));
+      xhr.onabort = () => reject(new Error('Upload cancelled.'));
+      xhr.send(fd);
+    });
+  }
+
+  function _upStatus(html) {
+    const el = document.getElementById('up-status');
+    if (el) el.innerHTML = html;
+  }
+
   async function doUpload(file) {
     if (_busy) return;
     const title = (document.getElementById('up-title').value || '').trim();
-    if (!title) { document.getElementById('up-status').innerHTML = '<div class="tb-error">Give the textbook a name.</div>'; return; }
+    if (!title) { _upStatus('<div class="tb-error">Give the textbook a name.</div>'); return; }
     _busy = true;
     document.getElementById('up-go').disabled = true;
-    document.getElementById('up-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Extracting text and page structure…</div>';
+    const cancel = document.getElementById('up-cancel'); if (cancel) cancel.disabled = true;
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('title', title);
-      const r = await fetch(`/api/courses/${_courseId}/textbooks`, { method: 'POST', body: fd });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.detail || 'Upload failed.');
-      // Detect chapters in the background (best-effort — the book is usable already).
-      fetch(`/api/textbooks/${data.id}/analyze`, { method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+      _upStatus('<div class="tb-progress-note"><span class="spinner"></span> Uploading… 0%</div>');
+      const data = await _uploadWithProgress(
+        `/api/courses/${_courseId}/textbooks`, fd,
+        (frac) => {
+          const pct = Math.round(frac * 100);
+          _upStatus(pct >= 100
+            ? '<div class="tb-progress-note"><span class="spinner"></span> Reading the PDF — extracting text, page structure and images…</div>'
+            : `<div class="tb-progress-note"><span class="spinner"></span> Uploading… ${pct}%</div>`);
+        });
       closeModal();
       await loadBooks();
+      // Chapter detection is a separate request; show it running on the card
+      // rather than firing it into the void.
+      detectChaptersFor(data.id);
     } catch (e) {
-      document.getElementById('up-status').innerHTML = `<div class="tb-error">${esc(e.message || 'Upload failed.')}</div>`;
+      _upStatus(`<div class="tb-error">${esc(e.message || 'Upload failed.')}</div>`);
       document.getElementById('up-go').disabled = false;
+      if (cancel) cancel.disabled = false;
     } finally { _busy = false; }
+  }
+
+  // ── Background chapter detection with visible state on the book card ────────
+  const _analyzing = new Set();      // book ids currently being analyzed
+  const _analyzeFailed = new Set();  // book ids whose detection errored
+
+  async function detectChaptersFor(id) {
+    if (!id || _analyzing.has(id)) return;
+    _analyzing.add(id); _analyzeFailed.delete(id);
+    renderLibrary();
+    try {
+      const r = await fetch(`/api/textbooks/${id}/analyze`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!r.ok) throw new Error('analyze failed');
+      const data = await r.json();
+      const b = _books.find(x => x.id === id);
+      if (b) b.chapters = data.chapters || [];
+      if (!(data.chapters || []).length) _analyzeFailed.add(id);
+    } catch (e) {
+      _analyzeFailed.add(id);
+    } finally {
+      _analyzing.delete(id);
+      renderLibrary();
+    }
   }
 
   async function renameBook(id) {
@@ -357,14 +427,30 @@
   let _saveTimer = null;
 
   async function openReader(id) {
-    const r = await fetch(`/api/textbooks/${id}/reader`);
-    if (!r.ok) { alert('Could not open this book.'); return; }
+    // Open the shell first: /reader carries every page's text, so on a big book
+    // the tap would otherwise do nothing visible for a second or more.
+    const book = _books.find(b => b.id === id);
+    document.getElementById('tbr-title').textContent = book ? book.title : 'Opening…';
+    document.getElementById('tbr-imgwrap').innerHTML = '<div class="spinner tbr-spin"></div>';
+    document.getElementById('tbr-imgwrap').dataset.page = '';
+    document.getElementById('tbr-text').innerHTML = '';
+    document.getElementById('tbr-pageno').textContent = 'Opening…';
+    document.body.classList.add('hide-tabbar');
+    document.getElementById('reader').classList.add('open');
+    let r;
+    try {
+      r = await fetch(`/api/textbooks/${id}/reader`);
+    } catch (e) { r = null; }
+    if (!r || !r.ok) {
+      document.getElementById('tbr-imgwrap').innerHTML =
+        '<div class="tb-error" style="margin:auto">Could not open this book. Close and try again.</div>';
+      document.getElementById('tbr-pageno').textContent = '';
+      return;
+    }
     _rb = await r.json();
     _bookmarks = new Set(_rb.bookmarks || []);
     _page = Math.min(Math.max(1, _rb.last_page || 1), _rb.num_pages || 1);
     document.getElementById('tbr-title').textContent = _rb.title;
-    document.body.classList.add('hide-tabbar');
-    document.getElementById('reader').classList.add('open');
     // Say it once, up front, when the PDF can't rasterize its whole page range —
     // otherwise it just looks like the book breaks partway through.
     const rp = _rb.renderable_pages;
@@ -913,11 +999,30 @@
   }
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
+  // The sheet is bottom-anchored, so the phone keyboard would sit on top of the
+  // very buttons a form needs. Shrink the overlay to the VISIBLE viewport so its
+  // flex-end lands above the keyboard (iOS never resizes the layout viewport).
+  function _syncModalViewport() {
+    const vv = window.visualViewport;
+    const modal = document.getElementById('tb-modal');
+    if (!vv || !modal) return;
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    modal.style.bottom = overlap ? overlap + 'px' : '';
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _syncModalViewport);
+    window.visualViewport.addEventListener('scroll', _syncModalViewport);
+  }
+
   function openModal(html) {
     document.getElementById('tb-sheet').innerHTML = html;
     document.getElementById('tb-modal').classList.add('open');
+    _syncModalViewport();
   }
-  function closeModal() { document.getElementById('tb-modal').classList.remove('open'); }
+  function closeModal() {
+    document.getElementById('tb-modal').classList.remove('open');
+    document.getElementById('tb-modal').style.bottom = '';
+  }
 
   window.addEventListener('pagehide', () => { if (_rb) saveReading(true); });
   boot();

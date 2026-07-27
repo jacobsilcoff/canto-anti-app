@@ -4405,6 +4405,13 @@ async def textbook_page_image(textbook_id: int, page: int,
             ))
         try:
             async with _TEXTBOOK_RENDER_SEM:
+                # Re-check under the semaphore: the library cover and the reader
+                # both ask for page 1 the moment a book is uploaded, and the
+                # loser of that race would otherwise rasterize it a second time.
+                if _usable_cached_page(cache_path):
+                    return FileResponse(
+                        cache_path, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=31536000, immutable"})
                 images = await asyncio.to_thread(
                     extract.render_pdf_pages, str(pdf_path), [page],
                     _TEXTBOOK_PAGE_LONG_EDGE)
