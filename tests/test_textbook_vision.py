@@ -410,10 +410,23 @@ def test_split_marks_dedupes_the_two_sides_of_one_boundary():
     assert marks[0]["page"] == 3
     assert (marks[0]["above"], marks[0]["below"]) == ("Unit 1", "Unit 2")
     assert marks[0]["y"] is None                # filled in by the route
+    assert marks[0]["kind"] == "mid" and marks[0]["boundary"] == 0
 
-    # An unanchored book has no markers at all.
-    assert main._split_marks([{"title": "A", "start": 1, "end": 3},
-                              {"title": "B", "start": 4, "end": 6}]) == []
+
+def test_split_marks_include_clean_page_breaks():
+    """A boundary between two whole-page ranges is a real division too, and the
+    reader has to be able to see (and delete) it — that's what makes the page
+    the only place unit structure has to be edited."""
+    marks = main._split_marks([{"title": "A", "start": 1, "end": 3},
+                               {"title": "B", "start": 4, "end": 6}])
+    assert [(m["page"], m["edge"], m["kind"]) for m in marks] == [
+        (3, "bottom", "page"), (4, "top", "page")]
+    assert all(m["boundary"] == 0 and m["line"] == "" and m["y"] is None
+               for m in marks)
+    assert all((m["above"], m["below"]) == ("A", "B") for m in marks)
+
+    # A single chapter has no boundary at all.
+    assert main._split_marks([{"title": "A", "start": 1, "end": 6}]) == []
 
 
 @pytest.mark.asyncio

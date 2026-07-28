@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 26;
+  var TOUR_VERSION = 27;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -65,6 +65,10 @@
       body: 'Just want the words? On the textbook review screen tap \ud83d\udcc7 Build vocab deck to pull every word from those pages into an editable list \u2014 uncheck any you don\u2019t want, then add them to your deck and study straight away. It skips words you already have, and it\u2019s quicker than building full lessons.', v: 25 },
     { icon: '\ud83d\udcd5', title: 'A home for your textbooks',
       body: 'Your books now live on their own \u201cTextbooks\u201d page (in the More menu). Upload a PDF and read it page by page \u2014 it remembers where you left off and lets you bookmark pages. Tap \u2630 Contents (or a book\u2019s \u201cChapters\u201d button) to jump straight to any chapter, fix the chapter page ranges by hand, or re-detect them with AI. When a unit begins or ends partway down a page, tap \u2702 in the reader and mark the break right on the page: tap where the next unit starts, drag the dashed line to fine-tune (it snaps to the actual text lines), or \u2715 to remove it. The same break is marked in the extracted text so you can double-check it landed in the right spot, and lessons for each unit then skip the neighbouring unit\u2019s text. From any chapter, tap \ud83d\udcc7 Build vocab deck or \ud83d\udcd8 Turn into lessons. Textbook units now sit in their own \u201cFrom your textbooks\u201d section on the Learn page, separate from your AI course, and you generate their lessons one tap at a time.', v: 26 },
+    { icon: '\u2702', title: 'Every unit break is on the page now',
+      body: 'Breaks between units show up right where they happen \u2014 including plain page breaks, marked at the bottom and top of the pages they divide. Tap any \u2702 marker to move it or merge the two units into one; a merge renames the result with AI, so you never need the chapter list to fix how a book is divided.', v: 27 },
+    { icon: '\ud83d\udcd8', title: 'Build a whole textbook unit at once',
+      body: 'A chapter\u2019s un-built lessons now hold their place in the Learn list, so you can see the whole unit before it exists. Tap \u26a1 Build all to make them in one go, delete lessons or a unit you don\u2019t want, and regenerate a chapter from scratch. Finishing a lesson hands you straight to the next one \u2014 and quietly builds the one after that, so it\u2019s ready when you get there. Your AI course collapses now too.', v: 27 },
   ];
 
   var steps, stepIdx;

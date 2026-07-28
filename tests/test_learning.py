@@ -1127,3 +1127,64 @@ async def test_author_textbook_lesson_consumes_unit_queue(fresh_db, monkeypatch)
     # Concept registered so the AI planner sees it as taught.
     reg = (await db.get_next_lesson_context(cid))["concept_registry"]
     assert "salut" in {c["label"] for c in reg}
+
+
+@pytest.mark.asyncio
+async def test_author_retries_a_soft_failure_before_giving_up(fresh_db, monkeypatch):
+    """A flaky author call (bad JSON, or drills that all fail validation and
+    leave the lesson empty) is retried once. Making the learner tap "Generate"
+    again — and wait through the whole author call a second time — is exactly
+    what this does, only worse."""
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    unit_id = await db.create_textbook_unit_row(cid, "Book Ch 1")
+    await db.add_lesson_queue(cid, [{
+        "unit_title": "Book Ch 1", "unit_size": 1,
+        "spec": {"title": "Greetings",
+                 "skill": {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
+                 "target_items": [{"label": "salut", "gloss": "hi"}]},
+        "source": "THE BOOK RULE: salut is informal.",
+    }], unit_id=unit_id)
+
+    good = _fake_author_factory()
+    calls = {"n": 0}
+
+    async def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("model returned junk")
+        return await good(*a, **k)
+
+    monkeypatch.setattr(main.learning, "author_lesson", flaky)
+    lid = await main._author_textbook_lesson(
+        course, unit_id, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert lid and calls["n"] == 2
+    assert await db.count_lesson_queue_for_unit(unit_id) == 0   # queue consumed once
+
+    # A lesson with no usable exercises is also retried, then reported.
+    unit2 = await db.create_textbook_unit_row(cid, "Book Ch 2")
+    await db.add_lesson_queue(cid, [{
+        "unit_title": "Book Ch 2", "unit_size": 1,
+        "spec": {"title": "Empty",
+                 "skill": {"kind": "vocab", "key": "bye", "label": "au revoir", "gloss": "bye"},
+                 "target_items": [{"label": "au revoir", "gloss": "bye"}]},
+        "source": "",
+    }], unit_id=unit2)
+    calls["n"] = 0
+
+    async def empty(*a, **k):
+        calls["n"] += 1
+        return {"title": "T", "objective": "O", "summary": "S", "_raw_prompt": "P",
+                "_raw_response": "R", "content": {"segments": [{"exercises": []}]}}
+
+    monkeypatch.setattr(main.learning, "author_lesson", empty)
+    with pytest.raises(main.HTTPException) as err:
+        await main._author_textbook_lesson(
+            course, unit2, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert err.value.status_code == 502
+    assert calls["n"] == main._AUTHOR_ATTEMPTS
+    # The failed attempt didn't eat the queued lesson — Generate can try again.
+    assert await db.count_lesson_queue_for_unit(unit2) == 1

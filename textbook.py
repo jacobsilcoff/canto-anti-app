@@ -391,6 +391,36 @@ def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
     return fixed[:MAX_CHAPTERS]
 
 
+def merge_chapters(chapters: list[dict], index: int, title: str = "") -> list[dict]:
+    """Join chapters `index` and `index + 1` into one, spanning both page ranges.
+
+    The boundary between them disappears entirely — whether it was a clean page
+    break or a mid-page split — so the merged chapter keeps the FIRST one's
+    start_anchor and the SECOND one's end_anchor (its own outer edges) and drops
+    the anchors that described the removed cut. Raises IndexError when `index`
+    isn't a real boundary."""
+    if index < 0 or index + 1 >= len(chapters):
+        raise IndexError("No boundary at that index")
+    a, b = chapters[index], chapters[index + 1]
+    merged = {
+        "title": (title or "").strip()[:_TITLE_CAP]
+                 or " & ".join([t for t in ((a.get("title") or "").strip(),
+                                            (b.get("title") or "").strip()) if t])[:_TITLE_CAP]
+                 or "Untitled unit",
+        "start": min(int(a["start"]), int(b["start"])),
+        "end": max(int(a["end"]), int(b["end"])),
+        "skip_hint": bool(a.get("skip_hint")) and bool(b.get("skip_hint")),
+        # Lessons were made from one of the halves → the merged range still has
+        # lessons somewhere in it, so keep the flag rather than silently clearing.
+        "status": a.get("status") or b.get("status") or "",
+        "start_anchor": _clean_anchor(a.get("start_anchor")),
+        "end_anchor": _clean_anchor(b.get("end_anchor")),
+    }
+    out = list(chapters)
+    out[index:index + 2] = [merged]
+    return out
+
+
 # ── Mid-page unit boundaries (split a physical page between two units) ─────────
 
 _MIN_PREFIX_MATCH = 8      # chars before a partial line may claim the anchor
@@ -1084,13 +1114,24 @@ def _build_source_unit_prompt(target_lang: str, source: str, book_title: str,
     )
 
 
+PLAN_ATTEMPTS = 2         # one automatic retry — see plan_source_unit
+
+
 async def plan_source_unit(source: str, target_lang: str, book_title: str,
                            unit_title: str, start: int, end: int,
                            guidance: str = "", *,
                            visuals: list[dict] | None = None,
                            api_key: str, anthropic_key: str | None = None,
-                           model: str) -> dict:
-    """Plan a source-complete multi-lesson unit from an approved chapter."""
+                           model: str,
+                           attempts: int = PLAN_ATTEMPTS) -> dict:
+    """Plan a source-complete multi-lesson unit from an approved chapter.
+
+    Returns the plan with an ``llm_calls`` count so the caller meters what was
+    actually spent. Planning is retried once on a *soft* failure — an unparseable
+    reply, an empty inventory, or coverage the validator rejects. Those are all
+    model wobble on the same prompt, and the user's only recourse used to be
+    tapping "Create unit" again and waiting through the whole flow a second time.
+    """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
     source = (source or "").strip()
@@ -1106,14 +1147,78 @@ async def plan_source_unit(source: str, target_lang: str, book_title: str,
         target_lang, source, (book_title or "Textbook")[:_TITLE_CAP],
         (unit_title or "Textbook unit")[:_TITLE_CAP], start, end,
         (guidance or "")[:1000], bool(contact_sheet))
-    if contact_sheet:
-        raw = await llm.call_with_image(
-            prompt, contact_sheet, model=model, gemini_key=api_key,
-            anthropic_key=anthropic_key)
-    else:
+    calls = 0
+    last_error: Exception | None = None
+    for attempt in range(max(1, attempts)):
+        calls += 1
+        try:
+            if contact_sheet:
+                raw = await llm.call_with_image(
+                    prompt, contact_sheet, model=model, gemini_key=api_key,
+                    anthropic_key=anthropic_key)
+            else:
+                raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                                     anthropic_key=anthropic_key)
+            plan = _norm_source_unit(_parse_json(raw) or {}, source)
+            plan["llm_calls"] = calls
+            return plan
+        except Exception as e:          # noqa: BLE001 — retried, then re-raised
+            last_error = e
+    raise last_error   # type: ignore[misc]
+
+
+_MERGE_TITLE_CAP = 60
+
+
+def joined_title(a_title: str, b_title: str) -> str:
+    """The deterministic name for two merged units — also the fallback when the
+    AI rename can't run, so callers can tell the two apart by comparing."""
+    joined = " & ".join([t for t in ((a_title or "").strip(),
+                                     (b_title or "").strip()) if t][:2])
+    return (joined or (a_title or b_title or "Unit").strip())[:_MERGE_TITLE_CAP]
+
+
+async def name_merged_unit(a_title: str, b_title: str, source: str,
+                           target_lang: str, book_title: str = "", *,
+                           api_key: str, anthropic_key: str | None = None,
+                           model: str) -> str:
+    """One short title for two units being merged back together.
+
+    Deleting a boundary in the reader joins two units whose names each describe
+    only half of what the merged unit now covers ("Greetings" + "Introductions").
+    One cheap call renames it from the merged pages themselves. Best-effort: any
+    failure falls back to joining the two titles, so a merge never fails over
+    its name."""
+    fallback = joined_title(a_title, b_title)
+    if target_lang not in LANG_INFO:
+        return fallback
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    excerpt = (source or "").strip()[:4000]
+    if not excerpt:
+        return fallback
+    prompt = (
+        f"You are naming one unit of a {name} textbook course.\n"
+        f"Two adjacent units are being merged into one because the learner "
+        f"removed the boundary between them.\n"
+        + (f"Book: {book_title[:_TITLE_CAP]}\n" if book_title else "")
+        + f"First unit's title: {a_title or '(untitled)'}\n"
+          f"Second unit's title: {b_title or '(untitled)'}\n\n"
+          "TEXTBOOK PAGES NOW IN THE MERGED UNIT:\n"
+          f"{excerpt}\n\n"
+          "Write ONE title for the merged unit that covers everything above. "
+          "Prefer the book's own wording for the section if it has one. "
+          f"At most {_MERGE_TITLE_CAP} characters, no quotes, no numbering.\n"
+          'Reply with JSON only: {"title": "..."}'
+    )
+    try:
         raw = await llm.call(prompt, model=model, gemini_key=api_key,
                              anthropic_key=anthropic_key)
-    return _norm_source_unit(_parse_json(raw) or {}, source)
+        title = str((_parse_json(raw) or {}).get("title") or "").strip()
+    except Exception:
+        return fallback
+    title = re.sub(r"\s+", " ", title).strip(" \"'“”·-–—")
+    return title[:_MERGE_TITLE_CAP] or fallback
 
 
 async def segment_chapter(pages: list[str], start: int, end: int,
