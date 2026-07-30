@@ -109,7 +109,7 @@ async def test_practice_pool_only_completed_and_gradeable(fresh_db):
 
     lessons = await db.get_completed_lesson_contents(uid, cid)
     assert [l["id"] for l in lessons] == [l1]
-    pool = main._course_drill_pool(lessons)
+    pool = main._course_drill_pool(lessons, "fr")
     assert sorted(e["type"] for e in pool) == ["choice", "word_bank"]   # construction excluded
     # Another user can't read this course's lessons.
     other = await db.create_user("x", auth.hash_password("p"))
@@ -131,7 +131,7 @@ async def test_mistakes_prefers_weak_concepts(fresh_db):
     mastery = await db.get_mastery_summary(uid, "fr")
     weak = {m["concept_key"] for m in mastery if m["total"] >= 3 and m["correct"] / m["total"] < 0.7}
     assert weak == {"weak1"}
-    pool = main._course_drill_pool(await db.get_completed_lesson_contents(uid, cid))
+    pool = main._course_drill_pool(await db.get_completed_lesson_contents(uid, cid), "fr")
     assert any((e.get("concept_key") or "") in weak for e in pool)
 
 

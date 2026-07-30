@@ -3734,6 +3734,9 @@ async def _author_and_persist(course: dict, ctx: dict, concepts: list[dict],
                 taught=ctx["concept_registry"], review=review,
                 known_words=state["known_words"], weak_words=state["weak_words"], brief=brief,
                 source=source or None,
+                # Proofread the authored sentences with one cheap call before they
+                # can be graded — always the FAST model, like the planner.
+                verify_model=access.model_reader,
             )
         except Exception as e:      # noqa: BLE001 — retried, then reported
             last_error = e
@@ -5540,6 +5543,9 @@ async def clear_textbook_queue(course_id: int, user: dict = Depends(current_user
 
 
 def _lesson_response(lesson: dict, content: dict) -> dict:
+    # Heal lessons authored before the option-language / reorder-decoy rules
+    # existed (deterministic, drop-only — see learning.repair_stored_content).
+    content = learning.repair_stored_content(content, lesson["target_lang"])
     return {
         "id":         lesson["id"],
         "title":      lesson["title"],
@@ -5610,15 +5616,16 @@ _PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match"}
 _PRACTICE_MAX = 12
 
 
-def _course_drill_pool(lessons: list[dict]) -> list[dict]:
-    """Flatten every gradeable stored exercise across a course's lessons."""
+def _course_drill_pool(lessons: list[dict], lang: str) -> list[dict]:
+    """Flatten every gradeable stored exercise across a course's lessons (repaired
+    on the way out, since a practice run replays drills authored long ago)."""
     out: list[dict] = []
     for lesson in lessons:
         content = lesson.get("content") or {}
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
                 if ex.get("type") in _PRACTICE_GRADEABLE:
-                    out.append(ex)
+                    out.append(learning.repair_stored_exercise(ex, lang))
     return out
 
 
@@ -5635,7 +5642,7 @@ async def course_practice(request: Request, course_id: int, mode: str = "mistake
         raise HTTPException(404, "Course not found")
     lang = course["target_lang"]
     lessons = await db.get_completed_lesson_contents(user["id"], course_id)
-    pool = _course_drill_pool(lessons)
+    pool = _course_drill_pool(lessons, lang)
     if not pool:
         raise HTTPException(400, "Finish a lesson first — there's nothing to practice yet.")
 
@@ -5877,7 +5884,7 @@ def _checkpoint_quiz(unit: dict) -> list[dict]:
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
                 if ex.get("type") in _CHECKPOINT_TYPES:
-                    pool.append(ex)
+                    pool.append(learning.repair_stored_exercise(ex, unit["target_lang"]))
         pool.sort(key=_checkpoint_difficulty)
         picked.extend(dict(ex) for ex in pool[:_CHECKPOINT_PER_LESSON])
     rng.shuffle(picked)

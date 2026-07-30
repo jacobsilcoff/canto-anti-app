@@ -780,6 +780,11 @@
       color: var(--text-muted); margin: 4px 0 8px; }
     .tb-gen-note { text-align: center; color: var(--text-muted); font-size: .7rem; line-height: 1.4;
       padding: 0 8px 6px; }
+    /* Determinate progress for a multi-lesson build (lessons done / planned). */
+    .gen-bar { height: 4px; border-radius: 3px; background: var(--border); overflow: hidden;
+      margin: 2px 8px 8px; }
+    .gen-bar i { display: block; height: 100%; background: var(--primary); border-radius: 3px;
+      transition: width .4s ease; }
     /* A lesson slot the unit will fill: reserved, dimmed, one tap from real. */
     .lesson.queued { opacity: .72; border-style: dashed; }
     .lesson.queued .lesson-node { background: var(--surface-alt); color: var(--text-muted);
@@ -1160,7 +1165,69 @@
   let _genError = null;       // last error message from generation
   let _tbGenerating = null;   // textbook unit_id currently authoring its next lesson
   let _tbError = null;        // last error from a textbook-unit generation
-  let _tbProgress = '';       // "Built 2 · 3 to go…" during a generate-all run
+
+  // ── Generation status ticker ───────────────────────────────────────────────
+  // Authoring is one long model call, so there is no real progress to stream.
+  // What the learner needs is proof it's alive and an honest sense of where they
+  // are: named stages, an elapsed clock, which lesson of how many, and its title.
+  // ONE interval patches every [data-gen-tick] node's text in place, so ticking
+  // never re-renders the course map (which would redraw the path connectors and
+  // fight the learner's scroll position every second).
+  const GEN_STAGES = {
+    ai: [[0, 'Planning your next lesson…'], [7, 'Writing the teach steps…'],
+         [18, 'Building the drills…'], [32, 'Checking every sentence…'],
+         [50, 'Still going — the model is slow right now…']],
+    textbook: [[0, 'Reading your textbook pages…'], [8, 'Writing the teach steps…'],
+               [20, 'Building the drills…'], [34, 'Checking every sentence…'],
+               [52, 'Still going — this chapter is dense…']],
+  };
+  let _genTick = null;        // {mode, start, done, total, title, timer}
+
+  function _elapsedText(secs) {
+    return secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, '0')}s`;
+  }
+
+  // The label every [data-gen-tick] node shows. Safe to call when idle.
+  function genTickLabel() {
+    if (!_genTick) return 'Generating lesson…';
+    const secs = Math.max(0, Math.round((Date.now() - _genTick.start) / 1000));
+    const stages = GEN_STAGES[_genTick.mode] || GEN_STAGES.ai;
+    let stage = stages[0][1];
+    for (const [at, text] of stages) if (secs >= at) stage = text;
+    const parts = [];
+    if (_genTick.total > 1) parts.push(`Lesson ${Math.min(_genTick.done + 1, _genTick.total)} of ${_genTick.total}`);
+    else if (_genTick.title) parts.push(`“${_genTick.title}”`);
+    parts.push(stage, _elapsedText(secs));
+    return parts.join(' · ');
+  }
+
+  function _paintGenTick() {
+    const label = genTickLabel();
+    document.querySelectorAll('[data-gen-tick]').forEach(el => { el.textContent = label; });
+    if (_genTick && _genTick.total > 1) {
+      const pct = Math.round((_genTick.done / _genTick.total) * 100);
+      document.querySelectorAll('[data-gen-bar]').forEach(el => { el.style.width = pct + '%'; });
+    }
+  }
+
+  function startGenTick(mode, info) {
+    stopGenTick();              // never leak an interval if two flows overlap
+    _genTick = { mode, start: Date.now(), done: 0, total: 1, title: '', timer: null, ...(info || {}) };
+    _genTick.timer = setInterval(_paintGenTick, 1000);
+  }
+
+  // Advance the batch counter (and re-anchor the clock) as each lesson lands.
+  function bumpGenTick(info) {
+    if (!_genTick) return;
+    Object.assign(_genTick, info || {});
+    _genTick.start = Date.now();
+    _paintGenTick();
+  }
+
+  function stopGenTick() {
+    if (_genTick && _genTick.timer) clearInterval(_genTick.timer);
+    _genTick = null;
+  }
 
   function show(state) {
     _currentState = state;
@@ -1761,6 +1828,7 @@
     _generating = true;
     _genCount = count;
     _genError = null;
+    startGenTick('ai', { total: count });
     // Stay on course page — show inline spinner, never navigate away.
     if (_currentState === 'generating') show('course');
     if (currentCourse) renderCourse(currentCourse);
@@ -1769,6 +1837,7 @@
     try {
       for (let i = 0; i < count; i++) {
         _genCount = count - i;                 // remaining, for the skeleton label
+        bumpGenTick({ done: i, total: count });
         if (currentCourse) renderCourse(currentCourse);
         const res = await fetch(`/api/courses/${courseId}/next?count=1`, { method: 'POST' });
         if (!res.ok) {
@@ -1792,6 +1861,7 @@
       if (currentCourse) renderCourse(currentCourse);
     } finally {
       _generating = false;
+      stopGenTick();
       if (currentCourse) renderCourse(currentCourse);
     }
   }
@@ -2316,6 +2386,7 @@
     _bookBusy = true;
     _generating = true;
     _genCount = 1;
+    startGenTick('textbook', { total: 1, title: ch ? ch.title : '' });
     _sourceError = '';
     renderLessonMaker();
     if (currentCourse) renderCourse(currentCourse);
@@ -2339,6 +2410,7 @@
     } finally {
       _bookBusy = false;
       _generating = false;
+      stopGenTick();
       if (document.getElementById('books-overlay').classList.contains('open')) renderLessonMaker();
       if (currentCourse) renderCourse(currentCourse);
     }
@@ -2597,7 +2669,16 @@
   // gateway timeout).
   async function generateTextbookLesson(unitId, mode) {
     if (_tbGenerating) return;
-    _tbGenerating = unitId; _tbError = null; _tbProgress = '';
+    _tbGenerating = unitId; _tbError = null;
+    // Name what's being built + how many, straight from the unit's queued specs,
+    // so the wait says "Lesson 2 of 5 · building the drills… 22s" rather than
+    // parking on a bare spinner for half a minute per lesson.
+    const unit = _findUnit(unitId);
+    const queued = (unit && unit.queued) || [];
+    startGenTick('textbook', {
+      total: mode === 'all' ? Math.max(1, queued.length) : 1,
+      title: (queued[0] && queued[0].title) || '',
+    });
     if (currentCourse) renderCourse(currentCourse);
     let built = 0;
     try {
@@ -2609,7 +2690,9 @@
         const left = data.queued_remaining || 0;
         await _refreshCourse();
         if (mode !== 'all' || !left) break;
-        _tbProgress = `Built ${built} · ${left} to go…`;
+        const u = _findUnit(unitId);
+        const q = (u && u.queued) || [];
+        bumpGenTick({ done: built, total: built + left, title: (q[0] && q[0].title) || '' });
         renderCourse(currentCourse);
       }
     } catch (e) {
@@ -2618,7 +2701,7 @@
         : (e.message || 'Could not generate the next lesson.');
       await _refreshCourse();
     } finally {
-      _tbGenerating = null; _tbProgress = '';
+      _tbGenerating = null; stopGenTick();
       if (currentCourse) renderCourse(currentCourse);
     }
   }
@@ -2711,7 +2794,8 @@
   function _queuedLessonHtml(q, position, unitId, isNext, busy) {
     const label = q.title || 'Next lesson';
     const action = isNext
-      ? (busy ? '<span class="spinner"></span> Building…' : '＋ Generate this lesson')
+      ? (busy ? `<span class="spinner"></span> <span data-gen-tick>${esc(genTickLabel())}</span>`
+              : '＋ Generate this lesson')
       : 'Queued from your textbook';
     return `<div class="lesson queued${isNext && !busy ? ' clickable' : ''}"
         ${isNext && !busy ? `onclick="generateTextbookLesson(${unitId})"` : ''}>
@@ -3034,12 +3118,16 @@
         if (remaining > 0) {
           html += `<div class="tb-gen">
             <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id},'all')">
-              ${gen ? `<span class="spinner"></span> ${esc(_tbProgress || 'Building next lesson…')}`
+              ${gen ? `<span class="spinner"></span> <span data-gen-tick>${esc(genTickLabel())}</span>`
                     : `⚡ Build all ${remaining} remaining`}</button>
             ${gen ? '' : `<button class="tb-gen-clear" onclick="generateTextbookLesson(${u.id})">Just the next one</button>
             <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>`}
           </div>
-          ${gen ? '' : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
+          ${gen && _genTick && _genTick.total > 1
+              ? `<div class="gen-bar"><i data-gen-bar style="width:${Math.round((_genTick.done / _genTick.total) * 100)}%"></i></div>`
+              : ''}
+          ${gen ? `<div class="tb-gen-note">Each lesson is written from your book's own pages, then proofread — it's worth the wait. You can leave this page; finishing a lesson also builds the next one.</div>`
+                : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
         }
         if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
         unitDiv.innerHTML = html;
@@ -3060,7 +3148,7 @@
         <div class="gen-path-cap" style="animation-delay:${i * 220 + 120}ms"></div>
       </div>`;
       genArea.innerHTML = skelRow(0) +
-        `<p class="gen-label"><span class="spinner"></span> Generating lesson…</p>`;
+        `<p class="gen-label"><span class="spinner"></span> <span data-gen-tick>${esc(genTickLabel())}</span></p>`;
     } else if (_genError) {
       genArea.innerHTML = `<p class="gen-label" style="color:var(--danger)">${esc(_genError)}
         <button class="course-regen" style="margin-left:8px"
@@ -3562,9 +3650,15 @@
         // period tile; the word order is what's being tested.
         const isPunct = t => /^[\s.,!?。！？、，;；:：…""''「」【】()\[\]]+$/.test(t);
         const gradeToks = arr => arr.filter(t => !isPunct(t));
+        // Grade the SENTENCE the tiles spell, not the tile sequence. In a language
+        // written without spaces the same string can be tiled several ways (食 + 過
+        // spells 食過), so a token-by-token comparison marks a learner wrong for
+        // building the exactly-correct sentence out of a differently-segmented set
+        // of tiles. Comparing the joined text accepts any tiling that reads right.
+        const joined = arr => gradeToks(arr).join(joinSep(lang)).replace(/\s+/g, ' ').trim();
         return {
           isReady: () => gradeToks(placed()).length > 0,
-          grade: () => { const p = gradeToks(placed()); const a = gradeToks(answer); return p.length === a.length && p.every((t, i) => t === a[i]); },
+          grade: () => joined(placed()) === joined(answer),
           answerText: () => esc(answer.join(joinSep(lang))) + (ex.answer_roman ? ` (${esc(ex.answer_roman)})` : ''),
           lock: () => root.querySelectorAll('.tile').forEach(c => c.disabled = true),
         };

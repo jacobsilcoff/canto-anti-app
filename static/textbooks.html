@@ -58,6 +58,8 @@
 
     .tb-progress-note { display: flex; align-items: center; gap: 9px; background: var(--surface-alt);
       border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: .85rem; }
+    .tb-clock { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600;
+      color: var(--text-muted); font-size: .78rem; }
 
     /* ── Reader ── */
     .tbr { position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column; z-index: 50; }
@@ -327,6 +329,36 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   let _courseId = null, _lang = null, _books = [];
   let _busy = false;
+
+  // ── Staged status ticker for the long AI waits ─────────────────────────────
+  // Unit creation and chapter detection are several model calls with nothing to
+  // stream, and they can run a minute or more. A frozen "this can take a moment"
+  // reads as a hang, so show the stage we're most likely in plus an elapsed
+  // clock: same information, and it visibly moves. `stages` is [[afterSecs, text], …].
+  const _tickers = new Map();
+
+  function startTicker(elId, stages) {
+    stopTicker(elId);
+    const start = Date.now();
+    const paint = () => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const secs = Math.round((Date.now() - start) / 1000);
+      let stage = stages[0][1];
+      for (const [at, text] of stages) if (secs >= at) stage = text;
+      const clock = secs < 60
+        ? `${secs}s` : `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, '0')}s`;
+      el.innerHTML = `<div class="tb-progress-note"><span class="spinner"></span>
+        <span>${esc(stage)}</span><b class="tb-clock">${clock}</b></div>`;
+    };
+    paint();
+    _tickers.set(elId, setInterval(paint, 1000));
+  }
+
+  function stopTicker(elId) {
+    const t = _tickers.get(elId);
+    if (t) { clearInterval(t); _tickers.delete(elId); }
+  }
 
   async function boot() {
     const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
@@ -1545,11 +1577,16 @@
   async function redetectChapters() {
     const st = document.getElementById('ch-status');
     const btn = document.getElementById('ch-redetect'); if (btn) btn.disabled = true;
-    if (st) st.innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Scanning the book for chapter boundaries, then checking for units that start mid-page…</div>';
+    startTicker('ch-status', [
+      [0,  'Scanning the book for chapter boundaries…'],
+      [12, 'Checking which units start mid-page…'],
+      [40, 'Still checking the boundaries — this is the slow part.'],
+    ]);
     try {
       const r = await fetch(`/api/textbooks/${_chBook.id}/analyze`, { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
+      stopTicker('ch-status');     // before re-rendering, so its messages stick
       if (!r.ok) throw new Error(data.detail || 'Detection failed.');
       _applyChapters(data.chapters);
       _chEdit = false;
@@ -1563,6 +1600,7 @@
         st2.innerHTML = '<p class="split-hint">Chapters saved. Mid-page splits weren’t checked this time — re-run detection, or set a split by hand in “Edit divisions”.</p>';
       }
     } catch (e) {
+      stopTicker('ch-status');
       // The first pass is persisted server-side before refinement runs, so a
       // timeout here may still have produced chapters. Show whatever landed.
       const saved = await _refetchChapters();
@@ -1707,7 +1745,16 @@
       if (unit && !confirm(`Delete ${total} lesson${total === 1 ? '' : 's'} and rebuild “${unit.title}” from the book?`)) return;
       _busy = true;
       document.getElementById('cl-go').disabled = true;
-      document.getElementById('cl-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Planning the unit and writing the first lesson… this can take a moment.</div>';
+      // Named stages + a clock: this request plans the whole chapter AND writes
+      // lesson one, so it routinely runs past a minute.
+      startTicker('cl-status', [
+        [0,  `Reading pages ${ch.start}–${ch.end}…`],
+        [8,  'Working out everything the chapter teaches…'],
+        [25, 'Splitting it into a lesson plan…'],
+        [45, 'Writing the first lesson…'],
+        [75, 'Proofreading its sentences…'],
+        [100, 'Still working — this is a dense chapter. Keep this open.'],
+      ]);
       try {
         const r = await fetch(`/api/textbooks/${_rb.id}/unit`, { method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1725,9 +1772,10 @@
             <a class="tb-btn" href="/learn" style="text-decoration:none">Go to Learn →</a>
           </div>`);
       } catch (e) {
+        stopTicker('cl-status');
         document.getElementById('cl-status').innerHTML = `<div class="tb-error">${esc(e.message || 'Could not create the unit.')}</div>`;
         const go = document.getElementById('cl-go'); if (go) go.disabled = false;
-      } finally { _busy = false; }
+      } finally { _busy = false; stopTicker('cl-status'); }
     };
   }
 

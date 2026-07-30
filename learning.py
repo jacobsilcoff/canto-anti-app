@@ -36,14 +36,18 @@ Memory passed to generation (compact, three tiers):
   Tier 3 — recent lessons   : summaries of the last 2–3 lessons (continuity)
 """
 import json
+import logging
 import os
 import random
+import re
 
 import grammar
 import llm
 import tokenizer
 from grammar_lessons import _clean_block, _conj_cloze, _free_cloze
-from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
+from translation import LANG_INFO, SCRIPT_BY_LANG, DEFAULT_MODEL, _parse_json
+
+logger = logging.getLogger("uvicorn.error")
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
 # prompt. Editing this file is the intended way to steer lesson STYLE implicitly
@@ -608,6 +612,37 @@ _DRILL_TIER_GUIDANCE = (
 )
 
 
+# Sentences that are grammatical word-by-word but that no native speaker would
+# say are the single most damaging authoring failure: the learner is GRADED on
+# them. The classic case is a time word fighting the very marker the lesson is
+# teaching ("I have been to Japan tomorrow"). Stated as a rule + a self-review
+# instruction here; independently re-checked after authoring by
+# verify_lesson_sentences().
+_SENTENCE_SANITY = """\
+── EVERY SENTENCE MUST BE ONE A NATIVE SPEAKER WOULD ACTUALLY SAY ──
+This governs teach blocks AND drills. The failures to watch for, in order:
+• TIME vs TENSE/ASPECT CONTRADICTION. A future time word cannot sit with a
+  completed/experiential past marker, nor a past time word with a future marker
+  — "I have already been to Japan tomorrow" is nonsense in every language. If a
+  sentence needs a different time word (or none) to make sense, change it.
+• USING THE LESSON'S FORM WHERE IT DOESN'T BELONG. Only use the pattern being
+  taught where the meaning genuinely calls for it. A sentence that exists purely
+  to display the marker, and that a native speaker would rephrase, must be
+  replaced — do not stretch a sentence to fit the lesson.
+• IMPOSSIBLE COMBINATIONS: a verb with an object it can't take, the wrong
+  measure word / classifier for that noun, a preposition or particle that doesn't
+  go with that verb.
+• GLOSS MISMATCH: the English must be what the sentence actually says, including
+  the time reference and the aspect.
+• A sentence that only works with grammar the learner hasn't met yet.
+Before emitting the JSON, RE-READ every native-language sentence you wrote — say
+it in your head as a native speaker — and fix or replace any you would query. A
+subtly wrong drill sentence teaches the error and marks the learner wrong for
+knowing better.
+
+"""
+
+
 def _source_block(source: str | None) -> str:
     """Grounding material for a textbook-imported lesson: the condensed rules /
     examples / vocab the segmenter pulled from the learner's own book."""
@@ -747,6 +782,7 @@ def _build_lesson_prompt(
         f"entries {{token, gloss}} (1–2 words or POS: PRT/AUX/CONJ/CL/PREP). Don't gloss "
         f"words already taught.\n"
         f"Drill kinds:\n{_DRILL_KINDS}\n\n"
+        f"{_SENTENCE_SANITY}"
         f"{_example_block()}"
         f"── VOCAB GLOSSARY ──\n"
         f"`vocab_glossary` = an English gloss for EVERY distinct native word that "
@@ -806,6 +842,129 @@ def _is_cjk(s: str) -> bool:
                '぀' <= c <= 'ヿ' for c in (s or ""))
 
 
+# ── Option-language hygiene (which SCRIPT an option is written in) ───────────
+#
+# A multiple-choice drill is only answerable when every option is written in the
+# same language as the correct answer: a recognition drill ("what does this
+# mean?") needs FOUR English options, a production/listening/cloze drill needs
+# four NATIVE-script ones. The model regularly mixes the two — which hands the
+# learner the answer for free (one English option among three native ones) or
+# makes the drill unanswerable. We can decide this offline for every non-Latin
+# script, so we do: distractors on the wrong side are dropped, and a drill whose
+# native/English fields are swapped outright is flipped back.
+_SCRIPT_RANGES = {
+    "chinese":    "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff",
+    "japanese":   "\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff",
+    "hangul":     "\u1100-\u11ff\u3130-\u318f\uac00-\ud7af",
+    "devanagari": "\u0900-\u097f",
+    "telugu":     "\u0c00-\u0c7f",
+    "bengali":    "\u0980-\u09ff",
+    "arabic":     "\u0600-\u06ff\u0750-\u077f\ufb50-\ufdff\ufe70-\ufeff",
+    "cyrillic":   "\u0400-\u052f",
+    "greek":      "\u0370-\u03ff\u1f00-\u1fff",
+    "thai":       "\u0e00-\u0e7f",
+    "hebrew":     "\u0590-\u05ff\ufb1d-\ufb4f",
+}
+_SCRIPT_RE = {k: re.compile(f"[{v}]") for k, v in _SCRIPT_RANGES.items()}
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+# Languages written without spaces between words. Their reorder tiles concatenate,
+# so a tile that is a SUBSTRING of the answer sentence isn't a decoy at all — the
+# learner can build the exactly-correct string out of it and still be marked wrong.
+# Mirrors NO_SPACE_LANGS in static/learn.html.
+SCRIPTIO_CONTINUA = {"yue", "cmn", "ja", "th"}
+
+
+def _script_side(s: str, lang: str) -> str:
+    """Which language a drill option is written in: "native", "english", "mixed"
+    or "" (undecidable — no letters, or a Latin-script target where both sides
+    look the same). Decided by counting letters per script, so an English gloss
+    that quotes one native word still reads as English."""
+    rx = _SCRIPT_RE.get(SCRIPT_BY_LANG.get(lang, "latin"))
+    if not rx or not (s or "").strip():
+        return ""
+    native = len(rx.findall(s))
+    latin = len(_LATIN_RE.findall(s))
+    if not native and not latin:
+        return ""
+    if not latin:
+        return "native"
+    if not native:
+        return "english"
+    ratio = native / (native + latin)
+    return "native" if ratio >= 0.5 else ("english" if ratio <= 0.2 else "mixed")
+
+
+def _same_side(opt: str, want: str, lang: str) -> bool:
+    """True when `opt` is written on the `want` side ("native"/"english"), or
+    when we can't tell (undecidable options are kept — dropping on a guess would
+    silently thin out drills in Latin-script languages)."""
+    side = _script_side(opt, lang)
+    return side in ("", want)
+
+
+def _fix_orientation(target: str, gloss: str, lang: str) -> tuple[str, str]:
+    """Swap back a drill whose native/English fields are the wrong way round
+    (the model does occasionally fill `target` with the English meaning)."""
+    if _script_side(target, lang) == "english" and _script_side(gloss, lang) == "native":
+        return gloss, target
+    return target, gloss
+
+
+def repair_stored_exercise(ex: dict, lang: str) -> dict:
+    """Apply the option-language + decoy rules to an ALREADY-STORED exercise.
+
+    The rules below run at authoring time, but lessons authored before they
+    existed are still on disk and still played (and re-sampled into checkpoints
+    and practice runs). Both repairs are deterministic and read-only in effect —
+    a wrong-side option is dropped and the answer re-keyed, a decoy that spells
+    part of the answer is removed — so old lessons heal on their next play
+    instead of needing to be regenerated. Returns a repaired COPY, or `ex`
+    unchanged when there is nothing to fix or too little would be left."""
+    t = ex.get("type")
+    if t in ("choice", "listening"):
+        opts = ex.get("options") or []
+        i = ex.get("answer", -1)
+        if not (0 <= i < len(opts)):
+            return ex
+        answer = opts[i]
+        want = _script_side(answer, lang)
+        if want not in ("native", "english"):
+            return ex          # Latin-script target / undecidable — leave it alone
+        kept = [o for o in opts if o == answer or _same_side(o, want, lang)]
+        if len(kept) == len(opts) or len(kept) < 2:
+            return ex
+        out = dict(ex)
+        out["options"] = kept
+        out["answer"] = kept.index(answer)
+        return out
+    if t == "word_bank" and lang in SCRIPTIO_CONTINUA:
+        decoys = ex.get("distractor_tokens") or []
+        joined = "".join(ex.get("answer_tokens") or [])
+        kept = [d for d in decoys if d and d not in joined]
+        if len(kept) == len(decoys):
+            return ex
+        out = dict(ex)
+        out["distractor_tokens"] = kept
+        return out
+    return ex
+
+
+def repair_stored_content(content: dict, lang: str) -> dict:
+    """repair_stored_exercise over every exercise in a stored lesson content."""
+    segments = content.get("segments") if isinstance(content, dict) else None
+    if not isinstance(segments, list):
+        return content
+    for seg in segments:
+        if not isinstance(seg, dict):
+            continue
+        exercises = seg.get("exercises")
+        if isinstance(exercises, list):
+            seg["exercises"] = [repair_stored_exercise(e, lang) if isinstance(e, dict) else e
+                                for e in exercises]
+    return content
+
+
 def _norm(s: str) -> str:
     """Normalise an option for duplicate detection: casefold, collapse whitespace,
     strip terminal punctuation and leading English fillers ('the cat' ≈ 'cat').
@@ -860,6 +1019,11 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "recognition":
         if not target or not gloss:
             return None
+        target, gloss = _fix_orientation(target, gloss, lang)
+        # "What does this mean?" — every option must be an ENGLISH meaning. A
+        # native-script distractor would leave exactly one English option and
+        # give the answer away.
+        distract = [x for x in distract if _same_side((x or "").strip(), "english", lang)]
         opts, ans = _pick_options(gloss, distract)
         if len(opts) < 2:
             return None
@@ -871,6 +1035,9 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "production":
         if not target or not gloss:
             return None
+        target, gloss = _fix_orientation(target, gloss, lang)
+        # "How do you say this?" — every option must be in the target language.
+        distract = [x for x in distract if _same_side((x or "").strip(), "native", lang)]
         opts, ans = _pick_options(target, distract)
         if len(opts) < 2:
             return None
@@ -881,10 +1048,13 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "listening":
         if not target:
             return None
-        # For CJK targets, drop any distractor that isn't in the native script —
-        # the LLM sometimes generates English words (e.g. "I", "he") instead.
+        target, gloss = _fix_orientation(target, gloss, lang)
+        # Drop any distractor that isn't in the native script — the LLM sometimes
+        # generates English words (e.g. "I", "he") instead, which can't be an
+        # answer to "what did you hear?".
         if _is_cjk(target):
             distract = [d for d in distract if _is_cjk((d or "").strip())]
+        distract = [d for d in distract if _same_side((d or "").strip(), "native", lang)]
         # Homophones are undecidable by ear: drop distractors whose romanization
         # matches the answer's (e.g. 嗰 vs 個, both go3 — free offline oracle).
         target_rom = _norm(rom(target))
@@ -902,6 +1072,9 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         answer = (d.get("answer") or "").strip()
         verb = (d.get("verb") or "").strip().lower()
         person = (d.get("person") or "").strip().lower()
+        # The blank is filled with a native word, so English fillers can't be
+        # plausible options (_free_cloze uses the pool as-is, so filter here).
+        distract = [x for x in distract if _same_side((x or "").strip(), "native", lang)]
         ex = None
         if grammar.has_conjugation(lang) and verb and person:
             ex = _conj_cloze(key, lang, sentence, gloss, verb, person, answer)
@@ -928,13 +1101,24 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         if ordered is None:
             return None
         # Decoy tiles: plausible words NOT in the answer that the learner might
-        # be tempted to use. Deduplicated against the answer tokens.
+        # be tempted to use. Deduplicated against the answer tokens — and, for a
+        # language written without spaces, against the whole SENTENCE: tiles
+        # concatenate there, so a decoy that occurs inside the answer (食 and 過
+        # against 我食過辣嘢, whose answer tile is 食過) lets the learner build the
+        # exactly-correct string out of "wrong" tiles and be marked wrong for it.
         answer_set = set(ordered)
+        joined = "".join(ordered)
+        no_space = lang in SCRIPTIO_CONTINUA
         decoys = []
         for dec in (d.get("decoys") or []):
             dec = (dec or "").strip()
-            if dec and dec not in answer_set:
-                decoys.append(dec)
+            if not dec or dec in answer_set:
+                continue
+            if no_space and dec in joined:
+                continue
+            if not _same_side(dec, "native", lang):
+                continue        # an English tile can never belong in the sentence
+            decoys.append(dec)
         # Glosses for helper words the learner hasn't been taught (token → short
         # English / POS abbrev). Keep entries for both answer tokens and decoys.
         all_tiles = answer_set | set(decoys)
@@ -955,8 +1139,12 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         for p in (d.get("pairs") or []):
             t = (p.get("target") or "").strip()
             e = (p.get("english") or "").strip()
-            if t and e:
-                pairs.append({"target": t, "target_roman": rom(t), "english": e})
+            if not (t and e):
+                continue
+            t, e = _fix_orientation(t, e, lang)      # tolerate a swapped pair
+            if not _same_side(t, "native", lang) or not _same_side(e, "english", lang):
+                continue                            # both columns would read alike
+            pairs.append({"target": t, "target_roman": rom(t), "english": e})
         if len(pairs) < 2:
             return None
         return {"type": "match", "concept_key": key, "grammar": is_grammar,
@@ -1085,6 +1273,181 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
     return {"vocab_glossary": vocab_glossary, "segments": segments}
 
 
+# ── Sentence check (one cheap pass over what the learner is GRADED on) ───────
+#
+# The author prompt asks for native-plausible sentences and to self-review them,
+# but a single generation pass still ships the occasional contradiction (a future
+# time word with an experiential-past marker). There is no offline oracle for "would
+# a native speaker say this", so this is the one place an LLM judges lesson content
+# — and it can only ever REMOVE material, never add or rewrite it, so a bad verdict
+# costs a drill rather than mis-teaching one.
+VERIFY_MAX_ITEMS = 24        # sentences sent for checking (graded drills first)
+_VERIFY_MIN_WORDS = 2        # single words can't be internally contradictory
+_VERIFY_MAX_DROP_RATIO = 0.5  # flag more than this and we distrust the verdict
+
+
+def _checkable_items(content: dict, lang: str) -> list[dict]:
+    """Collect the native-language sentences worth checking, each with the list
+    it lives in so a flagged one can be removed by identity.
+
+    Ordered graded-drills-first: those are the ones the learner is scored on, so
+    they get the budget when a lesson has more sentences than we check."""
+    drills: list[dict] = []
+    teach: list[dict] = []
+
+    def add(bucket, text, gloss, parent, obj):
+        text = (text or "").strip()
+        if not text or len(tokenizer.phrase_words(text, lang)) < _VERIFY_MIN_WORDS:
+            return
+        bucket.append({"text": text, "gloss": (gloss or "").strip(),
+                       "parent": parent, "obj": obj})
+
+    for seg in content.get("segments") or []:
+        exercises = seg.get("exercises")
+        if isinstance(exercises, list):
+            for ex in exercises:
+                t = ex.get("type")
+                if t == "choice" and ex.get("prompt_lang") == "target":
+                    # Recognition + cloze: the prompt is the sentence, tip the gloss.
+                    # A cloze is checked with its blank FILLED — a proofreader shown
+                    # "___係香港人" would rightly call it ungrammatical.
+                    text = ex.get("prompt") or ""
+                    opts, i = ex.get("options") or [], ex.get("answer", -1)
+                    if ex.get("is_cloze") and "___" in text and 0 <= i < len(opts):
+                        text = text.replace("___", opts[i])
+                    add(drills, text, ex.get("tip"), exercises, ex)
+                elif t == "choice":
+                    opts, i = ex.get("options") or [], ex.get("answer", -1)
+                    if 0 <= i < len(opts):
+                        add(drills, opts[i], ex.get("prompt"), exercises, ex)
+                elif t == "listening":
+                    add(drills, ex.get("audio"), ex.get("tip"), exercises, ex)
+                elif t == "word_bank":
+                    toks = ex.get("answer_tokens") or []
+                    sep = "" if lang in SCRIPTIO_CONTINUA else " "
+                    add(drills, sep.join(toks), "", exercises, ex)
+        blocks = (seg.get("teach") or {}).get("blocks") if isinstance(seg.get("teach"), dict) else None
+        for b in (blocks or []):
+            if b.get("type") == "examples":
+                items = b.get("items") or []
+                for it in items:
+                    add(teach, it.get("text"), it.get("gloss"), items, it)
+            elif b.get("type") == "contrast":
+                # One side can't be dropped without breaking the pairing, so the
+                # whole block is the removable unit.
+                add(teach, (b.get("a") or {}).get("text"),
+                    (b.get("a") or {}).get("gloss"), blocks, b)
+    return (drills + teach)[:VERIFY_MAX_ITEMS]
+
+
+def _build_verify_prompt(target_lang: str, items: list[dict]) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    lines = []
+    for i, it in enumerate(items, 1):
+        gloss = f'   ⟶ "{it["gloss"]}"' if it["gloss"] else ""
+        lines.append(f'{i}. {it["text"]}{gloss}')
+    return (
+        f"You are a native {name} speaker proofreading sentences another AI wrote "
+        f"for a beginner {name} lesson. The learner will be graded on them, so a "
+        f"sentence that is subtly wrong must not ship.\n\n"
+        f"Flag a line ONLY for a real error:\n"
+        f"• an internal contradiction — most often a time word that fights the "
+        f"tense/aspect marking (a future time word with a completed or experiential "
+        f"past marker, or the reverse)\n"
+        f"• ungrammatical, or a combination no native speaker would produce (wrong "
+        f"classifier/measure word, a verb with an impossible object, a particle "
+        f"that doesn't belong)\n"
+        f"• the English does not match what the sentence says\n"
+        f"• a form used where a native speaker would simply not use it\n\n"
+        f"Do NOT flag: simple beginner phrasing, a formal or informal register, "
+        f"valid regional usage, missing punctuation, a short-but-accurate English "
+        f"gloss, or a sentence you would merely phrase differently. Most lines are "
+        f"fine — an empty list is the normal answer.\n\n"
+        f"SENTENCES:\n" + "\n".join(lines) + "\n\n"
+        f"Return ONLY valid JSON, no other text:\n"
+        '{"bad": [{"n": <line number>, "reason": "<8 words or fewer>"}]}'
+    )
+
+
+def _apply_verdict(items: list[dict], flagged: list[dict]) -> list[str]:
+    """Remove flagged sentences from the content they live in. Returns the
+    dropped sentences (for logging/debug)."""
+    dropped = []
+    for f in flagged:
+        try:
+            n = int(f.get("n"))
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= n <= len(items):
+            continue
+        it = items[n - 1]
+        parent, obj = it["parent"], it["obj"]
+        for i, existing in enumerate(parent):
+            if existing is obj:
+                parent.pop(i)
+                dropped.append(f'{it["text"]} ({(f.get("reason") or "").strip()})')
+                break
+    return dropped
+
+
+def _prune_empty(content: dict) -> None:
+    """Drop teach blocks / segments left empty by removals (an `examples` block
+    with no items renders as a blank card)."""
+    segments = []
+    for seg in content.get("segments") or []:
+        teach = seg.get("teach")
+        if isinstance(teach, dict):
+            teach["blocks"] = [b for b in (teach.get("blocks") or [])
+                               if b.get("type") != "examples" or (b.get("items") or [])]
+        has_teach = bool(isinstance(teach, dict) and teach.get("blocks"))
+        if has_teach or (seg.get("exercises") or []) or seg.get("speak"):
+            segments.append(seg)
+    if not segments:
+        return
+    # The lesson intro lives on the first segment only — carry it over if that
+    # segment is the one that went away.
+    old_first = (content.get("segments") or [None])[0]
+    if segments[0] is not old_first and isinstance(old_first, dict):
+        intro = (old_first.get("teach") or {}).get("intro") if isinstance(old_first.get("teach"), dict) else ""
+        new_teach = segments[0].get("teach")
+        if intro and isinstance(new_teach, dict) and not (new_teach.get("intro") or "").strip():
+            new_teach["intro"] = intro
+    content["segments"] = segments
+
+
+async def verify_lesson_sentences(
+    target_lang: str, content: dict, *, api_key: str,
+    anthropic_key: str | None = None, model: str = DEFAULT_MODEL,
+) -> dict | None:
+    """Check the lesson's native sentences with one cheap LLM call and DROP the
+    ones a native speaker would reject. Mutates `content` in place.
+
+    Returns {prompt, response, dropped} for the debug view, or None when there
+    was nothing to check. Raises only on a transport failure — the caller treats
+    the whole pass as best-effort, since shipping an unchecked lesson is much
+    better than shipping none."""
+    items = _checkable_items(content, target_lang)
+    if not items:
+        return None
+    prompt = _build_verify_prompt(target_lang, items)
+    raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
+    parsed = _parse_json(raw) or {}
+    flagged = [f for f in (parsed.get("bad") or []) if isinstance(f, dict)]
+    # A model that flags half the lesson is not proofreading it — it has decided
+    # to rewrite the lesson, or misread the task. Trust nothing in that case.
+    if len(flagged) > max(1, int(len(items) * _VERIFY_MAX_DROP_RATIO)):
+        logger.warning("Sentence check flagged %s/%s items (lang=%s) — ignoring the "
+                       "whole verdict as untrustworthy", len(flagged), len(items), target_lang)
+        return {"prompt": prompt, "response": raw or "", "dropped": []}
+    dropped = _apply_verdict(items, flagged)
+    if dropped:
+        _prune_empty(content)
+        logger.info("Sentence check dropped %s item(s) lang=%s: %s",
+                    len(dropped), target_lang, "; ".join(dropped))
+    return {"prompt": prompt, "response": raw or "", "dropped": dropped}
+
+
 async def author_lesson(
     target_lang: str,
     concepts: list[dict],
@@ -1099,6 +1462,7 @@ async def author_lesson(
     weak_words: list[dict] | None = None,
     brief: dict | None = None,
     source: str | None = None,
+    verify_model: str | None = None,
 ) -> dict:
     """One LLM call: author teach blocks + drills for the given skill/concepts
     together, then validate/assemble. Returns lesson metadata + content + raw strings.
@@ -1115,6 +1479,10 @@ async def author_lesson(
     `source` — condensed source material for a textbook-imported lesson; the
                author grounds the teach blocks + drills in the book's own rules
                and examples.
+    `verify_model` — when set, ONE extra cheap call proofreads the assembled
+               sentences and drops the ones a native speaker would reject (see
+               verify_lesson_sentences). Best-effort: any failure ships the
+               lesson as authored.
     """
     if target_lang not in LANG_INFO:
         raise ValueError(f"Unsupported target language: {target_lang}")
@@ -1125,11 +1493,28 @@ async def author_lesson(
     parsed = _parse_json(raw) or {}
 
     content = assemble_lesson(target_lang, concepts + list(review or []), parsed)
+
+    prompt_out, raw_out = prompt, raw or ""
+    if verify_model:
+        try:
+            check = await verify_lesson_sentences(
+                target_lang, content, api_key=api_key,
+                anthropic_key=anthropic_key, model=verify_model)
+        except Exception as e:      # noqa: BLE001 — an unchecked lesson still ships
+            logger.warning("Sentence check failed lang=%s: %s", target_lang, e)
+            check = None
+        if check:
+            sep = "\n\n══════ SENTENCE CHECK ══════\n\n"
+            prompt_out += sep + check["prompt"]
+            raw_out += sep + check["response"]
+            if check["dropped"]:
+                raw_out += "\n\nDROPPED:\n" + "\n".join(check["dropped"])
+
     return {
         "title":     (parsed.get("title") or "").strip(),
         "objective": (parsed.get("objective") or "").strip(),
         "summary":   (parsed.get("summary") or "").strip(),
         "content":   content,
-        "_raw_prompt":   prompt,
-        "_raw_response": raw or "",
+        "_raw_prompt":   prompt_out,
+        "_raw_response": raw_out,
     }

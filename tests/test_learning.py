@@ -275,6 +275,144 @@ def test_listening_dropped_when_all_distractors_homophonous(monkeypatch):
     assert exs == []
 
 
+def test_recognition_drops_native_script_distractors():
+    # "What does this mean?" with three Cantonese options and one English one hands
+    # the answer over for free — the native-script distractors must be dropped.
+    concepts = [{"kind": "vocab", "key": "laat", "label": "辣", "gloss": "spicy"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "recognition", "concept": "laat", "target": "辣嘢",
+         "gloss": "spicy food", "distractors": ["甜嘢", "鹹嘢", "sweet food", "salty food"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    recog = exs[0]
+    assert all(not learning._SCRIPT_RE["chinese"].search(o) for o in recog["options"])
+    assert recog["options"][recog["answer"]] == "spicy food"
+
+
+def test_production_drops_english_distractors():
+    concepts = [{"kind": "vocab", "key": "laat", "label": "辣", "gloss": "spicy"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "production", "concept": "laat", "gloss": "spicy food",
+         "target": "辣嘢", "distractors": ["sweet food", "甜嘢", "鹹嘢"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    prod = exs[0]
+    assert "sweet food" not in prod["options"]
+    assert prod["options"][prod["answer"]] == "辣嘢"
+
+
+def test_recognition_swapped_fields_are_flipped_back():
+    # The model occasionally fills `target` with the English meaning and `gloss`
+    # with the native word. Orientation is decidable offline, so fix it rather
+    # than shipping a drill that prompts in English and answers in Cantonese.
+    concepts = [{"kind": "vocab", "key": "laat", "label": "辣", "gloss": "spicy"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "recognition", "concept": "laat", "target": "spicy food",
+         "gloss": "辣嘢", "distractors": ["sweet food", "salty food"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    recog = exs[0]
+    assert recog["prompt"] == "辣嘢"
+    assert recog["options"][recog["answer"]] == "spicy food"
+
+
+def test_latin_script_distractors_are_never_filtered():
+    # Nothing distinguishes Spanish from English by script, so the side check must
+    # not guess — every authored distractor survives.
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "production", "concept": "mesa", "gloss": "the table",
+         "target": "la mesa", "distractors": ["el libro", "la puerta", "la silla"]},
+    ]}
+    exs = learning.assemble_lesson("es", concepts, authored)["segments"][0]["exercises"]
+    assert len(exs[0]["options"]) == 4
+
+
+def test_cloze_drops_english_distractors():
+    concepts = [{"kind": "vocab", "key": "p", "label": "佢", "gloss": "he/she"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "cloze", "concept": "p", "sentence": "___係香港人",
+         "answer": "佢", "gloss": "He is a Hong Konger.",
+         "distractors": ["我", "he", "you"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    assert set(exs[0]["options"]) == {"佢", "我"}
+    assert exs[0]["options"][exs[0]["answer"]] == "佢"
+
+
+def test_match_drops_pairs_that_are_not_native_english():
+    concepts = [{"kind": "vocab", "key": "laat", "label": "辣", "gloss": "spicy"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "match", "concept": "laat", "pairs": [
+            {"target": "辣", "english": "spicy"},
+            {"target": "甜", "english": "sweet"},
+            {"target": "salty", "english": "鹹"},      # swapped → flipped back
+            {"target": "spicy hot", "english": "very spicy"},   # both English → dropped
+        ]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    pairs = exs[0]["pairs"]
+    assert {"鹹": "salty"}.items() <= {p["target"]: p["english"] for p in pairs}.items()
+    assert all(learning._SCRIPT_RE["chinese"].search(p["target"]) for p in pairs)
+    assert len(pairs) == 3
+
+
+def test_reorder_drops_decoys_contained_in_the_answer_sentence():
+    # THE screenshot bug: answer tiles 我/食過/辣/嘢 with decoys 食 and 過 lets the
+    # learner build 我+食+過+辣+嘢 — the exactly-correct sentence — out of "wrong"
+    # tiles, and be marked wrong for it. Tiles concatenate in Cantonese, so any
+    # decoy occurring inside the answer isn't a decoy at all.
+    concepts = [{"kind": "grammar", "key": "gwo", "label": "過", "gloss": "experiential"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "gwo", "sentence": "我食過辣嘢",
+         "tokens": ["我", "食過", "辣", "嘢"], "decoys": ["食", "過", "飲"]},
+    ]}
+    exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
+    wb = next(e for e in exs if e["type"] == "word_bank")
+    assert wb["answer_tokens"] == ["我", "食過", "辣", "嘢"]
+    assert wb["distractor_tokens"] == ["飲"]         # only the one not in the sentence
+
+
+def test_reorder_keeps_substring_decoys_for_spaced_languages():
+    # With spaces, tiles can't merge into a different segmentation of the same
+    # sentence, so a decoy that merely occurs inside a word is still a fair decoy.
+    concepts = [{"kind": "grammar", "key": "v", "label": "verbs", "gloss": "verbs"}]
+    authored = {"teach": [], "drills": [
+        {"kind": "reorder", "concept": "v", "sentence": "yo como en casa",
+         "tokens": ["yo", "como", "en", "casa"], "decoys": ["as", "bebo"]},
+    ]}
+    exs = learning.assemble_lesson("es", concepts, authored)["segments"][0]["exercises"]
+    wb = next(e for e in exs if e["type"] == "word_bank")
+    assert set(wb["distractor_tokens"]) == {"as", "bebo"}
+
+
+def test_repair_stored_exercise_fixes_old_lessons():
+    # Lessons authored before these rules existed are still on disk and still
+    # played, so the same fixes are applied when a stored lesson is read.
+    bad_choice = {"type": "choice", "prompt": "辣嘢", "prompt_lang": "target",
+                  "options": ["spicy food", "甜嘢", "salty food"], "answer": 0}
+    fixed = learning.repair_stored_exercise(bad_choice, "yue")
+    assert fixed["options"] == ["spicy food", "salty food"]
+    assert fixed["options"][fixed["answer"]] == "spicy food"
+    assert bad_choice["options"] == ["spicy food", "甜嘢", "salty food"]   # copy, not mutation
+
+    bad_bank = {"type": "word_bank", "answer_tokens": ["我", "食過", "辣", "嘢"],
+                "distractor_tokens": ["食", "過", "飲"]}
+    assert learning.repair_stored_exercise(bad_bank, "yue")["distractor_tokens"] == ["飲"]
+
+    # Nothing to decide (Latin target) or nothing wrong → the same object back.
+    ok = {"type": "choice", "options": ["la mesa", "el libro"], "answer": 0}
+    assert learning.repair_stored_exercise(ok, "es") is ok
+
+
+def test_repair_stored_exercise_keeps_a_drill_it_cannot_fix():
+    # Dropping every distractor would leave an unplayable one-option drill —
+    # better a flawed drill than a broken one.
+    ex = {"type": "choice", "prompt": "辣嘢", "prompt_lang": "target",
+          "options": ["spicy food", "甜嘢"], "answer": 0}
+    assert learning.repair_stored_exercise(ex, "yue") is ex
+
+
 def test_reorder_backtracks_when_short_token_shadows_long():
     # Tokens 你 and 你好 both match at position 0 of 你好你 — a greedy walk that
     # consumes 你 first dead-ends; backtracking must find 你好+你.
@@ -436,6 +574,136 @@ def test_no_speak_segment_for_vocab_only_lesson():
     segs = learning.assemble_lesson("es", concepts, authored)["segments"]
     assert len(segs) == 1
     assert not any(s.get("speak") for s in segs)
+
+
+# ── Sentence check (post-authoring proofread) ────────────────────────────────
+
+def _yue_lesson_for_check():
+    """A Cantonese lesson holding one nonsense drill sentence (a future time word
+    with the experiential-past marker) plus two fine ones."""
+    concepts = [{"kind": "grammar", "key": "gwo", "label": "過", "gloss": "experiential"}]
+    authored = {"steps": [{"title": "T", "teach": [
+        {"type": "examples", "items": [
+            {"text": "我食過壽司", "gloss": "I have eaten sushi"},
+            {"text": "我聽日去過日本", "gloss": "I have been to Japan tomorrow"},
+        ]},
+    ], "drills": [
+        {"kind": "reorder", "concept": "gwo", "sentence": "我聽日去過日本",
+         "tokens": ["我", "聽日", "去過", "日本"]},
+        {"kind": "recognition", "concept": "gwo", "target": "我去過日本",
+         "gloss": "I have been to Japan", "distractors": ["I will go to Japan"]},
+    ]}]}
+    return learning.assemble_lesson("yue", concepts, authored)
+
+
+def _fake_llm(monkeypatch, payload):
+    """Stub llm.call, capturing the prompt it was given."""
+    seen = {}
+
+    async def call(prompt, **kw):
+        seen["prompt"] = prompt
+        seen["model"] = kw.get("model")
+        return payload
+
+    monkeypatch.setattr(learning.llm, "call", call)
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_verify_drops_flagged_sentences(monkeypatch):
+    content = _yue_lesson_for_check()
+    items = learning._checkable_items(content, "yue")
+    # Graded drills are offered first, so the nonsense reorder is item 1.
+    assert items[0]["text"] == "我聽日去過日本"
+    bad_teach = next(i for i, it in enumerate(items, 1) if it["text"] == "我聽日去過日本"
+                     and it is not items[0])
+    seen = _fake_llm(monkeypatch, json.dumps(
+        {"bad": [{"n": 1, "reason": "future word with past marker"},
+                 {"n": bad_teach, "reason": "same contradiction"}]}))
+    out = await learning.verify_lesson_sentences(
+        "yue", content, api_key="k", model="fast-model")
+
+    assert len(out["dropped"]) == 2
+    assert seen["model"] == "fast-model"
+    exercises = content["segments"][0]["exercises"]
+    assert all(e["type"] != "word_bank" for e in exercises)      # bad drill dropped
+    assert any(e["type"] == "choice" for e in exercises)         # good drill kept
+    examples = [b for b in content["segments"][0]["teach"]["blocks"]
+                if b["type"] == "examples"][0]
+    assert [it["text"] for it in examples["items"]] == ["我食過壽司"]
+
+
+@pytest.mark.asyncio
+async def test_verify_ignores_a_verdict_that_condemns_the_lesson(monkeypatch):
+    # A model flagging most of the lesson is not proofreading it — trust nothing,
+    # since shipping an unchecked lesson beats shipping an empty one.
+    content = _yue_lesson_for_check()
+    n = len(learning._checkable_items(content, "yue"))
+    _fake_llm(monkeypatch, json.dumps(
+        {"bad": [{"n": i, "reason": "no"} for i in range(1, n + 1)]}))
+    before = json.dumps(content, ensure_ascii=False, sort_keys=True)
+    out = await learning.verify_lesson_sentences("yue", content, api_key="k")
+    assert out["dropped"] == []
+    assert json.dumps(content, ensure_ascii=False, sort_keys=True) == before
+
+
+@pytest.mark.asyncio
+async def test_verify_clean_verdict_changes_nothing(monkeypatch):
+    content = _yue_lesson_for_check()
+    _fake_llm(monkeypatch, '{"bad": []}')
+    before = json.dumps(content, ensure_ascii=False, sort_keys=True)
+    out = await learning.verify_lesson_sentences("yue", content, api_key="k")
+    assert out["dropped"] == []
+    assert json.dumps(content, ensure_ascii=False, sort_keys=True) == before
+
+
+def test_checkable_items_fills_the_cloze_blank():
+    # A proofreader shown "___係香港人" would call it ungrammatical, so the blank is
+    # filled with the keyed answer before the sentence is checked.
+    concepts = [{"kind": "vocab", "key": "p", "label": "佢", "gloss": "he/she"}]
+    content = learning.assemble_lesson("yue", concepts, {"steps": [{"title": "T",
+        "teach": [], "drills": [
+            {"kind": "cloze", "concept": "p", "sentence": "___係香港人", "answer": "佢",
+             "gloss": "He is a Hong Konger.", "distractors": ["我", "你"]},
+        ]}]})
+    items = learning._checkable_items(content, "yue")
+    assert [it["text"] for it in items] == ["佢係香港人"]
+
+
+def test_checkable_items_skips_single_words():
+    # A one-word vocab drill can't be internally contradictory — don't spend
+    # prompt budget (or risk a false flag) on citation forms.
+    concepts = [{"kind": "vocab", "key": "laat", "label": "辣", "gloss": "spicy"}]
+    content = learning.assemble_lesson("yue", concepts, {"steps": [{"title": "T",
+        "teach": [], "drills": [
+            {"kind": "recognition", "concept": "laat", "target": "辣",
+             "gloss": "spicy", "distractors": ["sweet", "salty"]},
+        ]}]})
+    assert learning._checkable_items(content, "yue") == []
+
+
+@pytest.mark.asyncio
+async def test_author_lesson_skips_the_check_without_a_verify_model(monkeypatch):
+    calls = []
+
+    async def call(prompt, **kw):
+        calls.append(kw.get("model"))
+        return json.dumps({"title": "T", "objective": "o", "intro": "i", "summary": "s",
+                           "steps": [{"title": "S", "teach": [], "drills": [
+                               {"kind": "recognition", "concept": "mesa",
+                                "target": "la mesa", "gloss": "the table",
+                                "distractors": ["the book"]}]}]})
+
+    monkeypatch.setattr(learning.llm, "call", call)
+    concepts = [{"kind": "vocab", "key": "mesa", "label": "la mesa", "gloss": "the table"}]
+    await learning.author_lesson("es", concepts, api_key="k", model="author-model")
+    assert calls == ["author-model"]              # author only, no check call
+
+    calls.clear()
+    out = await learning.author_lesson("es", concepts, api_key="k", model="author-model",
+                                      verify_model="fast-model")
+    assert calls == ["author-model", "fast-model"]
+    assert "SENTENCE CHECK" in out["_raw_prompt"]
 
 
 def test_pick_review_concepts_prefers_weak_then_rotates():
