@@ -303,6 +303,13 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Day resets at</div>
+          <div class="settings-desc">Your streak, XP ring and daily quests roll over at midnight in this time zone — detected from your device</div>
+        </div>
+        <span id="settings-timezone" class="settings-desc" style="text-align:right;white-space:nowrap">—</span>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Lesson length</div>
           <div class="settings-desc">How big newly generated lessons are (existing lessons keep their shape)</div>
         </div>
@@ -1044,6 +1051,10 @@
     const goalSel = document.getElementById('settings-daily-goal');
     const goal = settings.daily_xp_goal || 50;
     goalSel.value = [10, 30, 50, 100].includes(goal) ? String(goal) : '50';
+    // Read-only: the app shell reports the device's zone automatically. Shown
+    // so "why did my streak roll over then?" is answerable at a glance.
+    const tzEl = document.getElementById('settings-timezone');
+    if (tzEl) tzEl.textContent = (settings.timezone || 'UTC').replace(/_/g, ' ');
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;

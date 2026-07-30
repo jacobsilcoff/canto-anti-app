@@ -1252,7 +1252,11 @@
     try {
       const used = info && info.streak_freeze_used_date;
       if (!used) return;
-      const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      // The server stamps this as (the learner's local today − 1), so compare
+      // in local time — a UTC date here misses by a day either side of midnight.
+      const d = new Date(Date.now() - 864e5);
+      const p = n => String(n).padStart(2, '0');
+      const yest = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
       if (used !== yest) return;   // only a freshly-used freeze (yesterday)
       if (localStorage.getItem('freezeUsedSeen') === used) return;
       localStorage.setItem('freezeUsedSeen', used);

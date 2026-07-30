@@ -2,10 +2,10 @@
 """Restore a user's study streak by backfilling study_activity rows.
 
 Streaks aren't stored as a number — `db.get_streak` derives them from the
-`study_activity` table (one row per active UTC day). To make a user's current
-streak equal to N, we ensure the last N consecutive days (ending today, UTC)
-each have a row. This is the supported way to correct a streak that was lost to
-the pre-fix timezone bug in `get_streak`.
+`study_activity` table (one row per active day, in the USER's timezone). To make
+a user's current streak equal to N, we ensure the last N consecutive days
+(ending today, in their zone) each have a row. This is the supported way to
+correct a streak that was lost to a bug.
 
 Idempotent: uses INSERT OR IGNORE, so re-running is safe and won't double-count.
 
@@ -33,7 +33,8 @@ async def restore(username: str, streak_days: int) -> int:
         raise SystemExit(f"No user named {username!r} found in {db.DB_PATH}")
     user_id = user["id"]
 
-    today = datetime.now(timezone.utc).date()
+    # The learner's own "today" — their day boundary, not the server's.
+    today = datetime.fromisoformat(await db.user_today(user_id)).date()
     dates = [(today - timedelta(days=n)).isoformat() for n in range(streak_days)]
 
     async with aiosqlite.connect(db.DB_PATH) as conn:

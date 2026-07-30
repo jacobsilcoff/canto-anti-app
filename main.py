@@ -2266,6 +2266,9 @@ async def get_settings(user: dict = Depends(current_user)):
         # Warm-up steps also default ON and can be skipped at play time.
         "lesson_warmup": (await db.get_setting(user["id"], "lesson_warmup") or "true") != "false",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
+        # IANA zone deciding when the learner's day rolls over (streak, XP ring,
+        # daily quests, new-card cap). Auto-detected by the client; UTC until then.
+        "timezone": await db.get_setting(user["id"], "timezone") or db.DEFAULT_TIMEZONE,
     }
 
 
@@ -2289,6 +2292,7 @@ class SettingsUpdate(BaseModel):
     lesson_ai_speak: bool | None = None
     lesson_warmup: bool | None = None
     course_focus: str | None = None
+    timezone: str | None = None
 
 
 @app.put("/api/settings")
@@ -2358,6 +2362,21 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
         await db.set_setting(user["id"], "course_focus", req.course_focus)
+    if req.timezone is not None:
+        # Sent automatically by the client on every load, so an unresolvable zone
+        # is a bad browser rather than a bad user — fall back to UTC (the old
+        # behaviour) instead of failing the whole settings write.
+        tz = req.timezone.strip()
+        if not db.is_valid_timezone(tz):
+            tz = db.DEFAULT_TIMEZONE
+        if tz != (await db.get_setting(user["id"], "timezone") or db.DEFAULT_TIMEZONE):
+            # Moving the day boundary re-reads history that was written against
+            # the old one, which can shift the count by a day. Nobody loses a
+            # streak they already earned to a correctness fix.
+            before = await db.get_streak(user["id"])
+            await db.set_setting(user["id"], "timezone", tz)
+            if await db.get_streak(user["id"]) < before:
+                await db.ensure_min_streak(user["id"], before)
     return {"success": True}
 
 
@@ -2677,7 +2696,10 @@ async def _daily_goal(user_id: int) -> int:
 @app.get("/api/streak")
 async def get_streak(user: dict = Depends(current_user)):
     lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
-    # get_streak may consume a freeze to bridge a missed day, so read it first.
+    # Spend a shield on any bridgeable gap BEFORE reading, so a learner who just
+    # opens the app sees the rescued streak. `db.get_streak` itself is pure —
+    # only the owner's own read (and their study writes) can consume a freeze.
+    await db.apply_streak_freezes(user["id"])
     streak = await db.get_streak(user["id"])
     freeze = await db.get_streak_freeze_state(user["id"])
     return {"streak": streak,
@@ -2764,6 +2786,34 @@ async def get_audio(card_id: int, user: dict = Depends(current_user)):
 class ReviewRequest(BaseModel):
     quality: str  # "again" | "hard" | "good" | "easy"
     face: str     # "source" | "target" | "pronunciation"
+    # Local ISO date the learner actually answered. Offline reviews queue in
+    # IndexedDB and can sync days later; without this they were credited to the
+    # sync day, so an evening session synced next morning lost its streak day.
+    studied_on: str | None = None
+
+
+_MAX_BACKDATE_DAYS = 7
+
+
+async def _clamp_studied_on(user_id: int, studied_on: str | None) -> str | None:
+    """Validate a client-supplied study date against the user's own calendar.
+
+    Client clocks are not trusted: anything unparseable, in the future, or older
+    than a week is dropped and the server's "today" is used instead. The window
+    only has to cover a plausible offline backlog — it must not become a way to
+    hand-write streak history.
+    """
+    if not studied_on:
+        return None
+    from datetime import date, timedelta
+    try:
+        day = date.fromisoformat(studied_on.strip())
+    except (ValueError, AttributeError):
+        return None
+    today = date.fromisoformat(await db.user_today(user_id))
+    if day > today or day < today - timedelta(days=_MAX_BACKDATE_DAYS):
+        return None
+    return day.isoformat()
 
 
 @app.post("/api/cards/{card_id}/review")
@@ -2783,6 +2833,7 @@ async def review_card(card_id: int, req: ReviewRequest, user: dict = Depends(cur
     review_id = await db.apply_card_review(
         user["id"], card_id, req.face, new_state,
         xp=xp, lang=card.get("target_lang", "yue"),
+        studied_on=await _clamp_studied_on(user["id"], req.studied_on),
     )
     if review_id is None:
         raise HTTPException(404, "Face not found")
@@ -8111,6 +8162,8 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
 
     entries = []
     for uid in user_ids:
+        # db.get_streak is pure, so listing friends here can't spend their
+        # streak freezes or write activity rows onto their accounts.
         streak = await db.get_streak(uid)
         entries.append({
             "user_id": uid,
