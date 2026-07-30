@@ -776,6 +776,19 @@
     .tb-gen-left { opacity: .7; font-weight: 500; }
     .tb-gen-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .72rem; padding: 3px 8px; }
     .tb-gen-clear:hover { color: var(--danger); }
+    .tb-book-head { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin: 4px 0 8px; }
+    .tb-gen-note { text-align: center; color: var(--text-muted); font-size: .7rem; line-height: 1.4;
+      padding: 0 8px 6px; }
+    /* A lesson slot the unit will fill: reserved, dimmed, one tap from real. */
+    .lesson.queued { opacity: .72; border-style: dashed; }
+    .lesson.queued .lesson-node { background: var(--surface-alt); color: var(--text-muted);
+      border: 1px dashed var(--border); }
+    .lesson.queued.clickable:hover { opacity: 1; }
+    .lesson-del, .unit-del { background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: .8rem; line-height: 1; padding: 2px 4px; opacity: .5; }
+    .lesson-del:hover, .unit-del:hover { color: var(--danger); opacity: 1; }
+    .unit-del { float: right; }
     .bk-card { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface); }
     .bk-title-row { display: flex; align-items: center; gap: 8px; }
     .bk-title { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1147,6 +1160,7 @@
   let _genError = null;       // last error message from generation
   let _tbGenerating = null;   // textbook unit_id currently authoring its next lesson
   let _tbError = null;        // last error from a textbook-unit generation
+  let _tbProgress = '';       // "Built 2 · 3 to go…" during a generate-all run
 
   function show(state) {
     _currentState = state;
@@ -1672,6 +1686,19 @@
     localStorage.setItem('learn_unit_' + id, nowOpen ? '0' : '1');
     if (body)    body.style.display = nowOpen ? 'none' : '';
     if (chevron) chevron.style.transform = nowOpen ? '' : 'rotate(90deg)';
+  }
+
+  // AI course path collapse — default EXPANDED; '1' = collapsed. The trail's
+  // connectors are measured from laid-out nodes, so they must be redrawn when
+  // it reopens (they can't be measured while display:none).
+  function toggleAiPath() {
+    const isNowCollapsed = localStorage.getItem('learn_ai_collapsed') !== '1';
+    localStorage.setItem('learn_ai_collapsed', isNowCollapsed ? '1' : '0');
+    const body    = document.getElementById('ai-body');
+    const chevron = document.getElementById('ai-chevron');
+    if (body)    body.style.display = isNowCollapsed ? 'none' : '';
+    if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
+    if (!isNowCollapsed) requestAnimationFrame(drawPathConnectors);
   }
 
   // Foundations section collapse — default collapsed (hidden); '0' = expanded.
@@ -2557,22 +2584,41 @@
     if (chevron) chevron.style.transform = isNowCollapsed ? '' : 'rotate(90deg)';
   }
 
-  // Author the next queued lesson for ONE textbook unit (explicit, unit-scoped —
-  // never the AI course path).
-  async function generateTextbookLesson(unitId) {
+  async function _refreshCourse() {
+    const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
+    if (course) currentCourse = course;
+    return course;
+  }
+
+  // Author queued lessons for ONE textbook unit (explicit, unit-scoped — never
+  // the AI course path). `mode === 'all'` keeps going until the unit's queue is
+  // empty, refreshing the map between lessons so each one appears as it lands
+  // (one long request instead would show nothing for minutes and risk a
+  // gateway timeout).
+  async function generateTextbookLesson(unitId, mode) {
     if (_tbGenerating) return;
-    _tbGenerating = unitId; _tbError = null;
+    _tbGenerating = unitId; _tbError = null; _tbProgress = '';
     if (currentCourse) renderCourse(currentCourse);
+    let built = 0;
     try {
-      const res = await fetch(`/api/course-units/${unitId}/next-lesson`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Could not generate the next lesson.');
-      const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
-      if (course) { currentCourse = course; }
+      for (let guard = 0; guard < 12; guard++) {
+        const res = await fetch(`/api/course-units/${unitId}/next-lesson`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Could not generate the next lesson.');
+        built++;
+        const left = data.queued_remaining || 0;
+        await _refreshCourse();
+        if (mode !== 'all' || !left) break;
+        _tbProgress = `Built ${built} · ${left} to go…`;
+        renderCourse(currentCourse);
+      }
     } catch (e) {
-      _tbError = e.message || 'Could not generate the next lesson.';
+      _tbError = built
+        ? `${e.message || 'Generation stopped'} — ${built} lesson${built === 1 ? '' : 's'} built. Tap to continue.`
+        : (e.message || 'Could not generate the next lesson.');
+      await _refreshCourse();
     } finally {
-      _tbGenerating = null;
+      _tbGenerating = null; _tbProgress = '';
       if (currentCourse) renderCourse(currentCourse);
     }
   }
@@ -2580,14 +2626,58 @@
   async function clearTextbookUnitQueue(unitId) {
     if (!confirm('Drop the remaining un-generated lessons for this textbook unit? Lessons already built are kept.')) return;
     await fetch(`/api/course-units/${unitId}/queue`, { method: 'DELETE' }).catch(() => {});
-    const { course } = await fetch('/api/courses/active').then(r => r.json()).catch(() => ({}));
-    if (course) { currentCourse = course; renderCourse(course); }
+    const course = await _refreshCourse();
+    if (course) renderCourse(course);
+  }
+
+  // Find a unit / lesson in the loaded course map (titles for confirm prompts
+  // come from here, never interpolated into an onclick attribute).
+  function _findUnit(unitId) {
+    return (currentCourse && (currentCourse.units || []).find(u => u.id === unitId)) || null;
+  }
+  function _findLesson(lessonId) {
+    for (const u of (currentCourse && currentCourse.units) || []) {
+      const l = (u.lessons || []).find(x => x.id === lessonId);
+      if (l) return l;
+    }
+    return null;
+  }
+
+  // Delete a whole unit (its lessons + anything still queued for it). The book
+  // keeps its pages, so the chapter can be turned into lessons again later.
+  async function deleteCourseUnit(unitId) {
+    const unit = _findUnit(unitId);
+    const title = (unit && unit.title) || 'this unit';
+    const count = ((unit && unit.lessons) || []).length;
+    if (!confirm(`Delete “${title}” and its ${count} lesson${count === 1 ? '' : 's'}? The textbook itself is kept, so you can rebuild this chapter any time.`)) return;
+    _tbError = null;
+    try {
+      const res = await fetch(`/api/course-units/${unitId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).detail) || 'Could not delete this unit.');
+    } catch (e) { _tbError = e.message || 'Could not delete this unit.'; }
+    const course = await _refreshCourse();
+    if (course) renderCourse(course);
+  }
+
+  // Delete ONE lesson. In a textbook unit the slot isn't lost — the unit can
+  // re-author it from its queue; here it simply removes a lesson you don't want.
+  async function deleteLessonRow(lessonId) {
+    const lesson = _findLesson(lessonId);
+    if (!confirm(`Delete the lesson “${(lesson && lesson.title) || 'this lesson'}”? Your XP and streak are kept.`)) return;
+    _tbError = null;
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).detail) || 'Could not delete this lesson.');
+    } catch (e) { _tbError = e.message || 'Could not delete this lesson.'; }
+    const course = await _refreshCourse();
+    if (course) renderCourse(course);
   }
 
   // ── Course map ───────────────────────────────────────────────────────────────
 
   // Shared: build the HTML for one lesson row (used for both foundations & AI).
-  function _lessonHtml(l, li) {
+  // `opts.deletable` adds a ✕ (textbook units, where lessons are yours to redo).
+  function _lessonHtml(l, li, opts) {
     const st = l.status || 'locked';
     const displayNum = li + 1;                          // 1-based position within this unit
     const dbgNum = l.lesson_num || displayNum;          // course-wide sequence (debug only)
@@ -2609,7 +2699,28 @@
         <div class="lesson-status ${st}">${badge}</div>
         ${isAdmin ? `<button onclick="event.stopPropagation();openDebug(${l.id},${dbgNum})"
           title="LLM debug" style="background:none;border:none;cursor:pointer;font-size:.9rem;opacity:.45;padding:2px 4px;line-height:1">🔍</button>` : ''}
+        ${(opts && opts.deletable) ? `<button class="lesson-del" title="Delete this lesson"
+          onclick="event.stopPropagation();deleteLessonRow(${l.id})">✕</button>` : ''}
       </div>
+    </div>`;
+  }
+
+  // A lesson this unit will have but hasn't authored yet. Reserving the row is
+  // the point: a textbook unit shows its real shape ("5 lessons, 2 built")
+  // instead of a bare counter, and the next one is one tap away.
+  function _queuedLessonHtml(q, position, unitId, isNext, busy) {
+    const label = q.title || 'Next lesson';
+    const action = isNext
+      ? (busy ? '<span class="spinner"></span> Building…' : '＋ Generate this lesson')
+      : 'Queued from your textbook';
+    return `<div class="lesson queued${isNext && !busy ? ' clickable' : ''}"
+        ${isNext && !busy ? `onclick="generateTextbookLesson(${unitId})"` : ''}>
+      <div class="lesson-node queued">${position}</div>
+      <div class="lesson-body">
+        <div class="lesson-name">${esc(label)}</div>
+        <div class="lesson-meta">${action}</div>
+      </div>
+      <div class="lesson-status locked">not built</div>
     </div>`;
   }
 
@@ -2833,7 +2944,26 @@
     }
 
     // ── AI (vocab) lessons — vertical skill-tree path ─────────────────────────
+    // Collapsible like the other two tracks: once a book's units are what you're
+    // working through, a long AI trail is just scrolling. Default EXPANDED
+    // ('1' = collapsed), since it's the main course.
     if (aiUnits.some(u => (u.lessons || []).length)) {
+      const collapsed = localStorage.getItem('learn_ai_collapsed') === '1';
+      const aiTotal = aiUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+
+      const section = document.createElement('div');
+      section.className = 'foundations-section';
+      section.innerHTML = `
+        <button class="foundations-toggle" onclick="toggleAiPath()">
+          <span class="foundations-icon">✨</span>
+          <span class="foundations-label">Your AI course</span>
+          <span class="foundations-progress">${aiDone}/${aiTotal}</span>
+          <span class="foundations-chevron" id="ai-chevron"
+            style="transform:${collapsed ? '' : 'rotate(90deg)'}">›</span>
+        </button>
+        <div class="foundations-body" id="ai-body"
+          style="${collapsed ? 'display:none' : ''}"></div>`;
+
       const path = document.createElement('div');
       path.className = 'lpath';
       let unitNo = 0, wave = 0, html = '';
@@ -2847,8 +2977,9 @@
         if (!u.in_progress && u.id) { html += _checkpointRow(u, wave); wave++; }
       });
       path.innerHTML = html;
-      wrap.appendChild(path);
-      requestAnimationFrame(drawPathConnectors);
+      section.querySelector('#ai-body').appendChild(path);
+      wrap.appendChild(section);
+      if (!collapsed) requestAnimationFrame(drawPathConnectors);
     }
 
     // ── Textbook units — their own section, separate from the AI course path ────
@@ -2873,23 +3004,42 @@
           style="${collapsed ? 'display:none' : ''}"></div>`;
 
       const body = section.querySelector('#textbooks-body');
+      let lastBook = null;
       textbookUnits.forEach(u => {
         const unitDiv = document.createElement('div');
         unitDiv.className = 'unit';
-        const remaining = u.queued_remaining || 0;
+        const lessons  = u.lessons || [];
+        const queued   = u.queued || [];
+        const remaining = queued.length;
+        const total    = lessons.length + remaining;
         const gen = _tbGenerating === u.id;
-        let html = `<div class="unit-head">
-          <div class="unit-title">${esc(u.title || 'Textbook unit')}</div>
+        // Units are ordered by the book's own chapter order; name the book once
+        // when it changes so several books stay readable in one list.
+        const bookName = u.book_title || '';
+        const bookHead = (bookName && bookName !== lastBook)
+          ? `<div class="tb-book-head">📕 ${esc(bookName)}</div>` : '';
+        lastBook = bookName || lastBook;
+        let html = bookHead + `<div class="unit-head">
+          <div class="unit-title">${esc(u.title || 'Textbook unit')}
+            <button class="unit-del" title="Delete this unit"
+              onclick="deleteCourseUnit(${u.id})">🗑</button>
+          </div>
           ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+          ${total ? `<div class="unit-obj">${lessons.length} of ${total} lesson${total === 1 ? '' : 's'} built</div>` : ''}
         </div>`;
-        (u.lessons || []).forEach((l, li) => { html += _lessonHtml(l, li); });
+        lessons.forEach((l, li) => { html += _lessonHtml(l, li, { deletable: true }); });
+        queued.forEach((q, qi) => {
+          html += _queuedLessonHtml(q, lessons.length + qi + 1, u.id, qi === 0, gen);
+        });
         if (remaining > 0) {
           html += `<div class="tb-gen">
-            <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id})">
-              ${gen ? '<span class="spinner"></span> Building next lesson…'
-                    : `＋ Generate next lesson <span class="tb-gen-left">${remaining} left</span>`}</button>
-            <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>
-          </div>`;
+            <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id},'all')">
+              ${gen ? `<span class="spinner"></span> ${esc(_tbProgress || 'Building next lesson…')}`
+                    : `⚡ Build all ${remaining} remaining`}</button>
+            ${gen ? '' : `<button class="tb-gen-clear" onclick="generateTextbookLesson(${u.id})">Just the next one</button>
+            <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>`}
+          </div>
+          ${gen ? '' : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
         }
         if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
         unitDiv.innerHTML = html;
@@ -5270,6 +5420,19 @@
     }
     renderResultsXp(xpEarned, player.practiceGame ? false : perfect, player.maxCombo,
                     serverInfo && serverInfo.crown_level, serverInfo && serverInfo.crown_leveled_up);
+    // Textbook units read like a book: keep going into the next lesson from
+    // here rather than sending the learner back to hunt for it on the map. When
+    // the next one isn't authored yet the server is already building it.
+    const follow = serverInfo && serverInfo.next_lesson;
+    if (follow && follow.next) {
+      contBtn.textContent = 'Next lesson →';
+      contBtn.onclick = () => openLesson(follow.next.id);
+      retryBtn.textContent = 'Back to map'; retryBtn.onclick = backToMap;
+    } else if (follow && follow.queued_remaining) {
+      contBtn.textContent = 'Build the next lesson →';
+      contBtn.onclick = () => { backToMap(); generateTextbookLesson(follow.unit_id); };
+      retryBtn.textContent = 'Back to map'; retryBtn.onclick = backToMap;
+    }
     if (player.testOut) {
       document.getElementById('results-badges').insertAdjacentHTML('beforeend',
         '<span class="results-badge">🎓 Tested out</span>');

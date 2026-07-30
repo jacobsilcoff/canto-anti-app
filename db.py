@@ -2530,10 +2530,20 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
         ) as cur:
             course["queued_lessons"] = (await cur.fetchone())[0]
 
-        # Completed units (those with assigned lessons)
+        # Completed units (those with assigned lessons). Textbook units sort by
+        # the BOOK's chapter order (then their own creation order), so a book
+        # read out of order still lists its units the way the book does.
         async with db.execute(
-            "SELECT id, idx, title, summary, theme, checkpoint_passed, checkpoint_score "
-            "FROM course_units WHERE course_id=? ORDER BY idx",
+            """SELECT u.id, u.idx, u.title, u.summary, u.theme, u.checkpoint_passed,
+                      u.checkpoint_score, u.textbook_id, u.chapter_idx,
+                      (SELECT t.title FROM textbooks t WHERE t.id = u.textbook_id) AS book_title
+               FROM course_units u WHERE u.course_id=?
+               ORDER BY CASE WHEN u.theme='textbook' THEN 1 ELSE 0 END,
+                        CASE WHEN u.theme='textbook'
+                             THEN COALESCE(u.textbook_id, 0) ELSE 0 END,
+                        CASE WHEN u.theme='textbook'
+                             THEN COALESCE(u.chapter_idx, 9999) ELSE 0 END,
+                        u.idx""",
             (course_id,),
         ) as cur:
             units = [dict(r) for r in await cur.fetchall()]
@@ -2584,10 +2594,15 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
                     l["status"] = "done" if l["completed_at"] is not None else "available"
             elif is_textbook:
                 _status_sequential(lessons)
+                # Placeholders for the lessons this unit will have but hasn't
+                # authored yet — the roadmap shows the unit's full shape, and
+                # each row is a "generate this one" affordance.
                 async with db.execute(
-                    "SELECT COUNT(*) FROM lesson_queue WHERE unit_id=?", (unit["id"],)
+                    "SELECT id, idx, spec_json FROM lesson_queue WHERE unit_id=? ORDER BY idx",
+                    (unit["id"],),
                 ) as cur:
-                    unit["queued_remaining"] = (await cur.fetchone())[0]
+                    unit["queued"] = _queued_lesson_rows(await cur.fetchall())
+                unit["queued_remaining"] = len(unit["queued"])
             else:
                 for l in lessons:
                     l["status"] = _status_ai(l)
@@ -2931,20 +2946,27 @@ async def close_unit(course_id: int, title: str, summary: str) -> int:
         return unit_id
 
 
-async def create_textbook_unit_row(course_id: int, title: str, summary: str = "") -> int:
+async def create_textbook_unit_row(course_id: int, title: str, summary: str = "",
+                                   textbook_id: int | None = None,
+                                   chapter_idx: int | None = None) -> int:
     """Create an EMPTY textbook unit (theme='textbook') up front. Unlike
     close_unit it does NOT back-assign unitless lessons — textbook lessons attach
     to it directly via create_lesson(unit_id=...), so they never touch the AI
-    course's active_plan/close_unit flow. Returns unit_id."""
+    course's active_plan/close_unit flow. `textbook_id`/`chapter_idx` record which
+    chapter of which book the unit came from (migration 044), which survives the
+    queue draining and is what lets the unit be found, ordered and regenerated
+    per chapter. Returns unit_id."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
         ) as cur:
             next_idx = (await cur.fetchone())[0] + 1
         cur = await db.execute(
-            "INSERT INTO course_units (course_id, idx, title, summary, theme) "
-            "VALUES (?, ?, ?, ?, 'textbook')",
-            (course_id, next_idx, (title or "").strip(), (summary or "").strip()),
+            "INSERT INTO course_units (course_id, idx, title, summary, theme, "
+            "                          textbook_id, chapter_idx) "
+            "VALUES (?, ?, ?, ?, 'textbook', ?, ?)",
+            (course_id, next_idx, (title or "").strip(), (summary or "").strip(),
+             textbook_id, chapter_idx),
         )
         await db.commit()
         return cur.lastrowid
@@ -2956,13 +2978,118 @@ async def get_textbook_unit(user_id: int, unit_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """SELECT u.id, u.course_id, u.title, u.theme, c.target_lang, c.level
+            """SELECT u.id, u.course_id, u.title, u.theme, u.textbook_id, u.chapter_idx,
+                      c.target_lang, c.level
                FROM course_units u JOIN courses c ON c.id = u.course_id
                WHERE u.id=? AND c.user_id=? AND u.theme='textbook'""",
             (unit_id, user_id),
         ) as cur:
             row = await cur.fetchone()
     return dict(row) if row else None
+
+
+async def get_textbook_units(user_id: int, textbook_id: int) -> list[dict]:
+    """Every unit built from one book, in chapter order, with lesson + queue
+    counts. Backs "this chapter already has lessons — regenerate?" instead of
+    silently building a second unit for the same pages."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.id, u.title, u.chapter_idx,
+                      (SELECT COUNT(*) FROM course_lessons l WHERE l.unit_id = u.id)
+                        AS lesson_count,
+                      (SELECT COUNT(*) FROM course_lessons l
+                        WHERE l.unit_id = u.id AND l.completed_at IS NOT NULL)
+                        AS done_count,
+                      (SELECT COUNT(*) FROM lesson_queue q WHERE q.unit_id = u.id)
+                        AS queued_remaining
+               FROM course_units u
+               JOIN courses c ON c.id = u.course_id
+               JOIN textbooks t ON t.id = u.textbook_id
+               WHERE u.textbook_id=? AND t.user_id=? AND c.user_id=? AND u.theme='textbook'
+               ORDER BY COALESCE(u.chapter_idx, 9999), u.idx""",
+            (textbook_id, user_id, user_id),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def collapse_unit_chapter_idx(textbook_id: int, index: int) -> None:
+    """Re-point a book's units after chapters `index` and `index+1` merged.
+
+    Chapter indices are positions in the book's chapter list, so removing a
+    boundary shifts everything after it down one. Units built from either half
+    now belong to the merged chapter at `index`."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE course_units SET chapter_idx=? "
+            "WHERE textbook_id=? AND chapter_idx=?",
+            (index, textbook_id, index + 1))
+        await db.execute(
+            "UPDATE course_units SET chapter_idx = chapter_idx - 1 "
+            "WHERE textbook_id=? AND chapter_idx > ?",
+            (textbook_id, index + 1))
+        await db.execute(
+            "UPDATE lesson_queue SET chapter_idx=? WHERE textbook_id=? AND chapter_idx=?",
+            (index, textbook_id, index + 1))
+        await db.execute(
+            "UPDATE lesson_queue SET chapter_idx = chapter_idx - 1 "
+            "WHERE textbook_id=? AND chapter_idx > ?",
+            (textbook_id, index + 1))
+        await db.commit()
+
+
+async def delete_course_unit(user_id: int, unit_id: int) -> dict | None:
+    """Delete a unit, its lessons, their concept-registry rows and any lessons
+    still queued for it (ownership-checked). Returns {lessons, queued} counts, or
+    None when the unit isn't the user's. Mastery history is deliberately left
+    alone — it describes the learner, not the lesson."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.id, u.course_id FROM course_units u
+               JOIN courses c ON c.id = u.course_id
+               WHERE u.id=? AND c.user_id=?""",
+            (unit_id, user_id),
+        ) as cur:
+            unit = await cur.fetchone()
+        if not unit:
+            return None
+        async with db.execute(
+            "SELECT id FROM course_lessons WHERE unit_id=?", (unit_id,)
+        ) as cur:
+            lesson_ids = [r[0] for r in await cur.fetchall()]
+        for lesson_id in lesson_ids:
+            await db.execute(
+                "DELETE FROM course_concepts WHERE introduced_lesson_id=?", (lesson_id,))
+        await db.execute("DELETE FROM course_lessons WHERE unit_id=?", (unit_id,))
+        cur = await db.execute("DELETE FROM lesson_queue WHERE unit_id=?", (unit_id,))
+        queued = cur.rowcount
+        await db.execute("DELETE FROM course_units WHERE id=?", (unit_id,))
+        await db.commit()
+    return {"lessons": len(lesson_ids), "queued": queued,
+            "course_id": unit["course_id"]}
+
+
+async def delete_lesson(user_id: int, lesson_id: int) -> dict | None:
+    """Delete ONE lesson and the concepts it introduced (ownership-checked).
+    Returns {course_id, unit_id} or None. Remaining lessons keep their stored
+    lesson_num — position within a unit is rendered from order, not the number."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT l.id, l.course_id, l.unit_id FROM course_lessons l
+               JOIN courses c ON c.id = l.course_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row:
+            return None
+        await db.execute(
+            "DELETE FROM course_concepts WHERE introduced_lesson_id=?", (lesson_id,))
+        await db.execute("DELETE FROM course_lessons WHERE id=?", (lesson_id,))
+        await db.commit()
+    return {"course_id": row["course_id"], "unit_id": row["unit_id"]}
 
 
 async def delete_course_unit_if_empty(unit_id: int) -> None:
@@ -3070,6 +3197,34 @@ async def peek_lesson_queue_for_unit(unit_id: int) -> dict | None:
         ) as cur:
             row = await cur.fetchone()
     return _row_to_queue_item(row) if row else None
+
+
+def _queued_lesson_rows(rows) -> list[dict]:
+    """`(id, idx, spec_json)` rows → the `{id, idx, title}` placeholders the Learn
+    page reserves a row for, so a textbook unit shows its whole shape ("5
+    lessons, 2 built") instead of a bare "3 left" counter."""
+    out = []
+    for row in rows:
+        try:
+            spec = json.loads(row["spec_json"] or "{}")
+        except (ValueError, TypeError):
+            spec = {}
+        skill = spec.get("skill") if isinstance(spec.get("skill"), dict) else {}
+        title = (spec.get("title") or skill.get("label") or "").strip()
+        out.append({"id": row["id"], "idx": row["idx"],
+                    "title": title or "Next lesson"})
+    return out
+
+
+async def list_lesson_queue_for_unit(unit_id: int) -> list[dict]:
+    """The unit's not-yet-authored lessons, in order (see _queued_lesson_rows)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, idx, spec_json FROM lesson_queue WHERE unit_id=? ORDER BY idx",
+            (unit_id,),
+        ) as cur:
+            return _queued_lesson_rows(await cur.fetchall())
 
 
 async def pop_lesson_queue(queue_id: int) -> None:
@@ -3323,6 +3478,12 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
         if cur.rowcount:
             await db.execute(
                 "DELETE FROM lesson_queue WHERE textbook_id=?", (textbook_id,))
+            # Units built from the book survive (their lessons are kept), but the
+            # chapter link must go — a dangling textbook_id would sort them by a
+            # book that no longer exists and could collide with a re-upload's id.
+            await db.execute(
+                "UPDATE course_units SET textbook_id=NULL, chapter_idx=NULL "
+                "WHERE textbook_id=?", (textbook_id,))
             if media_ids:
                 await db.executemany(
                     "DELETE FROM media WHERE id=?", [(mid,) for mid in media_ids])
@@ -3337,7 +3498,7 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
         async with db.execute(
             """SELECT l.id, l.lesson_num, l.title, l.objective,
                       l.content, l.concepts_json, l.llm_debug_json,
-                      l.score, l.completed_at,
+                      l.score, l.completed_at, l.unit_id,
                       c.target_lang, c.level, c.id AS course_id,
                       COALESCE(u.theme, '') AS theme
                FROM course_lessons l
@@ -3357,6 +3518,46 @@ async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
         lesson.pop("concepts_json", None)
         lesson["completed"] = lesson["completed_at"] is not None
         return lesson
+
+
+async def get_unit_next_lesson(user_id: int, lesson_id: int) -> dict | None:
+    """What comes after `lesson_id` inside its own unit: the next lesson (if one
+    is authored) and how many of the unit's lessons are still queued.
+
+    Lets the results screen hand the learner straight on to the next lesson of a
+    textbook unit — or offer to build it — instead of dropping them back on the
+    map to hunt for it. None when the lesson isn't in a unit."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT l.unit_id, l.lesson_num, COALESCE(u.theme, '') AS theme,
+                      COALESCE(u.title, '') AS unit_title
+               FROM course_lessons l
+               JOIN courses c ON c.id = l.course_id
+               LEFT JOIN course_units u ON u.id = l.unit_id
+               WHERE l.id=? AND c.user_id=?""",
+            (lesson_id, user_id),
+        ) as cur:
+            row = await cur.fetchone()
+        if not row or not row["unit_id"]:
+            return None
+        async with db.execute(
+            """SELECT id, title FROM course_lessons
+               WHERE unit_id=? AND (lesson_num > ? OR (lesson_num = ? AND id > ?))
+               ORDER BY lesson_num, id LIMIT 1""",
+            (row["unit_id"], row["lesson_num"], row["lesson_num"], lesson_id),
+        ) as cur:
+            nxt = await cur.fetchone()
+        async with db.execute(
+            "SELECT COUNT(*) FROM lesson_queue WHERE unit_id=?", (row["unit_id"],)
+        ) as cur:
+            queued = (await cur.fetchone())[0]
+    return {
+        "unit_id": row["unit_id"], "theme": row["theme"],
+        "unit_title": row["unit_title"],
+        "next": {"id": nxt["id"], "title": nxt["title"]} if nxt else None,
+        "queued_remaining": queued,
+    }
 
 
 CROWN_MAX = 3   # skill-tree crown cap; each completion bumps the crown by 1

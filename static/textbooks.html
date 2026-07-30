@@ -84,7 +84,20 @@
        heading the split is being validated against. */
     .tbr-split-tag { position: absolute; right: 2px; bottom: 3px; background: var(--energy);
       color: #fff; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
-      max-width: 60%; overflow: hidden; text-overflow: ellipsis; opacity: .92; }
+      max-width: 60%; overflow: hidden; text-overflow: ellipsis; opacity: .92;
+      border: none; pointer-events: auto; cursor: pointer; font-family: inherit; }
+    .tbr-split-tag:hover { opacity: 1; }
+    /* A boundary that falls on a clean page break: same idea, drawn at the very
+       top/bottom of the page so EVERY division in the book is visible — and
+       deletable — without opening the chapter list. */
+    .tbr-split.is-edge { border-top-style: solid; border-color: var(--primary); opacity: .8; }
+    .tbr-split.is-edge::before, .tbr-split.is-edge::after { background: var(--primary); }
+    .tbr-split.is-edge .tbr-split-tag { background: var(--primary); color: var(--on-primary); }
+    .tbr-split.edge-top .tbr-split-tag { bottom: auto; top: 3px; }
+    /* A just-saved boundary shown optimistically, settling as the server
+       confirms its precise position — a gentle pulse, no blink-out. */
+    @keyframes tbr-split-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    .tbr-split.pending { animation: tbr-split-pulse .9s ease-in-out infinite; }
     .tbr-imgwrap.loading::after { content: ''; }
     /* ── Visual split editing: drag the rule over the rendered page ─────────── */
     /* The overlay captures taps/drags only in edit mode, so ordinary reading is
@@ -102,6 +115,9 @@
     .tbr-se-rule { position: absolute; left: 0; right: 0; border-top: 3px dashed var(--energy);
       cursor: grab; touch-action: none; }
     .tbr-se-rule.dragging { cursor: grabbing; }
+    /* When the rule is parked at a clean page break, tint it like the static
+       page-edge markers so its meaning ("break between pages") reads at a glance. */
+    .tbr-se-rule.is-edge { border-top-color: var(--primary); }
     .tbr-se-rule::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 28px; }
     /* Both controls live in the RIGHT margin: a rule sits between two lines, so
        anything anchored to it at the left would cover the words being validated. */
@@ -274,7 +290,7 @@
   <div class="tbr-note" id="tbr-note" style="display:none"></div>
   <div class="tbr-actions">
     <button onclick="readerBuildVocab()">📇 Build vocab deck (this chapter)</button>
-    <button onclick="readerCreateLessons()">📘 Turn chapter into lessons</button>
+    <button id="tbr-lessons-btn" onclick="readerCreateLessons()">📘 Turn chapter into lessons</button>
   </div>
   <div class="tbr-stage">
     <div class="tbr-imgwrap" id="tbr-imgwrap"></div>
@@ -526,6 +542,7 @@
       return;
     }
     _rb = await r.json();
+    _splits = [];              // drop the previous book's markers (loadSplits fills)
     _bookmarks = new Set(_rb.bookmarks || []);
     _page = Math.min(Math.max(1, _rb.last_page || 1), _rb.num_pages || 1);
     document.getElementById('tbr-title').textContent = _rb.title;
@@ -544,6 +561,7 @@
     }
     renderPage();
     loadSplits();     // non-blocking: markers appear a moment after the page
+    loadUnits();      // which chapters already have lessons (for the actions bar)
   }
 
   function closeReader() {
@@ -630,52 +648,163 @@
   let _splits = [];
 
   async function loadSplits() {
-    _splits = [];
     if (!_rb) return;
     const id = _rb.id;
+    // Don't clear `_splits` up front: a save sets optimistic marks and then calls
+    // this to reconcile, and wiping first would drop them from state (a re-render
+    // mid-fetch — e.g. a resize — would blink the boundary out). Fresh-open
+    // clears `_splits` in openReader instead. Replace only once data arrives.
     try {
       const r = await fetch(`/api/textbooks/${id}/splits`);
       if (!r.ok) return;
       const data = await r.json();
       if (!_rb || _rb.id !== id) return;      // reader moved on
       _splits = data.splits || [];
-      if (_splits.length) renderPage();       // redraw with the markers
+      renderPage();                           // redraw with the settled markers
     } catch (e) { /* best-effort: the reader works without markers */ }
+  }
+
+  // Client mirror of the server's `_split_marks`, for optimistic rendering right
+  // after a save (before `/splits` recomputes precise y). Every boundary becomes
+  // a mid-page mark (anchored, shared page) or two clean page-edge marks. `y` is
+  // reused from the marks we already had (keyed by page+line) so mid-page rules
+  // don't jump; `editedY` seeds the one boundary just dragged on this page. All
+  // marks carry `pending:true` → a settling pulse the reconcile clears.
+  function _marksFromChapters(chapters, editedY) {
+    const prevY = new Map();
+    for (const s of _splits) if (s.y != null) prevY.set(s.page + '|' + _tbNormLine(s.line || ''), s.y);
+    const marks = [];
+    for (let i = 0; i < chapters.length - 1; i++) {
+      const a = chapters[i], b = chapters[i + 1];
+      const aEnd = +a.end, bStart = +b.start;
+      const anchor = (a.end_anchor || b.start_anchor || '').trim();
+      if (anchor) {
+        const page = aEnd;                        // anchored boundaries share a page
+        const key = page + '|' + _tbNormLine(anchor);
+        marks.push({ page, line: anchor, y: prevY.has(key) ? prevY.get(key) : null,
+                     kind: 'mid', edge: '', boundary: i,
+                     above: a.title || '', below: b.title || '', pending: true });
+      } else if (bStart > aEnd) {
+        const base = { line: '', y: null, kind: 'page', boundary: i,
+                       above: a.title || '', below: b.title || '', pending: true };
+        marks.push({ ...base, page: aEnd, edge: 'bottom' });
+        marks.push({ ...base, page: bStart, edge: 'top' });
+      }
+    }
+    if (editedY != null)
+      for (const m of marks) if (m.kind === 'mid' && m.page === _page && m.y == null) m.y = editedY;
+    return marks;
   }
 
   function _splitsOn(pageNo) {
     // While editing, both views must show the DRAFT boundary — the text pane is
     // the copy generation actually trims, so it's what validates the drag.
     if (_seOn && _seDraft && pageNo === _page) {
-      if (!_seAnchor) return [];
-      const i = _seBoundaryIdx();
+      if (_seBi < 0) return [];
+      const above = _seDraft[_seBi].title || '';
+      const below = _seDraft[_seBi + 1].title || '';
       // y stays null: the rule on the image is the interactive one drawn by
-      // `_seOverlay`, so the static marker must not double up on it.
-      return [{ page: pageNo, line: _seAnchor, y: null,
-                above: i >= 0 ? (_seDraft[i].title || '') : '',
-                below: i >= 0 ? (_seDraft[i + 1].title || '') : '' }];
+      // `_seOverlay`, so the static image marker must not double up on it. The
+      // text pane keys off `kind`/`edge` to place its divider.
+      if (_seKind === 'mid')
+        return [{ page: pageNo, line: _seAnchor, y: null, kind: 'mid', above, below }];
+      return [{ page: pageNo, line: '', y: null, kind: 'page',
+                edge: _seKind === 'top' ? 'top' : 'bottom', above, below }];
     }
     return _splits.filter(s => s.page === pageNo);
   }
 
   function _splitOverlays(pageNo) {
+    // On the page being edited the interactive `_seOverlay` rule IS the boundary;
+    // a static image marker would double up on it (the text pane still shows the
+    // draft divider via _splitsOn).
+    if (_seOn && _seDraft && pageNo === _page) return [];
     const out = [];
     for (const s of _splitsOn(pageNo)) {
-      if (s.y == null) continue;              // couldn't be located — text view only
-      const pct = Math.min(99.5, Math.max(0.5, s.y * 100));
+      const isEdge = s.kind === 'page';
+      if (!isEdge && s.y == null) continue;   // couldn't be located — text view only
       const rule = document.createElement('div');
-      rule.className = 'tbr-split';
-      rule.style.top = pct + '%';
-      const tag = document.createElement('div');
+      rule.className = 'tbr-split' + (isEdge ? ` is-edge edge-${s.edge}` : '')
+        + (s.pending ? ' pending' : '');
+      rule.style.top = isEdge
+        ? (s.edge === 'top' ? '0%' : '100%')
+        : Math.min(99.5, Math.max(0.5, s.y * 100)) + '%';
+      const tag = document.createElement('button');
+      tag.type = 'button';
       tag.className = 'tbr-split-tag';
-      tag.textContent = '✂︎ split';
       // The full "X ends · Y begins" wording lives in the caption and the text
       // view; the tag stays short so it never hides the page's own words.
-      tag.title = s.below ? `“${s.below}” starts here` : 'next unit starts here';
+      tag.textContent = isEdge
+        ? (s.edge === 'top' ? `✂︎ ${s.below || 'next unit'} starts`
+                            : `✂︎ ${s.above || 'this unit'} ends`)
+        : '✂︎ split';
+      tag.title = 'Tap to manage this unit boundary';
+      if (s.boundary != null && !(_seOn && !isEdge)) {
+        tag.onclick = (e) => { e.stopPropagation(); openBoundaryMenu(s); };
+      } else {
+        tag.style.pointerEvents = 'none';
+      }
       rule.appendChild(tag);
       out.push(rule);
     }
     return out;
+  }
+
+  // ── Deleting a boundary = merging the two units it divides ─────────────────
+  // Every division (mid-page or clean page break) is tappable on the page, so
+  // structure can be corrected where it's visible instead of in a list of page
+  // numbers. Merging renames the survivor with AI, because each old title only
+  // described half of what the merged unit now covers.
+  function openBoundaryMenu(mark) {
+    const above = mark.above || 'the unit above';
+    const below = mark.below || 'the unit below';
+    const where = mark.kind === 'page'
+      ? `between page ${mark.edge === 'top' ? mark.page - 1 : mark.page} and page ${mark.edge === 'top' ? mark.page : mark.page + 1}`
+      : `partway down page ${mark.page}`;
+    openModal(`<h2>Unit boundary</h2>
+      <p class="tb-sub"><b>${esc(above)}</b> ends and <b>${esc(below)}</b> begins ${esc(where)}.
+        ${mark.line ? `The cut is at “${esc(mark.line.slice(0, 80))}”.` : ''}</p>
+      <div id="bm-status"></div>
+      <div class="tb-row-actions" style="flex-wrap:wrap">
+        <button class="tb-btn ghost" onclick="closeModal()">Keep it</button>
+        <button class="tb-btn ghost" onclick="closeModal();if(!_seOn)toggleSplitEdit()">Move the split</button>
+        <button class="tb-btn" id="bm-merge">Merge into one unit</button>
+      </div>`);
+    document.getElementById('bm-merge').onclick = () => mergeBoundary(mark.boundary);
+  }
+
+  async function mergeBoundary(index) {
+    if (_busy || !_rb) return;
+    _busy = true;
+    const btn = document.getElementById('bm-merge');
+    if (btn) btn.disabled = true;
+    const st = document.getElementById('bm-status');
+    if (st) st.innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Merging the two units and naming the result…</div>';
+    try {
+      const r = await fetch(`/api/textbooks/${_rb.id}/chapters/merge`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data.detail && data.detail.message) || data.detail || 'Could not merge these units.');
+      _applySavedChapters(data.chapters || []);
+      closeModal();
+      await Promise.all([loadSplits(), loadUnits()]);
+      renderPage();
+    } catch (e) {
+      if (st) st.innerHTML = `<div class="tb-error">${esc(e.message || 'Could not merge these units.')}</div>`;
+      if (btn) btn.disabled = false;
+    } finally { _busy = false; }
+  }
+
+  // Push a freshly-saved chapter list into every view that holds a copy.
+  function _applySavedChapters(chapters) {
+    if (_rb) _rb.chapters = chapters;
+    const lib = _rb && _books.find(x => x.id === _rb.id);
+    if (lib) lib.chapters = chapters;
+    if (_chBook && _rb && _chBook.id === _rb.id)
+      _chBook.chapters = chapters.map(c => ({ ...c }));
+    updateChapterCaption();
+    renderLibrary();
   }
 
   // ── Visual split editing: drag the boundary over the rendered page ─────────
@@ -689,7 +818,9 @@
   let _seLines = null;        // [{text, y}] for the page being edited (null = loading)
   let _seReason = '';         // why there are no lines, if so
   let _seDraft = null;        // working copy of the chapter list
-  let _seAnchor = null;       // the line currently chosen (null = no split on this page)
+  let _seAnchor = null;       // the mid-page line chosen (null unless kind==='mid')
+  let _seBi = -1;             // boundary index being edited (chapters[_seBi] / _seBi+1); -1 = none on this page
+  let _seKind = 'none';       // 'mid' | 'top' | 'bottom' | 'none' — where this boundary sits on the current page
   let _seInserted = -1;       // draft index of a chapter this session created (undo on remove)
   let _seBusy = false;
   let _seDragging = false;
@@ -702,7 +833,7 @@
     _seLines = null; _seReason = ''; _seInserted = -1; _seBusy = false;
     _seTitleTouched = false;
     _seDraft = (_rb.chapters || []).map(c => ({ ...c }));
-    _seAnchor = _seCurrentAnchor();
+    _seRetarget();
     document.getElementById('tbr-splitedit').classList.add('on');
     document.getElementById('tbr-splitbar').style.display = '';
     renderPage();
@@ -710,10 +841,39 @@
   }
 
   function cancelSplitEdit() {
-    _seOn = false; _seDraft = null; _seLines = null; _seAnchor = null; _seInserted = -1;
+    _seOn = false; _seDraft = null; _seLines = null; _seAnchor = null;
+    _seBi = -1; _seKind = 'none'; _seInserted = -1;
     document.getElementById('tbr-splitedit').classList.remove('on');
     document.getElementById('tbr-splitbar').style.display = 'none';
     renderPage();
+  }
+
+  // Which boundary the CURRENT page can edit, and where it sits on that page.
+  // Mid-page and clean page-break boundaries are the same object seen at
+  // different heights — the whole point of the drag is to slide between them —
+  // so a page adjacent to a boundary is editable whether the cut is on the page
+  // (mid) or at a clean break just above (top) / below (bottom) it.
+  function _seEditBoundary() {
+    if (!_seDraft) return { i: -1, kind: 'none' };
+    const P = _page;
+    for (let i = 0; i < _seDraft.length - 1; i++)
+      if (_seDraft[i].end === P && _seDraft[i + 1].start === P) return { i, kind: 'mid' };
+    for (let i = 0; i < _seDraft.length - 1; i++)
+      if (_seDraft[i].end === P && _seDraft[i + 1].start === P + 1) return { i, kind: 'bottom' };
+    for (let i = 0; i < _seDraft.length - 1; i++)
+      if (_seDraft[i + 1].start === P && _seDraft[i].end === P - 1) return { i, kind: 'top' };
+    return { i: -1, kind: 'none' };
+  }
+
+  // Re-point the editor at the boundary adjacent to the current page (run on
+  // enter + every page turn). During a drag the target stays fixed.
+  function _seRetarget() {
+    const t = _seEditBoundary();
+    _seBi = t.i;
+    _seKind = t.kind;
+    _seAnchor = (_seKind === 'mid' && _seBi >= 0)
+      ? (_seDraft[_seBi].end_anchor || _seDraft[_seBi + 1].start_anchor || null)
+      : null;
   }
 
   async function loadSplitLines() {
@@ -730,22 +890,6 @@
     _seRefresh();
   }
 
-  // Which chapter boundary (if any) already falls on this page, from the draft.
-  function _seBoundaryIdx() {
-    if (!_seDraft) return -1;
-    for (let i = 0; i < _seDraft.length - 1; i++) {
-      const a = _seDraft[i], b = _seDraft[i + 1];
-      if (b.start === a.end && a.end === _page) return i;   // shared → split here
-    }
-    return -1;
-  }
-
-  function _seCurrentAnchor() {
-    const i = _seBoundaryIdx();
-    if (i < 0) return null;
-    return _seDraft[i].end_anchor || _seDraft[i + 1].start_anchor || null;
-  }
-
   // The chapter this page reads as, for splitting a page that isn't yet a boundary.
   function _seChapterAt(page) {
     if (!_seDraft) return -1;
@@ -755,63 +899,88 @@
     return -1;
   }
 
-  // Snap a 0–1 height to the nearest line's rule position.
-  function _seNearest(frac) {
-    if (!_seLines || !_seLines.length) return null;
-    let best = _seLines[0], dist = Math.abs(_seLines[0].y - frac);
-    for (const ln of _seLines) {
-      const d = Math.abs(ln.y - frac);
-      if (d < dist) { dist = d; best = ln; }
+  // Where the boundary being edited can land on THIS page: the top edge (a clean
+  // break above the page), any text line (a mid-page cut), or the bottom edge (a
+  // clean break below it). The edges are only offered when the neighbouring unit
+  // keeps at least one page — otherwise a drag there would erase a unit.
+  function _seCandidates() {
+    const P = _page;
+    let head, tail;   // the two page ranges the boundary divides
+    if (_seBi >= 0) { head = _seDraft[_seBi]; tail = _seDraft[_seBi + 1]; }
+    else { const ci = _seChapterAt(P); if (ci < 0) return []; head = tail = _seDraft[ci]; }
+    const cands = [];
+    if (P - 1 >= head.start) cands.push({ kind: 'top', y: 0 });
+    for (const ln of (_seLines || [])) cands.push({ kind: 'mid', y: ln.y, text: ln.text });
+    if (P + 1 <= tail.end) cands.push({ kind: 'bottom', y: 1 });
+    return cands;
+  }
+
+  // Snap a 0–1 drag height to the nearest candidate (line or edge).
+  function _seSnap(frac) {
+    const cands = _seCandidates();
+    if (!cands.length) return null;
+    let best = cands[0], dist = Math.abs(cands[0].y - frac);
+    for (const c of cands) {
+      const d = Math.abs(c.y - frac);
+      if (d < dist) { dist = d; best = c; }
     }
     return best;
   }
 
-  // Place (or move) the split at `line`, reshaping the draft chapters.
-  function _seSetAnchor(line) {
-    const text = (line.text || '').trim();
-    if (!text) return;
-    let i = _seBoundaryIdx();
-    if (i < 0) {
-      // No boundary here yet — cut the chapter this page belongs to in two.
-      const ci = _seChapterAt(_page);
+  // Move (or create) the edited boundary to `target` — a line (mid-page cut) or
+  // an edge (clean page break above/below this page), reshaping the draft.
+  function _seApplyTarget(target) {
+    if (!target) return;
+    const P = _page;
+    const line = (target.text || '').trim();
+    if (_seBi < 0) {
+      // No boundary on this page yet — cut the chapter it belongs to in two.
+      const ci = _seChapterAt(P);
       if (ci < 0) return;
       const c = _seDraft[ci];
-      const tail = { title: text.slice(0, 80), start: _page, end: c.end,
-                     skip_hint: false, status: '', start_anchor: text, end_anchor: c.end_anchor || '' };
-      c.end = _page;
-      c.end_anchor = text;
+      const origEnd = c.end, origEndAnchor = c.end_anchor || '';
+      const tail = { start: P, end: origEnd, end_anchor: origEndAnchor,
+                     title: (line || '').slice(0, 80), skip_hint: false, status: '' };
+      if (target.kind === 'top') {
+        c.end = P - 1; c.end_anchor = ''; tail.start = P; tail.start_anchor = '';
+      } else if (target.kind === 'bottom') {
+        c.end = P; c.end_anchor = ''; tail.start = P + 1; tail.start_anchor = '';
+      } else {
+        if (!line) return;
+        c.end = P; c.end_anchor = line; tail.start = P; tail.start_anchor = line;
+      }
       _seDraft.splice(ci + 1, 0, tail);
       _seInserted = ci + 1;
-      i = ci;
+      _seBi = ci;
     } else {
-      _seDraft[i].end_anchor = text;
-      _seDraft[i + 1].start_anchor = text;
-      if (_seInserted === i + 1 && !_seTitleTouched) {
-        _seDraft[i + 1].title = text.slice(0, 80);   // follow the drag
+      const a = _seDraft[_seBi], b = _seDraft[_seBi + 1];
+      if (target.kind === 'top') {
+        a.end = P - 1; b.start = P; a.end_anchor = ''; b.start_anchor = '';
+      } else if (target.kind === 'bottom') {
+        a.end = P; b.start = P + 1; a.end_anchor = ''; b.start_anchor = '';
+      } else {
+        if (!line) return;
+        a.end = P; b.start = P; a.end_anchor = line; b.start_anchor = line;
+        if (_seInserted === _seBi + 1 && !_seTitleTouched) b.title = line.slice(0, 80);
       }
     }
-    _seAnchor = text;
+    _seKind = target.kind;
+    _seAnchor = target.kind === 'mid' ? line : null;
     _seRefresh();
   }
 
+  // ✕ on the rule: undo a split created THIS session (give the pages back to one
+  // chapter). A pre-existing boundary isn't removed here — that would merge two
+  // real units, which is the boundary menu's job; moving it to a clean break is a
+  // drag to the edge instead.
   function removeSplitHere() {
-    const i = _seBoundaryIdx();
-    if (i < 0) return;
-    if (_seInserted === i + 1) {
-      // Undo a split made in this session: give the pages back to one chapter.
-      const a = _seDraft[i], b = _seDraft[i + 1];
-      a.end = b.end;
-      a.end_anchor = b.end_anchor || '';
-      _seDraft.splice(i + 1, 1);
-      _seInserted = -1;
-    } else {
-      // A pre-existing boundary: drop the mid-page cut, keep the two chapters
-      // divided at a clean page break.
-      const a = _seDraft[i], b = _seDraft[i + 1];
-      a.end_anchor = ''; b.start_anchor = '';
-      if (b.start === a.end) b.start = Math.min(_rb.num_pages, a.end + 1);
-    }
-    _seAnchor = null;
+    if (_seBi < 0 || _seInserted !== _seBi + 1) return;
+    const a = _seDraft[_seBi], b = _seDraft[_seBi + 1];
+    a.end = b.end;
+    a.end_anchor = b.end_anchor || '';
+    _seDraft.splice(_seBi + 1, 1);
+    _seInserted = -1;
+    _seRetarget();
     _seRefresh();
   }
 
@@ -837,11 +1006,19 @@
       _rb.chapters = data.chapters || [];
       const lib = _books.find(x => x.id === _rb.id); if (lib) lib.chapters = _rb.chapters;
       if (_chBook && _chBook.id === _rb.id) _chBook.chapters = _rb.chapters.map(c => ({ ...c }));
-      cancelSplitEdit();
+      // The PUT already persisted the split — the only thing `/splits` adds is the
+      // precise y for a mid-page anchor (located from the PDF text layer). So show
+      // the moved boundary IMMEDIATELY from the saved chapters (reusing the y we
+      // had while dragging), marked "pending" with a gentle pulse, instead of
+      // blinking it out for a network round-trip. Then reconcile in the
+      // background: the pulse clears and y settles to the server's exact value
+      // (same positioning code, so no visible jump).
+      const editedY = _seKind === 'mid' ? _seCurrentY() : null;
+      _splits = _marksFromChapters(_rb.chapters, editedY);
+      cancelSplitEdit();           // renders the optimistic, pulsing marks
       updateChapterCaption();
       renderLibrary();
-      await loadSplits();          // redraw the saved boundary from the server
-      renderPage();
+      loadSplits().then(() => renderPage());   // reconcile precise y, clear pulse
     } catch (e) {
       if (bar) bar.innerHTML = `<span class="tb-error">${esc(e.message || 'Could not save.')}</span>`;
       if (save) save.disabled = false;
@@ -853,27 +1030,38 @@
     const rm = document.getElementById('tbr-sb-remove');
     const save = document.getElementById('tbr-sb-save');
     if (!msg) return;
-    if (!document.querySelector('#tbr-imgwrap .tbr-imgbox')) {
-      // Dragging needs a rendered page to drag over; this book reads as text.
+    const hasImg = !!document.querySelector('#tbr-imgwrap .tbr-imgbox');
+    const above = _seBi >= 0 ? (_seDraft[_seBi].title || 'this unit') : 'this unit';
+    const below = _seBi >= 0 ? (_seDraft[_seBi + 1].title || '') : '';
+    if (!hasImg) {
       msg.textContent = 'This page has no image to drag over. Use Chapters → Edit divisions to set the split by line.';
-    } else if (_seLines === null) { msg.textContent = 'Reading this page…'; }
-    else if (!_seLines.length) {
+    } else if (_seLines === null) {
+      msg.textContent = 'Reading this page…';
+    } else if (_seBi >= 0) {
+      // An existing boundary touches this page — describe where it sits and how
+      // to move it (onto the page, or off to a clean break above/below).
+      if (_seKind === 'mid') {
+        const line = esc((_seAnchor || '').slice(0, 44));
+        const named = below && _tbNormLine(below) !== _tbNormLine(_seAnchor || '');
+        msg.innerHTML = `Drag the rule up or down. <b>${esc(above)}</b> ends above it; ` +
+          (named ? `<b>${esc(below)}</b> starts` : 'the next unit starts') + ` at “${line}”.`;
+      } else if (_seKind === 'top') {
+        msg.innerHTML = `Clean break above this page — <b>${esc(above)}</b> ends on the previous page, ` +
+          `<b>${esc(below) || 'the next unit'}</b> starts here. Drag down onto the page to cut mid-page.`;
+      } else {
+        msg.innerHTML = `Clean break below this page — <b>${esc(above)}</b> ends here, ` +
+          `<b>${esc(below) || 'the next unit'}</b> starts on the next page. Drag up onto the page to cut mid-page.`;
+      }
+    } else if (!_seLines.length) {
       msg.textContent = _seReason === 'no_pdf'
         ? 'This book has no stored PDF, so a split can’t be placed visually. Use Chapters → Edit divisions.'
         : 'This page has no text layer to split on (a scan, or a page re-read by AI). Use Chapters → Edit divisions.';
-    } else if (_seAnchor) {
-      const i = _seBoundaryIdx();
-      const above = i >= 0 ? (_seDraft[i].title || 'this unit') : 'this unit';
-      const below = i >= 0 ? (_seDraft[i + 1].title || '') : '';
-      const line = esc(_seAnchor.slice(0, 44));
-      // Don't stutter when the new unit is still named after the line itself.
-      const named = below && _tbNormLine(below) !== _tbNormLine(_seAnchor);
-      msg.innerHTML = `Drag the rule to move it. <b>${esc(above)}</b> ends above it; ` +
-        (named ? `<b>${esc(below)}</b> starts` : 'a new unit starts') + ` at “${line}”.`;
     } else {
-      msg.textContent = 'Tap the page where the next unit begins. The line you pick is what generation cuts on.';
+      msg.textContent = 'Tap the page where the next unit begins — a line for a mid-page cut, or the very top/bottom for a clean page break.';
     }
-    if (rm) rm.style.display = _seAnchor ? '' : 'none';
+    // ✕ only undoes a split created this session; an existing boundary moves to a
+    // clean break by dragging to the edge, and merges via the boundary menu.
+    if (rm) rm.style.display = (_seInserted >= 0 && _seInserted === _seBi + 1) ? '' : 'none';
     if (save) save.disabled = false;
     // A split that CREATED a unit needs a name — the anchor line is only a
     // guess (right when it's a heading, noise when it isn't), and an unnamed
@@ -900,8 +1088,7 @@
     box.className = 'tbr-splitedit';
     const hint = document.createElement('div');
     hint.className = 'se-hint';
-    hint.textContent = _seLines === null ? 'Reading this page…'
-      : (!_seLines.length ? 'No text layer on this page' : '✂︎ Split mode');
+    hint.textContent = _seLines === null ? 'Reading this page…' : '✂︎ Split mode';
     box.appendChild(hint);
 
     const ghost = document.createElement('div');
@@ -913,48 +1100,58 @@
       const r = box.getBoundingClientRect();
       return r.height ? Math.min(1, Math.max(0, (clientY - r.top) / r.height)) : 0;
     };
+    const label = (c) => c.kind === 'top' ? '✂︎ clean break above this page'
+      : c.kind === 'bottom' ? '✂︎ clean break below this page'
+      : '✂︎ ' + ((c.text || '').slice(0, 46) || '·');
     const preview = (clientY) => {
-      const near = _seNearest(fracOf(clientY));
+      const near = _seSnap(fracOf(clientY));
       if (!near) return null;
       ghost.style.display = '';
       ghost.style.top = (near.y * 100) + '%';
-      hint.textContent = '✂︎ ' + (near.text.slice(0, 46) || '·');
+      hint.textContent = label(near);
       return near;
     };
 
-    if (_seLines && _seLines.length) {
+    const canPlace = _seCandidates().length > 0;
+    if (canPlace) {
       box.addEventListener('pointermove', (e) => { if (!_seDragging) preview(e.clientY); });
       box.addEventListener('pointerleave', () => {
         if (_seDragging) return;
         ghost.style.display = 'none';
         hint.textContent = '✂︎ Split mode';
       });
+      // Tap on empty page area places/moves the boundary (the rule handles drags).
       box.addEventListener('pointerdown', (e) => {
         if (e.target !== box && e.target !== ghost && e.target !== hint) return;
         const near = preview(e.clientY);
-        if (near) _seSetAnchor(near);
+        if (near) _seApplyTarget(near);
       });
     }
 
-    if (_seAnchor) {
-      const y = _seAnchorY();
+    // An existing boundary on this page gets a draggable rule — whether it sits
+    // mid-page or at a clean top/bottom edge. Dragging slides it freely between
+    // the two, which is the whole point: an edge split isn't a different thing.
+    if (_seBi >= 0) {
+      const y = _seCurrentY();
       const rule = document.createElement('div');
-      rule.className = 'tbr-se-rule';
+      rule.className = 'tbr-se-rule' + (_seKind !== 'mid' ? ' is-edge' : '');
       rule.style.top = (y * 100) + '%';
       const grip = document.createElement('div');
       grip.className = 'tbr-se-grip';
       grip.textContent = '⇕ drag';
       rule.appendChild(grip);
-      const del = document.createElement('button');
-      del.className = 'tbr-se-del';
-      del.type = 'button';
-      del.textContent = '✕';
-      del.title = 'Remove this split';
-      del.addEventListener('pointerdown', (e) => e.stopPropagation());
-      del.addEventListener('click', (e) => { e.stopPropagation(); removeSplitHere(); });
-      rule.appendChild(del);
+      if (_seInserted === _seBi + 1) {
+        const del = document.createElement('button');
+        del.className = 'tbr-se-del';
+        del.type = 'button';
+        del.textContent = '✕';
+        del.title = 'Undo this split';
+        del.addEventListener('pointerdown', (e) => e.stopPropagation());
+        del.addEventListener('click', (e) => { e.stopPropagation(); removeSplitHere(); });
+        rule.appendChild(del);
+      }
       rule.addEventListener('pointerdown', (e) => {
-        if (e.target === del) return;
+        if (e.target.classList.contains('tbr-se-del')) return;
         e.preventDefault(); e.stopPropagation();
         _seDragging = true;
         rule.classList.add('dragging');
@@ -969,9 +1166,9 @@
         if (!_seDragging) return;
         _seDragging = false;
         rule.classList.remove('dragging');
-        const near = _seNearest(fracOf(e.clientY));
+        const near = _seSnap(fracOf(e.clientY));
         ghost.style.display = 'none';
-        if (near) _seSetAnchor(near); else _seRefresh();
+        if (near) _seApplyTarget(near); else _seRefresh();
       };
       rule.addEventListener('pointerup', drop);
       rule.addEventListener('pointercancel', drop);
@@ -980,15 +1177,17 @@
     return box;
   }
 
-  // Where the chosen anchor sits on the page (falls back to the server's own
-  // placement for a split whose line isn't in this page's text layer).
-  function _seAnchorY() {
+  // Where the edited boundary sits on the page: a mid-page anchor's line height,
+  // else the top (0) or bottom (1) edge for a clean break.
+  function _seCurrentY() {
+    if (_seKind === 'top') return 0;
+    if (_seKind === 'bottom') return 1;
     if (!_seAnchor) return 0.5;
     const hit = _seLines && _seLines.find(l => _tbNormLine(l.text) === _tbNormLine(_seAnchor));
     if (hit) return hit.y;
     const idx = _seLines ? _tbAnchorIdx(_seLines.map(l => l.text), _seAnchor) : -1;
     if (idx >= 0) return _seLines[idx].y;
-    const saved = _splitsOn(_page).find(s => s.y != null);
+    const saved = _splits.find(s => s.page === _page && s.y != null);
     return saved ? saved.y : 0.5;
   }
 
@@ -998,14 +1197,20 @@
   function _pageTextHtml(pageNo) {
     const raw = _pageTextRaw(pageNo);
     if (!raw) return '';
-    const marks = _splitsOn(pageNo);
-    if (!marks.length) return esc(raw);
+    const all = _splitsOn(pageNo);
+    const marks = all.filter(m => m.kind !== 'page');
+    // A clean page break has no line to sit on — rule it off at the very
+    // top/bottom of the page's text, matching the marker on the image.
+    const edgeRule = (m) => `<div class="tbr-splitline"><span>✂︎ ${esc(m.above || 'previous unit')} ends · ${esc(m.below || 'next unit')} begins</span></div>`;
+    const top = all.filter(m => m.kind === 'page' && m.edge === 'top').map(edgeRule).join('');
+    const bottom = all.filter(m => m.kind === 'page' && m.edge === 'bottom').map(edgeRule).join('');
+    if (!marks.length) return top + esc(raw) + bottom;
     const lines = raw.split('\n');
     const idxFor = (line) => _tbAnchorIdx(lines, line);
     const cuts = marks.map(m => ({ at: idxFor(m.line), m }))
                       .filter(c => c.at >= 0)
                       .sort((a, b) => a.at - b.at);
-    if (!cuts.length) return esc(raw);
+    if (!cuts.length) return top + esc(raw) + bottom;
     const out = [];
     let cut = 0;
     lines.forEach((line, i) => {
@@ -1020,7 +1225,7 @@
       out.push(cut === 0 && cuts.length
         ? `<span class="tbr-above">${esc(line)}</span>` : esc(line));
     });
-    return out.join('\n');
+    return top + out.join('\n') + bottom;
   }
 
   // An <img> only reports "it failed", never why. Re-request the same URL so the
@@ -1061,6 +1266,13 @@
       cap.textContent = '';
     }
     cap.style.display = here.length ? '' : 'none';
+    // One chapter = one unit, so say when this one is already built rather than
+    // offering to make a second copy of it.
+    const btn = document.getElementById('tbr-lessons-btn');
+    if (btn) {
+      const unit = _unitForChapter(_currentChapter() ? _currentChapter().idx : -1);
+      btn.textContent = unit ? '📘 Lessons made · regenerate' : '📘 Turn chapter into lessons';
+    }
   }
 
   function _pageText(n) {
@@ -1082,7 +1294,7 @@
       // Keep editing across pages — the draft is book-wide, so several splits
       // can be placed and saved together. Re-target it at the new page.
       _seLines = null; _seReason = '';
-      _seAnchor = _seCurrentAnchor();
+      _seRetarget();
       loadSplitLines();
     }
     renderPage();
@@ -1434,34 +1646,80 @@
   // ── Which chapter contains the current page (for reader actions) ───────────
   function _currentChapter() {
     if (!_rb) return null;
-    const ch = (_rb.chapters || []).find(c => _page >= c.start && _page <= c.end);
-    if (ch) return { start: ch.start, end: ch.end, title: ch.title };
-    return { start: _page, end: _page, title: `Page ${_page}` };
+    const idx = (_rb.chapters || []).findIndex(c => _page >= c.start && _page <= c.end);
+    if (idx >= 0) {
+      const ch = _rb.chapters[idx];
+      return { start: ch.start, end: ch.end, title: ch.title, idx };
+    }
+    return { start: _page, end: _page, title: `Page ${_page}`, idx: -1 };
+  }
+
+  // ── Which chapters already became units ───────────────────────────────────
+  // One chapter = one unit. Knowing which chapters are already built is what
+  // turns a second "Turn into lessons" tap into "Regenerate" instead of a
+  // duplicate copy of the same chapter sitting in the roadmap.
+  let _rbUnits = [];
+
+  async function loadUnits() {
+    _rbUnits = [];
+    if (!_rb) return;
+    const id = _rb.id;
+    try {
+      const r = await fetch(`/api/textbooks/${id}/units`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!_rb || _rb.id !== id) return;
+      _rbUnits = data.units || [];
+      updateChapterCaption();     // the actions bar reads this
+    } catch (e) { /* best-effort */ }
+  }
+
+  function _unitForChapter(idx) {
+    return idx < 0 ? null : _rbUnits.find(u => u.chapter_idx === idx) || null;
   }
 
   // ── Turn chapter into lessons (creates a textbook unit) ────────────────────
   async function readerCreateLessons() {
     const ch = _currentChapter();
-    openModal(`<h2>Turn into lessons</h2>
-      <p class="tb-sub">Create a multi-lesson unit from <b>${esc(ch.title)}</b> (pages ${ch.start}–${ch.end}). It appears in Learn under “From your textbooks”.</p>
-      <div id="cl-status"></div>
-      <div class="tb-row-actions">
-        <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
-        <button class="tb-btn" id="cl-go">Create unit</button>
-      </div>`);
+    const unit = _unitForChapter(ch.idx);
+    const total = unit ? unit.lesson_count + unit.queued_remaining : 0;
+    if (unit) {
+      openModal(`<h2>Already made 📘</h2>
+        <p class="tb-sub"><b>${esc(unit.title)}</b> already has ${total} lesson${total === 1 ? '' : 's'} from this chapter${unit.done_count ? ` (${unit.done_count} finished)` : ''}.
+          Regenerating deletes them and plans the chapter again from scratch.</p>
+        <div id="cl-status"></div>
+        <div class="tb-row-actions" style="flex-wrap:wrap">
+          <button class="tb-btn ghost" onclick="closeModal()">Keep reading</button>
+          <a class="tb-btn ghost" href="/learn" style="text-decoration:none">Go to Learn →</a>
+          <button class="tb-btn" id="cl-go">Regenerate lessons</button>
+        </div>`);
+    } else {
+      openModal(`<h2>Turn into lessons</h2>
+        <p class="tb-sub">Create a multi-lesson unit from <b>${esc(ch.title)}</b> (pages ${ch.start}–${ch.end}). It appears in Learn under “From your textbooks”.</p>
+        <div id="cl-status"></div>
+        <div class="tb-row-actions">
+          <button class="tb-btn ghost" onclick="closeModal()">Cancel</button>
+          <button class="tb-btn" id="cl-go">Create unit</button>
+        </div>`);
+    }
     document.getElementById('cl-go').onclick = async () => {
-      if (_busy) return; _busy = true;
+      if (_busy) return;
+      if (unit && !confirm(`Delete ${total} lesson${total === 1 ? '' : 's'} and rebuild “${unit.title}” from the book?`)) return;
+      _busy = true;
       document.getElementById('cl-go').disabled = true;
       document.getElementById('cl-status').innerHTML = '<div class="tb-progress-note"><span class="spinner"></span> Planning the unit and writing the first lesson… this can take a moment.</div>';
       try {
         const r = await fetch(`/api/textbooks/${_rb.id}/unit`, { method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start: ch.start, end: ch.end, section_title: ch.title }) });
+          body: JSON.stringify({ start: ch.start, end: ch.end, section_title: ch.title,
+                                 chapter_idx: ch.idx, replace: !!unit }) });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.detail || 'Could not create the unit.');
+        if (!r.ok) throw new Error((data.detail && data.detail.message) || data.detail || 'Could not create the unit.');
         const up = data.unit_plan || {};
-        openModal(`<h2>Unit created 📘</h2>
-          <p class="tb-sub">“${esc(up.title || ch.title)}” — ${up.lesson_count || 1} lesson${up.lesson_count === 1 ? '' : 's'}. The first is ready; generate the rest from Learn.</p>
+        await loadUnits();
+        openModal(`<h2>Unit ${unit ? 'rebuilt' : 'created'} 📘</h2>
+          <p class="tb-sub">“${esc(up.title || ch.title)}” — ${up.lesson_count || 1} lesson${up.lesson_count === 1 ? '' : 's'}.
+            The first is ready and the next is already building; Learn can finish the rest in one go.</p>
           <div class="tb-row-actions">
             <button class="tb-btn ghost" onclick="closeModal()">Keep reading</button>
             <a class="tb-btn" href="/learn" style="text-decoration:none">Go to Learn →</a>

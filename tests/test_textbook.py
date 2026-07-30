@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
+from fastapi import BackgroundTasks
 from PIL import Image
 import io
 
@@ -631,6 +632,41 @@ async def test_plan_source_unit_prompts_for_one_complete_multi_lesson_unit(monke
     assert "exactly one lesson" in seen["prompt"]
     assert "VERBATIM" in seen["prompt"]
     assert "Follow every expression" in seen["prompt"]
+    assert plan["llm_calls"] == 1
+
+
+@pytest.mark.asyncio
+async def test_plan_source_unit_retries_a_soft_failure_once(monkeypatch):
+    """Planning wobble (an unparseable reply, a plan the validator rejects) used
+    to surface as an error the learner had to clear by tapping Create again and
+    waiting through the whole flow. Retry it here instead, and bill honestly."""
+    calls = {"n": 0}
+
+    async def flaky(prompt, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "not json at all"
+        return json.dumps(_source_unit_plan())
+
+    monkeypatch.setattr(textbook.llm, "call", flaky)
+    plan = await textbook.plan_source_unit(
+        "Good morning\nSome explanation\nsee you again", "yue", "Daily",
+        "Useful Expressions", 2, 10, api_key="x", model="m")
+    assert calls["n"] == 2 and len(plan["lessons"]) == 2
+    assert plan["llm_calls"] == 2          # metering follows what was spent
+
+    # Still fails (with the model's own error) when both attempts are bad.
+    calls["n"] = 0
+
+    async def always_bad(prompt, **kw):
+        calls["n"] += 1
+        return "{}"
+
+    monkeypatch.setattr(textbook.llm, "call", always_bad)
+    with pytest.raises(ValueError):
+        await textbook.plan_source_unit(
+            "Good morning", "yue", "Daily", "Unit", 1, 2, api_key="x", model="m")
+    assert calls["n"] == textbook.PLAN_ATTEMPTS
 
 
 # ── textbooks table round-trip ────────────────────────────────────────────────
@@ -944,7 +980,7 @@ async def test_create_textbook_unit_queues_complete_unit_and_authors_first(
             "source_text": "— PDF page 1 —\nGood morning\n\n"
                            "— PDF page 2 —\nsee you again",
             "section_title": "Useful Expressions",
-        }, user)
+        }, BackgroundTasks(), user)
 
     up = response["unit_plan"]
     unit_id = up.pop("unit_id")
@@ -1091,3 +1127,312 @@ def test_anchor_index_span_works_without_spaces_and_never_invents_a_match():
     assert textbook._anchor_line_index("前文\n第二課\n食飯\n後文", "第二課 食飯") == 1
     # A genuinely absent anchor is still None (page kept whole).
     assert textbook._anchor_line_index("a\nb\nc", "Unit 2: Ordering food") is None
+
+
+# ── Merging two units back together ───────────────────────────────────────────
+
+def test_merge_chapters_joins_the_range_and_keeps_the_outer_anchors():
+    chapters = [
+        {"title": "Greetings", "start": 1, "end": 3, "start_anchor": "Unit 1",
+         "end_anchor": "Unit 2: Food", "skip_hint": False, "status": ""},
+        {"title": "Food", "start": 3, "end": 6, "start_anchor": "Unit 2: Food",
+         "end_anchor": "Unit 3: Travel", "skip_hint": False, "status": "queued"},
+        {"title": "Travel", "start": 6, "end": 9, "start_anchor": "Unit 3: Travel",
+         "end_anchor": "", "skip_hint": False, "status": ""},
+    ]
+    merged = textbook.merge_chapters(chapters, 0, "Greetings & food")
+    assert len(merged) == 2
+    assert merged[0]["title"] == "Greetings & food"
+    assert (merged[0]["start"], merged[0]["end"]) == (1, 6)
+    # The removed cut's anchors go; the merged unit keeps its own outer edges.
+    assert merged[0]["start_anchor"] == "Unit 1"
+    assert merged[0]["end_anchor"] == "Unit 3: Travel"
+    # Lessons exist somewhere inside the merged range → the flag survives.
+    assert merged[0]["status"] == "queued"
+    assert merged[1]["title"] == "Travel"
+
+    # No title given → the two titles are joined rather than left blank.
+    assert textbook.merge_chapters(chapters, 1)[1]["title"] == "Food & Travel"
+
+    # Not a boundary.
+    for bad in (-1, 2, 5):
+        with pytest.raises(IndexError):
+            textbook.merge_chapters(chapters, bad)
+
+
+@pytest.mark.asyncio
+async def test_name_merged_unit_falls_back_when_the_model_fails(monkeypatch):
+    async def boom(*a, **k):
+        raise RuntimeError("overloaded")
+    monkeypatch.setattr(textbook.llm, "call", boom)
+    name = await textbook.name_merged_unit(
+        "Greetings", "Food", "some pages", "yue", "Book",
+        api_key="k", model="m")
+    assert name == "Greetings & Food"     # a merge never fails over its name
+
+
+@pytest.mark.asyncio
+async def test_merge_route_renames_and_repoints_units(fresh_db, monkeypatch):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf",
+                                     ["p one", "p two", "p three", "p four"])
+    await db.update_textbook_chapters(tb_id, [
+        {"title": "A", "start": 1, "end": 2, "skip_hint": False, "status": ""},
+        {"title": "B", "start": 3, "end": 3, "skip_hint": False, "status": ""},
+        {"title": "C", "start": 4, "end": 4, "skip_hint": False, "status": ""},
+    ])
+    # A unit built from the LAST chapter must follow it down as indices shift.
+    unit_c = await db.create_textbook_unit_row(cid, "C", textbook_id=tb_id, chapter_idx=2)
+
+    async def fake_access(*a, **k):
+        return SimpleNamespace(api_key="k", anthropic_key=None, model_reader="m")
+    async def fake_meter(*a, **k):
+        return False
+    async def fake_name(*a, **k):
+        return "Greetings and food"
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+    monkeypatch.setattr(textbook, "name_merged_unit", fake_name)
+
+    out = await main.merge_textbook_chapters.__wrapped__(None, tb_id, {"index": 0}, user)
+    assert out["renamed"] is True
+    titles = [c["title"] for c in out["chapters"]]
+    assert titles == ["Greetings and food", "C"]
+    assert (out["chapters"][0]["start"], out["chapters"][0]["end"]) == (1, 3)
+    assert (await db.get_textbook_unit(uid, unit_c))["chapter_idx"] == 1
+
+
+# ── One unit per chapter: placeholders, regenerate, delete ────────────────────
+
+@pytest.mark.asyncio
+async def test_course_map_reserves_rows_for_unauthored_textbook_lessons(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1"])
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1",
+                                                textbook_id=tb_id, chapter_idx=0)
+    await db.create_lesson(cid, 1, "Lesson one", "", [], {"segments": []}, "",
+                           unit_id=unit_id)
+    await db.add_lesson_queue(cid, [
+        {"unit_title": "Chapter 1", "unit_size": 3, "spec": {"title": "Numbers"}, "source": "s"},
+        {"unit_title": "Chapter 1", "unit_size": 3, "spec": {"skill": {"label": "Counters"}}, "source": "s"},
+    ], textbook_id=tb_id, chapter_idx=0, unit_id=unit_id)
+
+    course = await db.get_course(uid, cid)
+    unit = next(u for u in course["units"] if u.get("theme") == "textbook")
+    assert unit["book_title"] == "Book" and unit["chapter_idx"] == 0
+    assert unit["queued_remaining"] == 2
+    # The unit shows its full shape: what's built, and what's still to come.
+    assert [q["title"] for q in unit["queued"]] == ["Numbers", "Counters"]
+    assert await db.list_lesson_queue_for_unit(unit_id) == [
+        {"id": q["id"], "idx": q["idx"], "title": q["title"]} for q in unit["queued"]]
+
+
+@pytest.mark.asyncio
+async def test_textbook_units_sort_by_chapter_not_creation_order(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1"])
+    # Chapter 3 built first (the learner jumped ahead), then chapter 1.
+    late = await db.create_textbook_unit_row(cid, "Ch3", textbook_id=tb_id, chapter_idx=2)
+    early = await db.create_textbook_unit_row(cid, "Ch1", textbook_id=tb_id, chapter_idx=0)
+    for uid_ in (late, early):
+        await db.create_lesson(cid, 1, "L", "", [], {"segments": []}, "", unit_id=uid_)
+
+    course = await db.get_course(uid, cid)
+    tb_units = [u for u in course["units"] if u.get("theme") == "textbook"]
+    assert [u["id"] for u in tb_units] == [early, late]   # book order, not build order
+
+
+@pytest.mark.asyncio
+async def test_delete_unit_and_lesson_clean_up_concepts_and_queue(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1")
+    keep = await db.create_lesson(cid, 1, "Keep", "", [
+        {"kind": "vocab", "key": "k1", "label": "水", "gloss": "water"}],
+        {"segments": []}, "", unit_id=unit_id)
+    drop = await db.create_lesson(cid, 2, "Drop", "", [
+        {"kind": "vocab", "key": "k2", "label": "火", "gloss": "fire"}],
+        {"segments": []}, "", unit_id=unit_id)
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 1", "unit_size": 1,
+                                     "spec": {}, "source": ""}], unit_id=unit_id)
+
+    # One lesson: only its own concept goes.
+    assert (await db.delete_lesson(uid, drop))["unit_id"] == unit_id
+    ctx = await db.get_next_lesson_context(cid)
+    keys = {c["key"] for c in ctx["concept_registry"]}
+    assert keys == {"k1"}
+    assert await db.get_lesson(uid, drop) is None
+    assert await db.get_lesson(uid, keep) is not None
+
+    # Another user can't delete either.
+    other = await db.create_user("other3", auth.hash_password("x"))
+    assert await db.delete_lesson(other, keep) is None
+    assert await db.delete_course_unit(other, unit_id) is None
+
+    # The whole unit: lessons, concepts and the queue.
+    removed = await db.delete_course_unit(uid, unit_id)
+    assert removed == {"lessons": 1, "queued": 1, "course_id": cid}
+    assert await db.get_lesson(uid, keep) is None
+    assert await db.count_lesson_queue_for_unit(unit_id) == 0
+    assert not (await db.get_next_lesson_context(cid))["concept_registry"]
+
+
+@pytest.mark.asyncio
+async def test_second_unit_for_the_same_chapter_needs_replace(fresh_db, monkeypatch):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["page one text"])
+    await db.update_textbook_chapters(tb_id, [
+        {"title": "Chapter 1", "start": 1, "end": 1, "skip_hint": False, "status": ""}])
+    old_unit = await db.create_textbook_unit_row(cid, "Chapter 1",
+                                                 textbook_id=tb_id, chapter_idx=0)
+    old_lesson = await db.create_lesson(cid, 1, "Old", "", [], {"segments": []}, "",
+                                        unit_id=old_unit)
+
+    async def fake_access(*a, **k):
+        return SimpleNamespace(api_key="k", anthropic_key=None, model_reader="m")
+    async def fake_meter(*a, **k):
+        return False
+    async def fake_model(*a, **k):
+        return "m"
+    async def fake_plan(*a, **k):
+        return {"concept_inventory": [{"id": "c1", "label": "greetings"}],
+                "lessons": [{"title": "New", "skill": {"key": "k", "label": "l", "gloss": "g"},
+                             "target_items": [], "source": "src", "covers": ["c1"]}],
+                "llm_calls": 1}
+    async def fake_author(course, unit_id, access, model, user_id=None):
+        queued = await db.peek_lesson_queue_for_unit(unit_id)
+        lid = await db.create_lesson(course["id"], 1, "New", "", [], {"segments": []},
+                                     "", unit_id=unit_id)
+        await db.pop_lesson_queue(queued["id"])
+        return lid
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+    monkeypatch.setattr(main, "_resolve_lesson_model", fake_model)
+    monkeypatch.setattr(textbook, "plan_source_unit", fake_plan)
+    monkeypatch.setattr(main, "_author_textbook_lesson", fake_author)
+
+    payload = {"start": 1, "end": 1, "section_title": "Chapter 1", "chapter_idx": 0}
+    with pytest.raises(main.HTTPException) as err:
+        await main.create_textbook_unit.__wrapped__(
+            None, tb_id, dict(payload), BackgroundTasks(), user)
+    assert err.value.status_code == 409
+    assert err.value.detail["unit_id"] == old_unit
+    assert await db.get_lesson(uid, old_lesson) is not None   # nothing destroyed
+
+    # Explicit replace: the old unit and its lessons go, one unit remains.
+    out = await main.create_textbook_unit.__wrapped__(
+        None, tb_id, {**payload, "replace": True}, BackgroundTasks(), user)
+    assert out["unit_plan"]["unit_id"] != old_unit
+    assert await db.get_lesson(uid, old_lesson) is None
+    course = await db.get_course(uid, cid)
+    tb_units = [u for u in course["units"] if u.get("theme") == "textbook"]
+    assert len(tb_units) == 1 and tb_units[0]["chapter_idx"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unit_next_lesson_links_a_textbook_unit_together(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1")
+    first = await db.create_lesson(cid, 1, "One", "", [], {"segments": []}, "", unit_id=unit_id)
+    second = await db.create_lesson(cid, 2, "Two", "", [], {"segments": []}, "", unit_id=unit_id)
+
+    info = await db.get_unit_next_lesson(uid, first)
+    assert info["theme"] == "textbook" and info["next"]["id"] == second
+    # Last authored lesson with more queued → nothing to open, something to build.
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 1", "unit_size": 3,
+                                     "spec": {}, "source": ""}], unit_id=unit_id)
+    tail = await db.get_unit_next_lesson(uid, second)
+    assert tail["next"] is None and tail["queued_remaining"] == 1
+
+    # A lesson outside any unit has no follow-on.
+    loose = await db.create_lesson(cid, 3, "Loose", "", [], {"segments": []}, "")
+    assert await db.get_unit_next_lesson(uid, loose) is None
+
+
+@pytest.mark.asyncio
+async def test_completing_a_textbook_lesson_links_on_and_builds_ahead(fresh_db, monkeypatch):
+    """Finishing a lesson in a book unit should hand the learner the next one —
+    and start building the one after that, so the wait happens while they read
+    rather than when they tap."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1")
+    first = await db.create_lesson(cid, 1, "One", "", [], {"segments": []}, "", unit_id=unit_id)
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 1", "unit_size": 2,
+                                     "spec": {"title": "Two"}, "source": ""}],
+                              unit_id=unit_id)
+
+    tasks = BackgroundTasks()
+    out = await main.complete_lesson(
+        first, main.CompleteLessonRequest(score=100, results=[], xp=10), tasks, user)
+    follow = out["next_lesson"]
+    assert follow["unit_id"] == unit_id and follow["theme"] == "textbook"
+    assert follow["next"] is None and follow["queued_remaining"] == 1
+    assert any(t.func is main._prefetch_textbook_lesson for t in tasks.tasks)
+
+    # With the next lesson already authored there's nothing to build — just link.
+    second = await db.create_lesson(cid, 2, "Two", "", [], {"segments": []}, "", unit_id=unit_id)
+    tasks2 = BackgroundTasks()
+    out2 = await main.complete_lesson(
+        first, main.CompleteLessonRequest(score=90, results=[], xp=5), tasks2, user)
+    assert out2["next_lesson"]["next"] == {"id": second, "title": "Two"}
+    assert not any(t.func is main._prefetch_textbook_lesson for t in tasks2.tasks)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_is_silent_when_it_cannot_run(fresh_db, monkeypatch):
+    """Nothing waits on look-ahead generation, so a missing unit, an empty queue
+    or a failing author must never surface as an error."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 1")
+
+    await main._prefetch_textbook_lesson(user, unit_id)          # empty queue
+    await main._prefetch_textbook_lesson(user, 999999)           # no such unit
+
+    await db.add_lesson_queue(cid, [{"unit_title": "Chapter 1", "unit_size": 1,
+                                     "spec": {}, "source": ""}], unit_id=unit_id)
+
+    async def fake_access(*a, **k):
+        return SimpleNamespace(api_key="k", anthropic_key=None, model_reader="m")
+    async def boom(*a, **k):
+        raise RuntimeError("model overloaded")
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_author_textbook_lesson", boom)
+    await main._prefetch_textbook_lesson(user, unit_id)           # swallowed
+    assert await db.count_lesson_queue_for_unit(unit_id) == 1     # nothing consumed
+
+
+@pytest.mark.asyncio
+async def test_merge_reports_renamed_only_when_the_model_named_it(fresh_db, monkeypatch):
+    """The helper's fallback is just the two titles joined — announcing that as
+    an AI rename would be a lie the UI repeats back to the learner."""
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["p1", "p2"])
+    chapters = [{"title": "A", "start": 1, "end": 1, "skip_hint": False, "status": ""},
+                {"title": "B", "start": 2, "end": 2, "skip_hint": False, "status": ""}]
+
+    async def fake_access(*a, **k):
+        return SimpleNamespace(api_key="k", anthropic_key=None, model_reader="m")
+    async def fake_meter(*a, **k):
+        return False
+    monkeypatch.setattr(main, "_resolve_gemini", fake_access)
+    monkeypatch.setattr(main, "_textbook_metering", fake_meter)
+
+    async def unavailable(a_title, b_title, *a, **k):
+        return textbook.joined_title(a_title, b_title)
+    monkeypatch.setattr(textbook, "name_merged_unit", unavailable)
+    await db.update_textbook_chapters(tb_id, chapters)
+    out = await main.merge_textbook_chapters.__wrapped__(None, tb_id, {"index": 0}, user)
+    assert out["title"] == "A & B" and out["renamed"] is False

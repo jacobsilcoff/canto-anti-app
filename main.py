@@ -3707,6 +3707,9 @@ async def _load_learner_state(user_id: int | None, lang: str, access) -> dict:
     return state
 
 
+_AUTHOR_ATTEMPTS = 2      # one automatic retry — see _author_and_persist
+
+
 async def _author_and_persist(course: dict, ctx: dict, concepts: list[dict],
                               brief: dict, review, source: str, access, lesson_model: str,
                               state: dict, plan_prompt: str, plan_response: str,
@@ -3715,26 +3718,46 @@ async def _author_and_persist(course: dict, ctx: dict, concepts: list[dict],
     path (unit_id=None → in-progress chapter) and the textbook path (unit_id set
     → attached directly to a textbook unit). Returns (lesson_id, authored)."""
     lang = course["target_lang"]
-    try:
-        authored = await learning.author_lesson(
-            lang, concepts, ctx["recent_summaries"],
-            api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
-            taught=ctx["concept_registry"], review=review,
-            known_words=state["known_words"], weak_words=state["weak_words"], brief=brief,
-            source=source or None,
-        )
-    except Exception as e:
-        logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
-                     lang, [c.get("key") for c in concepts], e, exc_info=True)
-        raise HTTPException(502, _gen_error_detail(e, "Lesson generation", lesson_model))
+    # Authoring is retried once on a SOFT failure (a reply that won't parse, or
+    # one whose drills all fail validation and leave the lesson empty). Those are
+    # model wobble on an unchanged prompt, and making the learner tap "Generate"
+    # again — then wait through the whole author call a second time — is a worse
+    # version of exactly what we can do here. Transport 5xx are already retried
+    # inside translation._call.
+    authored = None
+    last_error: Exception | None = None
+    for attempt in range(_AUTHOR_ATTEMPTS):
+        try:
+            candidate = await learning.author_lesson(
+                lang, concepts, ctx["recent_summaries"],
+                api_key=access.api_key, anthropic_key=access.anthropic_key, model=lesson_model,
+                taught=ctx["concept_registry"], review=review,
+                known_words=state["known_words"], weak_words=state["weak_words"], brief=brief,
+                source=source or None,
+            )
+        except Exception as e:      # noqa: BLE001 — retried, then reported
+            last_error = e
+            logger.warning("Lesson authoring attempt %s failed lang=%s concepts=%s: %s",
+                           attempt + 1, lang, [c.get("key") for c in concepts], e)
+            continue
+        n_ex = sum(len(s.get("exercises") or [])
+                   for s in (candidate.get("content") or {}).get("segments") or [])
+        if n_ex:
+            authored = candidate
+            break
+        last_error = None
+        logger.warning("Lesson attempt %s has no exercises lang=%s concepts=%s raw=%r",
+                       attempt + 1, lang, [c.get("key") for c in concepts],
+                       candidate.get("_raw_response", "")[:500])
+    if authored is None:
+        if last_error is not None:
+            logger.error("Lesson authoring failed lang=%s concepts=%s: %s",
+                         lang, [c.get("key") for c in concepts], last_error, exc_info=True)
+            raise HTTPException(
+                502, _gen_error_detail(last_error, "Lesson generation", lesson_model))
+        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
 
     content = authored["content"]
-    total_ex = sum(len(s.get("exercises") or []) for s in content.get("segments") or [])
-    if not total_ex:
-        logger.error("Lesson has no exercises lang=%s concepts=%s raw=%r",
-                     lang, [c.get("key") for c in concepts],
-                     authored.get("_raw_response", "")[:500])
-        raise HTTPException(502, "Lesson generation returned no exercises — please try again.")
 
     sep = "\n\n══════ LESSON AUTHOR ══════\n\n"
     debug = {
@@ -3974,6 +3997,34 @@ async def _author_textbook_lesson(course: dict, unit_id: int, access,
     return lesson_id
 
 
+async def _prefetch_textbook_lesson(user: dict, unit_id: int) -> None:
+    """Author a textbook unit's NEXT queued lesson in the background.
+
+    Authoring takes tens of seconds, so a learner working through a book hits
+    that wait between every lesson. Finishing one is the natural moment to build
+    the following one: by the time they come back, it's already on the map.
+    Entirely best-effort — quota, generation errors and races (the learner tapped
+    Generate themselves) are swallowed, since nothing is waiting on the result."""
+    try:
+        unit = await db.get_textbook_unit(user["id"], unit_id)
+        if not unit or not await db.count_lesson_queue_for_unit(unit_id):
+            return
+        course = await db.get_course(user["id"], unit["course_id"])
+        if not course:
+            return
+        access = await _resolve_gemini(user, meter=False)
+        own_enc = await db.get_setting(user["id"], "gemini_api_key")
+        metered = not own_enc and not user.get("is_admin")
+        if metered and await db.get_usage(user["id"]) >= _plan_limit(user):
+            return      # never spend the learner's last calls without being asked
+        lesson_model = await _resolve_lesson_model(user, access)
+        await _author_textbook_lesson(course, unit_id, access, lesson_model, user["id"])
+        if metered:
+            await db.increment_usage(user["id"])
+    except Exception as e:      # noqa: BLE001 — nothing is waiting on this
+        logger.info("Textbook look-ahead generation skipped unit=%s: %s", unit_id, e)
+
+
 async def _resolve_lesson_model(user: dict, access) -> str:
     """The model the lesson AUTHOR (and textbook segmenter) runs on. Admin-only
     knob: a chosen `lesson_model` — Gemini Flash/Pro OR Claude Sonnet/Opus — to
@@ -4064,7 +4115,11 @@ async def next_textbook_unit_lesson(request: Request, unit_id: int,
     if metered:
         await db.increment_usage(user["id"])
     lesson = await db.get_lesson(user["id"], lesson_id)
-    return _lesson_response(lesson, lesson["content"])
+    response = _lesson_response(lesson, lesson["content"])
+    # So a "Generate all" loop knows whether to keep going without re-reading
+    # the whole course map between lessons.
+    response["queued_remaining"] = await db.count_lesson_queue_for_unit(unit_id)
+    return response
 
 
 @app.delete("/api/course-units/{unit_id}/queue")
@@ -4078,6 +4133,28 @@ async def clear_textbook_unit_queue(unit_id: int, user: dict = Depends(current_u
     # If the unit never got a lesson authored, it's an empty husk — remove it.
     await db.delete_course_unit_if_empty(unit_id)
     return {"success": True, "removed": removed}
+
+
+@app.delete("/api/course-units/{unit_id}")
+async def delete_course_unit(unit_id: int, user: dict = Depends(current_user)):
+    """Delete a whole unit: its lessons, the concepts they introduced, and any
+    lessons still queued for it. Used to drop a textbook unit outright or to
+    clear the way for regenerating one from the same chapter."""
+    removed = await db.delete_course_unit(user["id"], unit_id)
+    if removed is None:
+        raise HTTPException(404, "Unit not found")
+    return {"success": True, **removed}
+
+
+@app.delete("/api/lessons/{lesson_id}")
+async def delete_lesson(lesson_id: int, user: dict = Depends(current_user)):
+    """Delete ONE lesson (and the concepts it introduced). The rest of its unit
+    is untouched — a textbook unit can then re-author that slot from its queue,
+    and an AI unit simply has one fewer lesson."""
+    removed = await db.delete_lesson(user["id"], lesson_id)
+    if removed is None:
+        raise HTTPException(404, "Lesson not found")
+    return {"success": True, **removed}
 
 
 # ── Textbook import: PDF → reviewed source → one lesson ──────────────────────
@@ -4204,6 +4281,18 @@ async def list_course_textbooks(course_id: int, user: dict = Depends(current_use
     if not course:
         raise HTTPException(404, "Course not found")
     return {"textbooks": await db.list_textbooks(user["id"], course_id)}
+
+
+@app.get("/api/textbooks/{textbook_id}/units")
+async def list_textbook_units(textbook_id: int, user: dict = Depends(current_user)):
+    """Which chapters of this book already have lessons, keyed by chapter index.
+
+    The reader uses it to offer "Regenerate" (and a link into Learn) instead of
+    quietly building a second unit for a chapter that already has one."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    return {"units": await db.get_textbook_units(user["id"], textbook_id)}
 
 
 @app.post("/api/textbooks/{textbook_id}/analyze")
@@ -4465,32 +4554,66 @@ async def textbook_reader(textbook_id: int, user: dict = Depends(current_user)):
     }
 
 
-_MAX_SPLIT_MARKS = 24        # bound the per-page text re-extraction below
+_MAX_SPLIT_MARKS = 24        # mid-page anchors we re-extract page text to locate
+_MAX_MARKS = 2 * textbook.MAX_CHAPTERS   # page-edge marks are free (no lookup)
 
 
 def _split_marks(chapters: list[dict]) -> list[dict]:
-    """Mid-page unit boundaries as page-anchored markers.
+    """EVERY unit boundary as page-anchored markers — mid-page and page-edge alike.
 
-    A split is stored on BOTH sides (the earlier unit's `end_anchor` and the
-    later unit's `start_anchor`), so collect from either side and dedupe by
-    (page, line) — that also catches a one-sided anchor left by a hand edit."""
+    A mid-page split is stored on BOTH sides (the earlier unit's `end_anchor` and
+    the later unit's `start_anchor`), so collect from either side and dedupe by
+    (page, line) — that also catches a one-sided anchor left by a hand edit.
+
+    A boundary that falls on a clean page break carries no anchor line, but it's
+    just as real a division: it's where one unit stops and the next begins. Those
+    are emitted as `kind:"page"` marks at the BOTTOM of the earlier unit's last
+    page and the TOP of the next unit's first page, so every division in the book
+    can be seen (and removed) from the reader itself.
+
+    `boundary` is the index i such that the mark divides chapters[i] from
+    chapters[i+1] — it's what the merge action deletes."""
     marks: dict[tuple[int, str], dict] = {}
     for i, ch in enumerate(chapters):
-        for anchor, page, above, below in (
+        for anchor, page, above, below, boundary in (
             (ch.get("start_anchor"), ch.get("start"),
-             chapters[i - 1]["title"] if i else "", ch.get("title")),
+             chapters[i - 1]["title"] if i else "", ch.get("title"), i - 1),
             (ch.get("end_anchor"), ch.get("end"), ch.get("title"),
-             chapters[i + 1]["title"] if i + 1 < len(chapters) else ""),
+             chapters[i + 1]["title"] if i + 1 < len(chapters) else "", i),
         ):
             line = textbook._clean_anchor(anchor)
             if not line or not page:
                 continue
             key = (int(page), line.casefold())
             mark = marks.setdefault(key, {"page": int(page), "line": line,
-                                          "above": "", "below": "", "y": None})
+                                          "above": "", "below": "", "y": None,
+                                          "kind": "mid", "edge": "",
+                                          "boundary": boundary})
             mark["above"] = mark["above"] or (above or "")
             mark["below"] = mark["below"] or (below or "")
-    return sorted(marks.values(), key=lambda m: m["page"])[:_MAX_SPLIT_MARKS]
+            if mark["boundary"] < 0:
+                mark["boundary"] = boundary
+
+    edge_marks: list[dict] = []
+    for i in range(len(chapters) - 1):
+        a, b = chapters[i], chapters[i + 1]
+        if textbook._clean_anchor(a.get("end_anchor")) or \
+                textbook._clean_anchor(b.get("start_anchor")):
+            continue        # already drawn as a mid-page rule
+        try:
+            a_end, b_start = int(a["end"]), int(b["start"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if b_start <= a_end:
+            continue        # unanchored overlap — not a clean page break
+        base = {"line": "", "y": None, "kind": "page", "boundary": i,
+                "above": a.get("title") or "", "below": b.get("title") or ""}
+        edge_marks.append({**base, "page": a_end, "edge": "bottom"})
+        edge_marks.append({**base, "page": b_start, "edge": "top"})
+
+    out = [m for m in marks.values() if 0 <= m["boundary"] < len(chapters) - 1]
+    out += edge_marks
+    return sorted(out, key=lambda m: (m["page"], m["edge"] == "top"))[:_MAX_MARKS]
 
 
 @app.get("/api/textbooks/{textbook_id}/splits")
@@ -4505,11 +4628,14 @@ async def textbook_splits(textbook_id: int, user: dict = Depends(current_user)):
     if not book:
         raise HTTPException(404, "Book not found")
     marks = _split_marks(book["chapters"])
+    # Only mid-page anchors need locating; a page-edge boundary is drawn at the
+    # top/bottom of the page and costs no text re-extraction.
+    anchored = [m for m in marks if m.get("line")][:_MAX_SPLIT_MARKS]
     pdf_media_id = book.get("pdf_media_id")
     pdf_path = MEDIA_DIR / f"{pdf_media_id}.pdf" if pdf_media_id else None
-    if marks and pdf_path and pdf_path.exists():
+    if anchored and pdf_path and pdf_path.exists():
         by_page: dict[int, list[str]] = {}
-        for m in marks:
+        for m in anchored:
             by_page.setdefault(m["page"], []).append(m["line"])
         located: dict[int, dict[str, float]] = {}
         for page, anchors in by_page.items():
@@ -4521,7 +4647,7 @@ async def textbook_splits(textbook_id: int, user: dict = Depends(current_user)):
                 logger.warning("Split locate failed tb=%s page=%s: %s",
                                textbook_id, page, e)
                 located[page] = {}
-        for m in marks:
+        for m in anchored:
             m["y"] = located.get(m["page"], {}).get(m["line"])
     return {"splits": marks}
 
@@ -4750,6 +4876,69 @@ async def save_textbook_chapters(textbook_id: int, payload: dict,
         {"chapters": payload.get("chapters") or []}, book["num_pages"])
     await db.update_textbook_chapters(textbook_id, chapters)
     return {"chapters": chapters}
+
+
+@app.post("/api/textbooks/{textbook_id}/chapters/merge")
+@limiter.limit("30/hour")
+async def merge_textbook_chapters(request: Request, textbook_id: int,
+                                  payload: dict,
+                                  user: dict = Depends(current_user)):
+    """Delete one unit boundary: chapters `index` and `index+1` become one.
+
+    This is the reader's "✕" on a split — mid-page or clean page break alike —
+    so the whole division structure can be corrected by looking at pages instead
+    of editing a list of page numbers. The merged unit is RENAMED by one cheap
+    LLM call over its combined pages (each old title described only half of it);
+    a rename failure or an exhausted quota falls back to joining the two titles,
+    because a merge must never fail over its name."""
+    book = await db.get_textbook(user["id"], textbook_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+    try:
+        index = int(payload.get("index"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Which boundary? Send an index.")
+    chapters = book["chapters"]
+    if index < 0 or index + 1 >= len(chapters):
+        raise HTTPException(404, "No unit boundary there.")
+
+    a, b = chapters[index], chapters[index + 1]
+    title = str(payload.get("title") or "").strip()[:80]
+    renamed = False
+    if not title and payload.get("rename") is not False:
+        course = await db.get_course(user["id"], book["course_id"])
+        lang = (course or {}).get("target_lang")
+        if lang:
+            try:
+                access = await _resolve_gemini(user, meter=False)
+                metered = await _textbook_metering(user, 1, "Renaming the merged unit")
+                source = textbook.format_unit_source(
+                    book["pages"], min(a["start"], b["start"]),
+                    max(a["end"], b["end"]),
+                    textbook._clean_anchor(a.get("start_anchor")),
+                    textbook._clean_anchor(b.get("end_anchor")))
+                title = await textbook.name_merged_unit(
+                    a.get("title") or "", b.get("title") or "", source, lang,
+                    book["title"], api_key=access.api_key,
+                    anthropic_key=access.anthropic_key,
+                    model=access.model_reader)
+                # `renamed` means the MODEL named it; the helper's fallback is
+                # just the two titles joined, which isn't worth announcing.
+                renamed = bool(title) and title != textbook.joined_title(
+                    a.get("title") or "", b.get("title") or "")
+                if metered:
+                    await db.increment_usage(user["id"])
+            except HTTPException:
+                pass        # over quota → keep the deterministic joined title
+            except Exception as e:
+                logger.warning("Merged-unit rename failed tb=%s: %s", textbook_id, e)
+
+    merged = textbook.merge_chapters(chapters, index, title)
+    merged = textbook._norm_chapters({"chapters": merged}, book["num_pages"])
+    await db.update_textbook_chapters(textbook_id, merged)
+    await db.collapse_unit_chapter_idx(textbook_id, index)
+    return {"chapters": merged, "index": index, "renamed": renamed,
+            "title": merged[index]["title"] if index < len(merged) else ""}
 
 
 @app.post("/api/textbooks/{textbook_id}/lesson")
@@ -5088,6 +5277,7 @@ async def create_vocab_deck(request: Request, req: VocabDeckRequest,
 @limiter.limit("10/hour;30/day")
 async def create_textbook_unit(request: Request, textbook_id: int,
                                payload: dict,
+                               background_tasks: BackgroundTasks,
                                user: dict = Depends(current_user)):
     """Plan one coverage-complete multi-lesson unit from reviewed book pages."""
     book = await db.get_textbook(user["id"], textbook_id)
@@ -5096,8 +5286,6 @@ async def create_textbook_unit(request: Request, textbook_id: int,
     course = await db.get_course(user["id"], book["course_id"])
     if not course:
         raise HTTPException(404, "Course not found")
-    # Textbook units are self-contained now (each scoped to its own unit_id), so
-    # multiple may coexist — no course-wide queue guard.
     try:
         start = int(payload.get("start"))
         end = int(payload.get("end"))
@@ -5151,6 +5339,39 @@ async def create_textbook_unit(request: Request, textbook_id: int,
         if path.exists():
             selected_visuals.append({**visual, "data": path.read_bytes()})
 
+    # Which chapter this is, so the unit can be found (and regenerated) later.
+    # The caller may name it outright; otherwise match the page range.
+    chapter_idx = None
+    try:
+        claimed = int(payload["chapter_idx"])
+        if 0 <= claimed < len(book["chapters"]):
+            chapter_idx = claimed
+    except (KeyError, TypeError, ValueError):
+        pass
+    if chapter_idx is None:
+        chapter_idx = next((
+            i for i, ch in enumerate(book["chapters"])
+            if ch.get("start") == start and ch.get("end") == end
+        ), None)
+
+    # ONE unit per chapter. Building a second one for the same pages just
+    # duplicates the whole chapter in the roadmap, so the caller must say
+    # explicitly that it's replacing the old one (the UI offers "Regenerate").
+    existing = None
+    if chapter_idx is not None:
+        existing = next((u for u in await db.get_textbook_units(user["id"], textbook_id)
+                         if u["chapter_idx"] == chapter_idx), None)
+    if existing and not payload.get("replace"):
+        raise HTTPException(409, {
+            "message": (f"“{existing['title']}” already has "
+                        f"{existing['lesson_count']} lesson"
+                        f"{'' if existing['lesson_count'] == 1 else 's'} from this "
+                        "chapter. Regenerate it to build them again from scratch."),
+            "unit_id": existing["id"],
+            "lesson_count": existing["lesson_count"],
+            "done_count": existing["done_count"],
+        })
+
     access = await _resolve_gemini(user, meter=False)
     # Coverage planning + the immediately-authored first lesson. The remaining
     # unit lessons follow the normal just-in-time generation path.
@@ -5170,7 +5391,9 @@ async def create_textbook_unit(request: Request, textbook_id: int,
         raise HTTPException(
             502, _gen_error_detail(e, "Textbook unit planning", lesson_model))
     if metered:
-        await db.increment_usage(user["id"])
+        # Planning retries internally on a soft failure; bill what it spent.
+        for _ in range(max(1, int(plan.get("llm_calls") or 1))):
+            await db.increment_usage(user["id"])
 
     lessons = plan["lessons"]
     common_grounding = (
@@ -5188,14 +5411,16 @@ async def create_textbook_unit(request: Request, textbook_id: int,
                  "target_items": lesson["target_items"]},
         "source": common_grounding + lesson["source"],
     } for lesson in lessons]
-    chapter_idx = next((
-        i for i, ch in enumerate(book["chapters"])
-        if ch.get("start") == start and ch.get("end") == end
-    ), None)
+    # Replacing this chapter's unit: the old lessons go now that the new plan is
+    # in hand, so a failed re-plan above leaves the existing unit untouched.
+    if existing:
+        await db.delete_course_unit(user["id"], existing["id"])
     # Create the textbook unit row UP FRONT and scope the whole queued batch to
     # it; lesson one is authored now, the rest just-in-time via the unit's own
     # "Generate next lesson" action (never the AI course path).
-    unit_id = await db.create_textbook_unit_row(book["course_id"], unit_title)
+    unit_id = await db.create_textbook_unit_row(
+        book["course_id"], unit_title, textbook_id=textbook_id,
+        chapter_idx=chapter_idx)
     await db.add_lesson_queue(
         book["course_id"], items, textbook_id=textbook_id,
         chapter_idx=chapter_idx, unit_id=unit_id)
@@ -5212,6 +5437,9 @@ async def create_textbook_unit(request: Request, textbook_id: int,
     if chapter_idx is not None:
         book["chapters"][chapter_idx]["status"] = "queued"
         await db.update_textbook_chapters(textbook_id, book["chapters"])
+    # Build lesson two while the learner is reading lesson one's intro.
+    if len(lessons) > 1:
+        background_tasks.add_task(_prefetch_textbook_lesson, user, unit_id)
     lesson = await db.get_lesson(user["id"], lesson_id)
     response = _lesson_response(lesson, lesson["content"])
     response["source"] = {
@@ -5540,8 +5768,17 @@ async def complete_lesson(
     await db.bump_quest(user["id"], "lessons", 1)
     if req.score >= 100:
         await db.bump_quest(user["id"], "perfect", 1)
+    # Textbook units read like a book: hand the learner straight to the next
+    # lesson, and quietly build the one after that so it's waiting for them.
+    follow_on = await db.get_unit_next_lesson(user["id"], lesson_id)
+    if follow_on and follow_on["theme"] == "textbook":
+        if follow_on["queued_remaining"] and not follow_on["next"]:
+            background_tasks.add_task(_prefetch_textbook_lesson, user, follow_on["unit_id"])
+    else:
+        follow_on = None
     return {
         "success": True,
+        "next_lesson": follow_on,
         "xp_awarded": awarded,
         "crown_level": crown,
         "crown_leveled_up": leveled_up,
