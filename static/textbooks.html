@@ -94,6 +94,10 @@
     .tbr-split.is-edge::before, .tbr-split.is-edge::after { background: var(--primary); }
     .tbr-split.is-edge .tbr-split-tag { background: var(--primary); color: var(--on-primary); }
     .tbr-split.edge-top .tbr-split-tag { bottom: auto; top: 3px; }
+    /* A just-saved boundary shown optimistically, settling as the server
+       confirms its precise position — a gentle pulse, no blink-out. */
+    @keyframes tbr-split-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    .tbr-split.pending { animation: tbr-split-pulse .9s ease-in-out infinite; }
     .tbr-imgwrap.loading::after { content: ''; }
     /* ── Visual split editing: drag the rule over the rendered page ─────────── */
     /* The overlay captures taps/drags only in edit mode, so ordinary reading is
@@ -538,6 +542,7 @@
       return;
     }
     _rb = await r.json();
+    _splits = [];              // drop the previous book's markers (loadSplits fills)
     _bookmarks = new Set(_rb.bookmarks || []);
     _page = Math.min(Math.max(1, _rb.last_page || 1), _rb.num_pages || 1);
     document.getElementById('tbr-title').textContent = _rb.title;
@@ -643,17 +648,52 @@
   let _splits = [];
 
   async function loadSplits() {
-    _splits = [];
     if (!_rb) return;
     const id = _rb.id;
+    // Don't clear `_splits` up front: a save sets optimistic marks and then calls
+    // this to reconcile, and wiping first would drop them from state (a re-render
+    // mid-fetch — e.g. a resize — would blink the boundary out). Fresh-open
+    // clears `_splits` in openReader instead. Replace only once data arrives.
     try {
       const r = await fetch(`/api/textbooks/${id}/splits`);
       if (!r.ok) return;
       const data = await r.json();
       if (!_rb || _rb.id !== id) return;      // reader moved on
       _splits = data.splits || [];
-      if (_splits.length) renderPage();       // redraw with the markers
+      renderPage();                           // redraw with the settled markers
     } catch (e) { /* best-effort: the reader works without markers */ }
+  }
+
+  // Client mirror of the server's `_split_marks`, for optimistic rendering right
+  // after a save (before `/splits` recomputes precise y). Every boundary becomes
+  // a mid-page mark (anchored, shared page) or two clean page-edge marks. `y` is
+  // reused from the marks we already had (keyed by page+line) so mid-page rules
+  // don't jump; `editedY` seeds the one boundary just dragged on this page. All
+  // marks carry `pending:true` → a settling pulse the reconcile clears.
+  function _marksFromChapters(chapters, editedY) {
+    const prevY = new Map();
+    for (const s of _splits) if (s.y != null) prevY.set(s.page + '|' + _tbNormLine(s.line || ''), s.y);
+    const marks = [];
+    for (let i = 0; i < chapters.length - 1; i++) {
+      const a = chapters[i], b = chapters[i + 1];
+      const aEnd = +a.end, bStart = +b.start;
+      const anchor = (a.end_anchor || b.start_anchor || '').trim();
+      if (anchor) {
+        const page = aEnd;                        // anchored boundaries share a page
+        const key = page + '|' + _tbNormLine(anchor);
+        marks.push({ page, line: anchor, y: prevY.has(key) ? prevY.get(key) : null,
+                     kind: 'mid', edge: '', boundary: i,
+                     above: a.title || '', below: b.title || '', pending: true });
+      } else if (bStart > aEnd) {
+        const base = { line: '', y: null, kind: 'page', boundary: i,
+                       above: a.title || '', below: b.title || '', pending: true };
+        marks.push({ ...base, page: aEnd, edge: 'bottom' });
+        marks.push({ ...base, page: bStart, edge: 'top' });
+      }
+    }
+    if (editedY != null)
+      for (const m of marks) if (m.kind === 'mid' && m.page === _page && m.y == null) m.y = editedY;
+    return marks;
   }
 
   function _splitsOn(pageNo) {
@@ -684,7 +724,8 @@
       const isEdge = s.kind === 'page';
       if (!isEdge && s.y == null) continue;   // couldn't be located — text view only
       const rule = document.createElement('div');
-      rule.className = 'tbr-split' + (isEdge ? ` is-edge edge-${s.edge}` : '');
+      rule.className = 'tbr-split' + (isEdge ? ` is-edge edge-${s.edge}` : '')
+        + (s.pending ? ' pending' : '');
       rule.style.top = isEdge
         ? (s.edge === 'top' ? '0%' : '100%')
         : Math.min(99.5, Math.max(0.5, s.y * 100)) + '%';
@@ -965,11 +1006,19 @@
       _rb.chapters = data.chapters || [];
       const lib = _books.find(x => x.id === _rb.id); if (lib) lib.chapters = _rb.chapters;
       if (_chBook && _chBook.id === _rb.id) _chBook.chapters = _rb.chapters.map(c => ({ ...c }));
-      cancelSplitEdit();
+      // The PUT already persisted the split — the only thing `/splits` adds is the
+      // precise y for a mid-page anchor (located from the PDF text layer). So show
+      // the moved boundary IMMEDIATELY from the saved chapters (reusing the y we
+      // had while dragging), marked "pending" with a gentle pulse, instead of
+      // blinking it out for a network round-trip. Then reconcile in the
+      // background: the pulse clears and y settles to the server's exact value
+      // (same positioning code, so no visible jump).
+      const editedY = _seKind === 'mid' ? _seCurrentY() : null;
+      _splits = _marksFromChapters(_rb.chapters, editedY);
+      cancelSplitEdit();           // renders the optimistic, pulsing marks
       updateChapterCaption();
       renderLibrary();
-      await loadSplits();          // redraw the saved boundary from the server
-      renderPage();
+      loadSplits().then(() => renderPage());   // reconcile precise y, clear pulse
     } catch (e) {
       if (bar) bar.innerHTML = `<span class="tb-error">${esc(e.message || 'Could not save.')}</span>`;
       if (save) save.disabled = false;
