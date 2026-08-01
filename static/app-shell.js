@@ -475,8 +475,35 @@
     }).catch(() => null);
   };
 
+  // The learner's day boundary — when the 🔥 streak, the daily XP ring, daily
+  // quests and the new-cards cap roll over — is their local midnight, not UTC.
+  // Only the browser knows the zone, so report it whenever it differs from what
+  // the server has (a new device, a move, a first-ever load). Cheap: one PUT the
+  // first time and then never again, and a failure just leaves the old value.
+  function syncTimezone(data) {
+    let zone = null;
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) {}
+    if (!zone) return;
+    const stored = data && data.settings && data.settings.timezone;
+    if (stored === zone) return;
+    nativeFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone: zone }),
+    }).then(response => {
+      if (!response.ok) return;
+      if (snapshot && snapshot.data && snapshot.data.settings) {
+        updateSection('settings', Object.assign({}, snapshot.data.settings, { timezone: zone }));
+      }
+      // "Today" just moved, so the streak/XP numbers on screen may be for the
+      // wrong day — refetch them rather than waiting out the cache.
+      dirty.add('streak');
+    }).catch(() => {});
+  }
+
   function initialize(data) {
     renderBadges(data);
+    syncTimezone(data);
     installMoreMenu(data);
     installLanguageControl(data);
     installPlanUi(data);

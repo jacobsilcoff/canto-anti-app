@@ -54,7 +54,7 @@ async def _mark_active(uid, day):
 
 
 @pytest.mark.asyncio
-async def test_freeze_bridges_one_day_gap_only(fresh_db):
+async def test_freeze_bridges_a_one_day_gap(fresh_db):
     uid = fresh_db
     today = db._utc_today_date()
     # Studied 2 and 3 days ago → yesterday is missing (a one-day gap).
@@ -62,21 +62,85 @@ async def test_freeze_bridges_one_day_gap_only(fresh_db):
     await _mark_active(uid, today - timedelta(days=3))
     assert await db.get_streak(uid) == 0                 # lapses without a freeze
     await db.set_setting(uid, "streak_freezes", "1")
-    assert await db.get_streak(uid) == 3                 # freeze bridges yesterday
+    assert await db.apply_streak_freezes(uid) == 1       # freeze bridges yesterday
+    assert await db.get_streak(uid) == 3
     st = await db.get_streak_freeze_state(uid)
     assert st["freezes"] == 0                            # consumed exactly once
     assert st["used_date"] == (today - timedelta(days=1)).isoformat()
-    assert await db.get_streak(uid) == 3                 # idempotent (no re-consume)
+    assert await db.apply_streak_freezes(uid) == 0       # idempotent (no re-consume)
+    assert await db.get_streak(uid) == 3
 
 
 @pytest.mark.asyncio
-async def test_freeze_cannot_bridge_two_day_gap(fresh_db):
+async def test_get_streak_never_mutates(fresh_db):
+    """Reading a streak is pure — the friends leaderboard renders every friend's
+    streak, and that must not spend their shields or write to their account."""
+    uid = fresh_db
+    today = db._utc_today_date()
+    await _mark_active(uid, today - timedelta(days=2))
+    await _mark_active(uid, today - timedelta(days=3))
+    await db.set_setting(uid, "streak_freezes", "1")
+    for _ in range(3):
+        assert await db.get_streak(uid) == 0
+    assert (await db.get_streak_freeze_state(uid))["freezes"] == 1   # untouched
+
+
+@pytest.mark.asyncio
+async def test_freeze_bridges_a_two_day_gap_when_affordable(fresh_db):
+    """Two shields cover two missed days. Requiring the learner to return the
+    very next day (the old rule) meant a single skipped weekend killed a streak
+    with freezes still in the bank."""
     uid = fresh_db
     today = db._utc_today_date()
     await _mark_active(uid, today - timedelta(days=3))   # missed both -1 and -2
+    await _mark_active(uid, today - timedelta(days=4))
     await db.set_setting(uid, "streak_freezes", "2")
+    assert await db.apply_streak_freezes(uid) == 2
+    assert await db.get_streak(uid) == 4
+    assert (await db.get_streak_freeze_state(uid))["freezes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_freeze_not_spent_on_an_unaffordable_gap(fresh_db):
+    """All-or-nothing: a part-filled gap still breaks the streak, so the shields
+    stay in the bank for a gap they can actually cover."""
+    uid = fresh_db
+    today = db._utc_today_date()
+    await _mark_active(uid, today - timedelta(days=4))   # missed -1, -2 and -3
+    await _mark_active(uid, today - timedelta(days=5))
+    await db.set_setting(uid, "streak_freezes", "2")
+    assert await db.apply_streak_freezes(uid) == 0
     assert await db.get_streak(uid) == 0
     assert (await db.get_streak_freeze_state(uid))["freezes"] == 2   # untouched
+
+
+@pytest.mark.asyncio
+async def test_freeze_not_spent_on_a_single_isolated_day(fresh_db):
+    """One lone day two days back isn't a streak worth a shield."""
+    uid = fresh_db
+    today = db._utc_today_date()
+    await _mark_active(uid, today - timedelta(days=2))
+    await db.set_setting(uid, "streak_freezes", "1")
+    assert await db.apply_streak_freezes(uid) == 0
+    assert (await db.get_streak_freeze_state(uid))["freezes"] == 1
+
+
+@pytest.mark.asyncio
+async def test_freeze_applies_when_study_lands_before_any_streak_read(fresh_db):
+    """The bug behind most "I studied daily and lost my streak" reports: the
+    freeze used to be evaluated only on a read, and only while the most recent
+    activity was exactly two days old. If the day's FIRST request was a review
+    (glasses plugin, offline sync, a deep link straight into a session), today's
+    row hid the gap and the streak reset with the shield unspent — the outcome
+    depended purely on which request happened to arrive first."""
+    uid = fresh_db
+    today = db._utc_today_date()
+    await _mark_active(uid, today - timedelta(days=2))
+    await _mark_active(uid, today - timedelta(days=3))
+    await db.set_setting(uid, "streak_freezes", "1")
+    await db.record_study_activity(uid)                  # study BEFORE any read
+    assert await db.get_streak(uid) == 4                 # 3 kept + today
+    assert (await db.get_streak_freeze_state(uid))["freezes"] == 0
 
 
 # ── B6 · practice hub (pool recombination) ─────────────────────────────────────

@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 27;
+  var TOUR_VERSION = 28;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -67,6 +67,8 @@
       body: 'Your books now live on their own \u201cTextbooks\u201d page (in the More menu). Upload a PDF and read it page by page \u2014 it remembers where you left off and lets you bookmark pages. Tap \u2630 Contents (or a book\u2019s \u201cChapters\u201d button) to jump straight to any chapter, fix the chapter page ranges by hand, or re-detect them with AI. When a unit begins or ends partway down a page, tap \u2702 in the reader and mark the break right on the page: tap where the next unit starts, drag the dashed line to fine-tune (it snaps to the actual text lines), or \u2715 to remove it. The same break is marked in the extracted text so you can double-check it landed in the right spot, and lessons for each unit then skip the neighbouring unit\u2019s text. From any chapter, tap \ud83d\udcc7 Build vocab deck or \ud83d\udcd8 Turn into lessons. Textbook units now sit in their own \u201cFrom your textbooks\u201d section on the Learn page, separate from your AI course, and you generate their lessons one tap at a time.', v: 26 },
     { icon: '\ud83d\udcd8', title: 'Textbook units, end to end',
       body: 'Every unit break now shows right on the page \u2014 including plain page breaks, marked at the top and bottom of the pages they divide. Drag any \u2702 mark up or down to move it (onto the page, or off to a clean break), or tap it to merge two units into one (renamed with AI). On the Learn page a chapter shows all its lessons before they exist: \u26a1 Build all makes them in one go, delete or regenerate as you like, and finishing one hands you to the next while the following lesson builds in the background.', v: 27 },
+    { icon: '\ud83d\udd25', title: 'Your streak now runs on your clock',
+      body: 'Your day used to end at midnight UTC \u2014 5pm in California, noon in New Zealand \u2014 so two evenings of study could count as one day and break a streak you\u2019d actually kept. Your \ud83d\udd25 streak, XP ring, daily quests and new-card limit now roll over at midnight where you are (Settings shows the time zone we detected). Flashcards reviewed offline count for the day you answered them, not the day they sync. And \ud83d\udee1 streak freezes are more forgiving: they apply the moment you study rather than depending on what you opened first, two shields can cover two missed days, and they still work if you come back later in the week.', v: 28 },
   ];
 
   var steps, stepIdx;

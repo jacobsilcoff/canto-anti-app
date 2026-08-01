@@ -157,21 +157,27 @@
   // same-day cache of the last successful /api/streak response, and take
   // max(serverPointsToday, localXpToday) so neither a stale/offline server
   // fetch nor a not-yet-synced offline review can under-report the ring.
-  function _utcDateStr() { return new Date().toISOString().slice(0, 10); }
+  // Must match cards.html's key and the server's day boundary — all three are
+  // the learner's LOCAL day, so the ring rolls over at their midnight.
+  function _localDateStr() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
   function _loadLocalXp() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem('xpLocalToday') || 'null'); } catch {}
-    return (raw && raw.date === _utcDateStr()) ? (raw.xp || 0) : 0;
+    return (raw && raw.date === _localDateStr()) ? (raw.xp || 0) : 0;
   }
   function _loadStreakCache() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem('streakCache') || 'null'); } catch {}
-    return (raw && raw.date === _utcDateStr()) ? raw : null;
+    return (raw && raw.date === _localDateStr()) ? raw : null;
   }
   function _saveStreakCache(streak) {
     try {
       localStorage.setItem('streakCache', JSON.stringify({
-        date: _utcDateStr(), streak: streak.streak, points_today: streak.points_today, daily_goal: streak.daily_goal,
+        date: _localDateStr(), streak: streak.streak, points_today: streak.points_today, daily_goal: streak.daily_goal,
       }));
     } catch {}
   }

@@ -885,12 +885,19 @@
   // today.html takes max(serverPointsToday, this) so the ring never lags
   // behind what the learner just did on this device.
   const LOCAL_XP_KEY = 'xpLocalToday';
-  function _utcDateStr() { return new Date().toISOString().slice(0, 10); }
+  // The learner's LOCAL day — the same boundary the server now uses for the XP
+  // ring and the streak. (This used to be the UTC date, which rolls over at 5pm
+  // in California, so the ring reset itself mid-afternoon.)
+  function _localDateStr() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
   function bumpLocalXp(amount) {
     if (!amount) return;
     let cur = null;
     try { cur = JSON.parse(localStorage.getItem(LOCAL_XP_KEY) || 'null'); } catch {}
-    const today = _utcDateStr();
+    const today = _localDateStr();
     if (!cur || cur.date !== today) cur = { date: today, xp: 0 };
     cur.xp += amount;
     try { localStorage.setItem(LOCAL_XP_KEY, JSON.stringify(cur)); } catch {}
@@ -913,6 +920,16 @@
     }
   }
 
+  // A queued review carries the LOCAL date it was answered. Without it the
+  // server credits the streak to the day the sync happened, so studying on the
+  // train at night and reconnecting next morning silently lost that day.
+  async function queueReview(item, quality) {
+    await idbPut('pending', {
+      card_id: item.card_id, quality, face: item.face, studied_on: _localDateStr(),
+    });
+    updateOfflineBar((await idbGetAllWithKeys('pending')).length);
+  }
+
   async function syncPending() {
     const entries = await idbGetAllWithKeys('pending');
     if (entries.length === 0) return;
@@ -921,7 +938,9 @@
       try {
         const res = await fetch(`/api/cards/${value.card_id}/review`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quality: value.quality, face: value.face }),
+          body: JSON.stringify({
+            quality: value.quality, face: value.face, studied_on: value.studied_on || null,
+          }),
         });
         if (res.ok) { await idbDelete('pending', key); synced++; }
       } catch { break; }
@@ -1421,13 +1440,11 @@
         }
       } catch {
         isOnline = false;
-        await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
-        updateOfflineBar((await idbGetAllWithKeys('pending')).length);
+        await queueReview(item, quality);
         if (expectedXp > 0) { showXpPop(expectedXp); bumpLocalXp(expectedXp); }
       }
     } else {
-      await idbPut('pending', { card_id: item.card_id, quality, face: item.face });
-      updateOfflineBar((await idbGetAllWithKeys('pending')).length);
+      await queueReview(item, quality);
       if (expectedXp > 0) { showXpPop(expectedXp); bumpLocalXp(expectedXp); }
     }
     reviewedFaces.add(`${item.card_id}-${item.face}`);

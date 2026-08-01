@@ -961,18 +961,26 @@ async def get_admin_dashboard_stats() -> dict:
             users = [dict(r) for r in await cur.fetchall()]
 
         # ── Current streak per user (computed in Python from one query so it
-        #    matches get_streak exactly) ──
+        #    matches get_streak exactly — including each user's own timezone,
+        #    since "today" differs per learner) ──
         async with db.execute(
             "SELECT user_id, study_date FROM study_activity ORDER BY user_id, study_date DESC"
         ) as cur:
             _dates_by_user: dict[int, list[str]] = {}
             async for uid, sdate in cur:
                 _dates_by_user.setdefault(uid, []).append(sdate)
-        _today = _utc_today_date()
+        async with db.execute(
+            "SELECT user_id, value FROM user_settings WHERE key='timezone'"
+        ) as cur:
+            _tz_by_user = {uid: tz async for uid, tz in cur}
+        from datetime import date as _date
         for u in users:
+            _today = _date.fromisoformat(
+                local_today_str(_tz_by_user.get(u["id"], DEFAULT_TIMEZONE)))
             u["streak"] = _streak_from_dates(_dates_by_user.get(u["id"], []), _today)
 
-        # ── DAU / WAU / MAU ──
+        # ── DAU / WAU / MAU (deliberately UTC — a global activity metric, not a
+        #    per-learner day) ──
         async with db.execute(
             """SELECT
                  (SELECT COUNT(DISTINCT user_id) FROM study_activity WHERE study_date=date('now')) AS dau,
@@ -1467,8 +1475,8 @@ async def get_study_session(
 
         async with db.execute(
             """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
-               WHERE c.user_id = ? AND cf.first_seen_date = date('now')""",
-            (user_id,),
+               WHERE c.user_id = ? AND cf.first_seen_date = ?""",
+            (user_id, await _local_today(db, user_id)),
         ) as cur:
             row = await cur.fetchone()
             daily_new_used = row[0] if row else 0
@@ -1797,8 +1805,8 @@ async def get_due_count(
         cap = int(await get_setting(user_id, "new_cards_per_day") or 20)
         async with db.execute(
             """SELECT COUNT(*) FROM card_faces cf JOIN cards c ON c.id = cf.card_id
-               WHERE c.user_id = ? AND cf.first_seen_date = date('now')""",
-            (user_id,),
+               WHERE c.user_id = ? AND cf.first_seen_date = ?""",
+            (user_id, await _local_today(db, user_id)),
         ) as cur:
             row = await cur.fetchone()
             daily_new_used = row[0] if row else 0
@@ -1860,19 +1868,17 @@ async def update_face_review(user_id: int, card_id: int, face: str, state: dict)
         ) as cur:
             if not await cur.fetchone():
                 return
+        today = await _local_today(db, user_id)
         await db.execute(
             """UPDATE card_faces
                SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
                    learning_step=?,
-                   first_seen_date = CASE WHEN first_seen_date IS NULL THEN date('now') ELSE first_seen_date END
+                   first_seen_date = CASE WHEN first_seen_date IS NULL THEN ? ELSE first_seen_date END
                WHERE card_id=? AND face=?""",
             (state["interval_days"], state["ease_factor"], state["repetitions"], state["next_review"],
-             state.get("learning_step"), card_id, face),
+             state.get("learning_step"), today, card_id, face),
         )
-        await db.execute(
-            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
-            (user_id,),
-        )
+        await _mark_study_day(db, user_id, today)
         await db.commit()
 
 
@@ -1884,12 +1890,17 @@ async def apply_card_review(
     *,
     xp: int = 0,
     lang: str = "yue",
+    studied_on: str | None = None,
 ) -> int | None:
     """Apply a review atomically and return its reversible history id.
 
     The snapshot is intentionally compact and capped to the newest 100 reviews
     per user.  Undo must happen newest-first, which prevents an old snapshot
     from overwriting a newer answer to the same face.
+
+    `studied_on` credits the streak to the day the learner actually answered
+    (offline reviews sync long after the fact); it only moves the activity row,
+    never the SRS scheduling, which is always relative to now.
     """
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
@@ -1923,29 +1934,27 @@ async def apply_card_review(
         )
         history_id = history_cur.lastrowid
 
+        today = await _local_today(conn, user_id)
         await conn.execute(
             """UPDATE card_faces
                SET interval_days=?, ease_factor=?, repetitions=?, next_review=?,
                    learning_step=?,
                    first_seen_date = CASE
-                       WHEN first_seen_date IS NULL THEN date('now')
+                       WHEN first_seen_date IS NULL THEN ?
                        ELSE first_seen_date
                    END
                WHERE card_id=? AND face=?""",
             (
                 state["interval_days"], state["ease_factor"], state["repetitions"],
-                state["next_review"], state.get("learning_step"), card_id, face,
+                state["next_review"], state.get("learning_step"), today, card_id, face,
             ),
         )
-        await conn.execute(
-            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
-            (user_id,),
-        )
+        await _mark_study_day(conn, user_id, studied_on or today)
 
         quest_cur = await conn.execute(
             """UPDATE daily_quests SET progress = progress + 1
-               WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
-            (user_id,),
+               WHERE user_id=? AND quest_date=? AND quest_key='reviews'""",
+            (user_id, today),
         )
         quest_bumped = int(quest_cur.rowcount > 0)
 
@@ -2022,8 +2031,8 @@ async def undo_card_review(user_id: int, history_id: int) -> dict | None:
         if latest["review_quest_bumped"]:
             await conn.execute(
                 """UPDATE daily_quests SET progress = MAX(0, progress - 1)
-                   WHERE user_id=? AND quest_date=date('now') AND quest_key='reviews'""",
-                (user_id,),
+                   WHERE user_id=? AND quest_date=? AND quest_key='reviews'""",
+                (user_id, await _local_today(conn, user_id)),
             )
         await conn.execute(
             "UPDATE review_history SET undone_at=datetime('now') WHERE id=?",
@@ -4055,12 +4064,101 @@ async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]
 
 
 def _utc_today_date():
-    """Today in UTC as a `date` object — the day boundary used everywhere for
-    streaks/activity (SQLite `date('now')` is UTC), so reads and writes never
-    disagree. (Distinct from `_utc_today()` below, which returns an ISO string
-    for direct SQL comparisons.)"""
+    """Today in UTC as a `date` object. Only the fallback for users with no
+    timezone setting — every per-user day boundary goes through `_local_today`
+    / `local_today_str` below."""
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).date()
+
+
+# ── Per-user day boundaries ────────────────────────────────────────────────────
+# Streaks, the daily-XP ring, daily quests and the new-cards-per-day cap all
+# answer one question: "what day is it for THIS learner?". That used to be
+# 00:00 UTC for everybody — which is 5pm in California and noon in Auckland. Two
+# consecutive local study days could therefore land in the SAME UTC day, opening
+# a phantom gap that broke a streak the learner had genuinely kept, and the XP
+# ring reset mid-afternoon.
+#
+# Every day boundary now resolves through the user's `timezone` setting (an IANA
+# name the client captures from `Intl.DateTimeFormat().resolvedOptions()`).
+# Users with no setting keep the old UTC behaviour, so this is a pure widening:
+# stored `study_date` rows are already local-or-UTC ISO dates and stay valid.
+
+DEFAULT_TIMEZONE = "UTC"
+
+
+def resolve_timezone(name: str | None):
+    """IANA name → tzinfo, falling back to UTC. Never raises: a day boundary is
+    not worth a 500, and UTC is exactly the old behaviour."""
+    from datetime import timezone as _timezone
+    if not name or name == "UTC":
+        return _timezone.utc
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(name)
+    except Exception:
+        return _timezone.utc
+
+
+def is_valid_timezone(name: str | None) -> bool:
+    """True iff `name` is a resolvable IANA zone (or the literal 'UTC')."""
+    if not name or not isinstance(name, str) or len(name) > 64:
+        return False
+    if name == "UTC":
+        return True
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(name)
+        return True
+    except Exception:
+        return False
+
+
+def local_today_str(tz_name: str | None, now=None) -> str:
+    """The current date in `tz_name` as an ISO string (what we store in
+    study_activity / daily_quests / first_seen_date)."""
+    from datetime import datetime, timezone as _timezone
+    now = now or datetime.now(_timezone.utc)
+    return now.astimezone(resolve_timezone(tz_name)).date().isoformat()
+
+
+def local_day_bounds(tz_name: str | None, day: str | None = None) -> tuple[str, str]:
+    """Half-open UTC bounds [start, end) of a local calendar day, formatted to
+    match SQLite's `datetime('now')` so they can be compared against stored
+    `created_at` text directly. Used wherever "today's XP" is summed."""
+    from datetime import datetime, date, time, timedelta, timezone as _timezone
+    zone = resolve_timezone(tz_name)
+    d = date.fromisoformat(day) if day else datetime.now(_timezone.utc).astimezone(zone).date()
+    start = datetime.combine(d, time.min, tzinfo=zone).astimezone(_timezone.utc)
+    end = datetime.combine(d + timedelta(days=1), time.min, tzinfo=zone).astimezone(_timezone.utc)
+    fmt = "%Y-%m-%d %H:%M:%S"
+    return start.strftime(fmt), end.strftime(fmt)
+
+
+async def _tz_for(conn, user_id: int) -> str:
+    """The user's timezone, read on an already-open connection (a PK lookup, so
+    cheap enough to do inline on every write rather than cache-and-invalidate)."""
+    async with conn.execute(
+        "SELECT value FROM user_settings WHERE user_id=? AND key='timezone'", (user_id,)
+    ) as cur:
+        row = await cur.fetchone()
+    return (row[0] if row and row[0] else DEFAULT_TIMEZONE)
+
+
+async def _local_today(conn, user_id: int) -> str:
+    """Today's ISO date in the user's timezone, on an open connection."""
+    return local_today_str(await _tz_for(conn, user_id))
+
+
+async def get_user_timezone(user_id: int) -> str:
+    async with aiosqlite.connect(DB_PATH) as db:
+        return await _tz_for(db, user_id)
+
+
+async def user_today(user_id: int) -> str:
+    """Today's ISO date in the user's timezone (opens its own connection)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        return await _local_today(db, user_id)
 
 
 def _streak_from_dates(dates_desc: list[str], today=None) -> int:
@@ -4091,78 +4189,136 @@ def _streak_from_dates(dates_desc: list[str], today=None) -> int:
 async def get_streak(user_id: int) -> int:
     """Return the user's current study streak in days.
 
-    A streak is the number of consecutive days (ending today or yesterday) with
-    at least one review. Counting back from today preserves the streak before
-    the user studies on a given day.
+    A streak is the number of consecutive days (ending today or yesterday, in
+    the USER's timezone) with at least one study action. Counting back from
+    today preserves the streak before the user studies on a given day.
 
-    B5 · streak freeze: if the streak WOULD lapse because of a single missed day
-    (yesterday), and the learner has a freeze equipped, we consume one freeze and
-    write a marker activity row for yesterday so the streak survives. Only a
-    one-day gap qualifies — a freeze can't bridge two or more missed days.
+    PURE — this never writes. Streak freezes are applied by
+    `apply_streak_freezes` (from every study write, and when a user reads their
+    OWN streak), so rendering somebody else's streak on a leaderboard can't
+    spend their shields or fabricate activity rows on their account.
     """
-    from datetime import date, timedelta
-    today = _utc_today_date()
+    from datetime import date
     async with aiosqlite.connect(DB_PATH) as db:
+        today = await _local_today(db, user_id)
         async with db.execute(
             "SELECT study_date FROM study_activity WHERE user_id=? ORDER BY study_date DESC",
             (user_id,),
         ) as cur:
             rows = [r[0] async for r in cur]
-        if not rows:
-            return 0
-        most_recent = date.fromisoformat(rows[0])
-        # Streak alive (activity today or yesterday) — no freeze needed.
-        if most_recent >= today - timedelta(days=1):
-            return _streak_from_dates(rows, today)
-        # A single missed day (yesterday) can be bridged by a freeze.
-        if most_recent == today - timedelta(days=2):
-            async with db.execute(
-                "SELECT value FROM user_settings WHERE user_id=? AND key='streak_freezes'",
-                (user_id,),
-            ) as cur:
-                frow = await cur.fetchone()
-            try:
-                freezes = int(frow[0]) if frow else 0
-            except (ValueError, TypeError):
-                freezes = 0
-            if freezes > 0:
-                yesterday = (today - timedelta(days=1)).isoformat()
-                ins = await db.execute(
-                    "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
-                    (user_id, yesterday),
-                )
-                # Consume a freeze only if we actually filled the gap — keeps this
-                # idempotent against concurrent get_streak calls.
-                if ins.rowcount == 1:
-                    await db.execute(
-                        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
-                        "VALUES (?, 'streak_freezes', ?)",
-                        (user_id, str(freezes - 1)),
-                    )
-                    await db.execute(
-                        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
-                        "VALUES (?, 'streak_freeze_used_date', ?)",
-                        (user_id, yesterday),
-                    )
-                await db.commit()
-                rows = [yesterday] + rows
-                return _streak_from_dates(rows, today)
-        return _streak_from_dates(rows, today)
+    return _streak_from_dates(rows, date.fromisoformat(today))
+
+
+async def _bridge_streak_gap(conn, user_id: int, today: str) -> int:
+    """Spend streak freezes to fill the missed days between the learner's last
+    active day and `today`. Returns the number of days actually bridged.
+
+    Deliberately looks only at activity STRICTLY BEFORE today, so the outcome
+    never depends on whether the streak happened to be read before the day's
+    first study was written. (It used to: the old check required the most recent
+    activity to be exactly `today - 2`, so if a review landed before any
+    `/api/streak` call, the row for today made the gap invisible and the streak
+    reset with the freeze still unspent — a race the learner couldn't see.)
+
+    All-or-nothing: a gap wider than the freezes on hand is left alone rather
+    than part-filled, since a partly-bridged gap still breaks the streak and the
+    shields would be spent for nothing.
+    """
+    from datetime import date, timedelta
+    today_d = date.fromisoformat(today)
+    async with conn.execute(
+        "SELECT MAX(study_date) FROM study_activity WHERE user_id=? AND study_date < ?",
+        (user_id, today),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row or not row[0]:
+        return 0
+    try:
+        prev_d = date.fromisoformat(row[0])
+    except ValueError:
+        return 0
+    gap = (today_d - prev_d).days - 1        # missed days strictly between
+    if gap <= 0:
+        return 0
+    freezes = await _settings_int(conn, user_id, "streak_freezes")
+    if freezes < gap:
+        return 0
+    # Only protect a streak worth protecting — a single isolated day isn't one.
+    async with conn.execute(
+        "SELECT study_date FROM study_activity WHERE user_id=? AND study_date<=? "
+        "ORDER BY study_date DESC",
+        (user_id, row[0]),
+    ) as cur:
+        prior = [r[0] async for r in cur]
+    if _streak_from_dates(prior, prev_d) < STREAK_FREEZE_MIN_STREAK:
+        return 0
+    # Per-day INSERT OR IGNORE so a concurrent call can't double-spend: we only
+    # pay for the days this call actually filled.
+    filled = 0
+    for n in range(1, gap + 1):
+        ins = await conn.execute(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
+            (user_id, (prev_d + timedelta(days=n)).isoformat()),
+        )
+        filled += 1 if ins.rowcount == 1 else 0
+    if not filled:
+        return 0
+    await conn.execute(
+        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+        "VALUES (?, 'streak_freezes', ?)",
+        (user_id, str(max(0, freezes - filled))),
+    )
+    await conn.execute(
+        "INSERT OR REPLACE INTO user_settings (user_id, key, value) "
+        "VALUES (?, 'streak_freeze_used_date', ?)",
+        (user_id, (today_d - timedelta(days=1)).isoformat()),
+    )
+    return filled
+
+
+async def apply_streak_freezes(user_id: int) -> int:
+    """Public entry point for freeze bridging — call before reading a user's own
+    streak. Study writes bridge themselves via `_mark_study_day`."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        bridged = await _bridge_streak_gap(db, user_id, await _local_today(db, user_id))
+        if bridged:
+            await db.commit()
+        return bridged
+
+
+async def _mark_study_day(conn, user_id: int, day: str | None = None) -> str:
+    """Record an active study day (user-local) and bridge any freezable gap, on
+    an already-open connection. Every write path funnels through here so the
+    streak can never depend on which request arrived first.
+
+    `day` backdates the row — used when an offline review is synced days after
+    it was actually answered. Recording the real day first means a backdated
+    review can close its own gap for free instead of costing a freeze.
+    """
+    today = await _local_today(conn, user_id)
+    day = day or today
+    await conn.execute(
+        "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
+        (user_id, day),
+    )
+    await _bridge_streak_gap(conn, user_id, today)
+    return day
 
 
 async def set_streak(user_id: int, days: int) -> int:
     """Admin override: force a user's current streak to exactly `days`.
 
     Streaks aren't stored as a number — they're derived from `study_activity`
-    rows — so we reshape those rows (all dates in UTC, matching get_streak):
+    rows — so we reshape those rows (all dates in the user's timezone, matching
+    get_streak):
       - backfill the most recent `days` days (offsets 0..days-1) ending today, and
       - clear the boundary day at offset `days` so the count stops at exactly
         `days` (and, for days==0, also clear yesterday so the streak lapses).
     Days further back are left untouched. Idempotent. Returns the new streak."""
-    from datetime import timedelta
+    from datetime import date, timedelta
     days = max(0, int(days))
-    today = _utc_today_date()
     async with aiosqlite.connect(DB_PATH) as db:
+        today = date.fromisoformat(await _local_today(db, user_id))
         # Ensure the streak window is present.
         if days:
             await db.executemany(
@@ -4182,15 +4338,44 @@ async def set_streak(user_id: int, days: int) -> int:
     return await get_streak(user_id)
 
 
-async def record_study_activity(user_id: int) -> None:
-    """Mark today as an active learning day for the streak. Called for ANY
-    meaningful activity — SRS reviews, completing a lesson, or a tutor turn —
-    so the 🔥 streak reflects all study, not only flashcard reviews."""
+async def ensure_min_streak(user_id: int, days: int) -> int:
+    """Insert-only backfill guaranteeing the streak reads at least `days`.
+
+    Used when a user's timezone changes. Their stored `study_date` rows were
+    written against the OLD boundary, so re-reading them against the new one can
+    shift the count by a day (an 8pm study session in Los Angeles was filed as
+    the next UTC day). Nobody should lose a streak they had already earned to a
+    correctness fix, so we top the history back up. Never deletes — unlike
+    `set_streak`, this can only preserve, and it is idempotent."""
+    from datetime import date, timedelta
+    days = max(0, int(days))
+    if not days:
+        return await get_streak(user_id)
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
-            (user_id,),
+        today = date.fromisoformat(await _local_today(db, user_id))
+        async with db.execute(
+            "SELECT 1 FROM study_activity WHERE user_id=? AND study_date=?",
+            (user_id, today.isoformat()),
+        ) as cur:
+            active_today = await cur.fetchone() is not None
+        # Anchor where the streak already ends, so we extend it rather than
+        # inventing activity for a day the learner hasn't studied yet.
+        anchor = today if active_today else today - timedelta(days=1)
+        await db.executemany(
+            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, ?)",
+            [(user_id, (anchor - timedelta(days=n)).isoformat()) for n in range(days)],
         )
+        await db.commit()
+    return await get_streak(user_id)
+
+
+async def record_study_activity(user_id: int, day: str | None = None) -> None:
+    """Mark a day as an active learning day for the streak. Called for ANY
+    meaningful activity — SRS reviews, completing a lesson, or a tutor turn —
+    so the 🔥 streak reflects all study, not only flashcard reviews. `day`
+    backdates the row for reviews synced after the fact."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _mark_study_day(db, user_id, day)
         await db.commit()
 
 
@@ -4201,6 +4386,8 @@ async def record_study_activity(user_id: int) -> None:
 
 STREAK_FREEZE_CAP = 2
 STREAK_FREEZE_PER_LESSONS = 10
+# Don't spend a shield rescuing a single isolated day — that isn't a streak yet.
+STREAK_FREEZE_MIN_STREAK = 2
 
 
 async def _settings_int(db, user_id: int, key: str, default: int = 0) -> int:
@@ -4397,11 +4584,10 @@ async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> 
         # Earning XP is, by definition, study — record the active day in the SAME
         # transaction so the 🔥 streak can NEVER lag behind XP, no matter which
         # feature awarded it (review, lesson, tutor, reader comprehension, …).
-        # UTC `date('now')` matches how the streak reads "today" (get_streak).
-        await db.execute(
-            "INSERT OR IGNORE INTO study_activity (user_id, study_date) VALUES (?, date('now'))",
-            (user_id,),
-        )
+        # `_mark_study_day` resolves the user's local day and spends any freeze
+        # the gap needs, so XP earned as the first action of the day can't reset
+        # a streak the learner had shields for.
+        await _mark_study_day(db, user_id)
         await db.commit()
 
 
@@ -4415,15 +4601,17 @@ async def get_points_total(user_id: int, lang: str) -> int:
 
 
 async def get_points_today(user_id: int, lang: str) -> int:
-    """XP earned today (all languages) — drives the daily-goal ring. Uses UTC
-    (`date('now')`) to reset on the SAME day boundary as the 🔥 streak and the
-    rest of the app (study_activity, DAU, first_seen_date), so the daily-goal
-    ring and the streak always roll over together."""
+    """XP earned today (all languages) — drives the daily-goal ring. Windowed to
+    the user's LOCAL day so the ring rolls over on the same boundary as the 🔥
+    streak and daily quests, instead of resetting mid-afternoon for anyone west
+    of UTC. (`created_at` is stored as UTC `datetime('now')`, so we compare
+    against that local day's UTC bounds.)"""
     async with aiosqlite.connect(DB_PATH) as db:
+        start, end = local_day_bounds(await _tz_for(db, user_id))
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
-            "WHERE user_id=? AND date(created_at) = date('now')",
-            (user_id,),
+            "WHERE user_id=? AND created_at >= ? AND created_at < ?",
+            (user_id, start, end),
         ) as cur:
             return (await cur.fetchone())[0]
 
@@ -4455,6 +4643,9 @@ CHEST_XP_MIN, CHEST_XP_MAX = 20, 40
 
 
 def _utc_today() -> str:
+    """UTC today as an ISO string. Retained for server-side analytics windows
+    (DAU/WAU/MAU) that are deliberately global rather than per-learner — every
+    per-user "today" goes through `user_today` / `_local_today`."""
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).date().isoformat()
 
@@ -4478,10 +4669,12 @@ async def get_daily_quests(user_id: int) -> list[dict]:
     """Today's 3 quests, seeding them on first call. The earn_xp quest's
     progress is re-derived from the points ledger every read (it can never
     drift); the rest accumulate via bump_quest."""
-    today = _utc_today()
-    keys = quest_keys_for(user_id, today)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+        tz = await _tz_for(db, user_id)
+        today = local_today_str(tz)
+        keys = quest_keys_for(user_id, today)
+        xp_start, xp_end = local_day_bounds(tz)
         for key in keys:
             await db.execute(
                 """INSERT OR IGNORE INTO daily_quests
@@ -4492,9 +4685,9 @@ async def get_daily_quests(user_id: int) -> list[dict]:
         await db.execute(
             """UPDATE daily_quests
                SET progress = (SELECT COALESCE(SUM(points), 0) FROM points_ledger
-                               WHERE user_id=? AND date(created_at) = date('now'))
+                               WHERE user_id=? AND created_at >= ? AND created_at < ?)
                WHERE user_id=? AND quest_date=? AND quest_key='earn_xp'""",
-            (user_id, user_id, today),
+            (user_id, xp_start, xp_end, user_id, today),
         )
         await db.commit()
         async with db.execute(
@@ -4530,8 +4723,8 @@ async def bump_quest(user_id: int, quest_key: str, amount: int = 1,
     tpl = QUEST_TEMPLATES.get(quest_key)
     if not tpl:
         return
-    today = _utc_today()
     async with aiosqlite.connect(DB_PATH) as db:
+        today = await _local_today(db, user_id)
         if tpl["mode"] == "max":
             if value is None:
                 return
@@ -4555,7 +4748,7 @@ async def claim_daily_chest(user_id: int) -> int | None:
     """Open today's chest: all 3 quests complete and not yet claimed → mark
     claimed and return the bonus XP (deterministic). Else None. The caller
     appends the XP to points_ledger (reason 'quest')."""
-    today = _utc_today()
+    today = await user_today(user_id)
     quests = await get_daily_quests(user_id)   # seeds + syncs earn_xp
     if len(quests) < 3 or not all(q["done"] for q in quests):
         return None
