@@ -1,6 +1,8 @@
 import hashlib
+import importlib.util
 import json
 import os
+import re
 import time
 
 import aiosqlite
@@ -469,8 +471,25 @@ async def init():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_points_user     ON points_ledger(user_id, lang)")
 
 
+async def _run_py_migration(path: str, conn) -> None:
+    """Run a migration written in Python: a module exposing `async def migrate(conn)`.
+
+    Schema changes stay in .sql. This exists for DATA backfills that SQL can't
+    express safely — notably anything that has to read a value back out of a
+    `json.dumps()` blob, whose non-ASCII content is \\u-escaped, so a SQL
+    `instr()` would quietly match rows with ASCII text and quietly miss every
+    other one. The migration runs on the caller's open connection and is
+    recorded in schema_migrations exactly like a .sql file."""
+    mod_name = "_migration_" + re.sub(r"\W", "_", os.path.basename(path))
+    spec = importlib.util.spec_from_file_location(mod_name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    await module.migrate(conn)
+
+
 async def _run_migrations(db) -> None:
-    """Apply pending migrations from migrations/*.sql, in filename order, once each.
+    """Apply pending migrations from migrations/*.sql and *.py, in filename
+    order, once each.
 
     The CREATE TABLE statements in init() define the *current* baseline schema and
     are idempotent. Post-baseline schema changes go in a new numbered file under
@@ -491,12 +510,15 @@ async def _run_migrations(db) -> None:
         return
 
     for fname in sorted(os.listdir(MIGRATIONS_DIR)):
-        if not fname.endswith(".sql") or fname in applied:
+        if fname in applied or not fname.endswith((".sql", ".py")):
             continue
-        with open(os.path.join(MIGRATIONS_DIR, fname), encoding="utf-8") as f:
-            script = f.read()
+        path = os.path.join(MIGRATIONS_DIR, fname)
         try:
-            await db.executescript(script)
+            if fname.endswith(".py"):
+                await _run_py_migration(path, db)
+            else:
+                with open(path, encoding="utf-8") as f:
+                    await db.executescript(f.read())
         except Exception as e:
             msg = str(e).lower()
             # Idempotency: ignore errors that mean the migration is a no-op on this DB.

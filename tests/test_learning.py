@@ -1401,6 +1401,84 @@ async def test_migration_045_relinks_legacy_textbook_units(fresh_db):
     assert [(u["id"], u["chapter_idx"]) for u in units] == [(legacy["Greetings"], 0)]
 
 
+async def _legacy_unit(cid, title, lessons):
+    """A textbook unit as it existed before migration 044: no book/chapter link,
+    its lessons carrying the author prompt they were generated from."""
+    import aiosqlite
+    unit_id = await db.create_textbook_unit_row(cid, title)
+    for i, (lesson_title, grounding) in enumerate(lessons):
+        await db.create_lesson(
+            cid, 100 + i, lesson_title, "",
+            [{"kind": "vocab", "key": f"k{unit_id}_{i}", "label": "x", "gloss": "x"}],
+            {"segments": []}, "", {"prompt": grounding, "response": "R"}, unit_id=unit_id)
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute(
+            "UPDATE course_units SET textbook_id=NULL, chapter_idx=NULL WHERE id=?", (unit_id,))
+        await conn.commit()
+    return unit_id
+
+
+def _grounding(book_title, start, end):
+    return (f"── SOURCE MATERIAL (from the learner's own textbook) ──\n"
+            f"Textbook: {book_title}\nApproved PDF pages: {start}–{end}\n")
+
+
+@pytest.mark.asyncio
+async def test_migration_046_disambiguates_by_the_stored_author_prompt(fresh_db):
+    """045 could only link a legacy unit when its title matched exactly one
+    chapter in the course — but chapters are routinely called "Unit 1", so two
+    books collide easily. 046 breaks the tie using the book + page range named
+    in the lesson's own stored author prompt.
+
+    The CJK book title is the point of the Python migration: llm_debug_json is
+    json.dumps'd with ensure_ascii, so a SQL instr() would match the ASCII book
+    and silently miss this one."""
+    import aiosqlite
+    uid = fresh_db
+    cid = await db.create_course(uid, "yue", "A1")
+    ascii_book = await db.create_textbook(uid, cid, "Colloquial Cantonese", "a.pdf",
+                                          ["p"] * 8)
+    cjk_book = await db.create_textbook(uid, cid, "粵語入門", "b.pdf", ["p"] * 8)
+    # BOTH books have a chapter called "Unit 1" — 045 leaves these alone.
+    await db.update_textbook_chapters(ascii_book, [
+        {"title": "Unit 1", "start": 1, "end": 4},
+        {"title": "Repeated", "start": 5, "end": 6},
+        {"title": "Repeated", "start": 7, "end": 8},
+    ])
+    await db.update_textbook_chapters(cjk_book, [{"title": "Unit 1", "start": 1, "end": 4}])
+
+    from_ascii = await _legacy_unit(cid, "Unit 1",
+                                    [("L", _grounding("Colloquial Cantonese", 1, 4))])
+    from_cjk = await _legacy_unit(cid, "Unit 1", [("L", _grounding("粵語入門", 1, 4))])
+    # Same title TWICE inside one book — only the page range separates them.
+    same_book = await _legacy_unit(cid, "Repeated",
+                                   [("L", _grounding("Colloquial Cantonese", 7, 8))])
+    # A custom page range: no chapter to claim, but the book is still knowable.
+    custom = await _legacy_unit(cid, "Pages 30–34",
+                                [("L", _grounding("粵語入門", 30, 34))])
+    # Nothing to go on — stays NULL rather than guessing.
+    unknown = await _legacy_unit(cid, "Mystery unit", [("L", "no grounding header")])
+
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "migrations", "046_textbook_unit_chapter_disambiguate.py"),
+              encoding="utf-8") as f:
+        source = f.read()
+    module = types.ModuleType("m046")
+    exec(compile(source, "046", "exec"), module.__dict__)
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await module.migrate(conn)
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT id, textbook_id, chapter_idx FROM course_units") as cur:
+            got = {r[0]: (r[1], r[2]) for r in await cur.fetchall()}
+
+    assert got[from_ascii] == (ascii_book, 0)
+    assert got[from_cjk] == (cjk_book, 0)      # the case SQL would have missed
+    assert got[same_book] == (ascii_book, 2)   # page range picked the right one
+    assert got[custom] == (cjk_book, None)     # filed under its book, no chapter
+    assert got[unknown] == (None, None)
+
+
 @pytest.mark.asyncio
 async def test_author_retries_a_soft_failure_before_giving_up(fresh_db, monkeypatch):
     """A flaky author call (bad JSON, or drills that all fail validation and
