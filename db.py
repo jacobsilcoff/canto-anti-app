@@ -2832,10 +2832,41 @@ async def set_active_plan(course_id: int, plan: dict | None) -> None:
         await db.commit()
 
 
+def _lesson_words(concepts_json: str) -> list[dict]:
+    """The native words one lesson taught, from its stored `concepts_json`.
+
+    A vocab concept contributes itself; a GRAMMAR concept contributes its
+    `items` (its skill label, e.g. "-er present tense", is not a word). Those
+    items are the blind spot this exists for: `create_lesson` registers only the
+    top-level concept in `course_concepts`, so the words a grammar lesson
+    actually taught were invisible to the planner and to `_filter_new_concepts`
+    — which is how a later lesson could re-teach the same vocabulary under a
+    fresh key. Same derivation as `get_course_vocab`, minus the completed-only
+    filter (the planner must not re-teach what it has already GENERATED, whether
+    or not the learner has played it yet)."""
+    try:
+        concepts = json.loads(concepts_json or "[]")
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(concepts, list):
+        return []
+    out = []
+    for c in concepts:
+        if not isinstance(c, dict):
+            continue
+        kind = (c.get("kind") or "vocab").strip()
+        words = (c.get("items") or []) if kind == "grammar" else [c]
+        for w in words:
+            if isinstance(w, dict) and (w.get("label") or "").strip():
+                out.append({"label": w["label"].strip(),
+                            "gloss": (w.get("gloss") or "").strip()})
+    return out
+
+
 async def get_next_lesson_context(course_id: int) -> dict:
     """Return everything needed to generate the next lesson:
-    lesson_num, open_lessons, concept_registry, unit_summaries, recent_summaries,
-    prior_concepts."""
+    lesson_num, open_lessons, concept_registry, taught_words, lesson_index,
+    unit_summaries, recent_summaries, prior_concepts."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
@@ -2873,10 +2904,40 @@ async def get_next_lesson_context(course_id: int) -> dict:
         ) as cur:
             recent_summaries = list(reversed([dict(r) for r in await cur.fetchall()]))
 
+        # Every lesson already generated, in teaching order, with the words it
+        # taught. Recent summaries only cover the last 3, and the concept
+        # registry loses grammar concepts' `items` entirely — so without this
+        # the planner is largely blind to what the course has already covered.
+        # Foundations units are excluded (they teach script, not vocabulary).
+        async with db.execute(
+            """SELECT l.lesson_num, l.title, l.summary, l.concepts_json,
+                      COALESCE(u.theme, '') AS theme
+               FROM course_lessons l
+               LEFT JOIN course_units u ON u.id = l.unit_id
+               WHERE l.course_id=? AND COALESCE(u.theme,'') != 'foundations'
+               ORDER BY l.lesson_num, l.id""",
+            (course_id,),
+        ) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+
+        lesson_index, taught_words, seen_words = [], [], set()
+        for r in rows:
+            lesson_index.append({
+                "lesson_num": r["lesson_num"], "title": r["title"] or "",
+                "summary": r["summary"] or "",
+                "source": "textbook" if r["theme"] == "textbook" else "ai",
+            })
+            for w in _lesson_words(r["concepts_json"]):
+                if w["label"] not in seen_words:      # first lesson to teach it wins
+                    seen_words.add(w["label"])
+                    taught_words.append(w)
+
         return {
             "lesson_num":       lesson_num,
             "open_lessons":     open_lessons,
             "concept_registry": concept_registry,
+            "taught_words":     taught_words,
+            "lesson_index":     lesson_index,
             "unit_summaries":   unit_summaries,
             "recent_summaries": recent_summaries,
             "prior_concepts":   concept_registry,  # same data, used for distractor pool

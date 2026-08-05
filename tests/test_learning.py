@@ -482,6 +482,144 @@ def test_filter_new_concepts_drops_registry_dupes():
     assert [c["key"] for c in out] == ["thanks", "aspect"]
 
 
+def test_filter_new_concepts_drops_words_taught_inside_grammar_items():
+    # A grammar lesson's `items` are the words it actually taught, but only the
+    # skill itself becomes a course_concepts row — so matching the registry alone
+    # let a later vocab lesson re-teach them. taught_words closes that.
+    import main
+    registry = [{"kind": "grammar", "key": "er_verbs", "label": "-er verbs",
+                 "gloss": "regular present"}]
+    taught_words = [{"label": "parler", "gloss": "to speak"},
+                    {"label": "manger", "gloss": "to eat"}]
+    plan = [
+        {"kind": "vocab", "key": "speak", "label": "parler", "gloss": "to speak"},
+        {"kind": "vocab", "key": "drink", "label": "boire", "gloss": "to drink"},
+    ]
+    assert [c["key"] for c in main._filter_new_concepts(plan, registry)] \
+        == ["speak", "drink"]           # registry alone can't see them
+    out = main._filter_new_concepts(plan, registry, taught_words=taught_words)
+    assert [c["key"] for c in out] == ["drink"]
+
+
+@pytest.mark.asyncio
+async def test_lesson_context_exposes_taught_words_and_lesson_index(fresh_db):
+    # The planner's view of the past: every taught word (including the ones
+    # buried in a grammar concept's items) and every lesson, textbook ones
+    # marked so it knows the book already covered them.
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.create_lesson(cid, 1, "Regular -er verbs", "", [
+        {"kind": "grammar", "key": "er_verbs", "label": "-er verbs", "gloss": "present",
+         "items": [{"label": "parler", "gloss": "to speak"},
+                   {"label": "manger", "gloss": "to eat"}]},
+    ], {"segments": []}, "er verbs")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 2", "from the book")
+    await db.create_lesson(cid, 2, "At the market", "", [
+        {"kind": "vocab", "key": "bread", "label": "le pain", "gloss": "bread"},
+    ], {"segments": []}, "market words", unit_id=unit_id)
+
+    ctx = await db.get_next_lesson_context(cid)
+    assert [w["label"] for w in ctx["taught_words"]] == ["parler", "manger", "le pain"]
+    assert [(l["lesson_num"], l["source"]) for l in ctx["lesson_index"]] \
+        == [(1, "ai"), (2, "textbook")]
+    # Only the skill row is registered — which is exactly why taught_words exists.
+    assert [c["key"] for c in ctx["concept_registry"]] == ["er_verbs", "bread"]
+
+
+def test_plan_prompt_lists_taught_words_and_lessons():
+    taught = [{"label": "parler", "gloss": "to speak"}]
+    index = [{"lesson_num": 1, "title": "At the market", "summary": "food words",
+              "source": "textbook"}]
+    p = learning._build_plan_prompt("fr", "A1", [], [], taught_words=taught,
+                                    lesson_index=index)
+    assert "WORDS ALREADY TAUGHT" in p and "parler = to speak" in p
+    assert "LESSONS ALREADY IN THIS COURSE" in p and "📕 At the market" in p
+    # Nothing taught yet → neither section (keeps the first prompt small).
+    bare = learning._build_plan_prompt("fr", "A1", [], [])
+    assert "WORDS ALREADY TAUGHT" not in bare
+    assert "LESSONS ALREADY IN THIS COURSE" not in bare
+
+
+# ── Lesson-level (topical) dedup ──────────────────────────────────────────────
+
+_SPEC_RESTAURANT = {
+    "skill": {"kind": "vocab", "key": "cafe", "label": "café", "gloss": "ordering at a café"},
+    "target_items": [{"label": "le café", "gloss": "coffee"}],
+}
+
+
+@pytest.mark.asyncio
+async def test_semantic_dup_lesson_flags_a_renamed_repeat(monkeypatch):
+    # Different key, different words — same lesson. Only an embedding of the
+    # lesson TOPIC catches this, which is the gap learners actually hit.
+    import main
+    index = [{"lesson_num": 3, "title": "Ordering at a restaurant",
+              "summary": "menu, waiter, bill", "source": "ai"},
+             {"lesson_num": 4, "title": "Numbers 1–10", "summary": "un, deux",
+              "source": "ai"}]
+
+    def _topic_vec(text):
+        low = text.lower()
+        if "order" in low or "menu" in low or "café" in low:
+            return [1.0, 0.0, 0.0]
+        if "number" in low or "deux" in low:
+            return [0.0, 1.0, 0.0]
+        return [0.0, 0.0, 1.0]
+
+    async def fake_embed(texts, sentinel, lang, api_key):
+        return {t: _topic_vec(t) for t in texts}
+    monkeypatch.setattr(main, "_embed_texts", fake_embed)
+
+    dup = await main._semantic_dup_lesson(_SPEC_RESTAURANT, index, "fr", "k")
+    assert dup and dup["lesson_num"] == 3
+    # A plan on new ground is left alone.
+    greetings = {"skill": {"kind": "vocab", "key": "g", "label": "salutations",
+                           "gloss": "greeting people politely"}, "target_items": []}
+    assert await main._semantic_dup_lesson(greetings, index, "fr", "k") is None
+
+
+@pytest.mark.asyncio
+async def test_semantic_dup_lesson_degrades_when_embedding_fails(monkeypatch):
+    import main
+
+    async def boom(*a, **k):
+        raise RuntimeError("no embedding service")
+    monkeypatch.setattr(main, "_embed_texts", boom)
+    index = [{"lesson_num": 1, "title": "Ordering at a restaurant",
+              "summary": "menu", "source": "ai"}]
+    assert await main._semantic_dup_lesson(_SPEC_RESTAURANT, index, "fr", "k") is None
+
+
+@pytest.mark.asyncio
+async def test_plan_rejection_names_the_clashing_lesson(monkeypatch):
+    import main
+    ctx = {"lesson_index": [{"lesson_num": 3, "title": "Ordering at a restaurant",
+                             "summary": "menu, waiter", "source": "ai"}]}
+    concepts = [{"kind": "vocab", "key": "cafe", "label": "café", "gloss": "coffee"}]
+
+    async def fake_embed(texts, sentinel, lang, api_key):
+        return {t: [1.0, 0.0] for t in texts}
+    monkeypatch.setattr(main, "_embed_texts", fake_embed)
+
+    why = await main._plan_rejection(_SPEC_RESTAURANT, concepts, concepts, ctx, "fr", "k")
+    assert "Ordering at a restaurant" in why and "lesson 3" in why
+    # An empty dedup result reports the concept clash instead.
+    why2 = await main._plan_rejection(_SPEC_RESTAURANT, concepts, [], ctx, "fr", "k")
+    assert "already taught" in why2
+
+
+def test_textbook_unit_summary_describes_its_lessons():
+    import main
+    s = main._textbook_unit_summary("Teach Yourself Cantonese", 12, 20,
+                                    ["Greetings", "Asking prices"])
+    assert "Teach Yourself Cantonese" in s and "pages 12–20" in s
+    assert "Greetings; Asking prices" in s
+    # A single page reads naturally, and a unit with no lesson titles still
+    # names the book (an empty summary is what made textbook units invisible
+    # to the AI planner).
+    assert "page 7" in main._textbook_unit_summary("Book", 7, 7, [])
+
+
 # ── Active chapter persistence ───────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -1127,6 +1265,56 @@ async def test_author_textbook_lesson_consumes_unit_queue(fresh_db, monkeypatch)
     # Concept registered so the AI planner sees it as taught.
     reg = (await db.get_next_lesson_context(cid))["concept_registry"]
     assert "salut" in {c["label"] for c in reg}
+
+
+@pytest.mark.asyncio
+async def test_textbook_lesson_blocks_the_ai_planner_from_re_teaching_it(
+        fresh_db, monkeypatch):
+    """A textbook lesson's material must not come back as an AI lesson.
+
+    The book's words reach the AI path three ways, and this checks all three:
+    the planner PROMPT lists them (so it doesn't propose them), the planner's
+    lesson index names the textbook lesson, and if it proposes them anyway the
+    concept filter drops them. The grammar case is the one that used to leak —
+    a grammar skill's words live in its `items` and were never registered."""
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    unit_id = await db.create_textbook_unit_row(cid, "Book Ch 1", "from the book")
+    await db.add_lesson_queue(cid, [{
+        "unit_title": "Book Ch 1", "unit_size": 1,
+        "spec": {"title": "Greetings from the book",
+                 "skill": {"kind": "grammar", "key": "tu_vous",
+                           "label": "tu vs vous", "gloss": "formality"},
+                 "target_items": [{"label": "salut", "gloss": "hi"},
+                                  {"label": "bonjour", "gloss": "hello"}]},
+        "source": "THE BOOK RULE: salut is informal.",
+    }], unit_id=unit_id)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+    await main._author_textbook_lesson(course, unit_id, _mk_access(),
+                                       "gemini-2.5-flash-lite", uid)
+
+    ctx = await db.get_next_lesson_context(cid)
+    # 1. The words the BOOK taught are visible even though only the grammar
+    #    skill itself was registered as a concept.
+    assert {w["label"] for w in ctx["taught_words"]} == {"salut", "bonjour"}
+    assert "salut" not in {c["label"] for c in ctx["concept_registry"]}
+    # 2. The planner prompt names the textbook lesson and those words.
+    prompt = learning._build_plan_prompt(
+        "fr", "A1", ctx["concept_registry"], ctx["recent_summaries"],
+        taught_words=ctx["taught_words"], lesson_index=ctx["lesson_index"])
+    assert "salut = hi" in prompt and "bonjour = hello" in prompt
+    assert ctx["lesson_index"] == [{"lesson_num": 1, "title": "T",
+                                    "summary": "S-sum", "source": "textbook"}]
+    assert "LESSONS ALREADY IN THIS COURSE" in prompt and "📕 T — S-sum" in prompt
+    # 3. And if the planner proposes them anyway, they're dropped.
+    plan = [{"kind": "vocab", "key": "hi", "label": "salut", "gloss": "hi"},
+            {"kind": "vocab", "key": "cat", "label": "le chat", "gloss": "cat"}]
+    survivors = main._filter_new_concepts(plan, ctx["concept_registry"],
+                                          taught_words=ctx["taught_words"])
+    assert [c["key"] for c in survivors] == ["cat"]
 
 
 @pytest.mark.asyncio
