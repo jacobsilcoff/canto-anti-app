@@ -780,6 +780,11 @@
       color: var(--text-muted); margin: 4px 0 8px; }
     .tb-gen-note { text-align: center; color: var(--text-muted); font-size: .7rem; line-height: 1.4;
       padding: 0 8px 6px; }
+    /* A chapter of the book that has no lessons yet — visible so the book's real
+       shape shows here, and buildable without a trip to the textbook page. */
+    .tb-chapter-todo { border: 1px dashed var(--border); border-radius: 14px;
+      padding: 12px 14px 4px; background: var(--surface-alt); }
+    .tb-chapter-todo .tb-gen { padding: 10px 0 8px; }
     /* A lesson slot the unit will fill: reserved, dimmed, one tap from real. */
     .lesson.queued { opacity: .72; border-style: dashed; }
     .lesson.queued .lesson-node { background: var(--surface-alt); color: var(--text-muted);
@@ -1161,6 +1166,9 @@
   let _tbGenerating = null;   // textbook unit_id currently authoring its next lesson
   let _tbError = null;        // last error from a textbook-unit generation
   let _tbProgress = '';       // "Built 2 · 3 to go…" during a generate-all run
+  let _tbBooks = null;        // books + chapters (null until the shelf loads)
+  let _tbShelfLoading = false;
+  let _tbBuilding = null;     // "bookId:chapterIdx" while a chapter becomes a unit
 
   function show(state) {
     _currentState = state;
@@ -2594,6 +2602,63 @@
     return course;
   }
 
+  // The learner's books + their chapters, so the textbook section can list EVERY
+  // chapter (built or not) rather than only the units that already exist. Loaded
+  // once per page and re-rendered when it lands; a failure just leaves the
+  // section showing the units, exactly as before.
+  async function loadTextbookShelf(courseId, force) {
+    if (!courseId || _tbShelfLoading || (_tbBooks && !force)) return;
+    _tbShelfLoading = true;
+    try {
+      const res = await fetch(`/api/courses/${courseId}/textbooks`);
+      if (!res.ok) return;
+      _tbBooks = (await res.json()).textbooks || [];
+      if (currentCourse) renderCourse(currentCourse);
+    } catch { /* units still render */ }
+    finally { _tbShelfLoading = false; }
+  }
+
+  // Turn ONE chapter into a multi-lesson unit, straight from the course map.
+  // Same route the textbook page uses; the server extracts the source text for
+  // the chapter's pages (honouring any mid-page split saved on it), plans the
+  // whole unit and authors lesson one.
+  async function buildChapterUnit(bookId, chapterIdx) {
+    if (_tbBuilding || _tbGenerating) return;
+    const book = (_tbBooks || []).find(b => b.id === bookId);
+    const ch = book && (book.chapters || [])[chapterIdx];
+    if (!ch) return;
+    _tbBuilding = `${bookId}:${chapterIdx}`; _tbError = null;
+    if (currentCourse) renderCourse(currentCourse);
+    try {
+      const res = await textbookFetch(`/api/textbooks/${bookId}/unit`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: ch.start, end: ch.end, chapter_idx: chapterIdx,
+                               section_title: ch.title }),
+      }, 300000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(_detailText(data.detail)
+        || 'Could not build lessons from this chapter.');
+      const plan = data.unit_plan || {};
+      _bookMsg = `Built “${plan.title || ch.title}” — ${plan.lesson_count || 1} lesson${plan.lesson_count === 1 ? '' : 's'} from ${book.title}.`;
+      await _refreshCourse();
+      await loadTextbookShelf(currentCourse && currentCourse.id, true);
+    } catch (e) {
+      _tbError = e.name === 'AbortError'
+        ? 'Building this chapter took too long. It may still finish — reload in a minute before retrying.'
+        : (e.message || 'Could not build lessons from this chapter.');
+    } finally {
+      _tbBuilding = null;
+      if (currentCourse) renderCourse(currentCourse);
+    }
+  }
+
+  // FastAPI details are usually strings, but the one-unit-per-chapter guard
+  // raises a dict ({message, unit_id, …}) so the caller can offer "regenerate".
+  function _detailText(detail) {
+    if (!detail) return '';
+    return typeof detail === 'string' ? detail : (detail.message || '');
+  }
+
   // Author queued lessons for ONE textbook unit (explicit, unit-scoped — never
   // the AI course path). `mode === 'all'` keeps going until the unit's queue is
   // empty, refreshing the map between lessons so each one appears as it lands
@@ -2725,6 +2790,64 @@
         <div class="lesson-meta">${action}</div>
       </div>
       <div class="lesson-status locked">not built</div>
+    </div>`;
+  }
+
+  // One built textbook unit: its lessons, its still-queued lesson slots, and the
+  // actions that author the rest.
+  function _textbookUnitHtml(u) {
+    const lessons   = u.lessons || [];
+    const queued    = u.queued || [];
+    const remaining = queued.length;
+    const total     = lessons.length + remaining;
+    const gen = _tbGenerating === u.id;
+    let html = `<div class="unit-head">
+      <div class="unit-title">${esc(u.title || 'Textbook unit')}
+        <button class="unit-del" title="Delete this unit"
+          onclick="deleteCourseUnit(${u.id})">🗑</button>
+      </div>
+      ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
+      ${total ? `<div class="unit-obj">${lessons.length} of ${total} lesson${total === 1 ? '' : 's'} built</div>` : ''}
+    </div>`;
+    lessons.forEach((l, li) => { html += _lessonHtml(l, li, { deletable: true }); });
+    queued.forEach((q, qi) => {
+      html += _queuedLessonHtml(q, lessons.length + qi + 1, u.id, qi === 0, gen);
+    });
+    if (remaining > 0) {
+      html += `<div class="tb-gen">
+        <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id},'all')">
+          ${gen ? `<span class="spinner"></span> ${esc(_tbProgress || 'Building next lesson…')}`
+                : `⚡ Build all ${remaining} remaining`}</button>
+        ${gen ? '' : `<button class="tb-gen-clear" onclick="generateTextbookLesson(${u.id})">Just the next one</button>
+        <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>`}
+      </div>
+      ${gen ? '' : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
+    }
+    if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
+    return `<div class="unit">${html}</div>`;
+  }
+
+  // A chapter the learner hasn't turned into lessons yet. Reserving the row is
+  // what makes the book's real shape visible here, and puts first-time
+  // generation one tap away instead of a trip to the textbook page.
+  function _emptyChapterHtml(book, ch, ci) {
+    const key  = `${book.id}:${ci}`;
+    const busy = _tbBuilding === key;
+    const pages = ch.start === ch.end ? `Page ${ch.start}` : `Pages ${ch.start}–${ch.end}`;
+    const err = (_tbError && busy) ? `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>` : '';
+    return `<div class="unit tb-chapter-todo">
+      <div class="unit-head">
+        <div class="unit-title" style="color:var(--text-muted)">${esc(ch.title || `Chapter ${ci + 1}`)}</div>
+        <div class="unit-obj">${pages} · no lessons yet</div>
+      </div>
+      <div class="tb-gen">
+        <button class="course-regen"${busy || _tbBuilding || _tbGenerating ? ' disabled' : ''}
+          onclick="buildChapterUnit(${book.id},${ci})">
+          ${busy ? '<span class="spinner"></span> Reading the chapter…'
+                 : '＋ Build lessons from this chapter'}</button>
+      </div>
+      ${busy ? '<div class="tb-gen-note">Planning the whole chapter, then writing lesson one — this takes a minute.</div>' : ''}
+      ${err}
     </div>`;
   }
 
@@ -2986,8 +3109,13 @@
       if (!collapsed) requestAnimationFrame(drawPathConnectors);
     }
 
-    // ── Textbook units — their own section, separate from the AI course path ────
-    if (textbookUnits.length > 0) {
+    // ── Textbooks — every CHAPTER of every book, whether or not it has lessons ──
+    // A chapter with no unit yet still gets a row with a "build lessons" action,
+    // so a book can be worked through end-to-end from here without detouring to
+    // the /textbooks page for each new chapter.
+    loadTextbookShelf(course.id);
+    const shelf = _tbBooks || [];
+    if (textbookUnits.length > 0 || shelf.length > 0) {
       // Default EXPANDED (the learner just built these). '1' = collapsed.
       const collapsed = localStorage.getItem('learn_textbooks_collapsed') === '1';
       const tTotal = textbookUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
@@ -3008,50 +3136,55 @@
           style="${collapsed ? 'display:none' : ''}"></div>`;
 
       const body = section.querySelector('#textbooks-body');
-      let lastBook = null;
+      const add = (html) => body.insertAdjacentHTML('beforeend', html);
+
+      // Which unit (if any) each chapter of each book produced. Only units whose
+      // book is on the shelf are claimed here — otherwise a unit from a deleted
+      // book (or every unit, on the first paint before the shelf loads) would be
+      // marked as rendered and then never drawn.
+      const shelfIds = new Set(shelf.map(b => b.id));
+      const claimed = new Set();
+      const unitFor = new Map();      // `${bookId}:${chapterIdx}` → unit
       textbookUnits.forEach(u => {
-        const unitDiv = document.createElement('div');
-        unitDiv.className = 'unit';
-        const lessons  = u.lessons || [];
-        const queued   = u.queued || [];
-        const remaining = queued.length;
-        const total    = lessons.length + remaining;
-        const gen = _tbGenerating === u.id;
-        // Units are ordered by the book's own chapter order; name the book once
-        // when it changes so several books stay readable in one list.
-        const bookName = u.book_title || '';
-        const bookHead = (bookName && bookName !== lastBook)
-          ? `<div class="tb-book-head">📕 ${esc(bookName)}</div>` : '';
-        lastBook = bookName || lastBook;
-        let html = bookHead + `<div class="unit-head">
-          <div class="unit-title">${esc(u.title || 'Textbook unit')}
-            <button class="unit-del" title="Delete this unit"
-              onclick="deleteCourseUnit(${u.id})">🗑</button>
-          </div>
-          ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
-          ${total ? `<div class="unit-obj">${lessons.length} of ${total} lesson${total === 1 ? '' : 's'} built</div>` : ''}
-        </div>`;
-        lessons.forEach((l, li) => { html += _lessonHtml(l, li, { deletable: true }); });
-        queued.forEach((q, qi) => {
-          html += _queuedLessonHtml(q, lessons.length + qi + 1, u.id, qi === 0, gen);
-        });
-        if (remaining > 0) {
-          html += `<div class="tb-gen">
-            <button class="course-regen"${gen ? ' disabled' : ''} onclick="generateTextbookLesson(${u.id},'all')">
-              ${gen ? `<span class="spinner"></span> ${esc(_tbProgress || 'Building next lesson…')}`
-                    : `⚡ Build all ${remaining} remaining`}</button>
-            ${gen ? '' : `<button class="tb-gen-clear" onclick="generateTextbookLesson(${u.id})">Just the next one</button>
-            <button class="tb-gen-clear" onclick="clearTextbookUnitQueue(${u.id})">Clear rest</button>`}
-          </div>
-          ${gen ? '' : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
+        if (shelfIds.has(u.textbook_id) && u.chapter_idx != null) {
+          unitFor.set(`${u.textbook_id}:${u.chapter_idx}`, u);
+          claimed.add(u.id);
         }
-        if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
-        unitDiv.innerHTML = html;
-        body.appendChild(unitDiv);
       });
-      if (_tbError && !_tbGenerating)
-        body.insertAdjacentHTML('beforeend',
-          `<div class="gen-label" style="color:var(--danger);padding:0 8px 8px">${esc(_tbError)}</div>`);
+
+      shelf.forEach(b => {
+        const chapters = b.chapters || [];
+        add(`<div class="tb-book-head">📕 ${esc(b.title)}</div>`);
+        if (!chapters.length) {
+          // Detection hasn't run or found nothing; splitting the book into
+          // chapters lives on the textbook page.
+          add(`<div class="unit tb-chapter-todo">
+            <div class="unit-obj">No chapters detected yet.</div>
+            <div class="tb-gen"><button class="course-regen"
+              onclick="window.location.href='/textbooks'">Open the book to divide it</button></div>
+          </div>`);
+        }
+        chapters.forEach((ch, ci) => {
+          const u = unitFor.get(`${b.id}:${ci}`);
+          add(u ? _textbookUnitHtml(u) : _emptyChapterHtml(b, ch, ci));
+        });
+        // Units from this book with no chapter link (custom page ranges).
+        textbookUnits
+          .filter(u => u.textbook_id === b.id && !claimed.has(u.id))
+          .forEach(u => { claimed.add(u.id); add(_textbookUnitHtml(u)); });
+      });
+      // Units the shelf didn't account for: a deleted book, or the first paint
+      // before the shelf has loaded. Their lessons are still the learner's, so
+      // they keep the old grouping by book name.
+      let lastBook = null;
+      textbookUnits.filter(u => !claimed.has(u.id)).forEach(u => {
+        const name = u.book_title || 'Other units';
+        if (name !== lastBook) add(`<div class="tb-book-head">📕 ${esc(name)}</div>`);
+        lastBook = name;
+        add(_textbookUnitHtml(u));
+      });
+      if (_tbError && !_tbGenerating && !_tbBuilding)
+        add(`<div class="gen-label" style="color:var(--danger);padding:0 8px 8px">${esc(_tbError)}</div>`);
       wrap.appendChild(section);
     }
 

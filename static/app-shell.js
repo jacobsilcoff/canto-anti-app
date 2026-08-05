@@ -65,7 +65,7 @@
   }
 
   function markDirtyForMutation(path) {
-    if (path === '/api/settings') {
+    if (path === '/api/settings' || path === '/api/tour-seen') {
       dirty.add('settings'); dirty.add('due');
     }
     if (/^\/api\/cards\/\d+\/review$/.test(path) ||
@@ -113,6 +113,18 @@
     refresh: () => refresh(true),
     get: key => snapshot && snapshot.data ? snapshot.data[key] : null,
     invalidate: key => dirty.add(key),
+    // Merge a known-good change into the cached section. `invalidate` only
+    // marks the in-memory `dirty` set, which is rebuilt on every navigation —
+    // so it cannot carry a mutation across a page load. `patch` writes through
+    // to the sessionStorage snapshot, which is what the NEXT page reads.
+    patch: (key, partial) => {
+      const current = snapshot && snapshot.data ? snapshot.data[key] : null;
+      if (current && typeof current === 'object') {
+        updateSection(key, Object.assign({}, current, partial));
+      } else {
+        dirty.add(key);
+      }
+    },
   };
 
   const flame = '<svg viewBox="0 0 16 20" width="12" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C5.5 3.5 3 6.5 3 10.5a5 5 0 0010 0c0-2-.9-3.8-1.8-4.8-.4 1.6-1.1 2.6-2 2.2.4-2.5.2-5.2-1.2-7.9z"/></svg>';

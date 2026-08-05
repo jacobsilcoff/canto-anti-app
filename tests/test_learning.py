@@ -482,6 +482,179 @@ def test_filter_new_concepts_drops_registry_dupes():
     assert [c["key"] for c in out] == ["thanks", "aspect"]
 
 
+def test_filter_new_concepts_drops_words_taught_inside_grammar_items():
+    # A grammar lesson's `items` are the words it actually taught, but only the
+    # skill itself becomes a course_concepts row — so matching the registry alone
+    # let a later vocab lesson re-teach them. taught_words closes that.
+    import main
+    registry = [{"kind": "grammar", "key": "er_verbs", "label": "-er verbs",
+                 "gloss": "regular present"}]
+    taught_words = [{"label": "parler", "gloss": "to speak"},
+                    {"label": "manger", "gloss": "to eat"}]
+    plan = [
+        {"kind": "vocab", "key": "speak", "label": "parler", "gloss": "to speak"},
+        {"kind": "vocab", "key": "drink", "label": "boire", "gloss": "to drink"},
+    ]
+    assert [c["key"] for c in main._filter_new_concepts(plan, registry)] \
+        == ["speak", "drink"]           # registry alone can't see them
+    out = main._filter_new_concepts(plan, registry, taught_words=taught_words)
+    assert [c["key"] for c in out] == ["drink"]
+
+
+@pytest.mark.asyncio
+async def test_lesson_context_exposes_taught_words_and_lesson_index(fresh_db):
+    # The planner's view of the past: every taught word (including the ones
+    # buried in a grammar concept's items) and every lesson, textbook ones
+    # marked so it knows the book already covered them.
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.create_lesson(cid, 1, "Regular -er verbs", "", [
+        {"kind": "grammar", "key": "er_verbs", "label": "-er verbs", "gloss": "present",
+         "items": [{"label": "parler", "gloss": "to speak"},
+                   {"label": "manger", "gloss": "to eat"}]},
+    ], {"segments": []}, "er verbs")
+    unit_id = await db.create_textbook_unit_row(cid, "Chapter 2", "from the book")
+    await db.create_lesson(cid, 2, "At the market", "", [
+        {"kind": "vocab", "key": "bread", "label": "le pain", "gloss": "bread"},
+    ], {"segments": []}, "market words", unit_id=unit_id)
+
+    ctx = await db.get_next_lesson_context(cid)
+    assert [w["label"] for w in ctx["taught_words"]] == ["parler", "manger", "le pain"]
+    assert [(l["lesson_num"], l["source"]) for l in ctx["lesson_index"]] \
+        == [(1, "ai"), (2, "textbook")]
+    # Only the skill row is registered — which is exactly why taught_words exists.
+    assert [c["key"] for c in ctx["concept_registry"]] == ["er_verbs", "bread"]
+
+
+@pytest.mark.asyncio
+async def test_lesson_context_tolerates_legacy_concept_shapes(fresh_db):
+    """taught_words/lesson_index are derived from concepts_json written by every
+    past version of the generator, so every historical shape has to be safe:
+    a grammar concept with no `items` at all, an empty column, malformed JSON,
+    and non-dict entries. None of them may break generation."""
+    import aiosqlite
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.create_lesson(cid, 1, "Old grammar lesson", "", [
+        {"kind": "grammar", "key": "old_er", "label": "-er verbs", "gloss": "present"},
+    ], {"segments": []}, "no items on this one")
+    await db.create_lesson(cid, 2, "Old vocab lesson", "", [
+        {"kind": "vocab", "key": "bread", "label": "le pain", "gloss": "bread"},
+    ], {"segments": []}, "one word")
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute(
+            """INSERT INTO course_lessons
+                 (course_id, lesson_num, title, objective, content, concepts_json, summary)
+               VALUES (?, 3, 'Empty concepts', '', NULL, '', ''),
+                      (?, 4, 'Broken concepts', '', NULL, '{not json', ''),
+                      (?, 5, 'Odd concepts', '', NULL, '["a string", null, 7]', '')""",
+            (cid, cid, cid))
+        await conn.commit()
+
+    ctx = await db.get_next_lesson_context(cid)
+    # Only the real word survives; the grammar skill's own label is not a word.
+    assert [w["label"] for w in ctx["taught_words"]] == ["le pain"]
+    assert [l["lesson_num"] for l in ctx["lesson_index"]] == [1, 2, 3, 4, 5]
+    # And the prompt builds without raising on any of it.
+    assert "le pain = bread" in learning._build_plan_prompt(
+        "fr", "A1", ctx["concept_registry"], ctx["recent_summaries"],
+        taught_words=ctx["taught_words"], lesson_index=ctx["lesson_index"])
+
+
+def test_plan_prompt_lists_taught_words_and_lessons():
+    taught = [{"label": "parler", "gloss": "to speak"}]
+    index = [{"lesson_num": 1, "title": "At the market", "summary": "food words",
+              "source": "textbook"}]
+    p = learning._build_plan_prompt("fr", "A1", [], [], taught_words=taught,
+                                    lesson_index=index)
+    assert "WORDS ALREADY TAUGHT" in p and "parler = to speak" in p
+    assert "LESSONS ALREADY IN THIS COURSE" in p and "📕 At the market" in p
+    # Nothing taught yet → neither section (keeps the first prompt small).
+    bare = learning._build_plan_prompt("fr", "A1", [], [])
+    assert "WORDS ALREADY TAUGHT" not in bare
+    assert "LESSONS ALREADY IN THIS COURSE" not in bare
+
+
+# ── Lesson-level (topical) dedup ──────────────────────────────────────────────
+
+_SPEC_RESTAURANT = {
+    "skill": {"kind": "vocab", "key": "cafe", "label": "café", "gloss": "ordering at a café"},
+    "target_items": [{"label": "le café", "gloss": "coffee"}],
+}
+
+
+@pytest.mark.asyncio
+async def test_semantic_dup_lesson_flags_a_renamed_repeat(monkeypatch):
+    # Different key, different words — same lesson. Only an embedding of the
+    # lesson TOPIC catches this, which is the gap learners actually hit.
+    import main
+    index = [{"lesson_num": 3, "title": "Ordering at a restaurant",
+              "summary": "menu, waiter, bill", "source": "ai"},
+             {"lesson_num": 4, "title": "Numbers 1–10", "summary": "un, deux",
+              "source": "ai"}]
+
+    def _topic_vec(text):
+        low = text.lower()
+        if "order" in low or "menu" in low or "café" in low:
+            return [1.0, 0.0, 0.0]
+        if "number" in low or "deux" in low:
+            return [0.0, 1.0, 0.0]
+        return [0.0, 0.0, 1.0]
+
+    async def fake_embed(texts, sentinel, lang, api_key):
+        return {t: _topic_vec(t) for t in texts}
+    monkeypatch.setattr(main, "_embed_texts", fake_embed)
+
+    dup = await main._semantic_dup_lesson(_SPEC_RESTAURANT, index, "fr", "k")
+    assert dup and dup["lesson_num"] == 3
+    # A plan on new ground is left alone.
+    greetings = {"skill": {"kind": "vocab", "key": "g", "label": "salutations",
+                           "gloss": "greeting people politely"}, "target_items": []}
+    assert await main._semantic_dup_lesson(greetings, index, "fr", "k") is None
+
+
+@pytest.mark.asyncio
+async def test_semantic_dup_lesson_degrades_when_embedding_fails(monkeypatch):
+    import main
+
+    async def boom(*a, **k):
+        raise RuntimeError("no embedding service")
+    monkeypatch.setattr(main, "_embed_texts", boom)
+    index = [{"lesson_num": 1, "title": "Ordering at a restaurant",
+              "summary": "menu", "source": "ai"}]
+    assert await main._semantic_dup_lesson(_SPEC_RESTAURANT, index, "fr", "k") is None
+
+
+@pytest.mark.asyncio
+async def test_plan_rejection_names_the_clashing_lesson(monkeypatch):
+    import main
+    ctx = {"lesson_index": [{"lesson_num": 3, "title": "Ordering at a restaurant",
+                             "summary": "menu, waiter", "source": "ai"}]}
+    concepts = [{"kind": "vocab", "key": "cafe", "label": "café", "gloss": "coffee"}]
+
+    async def fake_embed(texts, sentinel, lang, api_key):
+        return {t: [1.0, 0.0] for t in texts}
+    monkeypatch.setattr(main, "_embed_texts", fake_embed)
+
+    why = await main._plan_rejection(_SPEC_RESTAURANT, concepts, concepts, ctx, "fr", "k")
+    assert "Ordering at a restaurant" in why and "lesson 3" in why
+    # An empty dedup result reports the concept clash instead.
+    why2 = await main._plan_rejection(_SPEC_RESTAURANT, concepts, [], ctx, "fr", "k")
+    assert "already taught" in why2
+
+
+def test_textbook_unit_summary_describes_its_lessons():
+    import main
+    s = main._textbook_unit_summary("Teach Yourself Cantonese", 12, 20,
+                                    ["Greetings", "Asking prices"])
+    assert "Teach Yourself Cantonese" in s and "pages 12–20" in s
+    assert "Greetings; Asking prices" in s
+    # A single page reads naturally, and a unit with no lesson titles still
+    # names the book (an empty summary is what made textbook units invisible
+    # to the AI planner).
+    assert "page 7" in main._textbook_unit_summary("Book", 7, 7, [])
+
+
 # ── Active chapter persistence ───────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -1127,6 +1300,105 @@ async def test_author_textbook_lesson_consumes_unit_queue(fresh_db, monkeypatch)
     # Concept registered so the AI planner sees it as taught.
     reg = (await db.get_next_lesson_context(cid))["concept_registry"]
     assert "salut" in {c["label"] for c in reg}
+
+
+@pytest.mark.asyncio
+async def test_textbook_lesson_blocks_the_ai_planner_from_re_teaching_it(
+        fresh_db, monkeypatch):
+    """A textbook lesson's material must not come back as an AI lesson.
+
+    The book's words reach the AI path three ways, and this checks all three:
+    the planner PROMPT lists them (so it doesn't propose them), the planner's
+    lesson index names the textbook lesson, and if it proposes them anyway the
+    concept filter drops them. The grammar case is the one that used to leak —
+    a grammar skill's words live in its `items` and were never registered."""
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    unit_id = await db.create_textbook_unit_row(cid, "Book Ch 1", "from the book")
+    await db.add_lesson_queue(cid, [{
+        "unit_title": "Book Ch 1", "unit_size": 1,
+        "spec": {"title": "Greetings from the book",
+                 "skill": {"kind": "grammar", "key": "tu_vous",
+                           "label": "tu vs vous", "gloss": "formality"},
+                 "target_items": [{"label": "salut", "gloss": "hi"},
+                                  {"label": "bonjour", "gloss": "hello"}]},
+        "source": "THE BOOK RULE: salut is informal.",
+    }], unit_id=unit_id)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+    await main._author_textbook_lesson(course, unit_id, _mk_access(),
+                                       "gemini-2.5-flash-lite", uid)
+
+    ctx = await db.get_next_lesson_context(cid)
+    # 1. The words the BOOK taught are visible even though only the grammar
+    #    skill itself was registered as a concept.
+    assert {w["label"] for w in ctx["taught_words"]} == {"salut", "bonjour"}
+    assert "salut" not in {c["label"] for c in ctx["concept_registry"]}
+    # 2. The planner prompt names the textbook lesson and those words.
+    prompt = learning._build_plan_prompt(
+        "fr", "A1", ctx["concept_registry"], ctx["recent_summaries"],
+        taught_words=ctx["taught_words"], lesson_index=ctx["lesson_index"])
+    assert "salut = hi" in prompt and "bonjour = hello" in prompt
+    assert ctx["lesson_index"] == [{"lesson_num": 1, "title": "T",
+                                    "summary": "S-sum", "source": "textbook"}]
+    assert "LESSONS ALREADY IN THIS COURSE" in prompt and "📕 T — S-sum" in prompt
+    # 3. And if the planner proposes them anyway, they're dropped.
+    plan = [{"kind": "vocab", "key": "hi", "label": "salut", "gloss": "hi"},
+            {"kind": "vocab", "key": "cat", "label": "le chat", "gloss": "cat"}]
+    survivors = main._filter_new_concepts(plan, ctx["concept_registry"],
+                                          taught_words=ctx["taught_words"])
+    assert [c["key"] for c in survivors] == ["cat"]
+
+
+@pytest.mark.asyncio
+async def test_migration_045_relinks_legacy_textbook_units(fresh_db):
+    """Units built before migration 044 (or whose queue had already drained when
+    it ran) have textbook_id NULL. The chapter-first Learn page matches chapters
+    to units by textbook_id+chapter_idx, so those would render their chapter as
+    "no lessons yet" next to the lessons they already produced. 045 recovers the
+    link by title — but only when it is unambiguous."""
+    import aiosqlite
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    book = await db.create_textbook(uid, cid, "Colloquial French", "cf.pdf",
+                                    ["p1", "p2", "p3", "p4"])
+    await db.update_textbook_chapters(book, [
+        {"title": "Greetings", "start": 1, "end": 2},
+        {"title": "Numbers", "start": 3, "end": 4},
+    ])
+    # A second book sharing a chapter title makes that title ambiguous.
+    other = await db.create_textbook(uid, cid, "French Grammar", "fg.pdf", ["p1", "p2"])
+    await db.update_textbook_chapters(other, [{"title": "Numbers", "start": 1, "end": 2}])
+
+    legacy = {}
+    for title in ("Greetings", "Numbers", "Pages 30–34"):
+        legacy[title] = await db.create_textbook_unit_row(cid, title)
+    async with aiosqlite.connect(db.DB_PATH) as conn:   # simulate the legacy state
+        await conn.execute("UPDATE course_units SET textbook_id=NULL, chapter_idx=NULL")
+        await conn.commit()
+
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "migrations", "045_textbook_unit_chapter_backfill.sql"),
+              encoding="utf-8") as f:
+        script = f.read()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.executescript(script)
+        await conn.commit()
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            "SELECT title, textbook_id, chapter_idx FROM course_units") as cur:
+            rows = {r["title"]: (r["textbook_id"], r["chapter_idx"])
+                    for r in await cur.fetchall()}
+
+    assert rows["Greetings"] == (book, 0)          # unique title → relinked
+    assert rows["Numbers"] == (None, None)         # two books claim it → left alone
+    assert rows["Pages 30–34"] == (None, None)     # custom range → no chapter to link
+    # And the relinked unit is now findable per chapter, which is what the Learn
+    # page and the one-unit-per-chapter guard both rely on.
+    units = await db.get_textbook_units(uid, book)
+    assert [(u["id"], u["chapter_idx"]) for u in units] == [(legacy["Greetings"], 0)]
 
 
 @pytest.mark.asyncio

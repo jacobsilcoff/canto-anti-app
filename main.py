@@ -3507,17 +3507,25 @@ async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
 
 
 def _filter_new_concepts(concepts: list[dict], registry: list[dict],
-                         known_texts: set[str] | None = None) -> list[dict]:
+                         known_texts: set[str] | None = None,
+                         taught_words: list[dict] | None = None) -> list[dict]:
     """Drop concepts already registered for this course (by key, or by native
     label for vocab) and dedupe within the list itself. The unit planner is told
     not to repeat concepts, but nothing else enforces it — without this filter a
     duplicate is silently swallowed by INSERT OR IGNORE and re-taught.
 
     `known_texts` — native words from the user's SRS deck; vocab concepts whose
-    label matches one are dropped too (the learner already knows them)."""
+    label matches one are dropped too (the learner already knows them).
+
+    `taught_words` — every word the course's lessons actually taught
+    (`db.get_next_lesson_context`). This is what catches words a GRAMMAR lesson
+    covered through its `items`: those never become `course_concepts` rows, so
+    matching on the registry alone let a later vocab lesson re-teach the exact
+    words an earlier grammar lesson had already drilled."""
     seen_keys = {(c.get("key") or "").strip() for c in registry}
     seen_labels = {(c.get("label") or "").strip()
                    for c in registry if (c.get("kind") or "vocab") == "vocab"}
+    seen_labels |= {(w.get("label") or "").strip() for w in (taught_words or [])}
     seen_labels |= (known_texts or set())
     seen_labels.discard("")
     out = []
@@ -3651,6 +3659,27 @@ def _concept_embed_text(c: dict) -> str:
     return f'{(c.get("label") or "").strip()} — {(c.get("gloss") or "").strip()}'.strip(" —")
 
 
+async def _embed_texts(texts: list[str], sentinel: str, lang: str,
+                       api_key: str) -> dict[str, list[float]]:
+    """Embed `texts` through the shared `embedding_cache` (keyed by the text
+    itself, so a concept or lesson is embedded once and reused across
+    generations and users). Returns {text: vector}."""
+    texts = [t for t in dict.fromkeys(texts) if t]
+    if not texts:
+        return {}
+    keyed = {t: f"{lang}|{t}" for t in texts}
+    cached = await db.get_cached_embeddings(sentinel, embeddings.EMBED_MODEL,
+                                            list(keyed.values()))
+    missing = [t for t in texts if keyed[t] not in cached]
+    if missing:
+        vecs = await embeddings.embed(missing, api_key)
+        put = {keyed[t]: embeddings.pack(v) for t, v in zip(missing, vecs)}
+        await db.put_cached_embeddings(sentinel, embeddings.EMBED_MODEL, put)
+        cached.update(put)
+    return {t: embeddings.unpack(cached[keyed[t]])
+            for t in texts if keyed[t] in cached}
+
+
 async def _semantic_dedup_grammar(concepts: list[dict], registry: list[dict],
                                   lang: str, api_key: str) -> list[dict]:
     """Drop planned GRAMMAR concepts semantically equivalent to already-taught
@@ -3664,18 +3693,9 @@ async def _semantic_dedup_grammar(concepts: list[dict], registry: list[dict],
     if not new_g or not old_texts:
         return concepts
     try:
-        all_texts = list(dict.fromkeys([_concept_embed_text(c) for c in new_g] + old_texts))
-        keyed = {t: f"{lang}|{t}" for t in all_texts}
-        cached = await db.get_cached_embeddings(
-            _CONCEPT_EMBED_LANG, embeddings.EMBED_MODEL, list(keyed.values()))
-        missing = [t for t in all_texts if keyed[t] not in cached]
-        if missing:
-            vecs = await embeddings.embed(missing, api_key)
-            put = {keyed[t]: embeddings.pack(v) for t, v in zip(missing, vecs)}
-            await db.put_cached_embeddings(_CONCEPT_EMBED_LANG, embeddings.EMBED_MODEL, put)
-            cached.update(put)
-        vec_of = {t: embeddings.unpack(cached[keyed[t]])
-                  for t in all_texts if keyed[t] in cached}
+        vec_of = await _embed_texts(
+            [_concept_embed_text(c) for c in new_g] + old_texts,
+            _CONCEPT_EMBED_LANG, lang, api_key)
         drop_ids = set()
         for c in new_g:
             v = vec_of.get(_concept_embed_text(c))
@@ -3695,6 +3715,96 @@ async def _semantic_dedup_grammar(concepts: list[dict], registry: list[dict],
         return concepts
 
 
+# Lesson-level semantic dedup. Concept dedup compares KEYS and LABELS, so it is
+# blind to the failure learners actually report: two lessons that teach the same
+# thing under different names, with different (or no) overlapping words —
+# "Ordering at a restaurant" then "At the café". Here the PLANNED lesson's topic
+# is embedded and compared against every lesson already in the course; too close
+# and the planner is sent back once with the clash named.
+_LESSON_EMBED_LANG = "__lesson__"
+_LESSON_DUP_THRESHOLD = 0.87
+_LESSON_DEDUP_CAP = 60      # most recent lessons compared
+
+
+def _spec_topic_text(spec: dict) -> str:
+    """An English topical description of a planned lesson, comparable with a
+    stored lesson's `title — summary`. Vocab skill LABELS are native script (the
+    planner prompt asks for a native theme word), so the English gloss and the
+    items' glosses carry the meaning."""
+    skill = spec.get("skill") or {}
+    parts = [(skill.get("gloss") or "").strip()]
+    items = [(i.get("gloss") or "").strip() for i in (spec.get("target_items") or [])]
+    items = [i for i in items if i][:12]
+    if items:
+        parts.append(", ".join(items))
+    return " — ".join(p for p in parts if p)
+
+
+def _lesson_topic_text(lesson: dict) -> str:
+    title = (lesson.get("title") or "").strip()
+    summary = (lesson.get("summary") or "").strip()
+    return " — ".join(p for p in (title, summary) if p)
+
+
+async def _semantic_dup_lesson(spec: dict, lesson_index: list[dict] | None,
+                               lang: str, api_key: str) -> dict | None:
+    """The existing lesson this plan essentially repeats, or None. Best-effort:
+    any embedding failure returns None (the concept-level guards still apply)."""
+    planned = _spec_topic_text(spec)
+    recent = [l for l in (lesson_index or [])[-_LESSON_DEDUP_CAP:]
+              if _lesson_topic_text(l)]
+    if not planned or not recent:
+        return None
+    try:
+        vecs = await _embed_texts([planned] + [_lesson_topic_text(l) for l in recent],
+                                  _LESSON_EMBED_LANG, lang, api_key)
+        pv = vecs.get(planned)
+        if not pv:
+            return None
+        best, best_score = None, 0.0
+        for l in recent:
+            lv = vecs.get(_lesson_topic_text(l))
+            if not lv:
+                continue
+            score = embeddings.cosine(pv, lv)
+            if score > best_score:
+                best, best_score = l, score
+        if best is not None and best_score >= _LESSON_DUP_THRESHOLD:
+            logger.info("Planned lesson %r ≈ existing lesson %r (cos %.3f) — re-planning",
+                        planned, _lesson_topic_text(best), best_score)
+            return best
+        return None
+    except Exception:
+        logger.warning("Lesson-level semantic dedup failed — skipping", exc_info=True)
+        return None
+
+
+async def _plan_rejection(spec: dict, raw_concepts: list[dict], deduped: list[dict],
+                          ctx: dict, lang: str, api_key: str) -> str:
+    """Why this plan must not ship as authored ('' = it's fine). The text is fed
+    straight back to the planner as `avoid_feedback`."""
+    if not deduped:
+        return (
+            "Your previous plan proposed: "
+            + "; ".join(f'{c.get("key")} ("{c.get("label")}" = {c.get("gloss")})'
+                        for c in raw_concepts)
+            + ". ALL of it is already taught in this course (or already in the "
+              "learner's flashcard deck). Pick a genuinely DIFFERENT skill — "
+              "re-read WHAT'S BEEN TAUGHT carefully before answering."
+        )
+    dup = await _semantic_dup_lesson(spec, ctx.get("lesson_index"), lang, api_key)
+    if dup:
+        return (
+            f'Your previous plan ("{_spec_topic_text(spec)}") covers essentially '
+            f'the same ground as lesson {dup.get("lesson_num")} '
+            f'"{dup.get("title")}" ({dup.get("summary")}), which this course '
+            f'already has. A new title over the same material is still a repeat. '
+            f'Pick a genuinely different skill, or go deeper with a '
+            f'focus="exceptions" lesson on something not yet covered.'
+        )
+    return ""
+
+
 async def _dedup_plan_concepts(spec: dict, ctx: dict, known_texts: set[str],
                                lang: str, api_key: str, *,
                                semantic: bool = True) -> tuple[list[dict], list[dict]]:
@@ -3703,7 +3813,8 @@ async def _dedup_plan_concepts(spec: dict, ctx: dict, known_texts: set[str],
     concepts = _concepts_from_spec(spec)
     if not concepts:
         raise HTTPException(502, "Lesson planning returned no skill — please try again.")
-    deduped = _filter_new_concepts(concepts, ctx["concept_registry"], known_texts)
+    deduped = _filter_new_concepts(concepts, ctx["concept_registry"], known_texts,
+                                   ctx.get("taught_words"))
     if deduped and semantic:
         deduped = await _semantic_dedup_grammar(deduped, ctx["concept_registry"], lang, api_key)
     return concepts, deduped
@@ -3881,6 +3992,7 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         course_focus=state["course_focus"],
         lesson_feedback=state["lesson_feedback"],
         unit_summaries=ctx["unit_summaries"],
+        taught_words=ctx.get("taught_words"), lesson_index=ctx.get("lesson_index"),
         lessons_done=ctx["open_lessons"], budget_reached=budget_reached,
         api_key=access.api_key, anthropic_key=access.anthropic_key, model=plan_model,
     )
@@ -3896,20 +4008,18 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     if budget_reached and spec.get("chapter_action") != "new":
         spec["chapter_action"] = "new"
 
-    # 2. Dedup against the registry + known deck words. A fully-duplicate plan
-    #    is NEVER shipped: re-plan once with explicit feedback, then fail.
+    # 2. Reject a plan that repeats the course. TWO checks: every concept is
+    #    already taught/known (string + semantic, concept level), OR the lesson
+    #    as a whole is topically the same as one already generated (embedding of
+    #    the planned topic vs every existing lesson). Either way the planner gets
+    #    ONE re-plan with the clash named, then the request fails — a duplicate
+    #    lesson is never shipped as a fallback.
     raw_concepts, deduped = await _dedup_plan_concepts(
         spec, ctx, known_texts, lang, access.api_key)
-    if not deduped:
-        feedback = (
-            "Your previous plan proposed: "
-            + "; ".join(f'{c.get("key")} ("{c.get("label")}" = {c.get("gloss")})'
-                        for c in raw_concepts)
-            + ". ALL of it is already taught in this course (or already in the "
-              "learner's flashcard deck). Pick a genuinely DIFFERENT skill — "
-              "re-read WHAT'S BEEN TAUGHT carefully before answering."
-        )
-        logger.info("Plan was all duplicates (lang=%s, keys=%s) — re-planning once",
+    feedback = await _plan_rejection(spec, raw_concepts, deduped, ctx, lang,
+                                     access.api_key)
+    if feedback:
+        logger.info("Plan rejected as redundant (lang=%s, keys=%s) — re-planning once",
                     lang, [c.get("key") for c in raw_concepts])
         try:
             spec = await learning.plan_next_lesson(
@@ -3917,11 +4027,15 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         except Exception as e:
             logger.error("Lesson re-planning failed lang=%s: %s", lang, e, exc_info=True)
             raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
-        sep = "\n\n══════ RE-PLAN (first plan was all duplicates) ══════\n\n"
+        sep = "\n\n══════ RE-PLAN (first plan repeated the course) ══════\n\n"
         plan_prompt += sep + spec.pop("_raw_prompt", "")
         plan_response += sep + spec.pop("_raw_response", "")
         if budget_reached and spec.get("chapter_action") != "new":
             spec["chapter_action"] = "new"
+        # The second plan only has to clear the CONCEPT guards. Re-running the
+        # topical check here could reject forever on a course whose remaining
+        # ground genuinely neighbours what's taught, and one wasted plan call is
+        # the budget for this.
         raw_concepts, deduped = await _dedup_plan_concepts(
             spec, ctx, known_texts, lang, access.api_key)
         if not deduped:
@@ -4225,6 +4339,27 @@ async def _textbook_metering(user: dict, n_calls: int, what: str):
             f"for unlimited use."
         ))
     return metered
+
+
+_UNIT_SUMMARY_TITLES = 8       # lesson titles named in a textbook unit's summary
+
+
+def _textbook_unit_summary(book_title: str, start: int, end: int,
+                           lesson_titles: list[str]) -> str:
+    """A one-line summary for a textbook unit, from what its lessons will cover.
+
+    Textbook units used to be created with an empty summary, which the AI
+    planner then read as `Unit 4 "Chapter 3":` — a title and nothing else. Since
+    the planner is told not to re-cover a completed unit's material, an empty
+    summary made every textbook unit invisible as prior art and let the AI course
+    re-teach the book's content. Deterministic, no LLM."""
+    pages = f"pages {start}–{end}" if start != end else f"page {start}"
+    titles = [t.strip() for t in lesson_titles if (t or "").strip()]
+    covered = "; ".join(titles[:_UNIT_SUMMARY_TITLES])
+    if len(titles) > _UNIT_SUMMARY_TITLES:
+        covered += f"; +{len(titles) - _UNIT_SUMMARY_TITLES} more"
+    head = f"From “{book_title}”, {pages}."
+    return f"{head} Covers: {covered}" if covered else head
 
 
 def _chapter_anchors(book: dict, start: int, end: int) -> tuple[str, str]:
@@ -5102,7 +5237,10 @@ async def create_textbook_lesson(request: Request, textbook_id: int,
         if ch.get("start") == start and ch.get("end") == end
     ), None)
     # One-lesson textbook unit, scoped to its own unit_id (never the AI path).
-    unit_id = await db.create_textbook_unit_row(book["course_id"], section_title)
+    unit_id = await db.create_textbook_unit_row(
+        book["course_id"], section_title,
+        _textbook_unit_summary(book["title"], start, end, [spec["title"]]),
+        textbook_id=textbook_id, chapter_idx=chapter_idx)
     await db.add_lesson_queue(
         book["course_id"], [item], textbook_id=textbook_id,
         chapter_idx=chapter_idx, unit_id=unit_id)
@@ -5470,8 +5608,10 @@ async def create_textbook_unit(request: Request, textbook_id: int,
     # it; lesson one is authored now, the rest just-in-time via the unit's own
     # "Generate next lesson" action (never the AI course path).
     unit_id = await db.create_textbook_unit_row(
-        book["course_id"], unit_title, textbook_id=textbook_id,
-        chapter_idx=chapter_idx)
+        book["course_id"], unit_title,
+        _textbook_unit_summary(book["title"], start, end,
+                               [l.get("title", "") for l in lessons]),
+        textbook_id=textbook_id, chapter_idx=chapter_idx)
     await db.add_lesson_queue(
         book["course_id"], items, textbook_id=textbook_id,
         chapter_idx=chapter_idx, unit_id=unit_id)
@@ -5550,7 +5690,12 @@ async def generate_chapter_lessons(request: Request, textbook_id: int,
         ))
     # Scope the whole batch to its own textbook unit; lessons are authored via the
     # unit's "Generate next lesson" action (never the AI course path).
-    unit_id = await db.create_textbook_unit_row(book["course_id"], ch["title"])
+    unit_id = await db.create_textbook_unit_row(
+        book["course_id"], ch["title"],
+        _textbook_unit_summary(book["title"], ch["start"], ch["end"],
+                               [(i.get("spec") or {}).get("title", "")
+                                for i in seg["items"]]),
+        textbook_id=textbook_id, chapter_idx=chapter_idx)
     added = await db.add_lesson_queue(book["course_id"], seg["items"],
                                       textbook_id=textbook_id,
                                       chapter_idx=chapter_idx, unit_id=unit_id)

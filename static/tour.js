@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 28;
+  var TOUR_VERSION = 29;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -69,6 +69,8 @@
       body: 'Every unit break now shows right on the page \u2014 including plain page breaks, marked at the top and bottom of the pages they divide. Drag any \u2702 mark up or down to move it (onto the page, or off to a clean break), or tap it to merge two units into one (renamed with AI). On the Learn page a chapter shows all its lessons before they exist: \u26a1 Build all makes them in one go, delete or regenerate as you like, and finishing one hands you to the next while the following lesson builds in the background.', v: 27 },
     { icon: '\ud83d\udd25', title: 'Your streak now runs on your clock',
       body: 'Your day used to end at midnight UTC \u2014 5pm in California, noon in New Zealand \u2014 so two evenings of study could count as one day and break a streak you\u2019d actually kept. Your \ud83d\udd25 streak, XP ring, daily quests and new-card limit now roll over at midnight where you are (Settings shows the time zone we detected). Flashcards reviewed offline count for the day you answered them, not the day they sync. And \ud83d\udee1 streak freezes are more forgiving: they apply the moment you study rather than depending on what you opened first, two shields can cover two missed days, and they still work if you come back later in the week.', v: 28 },
+    { icon: '📚', title: 'Fewer repeated lessons, every chapter in one place',
+      body: 'Your AI course used to lose track of words it taught inside a grammar lesson, so the same material could come back later under a new name. It now sees every word and every lesson it has already made — including ones from your textbooks — and a plan that repeats one gets sent back before it’s written. On the Learn page, 📕 From your textbooks now lists every chapter of every book, not just the ones you’ve built: tap “＋ Build lessons from this chapter” to start a new chapter right there, no trip to the Textbooks page.', v: 29 },
   ];
 
   var steps, stepIdx;
@@ -97,13 +99,27 @@
     else { window._tourDismiss(); }
   };
 
+  var seenMarked = false;
+
   function markSeen() {
+    if (seenMarked) return;
+    seenMarked = true;
     try {
       fetch('/api/tour-seen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version: TOUR_VERSION }),
       });
+    } catch (_) {}
+    // The app shell answers /api/settings from a sessionStorage snapshot that
+    // OUTLIVES the page, so persisting tour_seen server-side is not enough:
+    // without patching the cached copy, the next page reads the old version and
+    // replays the same "What's new" steps — on every navigation, for the whole
+    // tab session. (That is the bug where the update notice kept reappearing.)
+    try {
+      if (window.CantoShell && window.CantoShell.patch) {
+        window.CantoShell.patch('settings', { tour_seen: String(TOUR_VERSION) });
+      }
     } catch (_) {}
   }
 

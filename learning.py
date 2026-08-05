@@ -30,10 +30,18 @@ Design principle — **liberal in what you SHOW, strict in what you GRADE**:
     correct by construction. Romanization comes from tokenizer, French present-
     tense cloze answers/options from grammar.py — never the model.
 
-Memory passed to generation (compact, three tiers):
+Memory passed to generation (compact, five tiers — the first four bound what the
+planner can repeat, which is where redundancy actually came from):
   Tier 1 — concept registry : every concept key/label/gloss introduced so far
-  Tier 2 — unit summaries   : one line per completed unit
-  Tier 3 — recent lessons   : summaries of the last 2–3 lessons (continuity)
+  Tier 2 — taught words     : every native word the lessons taught, INCLUDING the
+                              ones inside a grammar concept's `items` (those are
+                              never registered as concepts, so nothing else sees
+                              them)
+  Tier 3 — lesson index     : title + summary of every lesson in the course,
+                              textbook ones marked, so "don't repeat a lesson" is
+                              decidable past the last three
+  Tier 4 — unit summaries   : one line per completed unit
+  Tier 5 — recent lessons   : summaries of the last 2–3 lessons (continuity)
 """
 import json
 import os
@@ -86,6 +94,55 @@ def _word_list_block(words: list[dict]) -> str:
         f'{w.get("target_text","")} = {w.get("gloss","")}'
         for w in words if (w.get("target_text") or "").strip()
     )
+
+
+# Words already taught anywhere in the course, and the course's lesson list.
+# Both bound the prompt: the registry block alone was the planner's only view of
+# the past, and it shows neither the words a grammar lesson taught (they live in
+# the concept's `items`, which are never registered) nor anything beyond the last
+# three lesson summaries.
+_TAUGHT_WORDS_CAP = 140
+_LESSON_INDEX_CAP = 40
+
+
+def _taught_words_block(taught_words: list[dict]) -> str:
+    if not taught_words:
+        return ""
+    recent = taught_words[-_TAUGHT_WORDS_CAP:]
+    omitted = len(taught_words) - len(recent)
+    lines = "\n".join(
+        f'{w.get("label","")} = {w.get("gloss","")}' for w in recent
+        if (w.get("label") or "").strip()
+    )
+    if not lines:
+        return ""
+    head = (f"── WORDS ALREADY TAUGHT IN LESSONS ({omitted} earlier ones omitted) ──\n"
+            if omitted else "── WORDS ALREADY TAUGHT IN LESSONS ──\n")
+    return (head + lines + "\nThese have ALL been taught, including inside grammar "
+            "lessons. Do NOT build a vocab lesson around them. Reusing them in "
+            "example sentences and drills for a NEW skill is encouraged.\n\n")
+
+
+def _lesson_index_block(lesson_index: list[dict]) -> str:
+    """Every lesson already in this course. Without it the planner sees only the
+    last three summaries, so on lesson 12 it has no idea what lesson 4 covered
+    and happily proposes it again under a different name."""
+    if not lesson_index:
+        return ""
+    recent = lesson_index[-_LESSON_INDEX_CAP:]
+    omitted = len(lesson_index) - len(recent)
+    lines = []
+    for l in recent:
+        mark = "📕 " if l.get("source") == "textbook" else ""
+        summary = (l.get("summary") or "").strip()
+        lines.append(f'{l.get("lesson_num","?")}. {mark}{l.get("title","")}'
+                     + (f" — {summary}" if summary else ""))
+    head = (f"── LESSONS ALREADY IN THIS COURSE ({omitted} earlier ones omitted) ──\n"
+            if omitted else "── LESSONS ALREADY IN THIS COURSE ──\n")
+    return (head + "\n".join(lines)
+            + "\n📕 = built from the learner's own textbook. Your lesson must not "
+              "repeat what any of these already covers — a different title over "
+              "the same material is still a repeat.\n\n")
 
 
 def _units_block(unit_summaries: list[dict]) -> str:
@@ -229,6 +286,8 @@ def _build_plan_prompt(
     course_focus: str = "balanced",
     lesson_feedback: list[dict] | None = None,
     unit_summaries: list[dict] | None = None,
+    taught_words: list[dict] | None = None,
+    lesson_index: list[dict] | None = None,
     lessons_done: int = 0, budget_reached: bool = False,
     avoid_feedback: str = "",
 ) -> str:
@@ -337,7 +396,9 @@ def _build_plan_prompt(
         f"{recent_section}"
         f"{weak_section}"
         f"{units_section}"
+        f"{_lesson_index_block(lesson_index or [])}"
         f"── WHAT'S BEEN TAUGHT ──\n{_registry_block(concept_registry)}\n\n"
+        f"{_taught_words_block(taught_words or [])}"
         f"{_recent_block(recent_summaries)}"
         f"{_chapter_block(current_chapter, lessons_done, budget_reached)}\n"
         f"{avoid_section}"
@@ -397,6 +458,8 @@ async def plan_next_lesson(
     course_focus: str = "balanced",
     lesson_feedback: list[dict] | None = None,
     unit_summaries: list[dict] | None = None,
+    taught_words: list[dict] | None = None,
+    lesson_index: list[dict] | None = None,
     lessons_done: int = 0,
     budget_reached: bool = False,
     avoid_feedback: str = "",
@@ -420,7 +483,8 @@ async def plan_next_lesson(
         known_words=known_words, weak_words=weak_words,
         recent_cards=recent_cards, cefr_spread=cefr_spread,
         course_focus=course_focus, lesson_feedback=lesson_feedback,
-        unit_summaries=unit_summaries, lessons_done=lessons_done,
+        unit_summaries=unit_summaries, taught_words=taught_words,
+        lesson_index=lesson_index, lessons_done=lessons_done,
         budget_reached=budget_reached, avoid_feedback=avoid_feedback,
     )
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
