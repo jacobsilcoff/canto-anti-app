@@ -526,6 +526,41 @@ async def test_lesson_context_exposes_taught_words_and_lesson_index(fresh_db):
     assert [c["key"] for c in ctx["concept_registry"]] == ["er_verbs", "bread"]
 
 
+@pytest.mark.asyncio
+async def test_lesson_context_tolerates_legacy_concept_shapes(fresh_db):
+    """taught_words/lesson_index are derived from concepts_json written by every
+    past version of the generator, so every historical shape has to be safe:
+    a grammar concept with no `items` at all, an empty column, malformed JSON,
+    and non-dict entries. None of them may break generation."""
+    import aiosqlite
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.create_lesson(cid, 1, "Old grammar lesson", "", [
+        {"kind": "grammar", "key": "old_er", "label": "-er verbs", "gloss": "present"},
+    ], {"segments": []}, "no items on this one")
+    await db.create_lesson(cid, 2, "Old vocab lesson", "", [
+        {"kind": "vocab", "key": "bread", "label": "le pain", "gloss": "bread"},
+    ], {"segments": []}, "one word")
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute(
+            """INSERT INTO course_lessons
+                 (course_id, lesson_num, title, objective, content, concepts_json, summary)
+               VALUES (?, 3, 'Empty concepts', '', NULL, '', ''),
+                      (?, 4, 'Broken concepts', '', NULL, '{not json', ''),
+                      (?, 5, 'Odd concepts', '', NULL, '["a string", null, 7]', '')""",
+            (cid, cid, cid))
+        await conn.commit()
+
+    ctx = await db.get_next_lesson_context(cid)
+    # Only the real word survives; the grammar skill's own label is not a word.
+    assert [w["label"] for w in ctx["taught_words"]] == ["le pain"]
+    assert [l["lesson_num"] for l in ctx["lesson_index"]] == [1, 2, 3, 4, 5]
+    # And the prompt builds without raising on any of it.
+    assert "le pain = bread" in learning._build_plan_prompt(
+        "fr", "A1", ctx["concept_registry"], ctx["recent_summaries"],
+        taught_words=ctx["taught_words"], lesson_index=ctx["lesson_index"])
+
+
 def test_plan_prompt_lists_taught_words_and_lessons():
     taught = [{"label": "parler", "gloss": "to speak"}]
     index = [{"lesson_num": 1, "title": "At the market", "summary": "food words",
@@ -1315,6 +1350,55 @@ async def test_textbook_lesson_blocks_the_ai_planner_from_re_teaching_it(
     survivors = main._filter_new_concepts(plan, ctx["concept_registry"],
                                           taught_words=ctx["taught_words"])
     assert [c["key"] for c in survivors] == ["cat"]
+
+
+@pytest.mark.asyncio
+async def test_migration_045_relinks_legacy_textbook_units(fresh_db):
+    """Units built before migration 044 (or whose queue had already drained when
+    it ran) have textbook_id NULL. The chapter-first Learn page matches chapters
+    to units by textbook_id+chapter_idx, so those would render their chapter as
+    "no lessons yet" next to the lessons they already produced. 045 recovers the
+    link by title — but only when it is unambiguous."""
+    import aiosqlite
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    book = await db.create_textbook(uid, cid, "Colloquial French", "cf.pdf",
+                                    ["p1", "p2", "p3", "p4"])
+    await db.update_textbook_chapters(book, [
+        {"title": "Greetings", "start": 1, "end": 2},
+        {"title": "Numbers", "start": 3, "end": 4},
+    ])
+    # A second book sharing a chapter title makes that title ambiguous.
+    other = await db.create_textbook(uid, cid, "French Grammar", "fg.pdf", ["p1", "p2"])
+    await db.update_textbook_chapters(other, [{"title": "Numbers", "start": 1, "end": 2}])
+
+    legacy = {}
+    for title in ("Greetings", "Numbers", "Pages 30–34"):
+        legacy[title] = await db.create_textbook_unit_row(cid, title)
+    async with aiosqlite.connect(db.DB_PATH) as conn:   # simulate the legacy state
+        await conn.execute("UPDATE course_units SET textbook_id=NULL, chapter_idx=NULL")
+        await conn.commit()
+
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "migrations", "045_textbook_unit_chapter_backfill.sql"),
+              encoding="utf-8") as f:
+        script = f.read()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.executescript(script)
+        await conn.commit()
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            "SELECT title, textbook_id, chapter_idx FROM course_units") as cur:
+            rows = {r["title"]: (r["textbook_id"], r["chapter_idx"])
+                    for r in await cur.fetchall()}
+
+    assert rows["Greetings"] == (book, 0)          # unique title → relinked
+    assert rows["Numbers"] == (None, None)         # two books claim it → left alone
+    assert rows["Pages 30–34"] == (None, None)     # custom range → no chapter to link
+    # And the relinked unit is now findable per chapter, which is what the Learn
+    # page and the one-unit-per-chapter guard both rely on.
+    units = await db.get_textbook_units(uid, book)
+    assert [(u["id"], u["chapter_idx"]) for u in units] == [(legacy["Greetings"], 0)]
 
 
 @pytest.mark.asyncio
