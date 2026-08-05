@@ -97,13 +97,27 @@
     else { window._tourDismiss(); }
   };
 
+  var seenMarked = false;
+
   function markSeen() {
+    if (seenMarked) return;
+    seenMarked = true;
     try {
       fetch('/api/tour-seen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version: TOUR_VERSION }),
       });
+    } catch (_) {}
+    // The app shell answers /api/settings from a sessionStorage snapshot that
+    // OUTLIVES the page, so persisting tour_seen server-side is not enough:
+    // without patching the cached copy, the next page reads the old version and
+    // replays the same "What's new" steps — on every navigation, for the whole
+    // tab session. (That is the bug where the update notice kept reappearing.)
+    try {
+      if (window.CantoShell && window.CantoShell.patch) {
+        window.CantoShell.patch('settings', { tour_seen: String(TOUR_VERSION) });
+      }
     } catch (_) {}
   }
 
