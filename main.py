@@ -1228,6 +1228,13 @@ _TOAST_COPY_WIDGET = """
 """
 
 
+# Page-local assets emitted by the inline-asset extraction: /static/pages/<page>.js
+# and .css, plus numbered siblings (cards.2.js) where a page had more than one
+# block. Matched by pattern so every page is fingerprinted without _html needing
+# a hand-maintained list.
+_PAGE_ASSET_RE = re.compile(r"/static/pages/[A-Za-z0-9_.-]+\.(?:js|css)")
+
+
 def _html(name: str, active: str = "") -> HTMLResponse:
     content = (_static / name).read_text()
     has_nav = "{{NAV}}" in content
@@ -1249,6 +1256,12 @@ def _html(name: str, active: str = "") -> HTMLResponse:
     content = content.replace("/static/label-picker.js", f"/static/label-picker.js?v={ASSET_VERSION}")
     content = content.replace("/static/tour.js", f"/static/tour.js?v={ASSET_VERSION}")
     content = content.replace("/static/pwa-install.js", f"/static/pwa-install.js?v={ASSET_VERSION}")
+    # Each page's own JS/CSS lives in /static/pages/<page>.js|css rather than
+    # inline, so it can be cached immutably instead of re-downloading with every
+    # navigation (the HTML itself is no-cache). Fingerprint them by pattern —
+    # unlike the shared assets above there is one pair per page, and a new page
+    # must not be able to ship an un-versioned (and therefore stale-forever) URL.
+    content = _PAGE_ASSET_RE.sub(rf"\g<0>?v={ASSET_VERSION}", content)
     content = content.replace("{{ASSET_VERSION}}", ASSET_VERSION)
     content = content.replace("{{APP_VERSION_LINE}}", APP_VERSION_LINE)
     content = content.replace("{{APP_COMMIT}}", APP_COMMIT)

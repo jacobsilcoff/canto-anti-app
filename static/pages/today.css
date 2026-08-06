@@ -1,0 +1,81 @@
+
+    .today-page { max-width: 560px; margin: 0 auto; padding: 14px 16px 40px; width: 100%; box-sizing: border-box; flex: 1; }
+    .greet { padding: 8px 2px 14px; }
+    .greet h2 { font-size: 1.45rem; font-weight: 800; }
+    .greet p { color: var(--text-muted); font-size: 0.88rem; margin-top: 2px; }
+
+    .tcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 16px; }
+
+    /* Daily goal: ring + streak in one card */
+    .goal { display: flex; align-items: center; gap: 16px; }
+    .ring { position: relative; width: 74px; height: 74px; flex-shrink: 0; }
+    .ring svg { transform: rotate(-90deg); }
+    .ring .ring-track { fill: none; stroke: var(--surface-alt); stroke-width: 8; }
+    .ring .ring-arc { fill: none; stroke: var(--warn-accent); stroke-width: 8; stroke-linecap: round;
+      transition: stroke-dashoffset .6s ease; }
+    .ring.met .ring-arc { stroke: var(--good); }
+    .ring .ring-num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; font-family: var(--display-font); font-weight: 800; font-size: 1.05rem; line-height: 1; }
+    .ring .ring-num small { font-size: 0.58rem; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+    .goal-txt { flex: 1; min-width: 0; }
+    .goal-kicker { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+    .goal-txt h3 { font-size: 1.02rem; margin: 3px 0 4px; }
+    .goal-txt p { font-size: 0.8rem; color: var(--text-muted); }
+    .streak-chip { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+      background: var(--energy-soft); color: var(--energy); border-radius: 999px; padding: 4px 11px;
+      font-weight: 800; font-size: 0.8rem; }
+
+    /* Primary continue card */
+    .next { margin-top: 12px; border: none; background: var(--primary); color: var(--on-primary);
+      box-shadow: 0 4px 0 var(--primary-strong), var(--shadow); cursor: pointer; display: block;
+      width: 100%; text-align: left; text-decoration: none; }
+    .next .goal-kicker { color: rgba(255,255,255,0.72); }
+    .next h3 { font-size: 1.15rem; margin: 4px 0 2px; color: var(--on-primary); }
+    .next p { font-size: 0.82rem; opacity: 0.85; }
+    .next .go { margin-top: 12px; background: var(--surface); color: var(--primary); border-radius: 12px;
+      padding: 10px 18px; font-weight: 800; display: inline-flex; gap: 6px; border: none; cursor: pointer;
+      font-size: 0.92rem; }
+    .next:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--primary-strong), var(--shadow); }
+
+    /* Daily quests strip (compact mirror of the Learn page card) */
+    .quests { margin-top: 12px; padding: 13px 16px 10px; }
+    .q-kicker { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--energy); }
+    .quest { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .quest .qico { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+      justify-content: center; font-size: 0.9rem; background: var(--surface-alt); flex-shrink: 0; }
+    .quest.done .qico { background: var(--good-soft); }
+    .quest .qname { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 600; }
+    .quest.done .qname { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+    .quest .qnum { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .quest-chest { font-size: 0.76rem; color: var(--gold); font-weight: 700; padding: 4px 0 2px; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .mini { padding: 13px 14px; text-decoration: none; color: inherit; display: block; }
+    .mini:hover { border-color: var(--primary); }
+    .mini .n { font-family: var(--display-font); font-size: 1.5rem; font-weight: 800; line-height: 1.15; }
+    .mini .lbl { font-size: 0.76rem; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+    .mini .cta { margin-top: 8px; font-size: 0.78rem; font-weight: 700; color: var(--primary); }
+
+    .quick { margin-top: 20px; }
+    .quick h3 { font-size: 0.95rem; margin-bottom: 8px; }
+    .quick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-chip { display: inline-flex; align-items: center; gap: 7px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 999px; padding: 9px 15px; font-weight: 600;
+      font-size: 0.84rem; box-shadow: var(--shadow); text-decoration: none; color: var(--text); }
+    .quick-chip:hover { border-color: var(--primary); color: var(--primary); }
+    .quick-chip svg { width: 16px; height: 16px; }
+
+    /* Greeting row hosts streak/XP and language pills on mobile. More now
+       lives in the reserved bottom navigation instead of covering content. */
+    .greet-row { display: flex; align-items: flex-start; gap: 10px; }
+    .greet-row h2 { flex: 1; min-width: 0; }
+    .home-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .home-chips .streak-display { display: inline-flex; }
+    @media (min-width: 1200px) { .home-chips { display: none; } }
+
+    .today-loading { text-align: center; color: var(--text-muted); padding: 40px 0; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  

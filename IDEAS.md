@@ -180,6 +180,24 @@ Still open from the original sketch:
 ## ~~49. Lesson planner rework — stop repetitive lessons + never-closing chapters~~ → Shipped, see ✅
 (One sub-idea deliberately NOT built: the **chapter sketch** — planner emits 3–5 one-line lesson slots up-front for a visible roadmap. The budget + "Lesson 2 of ~4" banner covers most of the value; revisit if chapters still feel aimless.)
 
+## 53. Accessibility pass — label the icon-only controls
+**Complexity: Low–Medium | Cost: $0 | no backend changes**
+
+The UI is emoji-driven, and almost none of it is labelled: **50 icon-only buttons carry no accessible name**, and only 19 of ~364 buttons overall have an `aria-label`. A screen reader announces most of the app as an unnamed "button" — 🔊 listen, あ ruby toggle, Aa translation toggle, 🎯 drill, 🗑 delete, ✕ close, ➤ send, ← back, ↻ retry, ☆ bookmark, ＋ add all read identically. Emoji that *do* get read aloud are worse than silence in places: the message reaction row (❤️ 😂 😮 😢 👍) announces as raw emoji names rather than "React with heart".
+
+Worst offenders by file (post-extraction paths): `static/pages/learn.js` (10), `static/messages.html` (9), `static/pages/tutor.js` (5), `static/reader.html` (6).
+
+**Scope:**
+- `aria-label` on every icon-only `<button>`; where the icon toggles state (あ ruby, Aa translation, 🔊 play/stop) use `aria-pressed` so the state is announced, not just the action.
+- `alt` on the avatar `<img>`s — several are `alt=""` inside a labelled container (correct) but the profile/story banners are decorative-by-accident and should say who/what they show.
+- Give the bottom tab bar `role="navigation"` + `aria-current="page"` on the active tab; the desktop rail already marks active with a class only.
+- The self-managed drill widgets (construction drill, mini-games) manage focus by hand — check focus lands on the new question after each turn, and that the sticky `.player-footer` Check/Continue is reachable in tab order.
+- Reduced motion: the confetti bursts, combo pulse and crown bounce should respect `prefers-reduced-motion`.
+
+**Worth pairing with a contrast audit** — the "Field Notes" palette has several soft-on-soft combinations (`--neutral-*` text on `--surface-alt`, gold XP text) that likely miss WCAG AA at small sizes. Both light and dark themes need checking, since the dark values are maintained as a separate block.
+
+Not hard, just broad — it is mostly mechanical once the inventory above is worked through, and there is no server side to it.
+
 ## 48. Lesson redesign — quests, checkpoints, customization (Phases 2–3; Phase 1 shipped)
 **Complexity: Medium per phase | Cost: ~$0 — quests/checkpoints/league are deterministic**
 

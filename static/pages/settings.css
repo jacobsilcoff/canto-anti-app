@@ -1,0 +1,94 @@
+
+    .settings-page { max-width: 600px; margin: 0 auto; padding: 24px 16px 60px; overflow-x: hidden; box-sizing: border-box; }
+    .settings-page h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; color: var(--text); }
+
+    /* ── Category tabs (segmented pill) ── */
+    .settings-tabs {
+      display: flex; margin-bottom: 20px; border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; max-width: 100%;
+    }
+    .settings-tab {
+      flex: 1; background: var(--surface); border: none; border-left: 1px solid var(--border);
+      padding: 9px 4px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .settings-tab:first-child { border-left: none; }
+    .settings-tab:hover { background: var(--bg); color: var(--primary); }
+    .settings-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+    .settings-tab .tab-icon { font-size: 0.9rem; line-height: 1; }
+    .settings-pane { display: none; }
+    .settings-pane.active { display: block; animation: fadePane 0.15s ease; }
+    @keyframes fadePane { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Sections & rows ── */
+    .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px; overflow: hidden; max-width: 100%; box-sizing: border-box; }
+    .settings-section-title { font-size: 0.78rem; font-weight: 600; color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.05em; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
+    .settings-row:last-child { border-bottom: none; }
+    /* The text column must be allowed to shrink (min-width:0) so a long token
+       (e.g. a URL in a description) can wrap instead of forcing the page wider
+       than the screen. Safe for the column-layout rows too. */
+    .settings-row > div:first-child { min-width: 0; }
+    .settings-label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+    .settings-desc { font-size: 0.78rem; color: var(--text-muted, #888); margin-top: 2px; overflow-wrap: anywhere; }
+    .settings-desc a { overflow-wrap: anywhere; }
+    .settings-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 10px; font-size: 0.9rem; width: 80px; max-width: 100%; text-align: center; box-sizing: border-box; flex-shrink: 1; }
+    .avatar-circle {
+      width: 64px; height: 64px; border-radius: 50%; background: var(--border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+      font-size: 1.4rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+    }
+    .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+    .settings-select {
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+      padding: 7px 30px 7px 10px; font-size: 0.9rem; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .settings-select:disabled { opacity: 0.5; cursor: not-allowed; }
+    .settings-input:focus, .settings-select:focus { outline: none; border-color: var(--primary); }
+    .settings-btn {
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+      padding: 7px 14px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    }
+    .settings-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .settings-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .settings-btn.primary:hover { background: var(--primary-hover); }
+    .settings-info { font-size: 0.82rem; color: var(--text-muted, #888); padding: 10px 18px 14px; margin: 0; }
+
+    .toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* ── Admin ── */
+    .user-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+    .user-row:last-child { border-bottom: none; }
+    .user-name { font-size: 0.9rem; font-weight: 500; }
+    .user-name .admin-tag { display: inline-block; background: var(--primary-soft); color: var(--primary); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 10px; text-transform: uppercase; margin-left: 6px; vertical-align: middle; }
+    .admin-action-btn { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+    .admin-action-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+    .admin-action-btn.danger:hover { border-color: var(--again); color: var(--again); background: var(--danger-soft); }
+    .create-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 18px; }
+    .create-form input[type="text"], .create-form input[type="password"] { flex: 1; min-width: 120px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
+    .create-form input[type="text"]:focus, .create-form input[type="password"]:focus { border-color: var(--primary); }
+    .create-form label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; }
+    @media (max-width: 480px) { .user-row { grid-template-columns: 1fr; gap: 4px; } }
+
+    /* Theme segmented control */
+    .theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+    .theme-seg button { background: var(--surface); border: none; padding: 7px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .theme-seg button + button { border-left: 1px solid var(--border); }
+    .theme-seg button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+    /* Pagination controls */
+    .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--border); }
+    .pagination-bar button { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 14px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; font-family: inherit; }
+    .pagination-bar button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .pagination-bar button:disabled { opacity: 0.35; cursor: default; }
+    .pagination-bar .page-info { font-size: 0.82rem; color: var(--text-muted); }
+  

@@ -1,0 +1,246 @@
+
+    .tb-page { max-width: 860px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px 16px 80px; }
+    .tb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .tb-head h1 { font-family: var(--display-font); font-size: 1.5rem; margin: 0; }
+    .tb-head p { color: var(--text-muted); font-size: .85rem; margin: 2px 0 0; }
+
+    /* ── Library grid ── */
+    .tb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .tb-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column; box-shadow: var(--shadow); }
+    .tb-cover { aspect-ratio: 3 / 4; background: var(--surface-alt); position: relative; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .tb-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tb-cover-fallback { font-family: var(--display-font); font-size: 2.6rem; font-weight: 800; color: var(--on-primary); width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center; }
+    .tb-cover-badge { position: absolute; top: 6px; right: 6px; background: var(--overlay); color: #fff; font-size: .62rem;
+      padding: 2px 6px; border-radius: 999px; }
+    .tb-card-body { padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .tb-card-title { font-weight: 600; font-size: .92rem; line-height: 1.25; }
+    .tb-card-meta { color: var(--text-muted); font-size: .74rem; }
+    .tb-card-meta .tb-working { color: var(--primary); white-space: nowrap; }
+    .tb-card-meta .tb-working .spinner { width: 9px; height: 9px; border-width: 2px; vertical-align: 0; }
+    .tb-card-meta .tb-warn { color: var(--warn-strong); text-decoration: underline; cursor: pointer; }
+    .tb-bar { height: 5px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+    .tb-bar > span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+    .tb-card-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
+    .tb-mini { background: var(--surface-alt); border: none; border-radius: 8px; padding: 5px 9px; font-size: .74rem;
+      cursor: pointer; color: var(--text); font-family: inherit; }
+    .tb-mini:hover { background: var(--border); }
+    .tb-mini.danger:hover { color: var(--danger); }
+    .tb-read-btn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 8px; padding: 6px 12px;
+      font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; flex: 1; }
+    .tb-upload-card { border: 2px dashed var(--border); border-radius: 14px; background: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted);
+      font-family: inherit; aspect-ratio: 3 / 4; font-size: .85rem; padding: 12px; text-align: center; }
+    .tb-upload-card:hover { border-color: var(--primary); color: var(--primary); }
+    .tb-upload-card .plus { font-size: 1.8rem; }
+
+    .tb-empty { text-align: center; color: var(--text-muted); padding: 40px 16px; }
+    .tb-empty h2 { font-family: var(--display-font); color: var(--text); margin-bottom: 6px; }
+
+    .tb-progress-note { display: flex; align-items: center; gap: 9px; background: var(--surface-alt);
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: .85rem; }
+
+    /* ── Reader ── */
+    .tbr { position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column; z-index: 50; }
+    .tbr.open { display: flex; }
+    .tbr-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-top));
+      border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .tbr-top .tbr-title { font-weight: 600; font-size: .92rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tbr-icon { background: none; border: none; cursor: pointer; color: var(--text); padding: 6px; border-radius: 8px;
+      display: flex; align-items: center; font-size: 1.05rem; line-height: 1; }
+    .tbr-icon:hover { background: var(--surface-alt); }
+    .tbr-icon.on { color: var(--primary); }
+    .tbr-stage { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .tbr-imgwrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 12px;
+      -webkit-overflow-scrolling: touch; }
+    .tbr-imgwrap img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: var(--shadow); background: #fff; display: block; }
+    /* Mid-page unit boundary drawn over the page image (see /splits) */
+    .tbr-imgbox { position: relative; align-self: flex-start; max-width: 100%; }
+    .tbr-split { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--energy); pointer-events: none; }
+    .tbr-split::before, .tbr-split::after { content: ''; position: absolute; top: -5px; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--energy); }
+    .tbr-split::before { left: -4px; }
+    .tbr-split::after { right: -4px; }
+    /* Sits ABOVE the rule and hugs the right edge: a centred tag covered the very
+       heading the split is being validated against. */
+    .tbr-split-tag { position: absolute; right: 2px; bottom: 3px; background: var(--energy);
+      color: #fff; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+      max-width: 60%; overflow: hidden; text-overflow: ellipsis; opacity: .92;
+      border: none; pointer-events: auto; cursor: pointer; font-family: inherit; }
+    .tbr-split-tag:hover { opacity: 1; }
+    /* A boundary that falls on a clean page break: same idea, drawn at the very
+       top/bottom of the page so EVERY division in the book is visible — and
+       deletable — without opening the chapter list. */
+    .tbr-split.is-edge { border-top-style: solid; border-color: var(--primary); opacity: .8; }
+    .tbr-split.is-edge::before, .tbr-split.is-edge::after { background: var(--primary); }
+    .tbr-split.is-edge .tbr-split-tag { background: var(--primary); color: var(--on-primary); }
+    .tbr-split.edge-top .tbr-split-tag { bottom: auto; top: 3px; }
+    /* A just-saved boundary shown optimistically, settling as the server
+       confirms its precise position — a gentle pulse, no blink-out. */
+    @keyframes tbr-split-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    .tbr-split.pending { animation: tbr-split-pulse .9s ease-in-out infinite; }
+    .tbr-imgwrap.loading::after { content: ''; }
+    /* ── Visual split editing: drag the rule over the rendered page ─────────── */
+    /* The overlay captures taps/drags only in edit mode, so ordinary reading is
+       untouched. A drag SNAPS to a real text line — the split is stored as that
+       line's verbatim text, never a coordinate. */
+    /* No tint: dimming the page would obscure the very heading being validated. */
+    .tbr-splitedit { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+    .tbr-splitedit .se-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+      background: var(--tooltip-bg); color: #fff; font-size: .66rem; font-weight: 600; padding: 5px 12px;
+      border-radius: 999px; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+      pointer-events: none; }
+    /* The candidate line under the pointer, so it's obvious what will be cut. */
+    .tbr-se-ghost { position: absolute; left: 0; right: 0; border-top: 2px dotted var(--neutral-strong);
+      pointer-events: none; }
+    .tbr-se-rule { position: absolute; left: 0; right: 0; border-top: 3px dashed var(--energy);
+      cursor: grab; touch-action: none; }
+    .tbr-se-rule.dragging { cursor: grabbing; }
+    /* When the rule is parked at a clean page break, tint it like the static
+       page-edge markers so its meaning ("break between pages") reads at a glance. */
+    .tbr-se-rule.is-edge { border-top-color: var(--primary); }
+    .tbr-se-rule::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 28px; }
+    /* Both controls live in the RIGHT margin: a rule sits between two lines, so
+       anything anchored to it at the left would cover the words being validated. */
+    .tbr-se-grip { position: absolute; right: 30px; top: -12px; background: var(--energy); color: #fff;
+      font-size: .6rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+      box-shadow: var(--shadow-pop); user-select: none; }
+    .tbr-se-del { position: absolute; right: 2px; top: -12px; width: 24px; height: 24px; border: none;
+      border-radius: 50%; background: var(--danger); color: #fff; font-size: .8rem; line-height: 1;
+      cursor: pointer; box-shadow: var(--shadow-pop); }
+    .tbr-splitbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; justify-content: space-between;
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--warn-soft); flex-shrink: 0; }
+    .tbr-splitbar-msg { font-size: .74rem; color: var(--text); flex: 1; min-width: 180px; line-height: 1.4; }
+    .tbr-splitbar-msg b { color: var(--energy); }
+    .tbr-splitbar-name { display: flex; flex-direction: column; gap: 3px; font-size: .62rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+    .tbr-splitbar-name input { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+      font-size: .8rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text);
+      background: var(--surface); min-width: 150px; min-height: 0; }
+    .tbr-splitbar-btns { display: flex; gap: 8px; }
+    .tbr-splitbar button { border: none; border-radius: 10px; padding: 8px 14px; cursor: pointer;
+      font-size: .78rem; font-weight: 600; }
+    .tbr-sb-ghost { background: var(--surface-alt); color: var(--text); }
+    .tbr-sb-danger { background: var(--danger-soft); color: var(--danger-strong); }
+    .tbr-sb-go { background: var(--primary); color: var(--on-primary); }
+    .tbr-splitbar button:disabled { opacity: .45; cursor: default; }
+    .tbr-icon.on { background: var(--energy-soft); color: var(--energy); }
+    .tbr-textpane { width: 0; overflow: hidden; transition: width .2s; border-left: 1px solid var(--border);
+      background: var(--surface); }
+    .tbr.show-text .tbr-textpane { width: 46%; overflow: auto; }
+    .tbr-textpane-inner { padding: 16px; font-size: .95rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .tbr-textpane-inner .tbr-text-empty { color: var(--text-muted); font-style: italic; }
+    /* The same boundary, marked in the extracted text — the exact line the
+       generator trims on, so a split can be validated against the words. */
+    .tbr-splitline { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; white-space: normal; }
+    .tbr-splitline::before, .tbr-splitline::after { content: ''; flex: 1; border-top: 2px dashed var(--energy); }
+    .tbr-splitline span { font-size: .64rem; font-weight: 700; color: var(--energy); text-transform: uppercase;
+      letter-spacing: .04em; }
+    .tbr-textpane-inner .tbr-above { color: var(--text-muted); }
+    .tbr-anchorline { background: var(--energy-soft); border-radius: 4px; }
+    .tbr-spin { align-self: center; margin: auto; }
+    .tbr-nav { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .tbr-nav button { background: var(--surface-alt); border: none; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+      color: var(--text); font-family: inherit; font-size: .9rem; }
+    .tbr-nav button:disabled { opacity: .4; cursor: default; }
+    .tbr-nav .tbr-pageno { font-size: .82rem; color: var(--text-muted); min-width: 92px; text-align: center; }
+    .tbr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 12px 8px; background: var(--surface); }
+    .tbr-actions button { background: var(--surface-alt); border: none; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+      color: var(--text); font-family: inherit; font-size: .8rem; }
+    .tbr-actions button.primary { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+    /* Mobile: text pane becomes a bottom drawer overlay */
+    @media (max-width: 720px) {
+      .tbr.show-text .tbr-textpane { position: absolute; left: 0; right: 0; bottom: 0; top: 45%; width: auto;
+        border-left: none; border-top: 1px solid var(--border); z-index: 5; box-shadow: var(--shadow-pop); }
+    }
+
+    /* ── Modal (upload / vocab review) ──
+       z-index must clear the mobile tab bar (.tabbar is 90) — at 60 the bar sat
+       ON TOP of the sheet and swallowed its action buttons. */
+    .tb-modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
+    .tb-modal.open { display: flex; }
+    .tb-sheet { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; max-height: 88dvh; overflow: auto;
+      padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); }
+    @media (min-width: 560px) { .tb-modal { align-items: center; } .tb-sheet { border-radius: 18px; } }
+    .tb-sheet h2 { font-family: var(--display-font); font-size: 1.15rem; margin: 0 0 4px; }
+    .tb-sheet .tb-sub { color: var(--text-muted); font-size: .85rem; margin: 0 0 14px; }
+    .tb-field { display: block; margin-bottom: 12px; }
+    .tb-field span { display: block; font-size: .8rem; color: var(--text-muted); margin-bottom: 5px; }
+    .tb-input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
+      color: var(--text); padding: 9px 12px; font-size: .95rem; font-family: inherit; }
+    .tb-row-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .tb-btn { background: var(--primary); color: var(--on-primary); border: none; border-radius: 10px; padding: 10px 16px;
+      font-weight: 600; cursor: pointer; font-family: inherit; font-size: .9rem; }
+    .tb-btn.ghost { background: var(--surface-alt); color: var(--text); font-weight: 500; }
+    .tb-btn:disabled { opacity: .5; cursor: default; }
+    .tb-error { color: var(--danger); font-size: .85rem; margin: 8px 0; }
+
+    /* Vocab review */
+    .tb-vloading { text-align: center; padding: 30px 14px; }
+    .tb-vloading .spinner { width: 30px; height: 30px; border-width: 4px; }
+    .tb-vloading h3 { margin: 14px 0 6px; font-size: 1.05rem; }
+    .tb-vloading p { color: var(--text-muted); font-size: .85rem; max-width: 340px; margin: 0 auto; line-height: 1.5; }
+    .tb-vstats { display: flex; gap: 8px; margin: 6px 0 12px; }
+    .tb-vstat { flex: 1; background: var(--surface-alt); border-radius: 10px; padding: 8px; text-align: center; }
+    .tb-vstat b { display: block; font-size: 1.1rem; }
+    .tb-vstat span { font-size: .68rem; color: var(--text-muted); }
+    .tb-vstat.new b { color: var(--primary); }
+    .tb-vlist { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow: auto; margin-bottom: 10px; }
+    .tb-vrow { display: flex; align-items: center; gap: 9px; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+    .tb-vrow.in { opacity: .55; }
+    .tb-vrow-main { flex: 1; }
+    .tb-vrow-rom { font-size: .72rem; color: var(--text-muted); }
+    .tb-vrow-word .gl { color: var(--text-muted); font-weight: 400; }
+    .tb-vbadge { font-size: .64rem; padding: 2px 6px; border-radius: 999px; background: var(--surface-alt); color: var(--text-muted); }
+    .tb-vbadge.have { background: var(--good-soft); color: var(--good-strong); }
+    .tb-vselbar { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; color: var(--text-muted); margin-bottom: 8px; }
+    .tb-vselbar button { background: none; border: none; color: var(--primary); cursor: pointer; font-size: .78rem; font-family: inherit; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Chapters (TOC + editor) ── */
+    .tbr-chapcap { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 3px 12px 0; background: var(--surface); flex-shrink: 0; }
+    .tbr-note { font-size: .74rem; color: var(--warn-strong); background: var(--warn-soft); text-align: center; padding: 6px 12px; flex-shrink: 0; line-height: 1.4; }
+    .toc-tools { display: flex; gap: 8px; margin: 0 0 12px; }
+    .toc-tools button { background: var(--surface-alt); border: none; border-radius: 9px; padding: 7px 12px; font-size: .8rem; cursor: pointer; color: var(--text); font-family: inherit; }
+    .toc-tools button:hover { background: var(--border); }
+    .toc-list { display: flex; flex-direction: column; gap: 4px; max-height: 54vh; overflow: auto; margin-bottom: 12px; }
+    .toc-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--bg); }
+    .toc-row:hover { border-color: var(--primary); }
+    .toc-row.here { border-color: var(--primary); background: var(--primary-soft); }
+    .toc-row-main { flex: 1; min-width: 0; }
+    .toc-row-title { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toc-row-pages { font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+    .toc-skip { font-size: .6rem; padding: 1px 6px; border-radius: 999px; background: var(--warn-soft); color: var(--warn-strong); }
+    .toc-go { color: var(--text-muted); font-size: 1.1rem; flex-shrink: 0; }
+    .toc-erow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .toc-erow .tb-input { padding: 6px 9px; font-size: .85rem; }
+    .toc-erow .toc-etitle { flex: 1; min-width: 0; }
+    .toc-numin { width: 52px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 6px 4px; font-size: .85rem; font-family: inherit; text-align: center; }
+    .toc-dash { color: var(--text-muted); font-size: .8rem; }
+    .toc-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 2px 6px; line-height: 1; }
+    .toc-del:hover { color: var(--danger); }
+    .toc-add { background: var(--surface-alt); border: 1px dashed var(--border); border-radius: 9px; padding: 8px; width: 100%; box-sizing: border-box; cursor: pointer; color: var(--text-muted); font-family: inherit; font-size: .82rem; margin-top: 8px; }
+    .toc-add:hover { color: var(--primary); border-color: var(--primary); }
+    .toc-empty { text-align: center; color: var(--text-muted); font-size: .85rem; padding: 14px 8px 18px; line-height: 1.5; }
+    .toc-split { font-size: .6rem; padding: 1px 6px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+    .toc-row-cut { font-size: .68rem; color: var(--energy); margin-top: 3px; line-height: 1.35; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    /* Mid-page split editor (between two chapter rows) */
+    .toc-splitrow { padding: 2px 0 6px; }
+    .toc-splitbtn { width: 100%; box-sizing: border-box; border: 1px dashed var(--border); background: none; color: var(--text-muted); border-radius: 8px; padding: 6px 9px; font: inherit; font-size: .72rem; cursor: pointer; text-align: left; }
+    .toc-splitbtn:hover { color: var(--primary); border-color: var(--primary); }
+    .toc-splitbtn.on { color: var(--primary); border-style: solid; border-color: var(--primary); background: var(--primary-soft); }
+    .split-picker { margin-top: 8px; }
+    .split-hint { margin: 0 0 8px; color: var(--text-muted); font-size: .7rem; line-height: 1.45; }
+    .split-lines { display: flex; flex-direction: column; gap: 1px; max-height: 260px; overflow: auto; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+    .split-line { display: block; width: 100%; text-align: left; border: none; background: none; color: var(--text); font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 5px 9px; cursor: pointer; white-space: pre-wrap; word-break: break-word; border-left: 3px solid transparent; }
+    .split-line:hover { background: var(--primary-soft); }
+    .split-line.up { color: var(--text-muted); }
+    .split-line.down { color: var(--text-muted); opacity: .5; text-decoration: line-through; }
+    .split-line.active { border-left-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; opacity: 1; text-decoration: none; }
+    .split-clear { margin-top: 8px; border: none; background: none; color: var(--primary); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; padding: 3px 0; }
+  
