@@ -206,7 +206,7 @@ The **flashcard** half shipped (see ✅ Shipped: the 💬 pop-over on the study 
 
 Open question still: ephemeral one-off asks (current flashcard behavior) vs. threading reader asks into the persisted tutor history.
 
-## 48. Japanese kanji→hiragana "romanization" (furigana)
+## 52. Japanese kanji→hiragana "romanization" (furigana)
 **Complexity: Medium | Cost: $0 (offline)**
 
 The romanization line for Japanese currently relies on the LLM-provided romaji. For a native Japanese learner experience, kanji should be annotated with **hiragana readings** (furigana) rather than Latin romaji — ironic given the あ icon we use for romanization. `pykakasi` or `fugashi` (MeCab-based, already used for tokenization) can produce readings: `fugashi` word nodes carry `.feature.kana` which gives the katakana reading (convert to hiragana via a simple codepoint shift). This would replace the romaji romanization in the reader ruby, teach-text ruby, and flashcard pronunciation face with hiragana — much more natural for Japanese learners. Romaji could remain as a fallback/option for absolute beginners. The `romanize_words` branch for `ja` would use the MeCab reading rather than a Latin transliterator.
@@ -239,12 +239,16 @@ The one solid free option is **Meta MMS** (`facebook/mms-tts-hat`) — a purpose
 
 **Main cost is infra, not money:** adds the full PyTorch stack (~hundreds of MB) + the model (~140 MB) to the Docker image → much larger/slower builds & deploys on the Oracle ARM box, for a single language. CPU inference works on ARM, just slower per card. Decision pending: is Creole worth the heavier container? Prototype on `develop` first to judge voice quality before committing.
 
-## 42. Thai support (needs word segmentation)
-**Complexity: Medium | Cost: $0**
+## ~~42. Thai support (needs word segmentation)~~ → Shipped, see ✅
 
-Thai (`th`) is the remaining language from the "non-Latin scripts" batch. TTS is fine (`th-TH-PremwadeeNeural`), but Thai is written **without spaces between words**, so the reader's whitespace tokenizer (`_tokenize_latin`) would treat a whole sentence as one untappable blob. Needs dictionary-based segmentation like CJK — add a `th` branch in `tokenizer.tokenize` using **`pythainlp`** (`word_tokenize`), plus `pythainlp.transliterate.romanize` for reader ruby. Everything else follows the established pattern: `LANG_INFO` + `SCRIPT_BY_LANG['th']='thai'`, `--thai-font` (Noto Sans Thai), starter deck, onboarding sample. `pythainlp` is the one new dep (pure-Python but bundles data). Romanization scheme decision: RTGS (standard, drops tones) vs a tone-marked scheme — Thai is tonal so tones matter for learners.
+Shipped in the "10 new languages" batch: `pythainlp` word segmentation + RTGS romanization, `LANG_INFO`/`SCRIPT_BY_LANG['th']='thai'`, Noto Sans Thai, and a `tonal` foundations track.
 
-## 43. AI Learning Path (Duolingo-style course) — ⭐ FLAGSHIP
+## ~~43. AI Learning Path (Duolingo-style course) — ⭐ FLAGSHIP~~ → Shipped, see ✅
+
+**Shipped.** The living description is CLAUDE.md → *AI Learning Path — just-in-time planner + broad lessons*; the planner/author pipeline lives in `learning.py`, the reading track in `foundations.py`. Everything below is kept as the **original design record** (2026-06), not an open to-do — several decisions here were later superseded (notably: the frozen two-layer curriculum skeleton was replaced by a just-in-time planner that re-decides every lesson).
+
+<details><summary>Original design record (superseded in places)</summary>
+
 **Complexity: High | Cost: ~$0 (Gemini free tier) | the big bet**
 
 A generative, SRS-aware course that teaches a language from the ground up. **Design decisions locked** (2026-06): CEFR-scaffolded curriculum, unified with the existing SRS deck, lean deterministic MVP first.
@@ -297,33 +301,35 @@ TODO (deferred): **constructions / controlled-vocab enrichment** (fill drill slo
 
 **Risks:** curriculum quality (#1 — mitigated by CEFR scaffold + per-lesson/unit regenerate); concept-ID stability (app owns IDs); open-ended grading cost (deferred); scope (tight MVP, expand). Per-lesson and per-unit **regenerate** buttons throughout.
 
+</details>
+
 ---
 
 # Onboarding & intuitiveness
 
 New users report (a) not understanding how the app works and (b) not finding how to switch off the default language. The app's loop — *translate a word → it becomes a flashcard → study it daily → read real text* — is invisible, and the first screen is a blank translate box defaulted to Cantonese. Ideas 30–35 fix discoverability; 36–40 bootstrap absolute beginners toward Duolingo parity.
 
-## 30. Language-first onboarding ✅ (implementing)
+## ~~30. Language-first onboarding~~ → Shipped, see ✅
 **Complexity: Low | Cost: $0**
 
 Make "What do you want to learn?" the first step of `/welcome`, before the plan picker, so nobody lands on Cantonese by accident. Saves `default_target_lang`; the plan step only appears when billing is configured for a free user.
 
-## 31. Persistent language switcher in the header ✅ (implementing)
+## ~~31. Persistent language switcher in the header~~ → Shipped, see ✅
 **Complexity: Low | Cost: $0**
 
 A "🌐 [language]" pill in the nav on every app page, one tap to change the learning language (writes `default_target_lang` + reloads). The current chevron dropdown on the translate page is too subtle and only exists on that one page.
 
-## 32. First-run guided tour ✅ (implementing)
+## ~~32. First-run guided tour~~ → Shipped, see ✅
 **Complexity: Low–Medium | Cost: $0**
 
 A 3-step dismissible coach overlay on first visit to the translate page: ① type a word → AI makes a flashcard, ② study daily on Flashcards, ③ read stories in Reader. Gated by a localStorage flag.
 
-## 33. Teaching empty states ✅ (implementing)
+## ~~33. Teaching empty states~~ → Shipped, see ✅
 **Complexity: Low | Cost: $0**
 
 Make zero-data states explain the loop instead of being blank — richer Flashcards empty state that describes per-face study (recognition vs. production) and points back to translating.
 
-## 34. Seed a starter deck on signup ✅ (implementing)
+## ~~34. Seed a starter deck on signup~~ → Shipped, see ✅
 **Complexity: Low–Medium | Cost: $0**
 
 Auto-create ~15 high-frequency cards in the chosen language at onboarding (with audio via edge-tts, tagged "🌱 Starter") so the very first study session is non-empty and the loop is experienced immediately. Guarded to only seed when the user has zero cards.
@@ -333,10 +339,9 @@ Auto-create ~15 high-frequency cards in the chosen language at onboarding (with 
 
 "Translate" reads like a utility, not a learning app. Consider renaming to "Add a word"/"Learn" and adding a one-line subtitle under the input for new users: *"Translate any word — it becomes a flashcard you'll review."*
 
-## 36. Guided beginner course / skill tree
-**Complexity: High | Cost: ~$0/month | *the* Duolingo-competitive bet**
+## ~~36. Guided beginner course / skill tree~~ → Superseded by 43, shipped
 
-A curated unit sequence per language (Greetings → Numbers → Food → Getting around…). Each unit bundles a few pre-made vocab cards, one short grammar note, a tiny reader text, and 2–3 sentence drills — turning the blank box into "do the next lesson." Everything below can feed into it.
+Delivered by the AI Learning Path (43) rather than a curated per-language sequence: units/lessons are planned just-in-time, and the Learn page renders them as an actual Duolingo-style winding skill tree with crowns, checkpoints, and a START flag.
 
 ## 37. Grammar note card type
 **Complexity: Medium | Cost: ~$0/month**
@@ -376,7 +381,11 @@ DuckDNS doesn't support TXT records, so Resend domain verification is impossible
 
 ---
 
-## 28. Move Browse Button Out of Nav Bar
+## ~~28. Move Browse Button Out of Nav Bar~~ → Shipped, see ✅
+
+Done and then some: `_build_nav`'s `extra_desktop`/`extra_dropdown` special-casing is gone, Browse moved into the **More** group (desktop rail) / More bottom sheet (mobile), and the flashcards page gained its own **＋ FAB** with inline Translate + Community Decks panels.
+
+<details><summary>Original entry</summary>
 **Complexity: Low | Cost: $0**
 
 The "Browse" button on the Flashcards page is a page-specific action (opens a card search modal) but currently sits in the shared nav bar as a special-cased extra. It should live in the page content instead — e.g. as a button near the top of the flashcard view or inside the study controls area — so the nav bar contains only true navigation links.
@@ -386,9 +395,15 @@ The "Browse" button on the Flashcards page is a page-specific action (opens a ca
 - Add a Browse button directly in the cards page UI (e.g. alongside the study controls or as a floating action button)
 - No backend changes needed
 
+</details>
+
 ---
 
-## 24. Label Merging
+## ~~24. Label Merging~~ → Shipped, see ✅
+
+Ships in the `/browse` **Labels** tab: string + semantic merge suggestions, LLM review (`review_label_merge`), union-find grouping, inline rename/merge.
+
+<details><summary>Original entry</summary>
 **Complexity: Low | Cost: $0**
 
 Allow users to merge two or more labels they consider synonymous or too granular into a single unified label.
@@ -402,9 +417,15 @@ Allow users to merge two or more labels they consider synonymous or too granular
 **Open questions:**
 - Should the merge target be an existing label or can the user type a new name on the spot?
 
+</details>
+
 ---
 
-## 25. AI-Powered "Generate More Words for Label"
+## ~~25. AI-Powered "Generate More Words for Label"~~ → Shipped, see ✅
+
+Ships as the per-label **Populate** button → `translation.suggest_vocab_for_label`, routed against the deck into "already in your deck" vs "new words".
+
+<details><summary>Original entry</summary>
 **Complexity: Low–Medium | Cost: ~$0/month**
 
 From a label's manage panel, ask Gemini to suggest additional vocabulary that fits the label's theme — excluding words the user already has in their deck.
@@ -417,9 +438,15 @@ From a label's manage panel, ask Gemini to suggest additional vocabulary that fi
 
 **Cost notes:** One Gemini call per request (~1,000 output tokens). Free tier easily handles it; paid tier ~$0.0003/request.
 
+</details>
+
 ---
 
-## 26. Reader Difficulty Level at Generation Time
+## ~~26. Reader Difficulty Level at Generation Time~~ → Shipped, see ✅
+
+Ships as the CEFR Level selector on all three generate modes, stored as `reader_texts.difficulty` and threaded through `translation._DIFFICULTY_INSTRUCTIONS`.
+
+<details><summary>Original entry</summary>
 **Complexity: Low | Cost: $0**
 
 Add a difficulty selector to the reader text generation form so users can tune how complex the generated text is.
@@ -432,9 +459,15 @@ Add a difficulty selector to the reader text generation form so users can tune h
 
 **Note:** Supersedes / extends idea 21 — implement together.
 
+</details>
+
 ---
 
-## 27. User-Configurable API Keys and Model Selection
+## ~~27. User-Configurable API Keys and Model Selection~~ → Shipped, see ✅
+
+Ships as Fernet-encrypted per-user API keys (`crypto.py`, `tests/test_api_keys.py`) + the admin `lesson_model` allowlist for the lesson pipeline.
+
+<details><summary>Original entry</summary>
 **Complexity: Medium | Cost: shifts API costs to users**
 
 Allow each user to supply their own Gemini API key and choose which model is used for translation, embedding, and reader generation. Enables cost offloading and power-user customization.
@@ -451,9 +484,15 @@ Allow each user to supply their own Gemini API key and choose which model is use
 - Should the server key be disabled entirely for users who supply their own, or always available as fallback?
 - Do we expose model selection per-task or a single global model choice?
 
+</details>
+
 ---
 
-## 17. Reader Audio Playback Mode
+## ~~17. Reader Audio Playback Mode~~ → Shipped, see ✅
+
+Ships as the reader audio mode with per-sentence `/tts`, persisted back to `reader_sentences`.
+
+<details><summary>Original entry</summary>
 **Complexity: Low–Medium | Cost: ~$0/month**
 
 A "read-aloud" mode in the reader: tap Play and the app reads the full text sentence by sentence, highlighting the active sentence in the panel as it plays. Auto-advances to the next sentence when audio finishes.
@@ -467,9 +506,15 @@ A "read-aloud" mode in the reader: tap Play and the app reads the full text sent
 **Open questions:**
 - Pre-generate all sentence audio on text open (adds latency but smoother playback), or fetch each sentence on demand just before it plays?
 
+</details>
+
 ---
 
-## 18. Reader Performance: Pre-generate Translations and Audio
+## ~~18. Reader Performance: Pre-generate Translations and Audio~~ → Shipped, see ✅
+
+Ships as the windowed preload (`preloadAround`, `PRELOAD_SENT_WINDOW`=10) + `POST /api/reader/texts/{id}/preload` with `start`/`count`.
+
+<details><summary>Original entry</summary>
 **Complexity: Medium | Cost: ~$0/month**
 
 The reader currently fetches sentence translation and word audio on demand, causing noticeable latency. Pre-compute these in the background when a text is opened.
@@ -479,6 +524,8 @@ The reader currently fetches sentence translation and word audio on demand, caus
 - Similarly pre-fetch sentence translations and store them in a `reader_text_sentences` table (id, text_id, sentence_idx, translation)
 - Word translations are harder to pre-generate since there are many; consider pre-translating all "new" tokens at load time and caching in memory
 - Show a background-loading indicator so the user knows audio will be ready soon
+
+</details>
 
 ---
 
@@ -494,7 +541,11 @@ The current generate/open flow shows a basic spinner. Improve to feel more polis
 
 ---
 
-## 20. Duolingo-Style Streak
+## ~~20. Duolingo-Style Streak~~ → Shipped, see ✅
+
+Ships as `study_activity` + `db.get_streak` on the learner’s local day, streak freezes (B5), the header 🔥 pill, and daily-goal XP rings.
+
+<details><summary>Original entry</summary>
 **Complexity: Low | Cost: $0/month**
 
 Show each user a daily streak counter: consecutive days where the user completed at least one review.
@@ -504,6 +555,8 @@ Show each user a daily streak counter: consecutive days where the user completed
 - Increment streak on first review of a new day; reset to 0 if a day is missed
 - Display streak prominently on the flashcard page (e.g. 🔥 7 days)
 - Optional: "streak freeze" if the user does a reader session but no reviews
+
+</details>
 
 ---
 
@@ -523,7 +576,11 @@ Let users select a difficulty level before generating, or explicitly limit the n
 
 ---
 
-## 22. Card Search in Browse Tab
+## ~~22. Card Search in Browse Tab~~ → Shipped, see ✅
+
+Ships as the `/browse` **My Cards** tab: search + language/label/CEFR/strength/status filters, sort, and inline edit.
+
+<details><summary>Original entry</summary>
 **Complexity: Low | Cost: $0**
 
 Add a search/filter box to the Flashcards browse view so users can find specific cards by keyword.
@@ -534,9 +591,15 @@ Add a search/filter box to the Flashcards browse view so users can find specific
 - Debounce input; clear button; highlight matched substrings
 - Works in addition to (not instead of) the existing label filter
 
+</details>
+
 ---
 
-## 23. Share Reader Stories with Other Users
+## ~~23. Share Reader Stories with Other Users~~ → Shipped, see ✅
+
+Ships as `reader_texts.visibility` (private/friends/public) + the Community tab and `story_ratings`.
+
+<details><summary>Original entry</summary>
 **Complexity: Medium | Cost: ~$0/month**
 
 Allow a user to share a generated reader text with other users on the same instance.
@@ -547,6 +610,8 @@ Allow a user to share a generated reader text with other users on the same insta
 - Recipient can open it in their own reader view and save a copy to their account
 - Word familiarity highlighting uses the recipient's own deck, not the sharer's
 - No real-time sync; it's a one-time copy, similar to card set sharing (idea 10)
+
+</details>
 
 ---
 
@@ -588,7 +653,11 @@ Attach an image to a card to aid memory. Images are optional and don't affect ex
 
 ---
 
-## 5. AI Auto-Labeling & Semantic Similarity for Review Prioritization
+## ~~5. AI Auto-Labeling & Semantic Similarity for Review Prioritization~~ → Shipped, see ✅
+
+Auto-labeling ships as `_autolabel_card_bg` → `translation.suggest_labels` on every card create; per-card embeddings power `GET /api/labels/suggest-cards`.
+
+<details><summary>Original entry</summary>
 **Complexity: High (split below)**
 
 **5a. Auto-labeling**
@@ -615,6 +684,8 @@ Generate an embedding per card and use cosine similarity to cluster semantically
 
 **Open questions:**
 - Similarity used for review ordering, or as a standalone "explore related" feature, or both?
+
+</details>
 
 ---
 
@@ -723,7 +794,11 @@ A review mode where the user reads AI-generated sentences built from their exist
 
 ---
 
-## 10. Card Set Sharing by Label
+## ~~10. Card Set Sharing by Label~~ → Shipped, see ✅
+
+Ships as `shared_decks`/`shared_deck_items` + `/browse` Community tab (create from selected cards, import, un-import, ratings).
+
+<details><summary>Original entry</summary>
 **Complexity: Medium | Cost: ~$0/month**
 
 Allow users to share a labelled subset of their deck with other users. The receiving user gets a copy of the shared cards added to their own deck.
@@ -740,9 +815,15 @@ Allow users to share a labelled subset of their deck with other users. The recei
 - Should imports be versioned (re-import to get new cards added to the source label later)?
 - Permission model: public share link vs. invite-only by username?
 
+</details>
+
 ---
 
-## 11. Stats Dashboard
+## ~~11. Stats Dashboard~~ → Shipped, see ✅
+
+Ships as the admin dashboard (`/admin/dashboard` → `db.get_admin_dashboard_stats`): DAU/WAU/MAU, per-user activity, AI usage, language distribution.
+
+<details><summary>Original entry</summary>
 **Complexity: Low–Medium | Cost: $0/month**
 
 Show the user a summary of their learning progress.
@@ -755,6 +836,8 @@ Show the user a summary of their learning progress.
 - Cards by ease distribution (how many struggling vs. mature)
 
 **Cost notes:** Pure DB queries — no API calls.
+
+</details>
 
 ---
 
@@ -791,7 +874,11 @@ An alternate review mode where the user types the answer instead of flipping a c
 
 ---
 
-## 14. PWA Offline Mode
+## ~~14. PWA Offline Mode~~ → Shipped, see ✅
+
+Ships as `static/sw.js` (shell precache, SWR/network-first API rules, offline fallback page) + manifest + IndexedDB-queued offline reviews that sync with `studied_on` backdating.
+
+<details><summary>Original entry</summary>
 **Complexity: Medium | Cost: $0/month**
 
 Allow review sessions to work without an internet connection on mobile.
@@ -803,6 +890,8 @@ Allow review sessions to work without an internet connection on mobile.
 - Manifest already present or easy to add for home-screen install prompt
 
 **Cost notes:** No API calls. Storage is bounded by the cached review queue size.
+
+</details>
 
 ---
 
