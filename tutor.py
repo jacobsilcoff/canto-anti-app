@@ -1042,6 +1042,117 @@ def _build_feedback(correct: bool, corrected: str, note: str,
     }
 
 
+def build_typed_answer_judge_prompt(
+    target_lang: str,
+    prompt_text: str,
+    expected: str,
+    answer: str,
+    *,
+    is_cloze: bool,
+    accept: list[str] | None = None,
+    level: str = "A1",
+) -> str:
+    """JUDGE a typed lesson drill. Reached ONLY when the answer didn't match the
+    author's accept-set, so the question is genuinely "is this a different but
+    valid way to say it?" — which is exactly what a list of literals can't answer
+    and what a lesson full of multiple choice never has to ask."""
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    alts = [a for a in (accept or []) if (a or "").strip()]
+    also = (f'Other answers the lesson author already accepts: '
+            f'{", ".join(chr(34) + a + chr(34) for a in alts[:6])}.\n'
+            if alts else "")
+    if is_cloze:
+        task = (f'The learner is filling the blank in this {name} sentence:\n'
+                f'  {prompt_text.strip()}\n'
+                f'The intended filler is "{expected.strip()}".\n'
+                f'  Learner typed: "{answer.strip()}"\n\n'
+                f'Accept the answer if it makes the sentence correct and natural {name} '
+                f'with the same meaning. A different word that fits just as well is '
+                f'correct — say so.')
+    else:
+        task = (f'The learner (level {level}) translated this into {name}:\n'
+                f'  English: "{prompt_text.strip()}"\n'
+                f'  Learner wrote: "{answer.strip()}"\n'
+                f'One correct translation is "{expected.strip()}" — an example, NOT a '
+                f'template the learner has to match.\n\n'
+                f'Accept ANY correct, natural {name} rendering of the English.')
+    return (
+        f"You are a {name} tutor grading one drill answer.\n\n"
+        f"{task}\n{also}\n"
+        f"Be liberal — this is production practice, not dictation:\n"
+        f"• ignore capitalization, spacing, and trailing punctuation\n"
+        f"• accept optional elements the language allows to be dropped or added "
+        f"(subject pronouns, classifiers, politeness particles) when the result is "
+        f"still natural\n"
+        f"• accept synonyms and word-order variants that a native speaker would say\n"
+        f"• accept a single obvious typo when the intent is unmistakable, but mention it\n"
+        f"• mark it WRONG when the meaning changes, a required form is wrong "
+        f"(conjugation, classifier, particle), or it is not {name}\n\n"
+        f"Return ONLY valid JSON:\n"
+        '{\n'
+        '  "correct": true or false,\n'
+        '  "corrected": "<empty if correct and clean; the fixed form if correct but '
+        'slightly off; the correct answer if wrong>",\n'
+        '  "note": "<one short sentence naming the rule if wrong, or the nuance if the '
+        'answer was a valid variant; empty if it was simply right>"\n'
+        '}\n'
+    )
+
+
+def answer_matches(answer: str, expected: str, accept: list[str] | None = None) -> bool:
+    """Offline accept-set check — the free path. Runs before any LLM call, so the
+    common case (the learner typed one of the forms the author listed) costs
+    nothing and returns instantly."""
+    got = _norm_for_compare(answer)
+    if not got:
+        return False
+    candidates = [expected] + list(accept or [])
+    return any(got == _norm_for_compare(c) for c in candidates if (c or "").strip())
+
+
+async def judge_typed_answer(
+    target_lang: str,
+    prompt_text: str,
+    expected: str,
+    answer: str,
+    *,
+    is_cloze: bool = False,
+    accept: list[str] | None = None,
+    api_key: str,
+    model: str = TUTOR_MODEL,
+    level: str = "A1",
+) -> dict | None:
+    """Grade one typed drill answer. Returns a feedback dict, or None if the LLM
+    couldn't be reached — the caller must NOT turn None into "wrong", since the
+    learner may well have been right.
+
+    Callers should run `answer_matches` first; this is the paid fallback.
+    """
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+
+    result = await _drill_call(
+        build_typed_answer_judge_prompt(
+            target_lang, prompt_text, expected, answer,
+            is_cloze=is_cloze, accept=accept, level=level,
+        ), api_key, model,
+    )
+    if not result:
+        return None
+
+    correct = bool(result.get("correct"))
+    corrected = (result.get("corrected") or "").strip()
+    note = (result.get("note") or "").strip()
+    # Same-answer override (mirrors run_lesson_drill): if the model says wrong but
+    # its "correction" is what the learner already wrote, it contradicted itself.
+    if not correct and corrected and _norm_for_compare(answer) == _norm_for_compare(corrected):
+        correct, note = True, ""
+    if not correct and not corrected:
+        corrected = expected
+    return _build_feedback(correct, corrected, note, target_lang)
+
+
 def _normalize_drill_plan(parsed: dict, n: int) -> list[dict]:
     """Extract items from the plan response as {"english", "target"} dicts.
     `target` is a reference rendering that uses the construction (for feedback,

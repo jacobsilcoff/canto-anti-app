@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 29;
+  var TOUR_VERSION = 30;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -71,6 +71,8 @@
       body: 'Your day used to end at midnight UTC \u2014 5pm in California, noon in New Zealand \u2014 so two evenings of study could count as one day and break a streak you\u2019d actually kept. Your \ud83d\udd25 streak, XP ring, daily quests and new-card limit now roll over at midnight where you are (Settings shows the time zone we detected). Flashcards reviewed offline count for the day you answered them, not the day they sync. And \ud83d\udee1 streak freezes are more forgiving: they apply the moment you study rather than depending on what you opened first, two shields can cover two missed days, and they still work if you come back later in the week.', v: 28 },
     { icon: '📚', title: 'Fewer repeated lessons, every chapter in one place',
       body: 'Your AI course used to lose track of words it taught inside a grammar lesson, so the same material could come back later under a new name. It now sees every word and every lesson it has already made — including ones from your textbooks — and a plan that repeats one gets sent back before it’s written. On the Learn page, 📕 From your textbooks now lists every chapter of every book, not just the ones you’ve built: tap “＋ Build lessons from this chapter” to start a new chapter right there, no trip to the Textbooks page.', v: 29 },
+    { icon: '\u270d\ufe0f', title: 'Write it yourself — and a progress bar that means something',
+      body: 'Lessons were nearly all multiple choice, so you could finish one without ever writing the language. Now every lesson (including the ones built from your textbooks) asks you to type real sentences in your target language, and the grading is deliberately generous: any natural translation counts, not just the one the lesson had in mind. Word it differently and it tells you it works. Miss the mark and it shows you the fix and why. The step bar at the top is also honest now — steps are sized by how much is in them and teach cards count as progress, so it moves at a steady rate instead of stalling and then leaping.', v: 30 },
   ];
 
   var steps, stepIdx;

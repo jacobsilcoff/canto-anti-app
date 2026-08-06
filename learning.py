@@ -50,7 +50,7 @@ import random
 import grammar
 import llm
 import tokenizer
-from grammar_lessons import _clean_block, _conj_cloze, _free_cloze
+from grammar_lessons import _clean_block, _cloze_is_sane, _conj_cloze, _free_cloze
 from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
@@ -533,7 +533,17 @@ _DRILL_KINDS = """\
   {"kind":"listening","concept":"<key>","tier":"core|standard|extra","target":"<native word/phrase>","gloss":"<English>","distractors":["<other NATIVE-SCRIPT word — NEVER English; for tonal languages prefer words differing by one tone or one phoneme so the listener must discriminate carefully>", ...]}
   {"kind":"cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
   {"kind":"reorder","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
-  {"kind":"match","concept":"<key>","tier":"core|standard|extra","pairs":[{"target":"<native>","english":"<English>"}, ...]}"""
+  {"kind":"match","concept":"<key>","tier":"core|standard|extra","pairs":[{"target":"<native>","english":"<English>"}, ...]}
+  {"kind":"translate","concept":"<key>","tier":"core|standard|extra","prompt":"<English sentence to translate>","answer":"<the most natural native translation>","accept":["<other fully correct native translations — word-order variants, optional pronouns/particles, synonyms a learner might reasonably produce>", ...],"hint":"<optional 1-3 word nudge, e.g. the construction or a key word>"}
+    → TYPED. No options: the learner writes the sentence themselves. This is the
+      only drill that practises free production, so it is the most valuable one
+      here. `accept` is not a completeness contract — anything you miss is caught
+      by a grader that judges from the English meaning — but the more valid forms
+      you list, the fewer learners wait on that check.
+  {"kind":"type_cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","accept":["<other correct fillers>", ...],"gloss":"<English translation of the COMPLETE sentence with the answer filled in>"}
+    → TYPED cloze: the learner types the missing word instead of picking it.
+      Use when the blank has one clear answer and typing it is the point
+      (conjugations, classifiers, particles)."""
 
 _BLOCK_TYPES = """\
   {"type":"prose","text":"<English explanation — **bold** and *italic* markdown supported>"}
@@ -785,9 +795,20 @@ def _build_lesson_prompt(
         f"next recognition drill. Vary subjects, objects, and scenarios across drills so the "
         f"learner practises broadly, not the same phrase in different formats.\n"
         f"Suggested ordering: recognition (warm-up) → listening → production → cloze → "
-        f"reorder (hardest — pure recall + construction). Include at least 2 reorder "
-        f"drills for grammar concepts; reorder tiles expose word-order rules better than "
-        f"any other drill type.\n"
+        f"reorder → translate (hardest — the learner writes it from nothing).\n"
+        f"REQUIRED MIX — recognising an answer among options is far easier than "
+        f"producing one, and a lesson made only of multiple choice lets a learner pass "
+        f"without ever writing the language. So, of your drills:\n"
+        f"• at least 3 must be `translate` (typed free production). Put them in the "
+        f"later steps, once the material has been taught and drilled.\n"
+        f"• at least 2 must be `reorder` (tile construction) — these expose word-order "
+        f"rules better than any other kind.\n"
+        f"• at least 1 must be `type_cloze` when the concept has a form worth typing "
+        f"(a conjugation, classifier, particle, case ending).\n"
+        f"• the rest may be recognition/listening/production/cloze/match.\n"
+        f"For `translate`, keep the English short and unambiguous (4–10 words) so there "
+        f"is a clearly best answer, and build it from words this lesson taught plus "
+        f"vocabulary the learner already knows — never a word they have not met.\n"
         f"{_DRILL_TIER_GUIDANCE}"
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
@@ -1013,6 +1034,49 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
                 "answer_tokens": ordered, "distractor_tokens": decoys,
                 "glossary": glossary,
                 "audio": sentence, "answer_roman": rom(sentence)}
+
+    if kind in ("translate", "type_cloze"):
+        # Typed free production. Unlike every other kind there is no option list
+        # to key, so "correct by construction" doesn't apply — the client sends
+        # the answer to /api/lesson/check, which matches the accept-set offline
+        # first and only pays for an LLM judgement when that misses.
+        answer = (d.get("answer") or "").strip()
+        if not answer:
+            return None
+        accept = []
+        seen = {_norm(answer)}
+        for alt in (d.get("accept") or []):
+            alt = (alt or "").strip()
+            if alt and _norm(alt) not in seen:
+                seen.add(_norm(alt))
+                accept.append(alt)
+
+        if kind == "translate":
+            prompt = (d.get("prompt") or gloss).strip()
+            if not prompt:
+                return None
+            return {"type": "type_answer", "concept_key": key, "grammar": is_grammar,
+                    "instruction": "Write this in the target language",
+                    "prompt": prompt, "prompt_lang": "english",
+                    "answer": answer, "answer_roman": rom(answer), "accept": accept,
+                    "hint": (d.get("hint") or "").strip()[:60],
+                    "audio": answer}
+
+        sentence = (d.get("sentence") or "").strip()
+        if "___" not in sentence:
+            return None
+        # Same sanity gate the choice-cloze uses — a blank that swallows the
+        # whole sentence, or an answer that isn't in it, is not gradeable.
+        if not _cloze_is_sane(sentence, answer):
+            return None
+        return {"type": "type_answer", "concept_key": key, "grammar": is_grammar,
+                "instruction": "Type the missing word", "is_cloze": True,
+                "prompt": sentence, "prompt_lang": "target",
+                "prompt_roman": " ___ ".join(
+                    rom(part.strip()) for part in sentence.split("___")).strip(),
+                "answer": answer, "answer_roman": rom(answer), "accept": accept,
+                "gloss": gloss, "tip": gloss,
+                "audio": sentence.replace("___", answer)}
 
     if kind == "match":
         pairs = []

@@ -2088,6 +2088,23 @@
   function joinSep(lang) { return NO_SPACE_LANGS.has(lang) ? '' : ' '; }
   // Exercise types that run their own loop/submit (no standard Check/Continue).
   const SELF_MANAGED = new Set(['construction_drill', 'speed_round', 'audio_blitz', 'memory_match']);
+
+  // Mirror of tutor._norm_for_compare. Kept in step with the server so a typed
+  // answer the server would accept never costs a round trip (or an LLM call) —
+  // and so an exactly-right answer still grades while offline.
+  function _normTyped(s) {
+    return (s || '').normalize('NFC').toLowerCase().trim()
+      .replace(/[.!?。！？،؟…]+$/u, '')
+      .replace(/[’‘ʼ`´′]/g, "'")
+      .split(/\s+/).join(' ');
+  }
+  function _typedMatches(typed, expected, accept) {
+    const got = _normTyped(typed);
+    if (!got) return false;
+    return [expected, ...(accept || [])]
+      .filter(c => (c || '').trim())
+      .some(c => _normTyped(c) === got);
+  }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
   // TTS pre-load cache: key → Audio element (preload='auto').
@@ -2478,6 +2495,80 @@
           grade: () => sel === ex.answer,
           answerText: () => esc(ex.options[ex.answer]),
           lock: () => [...list.children].forEach((c, ci) => { c.disabled = true; if (ci === ex.answer) c.classList.add('correct'); else if (ci === sel) c.classList.add('wrong'); }),
+        };
+      },
+    },
+    // Typed free production. The only drill where the learner writes the target
+    // language from nothing — every other gradeable kind shows the answer among
+    // the options. Graded by /api/lesson/check: accept-set match first (free,
+    // instant, works offline), LLM judgement only when that misses.
+    type_answer: {
+      render(ex, root, lang) {
+        const isCloze = !!ex.is_cloze;
+        let html = `<div class="ex-instruction">${esc(ex.instruction || 'Write your answer')}</div>`;
+        if (ex.prompt) {
+          const targetPrompt = ex.prompt_lang === 'target';
+          const pHtml = targetPrompt ? targetSpan(ex.prompt, lang) : esc(ex.prompt);
+          html += `<div class="ex-prompt ${targetPrompt ? '' : 'english'}">${pHtml}</div>`;
+          if (targetPrompt && ex.prompt_roman && !needsRuby(lang) && !ex.hide_roman)
+            html += `<div class="ex-roman">${esc(ex.prompt_roman)}</div>`;
+          if (isCloze && ex.gloss) html += `<div class="ex-translation">${esc(ex.gloss)}</div>`;
+        }
+        if (ex.hint) html += `<div class="ex-hint">💡 ${esc(ex.hint)}</div>`;
+        html += `<div class="type-wrap">
+            <textarea class="type-input ${scriptClassFor(lang)}" id="type-input" rows="${isCloze ? 1 : 2}"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              enterkeyhint="done" aria-label="Your answer"
+              placeholder="${isCloze ? 'the missing word…' : 'type your answer…'}"></textarea>
+            <div class="type-status" id="type-status" role="status" aria-live="polite"></div>
+          </div>`;
+        root.innerHTML = html;
+
+        const input = document.getElementById('type-input');
+        const status = document.getElementById('type-status');
+        input.oninput = () => { if (!player.graded) updateAction(); };
+        // Enter submits (Shift+Enter newlines); the footer button is the other path.
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAction(); }
+        };
+        setTimeout(() => { try { input.focus({ preventScroll: true }); } catch {} }, 60);
+
+        let result = null;      // server/offline verdict for lock() + onAction
+        return {
+          isReady: () => input.value.trim().length > 0,
+          async grade() {
+            const typed = input.value.trim();
+            // Offline fast path — mirrors tutor.answer_matches so an exactly
+            // right answer never waits on (or pays for) the network.
+            if (_typedMatches(typed, ex.answer, ex.accept)) {
+              result = { checked: true, correct: true, exact: true };
+              return true;
+            }
+            status.textContent = 'Checking…';
+            status.className = 'type-status checking';
+            try {
+              const res = await fetch('/api/lesson/check', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  prompt: ex.prompt || '', expected: ex.answer || '', answer: typed,
+                  accept: ex.accept || [], is_cloze: isCloze, lang,
+                }),
+              });
+              result = res.ok ? await res.json() : { checked: false };
+            } catch { result = { checked: false }; }
+            status.textContent = ''; status.className = 'type-status';
+            return !!(result && result.checked && result.correct);
+          },
+          // Neither right nor wrong: the grader was unreachable. onAction leaves
+          // the score, combo and mastery ledger untouched rather than guessing.
+          uncheckable: () => !!(result && result.checked === false),
+          feedback: () => result,
+          answerText: () => targetSpan(ex.answer, lang)
+            + (ex.answer_roman && !needsRuby(lang) ? ` <em>${esc(ex.answer_roman)}</em>` : ''),
+          lock() {
+            input.disabled = true;
+            input.classList.add(result && result.correct ? 'correct' : 'wrong');
+          },
         };
       },
     },
@@ -2909,31 +3000,67 @@
     },
   };
 
-  // Segmented step bar (A1): one pill per lesson step. Past steps are full, the
-  // current step fills with its own exercises, future steps are empty; the
-  // end-of-lesson mistake review shows everything full. Mirrored on the teach
-  // screen and the player. Also refreshes the "Step i of n · title" tag.
+  // How many tap-through teach cards a step shows. Mirrors renderTeach's paging
+  // rule, because the bar has to agree with what the learner actually walks
+  // through: a 5-block step is five screens, not one.
+  function _teachCards(sg) {
+    const teach = sg && sg.teach;
+    if (!teach) return 0;
+    const blocks = teach.blocks || [];
+    const items = teach.items || [];
+    if (!blocks.length && !items.length && !teach.intro) return 0;
+    const paged = player && player.theme !== 'foundations' && !items.length && blocks.length > 1;
+    return paged ? blocks.length : 1;
+  }
+
+  // Everything the learner must get through in a step: teach cards + the drills
+  // this run will actually play.
+  function _segWeight(sg, i) {
+    return _teachCards(sg) + (((player.segTotals || [])[i]) || 0);
+  }
+
+  // Segmented step bar: one pill per lesson step.
+  //
+  // Pills are WEIGHTED by how much work the step holds, and teach cards count as
+  // work. Equal-width pills advanced by drills alone made the bar lie twice over:
+  // a step with 8 drills crawled while a step with 1 jumped, and paging through
+  // five teach cards moved nothing at all. A step left with no content (its
+  // drills were all trimmed for the chosen lesson length) is dropped entirely
+  // rather than shown as a pill that can never fill.
   function updateBar() {
     if (!player) return;
     const segs = player.segments || [];
-    const html = segs.map((sg, i) => {
+    const onTeach = _currentState === 'teach';
+    // Visible steps, keeping their real index so segIdx comparisons still work.
+    const shown = segs.map((sg, i) => ({ sg, i, w: _segWeight(sg, i) })).filter(s => s.w > 0);
+
+    const html = shown.map(({ sg, i, w }) => {
       let pct = 0;
       if (player.reviewStarted || i < player.segIdx) pct = 100;
       else if (i === player.segIdx) {
-        const t = (player.segTotals || [])[i] || 0;
-        pct = t ? Math.min(100, Math.round(player.segAnswered / t * 100)) : 0;
+        // Teach cards first, then drills. While on the teach screen the learner
+        // is partway through the cards; once drilling, all of them are behind.
+        const cards = _teachCards(sg);
+        const teachDone = onTeach ? Math.min(player.teachIdx || 0, cards) : cards;
+        pct = Math.min(100, Math.round((teachDone + player.segAnswered) / w * 100));
       }
-      return `<div class="step-seg${sg.speak ? ' speak' : ''}"><div class="step-fill" style="width:${pct}%"></div></div>`;
+      return `<div class="step-seg${sg.speak ? ' speak' : ''}" style="flex-grow:${w}">`
+        + `<div class="step-fill" style="width:${pct}%"></div></div>`;
     }).join('');
     ['player-stepbar', 'teach-stepbar'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = html;
     });
+
     const seg = segs[player.segIdx] || {};
     let label = '';
-    if (segs.length > 1 && !player.reviewStarted) {
+    if (shown.length > 1 && !player.reviewStarted) {
+      // Number by VISIBLE steps — "Step 3 of 4" has to match the pills on screen.
+      const pos = shown.findIndex(s => s.i === player.segIdx);
       const t = seg.title || (seg.speak ? 'AI Speak' : '');
-      label = `Step ${player.segIdx + 1} of ${segs.length}` + (t ? ` · ${seg.speak ? '✨ ' : ''}${t}` : '');
+      if (pos >= 0) {
+        label = `Step ${pos + 1} of ${shown.length}` + (t ? ` · ${seg.speak ? '✨ ' : ''}${t}` : '');
+      }
     }
     ['step-tag', 'teach-step-tag'].forEach(id => {
       const el = document.getElementById(id);
@@ -3213,7 +3340,7 @@
 
   // ── D3 · lesson intro sheet ─────────────────────────────────────────────────
   let _introLesson = null;      // the fetched lesson behind the open sheet
-  const GRADEABLE_TYPES = new Set(['choice', 'listening', 'word_bank', 'match']);
+  const GRADEABLE_TYPES = new Set(['choice', 'listening', 'word_bank', 'match', 'type_answer']);
 
   function _introSegments(content) {
     const segments = content.segments
@@ -3539,12 +3666,16 @@
   // (deterministic, no LLM). Pass ≥3/4 → complete (half XP, crown 1);
   // fail → drop into the full lesson.
   function _testOutRank(ex) {
-    if (ex.type === 'word_bank') return 0;
-    if (ex.type === 'choice' && ex.is_cloze) return 1;
-    if (ex.type === 'choice' && ex.prompt_lang === 'english') return 2;
-    if (ex.type === 'listening') return 3;
-    if (ex.type === 'choice') return 4;
-    return 5;   // match
+    // Typed production is the hardest thing in the lesson — nothing is shown to
+    // recognise — so it leads a test-out. Tile assembly next, then the choice
+    // kinds by how much they give away.
+    if (ex.type === 'type_answer') return ex.is_cloze ? 1 : 0;
+    if (ex.type === 'word_bank') return 2;
+    if (ex.type === 'choice' && ex.is_cloze) return 3;
+    if (ex.type === 'choice' && ex.prompt_lang === 'english') return 4;
+    if (ex.type === 'listening') return 5;
+    if (ex.type === 'choice') return 6;
+    return 7;   // match
   }
 
   function _pickTestOut(segments, n = 4) {
@@ -3669,6 +3800,9 @@
   function startSegment(i) {
     player.segIdx = i;
     player.segAnswered = 0;
+    // Reset before the bar reads it — a stale index from the previous step would
+    // show this one already part-done.
+    player.teachIdx = 0;
     updateBar();
     const seg = player.segments[i];
     const teach = seg.teach;
@@ -3676,7 +3810,7 @@
     if (hasTeach && !player.skipTeach) {
       document.getElementById('teach-title').textContent = player.title;
       renderTeach(teach);
-      show('teach');
+      show('teach'); updateBar();
       window.scrollTo(0, 0);
     } else {
       startExercises();
@@ -4100,6 +4234,8 @@
     setTeachAction(player.teachIdx >= player.teachBlocks.length - 1);
     const tb = document.getElementById('teach-back');
     if (tb) tb.style.display = player.teachIdx > 0 ? '' : 'none';
+    // Teach cards are counted work, so paging through them moves the step bar.
+    updateBar();
     window.scrollTo(0, 0);
   }
 
@@ -4225,15 +4361,44 @@
     updateBar(); updateAction();
   }
 
-  function onAction() {
+  async function onAction() {
     if (!player) return;
     const a = document.getElementById('player-action');
     if (!player.graded) {
       if (!player.controller.isReady()) return;
+      if (player._grading) return;              // typed drills grade over the network
       const ex = player.queue[player.idx];
-      const correct = player.controller.grade();
+      // grade() may be async (typed answers call the server). Await it either
+      // way, and hold the button so a double-tap can't submit twice or advance
+      // past the verdict.
+      player._grading = true;
+      a.disabled = true;
+      let correct;
+      try {
+        correct = await player.controller.grade();
+      } finally {
+        player._grading = false;
+      }
+      // The learner may have quit or gone back while the check was in flight.
+      if (!player || player.queue[player.idx] !== ex) return;
+      const uncheckable = player.controller.uncheckable ? player.controller.uncheckable() : false;
       player.controller.lock(correct);
       player.graded = true;
+      if (uncheckable) {
+        // Grader unreachable. Show the answer and move on WITHOUT touching the
+        // score, combo, mistake queue or mastery ledger — the learner was quite
+        // possibly right, and guessing either way teaches the wrong thing.
+        const fbEl = document.getElementById('feedback');
+        const at = player.controller.answerText ? player.controller.answerText() : '';
+        fbEl.className = 'feedback';
+        fbEl.innerHTML = "Couldn't check this one — no connection to the grader."
+          + (at ? `<small>Expected: ${at}</small>` : '');
+        const lastSeg0 = player.segIdx >= player.segments.length - 1;
+        const isLastEx0 = player.idx >= player.queue.length - 1;
+        a.textContent = (lastSeg0 && isLastEx0 && !player.mistakes.length) ? 'Finish' : 'Continue';
+        a.disabled = false;
+        return;
+      }
       // First-pass counting happens ONCE per exercise. Going back (goBack) or
       // resuming (_applyResume) can re-render an already-answered exercise; the
       // `_counted` flag stops it inflating the score / combo / mistake queue.
@@ -4264,13 +4429,25 @@
       if (!ex._review) ex._counted = true;
       const fb = document.getElementById('feedback');
       const tip = ex.tip ? `<small>💡 ${esc(ex.tip)}</small>` : '';
+      // Typed drills carry a graded verdict: the learner's own wording was
+      // accepted or corrected, so say which rather than just "Correct!".
+      const judged = player.controller.feedback ? player.controller.feedback() : null;
+      const jNote = judged && judged.note ? `<small>${esc(judged.note)}</small>` : '';
+      const jFix = judged && judged.corrected
+        ? `<small>Better: ${targetSpan(judged.corrected, player.lang)}`
+          + (judged.corrected_roman ? ` <em>${esc(judged.corrected_roman)}</em>` : '')
+          + `</small>` : '';
       if (correct) {
-        fb.className = 'feedback correct'; fb.innerHTML = 'Correct!' + tip;
+        fb.className = 'feedback correct';
+        // Accepted-but-not-the-model-answer is the interesting case: the learner
+        // found a different valid form and should see that it counted.
+        const head = (judged && !judged.exact) ? 'Correct — that works too!' : 'Correct!';
+        fb.innerHTML = head + jFix + jNote + tip;
         sfx.correct();
       } else {
         const at = player.controller.answerText ? player.controller.answerText() : '';
         fb.className = 'feedback wrong';
-        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + tip;
+        fb.innerHTML = 'Not quite.' + (at ? `<small>Answer: ${at}</small>` : '') + jNote + tip;
         sfx.wrong();
         const root = document.getElementById('exercise-root');
         root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
@@ -4641,7 +4818,7 @@
       if (!_segTeachVisible(seg)) return;
       renderTeach(seg.teach);
       if (player.teachPaged) { player.teachIdx = player.teachBlocks.length - 1; renderTeachCard(); }
-      show('teach');
+      show('teach'); updateBar();
       updateBar();
     }
   }

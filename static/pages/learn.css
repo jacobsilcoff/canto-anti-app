@@ -360,7 +360,12 @@
     .player-back:active { background: var(--surface-alt, var(--neutral-soft)); }
     /* Segmented step bar — one pill per lesson step (A1), filling left→right. */
     .step-bar { flex: 1; display: flex; gap: 5px; }
-    .step-seg { flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    /* flex-grow is set inline per step, proportional to how much work it holds
+       (teach cards + drills), so the bar advances at a steady rate instead of
+       crawling through a heavy step and jumping through a light one. Basis 0 is
+       what makes grow the sole width driver; min-width keeps a 1-drill step from
+       collapsing to an invisible sliver next to a 10-drill one. */
+    .step-seg { flex: 1 1 0; min-width: 12px; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
     .step-fill { height: 100%; border-radius: 999px; background: var(--good); width: 0; transition: width 0.25s; }
     .step-seg.speak .step-fill { background: var(--grammar-strong); }
     .step-tag { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
@@ -405,6 +410,28 @@
     .opt.correct { border-color: var(--good); background: var(--good-soft); }
     .opt.wrong { border-color: var(--again); background: var(--danger-soft); }
     .opt:disabled { cursor: default; }
+
+    /* Typed free-production drills (translate / type_cloze). The learner writes
+       the target language, so the field carries the script font and every
+       autocorrect/capitalisation assist is off — a phone "helpfully" fixing
+       Cantonese or French accents would grade the learner on the keyboard. */
+    .ex-hint { text-align: center; color: var(--text-muted); font-size: 0.88rem; margin: 0 0 12px; }
+    .type-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .type-input {
+      width: 100%; box-sizing: border-box; min-height: 0; resize: none;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; font-size: 1.15rem; line-height: 1.5; color: var(--text);
+      font-family: var(--script-font, inherit);
+    }
+    .type-input::placeholder { color: var(--text-muted); font-family: inherit; font-size: 1rem; }
+    .type-input:focus { outline: none; border-color: var(--primary); background: var(--primary-soft); }
+    .type-input.correct { border-color: var(--good); background: var(--good-soft); }
+    .type-input.wrong { border-color: var(--again); background: var(--danger-soft); }
+    .type-input:disabled { opacity: 1; }
+    .type-status { min-height: 1.1em; font-size: 0.85rem; color: var(--text-muted); text-align: right; }
+    .type-status.checking::after { content: ''; animation: typedots 1.2s steps(4, end) infinite; }
+    @keyframes typedots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+    @media (prefers-reduced-motion: reduce) { .type-status.checking::after { animation: none; content: '...'; } }
     .opt-roman { color: var(--text-muted); font-size: 0.82rem; font-style: italic; font-family: inherit; }
     ruby { ruby-align: center; line-height: 1; }
     rt { font-size: 0.62em; color: var(--text-muted); font-family: inherit; font-style: normal; }

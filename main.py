@@ -5820,7 +5820,7 @@ async def foundations_practice(
 # content. `mistakes` pulls drills for weak concepts (concept_mastery); `lightning`
 # returns the choice-drill pool the client remixes into a 60s speed round.
 
-_PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match"}
+_PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match", "type_answer"}
 _PRACTICE_MAX = 12
 
 
@@ -6059,24 +6059,28 @@ _CHECKPOINT_PASS_PCT = 80    # score needed to seal the unit
 _CHECKPOINT_MAX_Q = 10
 _CHECKPOINT_PER_LESSON = 2
 # Exercise types a checkpoint can grade (self-managed/LLM types are excluded).
-_CHECKPOINT_TYPES = {"choice", "listening", "word_bank", "match"}
+_CHECKPOINT_TYPES = {"choice", "listening", "word_bank", "match", "type_answer"}
 
 
 def _checkpoint_difficulty(ex: dict) -> int:
     """Rank a stored exercise by difficulty (lower = harder). Hardest kinds are
-    preferred per the redesign doc: reorder/cloze/production over recognition."""
+    preferred per the redesign doc: reorder/cloze/production over recognition.
+    Typed free production leads — it is the only kind that shows the learner
+    nothing to recognise."""
     t = ex.get("type")
+    if t == "type_answer":
+        return 0 if not ex.get("is_cloze") else 1
     if t == "word_bank":
-        return 0
-    if t == "choice" and ex.get("is_cloze"):
-        return 1
-    if t == "choice" and ex.get("prompt_lang") == "english":
         return 2
-    if t == "listening":
+    if t == "choice" and ex.get("is_cloze"):
         return 3
-    if t == "choice":
+    if t == "choice" and ex.get("prompt_lang") == "english":
         return 4
-    return 5   # match
+    if t == "listening":
+        return 5
+    if t == "choice":
+        return 6
+    return 7   # match
 
 
 def _checkpoint_quiz(unit: dict) -> list[dict]:
@@ -6627,6 +6631,70 @@ async def lesson_drill(request: Request, req: LessonDrillRequest,
     if answer is not None:
         await db.record_study_activity(user["id"])
     return out
+
+
+class TypedAnswerRequest(BaseModel):
+    prompt: str                      # the English sentence, or the cloze sentence
+    expected: str                    # the author's answer
+    answer: str                      # what the learner typed
+    accept: list[str] = []           # other forms the author already accepts
+    is_cloze: bool = False
+    lang: str | None = None
+
+
+@app.post("/api/lesson/check")
+@limiter.limit("120/minute;1500/day")
+async def lesson_check(request: Request, req: TypedAnswerRequest,
+                       user: dict = Depends(current_user)):
+    """Grade one typed lesson drill.
+
+    Two-stage on purpose. The offline accept-set match is free and instant and
+    handles the common case, so the LLM is only asked the question it is actually
+    needed for: "is this a DIFFERENT but valid way to say it?" That keeps typed
+    drills affordable enough to put several in every lesson — which is the whole
+    point, since a lesson of pure multiple choice never makes the learner produce
+    the language at all.
+
+    A grader that can't be reached returns `checked: false` rather than a verdict.
+    Guessing "wrong" would punish a learner who was probably right, and guessing
+    "right" would teach nothing; the client offers to reveal the answer instead.
+    """
+    answer = (req.answer or "").strip()[:500]
+    expected = (req.expected or "").strip()[:500]
+    if not answer or not expected:
+        raise HTTPException(400, "answer and expected required")
+    lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
+    accept = [a for a in (req.accept or [])[:12] if (a or "").strip()]
+
+    # Free path — no LLM, no metering, no latency.
+    if tutor.answer_matches(answer, expected, accept):
+        return {"checked": True, "correct": True, "corrected": "", "note": "", "exact": True}
+
+    # Resolve the key best-effort. No key (self-hosted with none configured, or
+    # quota exhausted) must NOT 503 the drill — mid-lesson that reads as the
+    # lesson breaking. It degrades to "couldn't check", same as any other grader
+    # outage, and the accept-set path above keeps working regardless.
+    try:
+        access = await _resolve_gemini(user)
+    except HTTPException:
+        return {"checked": False, "correct": False, "corrected": expected, "note": ""}
+
+    course = await db.get_active_course(user["id"], lang)
+    level = (course.get("level") or "A1") if course else "A1"
+    try:
+        feedback = await tutor.judge_typed_answer(
+            lang, (req.prompt or "").strip()[:500], expected, answer,
+            is_cloze=bool(req.is_cloze), accept=accept,
+            api_key=access.api_key, level=level,
+        )
+    except Exception as e:
+        logger.error("Typed answer check failed lang=%s: %s", lang, e, exc_info=True)
+        feedback = None
+
+    if feedback is None:
+        return {"checked": False, "correct": False, "corrected": expected, "note": ""}
+    await db.record_study_activity(user["id"])
+    return {"checked": True, "exact": False, **feedback}
 
 
 @app.get("/api/ruby")
