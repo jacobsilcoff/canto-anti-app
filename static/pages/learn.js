@@ -3034,19 +3034,36 @@
     // Visible steps, keeping their real index so segIdx comparisons still work.
     const shown = segs.map((sg, i) => ({ sg, i, w: _segWeight(sg, i) })).filter(s => s.w > 0);
 
-    const html = shown.map(({ sg, i, w }) => {
-      let pct = 0;
-      if (player.reviewStarted || i < player.segIdx) pct = 100;
-      else if (i === player.segIdx) {
+    // ONE continuous track for the whole lesson, with a thin tick where each step
+    // ends. Separate per-step pills couldn't be both even and honest: sized
+    // equally they advance at wildly different rates, and sized by content they
+    // render a one-drill AI Speak step as an unreadable sliver next to an
+    // eight-drill step. A single bar measures the thing the learner actually
+    // wants to know — how much of THE LESSON is left — and only ever moves
+    // forward, at a rate proportional to the work each answer represents.
+    const total = shown.reduce((sum, s) => sum + s.w, 0);
+    let done = 0;
+    for (const { sg, i, w } of shown) {
+      if (player.reviewStarted || i < player.segIdx) { done += w; continue; }
+      if (i === player.segIdx) {
         // Teach cards first, then drills. While on the teach screen the learner
         // is partway through the cards; once drilling, all of them are behind.
         const cards = _teachCards(sg);
         const teachDone = onTeach ? Math.min(player.teachIdx || 0, cards) : cards;
-        pct = Math.min(100, Math.round((teachDone + player.segAnswered) / w * 100));
+        done += Math.min(w, teachDone + player.segAnswered);
       }
-      return `<div class="step-seg${sg.speak ? ' speak' : ''}" style="flex-grow:${w}">`
-        + `<div class="step-fill" style="width:${pct}%"></div></div>`;
-    }).join('');
+    }
+    const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
+
+    let ticks = '';
+    let acc = 0;
+    for (let k = 0; k < shown.length - 1; k++) {          // no tick at the very end
+      acc += shown[k].w;
+      ticks += `<i class="step-tick" style="left:${(acc / total * 100).toFixed(2)}%"></i>`;
+    }
+    const speak = (segs[player.segIdx] || {}).speak && !player.reviewStarted;
+    const html = `<div class="step-track${speak ? ' speak' : ''}">`
+      + `<div class="step-fill" style="width:${pct}%"></div>${ticks}</div>`;
     ['player-stepbar', 'teach-stepbar'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = html;

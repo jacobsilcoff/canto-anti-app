@@ -997,15 +997,20 @@ def build_lesson_drill_judge_prompt(
         f"capitalization, trailing punctuation (.!?), and apostrophe style. Accept a minor "
         f"typo (one swapped/missing letter) when the intent is clear, but note it. Do NOT "
         f"require optional gender/number/formality variants — one valid form is enough.\n\n"
+        f"LANGUAGE OF THE EXPLANATION: `note` must be written in ENGLISH, always. It "
+        f"explains a mistake to the learner who just made it, so an explanation in "
+        f"{name} teaches them nothing. Quote {name} words inside it freely; the "
+        f"sentence around them is English. `corrected` and `alt` are answers, not "
+        f"explanations — those stay in {name}.\n\n"
         f"Return ONLY valid JSON:\n"
         '{\n'
         '  "correct": true or false,\n'
-        '  "corrected": "<empty if the answer is correct and clean; the answer with typos '
-        'fixed if correct but slightly off; the correct translation if wrong>",\n'
+        f'  "corrected": "<empty if the answer is correct and clean; the answer with typos '
+        f'fixed if correct but slightly off; the correct translation if wrong — in {name}>",\n'
         f'  "alt": "<empty UNLESS the answer is correct but does not use the construction; '
         f'then one natural {name} sentence that does>",\n'
-        '  "note": "<one short sentence: the error and rule if wrong; the construction tip '
-        'if you filled alt; empty otherwise>"\n'
+        '  "note": "<ONE SHORT SENTENCE IN ENGLISH: the error and rule if wrong; the '
+        'construction tip if you filled alt; empty otherwise>"\n'
         '}\n'
     )
 
@@ -1089,15 +1094,50 @@ def build_typed_answer_judge_prompt(
         f"• accept a single obvious typo when the intent is unmistakable, but mention it\n"
         f"• mark it WRONG when the meaning changes, a required form is wrong "
         f"(conjugation, classifier, particle), or it is not {name}\n\n"
+        f"LANGUAGE OF THE EXPLANATION: `note` must be written in ENGLISH, always, "
+        f"however advanced the learner is and whatever language the drill is in. It "
+        f"explains a mistake to someone who just made it — an explanation they cannot "
+        f"read teaches them nothing. You may quote {name} words inside it (e.g. "
+        f"'X means ..., not ...'), but the sentence around them is English. "
+        f"`corrected` is the opposite: it is the answer itself, so it stays in {name}.\n\n"
         f"Return ONLY valid JSON:\n"
         '{\n'
         '  "correct": true or false,\n'
-        '  "corrected": "<empty if correct and clean; the fixed form if correct but '
-        'slightly off; the correct answer if wrong>",\n'
-        '  "note": "<one short sentence naming the rule if wrong, or the nuance if the '
-        'answer was a valid variant; empty if it was simply right>"\n'
+        f'  "corrected": "<empty if correct and clean; the fixed form if correct but '
+        f'slightly off; the correct answer if wrong — in {name}>",\n'
+        '  "note": "<ONE SHORT SENTENCE IN ENGLISH naming the rule if wrong, or the '
+        'nuance if the answer was a valid variant; empty if it was simply right>"\n'
         '}\n'
     )
+
+
+def _english_note(note: str) -> str:
+    """Drop a feedback note the learner can't read.
+
+    The judge prompts require English explanations, but a prompt is a request,
+    not a guarantee: asked to act as a Cantonese tutor, a model will happily
+    explain a mistake in Cantonese — which is unreadable precisely to the learner
+    who just made it. Script is a free, deterministic check for the case that
+    actually bites (non-Latin targets); a French note in French is
+    indistinguishable from English by script and is left to the prompt.
+
+    Latin letters inside a non-Latin note are common and fine ("X means ...") —
+    only drop when the note is MOSTLY non-Latin.
+    """
+    s = (note or "").strip()
+    if not s:
+        return ""
+    latin = other = 0
+    for ch in s:
+        if not ch.isalpha():
+            continue
+        if ("a" <= ch.lower() <= "z") or "À" <= ch <= "ɏ":
+            latin += 1
+        else:
+            other += 1
+    if other and other > latin:
+        return ""
+    return s
 
 
 def answer_matches(answer: str, expected: str, accept: list[str] | None = None) -> bool:
@@ -1143,7 +1183,7 @@ async def judge_typed_answer(
 
     correct = bool(result.get("correct"))
     corrected = (result.get("corrected") or "").strip()
-    note = (result.get("note") or "").strip()
+    note = _english_note(result.get("note"))
     # Same-answer override (mirrors run_lesson_drill): if the model says wrong but
     # its "correction" is what the learner already wrote, it contradicted itself.
     if not correct and corrected and _norm_for_compare(answer) == _norm_for_compare(corrected):
@@ -1267,7 +1307,7 @@ async def run_lesson_drill(
         correct = bool(llm_result.get("correct", llm_result.get("acceptable")))
         corrected = (llm_result.get("corrected") or "").strip()
         alt = (llm_result.get("alt") or "").strip()
-        note = (llm_result.get("note") or "").strip()
+        note = _english_note(llm_result.get("note"))
         if not correct and _norm_for_compare(answer) == _norm_for_compare(corrected):
             correct = True
             note = ""

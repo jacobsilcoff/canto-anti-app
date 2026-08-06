@@ -360,14 +360,17 @@
     .player-back:active { background: var(--surface-alt, var(--neutral-soft)); }
     /* Segmented step bar — one pill per lesson step (A1), filling left→right. */
     .step-bar { flex: 1; display: flex; gap: 5px; }
-    /* flex-grow is set inline per step, proportional to how much work it holds
-       (teach cards + drills), so the bar advances at a steady rate instead of
-       crawling through a heavy step and jumping through a light one. Basis 0 is
-       what makes grow the sole width driver; min-width keeps a 1-drill step from
-       collapsing to an invisible sliver next to a 10-drill one. */
-    .step-seg { flex: 1 1 0; min-width: 12px; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
-    .step-fill { height: 100%; border-radius: 999px; background: var(--good); width: 0; transition: width 0.25s; }
-    .step-seg.speak .step-fill { background: var(--grammar-strong); }
+    /* ONE continuous track for the whole lesson. Ticks mark where each step ends,
+       so the step structure is still legible without chopping the bar into pills
+       that fill at different rates. The fill only ever grows. */
+    .step-track { position: relative; flex: 1; height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .step-fill { height: 100%; border-radius: 999px; background: var(--good); width: 0; transition: width 0.3s ease-out; }
+    .step-track.speak .step-fill { background: var(--grammar-strong); }
+    /* Sits ON the track, so it reads as a division of one bar rather than a gap
+       between separate ones. */
+    .step-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+                 background: var(--bg); opacity: 0.35; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) { .step-fill { transition: none; } }
     .step-tag { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
     .step-tag.speak { color: var(--grammar-strong); }
     .teach-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 10px; }

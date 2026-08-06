@@ -332,3 +332,46 @@ def test_typed_drills_survive_full_lesson_assembly():
     # drill tagged core is the one a short run keeps.
     assert {t["tier"] for t in typed} == {"core", "standard"}
     assert typed[0]["accept"] == ["Je mange le pain"]
+
+
+# ── Feedback must be readable by the learner who just erred ──────────────────
+
+@pytest.mark.parametrize("note,kept", [
+    ("boire means to drink, not to eat.", True),
+    ('X means "sold out" — 賣晒 is the set phrase here.', True),   # English quoting target
+    ("「埋晒」有「全部收集/關閉」的意思，與「賣晒」（售罄）意思不同。", False),
+    ("これは違います。「売り切れ」を使います。", False),
+    ("", False),
+])
+def test_non_english_notes_are_dropped(note, kept):
+    """Asked to be a Cantonese tutor, the model will explain the mistake in
+    Cantonese — unreadable to exactly the beginner who made it. The prompts ask
+    for English; this is the deterministic backstop for when they're ignored."""
+    assert bool(tutor._english_note(note)) is kept
+
+
+@pytest.mark.asyncio
+async def test_judge_drops_a_target_language_explanation(monkeypatch):
+    async def fake_call(prompt, api_key, model):
+        return {"correct": False, "corrected": "賣晒",
+                "note": "「埋晒」同「賣晒」意思唔同，唔啱語境。"}
+    monkeypatch.setattr(tutor, "_drill_call", fake_call)
+
+    fb = await tutor.judge_typed_answer(
+        "yue", "唔好意思，啲龍蝦___喇。", "賣晒", "埋晒",
+        is_cloze=True, api_key="k",
+    )
+    assert fb["correct"] is False
+    assert fb["corrected"] == "賣晒"      # the ANSWER stays in the target language
+    assert fb["note"] == ""               # the EXPLANATION is dropped, not shown
+
+
+def test_judge_prompts_demand_english_explanations():
+    """Belt and braces: the instruction has to actually be in the prompt, or the
+    backstop above is doing all the work and most notes get thrown away."""
+    typed = tutor.build_typed_answer_judge_prompt(
+        "yue", "the lobsters are sold out", "賣晒", "埋晒", is_cloze=False)
+    assert "ENGLISH" in typed
+    drill = tutor.build_lesson_drill_judge_prompt(
+        "yue", "comparative with 過", "I am taller", "我高過佢", "", level="A1")
+    assert "ENGLISH" in drill
