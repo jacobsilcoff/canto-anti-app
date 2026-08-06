@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -11,6 +12,35 @@ import tokenizer
 
 DB_PATH = os.getenv("DB_PATH", "data/cards.db")
 MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
+
+
+@contextlib.asynccontextmanager
+async def connect():
+    """Open a DB connection with the PRAGMAs this schema depends on.
+
+    **Every connection in this module must come from here.** `foreign_keys` and
+    `synchronous` are per-CONNECTION settings (unlike `journal_mode = WAL`, which
+    lives in the DB file header), and SQLite defaults `foreign_keys` to OFF. This
+    module opens a fresh connection per call, so setting the pragma once in
+    `init()` covered only `init()` — on every other connection the schema's 21
+    `ON DELETE CASCADE` clauses were inert.
+
+    That is why deletes here hand-clean their children: they had to. The cascades
+    were decorative, and the ones nobody hand-wrote silently leaked — deleting a
+    shared deck left its `shared_deck_items`, `deck_imports`, `deck_ratings` and
+    `deck_import_cards` rows behind forever. With the pragma on, the declarations
+    in the schema are load-bearing again and a new delete path gets cleanup for
+    free instead of leaking until somebody notices.
+
+    `synchronous = NORMAL` is likewise per-connection: without it every write paid
+    a full fsync, which under WAL is more durability than this app needs.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Must precede any DML: a PRAGMA is a no-op inside an open transaction,
+        # and python-sqlite3 opens one implicitly before the first write.
+        await db.execute("PRAGMA foreign_keys = ON")
+        await db.execute("PRAGMA synchronous = NORMAL")
+        yield db
 
 # Card face values. 'source' = native-language text, 'target' = target-language text,
 # 'pronunciation' = romanization (logographic) or audio-only (Latin script).
@@ -467,8 +497,11 @@ async def init():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_units_course    ON course_units(course_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_lessons_course  ON course_lessons(course_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_concepts_course ON course_concepts(course_id)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_tutor_msgs_conv ON tutor_messages(conversation_id)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_points_user     ON points_ledger(user_id, lang)")
+        # idx_tutor_msgs_conv / idx_points_user are NOT repeated here — migration
+        # 016_tutor.sql creates both, and it has already run by this point. Two
+        # declarations of one index name cost nothing at runtime (IF NOT EXISTS),
+        # but they drift: an index changed in one place and not the other is a
+        # silent disagreement about what the schema is.
 
 
 async def _run_py_migration(path: str, conn) -> None:
@@ -537,7 +570,7 @@ async def bootstrap_admin(username: str, password_hash: str, email: str | None =
     On every startup, ensures the admin's email is set and verified if provided.
     Returns the admin's user_id.
     """
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await db.execute("PRAGMA foreign_keys = ON")
         async with db.execute("SELECT COUNT(*) FROM users") as cur:
@@ -602,7 +635,7 @@ SYSTEM_DISPLAY_NAME = "Silcoff Labs"
 
 async def get_or_create_system_user(password_hash: str) -> int:
     """Ensure the system deck-owner account exists. Returns its user_id."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
@@ -622,7 +655,7 @@ async def get_or_create_system_user(password_hash: str) -> int:
 
 
 async def get_system_user_id() -> int | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
             (SYSTEM_USERNAME,),
@@ -642,7 +675,7 @@ _USER_COLS = (
 
 
 async def get_user_by_username(username: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS} FROM users WHERE username=? COLLATE NOCASE",
@@ -653,7 +686,7 @@ async def get_user_by_username(username: str) -> dict | None:
 
 
 async def get_user_by_email(email: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS} FROM users WHERE lower(email)=lower(?)",
@@ -671,7 +704,7 @@ async def get_user_by_token(token: str, token_type: str) -> dict | None:
     """
     col = "verification_token" if token_type == "verification" else "reset_token"
     extra = ", reset_token_expiry" if token_type == "reset" else ""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS}{extra} FROM users WHERE {col}=?",
@@ -682,7 +715,7 @@ async def get_user_by_token(token: str, token_type: str) -> dict | None:
 
 
 async def get_user(user_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS} FROM users WHERE id=?",
@@ -695,7 +728,7 @@ async def get_user(user_id: int) -> dict | None:
 async def set_user_plan(user_id: int, plan: str) -> None:
     """Admin comp: set a user's plan directly (e.g. grant Pro to a friend) without
     a Stripe subscription. Use set_plan_by_customer for Stripe-driven changes."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET plan=? WHERE id=?",
             (plan, user_id),
@@ -704,7 +737,7 @@ async def set_user_plan(user_id: int, plan: str) -> None:
 
 
 async def list_users() -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS} FROM users ORDER BY id"
@@ -721,7 +754,7 @@ async def create_user(
     email_verified: bool = True,
     verification_token: str | None = None,
 ) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cursor = await db.execute(
             """INSERT INTO users
                (username, password_hash, is_admin, email, display_name, email_verified, verification_token)
@@ -734,7 +767,7 @@ async def create_user(
 
 
 async def set_email_verified(user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET email_verified=1, verification_token=NULL WHERE id=?",
             (user_id,),
@@ -743,7 +776,7 @@ async def set_email_verified(user_id: int) -> None:
 
 
 async def set_verification_token(user_id: int, token: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET verification_token=? WHERE id=?",
             (token, user_id),
@@ -752,7 +785,7 @@ async def set_verification_token(user_id: int, token: str) -> None:
 
 
 async def set_reset_token(user_id: int, token: str | None, expiry: str | None) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET reset_token=?, reset_token_expiry=? WHERE id=?",
             (token, expiry, user_id),
@@ -787,13 +820,13 @@ async def update_user_profile(
     if not fields:
         return
     vals.append(user_id)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(f"UPDATE users SET {', '.join(fields)} WHERE id=?", vals)
         await db.commit()
 
 
 async def delete_user(user_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("PRAGMA foreign_keys = ON")
         # Manually clean up since some legacy rows may have user_id but no FK.
         async with db.execute("SELECT id FROM cards WHERE user_id=?", (user_id,)) as cur:
@@ -811,7 +844,7 @@ async def delete_user(user_id: int):
 
 
 async def update_user_password(user_id: int, password_hash: str):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
         await db.commit()
 
@@ -823,7 +856,7 @@ def _hash_token(token: str) -> str:
 
 
 async def create_session(token: str, user_id: int, expiry: float) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "INSERT OR REPLACE INTO sessions (token_hash, user_id, expiry) VALUES (?, ?, ?)",
             (_hash_token(token), user_id, expiry),
@@ -835,7 +868,7 @@ async def get_session_user(token: str) -> int | None:
     """Return the user_id for a valid session token, or None if missing/expired.
     Expired rows are deleted lazily on lookup."""
     th = _hash_token(token)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT user_id, expiry FROM sessions WHERE token_hash=?", (th,)
         ) as cur:
@@ -851,19 +884,19 @@ async def get_session_user(token: str) -> int | None:
 
 
 async def delete_session(token: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM sessions WHERE token_hash=?", (_hash_token(token),))
         await db.commit()
 
 
 async def delete_user_sessions(user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
         await db.commit()
 
 
 async def purge_expired_sessions() -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM sessions WHERE expiry < ?", (time.time(),))
         await db.commit()
 
@@ -873,7 +906,7 @@ async def purge_expired_sessions() -> None:
 # stored only as SHA-256 hashes, and are replaced/revoked explicitly.
 
 async def create_api_token(token: str, user_id: int, label: str = "") -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM api_tokens WHERE user_id=?", (user_id,))
         await db.execute(
             "INSERT INTO api_tokens (token_hash, user_id, label) VALUES (?, ?, ?)",
@@ -883,7 +916,7 @@ async def create_api_token(token: str, user_id: int, label: str = "") -> None:
 
 
 async def get_user_by_api_token(token: str) -> int | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT user_id FROM api_tokens WHERE token_hash=?", (_hash_token(token),)
         ) as cur:
@@ -892,7 +925,7 @@ async def get_user_by_api_token(token: str) -> int | None:
 
 
 async def has_api_token(user_id: int) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT 1 FROM api_tokens WHERE user_id=? LIMIT 1", (user_id,)
         ) as cur:
@@ -900,7 +933,7 @@ async def has_api_token(user_id: int) -> bool:
 
 
 async def revoke_api_tokens(user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM api_tokens WHERE user_id=?", (user_id,))
         await db.commit()
 
@@ -908,7 +941,7 @@ async def revoke_api_tokens(user_id: int) -> None:
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 async def count_cards(user_id: int) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM cards WHERE user_id=?", (user_id,)
         ) as cur:
@@ -917,7 +950,7 @@ async def count_cards(user_id: int) -> int:
 
 
 async def get_setting(user_id: int, key: str, default=None):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT value FROM user_settings WHERE user_id=? AND key=?", (user_id, key)
         ) as cur:
@@ -926,7 +959,7 @@ async def get_setting(user_id: int, key: str, default=None):
 
 
 async def set_setting(user_id: int, key: str, value):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
             (user_id, key, str(value)),
@@ -938,7 +971,7 @@ async def set_setting(user_id: int, key: str, value):
 
 async def get_admin_dashboard_stats() -> dict:
     """Aggregate stats for the admin dashboard — runs in one connection."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
 
         # ── Users by tier ──
@@ -1092,7 +1125,7 @@ async def get_admin_dashboard_stats() -> dict:
 
 async def get_usage(user_id: int) -> int:
     """AI calls the user has made in the current calendar month (UTC)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT ai_calls FROM usage_counters "
             "WHERE user_id=? AND period=strftime('%Y-%m','now')",
@@ -1104,7 +1137,7 @@ async def get_usage(user_id: int) -> int:
 
 async def increment_usage(user_id: int) -> int:
     """Add one AI call to the current month's counter; return the new total."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO usage_counters (user_id, period, ai_calls)
                VALUES (?, strftime('%Y-%m','now'), 1)
@@ -1130,7 +1163,7 @@ _GLOBAL_USAGE_UID = 0
 
 async def get_global_usage_today() -> int:
     """Total shared-key AI calls across ALL users so far today (UTC)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT ai_calls FROM usage_counters "
             "WHERE user_id=? AND period=strftime('%Y-%m-%d','now')",
@@ -1142,7 +1175,7 @@ async def get_global_usage_today() -> int:
 
 async def increment_global_usage_today() -> int:
     """Add one shared-key AI call to today's app-wide counter; return new total."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO usage_counters (user_id, period, ai_calls)
                VALUES (?, strftime('%Y-%m-%d','now'), 1)
@@ -1160,7 +1193,7 @@ async def increment_global_usage_today() -> int:
 
 
 async def get_user_by_stripe_customer(customer_id: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_USER_COLS} FROM users WHERE stripe_customer_id=?",
@@ -1171,7 +1204,7 @@ async def get_user_by_stripe_customer(customer_id: str) -> dict | None:
 
 
 async def set_stripe_customer(user_id: int, customer_id: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET stripe_customer_id=? WHERE id=?",
             (customer_id, user_id),
@@ -1188,7 +1221,7 @@ async def set_plan_by_customer(
     cancel_at_period_end: bool = False,
 ) -> None:
     """Update subscription state for whichever user owns this Stripe customer."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE users SET plan=?, subscription_status=?, subscription_period_end=?, "
             "stripe_subscription_id=?, cancel_at_period_end=? "
@@ -1203,7 +1236,7 @@ async def set_plan_by_customer(
 async def get_or_create_label(user_id: int, name: str, is_story_label: bool = False) -> int:
     """Return the id of an existing label (case-insensitive) or create it."""
     name = name.strip()
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT id FROM labels WHERE user_id=? AND name=? COLLATE NOCASE",
             (user_id, name),
@@ -1236,7 +1269,7 @@ async def create_card(
 ) -> int:
     _VALID_CEFR = {"A1", "A2", "B1", "B2", "C1", "C2"}
     safe_cefr = cefr_level if cefr_level in _VALID_CEFR else None
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cursor = await db.execute(
             """INSERT INTO cards (user_id, source_text, target_text, romanization, target_lang,
                                   audio_data, notes, priority, classifier, canonical_card_id, cefr_level)
@@ -1285,7 +1318,7 @@ async def add_labels_by_name(user_id: int, card_id: int, names: list[str]) -> li
     Used by the background auto-labeler. Returns the attached label ids."""
     if not names:
         return []
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Only operate on a card the user actually owns.
         async with db.execute(
             "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id),
@@ -1320,7 +1353,7 @@ _CARD_COLS = "id, source_text, target_text, romanization, target_lang, notes, pr
 
 
 async def get_card(user_id: int, card_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT {_CARD_COLS} FROM cards WHERE id = ? AND user_id = ?",
@@ -1331,7 +1364,7 @@ async def get_card(user_id: int, card_id: int) -> dict | None:
 
 
 async def get_face_state(user_id: int, card_id: int, face: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT cf.interval_days, cf.ease_factor, cf.repetitions,
@@ -1366,7 +1399,7 @@ async def _faces_with_labels(user_id: int, rows: list[dict]) -> list[dict]:
     if not rows:
         return rows
     card_ids = {r["card_id"] for r in rows}
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         placeholders = ",".join("?" * len(card_ids))
         async with db.execute(
@@ -1475,7 +1508,7 @@ async def get_study_session(
     label_filter = extra_filter
     label_params = extra_params
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
 
         review_sql = f"""
@@ -1560,7 +1593,7 @@ async def get_study_session(
 
 
 async def get_due_faces(user_id: int, label_id: int | None = None) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         if label_id is None:
             sql, params = _faces_query("AND cf.next_review <= datetime('now')", (user_id,))
@@ -1595,7 +1628,7 @@ async def get_all_faces(
     if target_lang is not None:
         extra += " AND c.target_lang = ?"
         extra_params += (target_lang,)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         sql, params = _faces_query(extra, (user_id,) + extra_params)
         async with db.execute(sql, params) as cur:
@@ -1604,7 +1637,7 @@ async def get_all_faces(
 
 
 async def get_all_cards(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"""SELECT {_CARD_COLS}, created_at FROM cards
@@ -1748,7 +1781,7 @@ async def get_cards_page(
         "f.learning_step, f.first_seen_date"
     )
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"SELECT COUNT(*) {joined} WHERE {predicate}", tuple(params),
@@ -1811,7 +1844,7 @@ async def get_due_count(
     if target_lang is not None:
         extra += " AND c.target_lang = ?"
         extra_params += (target_lang,)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         # Reviews (already seen)
         async with db.execute(
@@ -1864,7 +1897,7 @@ async def get_due_count(
 
 
 async def get_audio(user_id: int, card_id: int) -> bytes | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT audio_data FROM cards WHERE id = ? AND user_id = ?",
             (card_id, user_id),
@@ -1874,7 +1907,7 @@ async def get_audio(user_id: int, card_id: int) -> bytes | None:
 
 
 async def set_audio(user_id: int, card_id: int, data: bytes):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE cards SET audio_data=? WHERE id=? AND user_id=?",
             (data, card_id, user_id),
@@ -1883,7 +1916,7 @@ async def set_audio(user_id: int, card_id: int, data: bytes):
 
 
 async def update_face_review(user_id: int, card_id: int, face: str, state: dict):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Ensure the card belongs to this user.
         async with db.execute(
             "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
@@ -1924,7 +1957,7 @@ async def apply_card_review(
     (offline reviews sync long after the fact); it only moves the activity row,
     never the SRS scheduling, which is always relative to now.
     """
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         await conn.execute("BEGIN IMMEDIATE")
         async with conn.execute(
@@ -2012,7 +2045,7 @@ async def undo_card_review(user_id: int, history_id: int) -> dict | None:
     Returning ``None`` means the id is absent/already undone.  ``out_of_order``
     protects newer scheduling work when a stale client attempts an old undo.
     """
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         await conn.execute("BEGIN IMMEDIATE")
         async with conn.execute(
@@ -2076,7 +2109,7 @@ async def update_card(
     notes: str | None = None,
     label_ids: list[int] | None = None,
 ):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Confirm ownership before mutating.
         async with db.execute(
             "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
@@ -2107,7 +2140,7 @@ async def update_card(
 
 
 async def delete_card(user_id: int, card_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
         ) as cur:
@@ -2120,7 +2153,7 @@ async def delete_card(user_id: int, card_id: int):
 
 
 async def set_card_priority(user_id: int, card_id: int, priority: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE cards SET priority=? WHERE id=? AND user_id=?",
             (max(1, min(5, priority)), card_id, user_id),
@@ -2129,7 +2162,7 @@ async def set_card_priority(user_id: int, card_id: int, priority: int):
 
 
 async def set_card_tutor_flag(user_id: int, card_id: int, flagged: bool):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE cards SET tutor_flag=? WHERE id=? AND user_id=?",
             (1 if flagged else 0, card_id, user_id),
@@ -2138,7 +2171,7 @@ async def set_card_tutor_flag(user_id: int, card_id: int, flagged: bool):
 
 
 async def set_card_suspended(user_id: int, card_id: int, suspended: bool):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE cards SET suspended=? WHERE id=? AND user_id=?",
             (1 if suspended else 0, card_id, user_id),
@@ -2147,7 +2180,7 @@ async def set_card_suspended(user_id: int, card_id: int, suspended: bool):
 
 
 async def reset_card_to_new(user_id: int, card_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT 1 FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
         ) as cur:
@@ -2166,14 +2199,14 @@ async def reset_card_to_new(user_id: int, card_id: int):
 
 
 async def update_card_embedding(card_id: int, embedding_json: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("UPDATE cards SET embedding=? WHERE id=?", (embedding_json, card_id))
         await db.commit()
 
 
 async def get_all_embeddings(user_id: int) -> list[dict]:
     """Return all cards that have embeddings, for similarity search."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, source_text, target_text, embedding
@@ -2185,7 +2218,7 @@ async def get_all_embeddings(user_id: int) -> list[dict]:
 
 async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
     """Cards with no stored embedding yet — for lazy backfill in suggest-cards."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, source_text, target_text
@@ -2199,7 +2232,7 @@ async def get_cards_missing_embedding(user_id: int, limit: int) -> list[dict]:
 async def get_all_cards_basic(user_id: int, target_lang: str) -> list[dict]:
     """Lightweight card list without audio BLOBs — for atomize feature.
     Ordered shortest target_text first so phrase detection is consistent."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, source_text, target_text, romanization, target_lang,
@@ -2214,7 +2247,7 @@ async def get_all_cards_basic(user_id: int, target_lang: str) -> list[dict]:
 
 async def get_cards_missing_classifier(user_id: int, target_lang: str) -> list[dict]:
     """Cards with an empty classifier field for the given language."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, target_text, source_text
@@ -2228,7 +2261,7 @@ async def get_cards_missing_classifier(user_id: int, target_lang: str) -> list[d
 
 
 async def update_card_classifier(card_id: int, classifier: str, user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE cards SET classifier=? WHERE id=? AND user_id=?",
             (classifier or "", card_id, user_id),
@@ -2238,7 +2271,7 @@ async def update_card_classifier(card_id: int, classifier: str, user_id: int) ->
 
 async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | None) -> bool:
     """Set (or clear) the canonical card pointer. Returns False if card not found."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT id FROM cards WHERE id=? AND user_id=?", (card_id, user_id)
         ) as cur:
@@ -2254,7 +2287,7 @@ async def set_canonical_card(user_id: int, card_id: int, canonical_id: int | Non
 
 async def get_card_forms(user_id: int, canonical_card_id: int) -> list[dict]:
     """Return all cards that point to this canonical card."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"""SELECT {_CARD_COLS} FROM cards
@@ -2268,7 +2301,7 @@ async def get_card_forms(user_id: int, canonical_card_id: int) -> list[dict]:
 # ── Labels ────────────────────────────────────────────────────────────────────
 
 async def list_labels(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT l.id, l.name, l.is_story_label, COUNT(cl.card_id) AS card_count
@@ -2284,7 +2317,7 @@ async def list_labels(user_id: int) -> list[dict]:
 
 async def create_label(user_id: int, name: str, is_story_label: bool = False) -> dict:
     name = name.strip()
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await db.execute(
             "INSERT OR IGNORE INTO labels (user_id, name, is_story_label) VALUES (?, ?, ?)",
@@ -2300,7 +2333,7 @@ async def create_label(user_id: int, name: str, is_story_label: bool = False) ->
 
 
 async def rename_label(user_id: int, label_id: int, name: str) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         try:
             await db.execute(
                 "UPDATE labels SET name=? WHERE id=? AND user_id=?",
@@ -2315,7 +2348,7 @@ async def rename_label(user_id: int, label_id: int, name: str) -> bool:
 async def merge_labels(user_id: int, source_ids: list[int], target_id: int) -> int:
     """Reassign all card_labels rows from source labels to target, delete sources.
     Returns number of source labels deleted."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Verify target belongs to this user.
         async with db.execute(
             "SELECT 1 FROM labels WHERE id=? AND user_id=?", (target_id, user_id)
@@ -2345,7 +2378,7 @@ async def merge_labels(user_id: int, source_ids: list[int], target_id: int) -> i
 
 
 async def delete_label(user_id: int, label_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Only delete the label if it belongs to this user; FK cascade handles card_labels.
         async with db.execute(
             "SELECT 1 FROM labels WHERE id=? AND user_id=?", (label_id, user_id)
@@ -2359,7 +2392,7 @@ async def delete_label(user_id: int, label_id: int):
 
 async def get_or_create_story_label(user_id: int, text_id: int) -> dict:
     """Return (or create) the story label for a reader text. Returns {id, name, is_story_label}."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT title FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
@@ -2400,7 +2433,7 @@ async def create_reader_text(
     user_id: int, title: str, prompt: str, content: str, target_lang: str,
     image_media_id: str | None = None, difficulty: str = "B1",
 ) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await _ensure_reader_cols(db)
         cursor = await db.execute(
             """INSERT INTO reader_texts
@@ -2413,7 +2446,7 @@ async def create_reader_text(
 
 
 async def list_reader_texts(user_id: int, target_lang: str | None = None) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await _ensure_reader_cols(db)
         if target_lang is not None:
@@ -2432,7 +2465,7 @@ async def list_reader_texts(user_id: int, target_lang: str | None = None) -> lis
 
 
 async def get_reader_text(user_id: int, text_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await _ensure_reader_cols(db)
         async with db.execute(
@@ -2446,7 +2479,7 @@ async def get_reader_text(user_id: int, text_id: int) -> dict | None:
 
 
 async def delete_reader_text(user_id: int, text_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "DELETE FROM reader_texts WHERE id=? AND user_id=?", (text_id, user_id)
         )
@@ -2457,7 +2490,7 @@ async def delete_reader_text(user_id: int, text_id: int):
 
 async def create_course(user_id: int, target_lang: str, level: str) -> int:
     """Create an empty course. Lessons are generated one at a time on demand."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             "INSERT INTO courses (user_id, target_lang, level) VALUES (?, ?, ?)",
             (user_id, target_lang, level),
@@ -2481,7 +2514,7 @@ async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
     """
     if not units:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # If AI units already exist, shift them to make room for foundations at front.
         async with db.execute(
             "SELECT COUNT(*) FROM course_units WHERE course_id=?", (course_id,)
@@ -2525,7 +2558,7 @@ async def seed_foundation_units(course_id: int, units: list[dict]) -> None:
 
 async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict]:
     """List the user's courses (optionally filtered by language), newest first."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         sql = "SELECT id, target_lang, level, status, created_at FROM courses WHERE user_id=?"
         params: tuple = (user_id,)
@@ -2540,7 +2573,7 @@ async def get_courses(user_id: int, target_lang: str | None = None) -> list[dict
 async def get_course(user_id: int, course_id: int) -> dict | None:
     """Return the full nested course (completed units + in-progress lessons)
     with per-lesson status (done / available / locked)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT id, target_lang, level, status, created_at, active_plan "
@@ -2694,7 +2727,7 @@ async def get_course_vocab(user_id: int, course_id: int) -> list[dict]:
     COMPLETED-only so it reflects what the learner has actually studied and never
     spoils pre-generated lessons ahead of them. Foundations (reading-track) units
     are excluded — they teach script, not vocabulary."""
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         async with conn.execute(
             "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
@@ -2744,7 +2777,7 @@ async def get_course_vocab(user_id: int, course_id: int) -> list[dict]:
 
 async def get_active_course(user_id: int, target_lang: str) -> dict | None:
     """The user's most recent active course for a language, or None."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id FROM courses WHERE user_id=? AND target_lang=? AND status='active'
@@ -2757,7 +2790,7 @@ async def get_active_course(user_id: int, target_lang: str) -> dict | None:
 
 async def delete_course(user_id: int, course_id: int) -> None:
     """Delete a course and all its units/lessons/concepts (ownership-checked)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user_id)
         ) as cur:
@@ -2787,7 +2820,7 @@ async def delete_course(user_id: int, course_id: int) -> None:
 async def delete_ai_lessons(course_id: int) -> None:
     """Delete ALL units/lessons/concepts from a course and reset it fully.
     Foundations are re-seeded from code so they pick up any fixes."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Look up course owner + language for mastery cleanup.
         async with db.execute(
             "SELECT user_id, target_lang FROM courses WHERE id=?", (course_id,)
@@ -2831,7 +2864,7 @@ async def delete_ai_lessons(course_id: int) -> None:
 
 async def get_active_plan(course_id: int) -> dict | None:
     """The in-progress unit's outline (concepts + cursor), or None between units."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT active_plan FROM courses WHERE id=?", (course_id,)
         ) as cur:
@@ -2846,7 +2879,7 @@ async def get_active_plan(course_id: int) -> dict | None:
 
 async def set_active_plan(course_id: int, plan: dict | None) -> None:
     """Store (or clear, when plan is None) the in-progress unit outline."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE courses SET active_plan=? WHERE id=?",
             (json.dumps(plan) if plan is not None else None, course_id),
@@ -2889,7 +2922,7 @@ async def get_next_lesson_context(course_id: int) -> dict:
     """Return everything needed to generate the next lesson:
     lesson_num, open_lessons, concept_registry, taught_words, lesson_index,
     unit_summaries, recent_summaries, prior_concepts."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
 
         async with db.execute(
@@ -2981,7 +3014,7 @@ async def create_lesson(
     (assigned to a unit later by close_unit); non-NULL = a textbook unit the
     lesson is attached to directly (the textbook path bypasses active_plan).
     Inserts concepts into the registry. Returns lesson_id."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             """INSERT INTO course_lessons
                (course_id, lesson_num, title, objective, content, concepts_json, summary, llm_debug_json, unit_id)
@@ -3019,7 +3052,7 @@ async def create_lesson(
 
 async def close_unit(course_id: int, title: str, summary: str) -> int:
     """Create a unit row and assign all unitless lessons in this course to it."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
@@ -3048,7 +3081,7 @@ async def create_textbook_unit_row(course_id: int, title: str, summary: str = ""
     chapter of which book the unit came from (migration 044), which survives the
     queue draining and is what lets the unit be found, ordered and regenerated
     per chapter. Returns unit_id."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COALESCE(MAX(idx), -1) FROM course_units WHERE course_id=?", (course_id,)
         ) as cur:
@@ -3067,7 +3100,7 @@ async def create_textbook_unit_row(course_id: int, title: str, summary: str = ""
 async def get_textbook_unit(user_id: int, unit_id: int) -> dict | None:
     """A textbook unit row + its course, ownership-checked. None if not found,
     not owned, or not a textbook unit."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT u.id, u.course_id, u.title, u.theme, u.textbook_id, u.chapter_idx,
@@ -3084,7 +3117,7 @@ async def get_textbook_units(user_id: int, textbook_id: int) -> list[dict]:
     """Every unit built from one book, in chapter order, with lesson + queue
     counts. Backs "this chapter already has lessons — regenerate?" instead of
     silently building a second unit for the same pages."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT u.id, u.title, u.chapter_idx,
@@ -3111,7 +3144,7 @@ async def collapse_unit_chapter_idx(textbook_id: int, index: int) -> None:
     Chapter indices are positions in the book's chapter list, so removing a
     boundary shifts everything after it down one. Units built from either half
     now belong to the merged chapter at `index`."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE course_units SET chapter_idx=? "
             "WHERE textbook_id=? AND chapter_idx=?",
@@ -3135,7 +3168,7 @@ async def delete_course_unit(user_id: int, unit_id: int) -> dict | None:
     still queued for it (ownership-checked). Returns {lessons, queued} counts, or
     None when the unit isn't the user's. Mastery history is deliberately left
     alone — it describes the learner, not the lesson."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT u.id, u.course_id FROM course_units u
@@ -3166,7 +3199,7 @@ async def delete_lesson(user_id: int, lesson_id: int) -> dict | None:
     """Delete ONE lesson and the concepts it introduced (ownership-checked).
     Returns {course_id, unit_id} or None. Remaining lessons keep their stored
     lesson_num — position within a unit is rendered from order, not the number."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT l.id, l.course_id, l.unit_id FROM course_lessons l
@@ -3187,7 +3220,7 @@ async def delete_lesson(user_id: int, lesson_id: int) -> dict | None:
 async def delete_course_unit_if_empty(unit_id: int) -> None:
     """Drop a unit row iff it has no lessons (used to roll back a failed
     textbook-unit creation) plus any queue rows still scoped to it."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM course_lessons WHERE unit_id=?", (unit_id,)
         ) as cur:
@@ -3201,7 +3234,7 @@ async def delete_course_unit_if_empty(unit_id: int) -> None:
 async def get_open_lesson_stats(course_id: int) -> tuple[int, int]:
     """(total, completed) among the in-progress (unitless) lessons — used to close
     the chapter into a unit at COMPLETION time once its budget is fully done."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT COUNT(*),
                       COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END), 0)
@@ -3231,7 +3264,7 @@ async def add_lesson_queue(course_id: int, items: list[dict],
     ordering, so they pass front=False."""
     if not items:
         return 0
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         order_fn = "MIN" if front else "MAX"
         default_idx = 0 if front else -1
         async with db.execute(
@@ -3267,7 +3300,7 @@ async def peek_lesson_queue(course_id: int) -> dict | None:
     """The next queued lesson spec (lowest idx), or None. Legacy course-wide
     peek — retained for backward compatibility; the textbook path now uses
     peek_lesson_queue_for_unit."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, idx, unit_title, unit_size, spec_json, source
@@ -3280,7 +3313,7 @@ async def peek_lesson_queue(course_id: int) -> dict | None:
 
 async def peek_lesson_queue_for_unit(unit_id: int) -> dict | None:
     """The next queued lesson spec for a specific textbook unit, or None."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, idx, unit_title, unit_size, spec_json, source
@@ -3310,7 +3343,7 @@ def _queued_lesson_rows(rows) -> list[dict]:
 
 async def list_lesson_queue_for_unit(unit_id: int) -> list[dict]:
     """The unit's not-yet-authored lessons, in order (see _queued_lesson_rows)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT id, idx, spec_json FROM lesson_queue WHERE unit_id=? ORDER BY idx",
@@ -3320,13 +3353,13 @@ async def list_lesson_queue_for_unit(unit_id: int) -> list[dict]:
 
 
 async def pop_lesson_queue(queue_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM lesson_queue WHERE id=?", (queue_id,))
         await db.commit()
 
 
 async def count_lesson_queue(course_id: int) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM lesson_queue WHERE course_id=?", (course_id,)
         ) as cur:
@@ -3334,7 +3367,7 @@ async def count_lesson_queue(course_id: int) -> int:
 
 
 async def count_lesson_queue_for_unit(unit_id: int) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM lesson_queue WHERE unit_id=?", (unit_id,)
         ) as cur:
@@ -3342,14 +3375,14 @@ async def count_lesson_queue_for_unit(unit_id: int) -> int:
 
 
 async def clear_lesson_queue(course_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM lesson_queue WHERE course_id=?", (course_id,))
         await db.commit()
 
 
 async def clear_lesson_queue_for_unit(unit_id: int) -> int:
     """Drop remaining queued lessons for one textbook unit. Returns rows removed."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute("DELETE FROM lesson_queue WHERE unit_id=?", (unit_id,))
         await db.commit()
         return cur.rowcount
@@ -3390,7 +3423,7 @@ async def create_textbook(user_id: int, course_id: int, title: str,
                           filename: str, pages: list[str],
                           visuals: list[dict] | None = None,
                           pdf_media_id: str | None = None) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             """INSERT INTO textbooks (user_id, course_id, title, filename,
                                       num_pages, pages_json, images_json,
@@ -3412,7 +3445,7 @@ async def update_textbook_pages(user_id: int, textbook_id: int,
     native-script transcripts. ``num_pages`` is kept in sync so page-range
     validation elsewhere stays correct.
     """
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             "UPDATE textbooks SET pages_json=?, num_pages=? WHERE id=? AND user_id=?",
             (json.dumps(pages, ensure_ascii=False), len(pages),
@@ -3425,7 +3458,7 @@ async def update_textbook_pages(user_id: int, textbook_id: int,
 async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
     """Books for a course (no page text — the list stays light). Each chapter
     row also reports how many of its lessons are still queued."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, title, filename, num_pages, chapters_json, images_json,
@@ -3455,7 +3488,7 @@ async def list_textbooks(user_id: int, course_id: int) -> list[dict]:
 
 async def get_textbook(user_id: int, textbook_id: int) -> dict | None:
     """One book incl. its pages (ownership-checked)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, user_id, course_id, title, filename, num_pages,
@@ -3496,7 +3529,7 @@ async def set_textbook_reading(user_id: int, textbook_id: int,
     if not sets:
         return False
     params += [textbook_id, user_id]
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             f"UPDATE textbooks SET {', '.join(sets)} WHERE id=? AND user_id=?",
             params,
@@ -3506,7 +3539,7 @@ async def set_textbook_reading(user_id: int, textbook_id: int,
 
 
 async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             "UPDATE textbooks SET title=? WHERE id=? AND user_id=?",
             ((title or "").strip()[:200], textbook_id, user_id),
@@ -3518,7 +3551,7 @@ async def rename_textbook(user_id: int, textbook_id: int, title: str) -> bool:
 async def list_textbook_visual_ids(user_id: int, course_id: int) -> list[str]:
     """Media ids to unlink when a whole course is deleted (page visuals AND the
     stored source PDF for each book)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT images_json, pdf_media_id FROM textbooks WHERE user_id=? AND course_id=?",
             (user_id, course_id),
@@ -3535,13 +3568,13 @@ async def list_textbook_visual_ids(user_id: int, course_id: int) -> list[str]:
 async def delete_media_records(media_ids: list[str]) -> None:
     if not media_ids:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.executemany("DELETE FROM media WHERE id=?", [(mid,) for mid in media_ids])
         await db.commit()
 
 
 async def update_textbook_chapters(textbook_id: int, chapters: list[dict]) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE textbooks SET chapters_json=? WHERE id=?",
             (json.dumps(chapters, ensure_ascii=False), textbook_id),
@@ -3551,7 +3584,7 @@ async def update_textbook_chapters(textbook_id: int, chapters: list[dict]) -> No
 
 async def delete_textbook(user_id: int, textbook_id: int) -> bool:
     """Delete a book + its still-queued lessons. Authored lessons are kept."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT images_json, pdf_media_id FROM textbooks WHERE id=? AND user_id=?",
             (textbook_id, user_id),
@@ -3585,7 +3618,7 @@ async def delete_textbook(user_id: int, textbook_id: int) -> bool:
 
 async def get_lesson(user_id: int, lesson_id: int) -> dict | None:
     """Return a lesson (ownership-checked). Content is stored at creation time."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT l.id, l.lesson_num, l.title, l.objective,
@@ -3619,7 +3652,7 @@ async def get_unit_next_lesson(user_id: int, lesson_id: int) -> dict | None:
     Lets the results screen hand the learner straight on to the next lesson of a
     textbook unit — or offer to build it — instead of dropping them back on the
     map to hunt for it. None when the lesson isn't in a unit."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT l.unit_id, l.lesson_num, COALESCE(u.theme, '') AS theme,
@@ -3662,7 +3695,7 @@ async def complete_lesson(user_id: int, lesson_id: int, score: int) -> tuple[boo
     don't re-award). Every completion bumps the crown level by 1 up to CROWN_MAX;
     leveled_up is True when this completion actually raised the crown (i.e. it
     wasn't already maxed)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT l.completed_at, l.crown_level FROM course_lessons l
                JOIN courses c ON c.id = l.course_id
@@ -3691,7 +3724,7 @@ async def record_concept_results(user_id: int, lang: str, results: list[dict]) -
     """Upsert per-concept mastery by incrementing correct + total counters."""
     if not results:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         for r in results:
             key = (r.get("concept_key") or "").strip()
             correct = max(0, int(r.get("correct") or 0))
@@ -3713,7 +3746,7 @@ async def record_concept_results(user_id: int, lang: str, results: list[dict]) -
 
 async def get_mastery_summary(user_id: int, lang: str) -> list[dict]:
     """Return per-concept mastery rows for a user+language, most-practised first."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT concept_key, correct, total, last_seen
@@ -3728,7 +3761,7 @@ async def get_mastery_summary(user_id: int, lang: str) -> list[dict]:
 async def get_concept_content(lang: str, concept_key: str) -> dict | None:
     """Verified canonical grammar artifact for (lang, concept_key), or None.
     Shared across users — not ownership-scoped."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT content FROM concept_content WHERE lang=? AND concept_key=?",
             (lang, concept_key),
@@ -3739,7 +3772,7 @@ async def get_concept_content(lang: str, concept_key: str) -> dict | None:
 
 async def set_concept_content(lang: str, concept_key: str, content: dict) -> None:
     """Cache a verified grammar artifact (shared across users; upsert)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO concept_content (lang, concept_key, content, created_at)
                VALUES (?, ?, ?, datetime('now'))
@@ -3752,7 +3785,7 @@ async def set_concept_content(lang: str, concept_key: str, content: dict) -> Non
 
 async def get_reader_sentences(user_id: int, text_id: int) -> list[dict]:
     """Return cached sentence data for a reader text owned by user_id."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         # Verify ownership first.
         async with db.execute(
@@ -3782,7 +3815,7 @@ async def resync_reader_sentences(text_id: int, new_sents: list[str]) -> bool:
 
     Returns True if it rewrote anything.
     """
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT sentence_idx, sentence_text, translation, romanization, audio_data
@@ -3826,7 +3859,7 @@ async def upsert_reader_sentence(
     translation: str | None = None, audio_data: bytes | None = None,
     romanization: str | None = None,
 ):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO reader_sentences (text_id, sentence_idx, sentence_text, translation, audio_data, romanization)
                VALUES (?, ?, ?, ?, ?, ?)
@@ -3840,7 +3873,7 @@ async def upsert_reader_sentence(
 
 
 async def get_sentence_audio(user_id: int, text_id: int, idx: int) -> bytes | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT rs.audio_data FROM reader_sentences rs
                JOIN reader_texts rt ON rt.id = rs.text_id
@@ -3879,7 +3912,7 @@ async def get_word_statuses(user_id: int, words: list[str], target_lang: str, *,
     """
     if not words:
         return {}
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT c.target_text,
@@ -3937,7 +3970,7 @@ async def match_cards_by_target(user_id: int, targets: list[str], target_lang: s
     cards where the LLM's target form differs slightly from what's in the deck."""
     if not targets:
         return {}
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         placeholders = ",".join("?" for _ in targets)
         where = f"c.target_text IN ({placeholders})"
@@ -3970,7 +4003,7 @@ async def get_label_words(user_id: int, label_id: int, target_lang: str, limit: 
 
     Fed to the populate LLM so it learns the label's granularity/style and avoids
     re-suggesting words already in the label."""
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         async with conn.execute(
             """SELECT c.target_text, c.source_text
@@ -3992,7 +4025,7 @@ async def get_known_words(user_id: int, target_lang: str, limit: int = 150) -> l
     least once) AND has real traction (repetitions ≥ 2 or interval ≥ 3 days).
     Returns lean rows: [{target_text, gloss}] (gloss = the card's English side).
     """
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT c.target_text, c.source_text AS gloss
@@ -4012,7 +4045,7 @@ async def count_known_words(user_id: int, target_lang: str) -> int:
     """How many words meet the same 'known' bar as get_known_words (no limit).
     Used to pick the drill-vocab strategy: small decks pass the whole list to the
     model; large decks fall back to embedding-snapping a relevant subset."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT COUNT(*)
                FROM cards c
@@ -4030,7 +4063,7 @@ async def get_weak_cards(user_id: int, target_lang: str, limit: int = 12) -> lis
     learning after having been seen), weakest first — surfaced to the lesson
     author / tutor so they get extra in-context practice.
     Returns lean rows: [{target_text, gloss}]."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT c.target_text, c.source_text AS gloss
@@ -4053,7 +4086,7 @@ async def get_recent_cards(user_id: int, target_lang: str, limit: int = 15) -> l
     planner: words the learner just picked up via the tutor chat or flashcards
     (which `get_known_words` won't surface until they've graduated) so the next
     lesson can build on them. Returns lean rows: [{target_text, gloss}]."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT target_text, source_text AS gloss
@@ -4068,7 +4101,7 @@ async def get_recent_cards(user_id: int, target_lang: str, limit: int = 15) -> l
 
 async def get_cefr_distribution(user_id: int) -> dict:
     """Return counts of cards at each CEFR level plus an unlabelled count."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT cefr_level, COUNT(*) AS cnt
@@ -4094,7 +4127,7 @@ _KNOWN_WHERE = (
 async def get_known_cefr_distribution(user_id: int, target_lang: str) -> dict:
     """CEFR-level counts among the learner's KNOWN words for one language (same bar
     as get_known_words). Feeds the large-deck drill prompt a rough vocab profile."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             f"""SELECT c.cefr_level AS lvl, COUNT(*) AS cnt
@@ -4116,7 +4149,7 @@ async def get_known_cefr_distribution(user_id: int, target_lang: str) -> dict:
 async def get_known_words_missing_cefr(user_id: int, target_lang: str, limit: int = 60) -> list[str]:
     """Known words with no valid CEFR tag (added via lesson/tutor/starter paths that
     skip translation's CEFR step) — for bounded lazy backfill."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             f"""SELECT c.target_text
                 FROM cards c
@@ -4136,7 +4169,7 @@ async def set_cards_cefr(user_id: int, target_lang: str, mapping: dict[str, str]
     rows = [(lvl, user_id, target_lang, w) for w, lvl in mapping.items() if lvl in valid]
     if not rows:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.executemany(
             "UPDATE cards SET cefr_level = ? "
             "WHERE user_id = ? AND target_lang = ? AND target_text = ? "
@@ -4234,13 +4267,13 @@ async def _local_today(conn, user_id: int) -> str:
 
 
 async def get_user_timezone(user_id: int) -> str:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         return await _tz_for(db, user_id)
 
 
 async def user_today(user_id: int) -> str:
     """Today's ISO date in the user's timezone (opens its own connection)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         return await _local_today(db, user_id)
 
 
@@ -4282,7 +4315,7 @@ async def get_streak(user_id: int) -> int:
     spend their shields or fabricate activity rows on their account.
     """
     from datetime import date
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         today = await _local_today(db, user_id)
         async with db.execute(
             "SELECT study_date FROM study_activity WHERE user_id=? ORDER BY study_date DESC",
@@ -4362,7 +4395,7 @@ async def _bridge_streak_gap(conn, user_id: int, today: str) -> int:
 async def apply_streak_freezes(user_id: int) -> int:
     """Public entry point for freeze bridging — call before reading a user's own
     streak. Study writes bridge themselves via `_mark_study_day`."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         bridged = await _bridge_streak_gap(db, user_id, await _local_today(db, user_id))
         if bridged:
             await db.commit()
@@ -4400,7 +4433,7 @@ async def set_streak(user_id: int, days: int) -> int:
     Days further back are left untouched. Idempotent. Returns the new streak."""
     from datetime import date, timedelta
     days = max(0, int(days))
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         today = date.fromisoformat(await _local_today(db, user_id))
         # Ensure the streak window is present.
         if days:
@@ -4434,7 +4467,7 @@ async def ensure_min_streak(user_id: int, days: int) -> int:
     days = max(0, int(days))
     if not days:
         return await get_streak(user_id)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         today = date.fromisoformat(await _local_today(db, user_id))
         async with db.execute(
             "SELECT 1 FROM study_activity WHERE user_id=? AND study_date=?",
@@ -4457,7 +4490,7 @@ async def record_study_activity(user_id: int, day: str | None = None) -> None:
     meaningful activity — SRS reviews, completing a lesson, or a tutor turn —
     so the 🔥 streak reflects all study, not only flashcard reviews. `day`
     backdates the row for reviews synced after the fact."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await _mark_study_day(db, user_id, day)
         await db.commit()
 
@@ -4488,7 +4521,7 @@ async def earn_streak_freeze(user_id: int) -> bool:
     """Advance the freeze-earn counter by one completed lesson. Every
     STREAK_FREEZE_PER_LESSONS lessons grants a freeze (capped at
     STREAK_FREEZE_CAP). Returns True iff a freeze was just awarded."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         progress = await _settings_int(db, user_id, "streak_freeze_progress") + 1
         freezes = await _settings_int(db, user_id, "streak_freezes")
         awarded = False
@@ -4518,7 +4551,7 @@ async def earn_streak_freeze(user_id: int) -> bool:
 
 async def get_streak_freeze_state(user_id: int) -> dict:
     """Return {freezes, used_date} for surfacing the shield + a consumed toast."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         freezes = await _settings_int(db, user_id, "streak_freezes")
         async with db.execute(
             "SELECT value FROM user_settings WHERE user_id=? AND key='streak_freeze_used_date'",
@@ -4531,7 +4564,7 @@ async def get_streak_freeze_state(user_id: int) -> dict:
 # ── Tutor chat ─────────────────────────────────────────────────────────────────
 
 async def create_tutor_conversation(user_id: int, lang: str) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             "INSERT INTO tutor_conversations (user_id, lang) VALUES (?, ?)",
             (user_id, lang),
@@ -4542,7 +4575,7 @@ async def create_tutor_conversation(user_id: int, lang: str) -> int:
 
 async def list_tutor_conversations(user_id: int, lang: str, limit: int = 30) -> list[dict]:
     """Most recent first. Lean rows for the conversation drawer."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, title, created_at, updated_at
@@ -4557,7 +4590,7 @@ async def list_tutor_conversations(user_id: int, lang: str, limit: int = 30) -> 
 async def get_tutor_conversation(user_id: int, conv_id: int) -> dict | None:
     """Ownership-checked conversation row, or None. `active_drill_id` is non-NULL
     while a drill sub-session is in progress (else NULL)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT id, lang, title, active_drill_id FROM tutor_conversations WHERE id=? AND user_id=?",
@@ -4568,7 +4601,7 @@ async def get_tutor_conversation(user_id: int, conv_id: int) -> dict | None:
 
 
 async def delete_tutor_conversation(user_id: int, conv_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "DELETE FROM tutor_messages WHERE conversation_id IN "
             "(SELECT id FROM tutor_conversations WHERE id=? AND user_id=?)",
@@ -4585,7 +4618,7 @@ async def get_tutor_messages(user_id: int, conv_id: int, limit: int = 200) -> li
     """Messages in chronological order (ownership-checked via the join).
     `drill_id` is non-NULL for messages that belong to a drill sub-session
     (grouped + collapsible client-side); `drill_skill` labels that group."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT m.id, m.role, m.content, m.drill_id, m.drill_skill, m.created_at
@@ -4603,7 +4636,7 @@ async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str,
     """Append a message (ownership-checked). The first user message becomes the
     conversation title. Pass `drill_id`/`drill_skill` to tag the message as part
     of a drill sub-session. Returns the message id, or None if not the owner."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT title FROM tutor_conversations WHERE id=? AND user_id=?",
             (conv_id, user_id),
@@ -4634,7 +4667,7 @@ async def add_tutor_message(user_id: int, conv_id: int, role: str, content: str,
 async def set_tutor_message_drill(user_id: int, msg_id: int, drill_id: int, drill_skill: str) -> None:
     """Tag an already-inserted message as a drill turn (used for the opener, whose
     own id becomes the drill group id)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """UPDATE tutor_messages SET drill_id=?, drill_skill=?
                WHERE id=? AND conversation_id IN
@@ -4646,7 +4679,7 @@ async def set_tutor_message_drill(user_id: int, msg_id: int, drill_id: int, dril
 
 async def set_active_drill(user_id: int, conv_id: int, drill_id: int | None) -> None:
     """Set (start) or clear (end) the conversation's active drill sub-session."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE tutor_conversations SET active_drill_id=? WHERE id=? AND user_id=?",
             (drill_id, conv_id, user_id),
@@ -4659,7 +4692,7 @@ async def set_active_drill(user_id: int, conv_id: int, drill_id: int | None) -> 
 async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> None:
     if points <= 0:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "INSERT INTO points_ledger (user_id, lang, points, reason) VALUES (?, ?, ?, ?)",
             (user_id, lang, int(points), (reason or "").strip()[:200]),
@@ -4675,7 +4708,7 @@ async def add_points(user_id: int, lang: str, points: int, reason: str = "") -> 
 
 
 async def get_points_total(user_id: int, lang: str) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger WHERE user_id=? AND lang=?",
             (user_id, lang),
@@ -4689,7 +4722,7 @@ async def get_points_today(user_id: int, lang: str) -> int:
     streak and daily quests, instead of resetting mid-afternoon for anyone west
     of UTC. (`created_at` is stored as UTC `datetime('now')`, so we compare
     against that local day's UTC bounds.)"""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         start, end = local_day_bounds(await _tz_for(db, user_id))
         async with db.execute(
             "SELECT COALESCE(SUM(points), 0) FROM points_ledger "
@@ -4752,7 +4785,7 @@ async def get_daily_quests(user_id: int) -> list[dict]:
     """Today's 3 quests, seeding them on first call. The earn_xp quest's
     progress is re-derived from the points ledger every read (it can never
     drift); the rest accumulate via bump_quest."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         tz = await _tz_for(db, user_id)
         today = local_today_str(tz)
@@ -4806,7 +4839,7 @@ async def bump_quest(user_id: int, quest_key: str, amount: int = 1,
     tpl = QUEST_TEMPLATES.get(quest_key)
     if not tpl:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         today = await _local_today(db, user_id)
         if tpl["mode"] == "max":
             if value is None:
@@ -4837,7 +4870,7 @@ async def claim_daily_chest(user_id: int) -> int | None:
         return None
     if any(q["claimed"] for q in quests):
         return None
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Guard against a concurrent double-claim: only flip unclaimed rows.
         cur = await db.execute(
             "UPDATE daily_quests SET claimed=1 WHERE user_id=? AND quest_date=? AND claimed=0",
@@ -4866,7 +4899,7 @@ async def get_weekly_league(user_id: int) -> list[dict]:
     avatars = {f["user_id"]: f.get("avatar_url") for f in friends}
     ids = [user_id] + list(names)
     placeholders = ",".join("?" * len(ids))
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT username, avatar_media_id FROM users WHERE id=?", (user_id,)
         ) as cur:
@@ -4895,7 +4928,7 @@ async def get_unit_checkpoint_pool(user_id: int, unit_id: int) -> dict | None:
     """The material a unit checkpoint quiz samples from: the unit row + each of
     its lessons' stored content. Ownership-checked; foundations units have no
     checkpoint. Returns None when the unit doesn't exist / isn't the user's."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT u.id, u.title, u.checkpoint_passed, u.checkpoint_score,
@@ -4927,7 +4960,7 @@ async def get_completed_lesson_contents(user_id: int, course_id: int) -> list[di
     """Return {id, title, content} for every COMPLETED, non-foundations lesson in a
     course. Powers the practice hub (B6) — mistakes review + course-wide lightning
     recombine these stored drills. Ownership-checked via the course join."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT l.id, l.title, l.content
@@ -4953,7 +4986,7 @@ async def record_checkpoint(user_id: int, unit_id: int, score: int,
     """Record a checkpoint attempt (best score kept; passed is sticky).
     Returns (found, first_pass) — first_pass is True only the FIRST time the
     checkpoint is passed, so the bonus XP is awarded once."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT u.checkpoint_passed FROM course_units u
                JOIN courses c ON c.id = u.course_id
@@ -4985,7 +5018,7 @@ async def get_cached_embeddings(lang: str, model: str, words: list[str]) -> dict
     if not words:
         return {}
     out: dict[str, bytes] = {}
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Chunk the IN-list to stay well under SQLite's variable limit.
         for i in range(0, len(words), 400):
             chunk = words[i:i + 400]
@@ -5004,7 +5037,7 @@ async def put_cached_embeddings(lang: str, model: str, vectors: dict[str, bytes]
     """Insert {word: vector_blob}; ignore words already cached."""
     if not vectors:
         return
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.executemany(
             "INSERT OR IGNORE INTO embedding_cache (lang, model, word, vector) VALUES (?,?,?,?)",
             [(lang, model, w, v) for w, v in vectors.items()],
@@ -5019,7 +5052,7 @@ async def send_friend_request(requester_id: int, addressee_id: int) -> dict:
     """Send a friend request. Returns {ok, error}."""
     if requester_id == addressee_id:
         return {"ok": False, "error": "cannot_self"}
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         # Check if relationship already exists in either direction
         async with db.execute(
             """SELECT id, status, requester_id FROM friendships
@@ -5045,7 +5078,7 @@ async def respond_friend_request(friendship_id: int, addressee_id: int, accept: 
     Returns the requester's user_id on success (so the caller can notify them),
     or None if no matching pending request was found.
     """
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT requester_id FROM friendships WHERE id=? AND addressee_id=? AND status='pending'",
             (friendship_id, addressee_id),
@@ -5065,7 +5098,7 @@ async def respond_friend_request(friendship_id: int, addressee_id: int, accept: 
 
 
 async def remove_friend(user_id: int, other_user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """DELETE FROM friendships
                WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)""",
@@ -5076,7 +5109,7 @@ async def remove_friend(user_id: int, other_user_id: int) -> None:
 
 async def get_friends(user_id: int) -> dict:
     """Return friends, pending sent requests, and pending received requests."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at,
@@ -5113,7 +5146,7 @@ async def are_friends(user_id: int, other_user_id: int) -> bool:
     """Return whether two distinct users have an accepted friendship."""
     if user_id == other_user_id:
         return False
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT 1 FROM friendships
                WHERE status='accepted' AND (
@@ -5130,7 +5163,7 @@ async def are_friends(user_id: int, other_user_id: int) -> bool:
 async def get_or_create_conversation(user1_id: int, user2_id: int) -> dict:
     """Get or create an in-app 1:1 conversation. IDs are normalised (min < max)."""
     a, b = min(user1_id, user2_id), max(user1_id, user2_id)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT id FROM conversations WHERE user1_id=? AND user2_id=? AND platform IS NULL",
@@ -5149,7 +5182,7 @@ async def get_or_create_conversation(user1_id: int, user2_id: int) -> dict:
 async def get_or_create_platform_conversation(
     owner_user_id: int, platform: str, platform_thread_id: str
 ) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id FROM conversations
@@ -5170,7 +5203,7 @@ async def get_or_create_platform_conversation(
 
 async def list_conversations(user_id: int) -> list[dict]:
     """All conversations for a user, sorted by last activity."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT c.id, c.user1_id, c.user2_id, c.platform, c.platform_thread_id,
@@ -5226,7 +5259,7 @@ async def list_conversations(user_id: int) -> list[dict]:
 
 async def get_messages(conversation_id: int, viewer_user_id: int,
                        limit: int = 50, before_id: int | None = None) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         # Verify viewer is a participant
         async with db.execute(
@@ -5258,7 +5291,7 @@ async def get_reactions_for_messages(message_ids: list[int], viewer_user_id: int
     if not message_ids:
         return {}
     placeholders = ",".join("?" * len(message_ids))
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             f"SELECT message_id, emoji, user_id FROM message_reactions WHERE message_id IN ({placeholders})",
             message_ids,
@@ -5275,7 +5308,7 @@ async def get_reactions_for_messages(message_ids: list[int], viewer_user_id: int
 
 async def toggle_reaction(message_id: int, user_id: int, emoji: str) -> bool | None:
     """Toggle a participant's reaction; return None when access is denied."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT 1 FROM messages m
                JOIN conversations c ON c.id=m.conversation_id
@@ -5321,7 +5354,7 @@ async def add_message(
 ) -> int:
     trans_json = json.dumps(translations, ensure_ascii=False) if translations else None
     analysis_json = json.dumps(analysis, ensure_ascii=False) if analysis else None
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             """INSERT INTO messages
                (conversation_id, sender_user_id, sender_platform_id, sender_name,
@@ -5340,7 +5373,7 @@ async def add_message(
 
 
 async def update_message_translations(msg_id: int, translations: dict) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE messages SET translations=? WHERE id=?",
             (json.dumps(translations, ensure_ascii=False), msg_id),
@@ -5349,7 +5382,7 @@ async def update_message_translations(msg_id: int, translations: dict) -> None:
 
 
 async def get_message(msg_id: int, user_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         row = await conn.execute_fetchall(
             """SELECT m.id, m.conversation_id, m.sender_user_id,
@@ -5374,7 +5407,7 @@ async def get_message(msg_id: int, user_id: int) -> dict | None:
 
 
 async def update_message_analysis(msg_id: int, translations: dict, analysis: dict) -> None:
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         await conn.execute(
             "UPDATE messages SET translations=?, analysis=? WHERE id=?",
             (json.dumps(translations, ensure_ascii=False),
@@ -5384,7 +5417,7 @@ async def update_message_analysis(msg_id: int, translations: dict, analysis: dic
 
 
 async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT 1 FROM conversations
                WHERE id=? AND (user1_id=? OR user2_id=? OR owner_user_id=?)""",
@@ -5403,7 +5436,7 @@ async def mark_conversation_read(conversation_id: int, reader_user_id: int) -> b
 
 
 async def get_total_unread(user_id: int) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             """SELECT COUNT(*) FROM messages m
                JOIN conversations c ON c.id = m.conversation_id
@@ -5417,7 +5450,7 @@ async def get_total_unread(user_id: int) -> int:
 
 
 async def get_pending_friend_request_count(user_id: int) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM friendships WHERE addressee_id=? AND status='pending'",
             (user_id,),
@@ -5429,7 +5462,7 @@ async def get_pending_friend_request_count(user_id: int) -> int:
 # ── Push subscriptions ─────────────────────────────────────────────────────────
 
 async def add_push_subscription(user_id: int, endpoint: str, p256dh: str, auth_key: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
                VALUES (?, ?, ?, ?)
@@ -5441,7 +5474,7 @@ async def add_push_subscription(user_id: int, endpoint: str, p256dh: str, auth_k
 
 
 async def get_push_subscriptions(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=?",
@@ -5452,7 +5485,7 @@ async def get_push_subscriptions(user_id: int) -> list[dict]:
 
 
 async def remove_push_subscription(user_id: int, endpoint: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "DELETE FROM push_subscriptions WHERE user_id=? AND endpoint=?",
             (user_id, endpoint),
@@ -5463,7 +5496,7 @@ async def remove_push_subscription(user_id: int, endpoint: str) -> None:
 # ── Media uploads ──────────────────────────────────────────────────────────────
 
 async def add_media_record(media_id: str, user_id: int, conv_id: int | None, size_bytes: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO media (id, user_id, conv_id, size_bytes) VALUES (?, ?, ?, ?)",
             (media_id, user_id, conv_id, size_bytes),
@@ -5473,7 +5506,7 @@ async def add_media_record(media_id: str, user_id: int, conv_id: int | None, siz
 
 async def update_image_message(msg_id: int, description: str, analysis: dict) -> None:
     analysis_json = json.dumps(analysis, ensure_ascii=False)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "UPDATE messages SET original_text=?, analysis=? WHERE id=?",
             (f"📷 {description}", analysis_json, msg_id),
@@ -5483,7 +5516,7 @@ async def update_image_message(msg_id: int, description: str, analysis: dict) ->
 
 async def delete_message(msg_id: int, user_id: int) -> dict | None:
     """Soft-delete a message (clear content, mark deleted). Returns old analysis for media cleanup."""
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         row = await conn.execute_fetchall(
             """SELECT m.id, m.analysis
@@ -5508,7 +5541,7 @@ async def delete_message(msg_id: int, user_id: int) -> dict | None:
 
 async def get_unprocessed_image_messages() -> list[dict]:
     """Find image messages whose vision analysis produced no suggestions."""
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         conn.row_factory = aiosqlite.Row
         rows = await conn.execute_fetchall(
             """SELECT m.id, m.sender_user_id, m.conversation_id, m.analysis,
@@ -5549,7 +5582,7 @@ async def get_unprocessed_image_messages() -> list[dict]:
 # ── Messenger account ──────────────────────────────────────────────────────────
 
 async def get_messenger_account(user_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT page_id, page_name, page_access_token FROM messenger_accounts WHERE user_id=?",
@@ -5561,7 +5594,7 @@ async def get_messenger_account(user_id: int) -> dict | None:
 
 async def upsert_messenger_account(user_id: int, page_id: str,
                                    page_access_token: str, page_name: str | None) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO messenger_accounts (user_id, page_id, page_access_token, page_name)
                VALUES (?,?,?,?)
@@ -5576,14 +5609,14 @@ async def upsert_messenger_account(user_id: int, page_id: str,
 
 
 async def delete_messenger_account(user_id: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute("DELETE FROM messenger_accounts WHERE user_id=?", (user_id,))
         await db.commit()
 
 
 async def get_user_by_messenger_page(page_id: str) -> dict | None:
     """Find the app user who connected this Messenger page."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT u.id, u.username, ma.page_access_token
@@ -5600,7 +5633,7 @@ async def get_user_by_messenger_page(page_id: str) -> dict | None:
 async def upsert_social_account(user_id: int, provider: str, provider_user_id: str,
                                 access_token: str | None, display_name: str | None) -> None:
     """Store/refresh a user's connected social account. access_token is ciphertext."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO social_accounts
                  (user_id, provider, provider_user_id, access_token, display_name)
@@ -5616,7 +5649,7 @@ async def upsert_social_account(user_id: int, provider: str, provider_user_id: s
 
 
 async def get_social_account(user_id: int, provider: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT provider, provider_user_id, access_token, display_name, connected_at
@@ -5628,7 +5661,7 @@ async def get_social_account(user_id: int, provider: str) -> dict | None:
 
 
 async def delete_social_account(user_id: int, provider: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             "DELETE FROM social_accounts WHERE user_id=? AND provider=?", (user_id, provider)
         )
@@ -5642,7 +5675,7 @@ async def get_users_by_social_ids(provider: str, provider_user_ids: list[str],
     [{user_id, username, provider_user_id}]."""
     if not provider_user_ids:
         return []
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         placeholders = ",".join("?" for _ in provider_user_ids)
         async with db.execute(
@@ -5662,7 +5695,7 @@ async def create_feedback(
     user_id: int, type: str, title: str, description: str,
     screenshot_media_id: str | None = None,
 ) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             """INSERT INTO feedback (user_id, type, title, description, screenshot_media_id)
                VALUES (?, ?, ?, ?, ?)""",
@@ -5676,7 +5709,7 @@ async def update_feedback_triage(
     feedback_id: int, triage_summary: str, triage_group: str,
     suggested_prompt: str, priority: str,
 ) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """UPDATE feedback SET triage_summary=?, triage_group=?, suggested_prompt=?,
                       priority=?, updated_at=datetime('now')
@@ -5688,7 +5721,7 @@ async def update_feedback_triage(
 
 async def list_feedback(status: str | None = None) -> list[dict]:
     """List all feedback (admin). Optionally filter by status."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         if status:
             async with db.execute(
@@ -5707,7 +5740,7 @@ async def list_feedback(status: str | None = None) -> list[dict]:
 
 
 async def get_feedback(feedback_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT f.*, u.username FROM feedback f
@@ -5720,7 +5753,7 @@ async def get_feedback(feedback_id: int) -> dict | None:
 
 
 async def update_feedback_status(feedback_id: int, status: str, admin_notes: str = "") -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """UPDATE feedback SET status=?, admin_notes=?, updated_at=datetime('now')
                WHERE id=?""",
@@ -5731,7 +5764,7 @@ async def update_feedback_status(feedback_id: int, status: str, admin_notes: str
 
 async def list_feedback_groups() -> list[dict]:
     """Return unique triage_group values with counts, for grouping similar reports."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT triage_group, COUNT(*) as count, GROUP_CONCAT(id) as ids
@@ -5745,7 +5778,7 @@ async def list_feedback_groups() -> list[dict]:
 
 async def list_user_feedback(user_id: int) -> list[dict]:
     """List feedback submitted by a specific user."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT id, type, title, status, priority, created_at
@@ -5758,7 +5791,7 @@ async def list_user_feedback(user_id: int) -> list[dict]:
 
 async def get_admin_user_ids() -> list[int]:
     """Return IDs of all admin users."""
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with connect() as conn:
         async with conn.execute("SELECT id FROM users WHERE is_admin=1") as cur:
             return [row[0] for row in await cur.fetchall()]
 
@@ -5769,7 +5802,7 @@ async def get_admin_user_ids() -> list[int]:
 async def publish_story(user_id: int, text_id: int, visibility: str) -> bool:
     if visibility not in ("private", "friends", "public"):
         return False
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await _ensure_reader_cols(db)
         cur = await db.execute(
             "UPDATE reader_texts SET visibility=? WHERE id=? AND user_id=?",
@@ -5780,7 +5813,7 @@ async def publish_story(user_id: int, text_id: int, visibility: str) -> bool:
 
 
 async def rate_story(user_id: int, text_id: int, rating: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO story_ratings (text_id, user_id, rating)
                VALUES (?, ?, ?)
@@ -5791,7 +5824,7 @@ async def rate_story(user_id: int, text_id: int, rating: int) -> None:
 
 
 async def get_story_rating(text_id: int) -> dict:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT COALESCE(AVG(rating), 0) as avg_rating,
@@ -5804,7 +5837,7 @@ async def get_story_rating(text_id: int) -> dict:
 
 
 async def get_user_story_rating(user_id: int, text_id: int) -> int | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT rating FROM story_ratings WHERE user_id=? AND text_id=?",
             (user_id, text_id),
@@ -5815,7 +5848,7 @@ async def get_user_story_rating(user_id: int, text_id: int) -> int | None:
 
 async def get_story_public(text_id: int, requesting_user_id: int) -> dict | None:
     """Get a story if the requesting user has access (own, public, or friend-shared)."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await _ensure_reader_cols(db)
         async with db.execute(
@@ -5851,7 +5884,7 @@ async def get_story_public(text_id: int, requesting_user_id: int) -> dict | None
 
 async def get_reader_sentences_public(text_id: int) -> list[dict]:
     """Get sentences for a story without user_id ownership check."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT sentence_idx, sentence_text, translation, romanization,
@@ -5867,7 +5900,7 @@ async def list_community_stories(
     difficulty: str | None = None, min_rating: float | None = None,
     search: str | None = None, sort: str = "newest",
 ) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         await _ensure_reader_cols(db)
         params: list = [requesting_user_id, requesting_user_id, requesting_user_id]
@@ -5922,7 +5955,7 @@ async def create_shared_deck(
     creator_id: int, name: str, description: str,
     target_lang: str, visibility: str, items: list[dict],
 ) -> int:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             """INSERT INTO shared_decks (creator_id, name, description, target_lang, visibility)
                VALUES (?, ?, ?, ?, ?)""",
@@ -5964,7 +5997,7 @@ async def upsert_featured_deck(
     Items are a content snapshot (importers already copied them to their own
     cards), so replacing them never affects existing importers. Returns
     (deck_id, "created"|"updated")."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT id FROM shared_decks WHERE creator_id=? AND target_lang=? AND name=?",
             (creator_id, target_lang, name),
@@ -6013,7 +6046,7 @@ async def update_shared_deck(
     if not updates:
         return False
     params.extend([deck_id, user_id])
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             f"UPDATE shared_decks SET {', '.join(updates)} WHERE id=? AND creator_id=?",
             params,
@@ -6023,7 +6056,7 @@ async def update_shared_deck(
 
 
 async def delete_shared_deck(user_id: int, deck_id: int) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT name FROM shared_decks WHERE id=? AND creator_id=?",
             (deck_id, user_id),
@@ -6050,7 +6083,7 @@ async def delete_shared_deck(user_id: int, deck_id: int) -> bool:
 
 
 async def list_my_decks(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT sd.id, sd.name, sd.description, sd.target_lang,
@@ -6091,7 +6124,7 @@ async def list_community_decks(
     requesting_user_id: int, target_lang: str | None = None,
     search: str | None = None, sort: str | None = None,
 ) -> list[dict]:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         params: list = [requesting_user_id, requesting_user_id,
                         requesting_user_id, requesting_user_id]
@@ -6141,7 +6174,7 @@ async def list_featured_decks(target_lang: str | None = None) -> list[dict]:
     sys_id = await get_system_user_id()
     if not sys_id:
         return []
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         params: list = [sys_id]
         sql = """
@@ -6164,7 +6197,7 @@ async def list_featured_decks(target_lang: str | None = None) -> list[dict]:
 
 
 async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """SELECT sd.*, COALESCE(NULLIF(u.display_name,''), u.username) as creator
@@ -6248,7 +6281,7 @@ async def get_shared_deck(deck_id: int, requesting_user_id: int) -> dict | None:
 
 
 async def rate_deck(user_id: int, deck_id: int, rating: int) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         await db.execute(
             """INSERT INTO deck_ratings (deck_id, user_id, rating)
                VALUES (?, ?, ?)
@@ -6259,7 +6292,7 @@ async def rate_deck(user_id: int, deck_id: int, rating: int) -> None:
 
 
 async def get_deck_rating(deck_id: int) -> dict:
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         async with db.execute(
             "SELECT AVG(rating), COUNT(*) FROM deck_ratings WHERE deck_id=?",
             (deck_id,),
@@ -6273,7 +6306,7 @@ async def get_deck_rating(deck_id: int) -> dict:
 
 async def import_deck(user_id: int, deck_id: int) -> dict:
     """Import a shared deck: create cards + label in user's account."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
@@ -6448,7 +6481,7 @@ async def unimport_deck(user_id: int, deck_id: int) -> dict:
     deck_imports row. Cards that pre-existed the import (it merely tagged them)
     are never deleted — they just lose the deck label. For legacy imports with no
     tracking rows, falls back to deleting cards tagged ONLY with the deck label."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT 1 FROM deck_imports WHERE user_id=? AND deck_id=?",
@@ -6529,7 +6562,7 @@ async def label_cards_for_deck(user_id: int, deck_name: str, card_ids: list[int]
     if not card_ids:
         return None
     label_name = f"📦 {deck_name}"
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with connect() as db:
         cur = await db.execute(
             "INSERT OR IGNORE INTO labels (user_id, name) VALUES (?, ?)",
             (user_id, label_name),

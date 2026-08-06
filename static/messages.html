@@ -898,7 +898,7 @@
       const preview = _previewText ? _previewText.slice(0, 40) + (_previewText.length > 40 ? '…' : '') : 'No messages yet';
       const badge = c.unread > 0 ? `<div class="msg-unread-badge">${c.unread}</div>` : '';
       const time = c.last_message_at ? relTime(c.last_message_at) : '';
-      const avInner = messenger ? '📘' : (c.avatar_url ? `<img src="${esc(c.avatar_url)}" alt="">` : initials);
+      const avInner = messenger ? '📘' : (c.avatar_url ? `<img src="${esc(c.avatar_url)}" alt="" loading="lazy" decoding="async">` : initials);
       return `<div class="msg-conv-row${isActive ? ' active' : ''}" onclick="openConv(${c.id})">
         <div class="msg-conv-avatar${messenger ? ' messenger' : ''}">${avInner}</div>
         <div class="msg-conv-info">
@@ -2323,7 +2323,7 @@
   // Small circular avatar (friends/leaderboard rows): a real photo when set,
   // else initials — same fallback pattern as the conversation-list avatars.
   function miniAvatarHtml(url, name) {
-    if (url) return `<div class="mini-avatar"><img src="${esc(url)}" alt=""></div>`;
+    if (url) return `<div class="mini-avatar"><img src="${esc(url)}" alt="" loading="lazy" decoding="async"></div>`;
     return `<div class="mini-avatar">${esc((name || '?').slice(0, 2).toUpperCase())}</div>`;
   }
 

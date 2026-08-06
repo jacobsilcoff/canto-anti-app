@@ -3042,8 +3042,7 @@ class LabelCardRequest(BaseModel):
 @app.post("/api/labels/{label_id}/cards")
 async def add_card_to_label(label_id: int, req: LabelCardRequest, user: dict = Depends(current_user)):
     """Add a single card to a label without touching its other labels."""
-    import aiosqlite as _aiosqlite
-    async with _aiosqlite.connect(db.DB_PATH) as conn:
+    async with db.connect() as conn:
         await conn.execute("PRAGMA foreign_keys = ON")
         # Verify label and card belong to this user.
         async with conn.execute(
@@ -3364,8 +3363,7 @@ async def suggest_cards_for_label(name: str, label_id: int | None = None, limit:
     # If filtering by label, fetch cards already in the label to exclude them.
     already: set[int] = set()
     if label_id is not None:
-        import aiosqlite as _aiosqlite
-        async with _aiosqlite.connect(db.DB_PATH) as conn:
+        async with db.connect() as conn:
             async with conn.execute(
                 "SELECT card_id FROM card_labels WHERE label_id=?", (label_id,)
             ) as cur:
@@ -3495,8 +3493,7 @@ async def delete_course(course_id: int, user: dict = Depends(current_user)):
 @app.delete("/api/courses/{course_id}/ai_lessons")
 async def reset_ai_lessons(course_id: int, user: dict = Depends(current_user)):
     """Delete only AI-generated lessons, preserving the foundations reading track."""
-    import aiosqlite as _aiosqlite
-    async with _aiosqlite.connect(db.DB_PATH) as conn:
+    async with db.connect() as conn:
         async with conn.execute(
             "SELECT 1 FROM courses WHERE id=? AND user_id=?", (course_id, user["id"])
         ) as cur:
@@ -7796,7 +7793,7 @@ async def reader_translate_word(request: Request, req: ReaderTranslateWordReques
     if req.word in statuses:
         # Word exists — find the card. First try exact match, then normalized/substring.
         import aiosqlite as _aiosqlite
-        async with _aiosqlite.connect(db.DB_PATH) as conn:
+        async with db.connect() as conn:
             conn.row_factory = _aiosqlite.Row
             async with conn.execute(
                 """SELECT id, source_text, target_text, romanization, notes
@@ -8303,9 +8300,8 @@ async def friends_leaderboard(user: dict = Depends(current_user)):
         usernames[f["user_id"]] = f["username"]
         avatars[f["user_id"]] = f.get("avatar_url")
 
-    import aiosqlite as _aiosqlite
     placeholders = ",".join("?" * len(user_ids))
-    async with _aiosqlite.connect(db.DB_PATH) as conn:
+    async with db.connect() as conn:
         async with conn.execute(
             f"SELECT user_id, COALESCE(SUM(points), 0) FROM points_ledger "
             f"WHERE user_id IN ({placeholders}) GROUP BY user_id",

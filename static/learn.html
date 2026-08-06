@@ -1439,7 +1439,7 @@
   // A real profile picture when set, else a colored initial (same fallback
   // pattern used for chat/friends avatars elsewhere in the app).
   function _avatarInner(r) {
-    return r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase());
+    return r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="" loading="lazy" decoding="async">` : esc((r.username || '?')[0].toUpperCase());
   }
 
   async function loadLeague() {
