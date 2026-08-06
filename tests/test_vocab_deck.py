@@ -78,7 +78,8 @@ async def client(tmp_path, monkeypatch):
     user_id = await db.create_user("learner", auth.hash_password("password1"))
     session = "vocab-deck-test-session"
     await db.create_session(session, user_id, time.time() + 3600)
-    # No Gemini key in tests → embeddings background task is skipped via HTTPException.
+    # No Gemini key in tests. The route must still work: it resolves the key
+    # best-effort and just skips the background embedding (see the no-key test).
     transport = ASGITransport(app=main.app)
     async with AsyncClient(transport=transport, base_url="https://test") as ac:
         ac.cookies.set("session", session)
@@ -140,6 +141,33 @@ async def test_vocab_deck_optionally_snapshots_shared_deck(client):
     body = (await client.post("/api/vocab-deck", json=payload)).json()
     assert body["created"] == 1
     assert isinstance(body["deck_id"], int)
+
+
+@pytest.mark.asyncio
+async def test_vocab_deck_works_without_a_gemini_key(client, monkeypatch):
+    """Building a vocab deck needs NO AI — a label plus cards, audio generated
+    lazily on first play. The key is used only for the background embedding, so
+    a missing/unusable one must not fail the request.
+
+    It used to: _resolve_gemini was called eagerly and raises 503 when no shared
+    key is configured, so a fresh self-hosted instance (and CI) got
+    "Shared API key is not configured." instead of a deck. The try/except that
+    was supposed to cover this sat around background_tasks.add_task — one level
+    below where the raise actually happened.
+    """
+    from fastapi import HTTPException
+
+    async def no_key(*a, **k):
+        raise HTTPException(503, "Shared API key is not configured.")
+    monkeypatch.setattr(main, "_resolve_gemini", no_key)
+
+    res = await client.post("/api/vocab-deck", json={
+        "lang": "yue", "deck_name": "No key",
+        "items": [{"target_text": "水", "source_text": "water"}]})
+    assert res.status_code == 200, res.text
+    assert res.json()["created"] == 1
+    cards = await db.get_all_cards_basic(client._user_id, "yue")
+    assert "水" in {c["target_text"] for c in cards}
 
 
 @pytest.mark.asyncio

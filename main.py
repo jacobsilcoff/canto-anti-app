@@ -5406,7 +5406,17 @@ async def create_vocab_deck(request: Request, req: VocabDeckRequest,
     statuses = await db.get_word_statuses(
         user["id"], [it.target_text.strip() for it in items], req.lang)
 
-    access = await _resolve_gemini(user, meter=False)
+    # Everything this route does is deterministic — a label plus cards, audio
+    # generated lazily on first play. The key is needed ONLY for the background
+    # embedding, so resolving it must not be able to fail the request: with no
+    # shared key configured (a fresh self-hosted instance, or CI) _resolve_gemini
+    # raises 503 and the learner couldn't build a vocab deck at all. Missing
+    # embeddings are self-healing — _backfill_card_embeddings fills them in later.
+    try:
+        embed_key = (await _resolve_gemini(user, meter=False)).api_key
+    except HTTPException as e:
+        logger.info("Vocab deck: skipping embeddings, no usable Gemini key (%s)", e.detail)
+        embed_key = None
     created: list[dict] = []
     skipped = 0
     for it in items:
@@ -5437,12 +5447,10 @@ async def create_vocab_deck(request: Request, req: VocabDeckRequest,
             "cefr_level": it.cefr_level,
         })
         # Background embedding, like the normal create-card path.
-        try:
+        if embed_key:
             background_tasks.add_task(
                 _generate_and_store_embedding, card_id,
-                f"{it.source_text.strip()} {target}", access.api_key)
-        except HTTPException:
-            pass
+                f"{it.source_text.strip()} {target}", embed_key)
 
     if created:
         await db.bump_quest(user["id"], "add_cards", len(created))
