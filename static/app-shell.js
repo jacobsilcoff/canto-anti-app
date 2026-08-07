@@ -108,8 +108,39 @@
     });
   };
 
+  // ── Audio session: don't stop the user's music ────────────────────────────
+  // iOS treats a page that plays an <audio> element as exclusive playback, so
+  // every flashcard clip and lesson prompt PAUSES whatever the user was
+  // listening to — and podcasts/music don't always resume. The Audio Session
+  // API lets a page say what kind of audio it is:
+  //   'transient'  — short prompts that play OVER other audio, ducking it
+  //                  briefly (driving-directions semantics). What we are.
+  //   'playback'   — exclusive; stops other audio. Safari's effective default
+  //                  for media elements, and the behaviour being fixed here.
+  //   'ambient'    — mixes, but is silenced by the Ring/Silent switch.
+  // We choose 'transient': it mixes like 'ambient' without giving up audio to
+  // the mute switch, which would silently break listening drills for anyone
+  // whose phone is on silent. Unsupported browsers just keep their current
+  // behaviour — this is a progressive enhancement, never a requirement.
+  //
+  // Only Safari implements this (enabled by default since 16.4), so Android
+  // Chrome still takes audio focus and there is no web API to stop it. How
+  // faithfully 'transient' ducks rather than interrupts is up to the UA, so if
+  // it turns out to still interrupt on some iOS version, 'ambient' is the
+  // fallback — accepting the mute-switch tradeoff. One word, here.
+  function applyAudioSession(settings) {
+    const session = navigator.audioSession;
+    if (!session) return;
+    try {
+      session.type = (settings && settings.audio_mix === false) ? 'playback' : 'transient';
+    } catch (e) { /* unsupported value — leave the UA default alone */ }
+  }
+
+  ready.then(data => applyAudioSession(data && data.settings)).catch(() => {});
+
   window.CantoShell = {
     ready,
+    applyAudioSession,
     refresh: () => refresh(true),
     get: key => snapshot && snapshot.data ? snapshot.data[key] : null,
     invalidate: key => dirty.add(key),

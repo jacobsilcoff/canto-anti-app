@@ -228,6 +228,16 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Play sound over my music</div>
+          <div class="settings-desc">Let audio play alongside music or a podcast instead of stopping it. Turn off if you'd rather sound always play at full volume on its own.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-audio-mix" onchange="saveAudioMix()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">AI Speak practice</div>
           <div class="settings-desc">Tutor-graded translation drills at the end of grammar lessons. Off is faster and uses fewer AI calls (also toggleable per-lesson).</div>
         </div>

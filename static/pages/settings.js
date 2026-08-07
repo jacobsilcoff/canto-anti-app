@@ -518,6 +518,7 @@
     if (tzEl) tzEl.textContent = (settings.timezone || 'UTC').replace(/_/g, ' ');
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
+    document.getElementById('settings-audio-mix').checked = settings.audio_mix !== false;
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
@@ -703,6 +704,29 @@
       showToast(checked ? 'Romanization shown on audio cards.' : 'Romanization hidden on audio cards.');
     } catch {
       document.getElementById('settings-audio-romanization').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveAudioMix() {
+    const checked = document.getElementById('settings-audio-mix').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_mix: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.audio_mix = checked;
+      // Write through to the cached shell snapshot AND re-apply now, so the
+      // change takes effect on this page instead of after a reload.
+      if (window.CantoShell) {
+        window.CantoShell.patch('settings', { audio_mix: checked });
+        window.CantoShell.applyAudioSession({ audio_mix: checked });
+      }
+      showToast(checked ? 'Sound will play over your music.' : 'Sound will play on its own.');
+    } catch {
+      document.getElementById('settings-audio-mix').checked = !checked;
       showToast('Failed to save setting.');
     }
   }

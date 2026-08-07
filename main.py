@@ -2278,6 +2278,10 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_ai_speak": (await db.get_setting(user["id"], "lesson_ai_speak") or "true") != "false",
         # Warm-up steps also default ON and can be skipped at play time.
         "lesson_warmup": (await db.get_setting(user["id"], "lesson_warmup") or "true") != "false",
+        # Play audio alongside the user's music instead of stopping it. Defaults
+        # ON — a flashcard clip killing someone's podcast is never what they
+        # wanted. See applyAudioSession in app-shell.js.
+        "audio_mix": (await db.get_setting(user["id"], "audio_mix") or "true") != "false",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
         # IANA zone deciding when the learner's day rolls over (streak, XP ring,
         # daily quests, new-card cap). Auto-detected by the client; UTC until then.
@@ -2304,6 +2308,7 @@ class SettingsUpdate(BaseModel):
     lesson_length: str | None = None
     lesson_ai_speak: bool | None = None
     lesson_warmup: bool | None = None
+    audio_mix: bool | None = None
     course_focus: str | None = None
     timezone: str | None = None
 
@@ -2371,6 +2376,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_ai_speak", "true" if req.lesson_ai_speak else "false")
     if req.lesson_warmup is not None:
         await db.set_setting(user["id"], "lesson_warmup", "true" if req.lesson_warmup else "false")
+    if req.audio_mix is not None:
+        await db.set_setting(user["id"], "audio_mix", "true" if req.audio_mix else "false")
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
