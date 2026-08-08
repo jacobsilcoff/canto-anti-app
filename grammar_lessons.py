@@ -209,20 +209,85 @@ def _conj_cloze(concept_key: str, lang: str, sentence: str, gloss: str,
     }
 
 
+# ── Option hygiene ───────────────────────────────────────────────────────────
+# Shared by every graded multiple-choice item we assemble — drills
+# (learning._assemble_drill), cloze, and teach-flow quick_checks. A choice item
+# is only a test if every option could plausibly BE the answer; these are the
+# deterministic guards that drop foils which give the answer away or make it
+# undecidable. All free: string work plus the offline romanisation oracle.
+
+
+def _norm(s: str) -> str:
+    """Normalise an option for duplicate detection: casefold, collapse whitespace,
+    strip terminal punctuation and leading English fillers ('the cat' ≈ 'cat').
+    Catches model distractors that are the correct answer in disguise."""
+    s = " ".join((s or "").split()).casefold()
+    s = s.rstrip(".!?。！？…,，;；:：")
+    for art in ("the ", "a ", "an ", "to "):
+        if s.startswith(art):
+            s = s[len(art):]
+            break
+    return s.strip()
+
+
+def drop_cross_script(correct: str, distractors: list[str]) -> list[str]:
+    """Drop distractors written in a different script from the answer.
+
+    The model periodically mixes languages inside one option list — an English
+    gloss sitting among native-script foils, or vice versa. The odd one out is
+    then visibly the answer: the learner picks it without reading, and the drill
+    tests nothing. Generalises the old CJK-only listening guard to every
+    non-Latin script; a deliberate no-op for Latin-script targets, where English
+    and the target are both `latin` and no foil can be judged this way.
+
+    Options with no letters at all (a bare numeral) are kept — unjudgeable, and
+    dropping them would be a guess.
+    """
+    want = tokenizer.script_class(str(correct or ""))
+    if not want:
+        return list(distractors)
+    kept = []
+    for d in distractors:
+        cls = tokenizer.script_class(str(d or "").strip())
+        if cls and cls != want:
+            continue
+        kept.append(d)
+    return kept
+
+
+def drop_homophones(correct: str, distractors: list[str], rom) -> list[str]:
+    """Drop distractors that romanise identically to the answer.
+
+    Undecidable whenever the question is 'what did you hear' or 'how do you say
+    this': 唔該借支筆 and 唔該借枝筆 are both `m4 goi1 ze3 zi1 bat1` — the
+    classifiers 支/枝 are homophones and both correct, so the learner has nothing
+    to choose on. Romanisation comes from the offline oracle, never the model,
+    and is empty for Latin-script targets, where this is a no-op.
+    """
+    target_rom = _norm(rom(str(correct or "")) if rom else "")
+    if not target_rom:
+        return list(distractors)
+    return [d for d in distractors
+            if _norm(rom(str(d or "").strip())) != target_rom]
+
+
 def _free_cloze(concept_key: str, sentence: str, gloss: str, answer: str,
-                pool: list[str]) -> dict | None:
+                pool: list[str], rom=None) -> dict | None:
     """Cloze when we can't compute the paradigm: trust the (critic-verified)
     answer, draw distractors from sibling answers in the same concept."""
     answer = (answer or "").strip()
     if not _cloze_is_sane(sentence, answer):
         return None
-    seen = {answer}
+    seen = {_norm(answer)}
     distractors = []
     for p in pool:
         p = (p or "").strip()
-        if p and p not in seen:
-            seen.add(p)
+        key = _norm(p)
+        if p and key and key not in seen:
+            seen.add(key)
             distractors.append(p)
+    # A filler that sounds exactly like the answer is a second correct answer.
+    distractors = drop_homophones(answer, distractors, rom)
     random.shuffle(distractors)
     opts = [answer] + distractors[:3]
     random.shuffle(opts)
@@ -275,12 +340,18 @@ def _clean_block(b: dict, rom) -> dict | None:
         opts, seen = [], set()
         for o in (b.get("options") or []):
             o = str(o or "").strip()
-            if o and o not in seen:
-                seen.add(o)
+            key = _norm(o)
+            if o and key and key not in seen:
+                seen.add(key)
                 opts.append(o)
         if not q or not ans:
             return None
-        foils = [o for o in opts if o != ans][:2]
+        # Same hygiene as a graded drill: a foil in the wrong script gives the
+        # answer away, and one that romanises identically to it is a second
+        # correct answer. Left with nothing to choose between, drop the check.
+        foils = [o for o in opts if _norm(o) != _norm(ans)]
+        foils = drop_cross_script(ans, foils)
+        foils = drop_homophones(ans, foils, rom)[:2]
         if not foils:
             return None
         opts = [ans] + foils
@@ -368,7 +439,7 @@ async def generate_grammar_content(
         if grammar.has_conjugation(lang) and verb and person:
             ex = _conj_cloze(key, lang, sentence, gloss, verb, person, c.get("answer", ""))
         if ex is None:
-            ex = _free_cloze(key, sentence, gloss, c.get("answer", ""), answer_pool)
+            ex = _free_cloze(key, sentence, gloss, c.get("answer", ""), answer_pool, rom)
         if ex:
             if has_rom:
                 ex["prompt_roman"] = rom(sentence)

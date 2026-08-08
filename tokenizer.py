@@ -29,6 +29,35 @@ _CLOSE_QUOTES = set('”»」』')
 _ALPHA = r"a-zA-ZÀ-ÿĀ-ſƀ-ɏḀ-ỿ'ऀ-ॣ०-ॿఀ-౿가-힣ᄀ-ᇿ㄰-㆏ঀ-৿ؐ-ؚؠ-ۓە-ۿﭐ-﷿ﹰ-﻿Ѐ-ӿͰ-Ͽά-ωϐ-Ͽἀ-῾ְ-תก-๎"
 _ALPHA_RE = re.compile(rf"[{_ALPHA}]")
 
+# Latin letters proper — Basic Latin, Latin-1/Extended-A/B (accents, ligatures)
+# and Latin Extended Additional (Vietnamese). Everything else that is a letter
+# belongs to some other script.
+_LATIN_LETTER_RE = re.compile(r"[A-Za-zÀ-ɏḀ-ỿ]")
+
+
+def script_class(text: str) -> str:
+    """Which broad script a string is written in: ``"native"`` if it contains any
+    non-Latin letter (CJK, kana, Hangul, Devanagari, Telugu, Bengali, Arabic,
+    Cyrillic, Greek, Thai, Hebrew…), ``"latin"`` if it has Latin letters only,
+    and ``""`` when it has no letters at all (digits/punctuation, or empty) and
+    so cannot be judged.
+
+    Deliberately language-agnostic: it answers "is this the target script, or is
+    this English?" for every non-Latin language at once, and is a no-op for
+    Latin-script targets, where French and English are both ``"latin"`` and no
+    amount of inspection can tell an answer from a foil.
+    """
+    has_latin = False
+    for ch in text or "":
+        if not ch.isalpha():
+            continue
+        if _LATIN_LETTER_RE.match(ch):
+            has_latin = True
+        else:
+            return "native"
+    return "latin" if has_latin else ""
+
+
 _AR_CHAR = {
     'ا': 'a', 'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'ḥ', 'خ': 'kh',
     'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 'ṣ',
