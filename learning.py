@@ -52,7 +52,7 @@ import llm
 import tokenizer
 from grammar_lessons import (_clean_block, _cloze_is_sane, _conj_cloze, _free_cloze,
                              _norm, drop_cross_script, drop_homophones)
-from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
+from translation import LANG_INFO, SCRIPT_BY_LANG, DEFAULT_MODEL, _parse_json
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
 # prompt. Editing this file is the intended way to steer lesson STYLE implicitly
@@ -814,6 +814,10 @@ def _build_lesson_prompt(
         f"is a clearly best answer, and build it from words this lesson taught plus "
         f"vocabulary the learner already knows — never a word they have not met.\n"
         f"{_DRILL_TIER_GUIDANCE}"
+        f"EVERY target-language field — `target`, `sentence`, `answer`, reorder "
+        f"`tokens`, match `target` — must be written in {name}. English belongs only "
+        f"in `gloss`/`prompt`/glossary values. A drill whose answer is English "
+        f"teaches nothing and is discarded.\n"
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
@@ -928,8 +932,94 @@ def _norm_tier(tier) -> str:
     return t if t in _DRILL_TIERS else "standard"
 
 
+# ── Is the drill actually in the language being taught? ──────────────────────
+# The author is told to emit native script only, but a prompt is a request, not
+# a guarantee: fed an English-heavy source (a phrasebook chapter, a romanization-
+# only textbook page), the model sometimes authors a whole drill in ENGLISH.
+# Rendered, that is "What does this mean? / Please include some coins in the
+# change." with that same English sentence sitting among the options — a drill
+# answered without reading anything, in a course taken to learn Cantonese.
+#
+# Two deterministic checks, both free, both applied to the ASSEMBLED exercise so
+# they work on stored lessons as well as fresh ones:
+#   1. the target-language side must really be in the target script — a no-op for
+#      Latin-script targets, where nothing distinguishes English from French by
+#      inspection; and
+#   2. no option may repeat the prompt verbatim, which catches the same failure
+#      in a Latin-script language, since a prompt that IS the answer gives itself
+#      away whatever the language.
+
+
+def _off_script(text: str, lang: str) -> bool:
+    """True when a string that must be in the target language plainly isn't."""
+    if SCRIPT_BY_LANG.get(lang, "latin") == "latin":
+        return False                    # undecidable, so never a reason to drop
+    return tokenizer.script_class(text or "") == "latin"
+
+
+def drill_is_sane(ex: dict, lang: str) -> bool:
+    """Can this assembled exercise be answered by reading/hearing the language?
+
+    Applied after assembly (so it also vets what is already stored), and only
+    ever a reason to DROP — same contract as the rest of the pipeline: a drill we
+    can't stand behind is not shown.
+    """
+    if not isinstance(ex, dict):
+        return False
+    etype = ex.get("type")
+    prompt = ex.get("prompt") or ""
+
+    if etype in ("choice", "listening"):
+        opts = ex.get("options") or []
+        ans = ex.get("answer")
+        if not isinstance(ans, int) or not 0 <= ans < len(opts):
+            return False
+        correct = opts[ans] or ""
+        if prompt and _norm(prompt) == _norm(correct):
+            return False                # the prompt IS the answer
+        if etype == "listening":
+            native = [ex.get("audio") or "", correct]
+        elif ex.get("prompt_lang") == "target":
+            # Recognition (native prompt, English options) or a cloze, whose
+            # sentence AND options are both native.
+            native = [prompt, correct] if ex.get("is_cloze") else [prompt]
+        else:
+            native = [correct]          # production: English prompt, native options
+        return not any(_off_script(t, lang) for t in native)
+
+    if etype == "word_bank":
+        sentence = ex.get("audio") or "".join(ex.get("answer_tokens") or [])
+        return not _off_script(sentence, lang)
+
+    if etype == "type_answer":
+        return not _off_script(ex.get("answer") or "", lang)
+
+    if etype == "match":
+        pairs = ex.get("pairs") or []
+        return not any(_off_script(p.get("target") or "", lang) for p in pairs)
+
+    return True                         # self-managed drills own their content
+
+
+def block_is_sane(block: dict, lang: str) -> bool:
+    """Teach blocks are shown, not graded, so they're left alone — except the
+    quick_check, which is a drill in teach clothing and fails the same way."""
+    if not isinstance(block, dict) or block.get("type") != "quick_check":
+        return True
+    opts = block.get("options") or []
+    ans = block.get("answer")
+    if not isinstance(ans, int) or not 0 <= ans < len(opts):
+        return False
+    return not _off_script(opts[ans] or "", lang)
+
+
 def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     """Turn one authored drill into a frontend exercise object, or None to drop."""
+    ex = _build_drill(d, lang, kinds, rom)
+    return ex if (ex and drill_is_sane(ex, lang)) else None
+
+
+def _build_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     kind = (d.get("kind") or "").strip()
     key = (d.get("concept") or "").strip()
     is_grammar = kinds.get(key) == "grammar"
@@ -1152,7 +1242,7 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
         blocks = []
         for b in (st.get("teach") or []):
             cleaned = _clean_block(b, rom)
-            if cleaned:
+            if cleaned and block_is_sane(cleaned, target_lang):
                 blocks.append(cleaned)
 
         exercises = []
@@ -1327,7 +1417,8 @@ async def regenerate_item(
             block = block[0] if block else None
         if not isinstance(block, dict):
             return None
-        return _clean_block(block, rom)
+        cleaned = _clean_block(block, rom)
+        return cleaned if (cleaned and block_is_sane(cleaned, target_lang)) else None
 
     drill = parsed.get("drill") or parsed.get("drills")
     if isinstance(drill, list):

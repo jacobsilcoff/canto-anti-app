@@ -354,3 +354,47 @@ def test_correct_feedback_shows_the_lessons_own_answer():
     assert "Je mange du pain" in res["variantLine"]
     assert res["dupLine"] == ""
     assert res["noExpected"] == ""
+
+
+# ── Stored lessons heal themselves ───────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_an_english_drill_in_a_stored_lesson_is_stripped_and_the_fix_saved(client):
+    """Lessons authored before the language check existed can hold a drill
+    written entirely in English. Opening one drops it — and PERSISTS the drop,
+    because the ⚑ regenerate flow addresses stored items by position, so serving
+    a different list than we store would rewrite the wrong drill."""
+    course_id = await db.create_course(client._user_id, "yue", "A1")
+    good = {"type": "choice", "concept_key": "k", "prompt": "thank you",
+            "prompt_lang": "english", "options": ["唔該", "早晨"], "answer": 0}
+    english_only = {"type": "choice", "concept_key": "k",
+                    "prompt": "Please include some coins in the change.",
+                    "prompt_lang": "target",
+                    "options": ["Please include some coins in the change.",
+                                "I have no coins."], "answer": 0}
+    lesson_id = await db.create_lesson(
+        course_id, 1, "Asking for change", "Ask for coins",
+        [{"kind": "vocab", "key": "k", "label": "唔該", "gloss": "thank you"}],
+        {"segments": [{"teach": {"intro": "", "blocks": []},
+                       "exercises": [good, english_only]}]},
+        "asking for change")
+
+    res = await client.get(f"/api/lessons/{lesson_id}")
+    assert res.status_code == 200, res.text
+    served = res.json()["content"]["segments"][0]["exercises"]
+    assert len(served) == 1 and served[0]["options"] == ["唔該", "早晨"]
+
+    stored = await db.get_lesson(client._user_id, lesson_id)
+    assert len(stored["content"]["segments"][0]["exercises"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_healthy_lesson_is_served_untouched(client):
+    """The repair must not rewrite lessons that are fine — every open would be a
+    pointless write, and a French lesson is indistinguishable from English by
+    script, so nothing may be dropped on that basis."""
+    stored_before = await db.get_lesson(client._user_id, client._lesson_id)
+    res = await client.get(f"/api/lessons/{client._lesson_id}")
+    assert res.status_code == 200
+    exercises = res.json()["content"]["segments"][0]["exercises"]
+    assert len(exercises) == len(stored_before["content"]["segments"][0]["exercises"])

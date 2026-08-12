@@ -5851,6 +5851,31 @@ async def clear_textbook_queue(course_id: int, user: dict = Depends(current_user
     return {"success": True}
 
 
+# Lessons authored before the language check existed (or by a model that ignored
+# it) can hold drills written entirely in ENGLISH — "What does this mean? /
+# Please include some coins in the change." with that same sentence among the
+# options. Those are dropped on the way out, and the repair is PERSISTED: the
+# learner meets the lesson again on every replay, and the ⚑ regenerate flow
+# addresses stored items by position, so serving a different list than we store
+# would rewrite the wrong drill.
+def _sanitize_lesson_content(content: dict, lang: str) -> int:
+    """Strip unanswerable stored items in place. Returns how many were removed."""
+    removed = 0
+    for seg in (content.get("segments") or []):
+        exercises = seg.get("exercises")
+        if isinstance(exercises, list):
+            kept = [ex for ex in exercises if learning.drill_is_sane(ex, lang)]
+            removed += len(exercises) - len(kept)
+            seg["exercises"] = kept
+        teach = seg.get("teach") or {}
+        blocks = teach.get("blocks")
+        if isinstance(blocks, list):
+            kept_b = [b for b in blocks if learning.block_is_sane(b, lang)]
+            removed += len(blocks) - len(kept_b)
+            teach["blocks"] = kept_b
+    return removed
+
+
 def _lesson_response(lesson: dict, content: dict) -> dict:
     return {
         "id":         lesson["id"],
@@ -5875,7 +5900,12 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
         raise HTTPException(404, "Lesson not found")
     if not lesson.get("content"):
         raise HTTPException(404, "Lesson content not available")
-    return _lesson_response(lesson, lesson["content"])
+    content = lesson["content"]
+    if _sanitize_lesson_content(content, lesson["target_lang"]):
+        # Heal it once, so every later replay (and the stored positions the
+        # regenerate flow uses) agree with what the learner is playing.
+        await db.update_lesson_content(user["id"], lesson_id, content)
+    return _lesson_response(lesson, content)
 
 
 @app.get("/api/courses/{course_id}/foundations-practice")
@@ -5922,15 +5952,23 @@ _PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match", "type_answer
 _PRACTICE_MAX = 12
 
 
-def _course_drill_pool(lessons: list[dict]) -> list[dict]:
-    """Flatten every gradeable stored exercise across a course's lessons."""
+def _course_drill_pool(lessons: list[dict], lang: str = "") -> list[dict]:
+    """Flatten every gradeable stored exercise across a course's lessons.
+
+    `lang` vets each drill against the language being taught — a lesson that was
+    never opened since the check shipped can still hold an English-only drill,
+    and practice sets must not resurrect it.
+    """
     out: list[dict] = []
     for lesson in lessons:
         content = lesson.get("content") or {}
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
-                if ex.get("type") in _PRACTICE_GRADEABLE:
-                    out.append(ex)
+                if ex.get("type") not in _PRACTICE_GRADEABLE:
+                    continue
+                if lang and not learning.drill_is_sane(ex, lang):
+                    continue
+                out.append(ex)
     return out
 
 
@@ -6038,7 +6076,7 @@ async def course_practice(request: Request, course_id: int, mode: str = "mistake
         if not one or one.get("course_id") != course_id:
             raise HTTPException(404, "Lesson not found")
         lessons = [one]
-    pool = _course_drill_pool(lessons)
+    pool = _course_drill_pool(lessons, lang)
     if not pool:
         raise HTTPException(400, "Finish a lesson first — there's nothing to practice yet.")
 
@@ -6287,14 +6325,20 @@ def _checkpoint_quiz(unit: dict) -> list[dict]:
     lesson), deterministically seeded by unit id so the quiz is stable."""
     import random as _random
     rng = _random.Random(unit["id"])
+    lang = unit.get("target_lang") or ""
     picked: list[dict] = []
     for lesson in unit.get("lessons") or []:
         content = lesson.get("content") or {}
         pool = []
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
-                if ex.get("type") in _CHECKPOINT_TYPES:
-                    pool.append(ex)
+                if ex.get("type") not in _CHECKPOINT_TYPES:
+                    continue
+                # A drill that isn't in the language can't test whether the unit
+                # was learned — and a checkpoint is the worst place to meet one.
+                if lang and not learning.drill_is_sane(ex, lang):
+                    continue
+                pool.append(ex)
         pool.sort(key=_checkpoint_difficulty)
         picked.extend(dict(ex) for ex in pool[:_CHECKPOINT_PER_LESSON])
     rng.shuffle(picked)
