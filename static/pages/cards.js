@@ -804,12 +804,25 @@
   }
 
   // ── Audio ─────────────────────────────────────────────────────────────────
-  function playCardAudio(cardId, btn) {
+  function playCardAudio(cardId, btn, isRetry) {
     stopAudio();
-    currentAudio = new Audio(`/api/audio/${cardId}`);
-    currentAudio.play();
+    const el = new Audio(`/api/audio/${cardId}`);
+    currentAudio = el;
     btn.classList.add('playing');
-    currentAudio.onended = () => btn.classList.remove('playing');
+    el.onended = () => btn.classList.remove('playing');
+    el.play().catch(err => {
+      // Without this the button stays stuck in its 'playing' state forever
+      // (onended never fires) and the failure is invisible.
+      btn.classList.remove('playing');
+      if (err && err.name === 'NotAllowedError') return;   // autoplay policy
+      // A card's audio is synthesised lazily on first play, so the first
+      // request can fail transiently upstream. Give it one more go.
+      if (!isRetry && currentAudio === el) {
+        setTimeout(() => {
+          if (currentAudio === el) playCardAudio(cardId, btn, true);
+        }, 600);
+      }
+    });
   }
 
   function stopAudio() {

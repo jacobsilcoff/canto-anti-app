@@ -339,9 +339,13 @@
       return;
     }
     _trAudioEl = new Audio('/api/audio/' + _trCardId);
-    _trAudioEl.play();
     document.getElementById('tr-audio-btn').classList.add('playing');
     _trAudioEl.onended = () => document.getElementById('tr-audio-btn').classList.remove('playing');
+    // Without a catch the button sticks in 'playing' forever and the failure
+    // is invisible — audio is synthesised lazily, so it can fail transiently.
+    _trAudioEl.play().catch(() => {
+      document.getElementById('tr-audio-btn').classList.remove('playing');
+    });
   }
 
   document.getElementById('tr-input').addEventListener('keydown', function(e) {

@@ -1172,7 +1172,10 @@
       const url = URL.createObjectURL(blob);
       _currentAudio = new Audio(url);
       _currentAudio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; };
-      _currentAudio.play();
+      // Awaited so a rejected play() reaches the catch below — play() returns a
+      // promise, so without this the failure escaped and the reader just went
+      // quiet with no toast. It resolves when playback STARTS, not when it ends.
+      await _currentAudio.play();
     } catch {
       showToast('Audio unavailable');
     }
@@ -1187,7 +1190,7 @@
       const objUrl = URL.createObjectURL(blob);
       _currentAudio = new Audio(objUrl);
       _currentAudio.onended = () => { URL.revokeObjectURL(objUrl); _currentAudio = null; };
-      _currentAudio.play();
+      await _currentAudio.play();   // see playText: unawaited rejections escaped
     } catch {
       showToast('Audio unavailable');
     }
@@ -1238,7 +1241,7 @@
     } else {
       audioPlaying = true;
       setAudioPlayPauseUI(true);
-      if (_currentAudio) _currentAudio.play();
+      if (_currentAudio) _currentAudio.play().catch(() => showToast('Audio unavailable'));
       else runAudioMode();
     }
   }

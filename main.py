@@ -2798,7 +2798,17 @@ async def get_audio(card_id: int, user: dict = Depends(current_user)):
         card = await db.get_card(user["id"], card_id)
         if not card:
             raise HTTPException(404, "Audio not found")
-        data = await audio.generate(card["target_text"], card.get("target_lang", "yue"))
+        # Lazily synthesised on first play (deck imports and lesson/tutor cards
+        # store NULL). `audio.generate` already retries; if it still fails this
+        # is a transient upstream problem, so report it as one rather than
+        # letting the exception become a 500 — and never persist the failure,
+        # so the next play tries again.
+        try:
+            data = await audio.generate(card["target_text"],
+                                        card.get("target_lang", "yue"))
+        except Exception:
+            logger.exception("TTS failed for card %s", card_id)
+            raise HTTPException(502, "Audio generation failed")
         await db.set_audio(user["id"], card_id, data)
     return Response(content=bytes(data), media_type="audio/mpeg")
 
