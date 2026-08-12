@@ -812,6 +812,7 @@
     btn.classList.remove('audio-dead');
     btn.disabled = false;
     el.onended = () => btn.classList.remove('playing');
+    try { CantoShell.prepareAudio(el); } catch {}   // volume boost; never blocks play
     el.play().catch(err => {
       // Without this the button stays stuck in its 'playing' state forever
       // (onended never fires) and the failure is invisible.

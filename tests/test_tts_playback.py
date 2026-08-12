@@ -171,6 +171,11 @@ def _run_tts(script: str):
         return Promise.resolve();
       }
     }
+    // The shipped playTTS asks the app shell to route the element through the
+    // volume-boost gain graph. `window` exists in a browser; the harness is what
+    // was incomplete. A test can install a CantoShell to exercise that path.
+    const window = { CantoShell: null };
+    const CantoShell = null;
     const setTimeoutReal = setTimeout;
     // Report and exit immediately: the real prewarm timers are 15s and would
     // otherwise keep node's event loop alive long past the assertion.
@@ -270,3 +275,19 @@ def test_prewarm_queue_drains_and_dedupes():
     """)
     assert res["built"] == 10       # all drained (loads resolve synchronously)
     assert res["queued"] == 0
+
+
+@pytestmark_node
+def test_a_broken_volume_booster_cannot_silence_a_clip():
+    """The boost routes playback through Web Audio. If anything there throws,
+    the clip must still play — louder is a nicety, audible is the product."""
+    res = _run_tts("""
+      window.CantoShell = { prepareAudio() { throw new Error('no AudioContext'); } };
+      let threw = false;
+      try { playTTS('hi', 'yue'); } catch (e) { threw = true; }
+      setTimeoutReal(() => {
+        done({ threw, playing: built.some(a => !a.paused) });
+      }, 10);
+    """)
+    assert res["threw"] is False
+    assert res["playing"] is True

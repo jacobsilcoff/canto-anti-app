@@ -2240,6 +2240,9 @@
     }
     _audio = el;
     try { _audio.currentTime = 0; } catch {}
+    // Volume boost (Settings). Wrapped because the booster must never be able
+    // to decide whether a clip plays — louder is a nicety, audible is the product.
+    try { CantoShell.prepareAudio(_audio); } catch {}
     _audio.play().catch(err => {
       // NotAllowedError is the browser's autoplay policy, not a broken clip —
       // the element is fine and retrying fails identically, so leave it cached.
@@ -2250,6 +2253,7 @@
       const retry = _makeTTSAudio(text, lang, key);
       _ttsCache[key] = retry;
       _audio = retry;
+      try { CantoShell.prepareAudio(retry); } catch {}
       retry.play().catch(() => {});
     });
   }

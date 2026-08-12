@@ -194,6 +194,7 @@ def _run(script: str, fns=(), decls=()):
                classList: { toggle: function (c, on) { this._cls = on; },
                             add() {}, remove() {} } };
     }
+    const window = { CantoShell: null };     // playTTS asks the shell for the gain graph
     const setTimeoutReal = setTimeout;
     function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
     """

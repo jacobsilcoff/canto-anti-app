@@ -1864,6 +1864,24 @@ def _valid_course_focus(value: str | None) -> str:
     return value if value in learning.COURSE_FOCUSES else "balanced"
 
 
+# How loud our own audio plays, as a multiplier. 1.0 is the clip as recorded and
+# means the client does no Web Audio routing at all, so the default keeps the
+# audio path exactly as it was. Bounded because the client can only limit so much
+# distortion on the way up, and inaudible is not a setting worth offering.
+AUDIO_VOLUME_MIN, AUDIO_VOLUME_MAX = 0.5, 3.0
+
+
+def _audio_volume(value) -> float:
+    """Clamp the audio-volume multiplier; anything unreadable falls back to 1×."""
+    try:
+        vol = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    if not vol or vol != vol:                       # 0 or NaN
+        return 1.0
+    return round(min(AUDIO_VOLUME_MAX, max(AUDIO_VOLUME_MIN, vol)), 2)
+
+
 def _plan_limit(user: dict) -> int:
     return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
 
@@ -2282,6 +2300,9 @@ async def get_settings(user: dict = Depends(current_user)):
         # the microphone once the learner taps it, and browsers without speech
         # recognition never see one (the player drops them client-side).
         "speaking_drills": (await db.get_setting(user["id"], "speaking_drills") or "true") != "false",
+        # Boost for our own audio, against whatever else is playing. 1.0 = the
+        # clip as recorded (and no Web Audio routing at all on the client).
+        "audio_volume": _audio_volume(await db.get_setting(user["id"], "audio_volume")),
         # Play audio alongside the user's music instead of stopping it. Defaults
         # ON — a flashcard clip killing someone's podcast is never what they
         # wanted. See applyAudioSession in app-shell.js.
@@ -2314,6 +2335,7 @@ class SettingsUpdate(BaseModel):
     lesson_warmup: bool | None = None
     speaking_drills: bool | None = None
     audio_mix: bool | None = None
+    audio_volume: float | None = None
     course_focus: str | None = None
     timezone: str | None = None
 
@@ -2385,6 +2407,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "speaking_drills", "true" if req.speaking_drills else "false")
     if req.audio_mix is not None:
         await db.set_setting(user["id"], "audio_mix", "true" if req.audio_mix else "false")
+    if req.audio_volume is not None:
+        await db.set_setting(user["id"], "audio_volume", str(_audio_volume(req.audio_volume)))
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
