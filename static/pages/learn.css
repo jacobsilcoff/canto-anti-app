@@ -404,6 +404,24 @@
     .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
     .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
     .audio-center { text-align: center; margin: 16px 0 26px; }
+    /* A clip we know we can't fetch: say so, rather than let a tap do nothing. */
+    .audio-play.audio-dead {
+      opacity: .45; cursor: not-allowed; color: var(--text-muted); border-style: dashed;
+    }
+
+    /* 🎤 Speaking drill */
+    .speak-target { text-align: center; font-size: 2rem; margin: 10px 0 4px; font-family: var(--script-font, inherit); overflow-wrap: break-word; min-width: 0; line-height: 2; }
+    .speak-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 22px 0 14px; }
+    .speak-mic { display: inline-flex; align-items: center; gap: 10px; background: var(--primary); color: var(--on-primary); border: none; border-radius: 999px; padding: 14px 24px; font-size: 1.05rem; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+    .speak-mic .sp-ico { font-size: 1.25rem; }
+    .speak-mic:disabled { opacity: .6; cursor: default; }
+    .speak-mic.live { background: var(--energy); animation: sp-pulse 1.2s ease-in-out infinite; }
+    .speak-mic.correct { background: var(--good-strong); }
+    .speak-mic.wrong { background: var(--warn-strong); }
+    @keyframes sp-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @media (prefers-reduced-motion: reduce) { .speak-mic.live { animation: none; } }
+    .speak-heard { text-align: center; min-height: 1.4em; color: var(--text); font-size: 1.05rem; }
+    .speak-heard.muted { color: var(--text-muted); font-size: 0.92rem; }
 
     .opt-list { display: flex; flex-direction: column; gap: 10px; }
     .opt { text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 1.05rem; cursor: pointer; font-family: var(--script-font, inherit); width: 100%; box-sizing: border-box; touch-action: manipulation; }

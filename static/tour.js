@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 30;
+  var TOUR_VERSION = 31;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -73,6 +73,8 @@
       body: 'Your AI course used to lose track of words it taught inside a grammar lesson, so the same material could come back later under a new name. It now sees every word and every lesson it has already made — including ones from your textbooks — and a plan that repeats one gets sent back before it’s written. On the Learn page, 📕 From your textbooks now lists every chapter of every book, not just the ones you’ve built: tap “＋ Build lessons from this chapter” to start a new chapter right there, no trip to the Textbooks page.', v: 29 },
     { icon: '\u270d\ufe0f', title: 'Write it yourself — and a progress bar that means something',
       body: 'Lessons were nearly all multiple choice, so you could finish one without ever writing the language. Now every lesson (including the ones built from your textbooks) asks you to type real sentences in your target language, and the grading is deliberately generous: any natural translation counts, not just the one the lesson had in mind. Word it differently and it tells you it works. Miss the mark and it shows you the fix and why. The step bar at the top is also honest now — steps are sized by how much is in them and teach cards count as progress, so it moves at a steady rate instead of stalling and then leaping. And on iPhone, app sounds now play over your music or podcast instead of stopping it \u2014 there\u2019s a toggle in Settings if you\u2019d rather they didn\u2019t.', v: 30 },
+    { icon: '\ud83c\udfa4', title: 'Say it out loud',
+      body: 'Lessons now sometimes ask you to SPEAK. Tap the mic, say the line, and your phone checks it \u2014 generously, so a near-miss still counts (it listens for how you said it, not which characters it guessed). For a full round of it, open \ud83c\udfaf Practice \u2192 \ud83c\udfa4 Speaking practice, built from the words and sentences your lessons have already taught, or tap \ud83c\udfa4 Speaking on any finished lesson. Turn it off in Settings if you\u2019d rather not. And when a sound can\u2019t be loaded, the \ud83d\udd0a button now shows as unavailable instead of quietly doing nothing \u2014 listening questions we can\u2019t play are skipped rather than asked in silence.', v: 31 },
   ];
 
   var steps, stepIdx;

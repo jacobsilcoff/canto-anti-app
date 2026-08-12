@@ -518,6 +518,7 @@
     if (tzEl) tzEl.textContent = (settings.timezone || 'UTC').replace(/_/g, ' ');
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
+    document.getElementById('settings-speaking').checked = settings.speaking_drills !== false;
     document.getElementById('settings-audio-mix').checked = settings.audio_mix !== false;
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
@@ -727,6 +728,23 @@
       showToast(checked ? 'Sound will play over your music.' : 'Sound will play on its own.');
     } catch {
       document.getElementById('settings-audio-mix').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveSpeakingDrills() {
+    const checked = document.getElementById('settings-speaking').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speaking_drills: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.speaking_drills = checked;
+      showToast(checked ? 'Speaking drills on.' : 'Speaking drills off.');
+    } catch {
+      document.getElementById('settings-speaking').checked = !checked;
       showToast('Failed to save setting.');
     }
   }

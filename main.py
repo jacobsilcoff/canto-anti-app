@@ -2278,6 +2278,10 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_ai_speak": (await db.get_setting(user["id"], "lesson_ai_speak") or "true") != "false",
         # Warm-up steps also default ON and can be skipped at play time.
         "lesson_warmup": (await db.get_setting(user["id"], "lesson_warmup") or "true") != "false",
+        # 🎤 Speaking drills inside lessons. Defaults ON: the drill only asks for
+        # the microphone once the learner taps it, and browsers without speech
+        # recognition never see one (the player drops them client-side).
+        "speaking_drills": (await db.get_setting(user["id"], "speaking_drills") or "true") != "false",
         # Play audio alongside the user's music instead of stopping it. Defaults
         # ON — a flashcard clip killing someone's podcast is never what they
         # wanted. See applyAudioSession in app-shell.js.
@@ -2308,6 +2312,7 @@ class SettingsUpdate(BaseModel):
     lesson_length: str | None = None
     lesson_ai_speak: bool | None = None
     lesson_warmup: bool | None = None
+    speaking_drills: bool | None = None
     audio_mix: bool | None = None
     course_focus: str | None = None
     timezone: str | None = None
@@ -2376,6 +2381,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_ai_speak", "true" if req.lesson_ai_speak else "false")
     if req.lesson_warmup is not None:
         await db.set_setting(user["id"], "lesson_warmup", "true" if req.lesson_warmup else "false")
+    if req.speaking_drills is not None:
+        await db.set_setting(user["id"], "speaking_drills", "true" if req.speaking_drills else "false")
     if req.audio_mix is not None:
         await db.set_setting(user["id"], "audio_mix", "true" if req.audio_mix else "false")
     if req.course_focus is not None:
@@ -3433,6 +3440,8 @@ async def list_languages():
                 "script_family": translation.SCRIPT_BY_LANG.get(code, "latin"),
                 "romanization": info["romanization"],
                 "logographic": info["romanization"] is not None,
+                # BCP-47 tag for the browser's speech recogniser (speaking drills).
+                "speech_lang": audio.locale_for(code),
             }
             for code, info in translation.LANG_INFO.items()
         ]
@@ -5853,22 +5862,123 @@ def _course_drill_pool(lessons: list[dict]) -> list[dict]:
     return out
 
 
+# ── 🎤 Speaking practice ─────────────────────────────────────────────────────
+# Prompts the learner says ALOUD, drawn from the course's own material: the
+# sentences its drills already used plus the words its lessons taught. Purely
+# deterministic recombination — no LLM here, and none in the grading either
+# (the browser transcribes; the client compares offline).
+
+_SPEAK_MAX = 12
+_SPEAK_MAX_CHARS = 60      # a paragraph is not a speaking prompt
+
+
+def _speak_prompt(ex: dict) -> tuple[str, str, str] | None:
+    """(target text, English gloss, romanization) a drill can be spoken from.
+
+    Only shapes whose TARGET-language string is unambiguous: a reorder drill's
+    own sentence, a typed answer, or the correct option of a drill whose options
+    are the target language. A recognition drill (target prompt → English
+    options) would otherwise hand back an English "answer" to say aloud.
+    """
+    kind = ex.get("type")
+    if kind == "word_bank":
+        # Assembly stores the whole sentence as the drill's audio, so there is no
+        # need to re-join the tiles (and no separator to get wrong for CJK/Thai).
+        return (ex.get("audio") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+    if kind == "type_answer":
+        return (ex.get("answer") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+    if kind in ("choice", "listening"):
+        opts = ex.get("options") or []
+        idx = ex.get("answer")
+        if not isinstance(idx, int) or not 0 <= idx < len(opts):
+            return None
+        if kind == "choice" and ex.get("prompt_lang") != "english" and not ex.get("is_cloze"):
+            return None            # options are English — nothing to say
+        # A cloze's English gloss lives in `tip`; a listening drill has no prompt.
+        gloss = ex.get("tip") if ex.get("is_cloze") else ex.get("prompt")
+        if kind == "listening":
+            gloss = ""
+        return (opts[idx] or "", gloss or "", ex.get("audio_roman") or "")
+    return None
+
+
+def _speaking_items(pool: list[dict], vocab: list[dict], lang: str) -> list[dict]:
+    """Build speak drills from a drill pool + the course's taught vocabulary."""
+    import random as _random
+
+    seen: set[str] = set()
+    sentences: list[dict] = []
+    words: list[dict] = []
+
+    def _add(bucket: list[dict], target: str, gloss: str, roman: str) -> None:
+        target = (target or "").strip()
+        if not target or len(target) > _SPEAK_MAX_CHARS:
+            return
+        key = target.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        # Romanization comes from the offline oracle when the drill didn't carry
+        # one — same rule as everywhere else: never the model.
+        roman = (roman or "").strip() or tokenizer.romanize_text(target, lang)
+        bucket.append({
+            "type": "speak",
+            "instruction": "Say it out loud",
+            "prompt": (gloss or "").strip(),
+            "target": target,
+            "target_roman": roman,
+        })
+
+    for ex in pool:
+        got = _speak_prompt(ex)
+        if got:
+            _add(sentences, *got)
+    for w in vocab:
+        _add(words, w.get("label") or "", w.get("gloss") or "", "")
+
+    _random.shuffle(sentences)
+    _random.shuffle(words)
+    # Sentences carry more of the language than isolated words, so they lead;
+    # words top the set up (and are all a young course has to offer).
+    n_words = min(len(words), max(2, _SPEAK_MAX // 3))
+    picked = sentences[:_SPEAK_MAX - n_words] + words[:n_words]
+    _random.shuffle(picked)
+    return picked[:_SPEAK_MAX]
+
+
 @app.get("/api/courses/{course_id}/practice")
 @limiter.limit("30/minute")
 async def course_practice(request: Request, course_id: int, mode: str = "mistakes",
+                          lesson_id: int | None = None,
                           user: dict = Depends(current_user)):
     """Assemble a practice set from the course's own stored drills (B6).
     mode=mistakes → weak-concept drills; mode=lightning → choice-drill pool for the
-    client to remix. Both are deterministic recombination (no LLM)."""
+    client to remix; mode=speaking → say-it-aloud prompts (optionally scoped to one
+    lesson via lesson_id). All deterministic recombination (no LLM)."""
     import random as _random
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
     lang = course["target_lang"]
     lessons = await db.get_completed_lesson_contents(user["id"], course_id)
+    if lesson_id:
+        one = await db.get_lesson(user["id"], lesson_id)
+        if not one or one.get("course_id") != course_id:
+            raise HTTPException(404, "Lesson not found")
+        lessons = [one]
     pool = _course_drill_pool(lessons)
     if not pool:
         raise HTTPException(400, "Finish a lesson first — there's nothing to practice yet.")
+
+    if mode == "speaking":
+        # Lesson-scoped sets stay inside that lesson; course-wide ones may also
+        # draw on vocabulary taught in lessons whose drills weren't speakable.
+        vocab = [] if lesson_id else await db.get_course_vocab(user["id"], course_id)
+        exercises = await asyncio.to_thread(_speaking_items, pool, vocab, lang)
+        if len(exercises) < 3:
+            raise HTTPException(400, "Not enough material to speak yet — finish a lesson first.")
+        return {"title": "🎤 Speaking", "target_lang": lang,
+                "content": {"segments": [{"teach": None, "exercises": exercises}]}}
 
     if mode == "lightning":
         choices = [ex for ex in pool

@@ -4,6 +4,7 @@
   let _lessonLength = 'standard';   // A3 · mirrors the lesson_length setting
   let _aiSpeak = true;              // mirrors the lesson_ai_speak setting (AI Speak drills on/off)
   let _warmup = true;               // mirrors lesson_warmup (optional first review step)
+  let _speakDrills = true;          // mirrors speaking_drills (🎤 say-it-aloud drills in lessons)
   const _cdPreload = {};           // construction → Promise<opener data>, warmed while the learner works
   let langName = 'your language';
   let LANGS = [];
@@ -60,6 +61,7 @@
       _lessonLength = settings.lesson_length || 'standard';
       _aiSpeak = settings.lesson_ai_speak !== false && settings.lesson_ai_speak !== 'false';
       _warmup = settings.lesson_warmup !== false && settings.lesson_warmup !== 'false';
+      _speakDrills = settings.speaking_drills !== false && settings.speaking_drills !== 'false';
       const code = settings.default_target_lang || 'yue';
       const l = LANGS.find(x => x.code === code);
       langName = l ? l.name : code;
@@ -2131,13 +2133,62 @@
     return '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
   }
 
+  // Health of each clip: key → 'ok' | 'fail' (absent = not known yet). A clip
+  // that can't be fetched has to SHOW as unavailable — a 🔊 button that looks
+  // live and does nothing reads as the app being broken, and an ear-only drill
+  // behind it is simply unanswerable. Watchers let a button grey itself out (and
+  // a listening drill drop itself) the moment the fetch settles either way.
+  const _ttsHealth = {};
+  let _ttsWatchers = [];
+  let _ttsOkCount = 0, _ttsFailCount = 0;
+
+  function _setTTSHealth(key, state) {
+    if (_ttsHealth[key] === state) return;
+    _ttsHealth[key] = state;
+    if (state === 'ok') _ttsOkCount++; else _ttsFailCount++;
+    const live = [];
+    for (const w of _ttsWatchers) {
+      if (!w.alive()) continue;                 // detached button / abandoned drill
+      live.push(w);
+      if (w.key === key) { try { w.fn(state); } catch {} }
+    }
+    _ttsWatchers = live;
+  }
+
+  function ttsHealth(text, lang) {
+    if (!text) return 'fail';
+    return _ttsHealth[_ttsKey(text, lang)] || 'unknown';
+  }
+
+  // Call `fn` whenever this clip's health changes (and once now if it's known).
+  // `alive` is polled before each call so watchers can't pile up forever.
+  function onTTSHealth(text, lang, alive, fn) {
+    if (!text) { fn('fail'); return; }
+    const key = _ttsKey(text, lang);
+    _ttsWatchers.push({ key, alive, fn });
+    if (_ttsHealth[key]) fn(_ttsHealth[key]);
+  }
+
+  // Wipe what we know about a clip and fetch it again. Used before a drill is
+  // dropped for its audio: /api/tts failures are often transient (edge-tts is a
+  // free endpoint that throttles), so one clean retry costs little and saves the
+  // drill more often than not.
+  function _retryTTS(text, lang) {
+    const key = _ttsKey(text, lang);
+    delete _ttsCache[key];
+    delete _ttsHealth[key];
+    _prewarmTTS(text, lang);
+  }
+
   // An element that evicts itself from the cache the moment its fetch fails, so
   // the next play rebuilds instead of replaying a corpse.
   function _makeTTSAudio(text, lang, key) {
     const a = new Audio(_ttsUrl(text, lang));
     a.addEventListener('error', () => {
       if (_ttsCache[key] === a) delete _ttsCache[key];
+      _setTTSHealth(key, 'fail');
     });
+    a.addEventListener('loadeddata', () => _setTTSHealth(key, 'ok'), { once: true });
     return a;
   }
 
@@ -2201,6 +2252,127 @@
       _audio = retry;
       retry.play().catch(() => {});
     });
+  }
+
+  // Wire a 🔊 button to a clip AND keep it honest: while the clip is unavailable
+  // the button greys out, and it comes back on its own if a later fetch works.
+  function bindAudioBtn(btn, text, lang) {
+    if (!btn) return;
+    btn.onclick = () => playTTS(text, lang);
+    // Several callers bind before inserting the button, so "not in the document"
+    // can't mean "gone" until we've seen it in there once.
+    let seen = false;
+    onTTSHealth(text, lang, () => (btn.isConnected ? (seen = true) : !seen), st => {
+      const dead = st === 'fail';
+      btn.disabled = dead;
+      btn.classList.toggle('audio-dead', dead);
+      btn.title = dead ? "Audio isn't available right now" : '';
+    });
+    // Fetch it now so the button's state is known before the learner taps —
+    // a no-op for a clip _prefetchLesson already warmed.
+    _prewarmTTS(text, lang);
+  }
+
+  // ── 🎤 Speaking ─────────────────────────────────────────────────────────────
+  // Speaking drills use the browser's own speech recogniser and an offline
+  // comparison, so a speaking round costs nothing: no LLM call, and no server
+  // round trip at all unless a non-Latin answer needs romanizing to be judged
+  // fairly. Unsupported browsers never see a speaking drill (see startExercises).
+  const _SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function speechSupported() { return !!_SpeechRec; }
+  function speechLangFor(lang) {
+    const l = LANGS.find(x => x.code === lang);
+    return (l && l.speech_lang) || '';
+  }
+
+  // Everything that can't be heard: case, spacing, punctuation and symbols.
+  function _speechNorm(s) {
+    let out = (s || '').toLowerCase();
+    try { out = out.normalize('NFC').replace(/[\s\p{P}\p{S}]/gu, ''); }
+    catch { out = out.replace(/[\s.,!?;:'"()\[\]—–-]/g, ''); }   // no Unicode property escapes
+    return out;
+  }
+  function _stripTones(s) { return (s || '').replace(/\d/g, ''); }
+
+  function _editDistance(a, b) {
+    if (a === b) return 0;
+    if (!a.length || !b.length) return Math.max(a.length, b.length);
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  // Permissive on purpose. A recogniser routinely returns a HOMOPHONE of what
+  // was said — near-universal for tonal languages, where a dozen characters
+  // share one reading — and a learner who pronounced the phrase perfectly must
+  // not be marked wrong because the machine picked a different character for the
+  // same sound. Partial credit for a mostly-right utterance is the point: this
+  // is pronunciation practice, not dictation.
+  function _speechClose(said, expected) {
+    const a = _speechNorm(said), b = _speechNorm(expected);
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (a.includes(b) || b.includes(a)) return true;
+    const longest = Math.max(a.length, b.length);
+    return _editDistance(a, b) <= Math.max(1, Math.floor(longest * 0.34));
+  }
+
+  // How a string SOUNDS, via the offline romanization oracle (one tokenizer call,
+  // no AI). Tone digits are dropped: which character the recogniser chose decides
+  // the tone it reports, and that choice isn't the learner's.
+  async function _spokenRoman(text, lang) {
+    try {
+      const toks = await _fetchTokens(text, lang);
+      return _stripTones((toks || []).map(t => t.roman || '').join(' ')).trim();
+    } catch { return ''; }
+  }
+
+  // Grade an utterance against a speak drill. Every alternative the recogniser
+  // offered counts — its top pick is often not its best one.
+  async function gradeSpoken(heard, ex, lang) {
+    const said = [ex.target, ...(ex.accept || [])].filter(Boolean);
+    if (heard.some(h => said.some(t => _speechClose(h, t)))) return true;
+    if (!needsRuby(lang) || _isLatin(ex.target)) return false;
+    const want = await _spokenRoman(ex.target, lang);
+    if (!want) return false;
+    for (const h of heard) {
+      const got = await _spokenRoman(h, lang);
+      if (got && _speechClose(got, want)) return true;
+    }
+    return false;
+  }
+
+  // ── Audio-only drills ───────────────────────────────────────────────────────
+  // Every clip an exercise needs to be answerable.
+  function _exClips(ex) {
+    if (!ex) return [];
+    if (ex.type === 'audio_blitz') return (ex.items || []).map(i => i.audio).filter(Boolean);
+    if (ex.type === 'memory_match') {
+      return ex.audio_mode ? (ex.pairs || []).map(p => p.audio).filter(Boolean) : [];
+    }
+    return ex.audio ? [ex.audio] : [];
+  }
+
+  // True when the question exists ONLY in the audio: a listening drill, an audio
+  // blitz, a sound-matching game, or a foundations drill ("which tone is this?",
+  // "spell what you hear") whose screen shows no prompt to read. Without sound
+  // these can't be answered at all, so they're dropped rather than failed.
+  function _audioOnly(ex) {
+    if (!ex) return false;
+    if (ex.type === 'audio_blitz') return true;
+    if (ex.type === 'memory_match') return !!ex.audio_mode;
+    if (!ex.audio) return false;
+    if (ex.type === 'listening') return true;
+    const written = (ex.prompt || '').trim()
+      || (!ex.hide_roman && ((ex.prompt_roman || '').trim() || (ex.roman || '').trim()));
+    return !written;
   }
 
   // ── Sound effects (synthesized, no asset files) ─────────────────────────────
@@ -2549,7 +2721,7 @@
         if (ex.audio) html += `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>`;
         html += `<div class="opt-list" id="opts"></div>`;
         root.innerHTML = html;
-        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        if (ex.audio) bindAudioBtn(document.getElementById('ex-audio'), ex.audio, lang);
         const list = document.getElementById('opts');
         (ex.options || []).forEach((o, i) => {
           const b = document.createElement('button');
@@ -2641,13 +2813,130 @@
         };
       },
     },
+    // 🎤 Say it out loud. The one drill where the learner PRODUCES the language
+    // with their mouth: the target is shown (this is pronunciation practice, not
+    // recall), the browser transcribes, and gradeSpoken compares permissively.
+    // Nothing here costs an AI call. When the mic is refused or the recogniser
+    // errors the drill reports `uncheckable`, so the run's score, combo and
+    // mastery ledger are left alone rather than punishing a learner who spoke.
+    speak: {
+      render(ex, root, lang) {
+        let heard = [];              // every alternative the recogniser offered
+        let shown = '';              // what we tell the learner we heard
+        let blocked = '';            // non-empty → can't listen; grade as unchecked
+        let rec = null, listening = false, result = null;
+
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Say it out loud')}</div>
+          ${ex.prompt ? `<div class="ex-prompt english">${esc(ex.prompt)}</div>` : ''}
+          <div class="speak-target">${targetSpan(ex.target, lang)}</div>
+          ${ex.target_roman && !needsRuby(lang) ? `<div class="ex-roman">${esc(ex.target_roman)}</div>` : ''}
+          <div class="speak-row">
+            <button class="speak-mic" type="button" id="sp-mic">
+              <span class="sp-ico">🎤</span><span class="sp-label" id="sp-label">Tap and speak</span>
+            </button>
+            <button class="audio-play sm" type="button" id="sp-listen" title="Hear it">🔊</button>
+          </div>
+          <div class="speak-heard" id="sp-heard" role="status" aria-live="polite"></div>`;
+        bindAudioBtn(document.getElementById('sp-listen'), ex.target, lang);
+
+        const mic = document.getElementById('sp-mic');
+        const label = document.getElementById('sp-label');
+        const out = document.getElementById('sp-heard');
+        const say = (html, cls) => {
+          out.className = 'speak-heard' + (cls ? ' ' + cls : '');
+          out.innerHTML = html;
+        };
+        const idle = () => {
+          listening = false;
+          mic.classList.remove('live');
+          label.textContent = shown ? 'Tap to try again' : 'Tap and speak';
+        };
+        const stop = () => { if (rec) { try { rec.stop(); } catch {} rec = null; } idle(); };
+
+        function listen() {
+          if (player.graded) return;
+          if (listening) { stop(); return; }
+          heard = []; shown = '';
+          let r;
+          try { r = new _SpeechRec(); } catch { r = null; }
+          if (!r) { blocked = 'unsupported'; say("This browser can't listen — tap Continue.", 'muted'); updateAction(); return; }
+          rec = r;
+          r.lang = speechLangFor(lang) || lang;
+          r.interimResults = true;
+          r.maxAlternatives = 3;
+          r.continuous = false;
+          r.onstart = () => { listening = true; mic.classList.add('live'); label.textContent = 'Listening…'; say('', ''); };
+          r.onresult = e => {
+            const alts = [];
+            let best = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              const res = e.results[i];
+              for (let j = 0; j < res.length; j++) if (res[j].transcript) alts.push(res[j].transcript);
+              if (res.isFinal && res[0]) best = res[0].transcript;
+            }
+            if (alts.length) heard = alts;
+            shown = (best || alts[0] || shown || '').trim();
+            if (shown) say(`I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b>`, '');
+            updateAction();
+          };
+          r.onerror = e => {
+            const err = (e && e.error) || '';
+            if (err === 'not-allowed' || err === 'service-not-allowed') {
+              blocked = 'denied';
+              say('Microphone access is off, so this one can\'t be checked — tap Continue.', 'muted');
+            } else if (err === 'no-speech') {
+              say("Didn't catch that — tap the mic and try again.", 'muted');
+            } else if (err !== 'aborted') {
+              blocked = 'error';
+              say("Couldn't listen just now — tap Continue.", 'muted');
+            }
+            idle();
+            updateAction();
+          };
+          r.onend = () => { rec = null; idle(); updateAction(); };
+          try { r.start(); } catch { blocked = 'error'; idle(); updateAction(); }
+        }
+
+        mic.onclick = listen;
+        // Recognition must not keep running once the learner moves on; the
+        // player calls this before rendering anything else and on quit.
+        player._mgCleanup = stop;
+
+        return {
+          isReady: () => !!shown.trim() || !!blocked,
+          async grade() {
+            stop();
+            if (blocked) {
+              result = { checked: false, reason: blocked === 'denied'
+                ? "Microphone access is off, so this one wasn't checked."
+                : "Couldn't listen on this device, so this one wasn't checked." };
+              return false;
+            }
+            const ok = await gradeSpoken(heard.length ? heard : [shown], ex, lang);
+            result = { checked: true, correct: ok,
+                       note: ok ? '' : `We heard “${shown}”. Tap 🔊 to compare, then try it again.` };
+            return ok;
+          },
+          uncheckable: () => !!(result && result.checked === false),
+          feedback: () => result,
+          answerText: () => targetSpan(ex.target, lang)
+            + (ex.target_roman && !needsRuby(lang) ? ` <em>${esc(ex.target_roman)}</em>` : ''),
+          lock() {
+            stop();
+            if (player) player._mgCleanup = null;
+            mic.disabled = true;
+            mic.classList.add(result && result.correct ? 'correct' : 'wrong');
+          },
+        };
+      },
+    },
     listening: {
       render(ex, root, lang) {
         let sel = null;
         root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'What did you hear?')}</div>
           <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
           <div class="opt-list" id="opts"></div>`;
-        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        bindAudioBtn(document.getElementById('ex-audio'), ex.audio, lang);
         // Guard the delayed auto-play: don't speak a stale exercise if the learner
         // already advanced (or quit) before the timer fired.
         setTimeout(() => { if (player && player.queue[player.idx] === ex) playTTS(ex.audio, lang); }, 300);
@@ -2673,7 +2962,7 @@
           ${ex.audio ? `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>` : ''}
           <div class="wb-answer" id="wb-answer"></div>
           <div class="wb-bank" id="wb-bank"></div>`;
-        if (ex.audio) document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        if (ex.audio) bindAudioBtn(document.getElementById('ex-audio'), ex.audio, lang);
         const ansEl = document.getElementById('wb-answer');
         const bankEl = document.getElementById('wb-bank');
         // Each tile lives in a fixed home "slot" in the bank. Moving a tile into
@@ -2776,7 +3065,7 @@
           <div class="bb-label">Consonants</div><div class="opt-list bb-row" id="bb-cons"></div>
           <div class="bb-label">Vowels</div><div class="opt-list bb-row" id="bb-vows"></div>
           <button class="course-regen" type="button" id="bb-back" style="margin-top:14px">⌫ Backspace</button>`;
-        document.getElementById('ex-audio').onclick = () => playTTS(ex.audio, lang);
+        bindAudioBtn(document.getElementById('ex-audio'), ex.audio, lang);
         setTimeout(() => { if (player && player.queue[player.idx] === ex) playTTS(ex.audio, lang); }, 300);
         const preview = document.getElementById('bb-preview');
         const typedEl = document.getElementById('bb-typed');
@@ -2904,7 +3193,7 @@
             grid.appendChild(b);
           });
           if (needsRuby(lang)) applyRuby(root, null, true);
-          document.getElementById('ab-play').onclick = () => playTTS(item.audio, lang);
+          bindAudioBtn(document.getElementById('ab-play'), item.audio, lang);
           playTTS(item.audio, lang);
           let elapsed = 0; const ms = ex.round_time * 1000;
           if (iv) clearInterval(iv);
@@ -3359,6 +3648,9 @@
       <div class="practice-cards">
         ${card('⚡', 'Lightning round', '60-second timed remix of your drills', `_practiceCourse('lightning')`)}
         ${card('🔁', 'Review mistakes', 'Re-drill the concepts you find hardest', `_practiceCourse('mistakes')`)}
+        ${speechSupported()
+          ? card('🎤', 'Speaking practice', 'Say your words and sentences out loud', `_practiceCourse('speaking')`)
+          : ''}
         ${games}
       </div>`;
     document.getElementById('practice-overlay').classList.add('open');
@@ -3384,10 +3676,11 @@
 
   // Fetch a course practice set (mistakes / lightning) and play it. Lightning is
   // remixed client-side into a speed round; mistakes plays as a drills-only run.
-  async function openCoursePractice(courseId, mode) {
+  async function openCoursePractice(courseId, mode, lessonId) {
     show('lesson-loading');
     try {
-      const res = await fetch('/api/courses/' + courseId + '/practice?mode=' + mode);
+      const res = await fetch('/api/courses/' + courseId + '/practice?mode=' + mode
+                              + (lessonId ? '&lesson_id=' + lessonId : ''));
       if (!res.ok) {
         const m = (await res.json().catch(() => ({}))).detail || 'Could not start practice.';
         throw new Error(m);
@@ -3411,7 +3704,7 @@
         controller: null, graded: false,
         conceptResults: {}, vocabGlossary: {},
         concepts: [], theme: 'practice', skipTeach: true, drillsOnly: false,
-        practiceGame: 'mistakes', practiceCourseId: courseId,
+        practiceGame: mode, practiceCourseId: courseId, practiceLessonId: lessonId || 0,
       };
       const sc = scriptClassFor(player.lang);
       document.getElementById('state-player').className = sc;
@@ -3595,6 +3888,12 @@
     closeLessonIntro();
     if (id) openLightning(id);
   }
+  function _introSpeaking() {
+    const id = _introLesson && _introLesson.id;
+    const courseId = currentCourse && currentCourse.id;
+    closeLessonIntro();
+    if (id && courseId) openCoursePractice(courseId, 'speaking', id);
+  }
 
   // Flatten segments into displayed step rows. Non-speak segments surface their
   // embedded AI practice (older lessons bury a construction_drill in a step) as
@@ -3649,6 +3948,10 @@
     const canTestOut = !lesson.completed && _gradeableExercises(fullSegments).length >= 4;
     // B4 · lightning round is offered on lessons the learner has finished.
     const canLightning = lesson.completed && _lightningCount(fullSegments) >= 4;
+    // 🎤 Speaking round over this lesson's own sentences — same rule as lightning
+    // (material the learner has already worked through), plus a working mic.
+    const canSpeak = lesson.completed && !isFoundations && speechSupported()
+      && !!speechLangFor(lesson.target_lang);
     const resume = _loadResume(lesson.id);
 
     const stepRows = _introStepRows(segments);
@@ -3704,6 +4007,7 @@
           ${hasSpeak ? `<button class="cta-btn secondary" onclick="_introPlay('llm')">✨ AI Speak</button>` : ''}
           ${canTestOut ? `<button class="cta-btn secondary" onclick="startTestOut()">🎓 Test out</button>` : ''}
           ${canLightning ? `<button class="cta-btn secondary" onclick="_introLightning()">⚡ Lightning</button>` : ''}
+          ${canSpeak ? `<button class="cta-btn secondary" onclick="_introSpeaking()">🎤 Speaking</button>` : ''}
         </div>
       </div>`;
   }
@@ -4157,7 +4461,7 @@
     const l = lang || (player && player.lang);
     line.innerHTML = `<button class="audio-play sm" type="button">🔊</button>
       <div class="tb-target"><span class="needs-ruby" data-text="${esc(cleanForTTS(text, l))}" data-lang="${esc(l)}">${esc(text || '')}</span></div>`;
-    line.querySelector('button').onclick = () => playTTS(cleanForTTS(text, l), l);
+    bindAudioBtn(line.querySelector('button'), cleanForTTS(text, l), l);
     return line;
   }
 
@@ -4281,7 +4585,7 @@
         if (speak) {
           const btn = document.createElement('button');
           btn.className = 'audio-play'; btn.type = 'button'; btn.textContent = '🔊';
-          btn.onclick = () => playTTS(speak, lang);
+          bindAudioBtn(btn, speak, lang);
           row.appendChild(btn);
         }
         if (it.keyword) {
@@ -4291,7 +4595,7 @@
             (it.keyword_roman ? ` <span class="kw-roman">${esc(it.keyword_roman)}</span>` : '');
           const kwBtn = document.createElement('button');
           kwBtn.className = 'audio-play kw-audio'; kwBtn.type = 'button'; kwBtn.textContent = '🔊';
-          kwBtn.onclick = () => playTTS(it.keyword, lang);
+          bindAudioBtn(kwBtn, it.keyword, lang);
           kwLine.appendChild(kwBtn);
           row.querySelector('.teach-text').appendChild(kwLine);
         }
@@ -4388,9 +4692,29 @@
     const opts = ex.options || [];
     const ans = ex.answer;
     if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
+    // Don't MAKE ear-only drills when audio is evidently down — a readable drill
+    // is better than one that has to be skipped a moment later.
+    if (_ttsFailCount > 0 && _ttsOkCount === 0) return ex;
     if (Math.random() > 0.35) return ex;   // ~1 in 3 production drills
     return { ...ex, type: 'listening', instruction: 'What did you hear?',
              audio: opts[ans], prompt: '', prompt_roman: '', audio_roman: '' };
+  }
+
+  // 🎤 Speaking variant. Turn ~1 in 5 production drills into a say-it-aloud
+  // drill so speaking happens inside ordinary lessons, not only in the dedicated
+  // activity. Client-only and re-rolled per play, like the listening variant;
+  // the target is SHOWN (this drills pronunciation, not recall).
+  function _maybeSpeakVariant(ex) {
+    if (!_speakDrills || !speechSupported() || !speechLangFor(player && player.lang)) return ex;
+    if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english' || ex.is_cloze) return ex;
+    if (!player || player.checkpointUnitId || player.testOut
+        || player.theme === 'foundations' || player.practiceGame) return ex;
+    const opts = ex.options || [];
+    const ans = ex.answer;
+    if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
+    if (Math.random() > 0.2) return ex;
+    return { ...ex, type: 'speak', instruction: 'Say it out loud',
+             target: opts[ans], target_roman: ex.answer_roman || '', options: null, answer: null };
   }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
@@ -4402,7 +4726,14 @@
       let exs = (seg.exercises || []).map(e => ({ ...e }));
       // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
       if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
-      else exs = exs.map(_maybeListeningVariant);   // C4 · vary replays
+      else exs = exs.map(_maybeSpeakVariant).map(_maybeListeningVariant);   // vary replays
+      // A speaking drill on a browser that can't listen is a dead end — drop it
+      // rather than render a mic the learner can never use.
+      if (!speechSupported()) {
+        const kept = exs.filter(e => e.type !== 'speak');
+        _dropFromTotals(exs.length - kept.length);
+        exs = kept;
+      }
       player.queue = exs;
       player.idx = 0;
       player._queueSeg = player.segIdx;
@@ -4412,13 +4743,70 @@
     renderExercise();
   }
 
+  // A drill the learner never got the chance to answer must not count against
+  // the score, and must not leave the progress bar stuck short of the end.
+  function _dropFromTotals(n) {
+    if (!n || !player) return;
+    player.total = Math.max(0, player.total - n);
+    const st = player.segTotals || [];
+    if (st[player.segIdx] != null) st[player.segIdx] = Math.max(0, st[player.segIdx] - n);
+  }
+
+  // Pull an unanswerable drill out of the run entirely.
+  function _skipExercise(ex, notice) {
+    const i = player.queue.indexOf(ex);
+    if (i < 0) return;
+    player.queue.splice(i, 1);
+    if (!ex._review && !ex._counted) _dropFromTotals(1);
+    if (notice) learnToast(notice);
+    if (i < player.idx) {                 // behind us — the screen is unaffected
+      player.idx--;
+      updateBar();
+      return;
+    }
+    if (player.idx >= player.queue.length) {
+      if (player.reviewStarted) finishLesson();
+      else afterSegment();
+    } else {
+      renderExercise();                   // the next drill slides into this slot
+    }
+  }
+
+  // Ear-only drills need working audio. Give the clip one retry (edge-tts fails
+  // transiently), then drop the drill instead of leaving the learner staring at
+  // a dead 🔊 with nothing to go on. Returns true when the drill was dropped.
+  function _guardAudioExercise(ex) {
+    if (!_audioOnly(ex)) return false;
+    const lang = player.lang;
+    const clips = _exClips(ex);
+    if (!clips.length) { _skipExercise(ex, 'Skipped a listening exercise — no audio.'); return true; }
+    const allDead = () => clips.every(c => ttsHealth(c, lang) === 'fail');
+    const settle = () => {
+      if (!player || player.queue[player.idx] !== ex || player.graded || !allDead()) return;
+      if (!ex._audioRetried) {            // one clean retry before giving up on it
+        ex._audioRetried = true;
+        clips.forEach(c => _retryTTS(c, lang));
+        return;
+      }
+      _skipExercise(ex, 'Skipped a listening exercise — audio unavailable.');
+    };
+    const alive = () => !!player && player.queue[player.idx] === ex;
+    clips.forEach(c => onTTSHealth(c, lang, alive, settle));
+    clips.forEach(c => _prewarmTTS(c, lang));
+    settle();
+    return player.queue[player.idx] !== ex;
+  }
+
   function renderExercise() {
     const ex = player.queue[player.idx];
+    // Before the guard: it refuses to yank a drill the learner has answered, and
+    // the flag still belongs to the exercise leaving the screen.
+    player.graded = false;
+    if (_guardAudioExercise(ex)) return;   // dropped: it re-rendered whatever follows
     const root = document.getElementById('exercise-root');
     const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
     document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
     document.getElementById('grammar-badge').style.display = ex.grammar ? '' : 'none';
-    player.graded = false;
     updateComboChip();
     updateBackBtn();
     const action = document.getElementById('player-action');
@@ -4438,10 +4826,12 @@
     }
     footer.style.display = '';
     player.controller = (EXERCISE_TYPES[ex.type] || EXERCISE_TYPES.choice).render(ex, root, player.lang);
-    // Always hide inline ruby in exercises — romanization goes into the hover/tap
-    // .gl tooltip on each word. NEVER pass the vocab glossary here: a recognition
-    // prompt would reveal its own English answer on hover (glossing is teach-only).
-    if (needsRuby(player.lang)) applyRuby(root, null, true);
+    // Hide inline ruby in exercises — romanization goes into the hover/tap .gl
+    // tooltip on each word. The exception is a speaking drill, where the reading
+    // is the help the learner needs to say the line, not the answer they're being
+    // asked for. NEVER pass the vocab glossary here: a recognition prompt would
+    // reveal its own English answer on hover (glossing is teach-only).
+    if (needsRuby(player.lang)) applyRuby(root, null, ex.type !== 'speak');
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
@@ -4476,9 +4866,12 @@
         // possibly right, and guessing either way teaches the wrong thing.
         const fbEl = document.getElementById('feedback');
         const at = player.controller.answerText ? player.controller.answerText() : '';
+        // Why it couldn't be checked differs by drill (no network for a typed
+        // answer, no microphone for a spoken one), so let the drill say.
+        const why = (player.controller.feedback && (player.controller.feedback() || {}).reason)
+          || "Couldn't check this one — no connection to the grader.";
         fbEl.className = 'feedback';
-        fbEl.innerHTML = "Couldn't check this one — no connection to the grader."
-          + (at ? `<small>Expected: ${at}</small>` : '');
+        fbEl.innerHTML = esc(why) + (at ? `<small>Expected: ${at}</small>` : '');
         const lastSeg0 = player.segIdx >= player.segments.length - 1;
         const isLastEx0 = player.idx >= player.queue.length - 1;
         a.textContent = (lastSeg0 && isLastEx0 && !player.mistakes.length) ? 'Finish' : 'Continue';
@@ -4543,8 +4936,8 @@
         const rp = document.createElement('button');
         rp.className = 'fb-replay'; rp.type = 'button'; rp.title = 'Replay audio';
         rp.textContent = '🔊';
-        rp.onclick = () => playTTS(ex.audio, player.lang);
-        fb.appendChild(rp);
+        fb.appendChild(rp);              // append first — bindAudioBtn watches liveness
+        bindAudioBtn(rp, ex.audio, player.lang);
       }
       try { if (navigator.vibrate) navigator.vibrate(correct ? 15 : [0, 30, 30, 30]); } catch {}
       const lastSeg = player.segIdx >= player.segments.length - 1;
@@ -5013,7 +5406,8 @@
       const src = player.lightningSource, lang = player.lang, title = player.lightningTitle;
       show('lesson-loading'); _startLightning(src, lang, title);
     }
-    else if (player.practiceGame === 'mistakes') openCoursePractice(player.practiceCourseId, 'mistakes');
+    else if (player.practiceGame === 'mistakes' || player.practiceGame === 'speaking')
+      openCoursePractice(player.practiceCourseId, player.practiceGame, player.practiceLessonId);
     else if (player.practiceGame) openPracticeGame(player.practiceCourseId, player.practiceGame, player.practiceOpts);
     else if (player.checkpointUnitId) openCheckpoint(player.checkpointUnitId);
     else openLesson(player.lessonId, player.mode || '');

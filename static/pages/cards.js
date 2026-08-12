@@ -809,6 +809,8 @@
     const el = new Audio(`/api/audio/${cardId}`);
     currentAudio = el;
     btn.classList.add('playing');
+    btn.classList.remove('audio-dead');
+    btn.disabled = false;
     el.onended = () => btn.classList.remove('playing');
     el.play().catch(err => {
       // Without this the button stays stuck in its 'playing' state forever
@@ -821,7 +823,13 @@
         setTimeout(() => {
           if (currentAudio === el) playCardAudio(cardId, btn, true);
         }, 600);
+        return;
       }
+      // Out of retries: show the button as dead instead of leaving a live-looking
+      // control that silently does nothing every time it's tapped.
+      btn.classList.add('audio-dead');
+      btn.disabled = true;
+      btn.title = "Audio isn't available for this card right now";
     });
   }
 
