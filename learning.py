@@ -1211,6 +1211,142 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
     return {"vocab_glossary": vocab_glossary, "segments": segments}
 
 
+# ── Fixing ONE item in an already-authored lesson ────────────────────────────
+# A lesson is authored in a single call, so one bad item — a drill whose answer
+# is wrong, a cloze two words fit, a teach block that contradicts itself — used
+# to leave the learner two options: replay a lesson they know is broken, or lose
+# the whole thing and regenerate it. This re-authors just that item, optionally
+# steered by what the learner says is wrong with it, and runs the replacement
+# through the SAME deterministic assembly as the original — so a regenerated
+# drill's answer key is still correct by construction, and one that fails
+# validation is rejected rather than shipped.
+
+REGEN_KINDS = ("drill", "teach")
+_REGEN_NOTE_MAX = 400
+
+
+def _build_regen_prompt(
+    target_lang: str, *, kind: str, current: dict, concepts: list[dict],
+    title: str, objective: str, note: str,
+) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    what = "practice drill" if kind == "drill" else "teach block"
+    schema = _DRILL_KINDS if kind == "drill" else _BLOCK_TYPES
+    key = "drill" if kind == "drill" else "block"
+    reported = (
+        f"── WHAT THE LEARNER SAYS IS WRONG WITH IT ──\n\"{note.strip()}\"\n"
+        f"Treat this as a bug report about the item, not as a request to make the "
+        f"lesson easier. If they are right, fix exactly that. If they are mistaken "
+        f"(the item was correct), still replace it — write a clearer one that can't "
+        f"be misread the same way.\n\n"
+        if note.strip() else
+        "The learner reported this item as wrong but didn't say why. Look for the "
+        "usual culprits — an answer that isn't actually correct, more than one "
+        "option that works, a distractor that means the same thing, a prompt that "
+        "doesn't force the intended answer, a typo — and write a replacement that "
+        "has none of them.\n\n"
+    )
+    return (
+        f"You are an expert {name} teacher fixing ONE {what} in a lesson you already "
+        f"wrote. Everything else in the lesson stays as it is.\n\n"
+        f"{_lang_preamble(info)}"
+        f"── THE LESSON ──\n"
+        f"Title: {title or '(untitled)'}\n"
+        f"{('Objective: ' + objective) if objective else ''}\n\n"
+        f"── CONCEPTS IT TEACHES ──\n{_concepts_block(concepts)}\n\n"
+        f"── THE {what.upper()} TO REPLACE (as the learner saw it, after our "
+        f"post-processing) ──\n{json.dumps(current, ensure_ascii=False)[:1500]}\n\n"
+        f"{reported}"
+        f"── WRITE THE REPLACEMENT ──\n"
+        f"• It must teach/practise the SAME concept at the same difficulty — this is "
+        f"a repair, not a new lesson.\n"
+        f"• Change the example: don't re-emit the same sentence with the fault "
+        f"patched, since the learner has already seen and rejected it.\n"
+        + (
+            f"• Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle "
+            f"and key it ourselves.\n"
+            f"• EXACTLY ONE option may be correct. Every distractor must be "
+            f"unambiguously wrong for this exact prompt, in the SAME language as the "
+            f"answer, and must never merely sound the same as it.\n"
+            if kind == "drill" else
+            f"• Keep it short and concrete — one rule, stated plainly, with an example "
+            f"the learner can copy.\n"
+        )
+        + f"\n{what.capitalize()} formats (pick the one that fits best — it need not "
+          f"be the same format as the item you're replacing):\n{schema}\n\n"
+          f"Return ONLY valid JSON, no other text:\n"
+          f'{{"{key}": {{ ... }}}}\n'
+    )
+
+
+async def regenerate_item(
+    target_lang: str,
+    *,
+    kind: str,
+    current: dict,
+    concepts: list[dict],
+    title: str = "",
+    objective: str = "",
+    note: str = "",
+    api_key: str,
+    anthropic_key: str | None = None,
+    model: str = DEFAULT_MODEL,
+) -> dict | None:
+    """Re-author one drill or teach block. Returns the assembled replacement, or
+    None if the model failed or its answer didn't survive validation."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    if kind not in REGEN_KINDS:
+        raise ValueError(f"Unsupported regenerate kind: {kind}")
+
+    prompt = _build_regen_prompt(
+        target_lang, kind=kind, current=current, concepts=concepts,
+        title=title, objective=objective, note=(note or "")[:_REGEN_NOTE_MAX],
+    )
+    raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                         anthropic_key=anthropic_key)
+    try:
+        parsed = _parse_json(raw)
+    except (ValueError, TypeError):
+        # A model that answered in prose leaves the original item in place. One
+        # bad item is a nuisance; an exception mid-lesson is a broken lesson.
+        return None
+    if not isinstance(parsed, dict):
+        return None
+
+    has_rom = bool(LANG_INFO[target_lang].get("romanization"))
+    R = tokenizer.romanize_text
+
+    def rom(s: str) -> str:
+        return R(s, target_lang) if (has_rom and s) else ""
+
+    if kind == "teach":
+        block = parsed.get("block") or parsed.get("teach")
+        if isinstance(block, list):
+            block = block[0] if block else None
+        if not isinstance(block, dict):
+            return None
+        return _clean_block(block, rom)
+
+    drill = parsed.get("drill") or parsed.get("drills")
+    if isinstance(drill, list):
+        drill = drill[0] if drill else None
+    if not isinstance(drill, dict):
+        return None
+    # Keep the item anchored to the lesson: the concept it practises (so mastery
+    # still records against the right skill) and its tier (so the length the
+    # learner chose keeps meaning the same thing).
+    kinds = {(c.get("key") or "").strip(): (c.get("kind") or "vocab") for c in concepts}
+    if (drill.get("concept") or "").strip() not in kinds:
+        drill["concept"] = (current.get("concept_key") or "").strip()
+    ex = _assemble_drill(drill, target_lang, kinds, rom)
+    if not ex:
+        return None
+    ex["tier"] = _norm_tier(drill.get("tier") or current.get("tier"))
+    return ex
+
+
 async def author_lesson(
     target_lang: str,
     concepts: list[dict],

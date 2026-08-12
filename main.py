@@ -4358,6 +4358,78 @@ async def delete_lesson(lesson_id: int, user: dict = Depends(current_user)):
     return {"success": True, **removed}
 
 
+class RegenerateItemRequest(BaseModel):
+    segment: int = 0
+    index: int = 0
+    kind: str = "drill"          # "drill" (an exercise) | "teach" (a teach block)
+    note: str = ""               # optional: what the learner says is wrong with it
+
+
+# Drills we didn't author and can't re-author: the AI Speak drill is generated
+# live per turn, and the foundations mini-games are deterministic widgets.
+_UNFIXABLE_DRILLS = {"construction_drill", "speed_round", "audio_blitz", "memory_match"}
+
+
+@app.post("/api/lessons/{lesson_id}/regenerate-item")
+@limiter.limit("20/minute;100/day")
+async def regenerate_lesson_item(request: Request, lesson_id: int,
+                                 req: RegenerateItemRequest,
+                                 user: dict = Depends(current_user)):
+    """Re-author ONE drill or teach block the learner has reported as wrong.
+
+    A lesson is authored in a single call, so a single bad item used to leave two
+    bad options: replay a lesson you know is broken, or delete the whole thing.
+    This replaces just that item — optionally steered by what the learner says is
+    wrong — and persists it, so the fix survives into every later replay. The
+    replacement goes through the same deterministic assembly as the original
+    (`learning.regenerate_item`), so its answer key is still correct by
+    construction and an item that fails validation is rejected, not shipped.
+    """
+    if req.kind not in learning.REGEN_KINDS:
+        raise HTTPException(400, "kind must be drill or teach")
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    if lesson.get("theme") == "foundations":
+        # The reading track is built by code, not a model — there is nothing to
+        # re-author, and rewriting a jamo drill with an LLM would be worse.
+        raise HTTPException(400, "Reading-track lessons aren't AI-written, so they can't be regenerated.")
+    content = lesson.get("content") or {}
+    segments = content.get("segments") or []
+    if not 0 <= req.segment < len(segments):
+        raise HTTPException(400, "No such lesson step")
+    seg = segments[req.segment]
+    items = ((seg.get("teach") or {}).get("blocks") if req.kind == "teach"
+             else seg.get("exercises")) or []
+    if not 0 <= req.index < len(items):
+        raise HTTPException(400, "No such item")
+    current = items[req.index]
+    if req.kind == "drill" and current.get("type") in _UNFIXABLE_DRILLS:
+        raise HTTPException(400, "This exercise is generated as you play it — there's nothing stored to rewrite.")
+
+    access = await _resolve_gemini(user)
+    lesson_model = await _resolve_lesson_model(user, access)
+    try:
+        replacement = await learning.regenerate_item(
+            lesson["target_lang"], kind=req.kind, current=current,
+            concepts=lesson.get("concepts") or [],
+            title=lesson.get("title") or "", objective=lesson.get("objective") or "",
+            note=req.note or "",
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=lesson_model,
+        )
+    except Exception as e:
+        logger.error("Regenerate item failed lesson=%s: %s", lesson_id, e, exc_info=True)
+        replacement = None
+    if not replacement:
+        raise HTTPException(502, "Couldn't rewrite that one — please try again.")
+
+    items[req.index] = replacement
+    if not await db.update_lesson_content(user["id"], lesson_id, content):
+        raise HTTPException(404, "Lesson not found")
+    return {"item": replacement, "kind": req.kind}
+
+
 # ── Textbook import: PDF → reviewed source → one lesson ──────────────────────
 
 _TEXTBOOK_MAX_PDF = 25 * 1024 * 1024   # request-size guard

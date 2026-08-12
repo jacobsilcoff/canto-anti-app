@@ -113,6 +113,11 @@
     <div class="intro-sheet" id="intro-sheet"></div>
   </div>
 
+  <!-- Report a bad drill / teach block → regenerate just that item -->
+  <div class="intro-overlay" id="report-overlay" onclick="if(event.target===this)closeReportSheet()">
+    <div class="intro-sheet" id="report-sheet"></div>
+  </div>
+
   <!-- B6 · practice hub -->
   <div class="intro-overlay" id="practice-overlay" onclick="if(event.target===this)closePracticeHub()">
     <div class="intro-sheet" id="practice-sheet"></div>
@@ -157,6 +162,9 @@
     <div class="teach-dots" id="teach-dots" style="display:none"></div>
     <p class="teach-intro" id="teach-intro"></p>
     <div id="teach-items"></div>
+    <div class="report-row" id="teach-report-row" style="display:none">
+      <button class="report-link" type="button" onclick="openReportSheet('teach')">⚑ Something wrong here?</button>
+    </div>
     <button class="cta-btn player-action" id="teach-action" onclick="onTeachAction()">Start exercises →</button>
   </div>
 
@@ -172,6 +180,9 @@
     <div class="review-badge" id="review-badge" style="display:none">↻ Previous mistake</div>
     <div class="grammar-badge" id="grammar-badge" style="display:none">📘 Grammar</div>
     <div id="exercise-root"></div>
+    <div class="report-row" id="report-row" style="display:none">
+      <button class="report-link" type="button" onclick="openReportSheet('drill')">⚑ Something wrong with this question?</button>
+    </div>
     <div class="player-footer" id="player-footer">
       <div class="feedback" id="feedback"></div>
       <button class="cta-btn player-action" id="player-action" onclick="onAction()" disabled>Check</button>

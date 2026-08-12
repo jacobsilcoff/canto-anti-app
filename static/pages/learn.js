@@ -2806,6 +2806,10 @@
           feedback: () => result,
           answerText: () => targetSpan(ex.answer, lang)
             + (ex.answer_roman && !needsRuby(lang) ? ` <em>${esc(ex.answer_roman)}</em>` : ''),
+          // What the lesson had in mind. Shown next to an accepted-but-different
+          // answer: "that works too" alone leaves the learner with no idea what
+          // the other way of saying it even was.
+          expectedText() { return this.answerText(); },
           lock() {
             input.disabled = true;
             input.classList.add(result && result.correct ? 'correct' : 'wrong');
@@ -4549,9 +4553,11 @@
     player.teachPaged = !!player && player.theme !== 'foundations'
       && !(teach.items || []).length && blocks.length > 1;
     player.teachBlocks = blocks;
+    player.teachItemCount = (teach.items || []).length;   // legacy word-list lessons
     player.teachIntro = teach.intro || '';
     player.teachIdx = 0;
     if (player.teachPaged) { renderTeachCard(); return; }
+    updateReportBtn();          // unpaged: offered only for a single authored block
     document.getElementById('teach-dots').style.display = 'none';
     { const tb = document.getElementById('teach-back'); if (tb) tb.style.display = 'none'; }
     setTeachAction(true);
@@ -4622,6 +4628,7 @@
     if (el) wrap.appendChild(el);
     applyRuby(wrap, player && player.vocabGlossary, false, _liveLookupOn());
     setTeachAction(player.teachIdx >= player.teachBlocks.length - 1);
+    updateReportBtn();
     const tb = document.getElementById('teach-back');
     if (tb) tb.style.display = player.teachIdx > 0 ? '' : 'none';
     // Teach cards are counted work, so paging through them moves the step bar.
@@ -4723,7 +4730,11 @@
     // → exercises) must REUSE the existing queue so its `_counted` flags survive —
     // rebuilding fresh copies would let already-answered drills recount.
     if (player._queueSeg !== player.segIdx) {
-      let exs = (seg.exercises || []).map(e => ({ ...e }));
+      // Stamp each drill with WHERE it lives in the stored lesson. The queue is
+      // reordered, remapped (listening/speak variants) and re-copied for the
+      // mistake lap, so a queue index can't be used to name a stored item — and
+      // naming one is exactly what "regenerate this question" needs.
+      let exs = (seg.exercises || []).map((e, i) => ({ ...e, _seg: player.segIdx, _ix: i }));
       // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
       if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
       else exs = exs.map(_maybeSpeakVariant).map(_maybeListeningVariant);   // vary replays
@@ -4803,6 +4814,7 @@
     // the flag still belongs to the exercise leaving the screen.
     player.graded = false;
     if (_guardAudioExercise(ex)) return;   // dropped: it re-rendered whatever follows
+    updateReportBtn();
     const root = document.getElementById('exercise-root');
     const fb = document.getElementById('feedback'); fb.className = 'feedback'; fb.innerHTML = '';
     document.getElementById('review-badge').style.display = ex._review ? '' : 'none';
@@ -4835,6 +4847,21 @@
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();
+  }
+
+  // Accepted-but-not-the-model-answer is the interesting case: the learner found
+  // a different valid form and should see that it counted.
+  function _correctHead(judged) {
+    return (judged && !judged.exact) ? 'Correct — that works too!' : 'Correct!';
+  }
+
+  // ...and should also see the answer the LESSON had in mind. "That works too"
+  // on its own leaves the learner with praise and no idea what the other way of
+  // saying it even was — so the two sit side by side, and the judge's note is
+  // asked to spell out how they differ.
+  function _expectedLine(judged, expectedHtml, dup) {
+    if (!judged || judged.exact || !expectedHtml || dup) return '';
+    return `<small>Lesson's answer: ${expectedHtml}</small>`;
   }
 
   async function onAction() {
@@ -4918,10 +4945,13 @@
           + `</small>` : '';
       if (correct) {
         fb.className = 'feedback correct';
-        // Accepted-but-not-the-model-answer is the interesting case: the learner
-        // found a different valid form and should see that it counted.
-        const head = (judged && !judged.exact) ? 'Correct — that works too!' : 'Correct!';
-        fb.innerHTML = head + jFix + jNote + tip;
+        const exp = player.controller.expectedText ? player.controller.expectedText() : '';
+        // Don't print the expected answer twice when the "Better:" line is
+        // already showing exactly it.
+        const dup = !!(judged && judged.corrected
+          && _normTyped(judged.corrected) === _normTyped(ex.answer || ''));
+        fb.innerHTML = _correctHead(judged) + _expectedLine(judged, exp, dup)
+          + jFix + jNote + tip;
         sfx.correct();
       } else {
         const at = player.controller.answerText ? player.controller.answerText() : '';
@@ -5267,6 +5297,134 @@
   function _segTeachVisible(seg) {
     return !!(seg && seg.teach && player && !player.skipTeach
       && ((seg.teach.items || []).length || seg.teach.intro || (seg.teach.blocks || []).length));
+  }
+
+  // ── ⚑ Report a bad item → regenerate just that item ─────────────────────────
+  // A lesson is authored in one shot, so one wrong drill used to leave the
+  // learner replaying a lesson they know is broken (or deleting the whole
+  // thing). Here they point at the item, optionally say what's wrong, and the
+  // server re-authors THAT item through the same validation as the original.
+  let _report = null;   // {kind, seg, ix} while the sheet is open
+
+  // Only stored, AI-authored items can be rewritten: practice runs and
+  // checkpoints aren't a lesson, self-managed drills are generated as you play
+  // them, and the reading track is built by code rather than a model.
+  function _canReport(kind) {
+    if (!player || !player.lessonId || player.practiceGame || player.checkpointUnitId) return false;
+    if (player.theme === 'foundations') return false;
+    if (kind === 'teach') {
+      // Paged teach shows one block per screen, so teachIdx names it exactly. An
+      // unpaged step is reportable only when it holds a single block (index 0);
+      // a legacy word-list teach isn't authored as blocks at all.
+      if (player.teachPaged) return true;
+      return (player.teachBlocks || []).length === 1 && !player.teachItemCount;
+    }
+    const ex = player.queue[player.idx];
+    return !!ex && ex._seg != null && !SELF_MANAGED.has(ex.type);
+  }
+
+  function updateReportBtn() {
+    const row = document.getElementById('report-row');
+    if (row) row.style.display = _canReport('drill') ? '' : 'none';
+    const trow = document.getElementById('teach-report-row');
+    if (trow) trow.style.display = _canReport('teach') ? '' : 'none';
+  }
+
+  // The sheet is bottom-anchored, so the phone keyboard would sit on top of the
+  // note field and the button that submits it. Shrink the overlay to the VISIBLE
+  // viewport so its flex-end lands above the keyboard (iOS never resizes the
+  // layout viewport). Same trick as the textbook sheet.
+  function _syncReportViewport() {
+    const vv = window.visualViewport;
+    const el = document.getElementById('report-overlay');
+    if (!vv || !el || !el.classList.contains('open')) return;
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    el.style.bottom = overlap ? overlap + 'px' : '';
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _syncReportViewport);
+    window.visualViewport.addEventListener('scroll', _syncReportViewport);
+  }
+
+  function openReportSheet(kind) {
+    if (!_canReport(kind)) return;
+    const ex = player.queue[player.idx];
+    _report = kind === 'teach'
+      ? { kind, seg: player.segIdx, ix: player.teachIdx || 0 }
+      : { kind, seg: ex._seg, ix: ex._ix };
+    const what = kind === 'teach' ? 'explanation' : 'question';
+    document.getElementById('report-sheet').innerHTML = `
+      <div class="intro-grab"></div>
+      <div class="intro-kicker">Report</div>
+      <h2>⚑ Something wrong with this ${what}?</h2>
+      <p class="intro-obj">We'll rewrite just this ${what} and keep the rest of the lesson.
+        Saying what's wrong helps — but you can leave it blank.</p>
+      <textarea class="report-note" id="report-note" rows="3"
+        placeholder="e.g. two of the options are correct"></textarea>
+      <div class="report-status" id="report-status"></div>
+      <div class="intro-actions">
+        <button class="cta-btn" id="report-go" onclick="submitRegen()">✨ Rewrite this ${what}</button>
+        <div class="row2"><button class="cta-btn secondary" onclick="closeReportSheet()">Cancel</button></div>
+      </div>`;
+    document.getElementById('report-overlay').classList.add('open');
+    _syncReportViewport();
+    setTimeout(() => { try { document.getElementById('report-note').focus({ preventScroll: true }); } catch {} }, 80);
+  }
+
+  function closeReportSheet() {
+    const el = document.getElementById('report-overlay');
+    el.classList.remove('open');
+    el.style.bottom = '';
+    _report = null;
+  }
+
+  async function submitRegen() {
+    if (!_report || !player) return;
+    const btn = document.getElementById('report-go');
+    const status = document.getElementById('report-status');
+    const note = (document.getElementById('report-note') || {}).value || '';
+    btn.disabled = true;
+    status.className = 'report-status';
+    status.textContent = 'Rewriting…';
+    const { kind, seg, ix } = _report;
+    const lessonId = player.lessonId;
+    try {
+      const res = await fetch('/api/lessons/' + lessonId + '/regenerate-item', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segment: seg, index: ix, kind, note: note.trim().slice(0, 400) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.item) throw new Error(data.detail || "Couldn't rewrite that one.");
+      // The learner may have moved on (or quit) while the rewrite was in flight.
+      if (!player || player.lessonId !== lessonId) { closeReportSheet(); return; }
+      const segment = (player.segments || [])[seg];
+      if (kind === 'teach') {
+        const blocks = (segment && segment.teach && segment.teach.blocks) || [];
+        if (blocks[ix]) blocks[ix] = data.item;
+        if (player.teachBlocks && player.teachBlocks[ix]) player.teachBlocks[ix] = data.item;
+        closeReportSheet();
+        if (_currentState === 'teach' && player.teachPaged) renderTeachCard();
+      } else {
+        const exs = (segment && segment.exercises) || [];
+        if (exs[ix]) exs[ix] = data.item;
+        // Swap it into the live run too — including any later copy of the same
+        // drill waiting in the mistake lap, which would otherwise re-ask the
+        // broken one. A fresh object also resets `_counted`, which is right: it
+        // is a different question now.
+        const swap = e => (e && e._seg === seg && e._ix === ix)
+          ? { ...data.item, _seg: seg, _ix: ix, _review: e._review } : e;
+        player.queue = player.queue.map(swap);
+        player.mistakes = (player.mistakes || []).map(swap);
+        closeReportSheet();
+        if (_currentState === 'player') renderExercise();
+      }
+      learnToast('Rewritten — thanks for flagging it.');
+    } catch (e) {
+      if (!btn.isConnected) return;
+      btn.disabled = false;
+      status.className = 'report-status err';
+      status.textContent = e.message || "Couldn't rewrite that one — please try again.";
+    }
   }
 
   function updateBackBtn() {
