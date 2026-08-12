@@ -50,7 +50,8 @@ import random
 import grammar
 import llm
 import tokenizer
-from grammar_lessons import _clean_block, _cloze_is_sane, _conj_cloze, _free_cloze
+from grammar_lessons import (_clean_block, _cloze_is_sane, _conj_cloze, _free_cloze,
+                             _norm, drop_cross_script, drop_homophones)
 from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
@@ -568,7 +569,10 @@ _BLOCK_TYPES = """\
       Insert one after every 1–2 teach blocks so the learner USES each rule
       immediately instead of reading a wall of text. Ungraded — instant feedback
       only, never counts toward the score. 2–3 options, EXACTLY one correct;
-      `answer` must match one option verbatim (we shuffle & key it ourselves)."""""
+      `answer` must match one option verbatim (we shuffle & key it ourselves).
+      All options in the SAME language as each other, and each must be WRONG for
+      a reason the learner can name — never two spellings that sound the same
+      (借支筆 / 借枝筆 are both zi1 and both correct, so that is not a check)."""""
 
 
 def _concepts_block(concepts: list[dict]) -> str:
@@ -813,6 +817,15 @@ def _build_lesson_prompt(
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
+        f"• SAME LANGUAGE: every distractor must be in the SAME language as the answer "
+        f"it competes with. RECOGNITION answers are English, so its distractors are other "
+        f"English meanings — never native script. PRODUCTION, LISTENING and CLOZE answers "
+        f"are native script, so their distractors are other native forms — never English. "
+        f"A single odd-one-out option gives the answer away without the learner reading it.\n"
+        f"• NEVER offer two options that sound the same. Options that differ only by a "
+        f"homophone — an interchangeable classifier or variant character, e.g. 借支筆 vs "
+        f"借枝筆 (both zi1) — are BOTH correct and the learner has nothing to choose on. "
+        f"Distractors must differ in MEANING, not just in spelling.\n"
         f"• LISTENING: distractors must be native-script words — NEVER English. For tonal "
         f"languages (Cantonese, Mandarin), pick distractors that differ by one tone or one "
         f"phoneme so the drill is a genuine listening test (e.g. target nei5 → distractors "
@@ -886,24 +899,6 @@ def _order_tokens_from_sentence(sentence: str, tokens: list[str]) -> list[str] |
     return walk(0, list(tokens))
 
 
-def _is_cjk(s: str) -> bool:
-    return any('一' <= c <= '鿿' or '㐀' <= c <= '䶿' or
-               '぀' <= c <= 'ヿ' for c in (s or ""))
-
-
-def _norm(s: str) -> str:
-    """Normalise an option for duplicate detection: casefold, collapse whitespace,
-    strip terminal punctuation and leading English fillers ('the cat' ≈ 'cat').
-    Catches model distractors that are the correct answer in disguise."""
-    s = " ".join((s or "").split()).casefold()
-    s = s.rstrip(".!?。！？…,，;；:：")
-    for art in ("the ", "a ", "an ", "to "):
-        if s.startswith(art):
-            s = s[len(art):]
-            break
-    return s.strip()
-
-
 def _pick_options(correct: str, distractors: list[str], n: int = 4) -> tuple[list[str], int]:
     """Shuffle [correct] + de-duped distractors into n options; return (opts, idx).
     Distractors equal to the answer after normalisation are dropped — they would
@@ -945,6 +940,9 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "recognition":
         if not target or not gloss:
             return None
+        # Options are English meanings. A native-script foil among them makes
+        # the lone English option visibly the answer — no reading required.
+        distract = drop_cross_script(gloss, distract)
         opts, ans = _pick_options(gloss, distract)
         if len(opts) < 2:
             return None
@@ -956,6 +954,10 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "production":
         if not target or not gloss:
             return None
+        # Meaning → form. Options are native forms, so an English foil is a
+        # giveaway, and one that sounds identical to the answer is undecidable.
+        distract = drop_cross_script(target, distract)
+        distract = drop_homophones(target, distract, rom)
         opts, ans = _pick_options(target, distract)
         if len(opts) < 2:
             return None
@@ -966,15 +968,11 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     if kind == "listening":
         if not target:
             return None
-        # For CJK targets, drop any distractor that isn't in the native script —
-        # the LLM sometimes generates English words (e.g. "I", "he") instead.
-        if _is_cjk(target):
-            distract = [d for d in distract if _is_cjk((d or "").strip())]
-        # Homophones are undecidable by ear: drop distractors whose romanization
-        # matches the answer's (e.g. 嗰 vs 個, both go3 — free offline oracle).
-        target_rom = _norm(rom(target))
-        if target_rom:
-            distract = [d for d in distract if _norm(rom((d or "").strip())) != target_rom]
+        # The LLM sometimes generates English words (e.g. "I", "he") among
+        # native-script foils; and homophones (支 vs 枝, both zi1) are
+        # undecidable by ear. Both guards are free and offline.
+        distract = drop_cross_script(target, distract)
+        distract = drop_homophones(target, distract, rom)
         opts, ans = _pick_options(target, distract)
         if len(opts) < 2:
             return None
@@ -991,7 +989,7 @@ def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
         if grammar.has_conjugation(lang) and verb and person:
             ex = _conj_cloze(key, lang, sentence, gloss, verb, person, answer)
         if ex is None:
-            ex = _free_cloze(key, sentence, gloss, answer, distract)
+            ex = _free_cloze(key, sentence, gloss, answer, distract, rom)
         if ex is None:
             return None
         ex["grammar"] = is_grammar

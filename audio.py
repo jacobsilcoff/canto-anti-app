@@ -1,5 +1,18 @@
+import asyncio
 import io
+import logging
+
 import edge_tts
+
+log = logging.getLogger(__name__)
+
+# edge-tts talks to a free, unofficial Microsoft endpoint over a websocket. It
+# fails transiently — throttling under a burst, DRM/clock-skew 403s, dropped
+# sockets — and a single attempt turns that into silent no-audio for the
+# learner. Retry before giving up; the calls are ~1s, so this is cheap.
+_ATTEMPTS = 3
+_BACKOFF = (0.4, 1.2)
+_TIMEOUT_S = 20
 
 VOICES = {
     "yue": "zh-HK-HiuMaanNeural",
@@ -42,10 +55,39 @@ def voice_for(lang: str) -> str:
     return VOICES.get(lang, VOICES["yue"])
 
 
-async def generate(text: str, lang: str = "yue") -> bytes:
+async def _generate_once(text: str, lang: str) -> bytes:
+    # A Communicate object's stream() can only be consumed once, so each attempt
+    # needs a fresh one.
     communicate = edge_tts.Communicate(text, voice_for(lang))
     buf = io.BytesIO()
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             buf.write(chunk["data"])
     return buf.getvalue()
+
+
+async def generate(text: str, lang: str = "yue") -> bytes:
+    """Synthesise `text` to MP3 bytes, retrying transient upstream failures.
+
+    Raises the last error if every attempt fails — callers must decide what a
+    silent card looks like, and empty bytes would be indistinguishable from a
+    successful synthesis of silence. Never returns b"": some edge-tts versions
+    finish an empty stream without raising, which would otherwise be stored as
+    the card's audio and play as nothing at all.
+    """
+    last = None
+    for attempt in range(_ATTEMPTS):
+        if attempt:
+            await asyncio.sleep(_BACKOFF[min(attempt - 1, len(_BACKOFF) - 1)])
+        try:
+            data = await asyncio.wait_for(_generate_once(text, lang), _TIMEOUT_S)
+            if data:
+                return data
+            last = RuntimeError("edge-tts returned no audio")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:            # noqa: BLE001 — upstream is a grab-bag
+            last = e
+        log.warning("TTS attempt %d/%d failed for lang=%s: %r",
+                    attempt + 1, _ATTEMPTS, lang, last)
+    raise last

@@ -384,9 +384,13 @@
       return;
     }
     audioEl = new Audio(`/api/audio/${currentCardId}`);
-    audioEl.play();
     document.getElementById('audio-btn').classList.add('playing');
     audioEl.onended = () => document.getElementById('audio-btn').classList.remove('playing');
+    // Without a catch the button sticks in 'playing' forever and the failure
+    // is invisible — audio is synthesised lazily, so it can fail transiently.
+    audioEl.play().catch(() => {
+      document.getElementById('audio-btn').classList.remove('playing');
+    });
   }
 
   // ── Misc ─────────────────────────────────────────────────────────────────

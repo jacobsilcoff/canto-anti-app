@@ -2108,30 +2108,99 @@
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
   // TTS pre-load cache: key → Audio element (preload='auto').
+  //
+  // Two rules keep "the audio randomly doesn't play" from happening:
+  //
+  //  1. A cache entry that FAILED to load must never be kept. An <audio> whose
+  //     fetch errored is permanently dead — every later play() on it rejects.
+  //     Caching it unconditionally meant one transient /api/tts hiccup silenced
+  //     that one clip for the rest of the session while every other clip worked.
+  //  2. Pre-warming is throttled. _prefetchLesson asks for EVERY clip in the
+  //     lesson at once (20–30 of them); each is a separate edge-tts websocket to
+  //     Microsoft's free endpoint on the server, and that burst is exactly what
+  //     provokes the throttling that rule 1 then made permanent.
   const _ttsCache = {};
+  const _ttsQueue = [];
+  const _ttsPending = new Set();
+  let _ttsInFlight = 0;
+  const TTS_PREWARM_CONCURRENCY = 3;
+  const TTS_PREWARM_TIMEOUT_MS = 15000;
+
   function _ttsKey(text, lang) { return lang + '\0' + text; }
+  function _ttsUrl(text, lang) {
+    return '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
+  }
+
+  // An element that evicts itself from the cache the moment its fetch fails, so
+  // the next play rebuilds instead of replaying a corpse.
+  function _makeTTSAudio(text, lang, key) {
+    const a = new Audio(_ttsUrl(text, lang));
+    a.addEventListener('error', () => {
+      if (_ttsCache[key] === a) delete _ttsCache[key];
+    });
+    return a;
+  }
+
+  function _pumpTTSQueue() {
+    while (_ttsInFlight < TTS_PREWARM_CONCURRENCY && _ttsQueue.length) {
+      const { text, lang, key } = _ttsQueue.shift();
+      _ttsPending.delete(key);
+      if (_ttsCache[key]) continue;
+      const a = _makeTTSAudio(text, lang, key);
+      a.preload = 'auto';
+      _ttsInFlight++;
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        _ttsInFlight--;
+        _pumpTTSQueue();
+      };
+      a.addEventListener('loadeddata', release, { once: true });
+      a.addEventListener('error', release, { once: true });
+      // A request that never settles must not wedge the queue behind it.
+      setTimeout(release, TTS_PREWARM_TIMEOUT_MS);
+      _ttsCache[key] = a;
+      // load() forces the browser to start the HTTP request now — without it,
+      // browsers may defer fetching until play() is called, defeating the cache.
+      try { a.load(); } catch { release(); }
+    }
+  }
+
   function _prewarmTTS(text, lang) {
     if (!text) return;
     const key = _ttsKey(text, lang);
-    if (_ttsCache[key]) return;
-    const a = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
-    a.preload = 'auto';
-    // load() forces the browser to start the HTTP request now — without it,
-    // browsers may defer fetching until play() is called, defeating the cache.
-    try { a.load(); } catch {}
-    _ttsCache[key] = a;
+    if (_ttsCache[key] || _ttsPending.has(key)) return;
+    _ttsPending.add(key);
+    _ttsQueue.push({ text, lang, key });
+    _pumpTTSQueue();
   }
+
   function playTTS(text, lang) {
     if (!text) return;
     try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
     const key = _ttsKey(text, lang);
-    if (_ttsCache[key]) {
-      _audio = _ttsCache[key];
-      try { _audio.currentTime = 0; } catch {}
-    } else {
-      _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+    let el = _ttsCache[key];
+    // A cached element that failed to load will never play — rebuild it.
+    if (el && el.error) { delete _ttsCache[key]; el = null; }
+    if (!el) {
+      el = _makeTTSAudio(text, lang, key);
+      _ttsCache[key] = el;
     }
-    _audio.play().catch(() => {});
+    _audio = el;
+    try { _audio.currentTime = 0; } catch {}
+    _audio.play().catch(err => {
+      // NotAllowedError is the browser's autoplay policy, not a broken clip —
+      // the element is fine and retrying fails identically, so leave it cached.
+      if (err && err.name === 'NotAllowedError') return;
+      // Otherwise the source didn't load. Retry ONCE on a fresh element: the
+      // learner tapping 🔊 and getting silence is the bug being fixed here.
+      if (_ttsCache[key] === el) delete _ttsCache[key];
+      const retry = _makeTTSAudio(text, lang, key);
+      _ttsCache[key] = retry;
+      _audio = retry;
+      retry.play().catch(() => {});
+    });
   }
 
   // ── Sound effects (synthesized, no asset files) ─────────────────────────────
