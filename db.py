@@ -3217,6 +3217,21 @@ async def delete_lesson(user_id: int, lesson_id: int) -> dict | None:
     return {"course_id": row["course_id"], "unit_id": row["unit_id"]}
 
 
+async def update_lesson_content(user_id: int, lesson_id: int, content: dict) -> bool:
+    """Overwrite a lesson's stored content (ownership-checked). Returns False if
+    the lesson isn't the user's. Used when the learner reports a bad drill or
+    teach block and it's re-authored in place — the rest of the lesson, its
+    concepts, crowns and mastery history all stay exactly as they were."""
+    async with connect() as db:
+        cur = await db.execute(
+            """UPDATE course_lessons SET content=?
+               WHERE id=? AND course_id IN (SELECT id FROM courses WHERE user_id=?)""",
+            (json.dumps(content, ensure_ascii=False), lesson_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
 async def delete_course_unit_if_empty(unit_id: int) -> None:
     """Drop a unit row iff it has no lessons (used to roll back a failed
     textbook-unit creation) plus any queue rows still scoped to it."""

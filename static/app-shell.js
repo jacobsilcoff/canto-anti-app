@@ -136,11 +136,97 @@
     } catch (e) { /* unsupported value — leave the UA default alone */ }
   }
 
-  ready.then(data => applyAudioSession(data && data.settings)).catch(() => {});
+  // ── Volume boost: app audio against the user's music ──────────────────────
+  // 'transient' plays our clips OVER music and ducks it, but HOW MUCH it ducks
+  // is the OS's call — over a loud track a TTS prompt can still be hard to make
+  // out, and there is no web API to duck harder. The only lever left is making
+  // our own audio louder, and an <audio> element's `volume` can't do it twice
+  // over: it only ever attenuates (1.0 is the ceiling) and iOS ignores it
+  // entirely. So a boost means Web Audio — element → gain → limiter → speakers.
+  //
+  // Everything here is opt-in and fails soft. At the default (1.0) NOTHING is
+  // routed and the audio path is byte-for-byte what it was; a browser with no
+  // Web Audio, or any exception at all, leaves the element playing natively.
+  // Audio that works outranks audio that's louder.
+  const AUDIO_GAIN_MIN = 0.5, AUDIO_GAIN_MAX = 3;
+  let _actx = null, _gainNode = null, _routed = null, _audioGain = 1;
+
+  function clampGain(value) {
+    const g = Number(value);
+    if (!isFinite(g) || !g) return 1;
+    return Math.min(AUDIO_GAIN_MAX, Math.max(AUDIO_GAIN_MIN, g));
+  }
+
+  function audioGraph() {
+    if (_actx) return _actx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    _actx = new Ctx();
+    _gainNode = _actx.createGain();
+    _gainNode.gain.value = _audioGain;
+    // A limiter, not a matter of taste: at 2–3× a TTS clip clips hard and turns
+    // to static, which is a worse problem than being quiet.
+    const limiter = _actx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    _gainNode.connect(limiter);
+    limiter.connect(_actx.destination);
+    _routed = new WeakSet();
+    return _actx;
+  }
+
+  // Route one <audio> element through the gain graph. Call it immediately before
+  // play() — ideally inside the user gesture, so the context can start.
+  function prepareAudio(el) {
+    if (!el || _audioGain === 1) return;      // default: don't touch anything
+    try {
+      const ctx = audioGraph();
+      if (!ctx) return;
+      if (!_routed.has(el)) {
+        // createMediaElementSource throws if an element is routed twice.
+        ctx.createMediaElementSource(el).connect(_gainNode);
+        _routed.add(el);
+      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    } catch (e) { /* leave it playing natively — never break playback for volume */ }
+  }
+
+  function setAudioGain(value) {
+    _audioGain = clampGain(value);
+    if (_gainNode) { try { _gainNode.gain.value = _audioGain; } catch (e) {} }
+    if (_audioGain !== 1) unlockAudioOnGesture();
+  }
+
+  // An AudioContext starts suspended, and a drill that auto-plays (the 300 ms
+  // listening prompt) is not a user gesture — so build and resume the graph on
+  // the first tap of the page instead of discovering it too late and playing
+  // that clip into silence.
+  let _unlockArmed = false;
+  function unlockAudioOnGesture() {
+    if (_unlockArmed || _actx) return;
+    _unlockArmed = true;
+    const unlock = () => {
+      const ctx = audioGraph();
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+    };
+    document.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    document.addEventListener('keydown', unlock, { once: true });
+  }
+
+  ready.then(data => {
+    applyAudioSession(data && data.settings);
+    setAudioGain(data && data.settings ? data.settings.audio_volume : 1);
+  }).catch(() => {});
 
   window.CantoShell = {
     ready,
     applyAudioSession,
+    prepareAudio,          // call right before el.play() — no-op at 1× volume
+    setAudioGain,          // live preview from Settings, before anything is saved
+    audioGain: () => _audioGain,
     refresh: () => refresh(true),
     get: key => snapshot && snapshot.data ? snapshot.data[key] : null,
     invalidate: key => dirty.add(key),

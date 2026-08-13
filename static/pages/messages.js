@@ -582,6 +582,7 @@
     if (!text) return;
     try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
     _audio = new Audio('/api/tts?text=' + encodeURIComponent(text.slice(0, 200)) + '&lang=' + encodeURIComponent(_targetLang));
+    try { CantoShell.prepareAudio(_audio); } catch {}
     _audio.play().catch(() => {});
   }
 

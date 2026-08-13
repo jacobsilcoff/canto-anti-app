@@ -238,6 +238,28 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Audio volume</div>
+          <div class="settings-desc">Turn app audio up so it carries over music or a podcast. 100% is the clip as recorded; above that it's boosted (with a limiter, so it won't distort). Tap Test to hear it.</div>
+          <button type="button" class="settings-btn" id="settings-volume-test" onclick="testAudioVolume()" style="margin-top:8px">🔊 Test</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;min-width:130px">
+          <input type="range" id="settings-audio-volume" min="50" max="300" step="10" value="100"
+                 style="flex:1;min-width:80px" oninput="previewAudioVolume(this.value)" onchange="saveAudioVolume()">
+          <span id="audio-volume-label" style="font-size:13px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right">100%</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Speaking drills 🎤</div>
+          <div class="settings-desc">Say words and sentences out loud during lessons, checked by your browser's speech recognition (no AI calls). Also available any time from the Practice hub.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settings-speaking" onchange="saveSpeakingDrills()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">AI Speak practice</div>
           <div class="settings-desc">Tutor-graded translation drills at the end of grammar lessons. Off is faster and uses fewer AI calls (also toggleable per-lesson).</div>
         </div>

@@ -456,6 +456,12 @@ textarea {
 .audio-btn .icon { width: 15px; height: 15px; vertical-align: 0; }
 .audio-btn:hover { background: var(--bg); border-color: var(--primary); color: var(--primary); }
 .audio-btn.playing { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+/* Audio we know we can't fetch. A live-looking button that silently does
+   nothing reads as the app being broken — say it's unavailable instead. */
+.audio-btn.audio-dead, .audio-btn.audio-dead:hover {
+  opacity: 0.45; cursor: not-allowed; border-style: dashed;
+  color: var(--text-muted); background: var(--surface);
+}
 
 .saved-indicator {
   font-size: 0.85rem;

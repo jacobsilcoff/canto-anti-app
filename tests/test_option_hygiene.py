@@ -245,3 +245,86 @@ def test_free_cloze_without_a_romaniser_is_unchanged():
     assert ex is not None
     assert len(ex["options"]) == 3
     assert ex["options"][ex["answer"]] == "parle"
+
+
+# ── The drill has to be in the language being taught ─────────────────────────
+# A model fed an English-heavy source (a phrasebook chapter, a romanization-only
+# textbook page) sometimes authors a whole drill in ENGLISH: "What does this
+# mean? / Please include some coins in the change." with that same sentence
+# among the options. The learner answers it without reading anything, in a
+# course they are taking to learn Cantonese.
+
+def test_a_recognition_drill_written_in_english_is_dropped():
+    ex = learning._assemble_drill(
+        {"kind": "recognition", "concept": "k",
+         "target": "Please include some coins in the change.",
+         "gloss": "Please include some coins in the change.",
+         "distractors": ["I have no coins.", "Do you have coins?"]},
+        "yue", {"k": "vocab"}, _rom("yue"),
+    )
+    assert ex is None
+
+
+def test_a_production_drill_whose_answer_is_english_is_dropped():
+    ex = learning._assemble_drill(
+        {"kind": "production", "concept": "k", "gloss": "thank you",
+         "target": "thank you very much", "distractors": ["good morning", "goodbye"]},
+        "yue", {"k": "vocab"}, _rom("yue"),
+    )
+    assert ex is None
+
+
+def test_a_real_cantonese_drill_still_assembles():
+    ex = learning._assemble_drill(
+        {"kind": "production", "concept": "k", "gloss": "thank you",
+         "target": "唔該", "distractors": ["早晨", "再見"]},
+        "yue", {"k": "vocab"}, _rom("yue"),
+    )
+    assert ex is not None and "唔該" in ex["options"]
+
+
+def test_a_latin_script_language_is_never_judged_by_script():
+    """French and English are both Latin — nothing here can tell them apart, so
+    the check must be a no-op rather than a source of false drops."""
+    ex = learning._assemble_drill(
+        {"kind": "production", "concept": "k", "gloss": "thank you",
+         "target": "merci", "distractors": ["bonjour", "au revoir"]},
+        "fr", {"k": "vocab"}, _rom("fr"),
+    )
+    assert ex is not None
+
+
+def test_an_option_that_repeats_the_prompt_is_dropped():
+    """The language-agnostic half of the check: whatever the language, a prompt
+    that IS one of the options gives the answer away without being read."""
+    assert learning.drill_is_sane(
+        {"type": "choice", "prompt_lang": "target", "prompt": "Je mange du pain",
+         "options": ["Je mange du pain", "I eat bread"], "answer": 0}, "fr") is False
+
+
+def test_typed_and_tile_drills_are_checked_too():
+    assert learning.drill_is_sane(
+        {"type": "type_answer", "prompt": "thank you", "answer": "thank you"},
+        "yue") is False
+    assert learning.drill_is_sane(
+        {"type": "word_bank", "answer_tokens": ["thank", "you"], "audio": "thank you"},
+        "yue") is False
+    assert learning.drill_is_sane(
+        {"type": "word_bank", "answer_tokens": ["我", "食飯"], "audio": "我食飯"},
+        "yue") is True
+
+
+def test_a_quick_check_written_in_english_is_dropped():
+    """A quick_check is a drill in teach clothing and fails the same way."""
+    assert learning.block_is_sane(
+        {"type": "quick_check", "question": "Which is right?",
+         "options": ["Please give me coins", "I have no coins"], "answer": 0},
+        "yue") is False
+    assert learning.block_is_sane({"type": "prose", "text": "English is fine here"},
+                                  "yue") is True
+
+
+def test_self_managed_drills_are_left_alone():
+    """AI Speak and the mini-games carry no stored answer to inspect."""
+    assert learning.drill_is_sane({"type": "construction_drill",
+                                   "construction": "-er present"}, "yue") is True

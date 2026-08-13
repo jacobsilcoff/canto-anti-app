@@ -1864,6 +1864,24 @@ def _valid_course_focus(value: str | None) -> str:
     return value if value in learning.COURSE_FOCUSES else "balanced"
 
 
+# How loud our own audio plays, as a multiplier. 1.0 is the clip as recorded and
+# means the client does no Web Audio routing at all, so the default keeps the
+# audio path exactly as it was. Bounded because the client can only limit so much
+# distortion on the way up, and inaudible is not a setting worth offering.
+AUDIO_VOLUME_MIN, AUDIO_VOLUME_MAX = 0.5, 3.0
+
+
+def _audio_volume(value) -> float:
+    """Clamp the audio-volume multiplier; anything unreadable falls back to 1×."""
+    try:
+        vol = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    if not vol or vol != vol:                       # 0 or NaN
+        return 1.0
+    return round(min(AUDIO_VOLUME_MAX, max(AUDIO_VOLUME_MIN, vol)), 2)
+
+
 def _plan_limit(user: dict) -> int:
     return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
 
@@ -2278,6 +2296,13 @@ async def get_settings(user: dict = Depends(current_user)):
         "lesson_ai_speak": (await db.get_setting(user["id"], "lesson_ai_speak") or "true") != "false",
         # Warm-up steps also default ON and can be skipped at play time.
         "lesson_warmup": (await db.get_setting(user["id"], "lesson_warmup") or "true") != "false",
+        # 🎤 Speaking drills inside lessons. Defaults ON: the drill only asks for
+        # the microphone once the learner taps it, and browsers without speech
+        # recognition never see one (the player drops them client-side).
+        "speaking_drills": (await db.get_setting(user["id"], "speaking_drills") or "true") != "false",
+        # Boost for our own audio, against whatever else is playing. 1.0 = the
+        # clip as recorded (and no Web Audio routing at all on the client).
+        "audio_volume": _audio_volume(await db.get_setting(user["id"], "audio_volume")),
         # Play audio alongside the user's music instead of stopping it. Defaults
         # ON — a flashcard clip killing someone's podcast is never what they
         # wanted. See applyAudioSession in app-shell.js.
@@ -2308,7 +2333,9 @@ class SettingsUpdate(BaseModel):
     lesson_length: str | None = None
     lesson_ai_speak: bool | None = None
     lesson_warmup: bool | None = None
+    speaking_drills: bool | None = None
     audio_mix: bool | None = None
+    audio_volume: float | None = None
     course_focus: str | None = None
     timezone: str | None = None
 
@@ -2376,8 +2403,12 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "lesson_ai_speak", "true" if req.lesson_ai_speak else "false")
     if req.lesson_warmup is not None:
         await db.set_setting(user["id"], "lesson_warmup", "true" if req.lesson_warmup else "false")
+    if req.speaking_drills is not None:
+        await db.set_setting(user["id"], "speaking_drills", "true" if req.speaking_drills else "false")
     if req.audio_mix is not None:
         await db.set_setting(user["id"], "audio_mix", "true" if req.audio_mix else "false")
+    if req.audio_volume is not None:
+        await db.set_setting(user["id"], "audio_volume", str(_audio_volume(req.audio_volume)))
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
@@ -3433,6 +3464,8 @@ async def list_languages():
                 "script_family": translation.SCRIPT_BY_LANG.get(code, "latin"),
                 "romanization": info["romanization"],
                 "logographic": info["romanization"] is not None,
+                # BCP-47 tag for the browser's speech recogniser (speaking drills).
+                "speech_lang": audio.locale_for(code),
             }
             for code, info in translation.LANG_INFO.items()
         ]
@@ -4347,6 +4380,78 @@ async def delete_lesson(lesson_id: int, user: dict = Depends(current_user)):
     if removed is None:
         raise HTTPException(404, "Lesson not found")
     return {"success": True, **removed}
+
+
+class RegenerateItemRequest(BaseModel):
+    segment: int = 0
+    index: int = 0
+    kind: str = "drill"          # "drill" (an exercise) | "teach" (a teach block)
+    note: str = ""               # optional: what the learner says is wrong with it
+
+
+# Drills we didn't author and can't re-author: the AI Speak drill is generated
+# live per turn, and the foundations mini-games are deterministic widgets.
+_UNFIXABLE_DRILLS = {"construction_drill", "speed_round", "audio_blitz", "memory_match"}
+
+
+@app.post("/api/lessons/{lesson_id}/regenerate-item")
+@limiter.limit("20/minute;100/day")
+async def regenerate_lesson_item(request: Request, lesson_id: int,
+                                 req: RegenerateItemRequest,
+                                 user: dict = Depends(current_user)):
+    """Re-author ONE drill or teach block the learner has reported as wrong.
+
+    A lesson is authored in a single call, so a single bad item used to leave two
+    bad options: replay a lesson you know is broken, or delete the whole thing.
+    This replaces just that item — optionally steered by what the learner says is
+    wrong — and persists it, so the fix survives into every later replay. The
+    replacement goes through the same deterministic assembly as the original
+    (`learning.regenerate_item`), so its answer key is still correct by
+    construction and an item that fails validation is rejected, not shipped.
+    """
+    if req.kind not in learning.REGEN_KINDS:
+        raise HTTPException(400, "kind must be drill or teach")
+    lesson = await db.get_lesson(user["id"], lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    if lesson.get("theme") == "foundations":
+        # The reading track is built by code, not a model — there is nothing to
+        # re-author, and rewriting a jamo drill with an LLM would be worse.
+        raise HTTPException(400, "Reading-track lessons aren't AI-written, so they can't be regenerated.")
+    content = lesson.get("content") or {}
+    segments = content.get("segments") or []
+    if not 0 <= req.segment < len(segments):
+        raise HTTPException(400, "No such lesson step")
+    seg = segments[req.segment]
+    items = ((seg.get("teach") or {}).get("blocks") if req.kind == "teach"
+             else seg.get("exercises")) or []
+    if not 0 <= req.index < len(items):
+        raise HTTPException(400, "No such item")
+    current = items[req.index]
+    if req.kind == "drill" and current.get("type") in _UNFIXABLE_DRILLS:
+        raise HTTPException(400, "This exercise is generated as you play it — there's nothing stored to rewrite.")
+
+    access = await _resolve_gemini(user)
+    lesson_model = await _resolve_lesson_model(user, access)
+    try:
+        replacement = await learning.regenerate_item(
+            lesson["target_lang"], kind=req.kind, current=current,
+            concepts=lesson.get("concepts") or [],
+            title=lesson.get("title") or "", objective=lesson.get("objective") or "",
+            note=req.note or "",
+            api_key=access.api_key, anthropic_key=access.anthropic_key,
+            model=lesson_model,
+        )
+    except Exception as e:
+        logger.error("Regenerate item failed lesson=%s: %s", lesson_id, e, exc_info=True)
+        replacement = None
+    if not replacement:
+        raise HTTPException(502, "Couldn't rewrite that one — please try again.")
+
+    items[req.index] = replacement
+    if not await db.update_lesson_content(user["id"], lesson_id, content):
+        raise HTTPException(404, "Lesson not found")
+    return {"item": replacement, "kind": req.kind}
 
 
 # ── Textbook import: PDF → reviewed source → one lesson ──────────────────────
@@ -5770,6 +5875,31 @@ async def clear_textbook_queue(course_id: int, user: dict = Depends(current_user
     return {"success": True}
 
 
+# Lessons authored before the language check existed (or by a model that ignored
+# it) can hold drills written entirely in ENGLISH — "What does this mean? /
+# Please include some coins in the change." with that same sentence among the
+# options. Those are dropped on the way out, and the repair is PERSISTED: the
+# learner meets the lesson again on every replay, and the ⚑ regenerate flow
+# addresses stored items by position, so serving a different list than we store
+# would rewrite the wrong drill.
+def _sanitize_lesson_content(content: dict, lang: str) -> int:
+    """Strip unanswerable stored items in place. Returns how many were removed."""
+    removed = 0
+    for seg in (content.get("segments") or []):
+        exercises = seg.get("exercises")
+        if isinstance(exercises, list):
+            kept = [ex for ex in exercises if learning.drill_is_sane(ex, lang)]
+            removed += len(exercises) - len(kept)
+            seg["exercises"] = kept
+        teach = seg.get("teach") or {}
+        blocks = teach.get("blocks")
+        if isinstance(blocks, list):
+            kept_b = [b for b in blocks if learning.block_is_sane(b, lang)]
+            removed += len(blocks) - len(kept_b)
+            teach["blocks"] = kept_b
+    return removed
+
+
 def _lesson_response(lesson: dict, content: dict) -> dict:
     return {
         "id":         lesson["id"],
@@ -5794,7 +5924,12 @@ async def get_lesson(request: Request, lesson_id: int, user: dict = Depends(curr
         raise HTTPException(404, "Lesson not found")
     if not lesson.get("content"):
         raise HTTPException(404, "Lesson content not available")
-    return _lesson_response(lesson, lesson["content"])
+    content = lesson["content"]
+    if _sanitize_lesson_content(content, lesson["target_lang"]):
+        # Heal it once, so every later replay (and the stored positions the
+        # regenerate flow uses) agree with what the learner is playing.
+        await db.update_lesson_content(user["id"], lesson_id, content)
+    return _lesson_response(lesson, content)
 
 
 @app.get("/api/courses/{course_id}/foundations-practice")
@@ -5841,34 +5976,143 @@ _PRACTICE_GRADEABLE = {"choice", "listening", "word_bank", "match", "type_answer
 _PRACTICE_MAX = 12
 
 
-def _course_drill_pool(lessons: list[dict]) -> list[dict]:
-    """Flatten every gradeable stored exercise across a course's lessons."""
+def _course_drill_pool(lessons: list[dict], lang: str = "") -> list[dict]:
+    """Flatten every gradeable stored exercise across a course's lessons.
+
+    `lang` vets each drill against the language being taught — a lesson that was
+    never opened since the check shipped can still hold an English-only drill,
+    and practice sets must not resurrect it.
+    """
     out: list[dict] = []
     for lesson in lessons:
         content = lesson.get("content") or {}
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
-                if ex.get("type") in _PRACTICE_GRADEABLE:
-                    out.append(ex)
+                if ex.get("type") not in _PRACTICE_GRADEABLE:
+                    continue
+                if lang and not learning.drill_is_sane(ex, lang):
+                    continue
+                out.append(ex)
     return out
+
+
+# ── 🎤 Speaking practice ─────────────────────────────────────────────────────
+# Prompts the learner says ALOUD, drawn from the course's own material: the
+# sentences its drills already used plus the words its lessons taught. Purely
+# deterministic recombination — no LLM here, and none in the grading either
+# (the browser transcribes; the client compares offline).
+
+_SPEAK_MAX = 12
+_SPEAK_MAX_CHARS = 60      # a paragraph is not a speaking prompt
+
+
+def _speak_prompt(ex: dict) -> tuple[str, str, str] | None:
+    """(target text, English gloss, romanization) a drill can be spoken from.
+
+    Only shapes whose TARGET-language string is unambiguous: a reorder drill's
+    own sentence, a typed answer, or the correct option of a drill whose options
+    are the target language. A recognition drill (target prompt → English
+    options) would otherwise hand back an English "answer" to say aloud.
+    """
+    kind = ex.get("type")
+    if kind == "word_bank":
+        # Assembly stores the whole sentence as the drill's audio, so there is no
+        # need to re-join the tiles (and no separator to get wrong for CJK/Thai).
+        return (ex.get("audio") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+    if kind == "type_answer":
+        return (ex.get("answer") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+    if kind in ("choice", "listening"):
+        opts = ex.get("options") or []
+        idx = ex.get("answer")
+        if not isinstance(idx, int) or not 0 <= idx < len(opts):
+            return None
+        if kind == "choice" and ex.get("prompt_lang") != "english" and not ex.get("is_cloze"):
+            return None            # options are English — nothing to say
+        # A cloze's English gloss lives in `tip`; a listening drill has no prompt.
+        gloss = ex.get("tip") if ex.get("is_cloze") else ex.get("prompt")
+        if kind == "listening":
+            gloss = ""
+        return (opts[idx] or "", gloss or "", ex.get("audio_roman") or "")
+    return None
+
+
+def _speaking_items(pool: list[dict], vocab: list[dict], lang: str) -> list[dict]:
+    """Build speak drills from a drill pool + the course's taught vocabulary."""
+    import random as _random
+
+    seen: set[str] = set()
+    sentences: list[dict] = []
+    words: list[dict] = []
+
+    def _add(bucket: list[dict], target: str, gloss: str, roman: str) -> None:
+        target = (target or "").strip()
+        if not target or len(target) > _SPEAK_MAX_CHARS:
+            return
+        key = target.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        # Romanization comes from the offline oracle when the drill didn't carry
+        # one — same rule as everywhere else: never the model.
+        roman = (roman or "").strip() or tokenizer.romanize_text(target, lang)
+        bucket.append({
+            "type": "speak",
+            "instruction": "Say it out loud",
+            "prompt": (gloss or "").strip(),
+            "target": target,
+            "target_roman": roman,
+        })
+
+    for ex in pool:
+        got = _speak_prompt(ex)
+        if got:
+            _add(sentences, *got)
+    for w in vocab:
+        _add(words, w.get("label") or "", w.get("gloss") or "", "")
+
+    _random.shuffle(sentences)
+    _random.shuffle(words)
+    # Sentences carry more of the language than isolated words, so they lead;
+    # words top the set up (and are all a young course has to offer).
+    n_words = min(len(words), max(2, _SPEAK_MAX // 3))
+    picked = sentences[:_SPEAK_MAX - n_words] + words[:n_words]
+    _random.shuffle(picked)
+    return picked[:_SPEAK_MAX]
 
 
 @app.get("/api/courses/{course_id}/practice")
 @limiter.limit("30/minute")
 async def course_practice(request: Request, course_id: int, mode: str = "mistakes",
+                          lesson_id: int | None = None,
                           user: dict = Depends(current_user)):
     """Assemble a practice set from the course's own stored drills (B6).
     mode=mistakes → weak-concept drills; mode=lightning → choice-drill pool for the
-    client to remix. Both are deterministic recombination (no LLM)."""
+    client to remix; mode=speaking → say-it-aloud prompts (optionally scoped to one
+    lesson via lesson_id). All deterministic recombination (no LLM)."""
     import random as _random
     course = await db.get_course(user["id"], course_id)
     if not course:
         raise HTTPException(404, "Course not found")
     lang = course["target_lang"]
     lessons = await db.get_completed_lesson_contents(user["id"], course_id)
-    pool = _course_drill_pool(lessons)
+    if lesson_id:
+        one = await db.get_lesson(user["id"], lesson_id)
+        if not one or one.get("course_id") != course_id:
+            raise HTTPException(404, "Lesson not found")
+        lessons = [one]
+    pool = _course_drill_pool(lessons, lang)
     if not pool:
         raise HTTPException(400, "Finish a lesson first — there's nothing to practice yet.")
+
+    if mode == "speaking":
+        # Lesson-scoped sets stay inside that lesson; course-wide ones may also
+        # draw on vocabulary taught in lessons whose drills weren't speakable.
+        vocab = [] if lesson_id else await db.get_course_vocab(user["id"], course_id)
+        exercises = await asyncio.to_thread(_speaking_items, pool, vocab, lang)
+        if len(exercises) < 3:
+            raise HTTPException(400, "Not enough material to speak yet — finish a lesson first.")
+        return {"title": "🎤 Speaking", "target_lang": lang,
+                "content": {"segments": [{"teach": None, "exercises": exercises}]}}
 
     if mode == "lightning":
         choices = [ex for ex in pool
@@ -6105,14 +6349,20 @@ def _checkpoint_quiz(unit: dict) -> list[dict]:
     lesson), deterministically seeded by unit id so the quiz is stable."""
     import random as _random
     rng = _random.Random(unit["id"])
+    lang = unit.get("target_lang") or ""
     picked: list[dict] = []
     for lesson in unit.get("lessons") or []:
         content = lesson.get("content") or {}
         pool = []
         for seg in content.get("segments") or []:
             for ex in seg.get("exercises") or []:
-                if ex.get("type") in _CHECKPOINT_TYPES:
-                    pool.append(ex)
+                if ex.get("type") not in _CHECKPOINT_TYPES:
+                    continue
+                # A drill that isn't in the language can't test whether the unit
+                # was learned — and a checkpoint is the worst place to meet one.
+                if lang and not learning.drill_is_sane(ex, lang):
+                    continue
+                pool.append(ex)
         pool.sort(key=_checkpoint_difficulty)
         picked.extend(dict(ex) for ex in pool[:_CHECKPOINT_PER_LESSON])
     rng.shuffle(picked)

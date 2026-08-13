@@ -132,7 +132,24 @@ async def test_chest_claim_requires_all_done_and_claims_once(fresh_db):
 # ── Unit checkpoints ──────────────────────────────────────────────────────────
 
 def _drill(t, **kw):
-    return {"type": t, "concept_key": kw.pop("key", "k"), **kw}
+    """A minimally PLAYABLE stored drill.
+
+    Option-bearing kinds carry real options and an answer index: the checkpoint
+    builder now vets each drill (an unanswerable one is the worst thing to meet
+    in a quiz), so a shape-only stub would be filtered out before the sampling
+    this file is actually testing.
+    """
+    ex = {"type": t, "concept_key": kw.pop("key", "k"), **kw}
+    if t in ("choice", "listening") and "options" not in ex:
+        ex["options"] = ["une pomme", "un livre"]
+        ex["answer"] = 0
+        if t == "listening":
+            ex["audio"] = "une pomme"
+        elif ex.get("prompt_lang") == "target" or ex.get("is_cloze"):
+            ex.setdefault("prompt", "Je mange ___ rouge")
+        else:
+            ex.setdefault("prompt", "an apple")
+    return ex
 
 
 async def _unit_with_lessons(uid, lang="fr", n_lessons=3, per_lesson=4):

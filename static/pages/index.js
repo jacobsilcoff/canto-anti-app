@@ -388,6 +388,7 @@
     audioEl.onended = () => document.getElementById('audio-btn').classList.remove('playing');
     // Without a catch the button sticks in 'playing' forever and the failure
     // is invisible — audio is synthesised lazily, so it can fail transiently.
+    try { CantoShell.prepareAudio(audioEl); } catch {}
     audioEl.play().catch(() => {
       document.getElementById('audio-btn').classList.remove('playing');
     });

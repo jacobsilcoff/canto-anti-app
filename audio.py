@@ -55,6 +55,24 @@ def voice_for(lang: str) -> str:
     return VOICES.get(lang, VOICES["yue"])
 
 
+def locale_for(lang: str) -> str:
+    """BCP-47 locale for a language, or "" if we don't speak it.
+
+    Derived from the voice name ("zh-HK-HiuMaanNeural" → "zh-HK") so adding a
+    language stays "an entry in LANG_INFO + a voice" — there is no second table
+    to keep in step. The browser's SpeechRecognition wants exactly this tag, and
+    the voice already encodes the variety we speak TO the learner, which is the
+    one they should be speaking back. Unknown languages return "" rather than
+    falling back to Cantonese: mis-set, the recognizer transcribes into the
+    wrong language entirely, and no speaking drill beats a wrong one.
+    """
+    voice = VOICES.get(lang)
+    if not voice:
+        return ""
+    parts = voice.split("-")
+    return "-".join(parts[:2]) if len(parts) >= 2 else parts[0]
+
+
 async def _generate_once(text: str, lang: str) -> bytes:
     # A Communicate object's stream() can only be consumed once, so each attempt
     # needs a fresh one.

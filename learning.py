@@ -52,7 +52,7 @@ import llm
 import tokenizer
 from grammar_lessons import (_clean_block, _cloze_is_sane, _conj_cloze, _free_cloze,
                              _norm, drop_cross_script, drop_homophones)
-from translation import LANG_INFO, DEFAULT_MODEL, _parse_json
+from translation import LANG_INFO, SCRIPT_BY_LANG, DEFAULT_MODEL, _parse_json
 
 # A real, hand-written micro-lesson used as a few-shot example in the author
 # prompt. Editing this file is the intended way to steer lesson STYLE implicitly
@@ -814,6 +814,10 @@ def _build_lesson_prompt(
         f"is a clearly best answer, and build it from words this lesson taught plus "
         f"vocabulary the learner already knows — never a word they have not met.\n"
         f"{_DRILL_TIER_GUIDANCE}"
+        f"EVERY target-language field — `target`, `sentence`, `answer`, reorder "
+        f"`tokens`, match `target` — must be written in {name}. English belongs only "
+        f"in `gloss`/`prompt`/glossary values. A drill whose answer is English "
+        f"teaches nothing and is discarded.\n"
         f"Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle & key.\n"
         f"EXACTLY ONE option must be correct:\n"
         f"• Every distractor must be unambiguously wrong for this exact prompt.\n"
@@ -928,8 +932,94 @@ def _norm_tier(tier) -> str:
     return t if t in _DRILL_TIERS else "standard"
 
 
+# ── Is the drill actually in the language being taught? ──────────────────────
+# The author is told to emit native script only, but a prompt is a request, not
+# a guarantee: fed an English-heavy source (a phrasebook chapter, a romanization-
+# only textbook page), the model sometimes authors a whole drill in ENGLISH.
+# Rendered, that is "What does this mean? / Please include some coins in the
+# change." with that same English sentence sitting among the options — a drill
+# answered without reading anything, in a course taken to learn Cantonese.
+#
+# Two deterministic checks, both free, both applied to the ASSEMBLED exercise so
+# they work on stored lessons as well as fresh ones:
+#   1. the target-language side must really be in the target script — a no-op for
+#      Latin-script targets, where nothing distinguishes English from French by
+#      inspection; and
+#   2. no option may repeat the prompt verbatim, which catches the same failure
+#      in a Latin-script language, since a prompt that IS the answer gives itself
+#      away whatever the language.
+
+
+def _off_script(text: str, lang: str) -> bool:
+    """True when a string that must be in the target language plainly isn't."""
+    if SCRIPT_BY_LANG.get(lang, "latin") == "latin":
+        return False                    # undecidable, so never a reason to drop
+    return tokenizer.script_class(text or "") == "latin"
+
+
+def drill_is_sane(ex: dict, lang: str) -> bool:
+    """Can this assembled exercise be answered by reading/hearing the language?
+
+    Applied after assembly (so it also vets what is already stored), and only
+    ever a reason to DROP — same contract as the rest of the pipeline: a drill we
+    can't stand behind is not shown.
+    """
+    if not isinstance(ex, dict):
+        return False
+    etype = ex.get("type")
+    prompt = ex.get("prompt") or ""
+
+    if etype in ("choice", "listening"):
+        opts = ex.get("options") or []
+        ans = ex.get("answer")
+        if not isinstance(ans, int) or not 0 <= ans < len(opts):
+            return False
+        correct = opts[ans] or ""
+        if prompt and _norm(prompt) == _norm(correct):
+            return False                # the prompt IS the answer
+        if etype == "listening":
+            native = [ex.get("audio") or "", correct]
+        elif ex.get("prompt_lang") == "target":
+            # Recognition (native prompt, English options) or a cloze, whose
+            # sentence AND options are both native.
+            native = [prompt, correct] if ex.get("is_cloze") else [prompt]
+        else:
+            native = [correct]          # production: English prompt, native options
+        return not any(_off_script(t, lang) for t in native)
+
+    if etype == "word_bank":
+        sentence = ex.get("audio") or "".join(ex.get("answer_tokens") or [])
+        return not _off_script(sentence, lang)
+
+    if etype == "type_answer":
+        return not _off_script(ex.get("answer") or "", lang)
+
+    if etype == "match":
+        pairs = ex.get("pairs") or []
+        return not any(_off_script(p.get("target") or "", lang) for p in pairs)
+
+    return True                         # self-managed drills own their content
+
+
+def block_is_sane(block: dict, lang: str) -> bool:
+    """Teach blocks are shown, not graded, so they're left alone — except the
+    quick_check, which is a drill in teach clothing and fails the same way."""
+    if not isinstance(block, dict) or block.get("type") != "quick_check":
+        return True
+    opts = block.get("options") or []
+    ans = block.get("answer")
+    if not isinstance(ans, int) or not 0 <= ans < len(opts):
+        return False
+    return not _off_script(opts[ans] or "", lang)
+
+
 def _assemble_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     """Turn one authored drill into a frontend exercise object, or None to drop."""
+    ex = _build_drill(d, lang, kinds, rom)
+    return ex if (ex and drill_is_sane(ex, lang)) else None
+
+
+def _build_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
     kind = (d.get("kind") or "").strip()
     key = (d.get("concept") or "").strip()
     is_grammar = kinds.get(key) == "grammar"
@@ -1152,7 +1242,7 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
         blocks = []
         for b in (st.get("teach") or []):
             cleaned = _clean_block(b, rom)
-            if cleaned:
+            if cleaned and block_is_sane(cleaned, target_lang):
                 blocks.append(cleaned)
 
         exercises = []
@@ -1209,6 +1299,143 @@ def assemble_lesson(target_lang: str, concepts: list[dict], authored: dict) -> d
         segments = [{"title": "", "teach": {"intro": intro, "blocks": []},
                      "exercises": []}]
     return {"vocab_glossary": vocab_glossary, "segments": segments}
+
+
+# ── Fixing ONE item in an already-authored lesson ────────────────────────────
+# A lesson is authored in a single call, so one bad item — a drill whose answer
+# is wrong, a cloze two words fit, a teach block that contradicts itself — used
+# to leave the learner two options: replay a lesson they know is broken, or lose
+# the whole thing and regenerate it. This re-authors just that item, optionally
+# steered by what the learner says is wrong with it, and runs the replacement
+# through the SAME deterministic assembly as the original — so a regenerated
+# drill's answer key is still correct by construction, and one that fails
+# validation is rejected rather than shipped.
+
+REGEN_KINDS = ("drill", "teach")
+_REGEN_NOTE_MAX = 400
+
+
+def _build_regen_prompt(
+    target_lang: str, *, kind: str, current: dict, concepts: list[dict],
+    title: str, objective: str, note: str,
+) -> str:
+    info = LANG_INFO[target_lang]
+    name = info.get("full_name", info["name"])
+    what = "practice drill" if kind == "drill" else "teach block"
+    schema = _DRILL_KINDS if kind == "drill" else _BLOCK_TYPES
+    key = "drill" if kind == "drill" else "block"
+    reported = (
+        f"── WHAT THE LEARNER SAYS IS WRONG WITH IT ──\n\"{note.strip()}\"\n"
+        f"Treat this as a bug report about the item, not as a request to make the "
+        f"lesson easier. If they are right, fix exactly that. If they are mistaken "
+        f"(the item was correct), still replace it — write a clearer one that can't "
+        f"be misread the same way.\n\n"
+        if note.strip() else
+        "The learner reported this item as wrong but didn't say why. Look for the "
+        "usual culprits — an answer that isn't actually correct, more than one "
+        "option that works, a distractor that means the same thing, a prompt that "
+        "doesn't force the intended answer, a typo — and write a replacement that "
+        "has none of them.\n\n"
+    )
+    return (
+        f"You are an expert {name} teacher fixing ONE {what} in a lesson you already "
+        f"wrote. Everything else in the lesson stays as it is.\n\n"
+        f"{_lang_preamble(info)}"
+        f"── THE LESSON ──\n"
+        f"Title: {title or '(untitled)'}\n"
+        f"{('Objective: ' + objective) if objective else ''}\n\n"
+        f"── CONCEPTS IT TEACHES ──\n{_concepts_block(concepts)}\n\n"
+        f"── THE {what.upper()} TO REPLACE (as the learner saw it, after our "
+        f"post-processing) ──\n{json.dumps(current, ensure_ascii=False)[:1500]}\n\n"
+        f"{reported}"
+        f"── WRITE THE REPLACEMENT ──\n"
+        f"• It must teach/practise the SAME concept at the same difficulty — this is "
+        f"a repair, not a new lesson.\n"
+        f"• Change the example: don't re-emit the same sentence with the fault "
+        f"patched, since the learner has already seen and rejected it.\n"
+        + (
+            f"• Provide the CORRECT answer + DISTRACTORS — never an index; we shuffle "
+            f"and key it ourselves.\n"
+            f"• EXACTLY ONE option may be correct. Every distractor must be "
+            f"unambiguously wrong for this exact prompt, in the SAME language as the "
+            f"answer, and must never merely sound the same as it.\n"
+            if kind == "drill" else
+            f"• Keep it short and concrete — one rule, stated plainly, with an example "
+            f"the learner can copy.\n"
+        )
+        + f"\n{what.capitalize()} formats (pick the one that fits best — it need not "
+          f"be the same format as the item you're replacing):\n{schema}\n\n"
+          f"Return ONLY valid JSON, no other text:\n"
+          f'{{"{key}": {{ ... }}}}\n'
+    )
+
+
+async def regenerate_item(
+    target_lang: str,
+    *,
+    kind: str,
+    current: dict,
+    concepts: list[dict],
+    title: str = "",
+    objective: str = "",
+    note: str = "",
+    api_key: str,
+    anthropic_key: str | None = None,
+    model: str = DEFAULT_MODEL,
+) -> dict | None:
+    """Re-author one drill or teach block. Returns the assembled replacement, or
+    None if the model failed or its answer didn't survive validation."""
+    if target_lang not in LANG_INFO:
+        raise ValueError(f"Unsupported target language: {target_lang}")
+    if kind not in REGEN_KINDS:
+        raise ValueError(f"Unsupported regenerate kind: {kind}")
+
+    prompt = _build_regen_prompt(
+        target_lang, kind=kind, current=current, concepts=concepts,
+        title=title, objective=objective, note=(note or "")[:_REGEN_NOTE_MAX],
+    )
+    raw = await llm.call(prompt, model=model, gemini_key=api_key,
+                         anthropic_key=anthropic_key)
+    try:
+        parsed = _parse_json(raw)
+    except (ValueError, TypeError):
+        # A model that answered in prose leaves the original item in place. One
+        # bad item is a nuisance; an exception mid-lesson is a broken lesson.
+        return None
+    if not isinstance(parsed, dict):
+        return None
+
+    has_rom = bool(LANG_INFO[target_lang].get("romanization"))
+    R = tokenizer.romanize_text
+
+    def rom(s: str) -> str:
+        return R(s, target_lang) if (has_rom and s) else ""
+
+    if kind == "teach":
+        block = parsed.get("block") or parsed.get("teach")
+        if isinstance(block, list):
+            block = block[0] if block else None
+        if not isinstance(block, dict):
+            return None
+        cleaned = _clean_block(block, rom)
+        return cleaned if (cleaned and block_is_sane(cleaned, target_lang)) else None
+
+    drill = parsed.get("drill") or parsed.get("drills")
+    if isinstance(drill, list):
+        drill = drill[0] if drill else None
+    if not isinstance(drill, dict):
+        return None
+    # Keep the item anchored to the lesson: the concept it practises (so mastery
+    # still records against the right skill) and its tier (so the length the
+    # learner chose keeps meaning the same thing).
+    kinds = {(c.get("key") or "").strip(): (c.get("kind") or "vocab") for c in concepts}
+    if (drill.get("concept") or "").strip() not in kinds:
+        drill["concept"] = (current.get("concept_key") or "").strip()
+    ex = _assemble_drill(drill, target_lang, kinds, rom)
+    if not ex:
+        return None
+    ex["tier"] = _norm_tier(drill.get("tier") or current.get("tier"))
+    return ex
 
 
 async def author_lesson(

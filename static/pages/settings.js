@@ -518,7 +518,9 @@
     if (tzEl) tzEl.textContent = (settings.timezone || 'UTC').replace(/_/g, ' ');
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
+    document.getElementById('settings-speaking').checked = settings.speaking_drills !== false;
     document.getElementById('settings-audio-mix').checked = settings.audio_mix !== false;
+    _setVolumeSlider(settings.audio_volume);
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
@@ -727,6 +729,87 @@
       showToast(checked ? 'Sound will play over your music.' : 'Sound will play on its own.');
     } catch {
       document.getElementById('settings-audio-mix').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  async function saveSpeakingDrills() {
+    const checked = document.getElementById('settings-speaking').checked;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speaking_drills: checked }),
+      });
+      if (!res.ok) throw new Error();
+      settings.speaking_drills = checked;
+      showToast(checked ? 'Speaking drills on.' : 'Speaking drills off.');
+    } catch {
+      document.getElementById('settings-speaking').checked = !checked;
+      showToast('Failed to save setting.');
+    }
+  }
+
+  // ── Audio volume ──────────────────────────────────────────────────────────
+  // How loud our own clips play against whatever else is going. 100% is the clip
+  // as recorded; above that the app-shell routes playback through a gain node
+  // with a limiter (there is no web API to duck the user's music harder, so the
+  // only lever is our own level).
+  function _setVolumeSlider(vol) {
+    const pct = Math.round((Number(vol) || 1) * 100);
+    document.getElementById('settings-audio-volume').value = String(Math.min(300, Math.max(50, pct)));
+    _renderVolumeLabel(pct);
+  }
+  function _renderVolumeLabel(pct) {
+    document.getElementById('audio-volume-label').textContent = pct + '%';
+  }
+  // Live, before anything is saved — the point of the Test button is comparing
+  // against the music that's already playing.
+  function previewAudioVolume(pct) {
+    _renderVolumeLabel(pct);
+    if (window.CantoShell) CantoShell.setAudioGain(Number(pct) / 100);
+  }
+
+  let _volumeTestAudio = null;
+  function testAudioVolume() {
+    const lang = settings.default_target_lang || 'yue';
+    const btn = document.getElementById('settings-volume-test');
+    try { if (_volumeTestAudio) { _volumeTestAudio.pause(); } } catch (e) {}
+    // A fresh element each time: one already routed through the gain graph is
+    // fine to reuse, but a failed one is permanently dead (see learn.js).
+    _volumeTestAudio = new Audio('/api/tts?text=' + encodeURIComponent(_VOLUME_TEST_TEXT[lang] || 'Hello')
+                                 + '&lang=' + encodeURIComponent(lang));
+    if (window.CantoShell) CantoShell.prepareAudio(_volumeTestAudio);
+    btn.disabled = true;
+    const done = () => { btn.disabled = false; };
+    _volumeTestAudio.onended = done;
+    _volumeTestAudio.play().then(done).catch(() => { done(); showToast('Audio unavailable right now.'); });
+  }
+
+  // A short, real phrase in the language being learned — testing the level on
+  // the voice you actually hear beats a beep.
+  const _VOLUME_TEST_TEXT = {
+    yue: '你好，聽唔聽到我講嘢？', cmn: '你好，听得到吗？', ja: 'こんにちは', ko: '안녕하세요',
+    fr: 'Bonjour, tu m\u2019entends ?', es: 'Hola, ¿me oyes?', de: 'Hallo, hörst du mich?',
+    it: 'Ciao, mi senti?', pt: 'Olá, está a ouvir?', th: 'สวัสดีค่ะ', hi: 'नमस्ते',
+  };
+
+  async function saveAudioVolume() {
+    const pct = Number(document.getElementById('settings-audio-volume').value);
+    const vol = Math.round(pct) / 100;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_volume: vol }),
+      });
+      if (!res.ok) throw new Error();
+      settings.audio_volume = vol;
+      // Write through to the shell snapshot, or the next page reads the old
+      // value from sessionStorage and the boost silently reverts.
+      if (window.CantoShell) CantoShell.patch('settings', { audio_volume: vol });
+      showToast(pct === 100 ? 'Audio volume reset.' : 'Audio volume set to ' + pct + '%.');
+    } catch {
       showToast('Failed to save setting.');
     }
   }

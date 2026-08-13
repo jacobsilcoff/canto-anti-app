@@ -1094,6 +1094,14 @@ def build_typed_answer_judge_prompt(
         f"• accept a single obvious typo when the intent is unmistakable, but mention it\n"
         f"• mark it WRONG when the meaning changes, a required form is wrong "
         f"(conjugation, classifier, particle), or it is not {name}\n\n"
+        f"WHEN THE ANSWER IS CORRECT BUT NOT THE ONE THE LESSON EXPECTED: say what "
+        f"is DIFFERENT about it. The learner is shown the expected answer alongside "
+        f"your note, so \"that works too\" on its own leaves them staring at two "
+        f"sentences with no idea why both are right. Name the difference concretely "
+        f"— the word chosen, the structure, the particle, the register — and whether "
+        f"it changes anything (nuance, formality, emphasis) or is simply an equally "
+        f"natural alternative. Compare it to \"{expected.strip()}\" specifically, not "
+        f"to {name} in general.\n\n"
         f"LANGUAGE OF THE EXPLANATION: `note` must be written in ENGLISH, always, "
         f"however advanced the learner is and whatever language the drill is in. It "
         f"explains a mistake to someone who just made it — an explanation they cannot "
@@ -1105,8 +1113,10 @@ def build_typed_answer_judge_prompt(
         '  "correct": true or false,\n'
         f'  "corrected": "<empty if correct and clean; the fixed form if correct but '
         f'slightly off; the correct answer if wrong — in {name}>",\n'
-        '  "note": "<ONE SHORT SENTENCE IN ENGLISH naming the rule if wrong, or the '
-        'nuance if the answer was a valid variant; empty if it was simply right>"\n'
+        '  "note": "<IN ENGLISH: one short sentence naming the rule if wrong; if the '
+        'answer was a valid variant, one or two sentences saying how it differs from '
+        'the expected answer and whether that difference matters; empty only when the '
+        'answer matches the expected one>"\n'
         '}\n'
     )
 

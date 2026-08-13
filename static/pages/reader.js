@@ -1171,6 +1171,7 @@
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       _currentAudio = new Audio(url);
+      try { CantoShell.prepareAudio(_currentAudio); } catch {}
       _currentAudio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; };
       // Awaited so a rejected play() reaches the catch below — play() returns a
       // promise, so without this the failure escaped and the reader just went
@@ -1189,6 +1190,7 @@
       const blob = await res.blob();
       const objUrl = URL.createObjectURL(blob);
       _currentAudio = new Audio(objUrl);
+      try { CantoShell.prepareAudio(_currentAudio); } catch {}
       _currentAudio.onended = () => { URL.revokeObjectURL(objUrl); _currentAudio = null; };
       await _currentAudio.play();   // see playText: unawaited rejections escaped
     } catch {
@@ -1326,6 +1328,7 @@
         if (_audioModeAbort) { resolve(); return; }
         const url = URL.createObjectURL(blob);
         _currentAudio = new Audio(url);
+        try { CantoShell.prepareAudio(_currentAudio); } catch {}
 
         _currentAudio.onended = () => {
           URL.revokeObjectURL(url);
