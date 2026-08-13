@@ -179,41 +179,64 @@
   }
 
   // Route one <audio> element through the gain graph. Call it immediately before
-  // play() — ideally inside the user gesture, so the context can start.
+  // play().
+  //
+  // ROUTE ONLY INTO A RUNNING CONTEXT. Once an element passes through
+  // createMediaElementSource its sound goes ONLY through the graph — so routing
+  // into a suspended context makes the tap silent while the element happily
+  // plays on, and every clip stacked up that way becomes audible at once the
+  // moment some later gesture resumes it. (Reported exactly that way: "the
+  // speaker button did nothing, then leaving the lesson played several sounds
+  // over each other.") An AudioContext starts suspended, browsers only resume it
+  // on a gesture, and resume() is async — so "suspended" is the normal state
+  // early on, not an edge case. Playing this clip natively, unboosted, is the
+  // right trade: the boost is a nicety, hearing it is the product.
   function prepareAudio(el) {
     if (!el || _audioGain === 1) return;      // default: don't touch anything
     try {
       const ctx = audioGraph();
       if (!ctx) return;
+      if (ctx.state !== 'running') {
+        resumeAudio();                        // ready for the next clip
+        return;
+      }
       if (!_routed.has(el)) {
         // createMediaElementSource throws if an element is routed twice.
         ctx.createMediaElementSource(el).connect(_gainNode);
         _routed.add(el);
       }
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     } catch (e) { /* leave it playing natively — never break playback for volume */ }
+  }
+
+  function resumeAudio() {
+    if (!_actx || _actx.state === 'running') return;
+    try { _actx.resume().catch(() => {}); } catch (e) {}
   }
 
   function setAudioGain(value) {
     _audioGain = clampGain(value);
     if (_gainNode) { try { _gainNode.gain.value = _audioGain; } catch (e) {} }
-    if (_audioGain !== 1) unlockAudioOnGesture();
+    if (_audioGain !== 1) keepAudioRunning();
   }
 
-  // An AudioContext starts suspended, and a drill that auto-plays (the 300 ms
-  // listening prompt) is not a user gesture — so build and resume the graph on
-  // the first tap of the page instead of discovering it too late and playing
-  // that clip into silence.
-  let _unlockArmed = false;
-  function unlockAudioOnGesture() {
-    if (_unlockArmed || _actx) return;
-    _unlockArmed = true;
-    const unlock = () => {
-      const ctx = audioGraph();
-      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
-    };
-    document.addEventListener('pointerdown', unlock, { once: true, passive: true });
-    document.addEventListener('keydown', unlock, { once: true });
+  // Build the graph and keep it running. NOT a one-shot: iOS suspends a context
+  // whenever something interrupts audio (a call, another app, the screen
+  // locking), and a context that goes back to sleep silences every element
+  // already routed through it. So every tap re-checks, which costs nothing when
+  // the context is already running.
+  let _keepArmed = false;
+  function keepAudioRunning() {
+    if (_keepArmed) return;
+    _keepArmed = true;
+    const wake = () => { audioGraph(); resumeAudio(); };
+    document.addEventListener('pointerdown', wake, { passive: true });
+    document.addEventListener('keydown', wake);
+    const ctx = audioGraph();
+    if (ctx && ctx.addEventListener) {
+      try { ctx.addEventListener('statechange', () => { if (ctx.state === 'suspended') resumeAudio(); }); }
+      catch (e) {}
+    }
+    resumeAudio();
   }
 
   ready.then(data => {

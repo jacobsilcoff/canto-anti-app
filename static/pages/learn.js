@@ -23,6 +23,12 @@
   let _tbBuilding = null;     // "bookId:chapterIdx" while a chapter becomes a unit
 
   function show(state) {
+    // Leaving the drill screens stops any clip still playing — a prompt that
+    // follows you out to the course map (or onto the results screen) reads as
+    // the app talking to itself.
+    if (state !== 'player' && state !== 'teach' && _currentState !== state) {
+      try { stopTTS(); } catch {}
+    }
     _currentState = state;
     // Full-focus lesson states reclaim the mobile tab bar's space.
     document.body.classList.toggle('hide-tabbar', state === 'teach' || state === 'player');
@@ -2260,21 +2266,45 @@
 
   // Wire a 🔊 button to a clip AND keep it honest: while the clip is unavailable
   // the button greys out, and it comes back on its own if a later fetch works.
+  // How long a clip may stay "loading" before the button goes live anyway. A
+  // browser that defers loading despite load() must not leave a permanently
+  // disabled speaker; after this the learner can tap and the play path retries.
+  const AUDIO_READY_TIMEOUT_MS = 6000;
+
   function bindAudioBtn(btn, text, lang) {
     if (!btn) return;
     btn.onclick = () => playTTS(text, lang);
+    // Three states, because "tapped it and nothing happened" is the complaint
+    // this exists to answer: not fetched YET (dim, not tappable — the clip is
+    // coming), ready (normal), and failed (greyed out for good).
+    const paint = st => {
+      const dead = st === 'fail';
+      const waiting = st === 'unknown';
+      btn.disabled = dead || waiting;
+      btn.classList.toggle('audio-dead', dead);
+      btn.classList.toggle('audio-loading', waiting);
+      btn.title = dead ? "Audio isn't available right now"
+        : (waiting ? 'Loading audio…' : '');
+    };
     // Several callers bind before inserting the button, so "not in the document"
     // can't mean "gone" until we've seen it in there once.
     let seen = false;
-    onTTSHealth(text, lang, () => (btn.isConnected ? (seen = true) : !seen), st => {
-      const dead = st === 'fail';
-      btn.disabled = dead;
-      btn.classList.toggle('audio-dead', dead);
-      btn.title = dead ? "Audio isn't available right now" : '';
-    });
+    onTTSHealth(text, lang, () => (btn.isConnected ? (seen = true) : !seen), paint);
+    paint(ttsHealth(text, lang));
+    setTimeout(() => {
+      if (btn.isConnected && ttsHealth(text, lang) === 'unknown') paint('ok');
+    }, AUDIO_READY_TIMEOUT_MS);
     // Fetch it now so the button's state is known before the learner taps —
     // a no-op for a clip _prefetchLesson already warmed.
     _prewarmTTS(text, lang);
+  }
+
+  // Silence whatever is playing. Leaving a lesson used to leave its clip running
+  // (and, with the volume boost routing into a not-yet-running audio context,
+  // several of them arriving at once the moment the context woke up).
+  function stopTTS() {
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    _audio = null;
   }
 
   // ── 🎤 Speaking ─────────────────────────────────────────────────────────────

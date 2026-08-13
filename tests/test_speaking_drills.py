@@ -154,7 +154,7 @@ _TTS_FNS = ("function _ttsKey(", "function _ttsUrl(", "function _setTTSHealth(",
             "function _prewarmTTS(", "function playTTS(", "function bindAudioBtn(")
 _TTS_DECLS = ("_ttsCache", "_ttsQueue", "_ttsPending", "_ttsInFlight",
               "TTS_PREWARM_CONCURRENCY", "TTS_PREWARM_TIMEOUT_MS",
-              "_ttsHealth", "_ttsWatchers", "_ttsOkCount")
+              "AUDIO_READY_TIMEOUT_MS", "_ttsHealth", "_ttsWatchers", "_ttsOkCount")
 
 
 def _run(script: str, fns=(), decls=()):
@@ -189,10 +189,12 @@ def _run(script: str, fns=(), decls=()):
     }
     // Just enough of a button for bindAudioBtn to work on.
     function stubBtn() {
+      const cls = new Set();
       return { isConnected: true, disabled: false, title: '', onclick: null,
-               _cls: new Set(),
-               classList: { toggle: function (c, on) { this._cls = on; },
-                            add() {}, remove() {} } };
+               cls,
+               classList: { toggle: (c, on) => { on ? cls.add(c) : cls.delete(c); },
+                            add: c => cls.add(c), remove: c => cls.delete(c),
+                            contains: c => cls.has(c) } };
     }
     const window = { CantoShell: null };     // playTTS asks the shell for the gain graph
     const setTimeoutReal = setTimeout;
@@ -214,6 +216,42 @@ def test_a_clip_that_fails_to_load_is_marked_dead():
       done({ dead, ok: ttsHealth('ok', 'yue'), unknown: ttsHealth('never', 'yue') });
     """, fns=_TTS_FNS, decls=_TTS_DECLS)
     assert res == {"dead": "fail", "ok": "ok", "unknown": "unknown"}
+
+
+@needs_node
+def test_a_speaker_button_is_not_tappable_until_its_clip_is_there():
+    """Reported as "I clicked the speaker and nothing happened". A button that
+    looks live before its clip has arrived is the same lie as one whose clip is
+    dead — it just resolves differently."""
+    res = _run("""
+      Audio.prototype.load = function () {};       // hold the fetch open
+      const btn = stubBtn();
+      bindAudioBtn(btn, 'hello', 'yue');
+      const loading = { disabled: btn.disabled, cls: [...btn.cls], title: btn.title };
+      built[built.length - 1]._emit('loadeddata'); // the clip arrives
+      done({ loading, readyDisabled: btn.disabled, readyCls: [...btn.cls] });
+    """, fns=_TTS_FNS, decls=_TTS_DECLS)
+    assert res["loading"]["disabled"] is True
+    assert "audio-loading" in res["loading"]["cls"]
+    assert res["loading"]["title"]                 # says why it's waiting
+    # …and it goes live the moment the clip is there.
+    assert res["readyDisabled"] is False
+    assert res["readyCls"] == []
+
+
+@needs_node
+def test_a_stuck_clip_does_not_disable_the_button_forever():
+    """A browser that defers loading despite load() must not leave a permanently
+    dead-looking speaker — after the timeout the learner can tap and the play
+    path does its own retry."""
+    res = _run("""
+      Audio.prototype.load = function () {};       // never settles
+      const btn = stubBtn();
+      bindAudioBtn(btn, 'hello', 'yue');
+      done({ stuck: btn.disabled, timeout: AUDIO_READY_TIMEOUT_MS });
+    """, fns=_TTS_FNS, decls=_TTS_DECLS)
+    assert res["stuck"] is True
+    assert res["timeout"] > 0        # …but bounded
 
 
 @needs_node
@@ -471,3 +509,39 @@ def test_speech_grading_is_permissive_but_not_blind():
     assert res["exact"] and res["punctuation"] and res["spacing"] and res["casing"]
     assert res["embedded"] and res["homophone"] and res["tones"]
     assert not res["wrong"] and not res["empty"] and not res["halfWrong"]
+
+
+@needs_node
+def test_leaving_the_drill_screens_stops_the_audio():
+    """A prompt that follows you out to the course map reads as the app talking
+    to itself — and with the volume boost it was worse: clips routed into a
+    not-yet-running audio context all arrived at once when it woke."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract_decl(src, n) for n in ("_ttsCache",))
+    body += "\n" + "\n".join(_extract(src, d) for d in
+                             ("function _ttsKey(", "function _ttsUrl(",
+                              "function _makeTTSAudio(", "function stopTTS("))
+    script = """
+    const el = new Audio(_ttsUrl('hi', 'yue'));
+    el.paused = false;
+    _audio = el;
+    stopTTS();
+    done({ paused: el.paused, cleared: _audio === null });
+    """
+    harness = """
+    const built = [];
+    let _audio = null;
+    class Audio {
+      constructor(url) { this.src = url; this.paused = true; this.currentTime = 5;
+                         this._handlers = {}; built.push(this); }
+      addEventListener(ev, fn) { (this._handlers[ev] = this._handlers[ev] || []).push(fn); }
+      pause() { this.paused = true; }
+    }
+    function _setTTSHealth() {}
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res == {"paused": True, "cleared": True}
