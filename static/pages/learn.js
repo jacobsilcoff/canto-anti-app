@@ -2331,21 +2331,23 @@
 
   function playTTS(text, lang) {
     if (!text) return;
-    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    stopTTS();
+    const url = _ttsUrl(text, lang);
+    // Volume boost, when the learner has one: plays the clip's decoded bytes
+    // through the gain graph. It never touches the <audio> element, so a null
+    // return (no boost, sleeping graph, no Web Audio) or a rejected promise
+    // (fetch/decode failure) simply falls through to ordinary playback.
+    let boosted = null;
+    try { boosted = CantoShell.playBoosted(url); } catch {}
+    if (boosted) { boosted.catch(() => _playTTSElement(text, lang)); return; }
+    _playTTSElement(text, lang);
+  }
+
+  function _playTTSElement(text, lang) {
     const key = _ttsKey(text, lang);
     let el = _ttsCache[key];
     // A cached element that failed to load will never play — rebuild it.
     if (el && el.error) { delete _ttsCache[key]; el = null; }
-    // Nor will one routed through a sleeping volume-boost graph: routing is
-    // permanent, so the only way back to sound is a fresh, unrouted element.
-    // (Ask for a resume too, so the NEXT clip gets its boost back.)
-    try {
-      if (el && CantoShell.isAudioRouted(el) && !CantoShell.audioReady()) {
-        CantoShell.resumeAudio();
-        delete _ttsCache[key];
-        el = null;
-      }
-    } catch {}
     if (!el) {
       el = _makeTTSAudio(text, lang, key);
       _ttsCache[key] = el;
@@ -2354,7 +2356,6 @@
     try { _audio.currentTime = 0; } catch {}
     // Volume boost (Settings). Wrapped because the booster must never be able
     // to decide whether a clip plays — louder is a nicety, audible is the product.
-    try { CantoShell.prepareAudio(_audio); } catch {}
     _audio.play().catch(err => {
       // NotAllowedError is the browser's autoplay policy, not a broken clip —
       // the element is fine and retrying fails identically, so leave it cached.
@@ -2365,7 +2366,6 @@
       const retry = _makeTTSAudio(text, lang, key);
       _ttsCache[key] = retry;
       _audio = retry;
-      try { CantoShell.prepareAudio(retry); } catch {}
       retry.play().catch(() => {});
     });
   }
@@ -2411,6 +2411,7 @@
   function stopTTS() {
     try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
     _audio = null;
+    try { CantoShell.stopBoosted(); } catch {}
   }
 
   // ── 🎤 Speaking ─────────────────────────────────────────────────────────────

@@ -775,13 +775,18 @@
     const lang = settings.default_target_lang || 'yue';
     const btn = document.getElementById('settings-volume-test');
     try { if (_volumeTestAudio) { _volumeTestAudio.pause(); } } catch (e) {}
+    try { CantoShell.stopBoosted(); } catch (e) {}
     // A fresh element each time: one already routed through the gain graph is
     // fine to reuse, but a failed one is permanently dead (see learn.js).
-    _volumeTestAudio = new Audio('/api/tts?text=' + encodeURIComponent(_VOLUME_TEST_TEXT[lang] || 'Hello')
-                                 + '&lang=' + encodeURIComponent(lang));
-    if (window.CantoShell) CantoShell.prepareAudio(_volumeTestAudio);
+    const url = '/api/tts?text=' + encodeURIComponent(_VOLUME_TEST_TEXT[lang] || 'Hello')
+              + '&lang=' + encodeURIComponent(lang);
     btn.disabled = true;
     const done = () => { btn.disabled = false; };
+    // The boosted path is what a lesson will actually use, so test THAT.
+    let boosted = null;
+    try { boosted = CantoShell.playBoosted(url, done); } catch {}
+    if (boosted) { boosted.catch(() => { done(); showToast('Audio unavailable right now.'); }); return; }
+    _volumeTestAudio = new Audio(url);
     _volumeTestAudio.onended = done;
     _volumeTestAudio.play().then(done).catch(() => { done(); showToast('Audio unavailable right now.'); });
   }

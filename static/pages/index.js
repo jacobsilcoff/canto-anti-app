@@ -383,12 +383,20 @@
       document.getElementById('audio-btn').classList.remove('playing');
       return;
     }
-    audioEl = new Audio(`/api/audio/${currentCardId}`);
+    const _url = `/api/audio/${currentCardId}`;
+    const _clear = () => document.getElementById('audio-btn').classList.remove('playing');
+    let _b = null;
+    try { _b = CantoShell.playBoosted(_url, _clear); } catch {}
+    if (_b) {
+      document.getElementById('audio-btn').classList.add('playing');
+      _b.catch(_clear);
+      return;
+    }
+    audioEl = new Audio(_url);
     document.getElementById('audio-btn').classList.add('playing');
     audioEl.onended = () => document.getElementById('audio-btn').classList.remove('playing');
     // Without a catch the button sticks in 'playing' forever and the failure
     // is invisible — audio is synthesised lazily, so it can fail transiently.
-    try { CantoShell.prepareAudio(audioEl); } catch {}
     audioEl.play().catch(() => {
       document.getElementById('audio-btn').classList.remove('playing');
     });
