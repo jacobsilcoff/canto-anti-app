@@ -535,13 +535,19 @@ _DRILL_KINDS = """\
   {"kind":"cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
   {"kind":"reorder","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
   {"kind":"match","concept":"<key>","tier":"core|standard|extra","pairs":[{"target":"<native>","english":"<English>"}, ...]}
-  {"kind":"translate","concept":"<key>","tier":"core|standard|extra","prompt":"<English sentence to translate>","answer":"<the most natural native translation>","accept":["<other fully correct native translations — word-order variants, optional pronouns/particles, synonyms a learner might reasonably produce>", ...],"hint":"<optional 1-3 word nudge, e.g. the construction or a key word>"}
+  {"kind":"translate","concept":"<key>","tier":"core|standard|extra","prompt":"<English sentence to translate>","answer":"<the most natural native translation>","accept":["<other fully correct native translations>", ...],"hint":"<optional 1-3 word nudge, e.g. the construction or a key word>"}
     → TYPED. No options: the learner writes the sentence themselves. This is the
       only drill that practises free production, so it is the most valuable one
-      here. `accept` is not a completeness contract — anything you miss is caught
-      by a grader that judges from the English meaning — but the more valid forms
-      you list, the fewer learners wait on that check.
-  {"kind":"type_cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","accept":["<other correct fillers>", ...],"gloss":"<English translation of the COMPLETE sentence with the answer filled in>"}
+      here.
+      LIST 2–4 ALTERNATIVES IN `accept` whenever the language allows more than
+      one natural rendering — this is not optional padding. A learner who says it
+      a different correct way is otherwise sent to a slow paid grader to be told
+      what you already knew. Work through: an optional subject pronoun kept or
+      dropped; a particle or classifier the language permits either way; a
+      natural word-order variant; a common synonym; a more/less formal register.
+      Do NOT pad it with wrong or unnatural forms, and do not list mere
+      punctuation or spacing changes — those are already ignored when grading.
+  {"kind":"type_cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","accept":["<every OTHER form that correctly fills this blank — list them all; the blank usually has few>", ...],"gloss":"<English translation of the COMPLETE sentence with the answer filled in>"}
     → TYPED cloze: the learner types the missing word instead of picking it.
       Use when the blank has one clear answer and typing it is the point
       (conjugations, classifiers, particles)."""
@@ -812,7 +818,9 @@ def _build_lesson_prompt(
         f"• the rest may be recognition/listening/production/cloze/match.\n"
         f"For `translate`, keep the English short and unambiguous (4–10 words) so there "
         f"is a clearly best answer, and build it from words this lesson taught plus "
-        f"vocabulary the learner already knows — never a word they have not met.\n"
+        f"vocabulary the learner already knows — never a word they have not met. Fill in "
+        f"`accept` properly (see the kind spec): every natural rendering you list is a "
+        f"learner told INSTANTLY they were right instead of waiting on a grader.\n"
         f"{_DRILL_TIER_GUIDANCE}"
         f"EVERY target-language field — `target`, `sentence`, `answer`, reorder "
         f"`tokens`, match `target` — must be written in {name}. English belongs only "

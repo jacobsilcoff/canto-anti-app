@@ -2,6 +2,8 @@
 
 ## ✅ Shipped
 
+- **Speaking drills ask instead of telling; free-text grading got cheaper** (`static/pages/learn.js|learn.css`, `main.py`, `tutor.py`, `learning.py`) — Three related fixes. (1) A speak drill printed the very line it was asking for, which made it a reading exercise; it is now **free production** — an English prompt, the answer hidden, the learner says it from memory. An item built from material with no English gloss (a listening drill's option) keeps the old read-aloud form, since there's nothing to prompt production with. (2) **Nobody is stuck**: ⌨️ **Type it instead** grades the written answer identically, and **Skip** reveals it; a skip, a refused mic and an unusable recogniser all report `uncheckable`, so nothing touches score, combo or mastery. Speaking and typing now share ONE grader (`gradeFreeText`) — offline accept-set first, server judge only on a miss — with a spoken answer getting `gradeSpoken`'s homophone latitude first, so it usually costs nothing. (3) **Fewer paid grading calls**: `tutor._norm_for_compare` (and its client mirror `_normTyped`) now casefold and drop EVERY punctuation mark, symbol and space, so a right answer with a comma in it — or spaced-out CJK — matches offline instead of going to the judge; and the author prompt now requires **2–4 `accept` alternatives** on every `translate` drill (dropped pronoun, optional particle, word-order variant, synonym, register) rather than treating them as optional padding
+
 - **Fix: silent taps, then a pile-up of audio on leaving a lesson** (`static/app-shell.js`, `static/pages/learn.js|learn.css`, `static/learn.html`) — Three things from testing the volume boost. (1) **The bug:** once an element passes through `createMediaElementSource` its sound goes ONLY through the gain graph, so routing into a *suspended* AudioContext made the tap silent while the element played on — and every clip stacked up that way became audible at once when a later gesture (leaving the lesson) resumed the context. `prepareAudio` now routes **only into a running context**, playing the clip natively and unboosted otherwise, and `keepAudioRunning` re-checks on every gesture plus `statechange` instead of once (iOS suspends a context on any audio interruption). (2) **Speaker buttons now have a "not ready" state** — dim, not tappable, gently pulsing — instead of looking live before the clip exists (bounded by a 6 s timeout so a clip whose `loadeddata` never arrives can still be tapped). (3) `show()` calls **`stopTTS()`** when the player leaves the drill screens, so a clip never follows the learner to the course map. Plus the ⚑ report control is now a small right-aligned icon rather than a full-width link — it should be findable, not present
 
 - **🔊 Audio volume** (`main.py`, `static/app-shell.js`, `static/settings.html`, `static/pages/settings.js` + every playback site) — Sound played *over* music since the audio-session fix, but how hard the OS ducks that music is its own call, so a TTS prompt could still be lost under a loud track. There is no web API to duck harder, and an `<audio>` element's `volume` can't help twice over — it only attenuates (1.0 is the ceiling) and iOS ignores it entirely. So a new **`audio_volume`** setting (50–300%, slider in Settings with a **🔊 Test** button that speaks a real phrase in the learner's target language, so the level can be set against whatever is already playing) routes playback through Web Audio: element → gain → **limiter** (at 2–3× a TTS clip would clip into static) → speakers, via `CantoShell.prepareAudio(el)` in the app shell. **At 100% nothing is routed**, so the default audio path is byte-for-byte what it was; elements are tracked in a `WeakSet` (`createMediaElementSource` throws if one is routed twice); a boost arms a one-shot gesture unlock because an AudioContext starts suspended and an auto-playing listening drill is not a gesture; and every call site is wrapped so the booster can never decide whether a clip plays. 8 new tests in `tests/test_audio_session.py`
@@ -199,6 +201,17 @@ Still open from the original sketch:
 
 ## ~~49. Lesson planner rework — stop repetitive lessons + never-closing chapters~~ → Shipped, see ✅
 (One sub-idea deliberately NOT built: the **chapter sketch** — planner emits 3–5 one-line lesson slots up-front for a visible roadmap. The budget + "Lesson 2 of ~4" banner covers most of the value; revisit if chapters still feel aimless.)
+
+## 54. Give reorder drills an English gloss
+
+**Complexity: small.** A `word_bank` (reorder) exercise stores the sentence and its
+tiles but no English translation — the author spec has no `gloss` field for that
+kind. Two things fall out of it: speaking practice can only use those sentences
+as read-aloud prompts, never as free production ("say *I'm tired today*"), and
+the tile drill itself never shows the learner what they are building, which is
+how every other tile drill in the genre works. Adding `gloss` to the `reorder`
+spec and storing it on the exercise fixes both; the drill's own UI change is the
+part worth thinking about.
 
 ## 53. Accessibility pass — label the icon-only controls
 **Complexity: Low–Medium | Cost: $0 | no backend changes**

@@ -375,3 +375,60 @@ def test_judge_prompts_demand_english_explanations():
     drill = tutor.build_lesson_drill_judge_prompt(
         "yue", "comparative with 過", "I am taller", "我高過佢", "", level="A1")
     assert "ENGLISH" in drill
+
+
+# ── Punctuation and spacing never cost an LLM call ───────────────────────────
+# The offline accept-set is the whole reason typed drills are affordable. It
+# used to strip only a TERMINAL period, so a comma in the middle — or, in
+# Chinese, a space between the words — sent a correct answer to a paid grader to
+# be told it was right.
+
+@pytest.mark.parametrize("typed,expected", [
+    ("唔該， 講多一次。",      "唔該講多一次"),      # internal comma + spacing
+    ("唔該 講多 一次",         "唔該講多一次"),      # spaced-out CJK
+    ("Je mange, du pain !",   "Je mange du pain"),  # internal comma, spaced !
+    ("j’ai faim",             "j'ai faim"),         # curly vs straight apostrophe
+    ("«bonjour»",             "bonjour"),           # quotes
+    ("Je  mange   du pain",   "je mange du pain"),  # sloppy whitespace
+])
+def test_punctuation_and_spacing_match_offline(typed, expected):
+    assert tutor.answer_matches(typed, expected) is True
+
+
+@pytest.mark.parametrize("typed,expected", [
+    ("je bois du pain",  "je mange du pain"),   # different word
+    ("je mange",         "je mange du pain"),   # missing half the sentence
+    ("",                 "je mange du pain"),
+])
+def test_a_genuinely_different_answer_still_reaches_the_judge(typed, expected):
+    assert tutor.answer_matches(typed, expected) is False
+
+
+def test_the_client_normalises_the_same_way(tmp_path):
+    """learn.js mirrors _norm_for_compare so an answer accepted in the browser
+    isn't re-graded on the server. Runs the REAL _normTyped under node."""
+    import json as _json
+    import shutil as _shutil
+    import subprocess as _subprocess
+    if _shutil.which("node") is None:
+        pytest.skip("node not available")
+    learn_js = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "static", "pages", "learn.js")
+    src = open(learn_js, encoding="utf-8").read()
+    start = src.index("function _normTyped(")
+    i = src.index("{", start)
+    depth = 0
+    for j in range(i, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                fn = src[start:j + 1]
+                break
+    cases = ["唔該， 講多一次。", "Je mange, du pain !", "j’ai faim", "«bonjour»",
+             "je bois du pain", "Je  mange   du pain"]
+    prog = fn + "\nconsole.log(JSON.stringify(%s.map(_normTyped)));" % _json.dumps(cases)
+    out = _subprocess.run(["node", "-e", prog], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    assert _json.loads(out.stdout) == [tutor._norm_for_compare(c) for c in cases]

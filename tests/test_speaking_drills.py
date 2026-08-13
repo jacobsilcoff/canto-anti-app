@@ -63,7 +63,7 @@ def test_speak_prompt_only_takes_target_language_answers():
     assert main._speak_prompt({
         "type": "choice", "prompt_lang": "english", "prompt": "the book",
         "options": ["本書", "枝筆"], "answer": 0,
-    }) == ("本書", "the book", "")
+    }) == {"target": "本書", "gloss": "the book", "roman": "", "accept": []}
     # Recognition drill: target prompt, ENGLISH options — the "answer" is English.
     assert main._speak_prompt({
         "type": "choice", "prompt_lang": "target", "prompt": "本書",
@@ -73,7 +73,28 @@ def test_speak_prompt_only_takes_target_language_answers():
     assert main._speak_prompt({
         "type": "word_bank", "audio": "我today好攰", "prompt": "I'm tired today",
         "answer_tokens": ["我", "today", "好攰"], "answer_roman": "ngo5 ...",
-    }) == ("我today好攰", "I'm tired today", "ngo5 ...")
+    }) == {"target": "我today好攰", "gloss": "I'm tired today",
+           "roman": "ngo5 ...", "accept": []}
+
+
+def test_a_typed_drills_alternatives_carry_into_the_spoken_one():
+    """The whole point of the accept-set is skipping a paid grader; a spoken
+    answer deserves the same free pass a written one gets."""
+    got = main._speak_prompt({
+        "type": "type_answer", "answer": "je mange du pain", "prompt": "I eat bread",
+        "accept": ["je mange le pain", "  "]})
+    assert got["accept"] == ["je mange le pain"]
+
+
+def test_an_item_with_no_english_falls_back_to_reading_aloud():
+    """A listening drill carries no gloss, so there is nothing to prompt free
+    production WITH — show the line instead of inventing a question."""
+    from_listening = _speaking([{"type": "listening", "options": ["早晨"], "answer": 0}])
+    assert from_listening[0]["read_aloud"] is True
+    from_typed = _speaking([{"type": "type_answer", "answer": "bonjour",
+                             "prompt": "hello"}])
+    assert from_typed[0]["read_aloud"] is False
+    assert from_typed[0]["prompt"] == "hello"      # the learner produces it
 
 
 def test_speak_prompt_rejects_a_broken_answer_index():
@@ -369,7 +390,7 @@ def test_dropping_the_last_drill_ends_the_segment():
 
 # ── Client: permissive speech grading ────────────────────────────────────────
 
-_SPEECH_FNS = ("function _speechNorm(", "function _stripTones(",
+_SPEECH_FNS = ("function _normTyped(", "function _speechNorm(", "function _stripTones(",
                "function _editDistance(", "function _speechClose(")
 
 
@@ -393,11 +414,12 @@ def test_the_speaking_drill_runs_end_to_end():
     """Drive the SHIPPED renderer: tap the mic, feed it a transcript, grade it.
 
     A homophone of the target has to pass — the recogniser picks the character,
-    the learner only supplies the sound.
+    the learner only supplies the sound. And a production item must NOT print the
+    answer it is asking for.
     """
     src = open(LEARN_JS, encoding="utf-8").read()
     body = "\n".join(_extract(src, d) for d in (
-        "function esc(", "function _speechNorm(", "function _stripTones(",
+        "function esc(", "function _normTyped(", "function _speechNorm(", "function _stripTones(",
         "function _editDistance(", "function _speechClose(", "function _isLatin(",
         "async function _spokenRoman(", "async function gradeSpoken(",
         "function speechSupported(", "function speechLangFor(")) + "\n" + \
@@ -409,19 +431,20 @@ def test_the_speaking_drill_runs_end_to_end():
     const els = {};
     function el() {
       return { innerHTML: '', textContent: '', className: '', disabled: false,
-               title: '', onclick: null, _cls: [],
-               classList: { add(c) { this._cls = (this._cls || []).concat(c); },
-                            remove() {}, toggle() {} } };
+               style: {}, value: '', title: '', onclick: null, oninput: null,
+               onkeydown: null, focus() {},
+               classList: { add() {}, remove() {}, toggle() {} } };
     }
-    ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen'].forEach(id => els[id] = el());
+    ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen', 'sp-type', 'sp-skip',
+     'sp-input', 'sp-type-wrap'].forEach(id => els[id] = el());
+    const root = { innerHTML: '' };
     const document = {
       getElementById: id => els[id],
-      // esc() builds a throwaway node to escape text.
+      querySelector: () => el(),
       createElement: () => ({ set textContent(v) { this._t = v == null ? '' : String(v); },
                               get innerHTML() { return (this._t || '')
                                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }),
     };
-    // Ruby lookups would hit the network; the offline oracle is tested elsewhere.
     const RUBY_LANGS = new Set(['yue']);
     function needsRuby(l) { return RUBY_LANGS.has(l); }
     function scriptClassFor() { return 'script-chinese'; }
@@ -429,13 +452,16 @@ def test_the_speaking_drill_runs_end_to_end():
     function targetSpan(t) { return esc(t); }
     function bindAudioBtn() {}
     function updateAction() {}
+    function onAction() {}
+    // The server judge — a miss would reach it; this test never wants it to.
+    let judged = 0;
+    async function gradeFreeText() { judged++; return { checked: false }; }
     const _roman = { '唔該借支筆': 'm4 goi1 ze3 zi1 bat1', '唔該借枝筆': 'm4 goi1 ze3 zi1 bat1',
                      '早晨': 'zou2 san4' };
     function _fetchTokens(text) {
       return Promise.resolve([{ roman: _roman[text] || text }]);
     }
 
-    // Stub recogniser: a test feeds it transcripts.
     let live = null;
     class _SpeechRec {
       constructor() { live = this; this.lang = ''; }
@@ -451,27 +477,29 @@ def test_the_speaking_drill_runs_end_to_end():
     """
 
     script = """
-    const root = { innerHTML: '' };
+    // Production mode: an English prompt, and the answer must stay hidden.
     const ex = { type: 'speak', target: '唔該借支筆', prompt: 'excuse me, lend me a pen',
-                 target_roman: 'm4 goi1 ze3 zi1 bat1' };
+                 target_roman: 'm4 goi1 ze3 zi1 bat1', accept: [] };
     const c = SPEAK.render(ex, root, 'yue');
+    const html = root.innerHTML;
     const before = c.isReady();
     els['sp-mic'].onclick();                       // tap the mic
     const langUsed = live.lang;
     live._hear('唔該借枝筆');                        // a homophone, wrong character
     const after = c.isReady();
-    // Captured now: the second drill below re-renders and clears this line.
     const heardShown = els['sp-heard'].innerHTML.includes('枝');
     c.grade().then(ok => {
-      const fb = c.feedback();
-      // A genuinely different phrase must still be wrong.
-      const ex2 = { type: 'speak', target: '早晨', prompt: 'good morning' };
-      const c2 = SPEAK.render(ex2, root, 'yue');
-      els['sp-mic'].onclick();
-      live._hear('唔該借支筆');
-      c2.grade().then(bad => done({
-        before, after, langUsed, ok, checked: fb.checked, bad, heardShown,
-      }));
+      // Read-aloud mode (no English available) still shows the line.
+      const ex2 = { type: 'speak', target: '早晨', read_aloud: true };
+      SPEAK.render(ex2, root, 'yue');
+      done({
+        before, after, langUsed, ok, heardShown, judged,
+        hidesAnswer: !html.includes('唔該借支筆'),
+        showsPrompt: html.includes('lend me a pen'),
+        offersType: html.includes('sp-type'),
+        offersSkip: html.includes('sp-skip'),
+        readAloudShows: root.innerHTML.includes('早晨'),
+      });
     });
     """
     prog = harness + "\n" + body + "\n" + script
@@ -482,8 +510,14 @@ def test_the_speaking_drill_runs_end_to_end():
     assert res["after"] is True
     assert res["langUsed"] == "zh-HK"    # BCP-47 tag, not our internal code
     assert res["heardShown"] is True     # the learner sees what was transcribed
-    assert res["ok"] is True and res["checked"] is True   # homophone accepted
-    assert res["bad"] is False           # but not a different phrase
+    assert res["ok"] is True             # homophone accepted…
+    assert res["judged"] == 0            # …offline, without paying for a judge
+    # The point of the redesign: it asks, it doesn't tell.
+    assert res["hidesAnswer"] is True
+    assert res["showsPrompt"] is True
+    assert res["offersType"] is True and res["offersSkip"] is True
+    # …except when there is no English to ask with.
+    assert res["readAloudShows"] is True
 
 
 @needs_node

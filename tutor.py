@@ -1016,18 +1016,25 @@ def build_lesson_drill_judge_prompt(
 
 
 def _norm_for_compare(s: str) -> str:
-    """Normalize a string for mechanical same-answer comparison: casefold,
-    strip trailing/leading punctuation, collapse whitespace, and unify
-    apostrophe/quote variants to ASCII '."""
+    """Canonical form for mechanical same-answer comparison.
+
+    Casefold, then drop EVERY punctuation mark, symbol and space. A translation
+    drill is not testing punctuation or spacing: a learner who wrote the right
+    sentence with a comma in it — or, in Chinese, with the words spaced apart —
+    must not be sent to a paid grader to be told they were right. It only ever
+    ACCEPTS more, which is the direction to be generous in here. Dropping
+    punctuation also subsumes the old apostrophe-unification (’ ‘ ` ´ ′ are all
+    punctuation or symbols) and the old terminal-period strip.
+
+    The client mirrors this in `_normTyped` (learn.js) — keep them in step, or an
+    answer the browser accepts offline gets re-graded on the server anyway.
+    """
     import unicodedata
-    s = unicodedata.normalize("NFC", s).casefold().strip()
-    s = s.rstrip(".!?。！？،؟…")
-    _APOSTROPHES = str.maketrans({
-        "’": "'", "‘": "'", "ʼ": "'",
-        "`": "'", "´": "'", "′": "'",
-    })
-    s = s.translate(_APOSTROPHES)
-    return " ".join(s.split())
+    s = unicodedata.normalize("NFC", s).casefold()
+    return "".join(
+        ch for ch in s
+        if not ch.isspace() and unicodedata.category(ch)[0] not in ("P", "S")
+    )
 
 
 def _rom(s: str, target_lang: str) -> str:
