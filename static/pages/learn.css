@@ -832,8 +832,45 @@
     .tb-gen-left { opacity: .7; font-weight: 500; }
     .tb-gen-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .72rem; padding: 3px 8px; }
     .tb-gen-clear:hover { color: var(--danger); }
-    .tb-book-head { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: var(--text-muted); margin: 4px 0 8px; }
+    /* ── Textbook shelf: book → chapter → lessons, collapsible at both levels ──
+       A chapter can hold a dozen lessons plus its build actions, and a book has
+       many chapters, so everything open at once buried the page. Both levels
+       remember their state; by default a book is open and exactly one chapter
+       inside it — the one being worked through. */
+    .tb-book { margin-bottom: 10px; }
+    .tb-book-head { display: flex; align-items: center; gap: 8px; width: 100%;
+      background: none; border: none; padding: 8px 4px; cursor: pointer; text-align: left; }
+    .tb-book-head.static { cursor: default; }
+    .tb-book-title { font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-muted); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .tb-book-meta { margin-left: auto; font-size: .7rem; color: var(--text-muted);
+      white-space: nowrap; flex-shrink: 0; }
+    .tb-book-body { display: none; }
+    .tb-book.open > .tb-book-body { display: block; }
+    .tb-book > .tb-book-head .tb-chapter-chevron { transition: transform .2s; }
+    .tb-book.open > .tb-book-head .tb-chapter-chevron { transform: rotate(90deg); }
+
+    .tb-chapter { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;
+      background: var(--surface); overflow: hidden; }
+    .tb-chapter-head { display: flex; align-items: center; gap: 8px; width: 100%;
+      background: none; border: none; padding: 12px 12px; cursor: pointer; text-align: left; }
+    .tb-chapter-head:hover { background: var(--surface-alt); }
+    .tb-chapter-chevron { color: var(--text-muted); font-size: 1rem; line-height: 1;
+      flex-shrink: 0; transition: transform .2s; }
+    .tb-chapter.open .tb-chapter-head .tb-chapter-chevron { transform: rotate(90deg); }
+    .tb-chapter-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .tb-chapter-title { font-size: .92rem; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tb-chapter-meta { font-size: .72rem; color: var(--text-muted); }
+    .tb-pill { flex-shrink: 0; font-size: .7rem; font-weight: 600; border-radius: 999px;
+      padding: 3px 9px; background: var(--neutral-soft); color: var(--text-muted); }
+    .tb-pill-done { background: var(--good-soft); color: var(--good-strong); }
+    .tb-pill-todo { background: none; border: 1px dashed var(--border); }
+    .tb-pill-busy { background: var(--warn-soft); color: var(--warn-strong); }
+    .tb-chapter-body { display: none; padding: 0 12px 8px; }
+    .tb-chapter.open > .tb-chapter-body { display: block; }
+    .tb-chapter .lesson { margin-bottom: 8px; }
     .tb-gen-note { text-align: center; color: var(--text-muted); font-size: .7rem; line-height: 1.4;
       padding: 0 8px 6px; }
     /* A chapter of the book that has no lessons yet — visible so the book's real

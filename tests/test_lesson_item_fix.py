@@ -398,3 +398,88 @@ async def test_a_healthy_lesson_is_served_untouched(client):
     assert res.status_code == 200
     exercises = res.json()["content"]["segments"][0]["exercises"]
     assert len(exercises) == len(stored_before["content"]["segments"][0]["exercises"])
+
+
+# ── Textbook lessons must be resumable ───────────────────────────────────────
+
+@needs_node
+def test_a_textbook_lesson_row_opens_the_intro_sheet():
+    """The intro sheet is the ONLY place "▶ Resume" is offered, so a lesson row
+    that called openLesson() directly always restarted from the beginning — the
+    resume snapshot was written on every quit and never read. Foundations rows
+    stay direct: two-minute lessons the sheet's options don't apply to."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract(src, d) for d in
+                     ("function esc(", "function _lessonHtml("))
+    harness = """
+    const unlockAll = false, isAdmin = false;
+    let resumeFor = null;
+    function _loadResume(id) { return id === resumeFor ? { v: 1 } : null; }
+    const document = { createElement: () => ({
+      set textContent(v) { this._t = v == null ? '' : String(v); },
+      get innerHTML() { return (this._t || '').replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }) };
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    script = """
+    const lesson = { id: 7, title: 'Unit 1 · Greetings', status: 'available' };
+    const plain = _lessonHtml(lesson, 0, { deletable: true });
+    const textbook = _lessonHtml(lesson, 0, { deletable: true, intro: true });
+    resumeFor = 7;
+    const withResume = _lessonHtml(lesson, 0, { intro: true });
+    const noResumeHint = _lessonHtml(lesson, 0, {});     // foundations row
+    done({
+      plainOpensDirectly: plain.includes('openLesson(7)') && !plain.includes('openLessonIntro'),
+      textbookOpensSheet: textbook.includes('openLessonIntro(7)'),
+      showsResume: withResume.includes('Resume where you left off'),
+      foundationsNoResume: !noResumeHint.includes('Resume where you left off'),
+    });
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res["plainOpensDirectly"] is True
+    assert res["textbookOpensSheet"] is True
+    assert res["showsResume"] is True
+    assert res["foundationsNoResume"] is True
+
+
+@needs_node
+def test_a_textbook_chapter_collapses_and_remembers():
+    """A unit can hold a dozen lessons plus its build actions, and a book has
+    many chapters — open at once they buried the page."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract(src, d) for d in
+                     ("function esc(", "function _tbChapterShell("))
+    harness = """
+    const store = {};
+    const localStorage = { getItem: k => (k in store ? store[k] : null),
+                           setItem: (k, v) => { store[k] = v; } };
+    const document = { createElement: () => ({
+      set textContent(v) { this._t = v == null ? '' : String(v); },
+      get innerHTML() { return (this._t || '').replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }) };
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    script = """
+    const shut = _tbChapterShell('u1', 'Unit 1', '3 of 5 built', '1/5', '', false, '<p>x</p>');
+    const open = _tbChapterShell('u2', 'Unit 2', '', '2/2', 'tb-pill-done', true, '<p>y</p>');
+    store['tbch:u1'] = '1';                       // the learner opened it
+    const remembered = _tbChapterShell('u1', 'Unit 1', '', '1/5', '', false, '<p>x</p>');
+    store['tbch:u2'] = '0';                       // …and closed the default-open one
+    const overridden = _tbChapterShell('u2', 'Unit 2', '', '2/2', '', true, '<p>y</p>');
+    done({
+      shutClosed: !shut.includes('tb-chapter open'),
+      currentOpen: open.includes('tb-chapter open'),
+      remembered: remembered.includes('tb-chapter open'),
+      overridden: !overridden.includes('tb-chapter open'),
+      keepsBody: shut.includes('<p>x</p>'),      // collapsed, not dropped
+    });
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res == {"shutClosed": True, "currentOpen": True, "remembered": True,
+                   "overridden": True, "keepsBody": True}

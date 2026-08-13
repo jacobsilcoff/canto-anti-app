@@ -174,8 +174,11 @@ def _run_tts(script: str):
     // The shipped playTTS asks the app shell to route the element through the
     // volume-boost gain graph. `window` exists in a browser; the harness is what
     // was incomplete. A test can install a CantoShell to exercise that path.
-    const window = { CantoShell: null };
-    const CantoShell = null;
+    // The shell is a mutable global here: the shipped code reads the bare
+    // `CantoShell` identifier, and tests install one to exercise the boost path.
+    let CantoShell = null;
+    const window = { get CantoShell() { return CantoShell; },
+                     set CantoShell(v) { CantoShell = v; } };
     const setTimeoutReal = setTimeout;
     // Report and exit immediately: the real prewarm timers are 15s and would
     // otherwise keep node's event loop alive long past the assertion.
@@ -291,3 +294,57 @@ def test_a_broken_volume_booster_cannot_silence_a_clip():
     """)
     assert res["threw"] is False
     assert res["playing"] is True
+
+
+@pytestmark_node
+def test_a_clip_the_sleeping_boost_would_silence_is_rebuilt():
+    """Routing is permanent: once an element goes through the gain graph it can
+    only be heard through it, so while the graph is asleep that element is
+    silent. Reusing the cached one is how "the audio sometimes just doesn't
+    play" survived — a fresh, unrouted element is the only way back to sound."""
+    res = _run_tts("""
+      const routed = new Set();
+      var resumed = 0;
+      window.CantoShell = {
+        prepareAudio(el) { routed.add(el); },
+        isAudioRouted: el => routed.has(el),
+        audioReady: () => false,          // graph asleep (an iOS interruption)
+        resumeAudio() { resumed++; },
+      };
+      const key = _ttsKey('hi', 'yue');
+      _prewarmTTS('hi', 'yue');
+      const cached = _ttsCache[key];
+      routed.add(cached);                 // it was routed while the graph ran
+      playTTS('hi', 'yue');
+      setTimeoutReal(() => done({
+        rebuilt: _ttsCache[key] !== cached,
+        playing: built.some(a => a !== cached && !a.paused),
+        resumed,
+      }), 10);
+    """)
+    assert res["rebuilt"] is True     # the routed corpse is dropped…
+    assert res["playing"] is True     # …and the fresh one is audible
+    assert res["resumed"] >= 1        # and the graph is woken for the next clip
+
+
+@pytestmark_node
+def test_a_running_boost_keeps_reusing_its_routed_clip():
+    """The rebuild is only for the asleep case — otherwise every play would
+    re-fetch the clip and throw away the boost."""
+    res = _run_tts("""
+      const routed = new Set();
+      window.CantoShell = {
+        prepareAudio(el) { routed.add(el); },
+        isAudioRouted: el => routed.has(el),
+        audioReady: () => true,
+        resumeAudio() {},
+      };
+      const key = _ttsKey('hi', 'yue');
+      _prewarmTTS('hi', 'yue');
+      const cached = _ttsCache[key];
+      routed.add(cached);
+      playTTS('hi', 'yue');
+      setTimeoutReal(() => done({ same: _ttsCache[key] === cached, built: built.length }), 10);
+    """)
+    assert res["same"] is True
+    assert res["built"] == 1

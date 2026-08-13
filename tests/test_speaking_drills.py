@@ -623,3 +623,88 @@ def test_a_valid_alternative_still_shows_the_lessons_own_answer():
     assert res["variant"]["correct"] is True and res["variant"]["exact"] is False
     assert res["variant"]["head"] == "Correct — that works too!"
     assert "je mange du pain" in res["variant"]["line"]
+
+
+# ── Speaking drills have to actually turn up ─────────────────────────────────
+
+def _speak_variant(script, extra_fns=()):
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = _extract_decl(src, "SPEAK_PER_LESSON") + "\n" + "\n".join(
+        _extract(src, d) for d in (
+            "function _canSpeakVariant(", "function _toSpeakVariant(",
+            "function _addSpeakVariant(") + tuple(extra_fns))
+    harness = """
+    const LANGS = [{ code: 'yue', speech_lang: 'zh-HK' }];
+    let _speakDrills = true;
+    function speechSupported() { return true; }
+    function speechLangFor(l) { const x = LANGS.find(a => a.code === l); return x ? x.speech_lang : ''; }
+    const player = { lang: 'yue', theme: '' };
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    function drill(i) {
+      return { type: 'choice', prompt_lang: 'english', prompt: 'word ' + i,
+               options: ['A' + i, 'B' + i], answer: 0 };
+    }
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+@needs_node
+def test_every_step_with_an_eligible_drill_gets_one_speaking_drill():
+    """A per-drill coin flip made these nearly invisible: a standard lesson holds
+    three or four eligible drills, so a 1-in-5 roll usually produced none at all
+    and the feature read as missing."""
+    res = _speak_variant("""
+      const counts = [];
+      for (let step = 0; step < 4; step++) {
+        const exs = [drill(1), drill(2), drill(3)];
+        counts.push(_addSpeakVariant(exs).filter(e => e.type === 'speak').length);
+      }
+      done({ counts, budget: player.speakBudget, cap: SPEAK_PER_LESSON });
+    """)
+    # One per step until the lesson's budget runs out — present, never a flood.
+    assert res["counts"][0] == 1 and res["counts"][1] == 1
+    assert res["counts"][2] == 0 and res["counts"][3] == 0
+    assert res["budget"] == 0 and res["cap"] == 2
+
+
+@needs_node
+def test_a_step_with_nothing_eligible_is_left_alone():
+    res = _speak_variant("""
+      // Recognition drills (target prompt, English options) can't be spoken.
+      const exs = [{ type: 'choice', prompt_lang: 'target', prompt: '你好',
+                     options: ['hello', 'bye'], answer: 0 },
+                   { type: 'word_bank', answer_tokens: ['a'] }];
+      const out = _addSpeakVariant(exs);
+      done({ speaks: out.filter(e => e.type === 'speak').length,
+             budget: player.speakBudget });
+    """)
+    assert res["speaks"] == 0
+    assert res["budget"] == 2       # nothing spent on a step that can't use it
+
+
+@needs_node
+def test_the_setting_and_an_unusable_recogniser_both_turn_them_off():
+    for flip in ("_speakDrills = false;", "speechSupported = () => false;"):
+        res = _speak_variant(f"""
+          {flip}
+          const out = _addSpeakVariant([drill(1), drill(2)]);
+          done({{ speaks: out.filter(e => e.type === 'speak').length }});
+        """)
+        assert res["speaks"] == 0
+
+
+@needs_node
+def test_the_converted_drill_hides_its_options():
+    res = _speak_variant("""
+      const out = _addSpeakVariant([drill(7)]);
+      const sp = out[0];
+      done({ type: sp.type, target: sp.target, prompt: sp.prompt,
+             options: sp.options, answer: sp.answer, readAloud: sp.read_aloud });
+    """)
+    assert res["type"] == "speak"
+    assert res["target"] == "A7" and res["prompt"] == "word 7"
+    assert res["options"] is None and res["answer"] is None
+    assert res["readAloud"] is False

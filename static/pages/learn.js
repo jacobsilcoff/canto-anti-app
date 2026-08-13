@@ -1446,6 +1446,14 @@
     await loadBooks();
   }
 
+  function toggleTbBook(id) {
+    const el = document.querySelector(`.tb-book[data-book="${id}"]`);
+    if (!el) return;
+    const open = !el.classList.contains('open');
+    el.classList.toggle('open', open);
+    localStorage.setItem('tbbook:' + id, open ? '1' : '0');
+  }
+
   function toggleTextbooks() {
     const isNowCollapsed = localStorage.getItem('learn_textbooks_collapsed') !== '1';
     localStorage.setItem('learn_textbooks_collapsed', isNowCollapsed ? '1' : '0');
@@ -1603,8 +1611,16 @@
 
   // ── Course map ───────────────────────────────────────────────────────────────
 
-  // Shared: build the HTML for one lesson row (used for both foundations & AI).
-  // `opts.deletable` adds a ✕ (textbook units, where lessons are yours to redo).
+  // Shared: build the HTML for one lesson row (used for both foundations &
+  // textbook units). `opts.deletable` adds a ✕ (textbook units, where lessons
+  // are yours to redo); `opts.intro` opens the lesson INTRO SHEET rather than
+  // playing straight away.
+  //
+  // That last one is not cosmetic: the intro sheet is the only place "▶ Resume"
+  // is offered, so a textbook lesson opened directly always restarted from the
+  // beginning — the snapshot was being written on every quit and never read.
+  // (Foundations lessons stay direct: they're two minutes long and the sheet's
+  // options — length, AI Speak, test-out — don't apply to them.)
   function _lessonHtml(l, li, opts) {
     const st = l.status || 'locked';
     const displayNum = li + 1;                          // 1-based position within this unit
@@ -1614,14 +1630,17 @@
       ? `${l.concept_count} new concept${l.concept_count === 1 ? '' : 's'}` : '';
     const clickable = unlockAll || st === 'available' || st === 'done';
     const badge = (st === 'done' && l.score != null) ? `✓ ${l.score}%` : st;
+    const open = (opts && opts.intro) ? 'openLessonIntro' : 'openLesson';
+    const resumable = !!(opts && opts.intro && _loadResume(l.id));
     return `<div class="lesson ${st}${clickable ? ' clickable' : ''}" style="position:relative"
-        ${clickable ? `onclick="openLesson(${l.id})"` : ''}>
+        ${clickable ? `onclick="${open}(${l.id})"` : ''}>
       <div class="lesson-node">${node}</div>
       <div class="lesson-body">
         <div class="lesson-name">${esc(l.title)}</div>
         ${l.objective ? `<div class="lesson-obj">${esc(l.objective)}</div>` : ''}
         ${meta ? `<div class="lesson-meta">${meta}</div>` : ''}
-        ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>' : ''}
+        ${st === 'done' ? '<div class="lesson-replay">↻ Play again</div>'
+          : (resumable ? '<div class="lesson-replay">⏸ Resume where you left off</div>' : '')}
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <div class="lesson-status ${st}">${badge}</div>
@@ -1652,23 +1671,47 @@
     </div>`;
   }
 
+  // A book's chapters are long — a unit can hold a dozen lessons plus its build
+  // actions — and a book has many of them, so drawn open they buried the page.
+  // Each chapter is therefore a collapsible row: a title, its progress, and a
+  // body that opens on tap. Open/closed is remembered per chapter; the default
+  // opens exactly the one the learner is working through.
+  function _tbChapterShell(key, title, meta, pill, pillClass, openByDefault, body, extra) {
+    const stored = localStorage.getItem('tbch:' + key);
+    const open = stored == null ? !!openByDefault : stored === '1';
+    return `<div class="tb-chapter${open ? ' open' : ''}" data-ch="${esc(key)}">
+      <button class="tb-chapter-head" type="button" onclick="toggleTbChapter('${esc(key)}')">
+        <span class="tb-chapter-chevron">›</span>
+        <span class="tb-chapter-text">
+          <span class="tb-chapter-title">${esc(title)}</span>
+          ${meta ? `<span class="tb-chapter-meta">${esc(meta)}</span>` : ''}
+        </span>
+        <span class="tb-pill ${pillClass}">${esc(pill)}</span>
+        ${extra || ''}
+      </button>
+      <div class="tb-chapter-body">${body}</div>
+    </div>`;
+  }
+
+  function toggleTbChapter(key) {
+    const el = document.querySelector(`.tb-chapter[data-ch="${key}"]`);
+    if (!el) return;
+    const open = !el.classList.contains('open');
+    el.classList.toggle('open', open);
+    localStorage.setItem('tbch:' + key, open ? '1' : '0');
+  }
+
   // One built textbook unit: its lessons, its still-queued lesson slots, and the
   // actions that author the rest.
-  function _textbookUnitHtml(u) {
+  function _textbookUnitHtml(u, openByDefault) {
     const lessons   = u.lessons || [];
     const queued    = u.queued || [];
     const remaining = queued.length;
     const total     = lessons.length + remaining;
     const gen = _tbGenerating === u.id;
-    let html = `<div class="unit-head">
-      <div class="unit-title">${esc(u.title || 'Textbook unit')}
-        <button class="unit-del" title="Delete this unit"
-          onclick="deleteCourseUnit(${u.id})">🗑</button>
-      </div>
-      ${u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : ''}
-      ${total ? `<div class="unit-obj">${lessons.length} of ${total} lesson${total === 1 ? '' : 's'} built</div>` : ''}
-    </div>`;
-    lessons.forEach((l, li) => { html += _lessonHtml(l, li, { deletable: true }); });
+    const done = lessons.filter(l => l.status === 'done').length;
+    let html = u.summary ? `<div class="unit-obj">${esc(u.summary)}</div>` : '';
+    lessons.forEach((l, li) => { html += _lessonHtml(l, li, { deletable: true, intro: true }); });
     queued.forEach((q, qi) => {
       html += _queuedLessonHtml(q, lessons.length + qi + 1, u.id, qi === 0, gen);
     });
@@ -1683,31 +1726,39 @@
       ${gen ? '' : `<div class="tb-gen-note">One AI call per lesson — about ${remaining === 1 ? 'half a minute' : `${remaining} × half a minute`}. You can leave this page; finishing a lesson also builds the next one.</div>`}`;
     }
     if (gen && _tbError) html += `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>`;
-    return `<div class="unit">${html}</div>`;
+    const allDone = total > 0 && done === lessons.length && !remaining;
+    return _tbChapterShell(
+      'u' + u.id,
+      u.title || 'Textbook unit',
+      total ? `${lessons.length} of ${total} lesson${total === 1 ? '' : 's'} built` : '',
+      allDone ? '✓ done' : `${done}/${total || lessons.length}`,
+      allDone ? 'tb-pill-done' : (gen ? 'tb-pill-busy' : ''),
+      openByDefault || gen,
+      html,
+      `<span class="unit-del" title="Delete this unit" role="button"
+         onclick="event.stopPropagation();deleteCourseUnit(${u.id})">🗑</span>`);
   }
 
   // A chapter the learner hasn't turned into lessons yet. Reserving the row is
   // what makes the book's real shape visible here, and puts first-time
   // generation one tap away instead of a trip to the textbook page.
-  function _emptyChapterHtml(book, ch, ci) {
+  function _emptyChapterHtml(book, ch, ci, openByDefault) {
     const key  = `${book.id}:${ci}`;
     const busy = _tbBuilding === key;
     const pages = ch.start === ch.end ? `Page ${ch.start}` : `Pages ${ch.start}–${ch.end}`;
     const err = (_tbError && busy) ? `<div class="gen-label" style="color:var(--danger)">${esc(_tbError)}</div>` : '';
-    return `<div class="unit tb-chapter-todo">
-      <div class="unit-head">
-        <div class="unit-title" style="color:var(--text-muted)">${esc(ch.title || `Chapter ${ci + 1}`)}</div>
-        <div class="unit-obj">${pages} · no lessons yet</div>
-      </div>
-      <div class="tb-gen">
+    const body = `<div class="tb-gen">
         <button class="course-regen"${busy || _tbBuilding || _tbGenerating ? ' disabled' : ''}
           onclick="buildChapterUnit(${book.id},${ci})">
           ${busy ? '<span class="spinner"></span> Reading the chapter…'
                  : '＋ Build lessons from this chapter'}</button>
       </div>
       ${busy ? '<div class="tb-gen-note">Planning the whole chapter, then writing lesson one — this takes a minute.</div>' : ''}
-      ${err}
-    </div>`;
+      ${err}`;
+    return _tbChapterShell(key, ch.title || `Chapter ${ci + 1}`, pages,
+                           busy ? 'building…' : 'not built',
+                           busy ? 'tb-pill-busy' : 'tb-pill-todo',
+                           openByDefault || busy, body);
   }
 
   // ── Skill-tree path rendering (AI lessons) ──
@@ -2011,26 +2062,55 @@
         }
       });
 
+      // Open exactly ONE chapter per book by default: the one the learner is
+      // working through (the first that isn't finished). Everything else starts
+      // collapsed, so a two-book shelf is a readable list rather than a wall.
+      const nextChapterOf = new Map();
       shelf.forEach(b => {
         const chapters = b.chapters || [];
-        add(`<div class="tb-book-head">📕 ${esc(b.title)}</div>`);
+        for (let ci = 0; ci < chapters.length; ci++) {
+          const u = unitFor.get(`${b.id}:${ci}`);
+          if (!u) { nextChapterOf.set(b.id, ci); break; }        // not built yet
+          const ls = u.lessons || [];
+          const unfinished = (u.queued || []).length
+            || ls.some(l => l.status !== 'done');
+          if (unfinished) { nextChapterOf.set(b.id, ci); break; }
+        }
+      });
+
+      shelf.forEach(b => {
+        const chapters = b.chapters || [];
+        const built = chapters.reduce((n, _c, ci) => n + (unitFor.has(`${b.id}:${ci}`) ? 1 : 0), 0);
+        const bookOpen = localStorage.getItem('tbbook:' + b.id) !== '0';
+        add(`<div class="tb-book${bookOpen ? ' open' : ''}" data-book="${b.id}">
+          <button class="tb-book-head" type="button" onclick="toggleTbBook(${b.id})">
+            <span class="tb-chapter-chevron">›</span>
+            <span class="tb-book-title">📕 ${esc(b.title)}</span>
+            <span class="tb-book-meta">${built}/${chapters.length || '–'} chapters</span>
+          </button>
+          <div class="tb-book-body" id="tb-book-${b.id}"></div>
+        </div>`);
+        const bodyEl = body.querySelector('#tb-book-' + b.id);
+        const addBook = html => bodyEl.insertAdjacentHTML('beforeend', html);
         if (!chapters.length) {
           // Detection hasn't run or found nothing; splitting the book into
           // chapters lives on the textbook page.
-          add(`<div class="unit tb-chapter-todo">
+          addBook(`<div class="unit tb-chapter-todo">
             <div class="unit-obj">No chapters detected yet.</div>
             <div class="tb-gen"><button class="course-regen"
               onclick="window.location.href='/textbooks'">Open the book to divide it</button></div>
           </div>`);
         }
+        const openCi = nextChapterOf.get(b.id);
         chapters.forEach((ch, ci) => {
           const u = unitFor.get(`${b.id}:${ci}`);
-          add(u ? _textbookUnitHtml(u) : _emptyChapterHtml(b, ch, ci));
+          addBook(u ? _textbookUnitHtml(u, ci === openCi)
+                    : _emptyChapterHtml(b, ch, ci, ci === openCi));
         });
         // Units from this book with no chapter link (custom page ranges).
         textbookUnits
           .filter(u => u.textbook_id === b.id && !claimed.has(u.id))
-          .forEach(u => { claimed.add(u.id); add(_textbookUnitHtml(u)); });
+          .forEach(u => { claimed.add(u.id); addBook(_textbookUnitHtml(u)); });
       });
       // Units the shelf didn't account for: a deleted book, or the first paint
       // before the shelf has loaded. Their lessons are still the learner's, so
@@ -2038,7 +2118,10 @@
       let lastBook = null;
       textbookUnits.filter(u => !claimed.has(u.id)).forEach(u => {
         const name = u.book_title || 'Other units';
-        if (name !== lastBook) add(`<div class="tb-book-head">📕 ${esc(name)}</div>`);
+        if (name !== lastBook) {
+          add(`<div class="tb-book open"><div class="tb-book-head static">
+            <span class="tb-book-title">📕 ${esc(name)}</span></div></div>`);
+        }
         lastBook = name;
         add(_textbookUnitHtml(u));
       });
@@ -2253,6 +2336,16 @@
     let el = _ttsCache[key];
     // A cached element that failed to load will never play — rebuild it.
     if (el && el.error) { delete _ttsCache[key]; el = null; }
+    // Nor will one routed through a sleeping volume-boost graph: routing is
+    // permanent, so the only way back to sound is a fresh, unrouted element.
+    // (Ask for a resume too, so the NEXT clip gets its boost back.)
+    try {
+      if (el && CantoShell.isAudioRouted(el) && !CantoShell.audioReady()) {
+        CantoShell.resumeAudio();
+        delete _ttsCache[key];
+        el = null;
+      }
+    } catch {}
     if (!el) {
       el = _makeTTSAudio(text, lang, key);
       _ttsCache[key] = el;
@@ -4841,24 +4934,44 @@
              audio: opts[ans], prompt: '', prompt_roman: '', audio_roman: '' };
   }
 
-  // 🎤 Speaking variant. Turn ~1 in 5 production drills into a say-it-aloud
-  // drill so speaking happens inside ordinary lessons, not only in the dedicated
-  // activity. Client-only and re-rolled per play, like the listening variant;
-  // the target is SHOWN (this drills pronunciation, not recall).
-  function _maybeSpeakVariant(ex) {
-    if (!_speakDrills || !speechSupported() || !speechLangFor(player && player.lang)) return ex;
-    if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english' || ex.is_cloze) return ex;
+  // 🎤 Speaking inside ordinary lessons. A per-drill coin flip made these almost
+  // invisible: a standard-length lesson holds only three or four eligible
+  // production drills, so a 1-in-5 roll usually produced NONE and the feature
+  // read as missing. Instead each lesson gets a small BUDGET, and each step
+  // spends at most one of it on a randomly chosen eligible drill — reliably
+  // present, still varying between plays, never dominating a step.
+  const SPEAK_PER_LESSON = 2;
+
+  function _canSpeakVariant(ex) {
+    if (!_speakDrills || !speechSupported() || !speechLangFor(player && player.lang)) return false;
+    if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english' || ex.is_cloze) return false;
     if (!player || player.checkpointUnitId || player.testOut
-        || player.theme === 'foundations' || player.practiceGame) return ex;
+        || player.theme === 'foundations' || player.practiceGame) return false;
     const opts = ex.options || [];
     const ans = ex.answer;
-    if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
-    if (Math.random() > 0.2) return ex;
+    return !(ans == null || ans < 0 || ans >= opts.length || !opts[ans]);
+  }
+
+  function _toSpeakVariant(ex) {
     // The English prompt stays and the options go: the learner produces the line
     // rather than picking it, which is the whole point of speaking it.
     return { ...ex, type: 'speak', instruction: 'Say this out loud',
-             read_aloud: false, target: opts[ans], target_roman: ex.answer_roman || '',
+             read_aloud: false, target: ex.options[ex.answer],
+             target_roman: ex.answer_roman || '',
              accept: [], options: null, answer: null };
+  }
+
+  // Spend at most one of the lesson's speaking budget on this step.
+  function _addSpeakVariant(exs) {
+    if (player.speakBudget == null) player.speakBudget = SPEAK_PER_LESSON;
+    if (player.speakBudget <= 0) return exs;
+    const eligible = [];
+    exs.forEach((e, i) => { if (_canSpeakVariant(e)) eligible.push(i); });
+    if (!eligible.length) return exs;
+    const pick = eligible[Math.floor(Math.random() * eligible.length)];
+    exs[pick] = _toSpeakVariant(exs[pick]);
+    player.speakBudget--;
+    return exs;
   }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises
@@ -4874,7 +4987,7 @@
       let exs = (seg.exercises || []).map((e, i) => ({ ...e, _seg: player.segIdx, _ix: i }));
       // drillsOnly: only the LLM-graded construction drills + mini-games (skip recognition/word-bank/etc.)
       if (player.drillsOnly) exs = exs.filter(e => SELF_MANAGED.has(e.type));
-      else exs = exs.map(_maybeSpeakVariant).map(_maybeListeningVariant);   // vary replays
+      else exs = _addSpeakVariant(exs).map(_maybeListeningVariant);   // vary replays
       // A speaking drill on a browser that can't listen is a dead end — drop it
       // rather than render a mic the learner can never use.
       if (!speechSupported()) {

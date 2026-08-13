@@ -213,6 +213,16 @@
     try { _actx.resume().catch(() => {}); } catch (e) {}
   }
 
+  // Is an element that is ALREADY routed able to make a sound right now? A
+  // routed element plays only through the graph, so while the context is asleep
+  // it is silent — and iOS puts the context to sleep on any audio interruption
+  // (a call, another app, the screen locking), which is why "the audio
+  // sometimes just doesn't play" survived routing only into a running context.
+  // Callers use this to rebuild an unrouted element rather than play into
+  // silence; there is no way to un-route one.
+  function audioReady() { return _audioGain === 1 || !_actx || _actx.state === 'running'; }
+  function isAudioRouted(el) { return !!(_routed && el && _routed.has(el)); }
+
   function setAudioGain(value) {
     _audioGain = clampGain(value);
     if (_gainNode) { try { _gainNode.gain.value = _audioGain; } catch (e) {} }
@@ -249,6 +259,9 @@
     applyAudioSession,
     prepareAudio,          // call right before el.play() — no-op at 1× volume
     setAudioGain,          // live preview from Settings, before anything is saved
+    audioReady,            // false ⇒ a routed element would play silently
+    isAudioRouted,
+    resumeAudio,
     audioGain: () => _audioGain,
     refresh: () => refresh(true),
     get: key => snapshot && snapshot.data ? snapshot.data[key] : null,
