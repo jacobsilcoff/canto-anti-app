@@ -6006,21 +6006,30 @@ _SPEAK_MAX = 12
 _SPEAK_MAX_CHARS = 60      # a paragraph is not a speaking prompt
 
 
-def _speak_prompt(ex: dict) -> tuple[str, str, str] | None:
-    """(target text, English gloss, romanization) a drill can be spoken from.
+def _speak_prompt(ex: dict) -> dict | None:
+    """What a drill can be spoken from: {target, gloss, roman, accept}.
 
     Only shapes whose TARGET-language string is unambiguous: a reorder drill's
     own sentence, a typed answer, or the correct option of a drill whose options
     are the target language. A recognition drill (target prompt → English
     options) would otherwise hand back an English "answer" to say aloud.
+
+    `gloss` is what makes the item a PRODUCTION drill — the learner is shown the
+    English and says the target from memory. Without one there is nothing to
+    prompt with, so the caller falls back to read-aloud. `accept` carries a typed
+    drill's alternatives straight through, so a spoken answer gets the same free
+    offline pass a written one would.
     """
     kind = ex.get("type")
     if kind == "word_bank":
         # Assembly stores the whole sentence as the drill's audio, so there is no
         # need to re-join the tiles (and no separator to get wrong for CJK/Thai).
-        return (ex.get("audio") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+        return {"target": ex.get("audio") or "", "gloss": ex.get("prompt") or "",
+                "roman": ex.get("answer_roman") or "", "accept": []}
     if kind == "type_answer":
-        return (ex.get("answer") or "", ex.get("prompt") or "", ex.get("answer_roman") or "")
+        return {"target": ex.get("answer") or "", "gloss": ex.get("prompt") or "",
+                "roman": ex.get("answer_roman") or "",
+                "accept": [a for a in (ex.get("accept") or []) if (a or "").strip()]}
     if kind in ("choice", "listening"):
         opts = ex.get("options") or []
         idx = ex.get("answer")
@@ -6032,7 +6041,8 @@ def _speak_prompt(ex: dict) -> tuple[str, str, str] | None:
         gloss = ex.get("tip") if ex.get("is_cloze") else ex.get("prompt")
         if kind == "listening":
             gloss = ""
-        return (opts[idx] or "", gloss or "", ex.get("audio_roman") or "")
+        return {"target": opts[idx] or "", "gloss": gloss or "",
+                "roman": ex.get("audio_roman") or "", "accept": []}
     return None
 
 
@@ -6044,7 +6054,8 @@ def _speaking_items(pool: list[dict], vocab: list[dict], lang: str) -> list[dict
     sentences: list[dict] = []
     words: list[dict] = []
 
-    def _add(bucket: list[dict], target: str, gloss: str, roman: str) -> None:
+    def _add(bucket: list[dict], target: str, gloss: str, roman: str,
+             accept: list[str] | None = None) -> None:
         target = (target or "").strip()
         if not target or len(target) > _SPEAK_MAX_CHARS:
             return
@@ -6055,18 +6066,24 @@ def _speaking_items(pool: list[dict], vocab: list[dict], lang: str) -> list[dict
         # Romanization comes from the offline oracle when the drill didn't carry
         # one — same rule as everywhere else: never the model.
         roman = (roman or "").strip() or tokenizer.romanize_text(target, lang)
+        gloss = (gloss or "").strip()
         bucket.append({
             "type": "speak",
-            "instruction": "Say it out loud",
-            "prompt": (gloss or "").strip(),
+            # With an English prompt the learner PRODUCES the line from memory,
+            # like a typed drill. Without one there is nothing to ask from, so
+            # the line is shown and the drill is pure pronunciation practice.
+            "read_aloud": not gloss,
+            "instruction": "Say it out loud" if not gloss else "Say this out loud",
+            "prompt": gloss,
             "target": target,
             "target_roman": roman,
+            "accept": list(accept or []),
         })
 
     for ex in pool:
         got = _speak_prompt(ex)
         if got:
-            _add(sentences, *got)
+            _add(sentences, got["target"], got["gloss"], got["roman"], got["accept"])
     for w in vocab:
         _add(words, w.get("label") or "", w.get("gloss") or "", "")
 
@@ -6933,9 +6950,13 @@ async def lesson_check(request: Request, req: TypedAnswerRequest,
     lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
     accept = [a for a in (req.accept or [])[:12] if (a or "").strip()]
 
-    # Free path — no LLM, no metering, no latency.
-    if tutor.answer_matches(answer, expected, accept):
-        return {"checked": True, "correct": True, "corrected": "", "note": "", "exact": True}
+    # Free path — no LLM, no metering, no latency. `exact` says whether it was
+    # the CANONICAL answer or one of the author's alternatives: the client shows
+    # the lesson's own answer beside anything that wasn't it.
+    kind = tutor.match_kind(answer, expected, accept)
+    if kind:
+        return {"checked": True, "correct": True, "corrected": "", "note": "",
+                "exact": kind == "exact"}
 
     # Resolve the key best-effort. No key (self-hosted with none configured, or
     # quota exhausted) must NOT 503 the drill — mid-lesson that reads as the

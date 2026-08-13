@@ -23,6 +23,12 @@
   let _tbBuilding = null;     // "bookId:chapterIdx" while a chapter becomes a unit
 
   function show(state) {
+    // Leaving the drill screens stops any clip still playing — a prompt that
+    // follows you out to the course map (or onto the results screen) reads as
+    // the app talking to itself.
+    if (state !== 'player' && state !== 'teach' && _currentState !== state) {
+      try { stopTTS(); } catch {}
+    }
     _currentState = state;
     // Full-focus lesson states reclaim the mobile tab bar's space.
     document.body.classList.toggle('hide-tabbar', state === 'teach' || state === 'player');
@@ -2094,18 +2100,31 @@
   // Mirror of tutor._norm_for_compare. Kept in step with the server so a typed
   // answer the server would accept never costs a round trip (or an LLM call) —
   // and so an exactly-right answer still grades while offline.
+  // Canonical form for comparing an answer to the accept-set. Casefold, then
+  // drop EVERY punctuation mark, symbol and space: a translation drill isn't
+  // testing punctuation or spacing, so a learner who typed the right sentence
+  // with a comma in it must not wait on (or pay for) a grader to be told they
+  // were right. MIRRORS tutor._norm_for_compare — keep them in step, or an
+  // answer accepted here gets re-graded on the server anyway.
   function _normTyped(s) {
-    return (s || '').normalize('NFC').toLowerCase().trim()
-      .replace(/[.!?。！？،؟…]+$/u, '')
-      .replace(/[’‘ʼ`´′]/g, "'")
-      .split(/\s+/).join(' ');
+    const out = (s || '').normalize('NFC').toLowerCase();
+    try { return out.replace(/[\s\p{P}\p{S}]/gu, ''); }
+    catch { return out.replace(/[\s.,!?;:'"()\[\]{}<>«»…—–\-。，、！？；：「」『』（）]/g, ''); }
+  }
+  // Which accepted form an answer is: 'exact' for the lesson's own canonical
+  // answer, 'accept' for one of the listed alternatives, '' for neither. The
+  // distinction is what shows the learner the taught form whenever they produced
+  // something else — a valid variant is still worth seeing it beside.
+  // Mirrors tutor.match_kind.
+  function _matchKind(typed, expected, accept) {
+    const got = _normTyped(typed);
+    if (!got) return '';
+    if ((expected || '').trim() && _normTyped(expected) === got) return 'exact';
+    return (accept || []).some(c => (c || '').trim() && _normTyped(c) === got)
+      ? 'accept' : '';
   }
   function _typedMatches(typed, expected, accept) {
-    const got = _normTyped(typed);
-    if (!got) return false;
-    return [expected, ...(accept || [])]
-      .filter(c => (c || '').trim())
-      .some(c => _normTyped(c) === got);
+    return !!_matchKind(typed, expected, accept);
   }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
@@ -2260,21 +2279,45 @@
 
   // Wire a 🔊 button to a clip AND keep it honest: while the clip is unavailable
   // the button greys out, and it comes back on its own if a later fetch works.
+  // How long a clip may stay "loading" before the button goes live anyway. A
+  // browser that defers loading despite load() must not leave a permanently
+  // disabled speaker; after this the learner can tap and the play path retries.
+  const AUDIO_READY_TIMEOUT_MS = 6000;
+
   function bindAudioBtn(btn, text, lang) {
     if (!btn) return;
     btn.onclick = () => playTTS(text, lang);
+    // Three states, because "tapped it and nothing happened" is the complaint
+    // this exists to answer: not fetched YET (dim, not tappable — the clip is
+    // coming), ready (normal), and failed (greyed out for good).
+    const paint = st => {
+      const dead = st === 'fail';
+      const waiting = st === 'unknown';
+      btn.disabled = dead || waiting;
+      btn.classList.toggle('audio-dead', dead);
+      btn.classList.toggle('audio-loading', waiting);
+      btn.title = dead ? "Audio isn't available right now"
+        : (waiting ? 'Loading audio…' : '');
+    };
     // Several callers bind before inserting the button, so "not in the document"
     // can't mean "gone" until we've seen it in there once.
     let seen = false;
-    onTTSHealth(text, lang, () => (btn.isConnected ? (seen = true) : !seen), st => {
-      const dead = st === 'fail';
-      btn.disabled = dead;
-      btn.classList.toggle('audio-dead', dead);
-      btn.title = dead ? "Audio isn't available right now" : '';
-    });
+    onTTSHealth(text, lang, () => (btn.isConnected ? (seen = true) : !seen), paint);
+    paint(ttsHealth(text, lang));
+    setTimeout(() => {
+      if (btn.isConnected && ttsHealth(text, lang) === 'unknown') paint('ok');
+    }, AUDIO_READY_TIMEOUT_MS);
     // Fetch it now so the button's state is known before the learner taps —
     // a no-op for a clip _prefetchLesson already warmed.
     _prewarmTTS(text, lang);
+  }
+
+  // Silence whatever is playing. Leaving a lesson used to leave its clip running
+  // (and, with the volume boost routing into a not-yet-running audio context,
+  // several of them arriving at once the moment the context woke up).
+  function stopTTS() {
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    _audio = null;
   }
 
   // ── 🎤 Speaking ─────────────────────────────────────────────────────────────
@@ -2289,13 +2332,9 @@
     return (l && l.speech_lang) || '';
   }
 
-  // Everything that can't be heard: case, spacing, punctuation and symbols.
-  function _speechNorm(s) {
-    let out = (s || '').toLowerCase();
-    try { out = out.normalize('NFC').replace(/[\s\p{P}\p{S}]/gu, ''); }
-    catch { out = out.replace(/[\s.,!?;:'"()\[\]—–-]/g, ''); }   // no Unicode property escapes
-    return out;
-  }
+  // Everything that can't be heard — the same canonical form a typed answer is
+  // compared in, so speaking and typing never disagree about the same words.
+  function _speechNorm(s) { return _normTyped(s); }
   function _stripTones(s) { return (s || '').replace(/\d/g, ''); }
 
   function _editDistance(a, b) {
@@ -2336,6 +2375,31 @@
       const toks = await _fetchTokens(text, lang);
       return _stripTones((toks || []).map(t => t.roman || '').join(' ')).trim();
     } catch { return ''; }
+  }
+
+  // Grade a free-text answer the way a typed drill does: the offline accept-set
+  // first (free, instant, works with no key), then the server judge only when
+  // that misses. Shared by the typed drill and by the speaking drill's spoken
+  // transcript and "type it instead" box, so there is ONE notion of whether an
+  // answer is right — a learner shouldn't be graded differently for saying a
+  // sentence than for writing it.
+  async function gradeFreeText(text, ex, lang, onNetwork) {
+    const expected = ex.answer != null ? ex.answer : (ex.target || '');
+    const kind = _matchKind(text, expected, ex.accept);
+    // `exact` false for an author-listed alternative, so the feedback shows the
+    // canonical answer beside it — for free, with no judge call.
+    if (kind) return { checked: true, correct: true, exact: kind === 'exact' };
+    if (onNetwork) onNetwork();
+    try {
+      const res = await fetch('/api/lesson/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: ex.prompt || '', expected, answer: text,
+          accept: ex.accept || [], is_cloze: !!ex.is_cloze, lang,
+        }),
+      });
+      return res.ok ? await res.json() : { checked: false };
+    } catch { return { checked: false }; }
   }
 
   // Grade an utterance against a speak drill. Every alternative the recogniser
@@ -2782,25 +2846,12 @@
         return {
           isReady: () => input.value.trim().length > 0,
           async grade() {
-            const typed = input.value.trim();
-            // Offline fast path — mirrors tutor.answer_matches so an exactly
-            // right answer never waits on (or pays for) the network.
-            if (_typedMatches(typed, ex.answer, ex.accept)) {
-              result = { checked: true, correct: true, exact: true };
-              return true;
-            }
-            status.textContent = 'Checking…';
-            status.className = 'type-status checking';
-            try {
-              const res = await fetch('/api/lesson/check', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  prompt: ex.prompt || '', expected: ex.answer || '', answer: typed,
-                  accept: ex.accept || [], is_cloze: isCloze, lang,
-                }),
-              });
-              result = res.ok ? await res.json() : { checked: false };
-            } catch { result = { checked: false }; }
+            // The offline accept-set answers the common case for free; only a
+            // genuinely different rendering reaches the server judge.
+            result = await gradeFreeText(input.value.trim(), ex, lang, () => {
+              status.textContent = 'Checking…';
+              status.className = 'type-status checking';
+            });
             status.textContent = ''; status.className = 'type-status';
             return !!(result && result.checked && result.correct);
           },
@@ -2827,29 +2878,56 @@
     // Nothing here costs an AI call. When the mic is refused or the recogniser
     // errors the drill reports `uncheckable`, so the run's score, combo and
     // mastery ledger are left alone rather than punishing a learner who spoke.
+    // 🎤 Say it out loud. The learner PRODUCES the language with their mouth —
+    // so the answer is HIDDEN, like the typed drill: an English prompt, and they
+    // say it. (A `read_aloud` item, built from material that carries no English
+    // gloss, shows the line instead and is pure pronunciation practice.)
+    //
+    // Grading is the typed drill's, reached through gradeFreeText: the offline
+    // accept-set first, the server judge only on a miss. Before that a spoken
+    // answer gets the extra permissiveness it needs — a recogniser picks the
+    // characters, the learner only supplies the sound.
+    //
+    // Nobody is ever stuck: ⌨️ types the answer instead, Skip reveals it. A
+    // refused mic, an unusable recogniser and a skip all report `uncheckable`,
+    // so score, combo, mistakes and mastery are left alone rather than
+    // punishing a learner who couldn't speak just then.
     speak: {
       render(ex, root, lang) {
+        const reveal = !!ex.read_aloud || !(ex.prompt || '').trim();
         let heard = [];              // every alternative the recogniser offered
         let shown = '';              // what we tell the learner we heard
         let blocked = '';            // non-empty → can't listen; grade as unchecked
+        let typing = false, skipped = false;
         let rec = null, listening = false, result = null;
 
-        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Say it out loud')}</div>
+        root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || (reveal ? 'Say it out loud' : 'Say this out loud'))}</div>
           ${ex.prompt ? `<div class="ex-prompt english">${esc(ex.prompt)}</div>` : ''}
-          <div class="speak-target">${targetSpan(ex.target, lang)}</div>
-          ${ex.target_roman && !needsRuby(lang) ? `<div class="ex-roman">${esc(ex.target_roman)}</div>` : ''}
+          ${reveal ? `<div class="speak-target">${targetSpan(ex.target, lang)}</div>
+            ${ex.target_roman && !needsRuby(lang) ? `<div class="ex-roman">${esc(ex.target_roman)}</div>` : ''}` : ''}
+          ${ex.hint ? `<div class="ex-hint">💡 ${esc(ex.hint)}</div>` : ''}
           <div class="speak-row">
             <button class="speak-mic" type="button" id="sp-mic">
               <span class="sp-ico">🎤</span><span class="sp-label" id="sp-label">Tap and speak</span>
             </button>
-            <button class="audio-play sm" type="button" id="sp-listen" title="Hear it">🔊</button>
+            ${reveal ? `<button class="audio-play sm" type="button" id="sp-listen" title="Hear it">🔊</button>` : ''}
           </div>
-          <div class="speak-heard" id="sp-heard" role="status" aria-live="polite"></div>`;
-        bindAudioBtn(document.getElementById('sp-listen'), ex.target, lang);
+          <div class="speak-heard" id="sp-heard" role="status" aria-live="polite"></div>
+          <div class="type-wrap" id="sp-type-wrap" style="display:none">
+            <textarea class="type-input ${scriptClassFor(lang)}" id="sp-input" rows="1"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              enterkeyhint="done" aria-label="Your answer" placeholder="type your answer…"></textarea>
+          </div>
+          <div class="speak-alt">
+            <button type="button" class="speak-alt-btn" id="sp-type">⌨️ Type it instead</button>
+            <button type="button" class="speak-alt-btn" id="sp-skip">Skip</button>
+          </div>`;
+        if (reveal) bindAudioBtn(document.getElementById('sp-listen'), ex.target, lang);
 
         const mic = document.getElementById('sp-mic');
         const label = document.getElementById('sp-label');
         const out = document.getElementById('sp-heard');
+        const input = document.getElementById('sp-input');
         const say = (html, cls) => {
           out.className = 'speak-heard' + (cls ? ' ' + cls : '');
           out.innerHTML = html;
@@ -2862,12 +2940,12 @@
         const stop = () => { if (rec) { try { rec.stop(); } catch {} rec = null; } idle(); };
 
         function listen() {
-          if (player.graded) return;
+          if (player.graded || typing) return;
           if (listening) { stop(); return; }
           heard = []; shown = '';
           let r;
           try { r = new _SpeechRec(); } catch { r = null; }
-          if (!r) { blocked = 'unsupported'; say("This browser can't listen — tap Continue.", 'muted'); updateAction(); return; }
+          if (!r) { blocked = 'unsupported'; say("This browser can't listen — type it instead, or skip.", 'muted'); updateAction(); return; }
           rec = r;
           r.lang = speechLangFor(lang) || lang;
           r.interimResults = true;
@@ -2891,12 +2969,12 @@
             const err = (e && e.error) || '';
             if (err === 'not-allowed' || err === 'service-not-allowed') {
               blocked = 'denied';
-              say('Microphone access is off, so this one can\'t be checked — tap Continue.', 'muted');
+              say('Microphone access is off — type it instead, or skip.', 'muted');
             } else if (err === 'no-speech') {
               say("Didn't catch that — tap the mic and try again.", 'muted');
             } else if (err !== 'aborted') {
               blocked = 'error';
-              say("Couldn't listen just now — tap Continue.", 'muted');
+              say("Couldn't listen just now — type it instead, or skip.", 'muted');
             }
             idle();
             updateAction();
@@ -2905,34 +2983,86 @@
           try { r.start(); } catch { blocked = 'error'; idle(); updateAction(); }
         }
 
+        // ⌨️ — the same answer, written. Graded identically.
+        function typeInstead() {
+          if (player.graded) return;
+          stop();
+          typing = true; blocked = '';
+          document.getElementById('sp-type-wrap').style.display = '';
+          document.querySelector('.speak-row').style.display = 'none';
+          document.getElementById('sp-type').style.display = 'none';
+          say('', '');
+          input.oninput = () => { if (!player.graded) updateAction(); };
+          input.onkeydown = e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onAction(); }
+          };
+          setTimeout(() => { try { input.focus({ preventScroll: true }); } catch {} }, 60);
+          updateAction();
+        }
+
+        function skip() {
+          if (player.graded) return;
+          stop();
+          skipped = true;
+          updateAction();
+          onAction();          // grade immediately: reveals the answer, costs nothing
+        }
+
         mic.onclick = listen;
+        document.getElementById('sp-type').onclick = typeInstead;
+        document.getElementById('sp-skip').onclick = skip;
         // Recognition must not keep running once the learner moves on; the
         // player calls this before rendering anything else and on quit.
         player._mgCleanup = stop;
 
         return {
-          isReady: () => !!shown.trim() || !!blocked,
+          isReady: () => skipped || (typing ? input.value.trim().length > 0
+                                            : (!!shown.trim() || !!blocked)),
           async grade() {
             stop();
+            if (skipped) {
+              result = { checked: false, reason: 'Skipped — here it is.' };
+              return false;
+            }
+            if (typing) {
+              result = await gradeFreeText(input.value.trim(), ex, lang);
+              return !!(result && result.checked && result.correct);
+            }
             if (blocked) {
               result = { checked: false, reason: blocked === 'denied'
                 ? "Microphone access is off, so this one wasn't checked."
                 : "Couldn't listen on this device, so this one wasn't checked." };
               return false;
             }
-            const ok = await gradeSpoken(heard.length ? heard : [shown], ex, lang);
-            result = { checked: true, correct: ok,
-                       note: ok ? '' : `We heard “${shown}”. Tap 🔊 to compare, then try it again.` };
-            return ok;
+            // Spoken answers get the extra latitude first (homophones, ASR
+            // noise); a genuinely different rendering falls through to the same
+            // judge a typed answer would meet.
+            if (await gradeSpoken(heard.length ? heard : [shown], ex, lang)) {
+              // Said it right, but the recogniser's transcript is rarely the
+              // canonical line — show that line unless they nailed it verbatim.
+              result = { checked: true, correct: true,
+                         exact: _matchKind(shown, ex.target, ex.accept) === 'exact' };
+              return true;
+            }
+            result = await gradeFreeText(shown, ex, lang);
+            if (result && result.checked && !result.correct && shown) {
+              result.note = `We heard “${shown}”. ` + (result.note || '');
+            }
+            return !!(result && result.checked && result.correct);
           },
           uncheckable: () => !!(result && result.checked === false),
           feedback: () => result,
           answerText: () => targetSpan(ex.target, lang)
             + (ex.target_roman && !needsRuby(lang) ? ` <em>${esc(ex.target_roman)}</em>` : ''),
+          expectedText: () => targetSpan(ex.target, lang)
+            + (ex.target_roman && !needsRuby(lang) ? ` <em>${esc(ex.target_roman)}</em>` : ''),
           lock() {
             stop();
             if (player) player._mgCleanup = null;
             mic.disabled = true;
+            input.disabled = true;
+            document.getElementById('sp-type').style.display = 'none';
+            document.getElementById('sp-skip').style.display = 'none';
             mic.classList.add(result && result.correct ? 'correct' : 'wrong');
           },
         };
@@ -4724,8 +4854,11 @@
     const ans = ex.answer;
     if (ans == null || ans < 0 || ans >= opts.length || !opts[ans]) return ex;
     if (Math.random() > 0.2) return ex;
-    return { ...ex, type: 'speak', instruction: 'Say it out loud',
-             target: opts[ans], target_roman: ex.answer_roman || '', options: null, answer: null };
+    // The English prompt stays and the options go: the learner produces the line
+    // rather than picking it, which is the whole point of speaking it.
+    return { ...ex, type: 'speak', instruction: 'Say this out loud',
+             read_aloud: false, target: opts[ans], target_roman: ex.answer_roman || '',
+             accept: [], options: null, answer: null };
   }
 
   function startExercises() {   // teach "Start/Continue" button → run current segment's exercises

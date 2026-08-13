@@ -375,3 +375,121 @@ def test_judge_prompts_demand_english_explanations():
     drill = tutor.build_lesson_drill_judge_prompt(
         "yue", "comparative with 過", "I am taller", "我高過佢", "", level="A1")
     assert "ENGLISH" in drill
+
+
+# ── Punctuation and spacing never cost an LLM call ───────────────────────────
+# The offline accept-set is the whole reason typed drills are affordable. It
+# used to strip only a TERMINAL period, so a comma in the middle — or, in
+# Chinese, a space between the words — sent a correct answer to a paid grader to
+# be told it was right.
+
+@pytest.mark.parametrize("typed,expected", [
+    ("唔該， 講多一次。",      "唔該講多一次"),      # internal comma + spacing
+    ("唔該 講多 一次",         "唔該講多一次"),      # spaced-out CJK
+    ("Je mange, du pain !",   "Je mange du pain"),  # internal comma, spaced !
+    ("j’ai faim",             "j'ai faim"),         # curly vs straight apostrophe
+    ("«bonjour»",             "bonjour"),           # quotes
+    ("Je  mange   du pain",   "je mange du pain"),  # sloppy whitespace
+])
+def test_punctuation_and_spacing_match_offline(typed, expected):
+    assert tutor.answer_matches(typed, expected) is True
+
+
+@pytest.mark.parametrize("typed,expected", [
+    ("je bois du pain",  "je mange du pain"),   # different word
+    ("je mange",         "je mange du pain"),   # missing half the sentence
+    ("",                 "je mange du pain"),
+])
+def test_a_genuinely_different_answer_still_reaches_the_judge(typed, expected):
+    assert tutor.answer_matches(typed, expected) is False
+
+
+def test_the_client_normalises_the_same_way(tmp_path):
+    """learn.js mirrors _norm_for_compare so an answer accepted in the browser
+    isn't re-graded on the server. Runs the REAL _normTyped under node."""
+    import json as _json
+    import shutil as _shutil
+    import subprocess as _subprocess
+    if _shutil.which("node") is None:
+        pytest.skip("node not available")
+    learn_js = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "static", "pages", "learn.js")
+    src = open(learn_js, encoding="utf-8").read()
+    start = src.index("function _normTyped(")
+    i = src.index("{", start)
+    depth = 0
+    for j in range(i, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                fn = src[start:j + 1]
+                break
+    cases = ["唔該， 講多一次。", "Je mange, du pain !", "j’ai faim", "«bonjour»",
+             "je bois du pain", "Je  mange   du pain"]
+    prog = fn + "\nconsole.log(JSON.stringify(%s.map(_normTyped)));" % _json.dumps(cases)
+    out = _subprocess.run(["node", "-e", prog], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    assert _json.loads(out.stdout) == [tutor._norm_for_compare(c) for c in cases]
+
+
+# ── The canonical answer is shown whenever the learner produced something else ─
+
+def test_match_kind_separates_the_canonical_answer_from_an_alternative():
+    """`answer` is the form the lesson teaches; `accept` entries are merely also
+    correct. A learner who wrote one of those is right — and is still shown the
+    taught form, which needs the two to be distinguishable."""
+    assert tutor.match_kind("je mange du pain", "Je mange du pain",
+                            ["je prends du pain"]) == "exact"
+    assert tutor.match_kind("Je prends du pain !", "Je mange du pain",
+                            ["je prends du pain"]) == "accept"
+    assert tutor.match_kind("je bois", "Je mange du pain", []) == ""
+    assert tutor.match_kind("", "Je mange du pain", ["x"]) == ""
+
+
+def test_an_empty_accept_list_is_a_legitimate_answer():
+    """Plenty of sentences have exactly one natural rendering. Nothing may
+    require alternatives — an invented one marks a wrong answer right."""
+    assert tutor.match_kind("唔該", "唔該", []) == "exact"
+    assert tutor.answer_matches("唔該", "唔該", []) is True
+    assert tutor.answer_matches("多謝", "唔該", []) is False
+
+
+def test_the_author_prompt_asks_for_alternatives_without_demanding_them():
+    prompt = learning._build_lesson_prompt(
+        "fr", [{"key": "k", "kind": "vocab", "label": "manger", "gloss": "to eat"}], [])
+    assert "accept" in prompt
+    # It must say out loud that an empty list is a correct answer, or a model
+    # asked for "alternatives" will manufacture them.
+    assert "[]` is then\n      the correct answer" in prompt or "`[]`" in prompt
+    assert "never invent" in prompt.lower()
+
+
+@pytest.mark.asyncio
+async def test_an_alternative_is_correct_but_not_exact(client, monkeypatch):
+    """So the player prints "Correct — that works too!" plus the lesson's own
+    answer, and never pays a judge to say it."""
+    async def boom(*a, **k):
+        raise AssertionError("an accept-set hit must not reach the judge")
+    monkeypatch.setattr(tutor, "judge_typed_answer", boom)
+
+    body = (await client.post("/api/lesson/check", json={
+        "prompt": "I eat bread", "expected": "Je mange du pain",
+        "answer": "je prends du pain", "accept": ["Je prends du pain"], "lang": "fr",
+    })).json()
+    assert body["checked"] is True and body["correct"] is True
+    assert body["exact"] is False        # → the canonical answer is shown too
+
+
+@pytest.mark.asyncio
+async def test_the_canonical_answer_matches_exactly(client, monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("an accept-set hit must not reach the judge")
+    monkeypatch.setattr(tutor, "judge_typed_answer", boom)
+
+    body = (await client.post("/api/lesson/check", json={
+        "prompt": "I eat bread", "expected": "Je mange du pain",
+        "answer": "Je mange du pain.", "accept": ["Je prends du pain"], "lang": "fr",
+    })).json()
+    assert body["exact"] is True         # nothing extra to show them

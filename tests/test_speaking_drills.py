@@ -63,7 +63,7 @@ def test_speak_prompt_only_takes_target_language_answers():
     assert main._speak_prompt({
         "type": "choice", "prompt_lang": "english", "prompt": "the book",
         "options": ["本書", "枝筆"], "answer": 0,
-    }) == ("本書", "the book", "")
+    }) == {"target": "本書", "gloss": "the book", "roman": "", "accept": []}
     # Recognition drill: target prompt, ENGLISH options — the "answer" is English.
     assert main._speak_prompt({
         "type": "choice", "prompt_lang": "target", "prompt": "本書",
@@ -73,7 +73,28 @@ def test_speak_prompt_only_takes_target_language_answers():
     assert main._speak_prompt({
         "type": "word_bank", "audio": "我today好攰", "prompt": "I'm tired today",
         "answer_tokens": ["我", "today", "好攰"], "answer_roman": "ngo5 ...",
-    }) == ("我today好攰", "I'm tired today", "ngo5 ...")
+    }) == {"target": "我today好攰", "gloss": "I'm tired today",
+           "roman": "ngo5 ...", "accept": []}
+
+
+def test_a_typed_drills_alternatives_carry_into_the_spoken_one():
+    """The whole point of the accept-set is skipping a paid grader; a spoken
+    answer deserves the same free pass a written one gets."""
+    got = main._speak_prompt({
+        "type": "type_answer", "answer": "je mange du pain", "prompt": "I eat bread",
+        "accept": ["je mange le pain", "  "]})
+    assert got["accept"] == ["je mange le pain"]
+
+
+def test_an_item_with_no_english_falls_back_to_reading_aloud():
+    """A listening drill carries no gloss, so there is nothing to prompt free
+    production WITH — show the line instead of inventing a question."""
+    from_listening = _speaking([{"type": "listening", "options": ["早晨"], "answer": 0}])
+    assert from_listening[0]["read_aloud"] is True
+    from_typed = _speaking([{"type": "type_answer", "answer": "bonjour",
+                             "prompt": "hello"}])
+    assert from_typed[0]["read_aloud"] is False
+    assert from_typed[0]["prompt"] == "hello"      # the learner produces it
 
 
 def test_speak_prompt_rejects_a_broken_answer_index():
@@ -154,7 +175,7 @@ _TTS_FNS = ("function _ttsKey(", "function _ttsUrl(", "function _setTTSHealth(",
             "function _prewarmTTS(", "function playTTS(", "function bindAudioBtn(")
 _TTS_DECLS = ("_ttsCache", "_ttsQueue", "_ttsPending", "_ttsInFlight",
               "TTS_PREWARM_CONCURRENCY", "TTS_PREWARM_TIMEOUT_MS",
-              "_ttsHealth", "_ttsWatchers", "_ttsOkCount")
+              "AUDIO_READY_TIMEOUT_MS", "_ttsHealth", "_ttsWatchers", "_ttsOkCount")
 
 
 def _run(script: str, fns=(), decls=()):
@@ -189,10 +210,12 @@ def _run(script: str, fns=(), decls=()):
     }
     // Just enough of a button for bindAudioBtn to work on.
     function stubBtn() {
+      const cls = new Set();
       return { isConnected: true, disabled: false, title: '', onclick: null,
-               _cls: new Set(),
-               classList: { toggle: function (c, on) { this._cls = on; },
-                            add() {}, remove() {} } };
+               cls,
+               classList: { toggle: (c, on) => { on ? cls.add(c) : cls.delete(c); },
+                            add: c => cls.add(c), remove: c => cls.delete(c),
+                            contains: c => cls.has(c) } };
     }
     const window = { CantoShell: null };     // playTTS asks the shell for the gain graph
     const setTimeoutReal = setTimeout;
@@ -214,6 +237,42 @@ def test_a_clip_that_fails_to_load_is_marked_dead():
       done({ dead, ok: ttsHealth('ok', 'yue'), unknown: ttsHealth('never', 'yue') });
     """, fns=_TTS_FNS, decls=_TTS_DECLS)
     assert res == {"dead": "fail", "ok": "ok", "unknown": "unknown"}
+
+
+@needs_node
+def test_a_speaker_button_is_not_tappable_until_its_clip_is_there():
+    """Reported as "I clicked the speaker and nothing happened". A button that
+    looks live before its clip has arrived is the same lie as one whose clip is
+    dead — it just resolves differently."""
+    res = _run("""
+      Audio.prototype.load = function () {};       // hold the fetch open
+      const btn = stubBtn();
+      bindAudioBtn(btn, 'hello', 'yue');
+      const loading = { disabled: btn.disabled, cls: [...btn.cls], title: btn.title };
+      built[built.length - 1]._emit('loadeddata'); // the clip arrives
+      done({ loading, readyDisabled: btn.disabled, readyCls: [...btn.cls] });
+    """, fns=_TTS_FNS, decls=_TTS_DECLS)
+    assert res["loading"]["disabled"] is True
+    assert "audio-loading" in res["loading"]["cls"]
+    assert res["loading"]["title"]                 # says why it's waiting
+    # …and it goes live the moment the clip is there.
+    assert res["readyDisabled"] is False
+    assert res["readyCls"] == []
+
+
+@needs_node
+def test_a_stuck_clip_does_not_disable_the_button_forever():
+    """A browser that defers loading despite load() must not leave a permanently
+    dead-looking speaker — after the timeout the learner can tap and the play
+    path does its own retry."""
+    res = _run("""
+      Audio.prototype.load = function () {};       // never settles
+      const btn = stubBtn();
+      bindAudioBtn(btn, 'hello', 'yue');
+      done({ stuck: btn.disabled, timeout: AUDIO_READY_TIMEOUT_MS });
+    """, fns=_TTS_FNS, decls=_TTS_DECLS)
+    assert res["stuck"] is True
+    assert res["timeout"] > 0        # …but bounded
 
 
 @needs_node
@@ -331,7 +390,7 @@ def test_dropping_the_last_drill_ends_the_segment():
 
 # ── Client: permissive speech grading ────────────────────────────────────────
 
-_SPEECH_FNS = ("function _speechNorm(", "function _stripTones(",
+_SPEECH_FNS = ("function _normTyped(", "function _speechNorm(", "function _stripTones(",
                "function _editDistance(", "function _speechClose(")
 
 
@@ -355,11 +414,13 @@ def test_the_speaking_drill_runs_end_to_end():
     """Drive the SHIPPED renderer: tap the mic, feed it a transcript, grade it.
 
     A homophone of the target has to pass — the recogniser picks the character,
-    the learner only supplies the sound.
+    the learner only supplies the sound. And a production item must NOT print the
+    answer it is asking for.
     """
     src = open(LEARN_JS, encoding="utf-8").read()
     body = "\n".join(_extract(src, d) for d in (
-        "function esc(", "function _speechNorm(", "function _stripTones(",
+        "function esc(", "function _normTyped(", "function _matchKind(",
+        "function _speechNorm(", "function _stripTones(",
         "function _editDistance(", "function _speechClose(", "function _isLatin(",
         "async function _spokenRoman(", "async function gradeSpoken(",
         "function speechSupported(", "function speechLangFor(")) + "\n" + \
@@ -371,19 +432,20 @@ def test_the_speaking_drill_runs_end_to_end():
     const els = {};
     function el() {
       return { innerHTML: '', textContent: '', className: '', disabled: false,
-               title: '', onclick: null, _cls: [],
-               classList: { add(c) { this._cls = (this._cls || []).concat(c); },
-                            remove() {}, toggle() {} } };
+               style: {}, value: '', title: '', onclick: null, oninput: null,
+               onkeydown: null, focus() {},
+               classList: { add() {}, remove() {}, toggle() {} } };
     }
-    ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen'].forEach(id => els[id] = el());
+    ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen', 'sp-type', 'sp-skip',
+     'sp-input', 'sp-type-wrap'].forEach(id => els[id] = el());
+    const root = { innerHTML: '' };
     const document = {
       getElementById: id => els[id],
-      // esc() builds a throwaway node to escape text.
+      querySelector: () => el(),
       createElement: () => ({ set textContent(v) { this._t = v == null ? '' : String(v); },
                               get innerHTML() { return (this._t || '')
                                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }),
     };
-    // Ruby lookups would hit the network; the offline oracle is tested elsewhere.
     const RUBY_LANGS = new Set(['yue']);
     function needsRuby(l) { return RUBY_LANGS.has(l); }
     function scriptClassFor() { return 'script-chinese'; }
@@ -391,13 +453,16 @@ def test_the_speaking_drill_runs_end_to_end():
     function targetSpan(t) { return esc(t); }
     function bindAudioBtn() {}
     function updateAction() {}
+    function onAction() {}
+    // The server judge — a miss would reach it; this test never wants it to.
+    let judged = 0;
+    async function gradeFreeText() { judged++; return { checked: false }; }
     const _roman = { '唔該借支筆': 'm4 goi1 ze3 zi1 bat1', '唔該借枝筆': 'm4 goi1 ze3 zi1 bat1',
                      '早晨': 'zou2 san4' };
     function _fetchTokens(text) {
       return Promise.resolve([{ roman: _roman[text] || text }]);
     }
 
-    // Stub recogniser: a test feeds it transcripts.
     let live = null;
     class _SpeechRec {
       constructor() { live = this; this.lang = ''; }
@@ -413,27 +478,29 @@ def test_the_speaking_drill_runs_end_to_end():
     """
 
     script = """
-    const root = { innerHTML: '' };
+    // Production mode: an English prompt, and the answer must stay hidden.
     const ex = { type: 'speak', target: '唔該借支筆', prompt: 'excuse me, lend me a pen',
-                 target_roman: 'm4 goi1 ze3 zi1 bat1' };
+                 target_roman: 'm4 goi1 ze3 zi1 bat1', accept: [] };
     const c = SPEAK.render(ex, root, 'yue');
+    const html = root.innerHTML;
     const before = c.isReady();
     els['sp-mic'].onclick();                       // tap the mic
     const langUsed = live.lang;
     live._hear('唔該借枝筆');                        // a homophone, wrong character
     const after = c.isReady();
-    // Captured now: the second drill below re-renders and clears this line.
     const heardShown = els['sp-heard'].innerHTML.includes('枝');
     c.grade().then(ok => {
-      const fb = c.feedback();
-      // A genuinely different phrase must still be wrong.
-      const ex2 = { type: 'speak', target: '早晨', prompt: 'good morning' };
-      const c2 = SPEAK.render(ex2, root, 'yue');
-      els['sp-mic'].onclick();
-      live._hear('唔該借支筆');
-      c2.grade().then(bad => done({
-        before, after, langUsed, ok, checked: fb.checked, bad, heardShown,
-      }));
+      // Read-aloud mode (no English available) still shows the line.
+      const ex2 = { type: 'speak', target: '早晨', read_aloud: true };
+      SPEAK.render(ex2, root, 'yue');
+      done({
+        before, after, langUsed, ok, heardShown, judged,
+        hidesAnswer: !html.includes('唔該借支筆'),
+        showsPrompt: html.includes('lend me a pen'),
+        offersType: html.includes('sp-type'),
+        offersSkip: html.includes('sp-skip'),
+        readAloudShows: root.innerHTML.includes('早晨'),
+      });
     });
     """
     prog = harness + "\n" + body + "\n" + script
@@ -444,8 +511,14 @@ def test_the_speaking_drill_runs_end_to_end():
     assert res["after"] is True
     assert res["langUsed"] == "zh-HK"    # BCP-47 tag, not our internal code
     assert res["heardShown"] is True     # the learner sees what was transcribed
-    assert res["ok"] is True and res["checked"] is True   # homophone accepted
-    assert res["bad"] is False           # but not a different phrase
+    assert res["ok"] is True             # homophone accepted…
+    assert res["judged"] == 0            # …offline, without paying for a judge
+    # The point of the redesign: it asks, it doesn't tell.
+    assert res["hidesAnswer"] is True
+    assert res["showsPrompt"] is True
+    assert res["offersType"] is True and res["offersSkip"] is True
+    # …except when there is no English to ask with.
+    assert res["readAloudShows"] is True
 
 
 @needs_node
@@ -471,3 +544,82 @@ def test_speech_grading_is_permissive_but_not_blind():
     assert res["exact"] and res["punctuation"] and res["spacing"] and res["casing"]
     assert res["embedded"] and res["homophone"] and res["tones"]
     assert not res["wrong"] and not res["empty"] and not res["halfWrong"]
+
+
+@needs_node
+def test_leaving_the_drill_screens_stops_the_audio():
+    """A prompt that follows you out to the course map reads as the app talking
+    to itself — and with the volume boost it was worse: clips routed into a
+    not-yet-running audio context all arrived at once when it woke."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract_decl(src, n) for n in ("_ttsCache",))
+    body += "\n" + "\n".join(_extract(src, d) for d in
+                             ("function _ttsKey(", "function _ttsUrl(",
+                              "function _makeTTSAudio(", "function stopTTS("))
+    script = """
+    const el = new Audio(_ttsUrl('hi', 'yue'));
+    el.paused = false;
+    _audio = el;
+    stopTTS();
+    done({ paused: el.paused, cleared: _audio === null });
+    """
+    harness = """
+    const built = [];
+    let _audio = null;
+    class Audio {
+      constructor(url) { this.src = url; this.paused = true; this.currentTime = 5;
+                         this._handlers = {}; built.push(this); }
+      addEventListener(ev, fn) { (this._handlers[ev] = this._handlers[ev] || []).push(fn); }
+      pause() { this.paused = true; }
+    }
+    function _setTTSHealth() {}
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res == {"paused": True, "cleared": True}
+
+
+@needs_node
+def test_a_valid_alternative_still_shows_the_lessons_own_answer():
+    """"Correct — that works too!" without the taught form leaves the learner
+    with praise and nothing to learn. The distinction rides on `exact`, which
+    the offline accept-set now sets honestly — no judge call involved."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract(src, d) for d in (
+        "function _normTyped(", "function _matchKind(", "function _typedMatches(",
+        "async function gradeFreeText(", "function _correctHead(", "function _expectedLine("))
+    script = """
+    const ex = { answer: 'je mange du pain', accept: ['je prends du pain'], prompt: 'I eat bread' };
+    const exp = '<span>je mange du pain</span>';
+    Promise.all([
+      gradeFreeText('Je mange du pain.', ex, 'fr'),   // the canonical answer
+      gradeFreeText('je prends du pain', ex, 'fr'),   // an author-listed variant
+    ]).then(([canonical, variant]) => done({
+      canonical: { correct: canonical.correct, exact: canonical.exact,
+                   head: _correctHead(canonical),
+                   line: _expectedLine(canonical, exp, false) },
+      variant: { correct: variant.correct, exact: variant.exact,
+                 head: _correctHead(variant),
+                 line: _expectedLine(variant, exp, false) },
+      fetched,
+    }));
+    """
+    harness = """
+    let fetched = 0;
+    function fetch() { fetched++; return Promise.reject(new Error('no network in this test')); }
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res["fetched"] == 0                       # both settled offline
+    assert res["canonical"]["correct"] is True and res["canonical"]["exact"] is True
+    assert res["canonical"]["head"] == "Correct!"
+    assert res["canonical"]["line"] == ""            # they wrote it — nothing to add
+    assert res["variant"]["correct"] is True and res["variant"]["exact"] is False
+    assert res["variant"]["head"] == "Correct — that works too!"
+    assert "je mange du pain" in res["variant"]["line"]

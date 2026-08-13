@@ -408,6 +408,14 @@
     .audio-play.audio-dead {
       opacity: .45; cursor: not-allowed; color: var(--text-muted); border-style: dashed;
     }
+    /* Not fetched YET. A speaker that looks pressable but can't play anything is
+       the same lie as a dead one, so it waits visibly instead. */
+    .audio-play.audio-loading {
+      opacity: .5; cursor: progress; color: var(--text-muted);
+      animation: audio-wait 1.4s ease-in-out infinite;
+    }
+    @keyframes audio-wait { 0%, 100% { opacity: .35; } 50% { opacity: .6; } }
+    @media (prefers-reduced-motion: reduce) { .audio-play.audio-loading { animation: none; } }
 
     /* 🎤 Speaking drill */
     .speak-target { text-align: center; font-size: 2rem; margin: 10px 0 4px; font-family: var(--script-font, inherit); overflow-wrap: break-word; min-width: 0; line-height: 2; }
@@ -422,13 +430,19 @@
     @media (prefers-reduced-motion: reduce) { .speak-mic.live { animation: none; } }
     .speak-heard { text-align: center; min-height: 1.4em; color: var(--text); font-size: 1.05rem; }
     .speak-heard.muted { color: var(--text-muted); font-size: 0.92rem; }
+    /* Nobody is ever stuck on a speaking drill: type it, or skip and see it. */
+    .speak-alt { display: flex; justify-content: center; gap: 18px; margin-top: 14px; }
+    .speak-alt-btn { background: none; border: none; color: var(--text-muted); font-size: 0.9rem;
+      padding: 6px 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .speak-alt-btn:hover { color: var(--text); }
+    #sp-type-wrap { margin-top: 14px; }
 
     /* ⚑ Report a bad drill / teach block. Deliberately quiet — always reachable,
        never competing with the answer the learner is meant to be giving. */
-    .report-row { text-align: center; margin: 18px 0 4px; }
-    .report-link { background: none; border: none; color: var(--text-muted); font-size: 0.82rem;
-      padding: 6px 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-    .report-link:hover { color: var(--text); }
+    .report-row { text-align: right; margin: 4px 2px 0; line-height: 1; }
+    .report-link { background: none; border: none; color: var(--text-muted); font-size: 0.9rem;
+      padding: 6px 8px; cursor: pointer; opacity: .38; line-height: 1; }
+    .report-link:hover { opacity: .9; }
     .report-note { width: 100%; box-sizing: border-box; min-height: 0; margin: 4px 0 0;
       border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 12px;
       font: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text); resize: vertical; }

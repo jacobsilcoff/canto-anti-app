@@ -105,22 +105,22 @@ def test_a_rejected_value_does_not_break_page_load():
 # hence Web Audio: element → gain → limiter. The rule that matters is that the
 # DEFAULT touches nothing: audio that works outranks audio that's louder.
 
-def _gain(script, *, web_audio=True, throws=False):
+def _gain(script, *, web_audio=True, throws=False, running=False):
     """Run the real gain helpers out of app-shell.js against a stubbed context."""
     src = open(SHELL_JS, encoding="utf-8").read()
     decls = "let _actx = null, _gainNode = null, _routed = null, _audioGain = 1;\n"
     decls += "const AUDIO_GAIN_MIN = 0.5, AUDIO_GAIN_MAX = 3;\n"
     fns = "\n".join(_extract(src, d) for d in (
         "function clampGain(", "function audioGraph(", "function prepareAudio(",
-        "function setAudioGain(", "function unlockAudioOnGesture("))
-    fns = "let _unlockArmed = false;\n" + fns
+        "function resumeAudio(", "function setAudioGain(", "function keepAudioRunning("))
+    fns = "let _keepArmed = false;\n" + fns
 
     harness = f"""
     const routedCalls = [];
     let resumed = 0;
     class GainNode {{ constructor() {{ this.gain = {{ value: 1 }}; }} connect() {{}} }}
     class Ctx {{
-      constructor() {{ this.state = 'suspended'; this.destination = {{}}; }}
+      constructor() {{ this.state = START_STATE; this.destination = {{}}; }}
       createGain() {{ return new GainNode(); }}
       createDynamicsCompressor() {{
         return {{ threshold: {{}}, knee: {{}}, ratio: {{}}, attack: {{}}, release: {{}},
@@ -131,8 +131,14 @@ def _gain(script, *, web_audio=True, throws=False):
         routedCalls.push(el.id);
         return {{ connect() {{}} }};
       }}
-      resume() {{ resumed++; this.state = 'running'; return Promise.resolve(); }}
+      // Async on purpose: a real resume() settles later (and on iOS only inside
+      // a gesture), which is exactly why a clip must not be routed on the
+      // strength of having just asked for one.
+      resume() {{ resumed++; const self = this;
+                  return Promise.resolve().then(() => {{ self.state = 'running'; }}); }}
+      addEventListener() {{}}
     }}
+    const START_STATE = {json.dumps('running' if running else 'suspended')};
     const listeners = [];
     const document = {{ addEventListener: (ev, fn) => listeners.push(ev) }};
     const window = {json.dumps(web_audio)} ? {{ AudioContext: Ctx }} : {{}};
@@ -166,11 +172,38 @@ def test_a_boost_routes_each_element_once():
       prepareAudio(el);
       prepareAudio(el);
       prepareAudio({ id: 'other' });
-      done({ routed: routedCalls, gain: _gainNode.gain.value, resumed });
-    """)
+      done({ routed: routedCalls, gain: _gainNode.gain.value });
+    """, running=True)
     assert res["routed"] == ["clip", "other"]
     assert res["gain"] == 1.8
-    assert res["resumed"] >= 1          # a suspended context is resumed to play
+
+
+def test_a_clip_is_never_routed_into_a_sleeping_context():
+    """The bug this rule exists for: a routed element's sound goes ONLY through
+    the graph, so routing into a suspended context makes the tap silent while the
+    element plays on — and every clip stacked up that way arrives at once when a
+    later gesture wakes it ("the speaker did nothing, then leaving the lesson
+    played several sounds over each other"). Play it natively instead."""
+    res = _gain("""
+      setAudioGain(2);
+      prepareAudio({ id: 'clip' });
+      done({ routed: routedCalls.length, resumed, state: _actx.state });
+    """)
+    assert res["routed"] == 0        # unboosted this time…
+    assert res["resumed"] >= 1       # …and awake for the next one
+
+
+def test_the_next_clip_is_routed_once_the_context_wakes():
+    res = _gain("""
+      setAudioGain(2);
+      prepareAudio({ id: 'first' });          // context asleep — plays natively
+      Promise.resolve().then(() => {          // resume() lands
+        prepareAudio({ id: 'second' });
+        done({ routed: routedCalls, state: _actx.state });
+      });
+    """)
+    assert res["routed"] == ["second"]
+    assert res["state"] == "running"
 
 
 def test_changing_the_volume_moves_the_gain_live():
@@ -179,7 +212,7 @@ def test_changing_the_volume_moves_the_gain_live():
       prepareAudio({ id: 'clip' });
       setAudioGain(0.7);
       done({ gain: _gainNode.gain.value });
-    """)
+    """, running=True)
     assert res["gain"] == 0.7
 
 
@@ -208,19 +241,20 @@ def test_a_failed_route_never_blocks_playback():
       setAudioGain(2);
       prepareAudio({ id: 'clip' });
       done({ routed: routedCalls.length, threw: false });
-    """, throws=True)
+    """, throws=True, running=True)
     assert res == {"routed": 0, "threw": False}
 
 
-def test_a_boost_arms_the_gesture_unlock():
-    """An auto-playing listening drill is not a user gesture, and a context that
-    was never resumed plays into silence."""
+def test_a_boost_keeps_the_context_awake_on_every_gesture():
+    """Not a one-shot: iOS suspends a context on any audio interruption, and a
+    context that goes back to sleep silences every element routed through it."""
     res = _gain("""
       setAudioGain(2.2);
-      done({ listeners: listeners.slice(), armed: _unlockArmed });
+      done({ listeners: listeners.slice(), armed: _keepArmed, ctx: !!_actx });
     """)
     assert res["armed"] is True
     assert "pointerdown" in res["listeners"]
+    assert res["ctx"] is True          # built up front, ready for the first tap
 
 
 # ── Server: the stored multiplier ────────────────────────────────────────────
