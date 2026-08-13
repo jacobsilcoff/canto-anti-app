@@ -539,15 +539,19 @@ _DRILL_KINDS = """\
     → TYPED. No options: the learner writes the sentence themselves. This is the
       only drill that practises free production, so it is the most valuable one
       here.
-      LIST 2–4 ALTERNATIVES IN `accept` whenever the language allows more than
-      one natural rendering — this is not optional padding. A learner who says it
-      a different correct way is otherwise sent to a slow paid grader to be told
-      what you already knew. Work through: an optional subject pronoun kept or
-      dropped; a particle or classifier the language permits either way; a
-      natural word-order variant; a common synonym; a more/less formal register.
-      Do NOT pad it with wrong or unnatural forms, and do not list mere
-      punctuation or spacing changes — those are already ignored when grading.
-  {"kind":"type_cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","accept":["<every OTHER form that correctly fills this blank — list them all; the blank usually has few>", ...],"gloss":"<English translation of the COMPLETE sentence with the answer filled in>"}
+      `answer` is the CANONICAL answer — the one the learner is shown if they
+      produce anything else — so make it the rendering you would teach.
+      In `accept`, list every OTHER rendering a careful native speaker would call
+      fully correct and equally natural here: an optional subject pronoun kept or
+      dropped, a particle or classifier the language allows either way, a natural
+      word-order variant, a synonym at the same register. Each one you list is a
+      learner told INSTANTLY they were right instead of waiting on a grader.
+      But **many sentences have exactly one natural rendering, and `[]` is then
+      the correct answer** — never invent an alternative to fill the field. A
+      form that is merely tolerable, or wrong, marks a wrong answer CORRECT,
+      which is far worse than the moment a grader takes. Don't list punctuation
+      or spacing variants either: those are already ignored when grading.
+  {"kind":"type_cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","accept":["<every OTHER form that correctly fills this blank; empty when only one does>", ...],"gloss":"<English translation of the COMPLETE sentence with the answer filled in>"}
     → TYPED cloze: the learner types the missing word instead of picking it.
       Use when the blank has one clear answer and typing it is the point
       (conjugations, classifiers, particles)."""
@@ -818,9 +822,9 @@ def _build_lesson_prompt(
         f"• the rest may be recognition/listening/production/cloze/match.\n"
         f"For `translate`, keep the English short and unambiguous (4–10 words) so there "
         f"is a clearly best answer, and build it from words this lesson taught plus "
-        f"vocabulary the learner already knows — never a word they have not met. Fill in "
-        f"`accept` properly (see the kind spec): every natural rendering you list is a "
-        f"learner told INSTANTLY they were right instead of waiting on a grader.\n"
+        f"vocabulary the learner already knows — never a word they have not met. Put any "
+        f"OTHER equally natural rendering in `accept` (see the kind spec) — and leave it "
+        f"empty when there genuinely is only one.\n"
         f"{_DRILL_TIER_GUIDANCE}"
         f"EVERY target-language field — `target`, `sentence`, `answer`, reorder "
         f"`tokens`, match `target` — must be written in {name}. English belongs only "

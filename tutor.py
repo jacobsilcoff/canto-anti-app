@@ -1157,15 +1157,30 @@ def _english_note(note: str) -> str:
     return s
 
 
+def match_kind(answer: str, expected: str, accept: list[str] | None = None) -> str:
+    """Which accepted form this answer is: "exact" for the lesson's own canonical
+    answer, "accept" for one of the listed alternatives, "" for neither.
+
+    The distinction is what lets the learner be SHOWN the canonical answer
+    whenever they produced something else — a valid variant is still worth
+    seeing the taught form beside. Mirrored client-side by `_matchKind`.
+    """
+    got = _norm_for_compare(answer)
+    if not got:
+        return ""
+    if (expected or "").strip() and got == _norm_for_compare(expected):
+        return "exact"
+    for alt in (accept or []):
+        if (alt or "").strip() and got == _norm_for_compare(alt):
+            return "accept"
+    return ""
+
+
 def answer_matches(answer: str, expected: str, accept: list[str] | None = None) -> bool:
     """Offline accept-set check — the free path. Runs before any LLM call, so the
     common case (the learner typed one of the forms the author listed) costs
     nothing and returns instantly."""
-    got = _norm_for_compare(answer)
-    if not got:
-        return False
-    candidates = [expected] + list(accept or [])
-    return any(got == _norm_for_compare(c) for c in candidates if (c or "").strip())
+    return bool(match_kind(answer, expected, accept))
 
 
 async def judge_typed_answer(

@@ -2111,12 +2111,20 @@
     try { return out.replace(/[\s\p{P}\p{S}]/gu, ''); }
     catch { return out.replace(/[\s.,!?;:'"()\[\]{}<>«»…—–\-。，、！？；：「」『』（）]/g, ''); }
   }
-  function _typedMatches(typed, expected, accept) {
+  // Which accepted form an answer is: 'exact' for the lesson's own canonical
+  // answer, 'accept' for one of the listed alternatives, '' for neither. The
+  // distinction is what shows the learner the taught form whenever they produced
+  // something else — a valid variant is still worth seeing it beside.
+  // Mirrors tutor.match_kind.
+  function _matchKind(typed, expected, accept) {
     const got = _normTyped(typed);
-    if (!got) return false;
-    return [expected, ...(accept || [])]
-      .filter(c => (c || '').trim())
-      .some(c => _normTyped(c) === got);
+    if (!got) return '';
+    if ((expected || '').trim() && _normTyped(expected) === got) return 'exact';
+    return (accept || []).some(c => (c || '').trim() && _normTyped(c) === got)
+      ? 'accept' : '';
+  }
+  function _typedMatches(typed, expected, accept) {
+    return !!_matchKind(typed, expected, accept);
   }
   function scriptClassFor(code) { const l = LANGS.find(x => x.code === code); return 'script-' + ((l && l.script_family) || 'latin'); }
 
@@ -2375,11 +2383,13 @@
   // transcript and "type it instead" box, so there is ONE notion of whether an
   // answer is right — a learner shouldn't be graded differently for saying a
   // sentence than for writing it.
-  async function gradeFreeText(text, ex, lang) {
+  async function gradeFreeText(text, ex, lang, onNetwork) {
     const expected = ex.answer != null ? ex.answer : (ex.target || '');
-    if (_typedMatches(text, expected, ex.accept)) {
-      return { checked: true, correct: true, exact: true };
-    }
+    const kind = _matchKind(text, expected, ex.accept);
+    // `exact` false for an author-listed alternative, so the feedback shows the
+    // canonical answer beside it — for free, with no judge call.
+    if (kind) return { checked: true, correct: true, exact: kind === 'exact' };
+    if (onNetwork) onNetwork();
     try {
       const res = await fetch('/api/lesson/check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2836,16 +2846,12 @@
         return {
           isReady: () => input.value.trim().length > 0,
           async grade() {
-            const typed = input.value.trim();
             // The offline accept-set answers the common case for free; only a
             // genuinely different rendering reaches the server judge.
-            if (_typedMatches(typed, ex.answer, ex.accept)) {
-              result = { checked: true, correct: true, exact: true };
-              return true;
-            }
-            status.textContent = 'Checking…';
-            status.className = 'type-status checking';
-            result = await gradeFreeText(typed, ex, lang);
+            result = await gradeFreeText(input.value.trim(), ex, lang, () => {
+              status.textContent = 'Checking…';
+              status.className = 'type-status checking';
+            });
             status.textContent = ''; status.className = 'type-status';
             return !!(result && result.checked && result.correct);
           },
@@ -3032,7 +3038,10 @@
             // noise); a genuinely different rendering falls through to the same
             // judge a typed answer would meet.
             if (await gradeSpoken(heard.length ? heard : [shown], ex, lang)) {
-              result = { checked: true, correct: true, exact: true };
+              // Said it right, but the recogniser's transcript is rarely the
+              // canonical line — show that line unless they nailed it verbatim.
+              result = { checked: true, correct: true,
+                         exact: _matchKind(shown, ex.target, ex.accept) === 'exact' };
               return true;
             }
             result = await gradeFreeText(shown, ex, lang);

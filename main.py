@@ -6950,9 +6950,13 @@ async def lesson_check(request: Request, req: TypedAnswerRequest,
     lang = req.lang if req.lang in translation.LANG_INFO else await _tutor_lang(user)
     accept = [a for a in (req.accept or [])[:12] if (a or "").strip()]
 
-    # Free path — no LLM, no metering, no latency.
-    if tutor.answer_matches(answer, expected, accept):
-        return {"checked": True, "correct": True, "corrected": "", "note": "", "exact": True}
+    # Free path — no LLM, no metering, no latency. `exact` says whether it was
+    # the CANONICAL answer or one of the author's alternatives: the client shows
+    # the lesson's own answer beside anything that wasn't it.
+    kind = tutor.match_kind(answer, expected, accept)
+    if kind:
+        return {"checked": True, "correct": True, "corrected": "", "note": "",
+                "exact": kind == "exact"}
 
     # Resolve the key best-effort. No key (self-hosted with none configured, or
     # quota exhausted) must NOT 503 the drill — mid-lesson that reads as the

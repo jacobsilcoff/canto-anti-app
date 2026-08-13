@@ -419,7 +419,8 @@ def test_the_speaking_drill_runs_end_to_end():
     """
     src = open(LEARN_JS, encoding="utf-8").read()
     body = "\n".join(_extract(src, d) for d in (
-        "function esc(", "function _normTyped(", "function _speechNorm(", "function _stripTones(",
+        "function esc(", "function _normTyped(", "function _matchKind(",
+        "function _speechNorm(", "function _stripTones(",
         "function _editDistance(", "function _speechClose(", "function _isLatin(",
         "async function _spokenRoman(", "async function gradeSpoken(",
         "function speechSupported(", "function speechLangFor(")) + "\n" + \
@@ -579,3 +580,46 @@ def test_leaving_the_drill_screens_stops_the_audio():
     assert out.returncode == 0, out.stderr
     res = json.loads(out.stdout.strip().splitlines()[-1])
     assert res == {"paused": True, "cleared": True}
+
+
+@needs_node
+def test_a_valid_alternative_still_shows_the_lessons_own_answer():
+    """"Correct — that works too!" without the taught form leaves the learner
+    with praise and nothing to learn. The distinction rides on `exact`, which
+    the offline accept-set now sets honestly — no judge call involved."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = "\n".join(_extract(src, d) for d in (
+        "function _normTyped(", "function _matchKind(", "function _typedMatches(",
+        "async function gradeFreeText(", "function _correctHead(", "function _expectedLine("))
+    script = """
+    const ex = { answer: 'je mange du pain', accept: ['je prends du pain'], prompt: 'I eat bread' };
+    const exp = '<span>je mange du pain</span>';
+    Promise.all([
+      gradeFreeText('Je mange du pain.', ex, 'fr'),   // the canonical answer
+      gradeFreeText('je prends du pain', ex, 'fr'),   // an author-listed variant
+    ]).then(([canonical, variant]) => done({
+      canonical: { correct: canonical.correct, exact: canonical.exact,
+                   head: _correctHead(canonical),
+                   line: _expectedLine(canonical, exp, false) },
+      variant: { correct: variant.correct, exact: variant.exact,
+                 head: _correctHead(variant),
+                 line: _expectedLine(variant, exp, false) },
+      fetched,
+    }));
+    """
+    harness = """
+    let fetched = 0;
+    function fetch() { fetched++; return Promise.reject(new Error('no network in this test')); }
+    function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res["fetched"] == 0                       # both settled offline
+    assert res["canonical"]["correct"] is True and res["canonical"]["exact"] is True
+    assert res["canonical"]["head"] == "Correct!"
+    assert res["canonical"]["line"] == ""            # they wrote it — nothing to add
+    assert res["variant"]["correct"] is True and res["variant"]["exact"] is False
+    assert res["variant"]["head"] == "Correct — that works too!"
+    assert "je mange du pain" in res["variant"]["line"]
