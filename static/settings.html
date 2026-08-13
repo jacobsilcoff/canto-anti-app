@@ -229,7 +229,7 @@
       <div class="settings-row">
         <div>
           <div class="settings-label">Play sound over my music</div>
-          <div class="settings-desc">Let audio play alongside music or a podcast instead of stopping it. Turn off if you'd rather sound always play at full volume on its own.</div>
+          <div class="settings-desc"><b>Off is the safe setting.</b> On, app audio plays alongside music or a podcast instead of stopping it — but iOS silences that kind of audio completely when your phone's ring switch is on silent (or a Focus is on), so you may hear nothing at all. Off always plays, and pauses whatever else is going.</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="settings-audio-mix" onchange="saveAudioMix()">
@@ -241,6 +241,7 @@
           <div class="settings-label">Audio volume</div>
           <div class="settings-desc">Turn app audio up so it carries over music or a podcast. 100% is the clip as recorded; above that it's boosted (with a limiter, so it won't distort). Tap Test to hear it.</div>
           <button type="button" class="settings-btn" id="settings-volume-test" onclick="testAudioVolume()" style="margin-top:8px">🔊 Test</button>
+          <div class="settings-desc" style="margin-top:6px">Hear nothing? Check your phone isn't on silent, and try turning "Play sound over my music" off — that kind of audio is muted by the ring switch.</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;min-width:130px">
           <input type="range" id="settings-audio-volume" min="50" max="300" step="10" value="100"

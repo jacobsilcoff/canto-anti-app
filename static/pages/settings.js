@@ -519,7 +519,7 @@
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
     document.getElementById('settings-speaking').checked = settings.speaking_drills !== false;
-    document.getElementById('settings-audio-mix').checked = settings.audio_mix !== false;
+    document.getElementById('settings-audio-mix').checked = settings.audio_mix === true;
     _setVolumeSlider(settings.audio_volume);
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
@@ -726,7 +726,9 @@
         window.CantoShell.patch('settings', { audio_mix: checked });
         window.CantoShell.applyAudioSession({ audio_mix: checked });
       }
-      showToast(checked ? 'Sound will play over your music.' : 'Sound will play on its own.');
+      showToast(checked
+        ? 'Sound will play over your music — but not while your phone is on silent.'
+        : 'Sound will always play, pausing other audio.');
     } catch {
       document.getElementById('settings-audio-mix').checked = !checked;
       showToast('Failed to save setting.');

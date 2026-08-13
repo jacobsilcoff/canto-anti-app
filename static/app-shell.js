@@ -108,31 +108,37 @@
     });
   };
 
-  // ── Audio session: don't stop the user's music ────────────────────────────
-  // iOS treats a page that plays an <audio> element as exclusive playback, so
-  // every flashcard clip and lesson prompt PAUSES whatever the user was
-  // listening to — and podcasts/music don't always resume. The Audio Session
-  // API lets a page say what kind of audio it is:
-  //   'transient'  — short prompts that play OVER other audio, ducking it
-  //                  briefly (driving-directions semantics). What we are.
-  //   'playback'   — exclusive; stops other audio. Safari's effective default
-  //                  for media elements, and the behaviour being fixed here.
-  //   'ambient'    — mixes, but is silenced by the Ring/Silent switch.
-  // We choose 'transient': it mixes like 'ambient' without giving up audio to
-  // the mute switch, which would silently break listening drills for anyone
-  // whose phone is on silent. Unsupported browsers just keep their current
-  // behaviour — this is a progressive enhancement, never a requirement.
+  // ── Audio session: mixing vs. being heard at all ──────────────────────────
+  // iOS treats a page playing an <audio> element as exclusive playback, so a
+  // flashcard clip PAUSES whatever the learner was listening to — and podcasts
+  // don't reliably resume. The Audio Session API lets a page declare what kind
+  // of audio it is, and the choice is a genuine trade-off, not a free win:
   //
-  // Only Safari implements this (enabled by default since 16.4), so Android
-  // Chrome still takes audio focus and there is no web API to stop it. How
-  // faithfully 'transient' ducks rather than interrupts is up to the UA, so if
-  // it turns out to still interrupt on some iOS version, 'ambient' is the
-  // fallback — accepting the mute-switch tradeoff. One word, here.
+  //   'playback'   — media playback. Stops other audio, and is NOT silenced by
+  //                  the Ring/Silent switch. Always audible.
+  //   'transient'  — short prompts that play OVER other audio, ducking it
+  //                  (turn-by-turn-directions semantics)…
+  //   'ambient'    — …and likewise mixes…
+  //
+  // …but BOTH of the mixing types are silence-able: on iOS a phone with the
+  // ringer switched to silent (or a Focus on) plays neither of them, at all.
+  // There is no category that mixes AND ignores the mute switch.
+  //
+  // This defaulted to 'transient' on the mistaken belief that only 'ambient'
+  // gave up audio to the mute switch. The result was that every learner with
+  // their phone on silent — a lot of iPhone owners — got a completely mute app:
+  // clips fetched fine, elements reported playing, and nothing came out, on
+  // every screen. That is a far worse failure than interrupting a podcast, so
+  // the default is now the audible one and mixing is opt-in, with the
+  // consequence spelled out on the setting.
+  //
+  // Only Safari implements this (default since 16.4); Android Chrome takes
+  // audio focus with no web API to prevent it.
   function applyAudioSession(settings) {
     const session = navigator.audioSession;
     if (!session) return;
     try {
-      session.type = (settings && settings.audio_mix === false) ? 'playback' : 'transient';
+      session.type = (settings && settings.audio_mix === true) ? 'transient' : 'playback';
     } catch (e) { /* unsupported value — leave the UA default alone */ }
   }
 

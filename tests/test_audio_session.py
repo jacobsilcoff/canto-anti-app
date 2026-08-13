@@ -1,14 +1,15 @@
-"""Playing a clip must not stop the user's music.
+"""Being heard beats not interrupting.
 
-iOS treats a page playing an <audio> element as exclusive playback, so every
-flashcard clip and lesson prompt paused whatever the learner was listening to —
-and podcasts don't reliably resume. The Audio Session API lets the page declare
-what kind of audio it is; 'transient' plays over other audio (ducking it) the
-way turn-by-turn directions do.
+The Audio Session API lets a page declare what kind of audio it is, and the
+choice is a real trade-off. 'playback' stops the user's music but is never
+silenced. Both mixing types — 'transient' and 'ambient' — play over other audio
+AND are silenced completely by the iPhone's Ring/Silent switch.
 
-'ambient' would also mix, but is silenced by the Ring/Silent switch — that would
-quietly break listening drills for anyone whose phone is on silent, which is a
-worse bug than the one being fixed. These tests pin that choice.
+This defaulted to 'transient' on the mistaken belief that only 'ambient' gave up
+audio to the mute switch. Every learner with their phone on silent then got a
+totally mute app: clips fetched, elements reported playing, nothing came out, on
+every screen. Silence everywhere is a far worse failure than pausing a podcast,
+so the default is the audible one and mixing is opt-in. These tests pin that.
 
 Runs the real applyAudioSession out of static/app-shell.js under node.
 """
@@ -78,23 +79,27 @@ def _apply(settings, *, supported=True, throws=False):
     return json.loads(out.stdout)["assigned"]
 
 
-def test_audio_mixes_with_other_playback_by_default():
-    """The default has to be the non-destructive one — a flashcard clip killing
-    someone's podcast is never what they wanted."""
-    assert _apply({}) == "transient"
+def test_the_default_is_always_audible():
+    """A silenced app is the worst outcome available, and it is what a mixing
+    default produces for every learner whose phone is on silent."""
+    assert _apply({}) == "playback"
+    assert _apply(None) == "playback"
+    assert _apply({"audio_mix": False}) == "playback"
+    # A stale/odd stored value must not silently opt someone into mixing.
+    assert _apply({"audio_mix": "true"}) == "playback"
+
+
+def test_mixing_is_opt_in():
+    """Explicitly asked for — and the setting says out loud that the ring switch
+    mutes it."""
     assert _apply({"audio_mix": True}) == "transient"
-    assert _apply(None) == "transient"
 
 
 def test_never_picks_ambient():
-    """'ambient' mixes too, but the Ring/Silent switch mutes it — listening
-    drills would go silent with no explanation."""
+    """'ambient' is silence-able like 'transient' but ALSO gives up nothing in
+    return, so it is never the right answer."""
     for settings in ({}, {"audio_mix": True}, {"audio_mix": False}):
         assert _apply(settings) != "ambient"
-
-
-def test_turning_the_setting_off_restores_exclusive_playback():
-    assert _apply({"audio_mix": False}) == "playback"
 
 
 def test_browsers_without_the_api_are_left_alone():
@@ -296,3 +301,12 @@ def test_audio_volume_setting_is_clamped_server_side():
     # Anything unreadable means "as recorded", never silence.
     for junk in (None, "", "loud", 0, float("nan")):
         assert main._audio_volume(junk) == 1.0
+
+
+def test_the_setting_default_matches_the_client():
+    """Server default and client fallback must agree, or a fresh account's first
+    page load picks a different session type than /api/settings reports."""
+    import inspect
+    import main
+    src = inspect.getsource(main.get_settings)
+    assert '"audio_mix": (await db.get_setting(user["id"], "audio_mix") or "false") == "true"' in src
