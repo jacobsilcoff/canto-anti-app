@@ -430,6 +430,9 @@
     @media (prefers-reduced-motion: reduce) { .speak-mic.live { animation: none; } }
     .speak-heard { text-align: center; min-height: 1.4em; color: var(--text); font-size: 1.05rem; }
     .speak-heard.muted { color: var(--text-muted); font-size: 0.92rem; }
+    /* Grading a spoken answer can go to the network. Saying so is the difference
+       between "it's thinking" and "it's frozen". */
+    .sp-checking { color: var(--text-muted); font-size: 0.92rem; }
     /* Nobody is ever stuck on a speaking drill: type it, or skip and see it. */
     .speak-alt { display: flex; justify-content: center; gap: 18px; margin-top: 14px; }
     .speak-alt-btn { background: none; border: none; color: var(--text-muted); font-size: 0.9rem;
