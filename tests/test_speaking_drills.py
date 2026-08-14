@@ -409,6 +409,19 @@ def _extract_type(src: str, name: str) -> str:
     raise AssertionError(f"unbalanced braces extracting {name}")
 
 
+def _speak_body(src: str) -> str:
+    """The shipped speak renderer plus everything it closes over."""
+    return "\n".join(_extract_decl(src, n) for n in
+                     ("SPEECH_START_MS", "SPEECH_MAX_MS")) + "\n" + \
+        "\n".join(_extract(src, d) for d in (
+            "function esc(", "function _normTyped(", "function _matchKind(",
+            "function _speechNorm(", "function _stripTones(",
+            "function _editDistance(", "function _speechClose(", "function _isLatin(",
+            "async function _spokenRoman(", "async function gradeSpoken(",
+            "function speechSupported(", "function speechLangFor(")) + "\n" + \
+        _extract_type(src, "speak")
+
+
 @needs_node
 def test_the_speaking_drill_runs_end_to_end():
     """Drive the SHIPPED renderer: tap the mic, feed it a transcript, grade it.
@@ -418,13 +431,7 @@ def test_the_speaking_drill_runs_end_to_end():
     answer it is asking for.
     """
     src = open(LEARN_JS, encoding="utf-8").read()
-    body = "\n".join(_extract(src, d) for d in (
-        "function esc(", "function _normTyped(", "function _matchKind(",
-        "function _speechNorm(", "function _stripTones(",
-        "function _editDistance(", "function _speechClose(", "function _isLatin(",
-        "async function _spokenRoman(", "async function gradeSpoken(",
-        "function speechSupported(", "function speechLangFor(")) + "\n" + \
-        _extract_type(src, "speak")
+    body = _speak_body(src)
 
     harness = """
     const LANGS = [{ code: 'yue', speech_lang: 'zh-HK' }];
@@ -519,6 +526,276 @@ def test_the_speaking_drill_runs_end_to_end():
     assert res["offersType"] is True and res["offersSkip"] is True
     # …except when there is no English to ask with.
     assert res["readAloudShows"] is True
+
+
+# ── A recogniser that never answers must not take the lesson with it ─────────
+#
+# `start()` returning into total silence — no onstart, no onresult, no onerror,
+# no onend — is a real device state (an Android build with no recognition
+# service, an iOS session where something else holds the mic, an unreachable
+# speech backend). Nothing else will ever fire, so without a watchdog the drill
+# sits on "Listening…" with Check disabled and the lesson is over: the reported
+# "voice input freezes the app".
+
+_SPEAK_LIFECYCLE_HARNESS = """
+const LANGS = [{ code: 'yue', speech_lang: 'zh-HK' }];
+const player = { graded: false, lang: 'yue' };
+let _speechDead = false;
+const els = {};
+function el() {
+  const cls = new Set();
+  return { innerHTML: '', textContent: '', className: '', disabled: false,
+           style: {}, value: '', title: '', onclick: null, oninput: null,
+           onkeydown: null, focus() {},
+           classList: { add: c => cls.add(c), remove: c => cls.delete(c),
+                        toggle: () => {}, contains: c => cls.has(c) } };
+}
+['sp-mic', 'sp-label', 'sp-heard', 'sp-listen', 'sp-type', 'sp-skip',
+ 'sp-input', 'sp-type-wrap'].forEach(id => els[id] = el());
+// Everything the status line was ever asked to show, so a transient state
+// (like "Checking…") can be observed after the fact.
+const _writes = [];
+Object.defineProperty(els['sp-heard'], 'innerHTML', {
+  get() { return this._h || ''; },
+  set(v) { this._h = v; _writes.push(v); },
+});
+const root = { innerHTML: '' };
+const document = {
+  getElementById: id => els[id],
+  querySelector: () => el(),
+  createElement: () => ({ set textContent(v) { this._t = v == null ? '' : String(v); },
+                          get innerHTML() { return (this._t || '')
+                            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }),
+};
+function needsRuby(l) { return l === 'yue'; }
+function scriptClassFor() { return 'script-chinese'; }
+function targetSpan(t) { return esc(t); }
+function bindAudioBtn() {}
+function updateAction() {}
+function onAction() {}
+async function gradeFreeText() { return { checked: false }; }
+// Fake clock: the watchdogs are the thing under test. Installed on globalThis
+// (a `function setTimeout` declaration would land there anyway, before any
+// const could capture the real one).
+const _timers = [];
+globalThis.setTimeout = (fn, ms) => { _timers.push({ fn, ms }); return _timers.length; };
+globalThis.clearTimeout = (id) => { if (id) _timers[id - 1] = null; };
+function fire(ms) { _timers.slice().forEach((t, i) => {
+  if (t && t.ms === ms) { _timers[i] = null; t.fn(); } }); }
+// A recogniser that does exactly what it is told to do — including nothing.
+let live = null;
+let aborted = 0;
+class _SpeechRec {
+  constructor() { live = this; this.lang = ''; this.started = false; }
+  start() { this.started = true; if (MODE === 'normal') this.onstart && this.onstart(); }
+  stop() { if (MODE === 'normal') this.onend && this.onend(); }
+  abort() { aborted++; }
+  _hear(text) {
+    this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign(
+      [{ transcript: text }], { isFinal: true })] });
+  }
+  _end() { this.onend && this.onend(); }
+}
+function _fetchTokens(text) { return Promise.resolve([{ roman: text }]); }
+function done(o) { console.log(JSON.stringify(o)); process.exit(0); }
+"""
+
+
+def _speak_lifecycle(script: str, mode: str = "normal"):
+    src = open(LEARN_JS, encoding="utf-8").read()
+    prog = (f"const MODE = {json.dumps(mode)};\n" + _SPEAK_LIFECYCLE_HARNESS
+            + "\n" + _speak_body(src) + "\n" + script)
+    out = subprocess.run(["node", "-e", prog], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+@needs_node
+def test_a_recogniser_that_never_starts_does_not_hang_the_drill():
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      const stuck = c.isReady();              // still waiting on the recogniser
+      fire(SPEECH_START_MS);                  // …and it never answered
+      c.grade().then(correct => done({
+        stuck, correct, ready: c.isReady(), dead: _speechDead,
+        uncheckable: c.uncheckable(), reason: (c.feedback() || {}).reason,
+        said: els['sp-heard'].innerHTML,
+        label: els['sp-label'].textContent,
+      }));
+    """, mode="silent")
+    assert res["stuck"] is False
+    # The watchdog is what makes the drill answerable at all.
+    assert res["ready"] is True
+    assert res["correct"] is False
+    assert res["uncheckable"] is True        # never counted against the learner
+    assert "wasn't checked" in res["reason"]
+    assert "microphone" in res["said"].lower()
+    assert "type it instead" in res["said"].lower()
+    assert res["label"] == "Tap and speak"   # not stranded on "Listening…"
+    assert res["dead"] is True               # no more speaking drills this session
+
+
+@needs_node
+def test_an_utterance_that_never_ends_is_cut_off():
+    """onresult arrived but onend never did — keep what was heard rather than
+    listening forever with the button held down."""
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      live._hear('早晨');
+      fire(SPEECH_MAX_MS);
+      c.grade().then(correct => done({ correct, dead: _speechDead, aborted }));
+    """, mode="silent")
+    assert res["correct"] is True            # what it heard still counts
+    assert res["aborted"] >= 1               # and the microphone was released
+    assert res["dead"] is False              # a working recogniser isn't written off
+
+
+@needs_node
+def test_retrying_after_a_timeout_still_counts():
+    """The watchdog's verdict is about the attempt, not the learner. Tapping the
+    mic again and being heard has to grade normally."""
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      fire(SPEECH_START_MS);            // first try: silence
+      els['sp-mic'].onclick();          // second try…
+      live._hear('早晨');                // …heard perfectly
+      c.grade().then(correct => done({ correct, uncheckable: c.uncheckable() }));
+    """, mode="silent")
+    assert res["correct"] is True
+    assert res["uncheckable"] is False
+
+
+@needs_node
+def test_leaving_the_drill_releases_the_microphone():
+    """`stop()` only asks the recogniser to wind down — it keeps the mic, and on
+    iOS a live recording session silences our own playback. Abort, and ignore
+    anything the dead recogniser still delivers."""
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      const old = live;
+      player._mgCleanup();                    // the learner quits / moves on
+      old._hear('something else');            // a late event from the dead one
+      old._end();
+      done({ aborted, heardAfter: els['sp-heard'].innerHTML,
+             ready: c.isReady(), pending: _timers.filter(Boolean).length });
+    """)
+    assert res["aborted"] == 1
+    assert res["heardAfter"] == ""      # a superseded recogniser can't write to the UI
+    assert res["ready"] is False
+    assert res["pending"] == 0          # both watchdogs cleared
+
+
+@needs_node
+def test_tapping_the_mic_again_supersedes_the_first_recogniser():
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      const first = live;
+      els['sp-mic'].onclick();                // stop
+      els['sp-mic'].onclick();                // …and listen again
+      const second = live;
+      second._hear('早晨');
+      first._hear('rubbish');                 // the old one is still talking
+      first._end();
+      done({ distinct: first !== second, heard: els['sp-heard'].innerHTML,
+             label: els['sp-label'].textContent });
+    """);
+    assert res["distinct"] is True
+    assert "早晨" in res["heard"]        # the live recogniser's transcript survives
+    assert "rubbish" not in res["heard"]
+    assert res["label"] == "Listening…"  # the stale onend didn't reset the UI
+
+
+@needs_node
+def test_the_romanization_lookups_run_in_parallel():
+    """Four sequential round trips before the judge call even started is seconds
+    of a disabled Check button on a phone — indistinguishable from a hang."""
+    res = _speak_lifecycle("""
+      let open = 0, peak = 0;
+      const waits = [];
+      _fetchTokens = (text) => {
+        open++; peak = Math.max(peak, open);
+        return new Promise(r => waits.push(() => { open--; r([{ roman: 'zou2 san4' }]); }));
+      };
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      live._hear('走神');                       // a homophone: needs romanizing
+      const p = c.grade();
+      queueMicrotask(() => {
+        const inFlight = peak;          // both asked for before either answered
+        waits.forEach(w => w());
+        p.then(correct => done({ inFlight, correct,
+                                 checking: _writes.some(w => w.includes('sp-checking')) }));
+      });
+    """)
+    # Target + transcript asked for at once, not one await after another.
+    assert res["inFlight"] == 2
+    assert res["correct"] is True
+    assert res["checking"] is True      # and the learner was told it was working
+
+
+@needs_node
+def test_a_drill_that_throws_while_grading_does_not_end_the_lesson():
+    """The footer button is disabled for the duration of a check. If grade()
+    throws, the exception used to escape onAction with the button still
+    disabled and nothing rendered — no verdict, no Continue, no way forward.
+    An unreachable grader is a state the player already knows how to survive;
+    a broken one has to land in the same place."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    body = _extract(src, "async function onAction(")
+    harness = """
+    const els = { 'player-action': { textContent: 'Check', disabled: true },
+                  'feedback': { className: '', innerHTML: '' } };
+    const document = { getElementById: id => els[id] };
+    const console = { error() {} };
+    function esc(s) { return String(s == null ? '' : s); }
+    const ex = { type: 'speak' };
+    const player = {
+      graded: false, _grading: false, idx: 0, segIdx: 0,
+      queue: [ex], segments: [{}], mistakes: [],
+      controller: {
+        isReady: () => true,
+        grade() { throw new Error('boom'); },
+        // A drill that broke mid-grade may well answer badly here too.
+        uncheckable() { throw new Error('boom'); },
+        feedback() { throw new Error('boom'); },
+        answerText() { throw new Error('boom'); },
+        lock() { throw new Error('boom'); },
+      },
+    };
+    function done(o) { console.log = null; process.stdout.write(JSON.stringify(o)); process.exit(0); }
+    """
+    script = """
+    onAction().then(() => done({
+      enabled: els['player-action'].disabled === false,
+      label: els['player-action'].textContent,
+      feedback: els['feedback'].innerHTML,
+      grading: player._grading,
+      graded: player.graded,
+      flagCleared: !player._gradeFailed,
+    }), e => done({ threw: String(e) }));
+    """
+    out = subprocess.run(["node", "-e", harness + body + script],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert "threw" not in res              # onAction absorbs it
+    assert res["enabled"] is True          # …and hands the learner a way onward
+    assert res["label"] == "Finish"
+    assert "check" in res["feedback"].lower()
+    assert res["grading"] is False         # not wedged for the rest of the session
+    assert res["graded"] is True
+    assert res["flagCleared"] is True      # and the next drill starts clean
 
 
 @needs_node
@@ -636,6 +913,7 @@ def _speak_variant(script, extra_fns=()):
     harness = """
     const LANGS = [{ code: 'yue', speech_lang: 'zh-HK' }];
     let _speakDrills = true;
+    let _speechDead = false;
     function speechSupported() { return true; }
     function speechLangFor(l) { const x = LANGS.find(a => a.code === l); return x ? x.speech_lang : ''; }
     const player = { lang: 'yue', theme: '' };
@@ -687,7 +965,10 @@ def test_a_step_with_nothing_eligible_is_left_alone():
 
 @needs_node
 def test_the_setting_and_an_unusable_recogniser_both_turn_them_off():
-    for flip in ("_speakDrills = false;", "speechSupported = () => false;"):
+    # `_speechDead` is the third switch: the API exists, but this device's
+    # recogniser has already failed to answer, so more drills can only time out.
+    for flip in ("_speakDrills = false;", "speechSupported = () => false;",
+                 "_speechDead = true;"):
         res = _speak_variant(f"""
           {flip}
           const out = _addSpeakVariant([drill(1), drill(2)]);

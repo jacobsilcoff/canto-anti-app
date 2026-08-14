@@ -5,6 +5,7 @@
   let _aiSpeak = true;              // mirrors the lesson_ai_speak setting (AI Speak drills on/off)
   let _warmup = true;               // mirrors lesson_warmup (optional first review step)
   let _speakDrills = true;          // mirrors speaking_drills (🎤 say-it-aloud drills in lessons)
+  let _speechDead = false;          // this device's recogniser answered nothing — stop offering it
   const _cdPreload = {};           // construction → Promise<opener data>, warmed while the learner works
   let langName = 'your language';
   let LANGS = [];
@@ -2421,6 +2422,33 @@
   // fairly. Unsupported browsers never see a speaking drill (see startExercises).
   const _SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   function speechSupported() { return !!_SpeechRec; }
+
+  // A recogniser that never answers is the freeze these bound. `start()` can
+  // return into total silence — no onstart, no onresult, no onerror, no onend —
+  // and there is no event left that could ever release the drill: an Android
+  // build that exposes webkitSpeechRecognition with no recognition service
+  // behind it, an iOS session where something else already holds the
+  // microphone, any browser whose speech backend is unreachable. The screen
+  // then sits on "Listening…" with Check disabled forever, which is exactly
+  // what "the app just froze" describes. So every listen is bounded twice: the
+  // recogniser must SAY it started, and it must finish.
+  const SPEECH_START_MS = 3000;    // no onstart by now → treat as unusable
+  const SPEECH_MAX_MS = 20000;     // one utterance can't run longer than this
+  // The grading round trips are bounded too — a hung fetch would otherwise hold
+  // the Check button disabled with no way out (see gradeFreeText / _fetchTokens).
+  const GRADE_TIMEOUT_MS = 15000;
+  const RUBY_TIMEOUT_MS = 8000;
+
+  // fetch that always settles. An aborted request rejects, which every caller
+  // here already treats as "couldn't check / no romanization".
+  function _timedFetch(url, options, timeoutMs) {
+    let ctl = null;
+    try { ctl = new AbortController(); } catch { ctl = null; }
+    const opts = { ...(options || {}) };
+    if (ctl) opts.signal = ctl.signal;
+    const timer = ctl ? setTimeout(() => { try { ctl.abort(); } catch {} }, timeoutMs) : null;
+    return fetch(url, opts).finally(() => { if (timer) clearTimeout(timer); });
+  }
   function speechLangFor(lang) {
     const l = LANGS.find(x => x.code === lang);
     return (l && l.speech_lang) || '';
@@ -2485,13 +2513,15 @@
     if (kind) return { checked: true, correct: true, exact: kind === 'exact' };
     if (onNetwork) onNetwork();
     try {
-      const res = await fetch('/api/lesson/check', {
+      // Bounded: a request that never settles would leave onAction holding
+      // `_grading` and the Check button disabled for the rest of the session.
+      const res = await _timedFetch('/api/lesson/check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: ex.prompt || '', expected, answer: text,
           accept: ex.accept || [], is_cloze: !!ex.is_cloze, lang,
         }),
-      });
+      }, GRADE_TIMEOUT_MS);
       return res.ok ? await res.json() : { checked: false };
     } catch { return { checked: false }; }
   }
@@ -2502,13 +2532,14 @@
     const said = [ex.target, ...(ex.accept || [])].filter(Boolean);
     if (heard.some(h => said.some(t => _speechClose(h, t)))) return true;
     if (!needsRuby(lang) || _isLatin(ex.target)) return false;
-    const want = await _spokenRoman(ex.target, lang);
+    // One round trip per string, all at once. Walked one await at a time this
+    // was up to four sequential fetches before the judge call even started —
+    // seconds of a disabled Check button on a phone, with nothing on screen
+    // saying anything was happening.
+    const [want, ...gots] = await Promise.all(
+      [ex.target, ...heard].map(t => _spokenRoman(t, lang)));
     if (!want) return false;
-    for (const h of heard) {
-      const got = await _spokenRoman(h, lang);
-      if (got && _speechClose(got, want)) return true;
-    }
-    return false;
+    return gots.some(got => got && _speechClose(got, want));
   }
 
   // ── Audio-only drills ───────────────────────────────────────────────────────
@@ -3026,27 +3057,78 @@
           out.className = 'speak-heard' + (cls ? ' ' + cls : '');
           out.innerHTML = html;
         };
+        // Grading a spoken answer can reach the network (romanization, then the
+        // judge). Say it out loud rather than leaving a disabled button.
+        const checking = () => {
+          const was = shown ? `I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b> ` : '';
+          say(was + '<span class="sp-checking">Checking…</span>', '');
+        };
+        let startTimer = null, maxTimer = null;
+        const clearTimers = () => {
+          if (startTimer) { clearTimeout(startTimer); startTimer = null; }
+          if (maxTimer) { clearTimeout(maxTimer); maxTimer = null; }
+        };
         const idle = () => {
           listening = false;
           mic.classList.remove('live');
           label.textContent = shown ? 'Tap to try again' : 'Tap and speak';
         };
-        const stop = () => { if (rec) { try { rec.stop(); } catch {} rec = null; } idle(); };
+        // Release the microphone for real. `stop()` alone only asks the
+        // recogniser to finish, so it keeps the mic (and, on iOS, a recording
+        // audio session that silences our own playback) for as long as it likes
+        // — after the learner has already left the drill. Handlers are detached
+        // first so a late event from a dead recogniser can't reopen the UI.
+        const stop = () => {
+          clearTimers();
+          const r = rec;
+          rec = null;
+          if (r) {
+            r.onstart = r.onresult = r.onerror = r.onend = null;
+            try { r.abort(); } catch {}
+            try { r.stop(); } catch {}
+          }
+          idle();
+        };
 
         function listen() {
           if (player.graded || typing) return;
-          if (listening) { stop(); return; }
-          heard = []; shown = '';
+          if (listening) { stop(); updateAction(); return; }
+          stop();                      // never leave a previous recogniser running
+          // A fresh attempt clears the last one's verdict: a learner who retries
+          // after a timeout and is heard perfectly must not still be graded as
+          // "couldn't listen". The watchdogs set it again if this try fails too.
+          heard = []; shown = ''; blocked = '';
           let r;
           try { r = new _SpeechRec(); } catch { r = null; }
-          if (!r) { blocked = 'unsupported'; say("This browser can't listen — type it instead, or skip.", 'muted'); updateAction(); return; }
+          if (!r) {
+            blocked = 'unsupported'; _speechDead = true;
+            say("This browser can't listen — type it instead, or skip.", 'muted');
+            updateAction(); return;
+          }
           rec = r;
+          // Every handler ignores a recogniser that is no longer the current
+          // one: `stop()` detaches, but a browser can still deliver a queued
+          // event, and an old instance's onend would otherwise flip the label
+          // back to "Tap and speak" while a newer one is genuinely listening.
+          const mine = () => rec === r;
+          const giveUp = (msg, dead) => {
+            blocked = 'error';
+            if (dead) _speechDead = true;   // don't queue more drills it can't run
+            say(msg, 'muted');
+            stop();
+            updateAction();
+          };
           r.lang = speechLangFor(lang) || lang;
           r.interimResults = true;
           r.maxAlternatives = 3;
           r.continuous = false;
-          r.onstart = () => { listening = true; mic.classList.add('live'); label.textContent = 'Listening…'; say('', ''); };
+          r.onstart = () => {
+            if (!mine()) return;
+            if (startTimer) { clearTimeout(startTimer); startTimer = null; }
+            listening = true; mic.classList.add('live'); label.textContent = 'Listening…'; say('', '');
+          };
           r.onresult = e => {
+            if (!mine()) return;
             const alts = [];
             let best = '';
             for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -3060,6 +3142,7 @@
             updateAction();
           };
           r.onerror = e => {
+            if (!mine()) return;
             const err = (e && e.error) || '';
             if (err === 'not-allowed' || err === 'service-not-allowed') {
               blocked = 'denied';
@@ -3070,11 +3153,22 @@
               blocked = 'error';
               say("Couldn't listen just now — type it instead, or skip.", 'muted');
             }
-            idle();
+            stop();
             updateAction();
           };
-          r.onend = () => { rec = null; idle(); updateAction(); };
-          try { r.start(); } catch { blocked = 'error'; idle(); updateAction(); }
+          r.onend = () => { if (!mine()) return; stop(); updateAction(); };
+          // Watchdogs. Without them a recogniser that answers nothing leaves the
+          // drill on "Listening…" with Check disabled and no event coming.
+          startTimer = setTimeout(() => {
+            if (!mine() || listening) return;
+            giveUp("Couldn't reach the microphone — type it instead, or skip.", true);
+          }, SPEECH_START_MS);
+          maxTimer = setTimeout(() => {
+            if (!mine()) return;
+            if (shown) { stop(); updateAction(); }   // keep what was heard
+            else giveUp("Didn't hear anything — tap the mic to retry, type it, or skip.");
+          }, SPEECH_MAX_MS);
+          try { r.start(); } catch { giveUp("Couldn't listen just now — type it instead, or skip.", true); }
         }
 
         // ⌨️ — the same answer, written. Graded identically.
@@ -3119,7 +3213,7 @@
               return false;
             }
             if (typing) {
-              result = await gradeFreeText(input.value.trim(), ex, lang);
+              result = await gradeFreeText(input.value.trim(), ex, lang, checking);
               return !!(result && result.checked && result.correct);
             }
             if (blocked) {
@@ -3130,7 +3224,10 @@
             }
             // Spoken answers get the extra latitude first (homophones, ASR
             // noise); a genuinely different rendering falls through to the same
-            // judge a typed answer would meet.
+            // judge a typed answer would meet. Both can go to the network, so
+            // say so — a Check button that greys out and sits there for a few
+            // seconds with no explanation is indistinguishable from a hang.
+            checking();
             if (await gradeSpoken(heard.length ? heard : [shown], ex, lang)) {
               // Said it right, but the recogniser's transcript is rarely the
               // canonical line — show that line unless they nailed it verbatim.
@@ -3138,7 +3235,7 @@
                          exact: _matchKind(shown, ex.target, ex.accept) === 'exact' };
               return true;
             }
-            result = await gradeFreeText(shown, ex, lang);
+            result = await gradeFreeText(shown, ex, lang, checking);
             if (result && result.checked && !result.correct && shown) {
               result.note = `We heard “${shown}”. ` + (result.note || '');
             }
@@ -3153,6 +3250,9 @@
           lock() {
             stop();
             if (player) player._mgCleanup = null;
+            if (out.innerHTML.indexOf('sp-checking') >= 0) {
+              say(shown ? `I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b>` : '', '');
+            }
             mic.disabled = true;
             input.disabled = true;
             document.getElementById('sp-type').style.display = 'none';
@@ -4493,9 +4593,14 @@
   function _fetchTokens(text, lang) {
     const key = lang + '\0' + text;
     if (!_tokenCache[key]) {
-      _tokenCache[key] = fetch(`/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`)
+      // Bounded, and a failure is NOT kept: the cache holds the promise, so a
+      // single flaky lookup used to leave that string un-romanizable — and
+      // un-gradeable as a homophone — for the rest of the session.
+      _tokenCache[key] = _timedFetch(
+        `/api/ruby?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`,
+        null, RUBY_TIMEOUT_MS)
         .then(r => r.json())
-        .catch(() => null);
+        .catch(() => { delete _tokenCache[key]; return null; });
     }
     return _tokenCache[key];
   }
@@ -4944,7 +5049,11 @@
   const SPEAK_PER_LESSON = 2;
 
   function _canSpeakVariant(ex) {
-    if (!_speakDrills || !speechSupported() || !speechLangFor(player && player.lang)) return false;
+    // `speechSupported()` only says the API exists. A device whose recogniser
+    // has already failed to answer gets no further speaking drills this session
+    // — offering one that can only time out is worse than not offering it.
+    if (!_speakDrills || _speechDead || !speechSupported()
+        || !speechLangFor(player && player.lang)) return false;
     if (!ex || ex.type !== 'choice' || ex.prompt_lang !== 'english' || ex.is_cloze) return false;
     if (!player || player.checkpointUnitId || player.testOut
         || player.theme === 'foundations' || player.practiceGame) return false;
@@ -5130,24 +5239,38 @@
       let correct;
       try {
         correct = await player.controller.grade();
+      } catch (e) {
+        // A throw used to escape onAction entirely: the button stayed disabled,
+        // nothing was rendered, and there was no way forward — the lesson was
+        // simply over. Treat it as an unreachable grader instead, which the
+        // uncheckable path below already knows how to show and move past.
+        console.error('grade() failed', e);
+        correct = false;
+        player._gradeFailed = true;
       } finally {
         player._grading = false;
       }
       // The learner may have quit or gone back while the check was in flight.
       if (!player || player.queue[player.idx] !== ex) return;
-      const uncheckable = player.controller.uncheckable ? player.controller.uncheckable() : false;
-      player.controller.lock(correct);
+      const failed = !!player._gradeFailed;
+      player._gradeFailed = false;
+      const uncheckable = failed
+        || (player.controller.uncheckable ? player.controller.uncheckable() : false);
+      try { player.controller.lock(correct); } catch (e) { console.error('lock() failed', e); }
       player.graded = true;
       if (uncheckable) {
         // Grader unreachable. Show the answer and move on WITHOUT touching the
         // score, combo, mistake queue or mastery ledger — the learner was quite
         // possibly right, and guessing either way teaches the wrong thing.
         const fbEl = document.getElementById('feedback');
-        const at = player.controller.answerText ? player.controller.answerText() : '';
-        // Why it couldn't be checked differs by drill (no network for a typed
-        // answer, no microphone for a spoken one), so let the drill say.
-        const why = (player.controller.feedback && (player.controller.feedback() || {}).reason)
-          || "Couldn't check this one — no connection to the grader.";
+        let at = '', why = '';
+        try {
+          at = player.controller.answerText ? player.controller.answerText() : '';
+          // Why it couldn't be checked differs by drill (no network for a typed
+          // answer, no microphone for a spoken one), so let the drill say.
+          why = (player.controller.feedback && (player.controller.feedback() || {}).reason) || '';
+        } catch (e) { console.error('uncheckable feedback failed', e); }
+        why = why || "Couldn't check this one — no connection to the grader.";
         fbEl.className = 'feedback';
         fbEl.innerHTML = esc(why) + (at ? `<small>Expected: ${at}</small>` : '');
         const lastSeg0 = player.segIdx >= player.segments.length - 1;
