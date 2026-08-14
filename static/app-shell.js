@@ -134,13 +134,33 @@
   //
   // Only Safari implements this (default since 16.4); Android Chrome takes
   // audio focus with no web API to prevent it.
+  let _sessionType = 'playback';       // what we last decided this page is
+
   function applyAudioSession(settings) {
+    _sessionType = (settings && settings.audio_mix === true) ? 'transient' : 'playback';
     const session = navigator.audioSession;
     if (!session) return;
     try {
-      session.type = (settings && settings.audio_mix === true) ? 'transient' : 'playback';
+      session.type = _sessionType;
     } catch (e) { /* unsupported value — leave the UA default alone */ }
   }
+
+  // Declare it AGAIN before we make any sound. Setting it once per page load is
+  // not enough: on a cold load the settings arrive over the network, so the
+  // first clip of a session could go out under the UA default (which is
+  // exclusive playback — it pauses the music of a learner who asked for
+  // mixing); and iOS resets the category after an interruption (a call, another
+  // app), so a page left open for an hour is no longer playing what it declared.
+  // Idempotent and free, so the safe place for it is every playback path.
+  function ensureAudioSession() {
+    const session = navigator.audioSession;
+    if (!session) return;
+    try { if (session.type !== _sessionType) session.type = _sessionType; } catch (e) {}
+  }
+
+  // The session is declared SYNCHRONOUSLY from the cached snapshot, before
+  // anything can play — see applyAudioSettings at the end of this block.
+  // (`ready` is a network round trip on the first load of a tab.)
 
   // ── Volume boost: app audio against the user's music ──────────────────────
   // 'transient' plays our clips OVER music and ducks it, but HOW MUCH it ducks
@@ -155,7 +175,14 @@
   // Web Audio, or any exception at all, leaves the element playing natively.
   // Audio that works outranks audio that's louder.
   const AUDIO_GAIN_MIN = 0.5, AUDIO_GAIN_MAX = 3;
+  // Sound effects are a separate bus with a separate setting: they are ours,
+  // they fire constantly, and they are the thing people want quieter — while
+  // the words being spoken are the thing they want louder. One slider could
+  // only ever be a compromise between the two. 0 = off (the beeps are the one
+  // kind of audio that is genuinely optional).
+  const SFX_GAIN_MIN = 0, SFX_GAIN_MAX = 2;
   let _actx = null, _gainNode = null, _audioGain = 1;
+  let _sfxNode = null, _sfxGain = 1;
 
   function clampGain(value) {
     const g = Number(value);
@@ -163,13 +190,27 @@
     return Math.min(AUDIO_GAIN_MAX, Math.max(AUDIO_GAIN_MIN, g));
   }
 
+  function clampSfx(value) {
+    const g = Number(value);
+    if (!isFinite(g) || g < 0) return 1;
+    return Math.min(SFX_GAIN_MAX, Math.max(SFX_GAIN_MIN, g));
+  }
+
   function audioGraph() {
     if (_actx) return _actx;
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return null;
+    // One context per page, shared by clips and sound effects. A second context
+    // is not free: on iOS each RUNNING context holds the page's audio session
+    // open, so a stray one keeps the learner's music paused (or ducked) long
+    // after the sound that started it finished. The lesson player used to build
+    // its own for beeps, which is exactly what that felt like.
+    ensureAudioSession();
     _actx = new Ctx();
     _gainNode = _actx.createGain();
     _gainNode.gain.value = _audioGain;
+    _sfxNode = _actx.createGain();
+    _sfxNode.gain.value = _sfxGain;
     // A limiter, not a matter of taste: at 2–3× a TTS clip clips hard and turns
     // to static, which is a worse problem than being quiet.
     const limiter = _actx.createDynamicsCompressor();
@@ -180,6 +221,9 @@
     limiter.release.value = 0.25;
     _gainNode.connect(limiter);
     limiter.connect(_actx.destination);
+    // Effects go through the same limiter (a beep at 2× clips too) but not
+    // through the speech gain — the two levels are independent.
+    _sfxNode.connect(limiter);
     return _actx;
   }
 
@@ -206,7 +250,46 @@
 
   function resumeAudio() {
     if (!_actx || _actx.state === 'running') return;
+    _asleep = false;
     try { _actx.resume().catch(() => {}); } catch (e) {}
+  }
+
+  // ── Letting go of the audio session ───────────────────────────────────────
+  // A RUNNING AudioContext holds the page's audio session open whether or not
+  // it is making any sound. Under 'playback' that means the learner's music
+  // stays paused; under 'transient' it stays ducked. Neither ends when the clip
+  // does — the app just keeps the floor, silently, for as long as the page is
+  // open. That is "some sounds pause my music": not the clip, the context
+  // behind it.
+  //
+  // So the context sleeps when we are not using it, and wakes when we are.
+  // Suspending deactivates the session, which is what hands the music back.
+  const AUDIO_IDLE_MS = 2500;
+  let _idleTimer = null, _busy = 0, _asleep = false;
+
+  function _clearIdle() { if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; } }
+
+  // About to make a sound: wake up, and hold the context awake until released.
+  function wakeAudio() {
+    _busy++;
+    _clearIdle();
+    ensureAudioSession();
+    resumeAudio();
+  }
+
+  // Done making that sound. The context stays up for a moment — drills fire
+  // sounds in quick succession and thrashing the session is worse than holding
+  // it briefly — then sleeps if nothing else has started.
+  function releaseAudio() {
+    _busy = Math.max(0, _busy - 1);
+    _clearIdle();
+    if (_busy) return;
+    _idleTimer = setTimeout(() => {
+      _idleTimer = null;
+      if (_busy || _playing || !_actx || _actx.state !== 'running') return;
+      _asleep = true;
+      try { const p = _actx.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+    }, AUDIO_IDLE_MS);
   }
 
   function decodeAudio(ctx, arrayBuf) {
@@ -221,9 +304,14 @@
   function playBoosted(url, onended) {
     if (!url || _audioGain === 1) return null;      // default: nothing to do
     const ctx = audioGraph();
-    // A suspended context plays nothing. Ask for a resume and let THIS clip go
-    // out natively — the next one gets the boost.
-    if (!ctx || ctx.state !== 'running') { resumeAudio(); return null; }
+    if (!ctx) return null;
+    // Asleep because WE put it to sleep is not a failure — wake it and carry
+    // on (there is a fetch and a decode to do first anyway). Asleep for any
+    // other reason means it was never unlocked, so this clip goes out natively
+    // and the next one gets the boost.
+    const ours = _asleep;
+    wakeAudio();
+    if (ctx.state !== 'running' && !ours) { releaseAudio(); return null; }
     let buf = _bufCache.get(url);
     if (!buf) {
       buf = nativeFetch(url)
@@ -235,23 +323,35 @@
     }
     return buf.then(buffer => {
       stopBoosted();
+      if (ctx.state !== 'running') throw new Error('audio context asleep');
       const src = ctx.createBufferSource();
       src.buffer = buffer;
       src.connect(_gainNode);
+      // Exactly one release per wake, whether the clip ends on its own or is
+      // stopped. Leaking a hold would keep the session — and the paused music
+      // — open for the life of the page.
+      let held = true;
+      src._release = () => { if (held) { held = false; releaseAudio(); } };
       src.onended = () => {
         if (_playing === src) _playing = null;
+        src._release();
         if (onended) { try { onended(); } catch (e) {} }
       };
+      // Same insurance as a tone: an interrupted context never fires `onended`.
+      const len = Number(buffer && buffer.duration);
+      if (isFinite(len) && len > 0) setTimeout(src._release, len * 1000 + 1000);
       src.start();
       _playing = src;
       return true;
-    });
+    }).catch(err => { releaseAudio(); throw err; });
   }
 
   function stopBoosted() {
     if (!_playing) return;
-    try { _playing.onended = null; _playing.stop(); } catch (e) {}
+    const src = _playing;
     _playing = null;
+    try { src.onended = null; src.stop(); } catch (e) {}
+    if (src._release) src._release();
   }
 
   // Kept as a no-op so a page cached from before this change can still call it
@@ -264,40 +364,106 @@
     if (_audioGain !== 1) keepAudioRunning();
   }
 
-  // Build the graph and keep it running. NOT a one-shot: iOS suspends a context
-  // whenever something interrupts audio (a call, another app, the screen
-  // locking), and a context that goes back to sleep silences every element
-  // already routed through it. So every tap re-checks, which costs nothing when
-  // the context is already running.
+  function setSfxGain(value) {
+    _sfxGain = clampSfx(value);
+    if (_sfxNode) { try { _sfxNode.gain.value = _sfxGain; } catch (e) {} }
+  }
+
+  // ── Sound effects ─────────────────────────────────────────────────────────
+  // Synthesized here rather than in the page that wants them, so there is one
+  // audio context (see audioGraph) and one place that knows how loud effects
+  // are meant to be. `spec` is {freq, start, dur, type, vol} — vol being the
+  // sound's own weight in the mix, which the sfx_volume setting then scales.
+  // Returns false when it couldn't make a sound, so a caller can fall back.
+  function tone(spec) {
+    if (!spec || !_sfxGain) return false;          // 0 = effects off
+    keepAudioRunning();
+    const ctx = audioGraph();
+    if (!ctx) return false;
+    wakeAudio();
+    const dur = spec.dur || 0.15;
+    const start = spec.start || 0;
+    try {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = spec.type || 'sine';
+      o.frequency.value = spec.freq || 520;
+      o.connect(g); g.connect(_sfxNode);
+      const t = ctx.currentTime + start;
+      const vol = Math.max(0.0002, Math.min(1, spec.vol == null ? 0.16 : spec.vol));
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      // Exactly one release, and never fewer than one: `onended` does not fire
+      // for a node whose stop time never arrives (the context was interrupted),
+      // and a stranded hold would keep the session open for good.
+      let held = true;
+      const release = () => { if (held) { held = false; releaseAudio(); } };
+      o.onended = release;
+      setTimeout(release, (start + dur) * 1000 + 500);
+      o.start(t); o.stop(t + dur + 0.02);
+      return true;
+    } catch (e) { releaseAudio(); return false; }
+  }
+
+  // Unlock the context and keep it usable. iOS requires a gesture for the FIRST
+  // resume, and suspends the context again on any audio interruption (a call,
+  // another app, the screen locking) — a context left suspended plays nothing
+  // at all. What this must NOT do is hold it running: that keeps the audio
+  // session (and the learner's paused music) open even in silence, so a gesture
+  // wakes it and then hands it straight back to the idle timer.
   let _keepArmed = false;
   function keepAudioRunning() {
     if (_keepArmed) return;
     _keepArmed = true;
-    const wake = () => { audioGraph(); resumeAudio(); };
+    const wake = () => { wakeAudio(); releaseAudio(); };
     document.addEventListener('pointerdown', wake, { passive: true });
     document.addEventListener('keydown', wake);
     const ctx = audioGraph();
     if (ctx && ctx.addEventListener) {
-      try { ctx.addEventListener('statechange', () => { if (ctx.state === 'suspended') resumeAudio(); }); }
-      catch (e) {}
+      // Resume only when we actually want sound. Resuming unconditionally would
+      // fight our own idle suspend, and win — the session would never close.
+      try {
+        ctx.addEventListener('statechange', () => {
+          if (ctx.state === 'suspended' && _busy && !_asleep) resumeAudio();
+        });
+      } catch (e) {}
     }
-    resumeAudio();
+    // Deliberately no wake here: a context built at page load must be allowed
+    // to stay asleep until there is something to play.
+    releaseAudio();
   }
 
-  ready.then(data => {
-    applyAudioSession(data && data.settings);
-    setAudioGain(data && data.settings ? data.settings.audio_volume : 1);
-  }).catch(() => {});
+  function applyAudioSettings(settings) {
+    applyAudioSession(settings);
+    setAudioGain(settings ? settings.audio_volume : 1);
+    setSfxGain(settings ? settings.sfx_volume : 1);
+  }
+
+  applyAudioSettings(snapshot && snapshot.data ? snapshot.data.settings : null);
+  ready.then(data => applyAudioSettings(data && data.settings)).catch(() => {});
+  // Most playback in the app is a plain <audio> element, which never touches
+  // anything in here — so the one place that can re-declare the session for it
+  // is coming back to the tab. An interruption that resets the category (a
+  // call, another app taking audio) always goes through here first.
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) ensureAudioSession();
+    });
+  } catch (e) {}
 
   window.CantoShell = {
     ready,
     applyAudioSession,
+    ensureAudioSession,    // re-declare before playing; cheap and idempotent
     playBoosted,           // play a clip URL through the gain graph, or null
     stopBoosted,
     prepareAudio,          // deprecated no-op — see playBoosted
     setAudioGain,          // live preview from Settings, before anything is saved
+    setSfxGain,
+    tone,                  // one synthesized sound effect, on the effects bus
     resumeAudio,
     audioGain: () => _audioGain,
+    sfxGain: () => _sfxGain,
     refresh: () => refresh(true),
     get: key => snapshot && snapshot.data ? snapshot.data[key] : null,
     invalidate: key => dirty.add(key),

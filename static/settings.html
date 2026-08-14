@@ -238,8 +238,8 @@
       </div>
       <div class="settings-row">
         <div>
-          <div class="settings-label">Audio volume</div>
-          <div class="settings-desc">Turn app audio up so it carries over music or a podcast. 100% is the clip as recorded; above that it's boosted (with a limiter, so it won't distort). Tap Test to hear it.</div>
+          <div class="settings-label">Spoken audio volume</div>
+          <div class="settings-desc">How loud words and sentences are read out — flashcards, lessons, the reader. Turn it up to carry over music or a podcast. 100% is the clip as recorded; above that it's boosted (with a limiter, so it won't distort). Tap Test to hear it.</div>
           <button type="button" class="settings-btn" id="settings-volume-test" onclick="testAudioVolume()" style="margin-top:8px">🔊 Test</button>
           <div class="settings-desc" style="margin-top:6px">Hear nothing? Check your phone isn't on silent, and try turning "Play sound over my music" off — that kind of audio is muted by the ring switch.</div>
         </div>
@@ -247,6 +247,18 @@
           <input type="range" id="settings-audio-volume" min="50" max="300" step="10" value="100"
                  style="flex:1;min-width:80px" oninput="previewAudioVolume(this.value)" onchange="saveAudioVolume()">
           <span id="audio-volume-label" style="font-size:13px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right">100%</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Sound effects volume</div>
+          <div class="settings-desc">The lesson chimes — right, wrong, streak, level complete. Separate from spoken audio, so you can keep the words loud and turn the beeps down. Slide to 0 to switch them off.</div>
+          <button type="button" class="settings-btn" id="settings-sfx-test" onclick="testSfxVolume()" style="margin-top:8px">🔔 Test</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;min-width:130px">
+          <input type="range" id="settings-sfx-volume" min="0" max="200" step="10" value="100"
+                 style="flex:1;min-width:80px" oninput="previewSfxVolume(this.value)" onchange="saveSfxVolume()">
+          <span id="sfx-volume-label" style="font-size:13px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right">100%</span>
         </div>
       </div>
       <div class="settings-row">

@@ -1882,6 +1882,25 @@ def _audio_volume(value) -> float:
     return round(min(AUDIO_VOLUME_MAX, max(AUDIO_VOLUME_MIN, vol)), 2)
 
 
+# Sound effects are their own bus, because they are the opposite problem to
+# speech: the words being spoken are what a learner turns UP to hear over
+# music, while the ✔/✘ beeps are what they turn DOWN. One slider could only
+# split the difference. 0 is allowed here and nowhere else — effects are the
+# one kind of audio in the app that is genuinely optional.
+SFX_VOLUME_MIN, SFX_VOLUME_MAX = 0.0, 2.0
+
+
+def _sfx_volume(value) -> float:
+    """Clamp the sound-effects multiplier. Unreadable falls back to 1×; 0 = off."""
+    try:
+        vol = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    if vol != vol or vol < 0:                       # NaN or negative
+        return 1.0
+    return round(min(SFX_VOLUME_MAX, max(SFX_VOLUME_MIN, vol)), 2)
+
+
 def _plan_limit(user: dict) -> int:
     return PLAN_LIMITS.get(user.get("plan") or "free", PLAN_LIMITS["free"])
 
@@ -2303,6 +2322,8 @@ async def get_settings(user: dict = Depends(current_user)):
         # Boost for our own audio, against whatever else is playing. 1.0 = the
         # clip as recorded (and no Web Audio routing at all on the client).
         "audio_volume": _audio_volume(await db.get_setting(user["id"], "audio_volume")),
+        # …and the effects level, independent of it. 0 turns the beeps off.
+        "sfx_volume": _sfx_volume(await db.get_setting(user["id"], "sfx_volume")),
         # Play audio alongside the user's music instead of stopping it. Defaults
         # OFF, and that default is load-bearing: the mixing audio-session types
         # are silenced by the iPhone's Ring/Silent switch, so ON means a learner
@@ -2338,6 +2359,7 @@ class SettingsUpdate(BaseModel):
     speaking_drills: bool | None = None
     audio_mix: bool | None = None
     audio_volume: float | None = None
+    sfx_volume: float | None = None
     course_focus: str | None = None
     timezone: str | None = None
 
@@ -2411,6 +2433,8 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         await db.set_setting(user["id"], "audio_mix", "true" if req.audio_mix else "false")
     if req.audio_volume is not None:
         await db.set_setting(user["id"], "audio_volume", str(_audio_volume(req.audio_volume)))
+    if req.sfx_volume is not None:
+        await db.set_setting(user["id"], "sfx_volume", str(_sfx_volume(req.sfx_volume)))
     if req.course_focus is not None:
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")

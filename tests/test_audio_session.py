@@ -126,27 +126,44 @@ def _gain(script, *, web_audio=True, running=False, decode_fails=False,
     """Run the real boost helpers out of app-shell.js against a stubbed context."""
     src = open(SHELL_JS, encoding="utf-8").read()
     decls = "let _actx = null, _gainNode = null, _audioGain = 1;\n"
+    decls += "let _sfxNode = null, _sfxGain = 1;\n"
     decls += "const AUDIO_GAIN_MIN = 0.5, AUDIO_GAIN_MAX = 3;\n"
+    decls += "const SFX_GAIN_MIN = 0, SFX_GAIN_MAX = 2;\n"
     decls += "let _keepArmed = false;\n"
+    decls += "let _sessionType = 'playback';\n"
     decls += "\n".join(_extract_decl(src, n) for n in
-                       ("_bufCache", "BUF_CACHE_MAX", "_playing")) + "\n"
+                       ("_bufCache", "BUF_CACHE_MAX", "_playing", "AUDIO_IDLE_MS")) + "\n"
+    decls += "let _idleTimer = null, _busy = 0, _asleep = false;\n"
     fns = "\n".join(_extract(src, d) for d in (
-        "function clampGain(", "function audioGraph(", "function resumeAudio(",
+        "function clampGain(", "function clampSfx(", "function audioGraph(",
+        "function resumeAudio(", "function _clearIdle(", "function wakeAudio(",
+        "function releaseAudio(", "function ensureAudioSession(",
         "function decodeAudio(", "function playBoosted(", "function stopBoosted(",
-        "function setAudioGain(", "function keepAudioRunning("))
+        "function setAudioGain(", "function setSfxGain(", "function tone(",
+        "function keepAudioRunning("))
 
     harness = f"""
-    let started = [], resumed = 0, fetched = [];
-    class GainNode {{ constructor() {{ this.gain = {{ value: 1 }}; }} connect() {{}} }}
+    let started = [], resumed = 0, fetched = [], suspended = 0, tones = [];
+    let now = 0;
+    class GainNode {{
+      constructor() {{ this.gain = {{ value: 1, setValueAtTime() {{}},
+                                     exponentialRampToValueAtTime() {{}} }}; }}
+      connect(dest) {{ this.dest = dest; }}
+    }}
     class Ctx {{
-      constructor() {{ this.state = START_STATE; this.destination = {{}}; }}
+      constructor() {{ this.state = START_STATE; this.destination = {{}}; this.currentTime = now; }}
       createGain() {{ return new GainNode(); }}
       createDynamicsCompressor() {{
         return {{ threshold: {{}}, knee: {{}}, ratio: {{}}, attack: {{}}, release: {{}},
                  connect() {{}} }};
       }}
+      createOscillator() {{
+        const o = {{ type: '', frequency: {{ value: 0 }}, onended: null, connect(d) {{ o.dest = d; }},
+                    start(t) {{ tones.push({{ freq: o.frequency.value, at: t, dest: o.dest }}); }},
+                    stop() {{ if (o.onended) o.onended(); }} }};
+        return o;
+      }}
       createBufferSource() {{
-        const self = this;
         return {{ buffer: null, onended: null, connect() {{}},
                   start() {{ started.push(this.buffer); }}, stop() {{}} }};
       }}
@@ -156,12 +173,21 @@ def _gain(script, *, web_audio=True, running=False, decode_fails=False,
       }}
       resume() {{ resumed++; const self = this;
                   return Promise.resolve().then(() => {{ self.state = 'running'; }}); }}
-      addEventListener() {{}}
+      suspend() {{ suspended++; this.state = 'suspended';
+                   return Promise.resolve(); }}
+      addEventListener(ev, fn) {{ this._state = fn; }}
     }}
     const START_STATE = {json.dumps('running' if running else 'suspended')};
     const listeners = [];
     const document = {{ addEventListener: (ev, fn) => listeners.push(ev) }};
     const window = {json.dumps(web_audio)} ? {{ AudioContext: Ctx }} : {{}};
+    const navigator = {{}};
+    // Fake clock for the idle-suspend timer.
+    const _t = [];
+    globalThis.setTimeout = (fn, ms) => {{ _t.push({{ fn, ms }}); return _t.length; }};
+    globalThis.clearTimeout = (id) => {{ if (id) _t[id - 1] = null; }};
+    function fireIdle() {{ _t.slice().forEach((x, i) => {{
+      if (x && x.ms === AUDIO_IDLE_MS) {{ _t[i] = null; x.fn(); }} }}); }}
     function nativeFetch(url) {{
       fetched.push(url);
       if ({json.dumps(fetch_fails)}) return Promise.resolve({{ ok: false }});
@@ -266,16 +292,167 @@ def test_the_multiplier_is_clamped():
     assert res == {"high": 3, "low": 0.5, "off": 1, "junk": 1, "missing": 1, "ok": 1.5}
 
 
-def test_a_boost_keeps_the_context_awake_on_every_gesture():
-    """Not a one-shot: iOS suspends a context on any audio interruption, and a
-    sleeping context can play nothing at all."""
+def test_a_gesture_unlocks_the_context_without_pinning_it_awake():
+    """iOS needs a gesture for the first resume, and re-suspends the context on
+    any audio interruption — so the listeners have to stay. What they must NOT
+    do is hold it running: a running context keeps the audio session (and the
+    learner's paused music) open in total silence."""
     res = _gain("""
       setAudioGain(2.2);
-      done({ listeners: listeners.slice(), armed: _keepArmed, ctx: !!_actx });
+      done({ listeners: listeners.slice(), armed: _keepArmed, ctx: !!_actx,
+             running: _actx.state === 'running', busy: _busy });
     """)
     assert res["armed"] is True
     assert "pointerdown" in res["listeners"]
-    assert res["ctx"] is True
+    assert res["ctx"] is True          # built, so the first clip can be boosted…
+    assert res["busy"] == 0            # …but nothing is holding it open
+
+
+# ── Giving the audio session back ────────────────────────────────────────────
+# The reported bug: "some sounds still pause my music". A RUNNING AudioContext
+# holds the page's audio session whether or not it is making a sound, so the
+# music never came back — the clip ended and the context stayed up.
+
+def test_the_context_sleeps_when_nothing_is_playing():
+    res = _gain("""
+      setAudioGain(2);
+      playBoosted('/api/tts?text=hi').then(() => {
+        const playing = { state: _actx.state, suspends: suspended };
+        _playing.onended();                 // the clip finishes
+        const beforeIdle = _actx.state;     // still up: more may follow
+        fireIdle();
+        done({ playing, beforeIdle, after: _actx.state, suspends: suspended });
+      });
+    """, running=True)
+    assert res["playing"] == {"state": "running", "suspends": 0}
+    assert res["beforeIdle"] == "running"   # not thrashed between drill sounds
+    assert res["after"] == "suspended"      # …and handed back once we're done
+    assert res["suspends"] == 1
+
+
+def test_a_clip_still_playing_keeps_the_context():
+    """The idle timer must never cut off the sound that armed it."""
+    res = _gain("""
+      setAudioGain(2);
+      playBoosted('/api/tts?text=hi').then(() => {
+        fireIdle();                          // fires while the clip is still going
+        done({ state: _actx.state, suspends: suspended });
+      });
+    """, running=True)
+    assert res == {"state": "running", "suspends": 0}
+
+
+def test_stopping_a_clip_releases_the_session():
+    """stopBoosted() suppresses onended, so it has to release the hold itself —
+    otherwise leaving a lesson mid-clip pins the session for the page's life."""
+    res = _gain("""
+      setAudioGain(2);
+      playBoosted('/api/tts?text=hi').then(() => {
+        stopBoosted();
+        fireIdle();
+        done({ busy: _busy, state: _actx.state });
+      });
+    """, running=True)
+    assert res == {"busy": 0, "state": "suspended"}
+
+
+def test_a_clip_that_never_arrives_releases_the_session():
+    res = _gain("""
+      setAudioGain(2);
+      playBoosted('/api/tts?text=hi').catch(() => {
+        fireIdle();
+        done({ busy: _busy, suspends: suspended });
+      });
+    """, running=True, fetch_fails=True)
+    assert res == {"busy": 0, "suspends": 1}
+
+
+def test_our_own_sleep_does_not_cost_the_boost():
+    """A context we suspended for idleness is not a failure — wake it and play.
+    Falling back to native playback there would silently drop the boost for
+    every clip after the first quiet moment."""
+    res = _gain("""
+      setAudioGain(2);
+      playBoosted('/api/tts?text=hi').then(() => {
+        _playing.onended();
+        fireIdle();                                  // now asleep, by our doing
+        const handed = playBoosted('/api/tts?text=hi');
+        handed.then(() => done({ asleepFirst: true, boosted: started.length,
+                                 resumed, handedBack: false }))
+              .catch(() => done({ handedBack: true }));
+      });
+    """, running=True)
+    assert res["handedBack"] is False
+    assert res["boosted"] == 2          # both clips went through the graph
+
+
+def test_a_context_that_was_never_unlocked_hands_the_clip_back():
+    """Suspended for someone else's reason (iOS won't unlock without a gesture)
+    still means: play it natively, unboosted but audible."""
+    res = _gain("""
+      setAudioGain(2);
+      const p = playBoosted('/api/tts?text=hi');
+      done({ handed: p === null, busy: _busy });
+    """)
+    assert res == {"handed": True, "busy": 0}
+
+
+# ── Sound effects are their own bus ──────────────────────────────────────────
+
+def test_effects_play_on_the_effects_bus_not_the_speech_one():
+    """One slider for both could only ever be a compromise: the words are what
+    you turn up over music, the beeps are what you turn down."""
+    res = _gain("""
+      setAudioGain(2.5); setSfxGain(0.4);
+      const ok = tone({ freq: 587, dur: 0.13 });
+      // oscillator → its own envelope gain → the effects bus.
+      done({ ok, tones: tones.length, onSfxBus: tones[0].dest.dest === _sfxNode,
+             sfx: _sfxNode.gain.value, speech: _gainNode.gain.value });
+    """, running=True)
+    assert res["ok"] is True
+    assert res["onSfxBus"] is True      # never scaled by the speech volume
+    assert res["sfx"] == 0.4 and res["speech"] == 2.5
+
+
+def test_effects_at_zero_make_no_sound_at_all():
+    res = _gain("""
+      setSfxGain(0);
+      const ok = tone({ freq: 587 });
+      done({ ok, tones: tones.length, ctx: !!_actx });
+    """, running=True)
+    assert res == {"ok": False, "tones": 0, "ctx": False}   # not even a context
+
+
+def test_an_effect_releases_the_session_when_it_finishes():
+    res = _gain("""
+      tone({ freq: 587, dur: 0.1 });
+      const held = _busy;
+      fireIdle();
+      done({ held, busy: _busy, state: _actx.state });
+    """, running=True)
+    # stop() fires onended in the stub, as it does in a browser.
+    assert res["busy"] == 0
+    assert res["state"] == "suspended"
+
+
+def test_the_effects_multiplier_is_clamped():
+    res = _gain("""
+      done({ loud: clampSfx(9), off: clampSfx(0), neg: clampSfx(-1),
+             junk: clampSfx('loud'), missing: clampSfx(undefined), ok: clampSfx(0.6) });
+    """)
+    # Unreadable means "normal", but a real 0 means off.
+    assert res == {"loud": 2, "off": 0, "neg": 1, "junk": 1, "missing": 1, "ok": 0.6}
+
+
+def test_effects_do_not_build_a_second_audio_context():
+    """The bug, at its source: the lesson player built its own AudioContext for
+    beeps and never suspended it, so the first ✔ of a lesson took the audio
+    session and kept it. There is one context, and the shell owns it."""
+    learn_js = os.path.join(os.path.dirname(SHELL_JS), "pages", "learn.js")
+    for path in (learn_js,):
+        src = open(path, encoding="utf-8").read()
+        code = "\n".join(ln for ln in src.splitlines() if not ln.strip().startswith("//"))
+        assert "new AudioContext" not in code and "webkitAudioContext" not in code, path
 
 
 def test_stopping_silences_the_current_clip():
@@ -301,6 +478,55 @@ def test_audio_volume_setting_is_clamped_server_side():
     # Anything unreadable means "as recorded", never silence.
     for junk in (None, "", "loud", 0, float("nan")):
         assert main._audio_volume(junk) == 1.0
+
+
+def test_sfx_volume_setting_is_clamped_server_side():
+    import main
+    assert main._sfx_volume(0.6) == 0.6
+    assert main._sfx_volume("2") == 2.0
+    assert main._sfx_volume(99) == main.SFX_VOLUME_MAX
+    # 0 is a real value here, unlike the speech volume: effects can be off.
+    assert main._sfx_volume(0) == 0.0
+    assert main._sfx_volume(-3) == 1.0
+    for junk in (None, "", "loud", float("nan")):
+        assert main._sfx_volume(junk) == 1.0
+
+
+def test_the_two_volumes_are_independent_settings():
+    """Turning the beeps off must not silence the words, and vice versa."""
+    import inspect
+    import main
+    src = inspect.getsource(main.update_settings)
+    assert 'db.set_setting(user["id"], "audio_volume"' in src
+    assert 'db.set_setting(user["id"], "sfx_volume"' in src
+    assert "sfx_volume" in main.SettingsUpdate.model_fields
+    # Speech can be quiet but never silent; effects are the optional ones.
+    assert main.AUDIO_VOLUME_MIN > 0 and main.SFX_VOLUME_MIN == 0
+
+
+@pytest.mark.asyncio
+async def test_the_two_volumes_round_trip_through_the_settings_route(tmp_path):
+    """Through the real routes: a fresh account gets 1× for both, and setting
+    one leaves the other alone."""
+    import auth
+    import db
+    import main
+    db.DB_PATH = str(tmp_path / "cards.db")
+    await db.init()
+    uid = await db.bootstrap_admin("jsilcoff", auth.hash_password("test-password"))
+    user = await db.get_user(uid)
+
+    settings = await main.get_settings(user)
+    assert settings["audio_volume"] == 1.0 and settings["sfx_volume"] == 1.0
+
+    await main.update_settings(main.SettingsUpdate(sfx_volume=0), user)
+    settings = await main.get_settings(user)
+    assert settings["sfx_volume"] == 0.0        # effects off…
+    assert settings["audio_volume"] == 1.0      # …speech untouched
+
+    await main.update_settings(main.SettingsUpdate(audio_volume=2.5), user)
+    settings = await main.get_settings(user)
+    assert settings["audio_volume"] == 2.5 and settings["sfx_volume"] == 0.0
 
 
 def test_the_setting_default_matches_the_client():

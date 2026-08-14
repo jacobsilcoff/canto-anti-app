@@ -2569,26 +2569,17 @@
   }
 
   // ── Sound effects (synthesized, no asset files) ─────────────────────────────
+  // Made by the app shell, on its effects bus. This page used to build its OWN
+  // AudioContext for beeps, which is how sound effects came to pause people's
+  // music and keep it paused: a running context holds the page's audio session
+  // open whether or not it is making a sound, and that one was never suspended
+  // — so the first ✔ of a lesson took the music and never gave it back. The
+  // shell owns a single context, scales effects by the learner's sfx_volume,
+  // and lets it sleep when nothing is playing.
   let muted = localStorage.getItem('learn_muted') === '1';
-  let _sfxCtx = null;
-  function _sfx() {
-    try {
-      if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (_sfxCtx.state === 'suspended') _sfxCtx.resume();
-      return _sfxCtx;
-    } catch { return null; }
-  }
   function _beep(freq, start, dur, type = 'sine', vol = 0.16) {
     if (muted) return;
-    const ac = _sfx(); if (!ac) return;
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.value = freq;
-    o.connect(g); g.connect(ac.destination);
-    const t = ac.currentTime + start;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.start(t); o.stop(t + dur + 0.02);
+    try { window.CantoShell.tone({ freq, start, dur, type, vol }); } catch {}
   }
   const sfx = {
     correct() { _beep(587, 0, 0.13, 'sine', 0.16); _beep(880, 0.08, 0.2, 'sine', 0.16); },

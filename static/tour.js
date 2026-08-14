@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 33;
+  var TOUR_VERSION = 34;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -79,6 +79,8 @@
       body: 'If a drill is wrong \u2014 two options are both right, the answer isn\u2019t, an explanation contradicts itself \u2014 tap the small \u2691 in the corner underneath it. Tell us what\u2019s off (or don\u2019t) and that one question gets rewritten and saved, so it\u2019s fixed for good rather than waiting for you every time you replay the lesson. The rest of the lesson stays exactly as it is. And when you write a sentence a different way and it\u2019s accepted, you now see the lesson\u2019s own answer next to yours, with a note on what actually differs between them. Drills that came out in English by mistake \u2014 an \u201cwhat does this mean?\u201d question whose answer was the same English sentence \u2014 are now dropped automatically the next time you open the lesson.', v: 32 },
     { icon: '\ud83d\udd0a', title: 'If the app has been silent, this was why',
       body: 'App sound used to default to a mode that plays over your music \u2014 which iOS mutes entirely when your phone\u2019s ring switch is on silent. If you\u2019ve been tapping \ud83d\udd0a and hearing nothing, that was it, and it now plays normally by default. You can still turn \u201cPlay sound over my music\u201d back on in Settings; just know the ring switch silences it.', v: 33 },
+    { icon: '\ud83c\udf9a\ufe0f', title: 'Two volume sliders, and your music comes back',
+      body: 'Sound effects have their own volume now, separate from spoken audio \u2014 so you can keep words loud enough to hear over music and turn the lesson chimes down (or all the way off) in Settings. And if your music stayed paused long after a sound finished, that\u2019s fixed: the app now hands audio back when it stops making noise instead of holding on to it. Speaking drills also can\u2019t leave a lesson stuck waiting for the microphone any more \u2014 if your phone doesn\u2019t answer, the question just doesn\u2019t count.', v: 34 },
   ];
 
   var steps, stepIdx;

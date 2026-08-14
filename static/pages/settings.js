@@ -521,6 +521,7 @@
     document.getElementById('settings-speaking').checked = settings.speaking_drills !== false;
     document.getElementById('settings-audio-mix').checked = settings.audio_mix === true;
     _setVolumeSlider(settings.audio_volume);
+    _setSfxSlider(settings.sfx_volume);
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
@@ -800,6 +801,53 @@
     fr: 'Bonjour, tu m\u2019entends ?', es: 'Hola, ¿me oyes?', de: 'Hallo, hörst du mich?',
     it: 'Ciao, mi senti?', pt: 'Olá, está a ouvir?', th: 'สวัสดีค่ะ', hi: 'नमस्ते',
   };
+
+  // ── Sound effects, on their own bus ────────────────────────────────────────
+  // Speech and effects pull in opposite directions — the words are what you
+  // turn up over music, the beeps are what you turn down — so they get a
+  // slider each. 0 is a real value here: effects are the one kind of audio in
+  // the app that is optional.
+  function _setSfxSlider(vol) {
+    const pct = Math.round((vol == null ? 1 : Number(vol) || 0) * 100);
+    document.getElementById('settings-sfx-volume').value = String(Math.min(200, Math.max(0, pct)));
+    _renderSfxLabel(pct);
+  }
+  function _renderSfxLabel(pct) {
+    document.getElementById('sfx-volume-label').textContent =
+      Number(pct) === 0 ? 'Off' : pct + '%';
+  }
+  function previewSfxVolume(pct) {
+    _renderSfxLabel(pct);
+    if (window.CantoShell) CantoShell.setSfxGain(Number(pct) / 100);
+  }
+
+  // The same chime a lesson plays for a correct answer, at the level being set.
+  function testSfxVolume() {
+    if (!window.CantoShell || !CantoShell.tone) { showToast('Audio unavailable right now.'); return; }
+    const first = CantoShell.tone({ freq: 587, dur: 0.13 });
+    CantoShell.tone({ freq: 880, start: 0.08, dur: 0.2 });
+    if (!first) showToast(Number(document.getElementById('settings-sfx-volume').value) === 0
+      ? 'Sound effects are off.' : 'Audio unavailable right now.');
+  }
+
+  async function saveSfxVolume() {
+    const pct = Number(document.getElementById('settings-sfx-volume').value);
+    const vol = Math.round(pct) / 100;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sfx_volume: vol }),
+      });
+      if (!res.ok) throw new Error();
+      settings.sfx_volume = vol;
+      // Write through, or the next page reads the old level from sessionStorage.
+      if (window.CantoShell) CantoShell.patch('settings', { sfx_volume: vol });
+      showToast(pct === 0 ? 'Sound effects off.' : 'Sound effects set to ' + pct + '%.');
+    } catch {
+      showToast('Failed to save setting.');
+    }
+  }
 
   async function saveAudioVolume() {
     const pct = Number(document.getElementById('settings-audio-volume').value);
