@@ -444,7 +444,9 @@ def test_the_speaking_drill_runs_end_to_end():
                classList: { add() {}, remove() {}, toggle() {} } };
     }
     ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen', 'sp-type', 'sp-skip',
-     'sp-input', 'sp-type-wrap'].forEach(id => els[id] = el());
+     'sp-input', 'sp-type-wrap', 'sp-state', 'sp-state-text', 'sp-debug',
+     'sp-dbg'].forEach(id => els[id] = el());
+    const localStorage = { getItem: () => null, setItem() {} };
     const root = { innerHTML: '' };
     const document = {
       getElementById: id => els[id],
@@ -551,7 +553,11 @@ function el() {
                         toggle: () => {}, contains: c => cls.has(c) } };
 }
 ['sp-mic', 'sp-label', 'sp-heard', 'sp-listen', 'sp-type', 'sp-skip',
- 'sp-input', 'sp-type-wrap'].forEach(id => els[id] = el());
+ 'sp-input', 'sp-type-wrap', 'sp-state', 'sp-state-text', 'sp-debug',
+ 'sp-dbg'].forEach(id => els[id] = el());
+const _ls = {};
+const localStorage = { getItem: k => (k in _ls ? _ls[k] : null),
+                       setItem: (k, v) => { _ls[k] = String(v); } };
 // Everything the status line was ever asked to show, so a transient state
 // (like "Checking…") can be observed after the fact.
 const _writes = [];
@@ -590,10 +596,19 @@ class _SpeechRec {
   start() { this.started = true; if (MODE === 'normal') this.onstart && this.onstart(); }
   stop() { if (MODE === 'normal') this.onend && this.onend(); }
   abort() { aborted++; }
-  _hear(text) {
+  _hear(text, conf) {
     this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign(
-      [{ transcript: text }], { isFinal: true })] });
+      [{ transcript: text, confidence: conf }], { isFinal: true })] });
   }
+  // A guess in progress — what the recogniser streams while you are still
+  // talking, and the thing that proves to a learner it is transcribing.
+  _guess(text) {
+    this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign(
+      [{ transcript: text }], { isFinal: false })] });
+  }
+  _speech() { this.onaudiostart && this.onaudiostart();
+              this.onsoundstart && this.onsoundstart();
+              this.onspeechstart && this.onspeechstart(); }
   _end() { this.onend && this.onend(); }
 }
 function _fetchTokens(text) { return Promise.resolve([{ roman: text }]); }
@@ -652,6 +667,101 @@ def test_an_utterance_that_never_ends_is_cut_off():
     assert res["correct"] is True            # what it heard still counts
     assert res["aborted"] >= 1               # and the microphone was released
     assert res["dead"] is False              # a working recogniser isn't written off
+
+
+# ── Showing that it is actually listening ────────────────────────────────────
+# A mic button, "Listening…", and then nothing for two seconds is
+# indistinguishable from a broken microphone. The recogniser reports its own
+# progress, so the drill shows it — and shows each guess as it arrives.
+
+@needs_node
+def test_the_drill_reports_what_the_recogniser_is_doing():
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      SPEAK.render(ex, root, 'yue');
+      const states = [];
+      const grab = () => states.push(els['sp-state-text'].textContent
+                                     + ' | ' + els['sp-state'].className);
+      els['sp-mic'].onclick(); grab();      // waiting for the mic
+      live.onstart(); grab();               // open
+      live._speech(); grab();               // sound → speech detected
+      live._hear('早晨'); grab();            // words
+      done({ states });
+    """, mode="silent")
+    steps = res["states"]
+    assert "Waiting for the microphone" in steps[0]
+    assert "Listening" in steps[1]
+    # The state that proves the microphone works, and it is styled to be noticed.
+    assert "Hearing you" in steps[2] and "hearing" in steps[2]
+    assert "Got it" in steps[3] and "done" in steps[3]
+
+
+@needs_node
+def test_guesses_show_live_and_the_final_one_lands():
+    """Watching the words appear IS the feedback — but an interim guess must
+    never be dressed up as the verdict."""
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      live._guess('早');
+      const partial = els['sp-heard'].innerHTML;
+      const readyMid = c.isReady();
+      live._hear('早晨');
+      done({ partial, final: els['sp-heard'].innerHTML, readyMid });
+    """, mode="silent")
+    assert "早" in res["partial"]
+    assert "sp-live" in res["partial"] and "sp-caret" in res["partial"]
+    assert "I heard" not in res["partial"]      # provisional, not a verdict
+    assert "I heard" in res["final"] and "早晨" in res["final"]
+    assert "sp-caret" not in res["final"]
+
+
+@needs_node
+def test_the_details_panel_is_off_until_asked_for():
+    res = _speak_lifecycle("""
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning' };
+      SPEAK.render(ex, root, 'yue');
+      const hidden = els['sp-debug'].style.display;
+      els['sp-dbg'].onclick();
+      done({ hidden, shown: els['sp-debug'].style.display,
+             label: els['sp-dbg'].textContent, stored: _ls.speechDebug });
+    """, mode="silent")
+    assert res["hidden"] == "none"
+    assert res["shown"] == ""
+    assert "Hide" in res["label"]
+    assert res["stored"] == "1"          # remembered for the next drill
+
+
+@needs_node
+def test_the_details_panel_traces_the_whole_attempt():
+    """What makes 'it didn't work' into a reportable bug: which events fired,
+    what was transcribed, and which comparison decided the verdict."""
+    res = _speak_lifecycle("""
+      _ls.speechDebug = '1';
+      // Both spellings sound the same — the case the romanization pass exists for.
+      _fetchTokens = () => Promise.resolve([{ roman: 'zou2 san4' }]);
+      const ex = { type: 'speak', target: '早晨', prompt: 'good morning', accept: [] };
+      const c = SPEAK.render(ex, root, 'yue');
+      els['sp-mic'].onclick();
+      live.onstart();
+      live._speech();
+      live._hear('走神', 0.82);              // heard a homophone, not the characters
+      c.grade().then(() => {
+        c.lock();
+        done({ log: els['sp-debug'].textContent });
+      });
+    """, mode="silent")
+    log = res["log"]
+    # The setup it ran with…
+    assert "zh-HK" in log and "早晨" in log
+    # …the events, with timings…
+    assert "ms" in log and "speech detected" in log
+    assert "走神" in log and "82%" in log
+    # …and how the answer was actually judged.
+    assert "romanized" in log
+    assert "homophone match" in log
+    assert "verdict: correct" in log
 
 
 @needs_node

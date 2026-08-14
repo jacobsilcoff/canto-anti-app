@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 34;
+  var TOUR_VERSION = 35;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -81,6 +81,8 @@
       body: 'App sound used to default to a mode that plays over your music \u2014 which iOS mutes entirely when your phone\u2019s ring switch is on silent. If you\u2019ve been tapping \ud83d\udd0a and hearing nothing, that was it, and it now plays normally by default. You can still turn \u201cPlay sound over my music\u201d back on in Settings; just know the ring switch silences it.', v: 33 },
     { icon: '\ud83c\udf9a\ufe0f', title: 'Two volume sliders, and your music comes back',
       body: 'Sound effects have their own volume now, separate from spoken audio \u2014 so you can keep words loud enough to hear over music and turn the lesson chimes down (or all the way off) in Settings. And if your music stayed paused long after a sound finished, that\u2019s fixed: the app now hands audio back when it stops making noise instead of holding on to it. Speaking drills also can\u2019t leave a lesson stuck waiting for the microphone any more \u2014 if your phone doesn\u2019t answer, the question just doesn\u2019t count.', v: 34 },
+    { icon: '\ud83c\udf99\ufe0f', title: 'You can see it listening now',
+      body: 'Speaking drills tell you what the microphone is actually doing \u2014 open, picking up sound, hearing you \u2014 and the words appear as your phone guesses them, greyed out until it settles on the final answer. If something looks off, tap \ud83d\udd0e Details underneath for the full trace: what it heard, how confident it was, and exactly which check decided your answer was right or wrong.', v: 35 },
   ];
 
   var steps, stepIdx;

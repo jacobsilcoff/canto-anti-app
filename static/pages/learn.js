@@ -2505,9 +2505,10 @@
   // transcript and "type it instead" box, so there is ONE notion of whether an
   // answer is right — a learner shouldn't be graded differently for saying a
   // sentence than for writing it.
-  async function gradeFreeText(text, ex, lang, onNetwork) {
+  async function gradeFreeText(text, ex, lang, onNetwork, log) {
     const expected = ex.answer != null ? ex.answer : (ex.target || '');
     const kind = _matchKind(text, expected, ex.accept);
+    if (log) log('offline compare “' + text + '” vs “' + expected + '” → ' + (kind || 'no match'));
     // `exact` false for an author-listed alternative, so the feedback shows the
     // canonical answer beside it — for free, with no judge call.
     if (kind) return { checked: true, correct: true, exact: kind === 'exact' };
@@ -2522,24 +2523,36 @@
           accept: ex.accept || [], is_cloze: !!ex.is_cloze, lang,
         }),
       }, GRADE_TIMEOUT_MS);
-      return res.ok ? await res.json() : { checked: false };
-    } catch { return { checked: false }; }
+      if (!res.ok) { if (log) log('judge unreachable (HTTP ' + res.status + ') → not counted'); return { checked: false }; }
+      const data = await res.json();
+      if (log) log('judge → ' + (data.checked === false ? 'unreachable, not counted'
+                                 : (data.correct ? 'correct' : 'wrong')));
+      return data;
+    } catch (e) { if (log) log('judge failed (' + (e && e.name || 'error') + ') → not counted'); return { checked: false }; }
   }
 
   // Grade an utterance against a speak drill. Every alternative the recogniser
   // offered counts — its top pick is often not its best one.
-  async function gradeSpoken(heard, ex, lang) {
+  async function gradeSpoken(heard, ex, lang, log) {
     const said = [ex.target, ...(ex.accept || [])].filter(Boolean);
-    if (heard.some(h => said.some(t => _speechClose(h, t)))) return true;
-    if (!needsRuby(lang) || _isLatin(ex.target)) return false;
+    if (log) log('heard ' + heard.length + ' guess(es): ' + heard.map(h => '“' + h + '”').join(', '));
+    const hit = heard.find(h => said.some(t => _speechClose(h, t)));
+    if (hit) { if (log) log('sounds-like match on “' + hit + '” → correct'); return true; }
+    if (!needsRuby(lang) || _isLatin(ex.target)) {
+      if (log) log('no romanization check for this language → over to the judge');
+      return false;
+    }
     // One round trip per string, all at once. Walked one await at a time this
     // was up to four sequential fetches before the judge call even started —
     // seconds of a disabled Check button on a phone, with nothing on screen
     // saying anything was happening.
     const [want, ...gots] = await Promise.all(
       [ex.target, ...heard].map(t => _spokenRoman(t, lang)));
+    if (log) log('romanized: expected “' + (want || '?') + '” vs ' + gots.map(g => '“' + (g || '?') + '”').join(', '));
     if (!want) return false;
-    return gots.some(got => got && _speechClose(got, want));
+    const ok = gots.some(got => got && _speechClose(got, want));
+    if (log) log(ok ? 'homophone match → correct' : 'romanizations differ → over to the judge');
+    return ok;
   }
 
   // ── Audio-only drills ───────────────────────────────────────────────────────
@@ -3028,6 +3041,7 @@
             </button>
             ${reveal ? `<button class="audio-play sm" type="button" id="sp-listen" title="Hear it">🔊</button>` : ''}
           </div>
+          <div class="speak-state" id="sp-state" style="display:none"><span class="sp-dot"></span><span id="sp-state-text"></span></div>
           <div class="speak-heard" id="sp-heard" role="status" aria-live="polite"></div>
           <div class="type-wrap" id="sp-type-wrap" style="display:none">
             <textarea class="type-input ${scriptClassFor(lang)}" id="sp-input" rows="1"
@@ -3037,7 +3051,9 @@
           <div class="speak-alt">
             <button type="button" class="speak-alt-btn" id="sp-type">⌨️ Type it instead</button>
             <button type="button" class="speak-alt-btn" id="sp-skip">Skip</button>
-          </div>`;
+            <button type="button" class="speak-alt-btn" id="sp-dbg">🔎 Details</button>
+          </div>
+          <pre class="speak-debug" id="sp-debug" style="display:none"></pre>`;
         if (reveal) bindAudioBtn(document.getElementById('sp-listen'), ex.target, lang);
 
         const mic = document.getElementById('sp-mic');
@@ -3048,12 +3064,78 @@
           out.className = 'speak-heard' + (cls ? ' ' + cls : '');
           out.innerHTML = html;
         };
+
+        // ── Live feedback ──────────────────────────────────────────────────
+        // "Listening…" and then nothing for two seconds is indistinguishable
+        // from a broken microphone, which is what made this drill feel dead
+        // even when it was working. The recogniser reports its own progress —
+        // audio captured, sound detected, speech detected, words guessed — so
+        // show that, and show the guesses as they arrive rather than only the
+        // final transcript.
+        const stateEl = document.getElementById('sp-state');
+        const stateText = document.getElementById('sp-state-text');
+        const setState = (text, cls) => {
+          if (!stateEl) return;
+          stateEl.style.display = text ? '' : 'none';
+          stateEl.className = 'speak-state' + (cls ? ' ' + cls : '');
+          if (stateText) stateText.textContent = text || '';
+        };
+        // Interim words are a GUESS and are shown as one — muted, with a caret —
+        // so a learner never reads a half-transcription as the verdict.
+        const showHeard = (text, live) => {
+          if (!text) { say('', ''); return; }
+          const body = `<b class="${scriptClassFor(lang)}">${esc(text)}</b>`;
+          say(live ? `<span class="sp-live">${body}<i class="sp-caret"></i></span>`
+                   : `I heard: ${body}`, '');
+        };
         // Grading a spoken answer can reach the network (romanization, then the
         // judge). Say it out loud rather than leaving a disabled button.
         const checking = () => {
           const was = shown ? `I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b> ` : '';
           say(was + '<span class="sp-checking">Checking…</span>', '');
+          setState('Checking your answer…', 'thinking');
         };
+
+        // ── Diagnostics ────────────────────────────────────────────────────
+        // Opt-in, persisted, and off by default: a timestamped trace of what
+        // the recogniser did and how the answer was graded. Speech recognition
+        // fails differently on every device, and "it didn't work" is not a
+        // reportable bug — this is what makes it one.
+        const dbgEl = document.getElementById('sp-debug');
+        const dbgBtn = document.getElementById('sp-dbg');
+        let dbgOn = false;
+        try { dbgOn = localStorage.getItem('speechDebug') === '1'; } catch {}
+        const trace = [];
+        let t0 = 0;
+        const _now = () => { try { return performance.now(); } catch { return Date.now(); } };
+        function note(msg) {
+          if (!t0) t0 = _now();
+          trace.push(String(Math.round(_now() - t0)).padStart(5) + 'ms  ' + msg);
+          if (trace.length > 60) trace.shift();
+          renderDebug();
+        }
+        function renderDebug() {
+          if (!dbgEl) return;
+          dbgEl.style.display = dbgOn ? '' : 'none';
+          if (dbgBtn) dbgBtn.textContent = dbgOn ? '🔎 Hide details' : '🔎 Details';
+          if (!dbgOn) return;
+          const head = [
+            'recogniser: ' + (speechSupported() ? 'available' : 'MISSING'),
+            'lang tag:   ' + (speechLangFor(lang) || lang) + '   (drill lang: ' + lang + ')',
+            'expected:   ' + (ex.answer != null ? ex.answer : (ex.target || '')),
+            ex.accept && ex.accept.length ? 'also accept: ' + ex.accept.join(' / ') : '',
+            'timeouts:   start ' + SPEECH_START_MS + 'ms · max ' + SPEECH_MAX_MS + 'ms',
+          ].filter(Boolean).join('\n');
+          dbgEl.textContent = head + '\n\n' + (trace.length ? trace.join('\n') : 'tap the mic to start');
+        }
+        if (dbgBtn) {
+          dbgBtn.onclick = () => {
+            dbgOn = !dbgOn;
+            try { localStorage.setItem('speechDebug', dbgOn ? '1' : '0'); } catch {}
+            renderDebug();
+          };
+        }
+        renderDebug();
         let startTimer = null, maxTimer = null;
         const clearTimers = () => {
           if (startTimer) { clearTimeout(startTimer); startTimer = null; }
@@ -3063,6 +3145,7 @@
           listening = false;
           mic.classList.remove('live');
           label.textContent = shown ? 'Tap to try again' : 'Tap and speak';
+          setState('');
         };
         // Release the microphone for real. `stop()` alone only asks the
         // recogniser to finish, so it keeps the mic (and, on iOS, a recording
@@ -3089,6 +3172,9 @@
           // after a timeout and is heard perfectly must not still be graded as
           // "couldn't listen". The watchdogs set it again if this try fails too.
           heard = []; shown = ''; blocked = '';
+          t0 = _now();
+          note('listen requested');
+          setState('Waiting for the microphone…', 'wait');
           let r;
           try { r = new _SpeechRec(); } catch { r = null; }
           if (!r) {
@@ -3105,6 +3191,7 @@
           const giveUp = (msg, dead) => {
             blocked = 'error';
             if (dead) _speechDead = true;   // don't queue more drills it can't run
+            note('gave up: ' + msg);
             say(msg, 'muted');
             stop();
             updateAction();
@@ -3117,24 +3204,43 @@
             if (!mine()) return;
             if (startTimer) { clearTimeout(startTimer); startTimer = null; }
             listening = true; mic.classList.add('live'); label.textContent = 'Listening…'; say('', '');
+            setState('Listening — say it now', 'live');
+            note('started · ' + r.lang);
           };
+          // The recogniser's own progress events. They are what turns a dead
+          // "Listening…" into visible evidence that the microphone is working:
+          // audio captured → sound → speech → words.
+          r.onaudiostart = () => { if (mine()) { setState('Microphone open — say it now', 'live'); note('audio captured'); } };
+          r.onsoundstart = () => { if (mine()) { setState('Picking up sound…', 'live'); note('sound detected'); } };
+          r.onspeechstart = () => { if (mine()) { setState('Hearing you…', 'hearing'); note('speech detected'); } };
+          r.onspeechend = () => { if (mine()) { setState('Working out what you said…', 'thinking'); note('speech ended'); } };
+          r.onnomatch = () => { if (mine()) note('no match (recogniser had no confident guess)'); };
           r.onresult = e => {
             if (!mine()) return;
             const alts = [];
             let best = '';
+            let final = false;
             for (let i = e.resultIndex; i < e.results.length; i++) {
               const res = e.results[i];
               for (let j = 0; j < res.length; j++) if (res[j].transcript) alts.push(res[j].transcript);
+              if (res.isFinal) final = true;
               if (res.isFinal && res[0]) best = res[0].transcript;
+              note((res.isFinal ? 'final:   ' : 'interim: ')
+                   + [...res].map(a => '“' + (a.transcript || '') + '”'
+                       + (a.confidence ? ' ' + Math.round(a.confidence * 100) + '%' : '')).join(', '));
             }
             if (alts.length) heard = alts;
             shown = (best || alts[0] || shown || '').trim();
-            if (shown) say(`I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b>`, '');
+            // Interim guesses render live and provisional; the final one lands
+            // as the answer. Watching the words appear IS the feedback.
+            if (shown) showHeard(shown, !final);
+            if (final) setState('Got it — tap Check', 'done');
             updateAction();
           };
           r.onerror = e => {
             if (!mine()) return;
             const err = (e && e.error) || '';
+            note('error: ' + (err || 'unknown'));
             if (err === 'not-allowed' || err === 'service-not-allowed') {
               blocked = 'denied';
               say('Microphone access is off — type it instead, or skip.', 'muted');
@@ -3147,7 +3253,7 @@
             stop();
             updateAction();
           };
-          r.onend = () => { if (!mine()) return; stop(); updateAction(); };
+          r.onend = () => { if (!mine()) return; note('ended'); stop(); updateAction(); };
           // Watchdogs. Without them a recogniser that answers nothing leaves the
           // drill on "Listening…" with Check disabled and no event coming.
           startTimer = setTimeout(() => {
@@ -3204,10 +3310,12 @@
               return false;
             }
             if (typing) {
-              result = await gradeFreeText(input.value.trim(), ex, lang, checking);
+              note('grading the typed answer');
+              result = await gradeFreeText(input.value.trim(), ex, lang, checking, note);
               return !!(result && result.checked && result.correct);
             }
             if (blocked) {
+              note('not graded: ' + blocked);
               result = { checked: false, reason: blocked === 'denied'
                 ? "Microphone access is off, so this one wasn't checked."
                 : "Couldn't listen on this device, so this one wasn't checked." };
@@ -3219,14 +3327,14 @@
             // say so — a Check button that greys out and sits there for a few
             // seconds with no explanation is indistinguishable from a hang.
             checking();
-            if (await gradeSpoken(heard.length ? heard : [shown], ex, lang)) {
+            if (await gradeSpoken(heard.length ? heard : [shown], ex, lang, note)) {
               // Said it right, but the recogniser's transcript is rarely the
               // canonical line — show that line unless they nailed it verbatim.
               result = { checked: true, correct: true,
                          exact: _matchKind(shown, ex.target, ex.accept) === 'exact' };
               return true;
             }
-            result = await gradeFreeText(shown, ex, lang, checking);
+            result = await gradeFreeText(shown, ex, lang, checking, note);
             if (result && result.checked && !result.correct && shown) {
               result.note = `We heard “${shown}”. ` + (result.note || '');
             }
@@ -3244,6 +3352,9 @@
             if (out.innerHTML.indexOf('sp-checking') >= 0) {
               say(shown ? `I heard: <b class="${scriptClassFor(lang)}">${esc(shown)}</b>` : '', '');
             }
+            setState('');
+            note('verdict: ' + (result && result.checked === false ? 'not counted'
+                                : (result && result.correct ? 'correct' : 'wrong')));
             mic.disabled = true;
             input.disabled = true;
             document.getElementById('sp-type').style.display = 'none';

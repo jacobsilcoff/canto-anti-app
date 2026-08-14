@@ -433,6 +433,36 @@
     /* Grading a spoken answer can go to the network. Saying so is the difference
        between "it's thinking" and "it's frozen". */
     .sp-checking { color: var(--text-muted); font-size: 0.92rem; }
+    /* Live state, straight from the recogniser's own events. "Listening…" and
+       then nothing reads as broken even when it is working perfectly. */
+    .speak-state { display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 10px; font-size: 0.88rem; color: var(--text-muted); }
+    .speak-state .sp-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral-strong);
+      flex: none; }
+    .speak-state.wait .sp-dot { background: var(--warn-accent); animation: sp-blink 1s ease-in-out infinite; }
+    .speak-state.live .sp-dot { background: var(--energy); animation: sp-blink 1.1s ease-in-out infinite; }
+    /* Actually hearing sound is the one state worth shouting about: it is the
+       proof the microphone works. */
+    .speak-state.hearing { color: var(--energy); font-weight: 600; }
+    .speak-state.hearing .sp-dot { background: var(--energy); animation: sp-ripple .7s ease-out infinite; }
+    .speak-state.thinking .sp-dot { background: var(--primary); animation: sp-blink .8s ease-in-out infinite; }
+    .speak-state.done { color: var(--good-strong); }
+    .speak-state.done .sp-dot { background: var(--good-strong); animation: none; }
+    @keyframes sp-blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+    @keyframes sp-ripple { 0% { box-shadow: 0 0 0 0 var(--energy-soft); } 100% { box-shadow: 0 0 0 9px transparent; } }
+    @media (prefers-reduced-motion: reduce) {
+      .speak-state .sp-dot { animation: none !important; }
+    }
+    /* An interim guess is a guess: shown, but never dressed as the verdict. */
+    .sp-live { color: var(--text-muted); }
+    .sp-caret { display: inline-block; width: 2px; height: 1em; margin-left: 3px;
+      background: var(--text-muted); vertical-align: -0.15em; animation: sp-blink .9s step-end infinite; }
+    /* Diagnostics — opt-in, and deliberately plain. */
+    .speak-debug { margin: 12px auto 0; max-width: 520px; max-height: 210px; overflow: auto;
+      background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px; line-height: 1.5; color: var(--text-muted); text-align: left;
+      white-space: pre-wrap; word-break: break-word; }
     /* Nobody is ever stuck on a speaking drill: type it, or skip and see it. */
     .speak-alt { display: flex; justify-content: center; gap: 18px; margin-top: 14px; }
     .speak-alt-btn { background: none; border: none; color: var(--text-muted); font-size: 0.9rem;
