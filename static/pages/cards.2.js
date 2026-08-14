@@ -338,12 +338,19 @@
       document.getElementById('tr-audio-btn').classList.remove('playing');
       return;
     }
+    const _clear = () => document.getElementById('tr-audio-btn').classList.remove('playing');
+    let _b = null;
+    try { _b = CantoShell.playBoosted('/api/audio/' + _trCardId, _clear); } catch {}
+    if (_b) {
+      document.getElementById('tr-audio-btn').classList.add('playing');
+      _b.catch(_clear);
+      return;
+    }
     _trAudioEl = new Audio('/api/audio/' + _trCardId);
     document.getElementById('tr-audio-btn').classList.add('playing');
     _trAudioEl.onended = () => document.getElementById('tr-audio-btn').classList.remove('playing');
     // Without a catch the button sticks in 'playing' forever and the failure
     // is invisible — audio is synthesised lazily, so it can fail transiently.
-    try { CantoShell.prepareAudio(_trAudioEl); } catch {}
     _trAudioEl.play().catch(() => {
       document.getElementById('tr-audio-btn').classList.remove('playing');
     });

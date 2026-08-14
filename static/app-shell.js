@@ -108,31 +108,37 @@
     });
   };
 
-  // ── Audio session: don't stop the user's music ────────────────────────────
-  // iOS treats a page that plays an <audio> element as exclusive playback, so
-  // every flashcard clip and lesson prompt PAUSES whatever the user was
-  // listening to — and podcasts/music don't always resume. The Audio Session
-  // API lets a page say what kind of audio it is:
-  //   'transient'  — short prompts that play OVER other audio, ducking it
-  //                  briefly (driving-directions semantics). What we are.
-  //   'playback'   — exclusive; stops other audio. Safari's effective default
-  //                  for media elements, and the behaviour being fixed here.
-  //   'ambient'    — mixes, but is silenced by the Ring/Silent switch.
-  // We choose 'transient': it mixes like 'ambient' without giving up audio to
-  // the mute switch, which would silently break listening drills for anyone
-  // whose phone is on silent. Unsupported browsers just keep their current
-  // behaviour — this is a progressive enhancement, never a requirement.
+  // ── Audio session: mixing vs. being heard at all ──────────────────────────
+  // iOS treats a page playing an <audio> element as exclusive playback, so a
+  // flashcard clip PAUSES whatever the learner was listening to — and podcasts
+  // don't reliably resume. The Audio Session API lets a page declare what kind
+  // of audio it is, and the choice is a genuine trade-off, not a free win:
   //
-  // Only Safari implements this (enabled by default since 16.4), so Android
-  // Chrome still takes audio focus and there is no web API to stop it. How
-  // faithfully 'transient' ducks rather than interrupts is up to the UA, so if
-  // it turns out to still interrupt on some iOS version, 'ambient' is the
-  // fallback — accepting the mute-switch tradeoff. One word, here.
+  //   'playback'   — media playback. Stops other audio, and is NOT silenced by
+  //                  the Ring/Silent switch. Always audible.
+  //   'transient'  — short prompts that play OVER other audio, ducking it
+  //                  (turn-by-turn-directions semantics)…
+  //   'ambient'    — …and likewise mixes…
+  //
+  // …but BOTH of the mixing types are silence-able: on iOS a phone with the
+  // ringer switched to silent (or a Focus on) plays neither of them, at all.
+  // There is no category that mixes AND ignores the mute switch.
+  //
+  // This defaulted to 'transient' on the mistaken belief that only 'ambient'
+  // gave up audio to the mute switch. The result was that every learner with
+  // their phone on silent — a lot of iPhone owners — got a completely mute app:
+  // clips fetched fine, elements reported playing, and nothing came out, on
+  // every screen. That is a far worse failure than interrupting a podcast, so
+  // the default is now the audible one and mixing is opt-in, with the
+  // consequence spelled out on the setting.
+  //
+  // Only Safari implements this (default since 16.4); Android Chrome takes
+  // audio focus with no web API to prevent it.
   function applyAudioSession(settings) {
     const session = navigator.audioSession;
     if (!session) return;
     try {
-      session.type = (settings && settings.audio_mix === false) ? 'playback' : 'transient';
+      session.type = (settings && settings.audio_mix === true) ? 'transient' : 'playback';
     } catch (e) { /* unsupported value — leave the UA default alone */ }
   }
 
@@ -149,7 +155,7 @@
   // Web Audio, or any exception at all, leaves the element playing natively.
   // Audio that works outranks audio that's louder.
   const AUDIO_GAIN_MIN = 0.5, AUDIO_GAIN_MAX = 3;
-  let _actx = null, _gainNode = null, _routed = null, _audioGain = 1;
+  let _actx = null, _gainNode = null, _audioGain = 1;
 
   function clampGain(value) {
     const g = Number(value);
@@ -174,54 +180,83 @@
     limiter.release.value = 0.25;
     _gainNode.connect(limiter);
     limiter.connect(_actx.destination);
-    _routed = new WeakSet();
     return _actx;
   }
 
-  // Route one <audio> element through the gain graph. Call it immediately before
-  // play().
+  // Play one clip through the gain graph, BY URL.
   //
-  // ROUTE ONLY INTO A RUNNING CONTEXT. Once an element passes through
-  // createMediaElementSource its sound goes ONLY through the graph — so routing
-  // into a suspended context makes the tap silent while the element happily
-  // plays on, and every clip stacked up that way becomes audible at once the
-  // moment some later gesture resumes it. (Reported exactly that way: "the
-  // speaker button did nothing, then leaving the lesson played several sounds
-  // over each other.") An AudioContext starts suspended, browsers only resume it
-  // on a gesture, and resume() is async — so "suspended" is the normal state
-  // early on, not an edge case. Playing this clip natively, unboosted, is the
-  // right trade: the boost is a nicety, hearing it is the product.
-  function prepareAudio(el) {
-    if (!el || _audioGain === 1) return;      // default: don't touch anything
-    try {
-      const ctx = audioGraph();
-      if (!ctx) return;
-      if (ctx.state !== 'running') {
-        resumeAudio();                        // ready for the next clip
-        return;
-      }
-      if (!_routed.has(el)) {
-        // createMediaElementSource throws if an element is routed twice.
-        ctx.createMediaElementSource(el).connect(_gainNode);
-        _routed.add(el);
-      }
-    } catch (e) { /* leave it playing natively — never break playback for volume */ }
-  }
+  // NOT createMediaElementSource. Capturing an <audio> element is the obvious
+  // way to boost it and the wrong one: on iOS Safari the element's sound leaves
+  // the default output and frequently never arrives anywhere, so the clip is
+  // silent while every check we can make says the graph is healthy — the
+  // context is running, the element reports it is playing, nothing throws. That
+  // is exactly the "I turned the volume up and now hear nothing" report. Capture
+  // is also PERMANENT: once an element has been through it there is no way back
+  // to native playback.
+  //
+  // Decoding into an AudioBuffer instead leaves the <audio> element completely
+  // untouched, so every failure here — no Web Audio, a sleeping context, a fetch
+  // or decode error — just returns null and the caller plays the clip the
+  // ordinary way: unboosted, but audible. Returns a Promise that resolves once
+  // the clip is playing, or null when the caller should fall back; a REJECTED
+  // promise means the same as null.
+  const _bufCache = new Map();          // url → Promise<AudioBuffer>
+  const BUF_CACHE_MAX = 60;
+  let _playing = null;                  // current source, so it can be stopped
 
   function resumeAudio() {
     if (!_actx || _actx.state === 'running') return;
     try { _actx.resume().catch(() => {}); } catch (e) {}
   }
 
-  // Is an element that is ALREADY routed able to make a sound right now? A
-  // routed element plays only through the graph, so while the context is asleep
-  // it is silent — and iOS puts the context to sleep on any audio interruption
-  // (a call, another app, the screen locking), which is why "the audio
-  // sometimes just doesn't play" survived routing only into a running context.
-  // Callers use this to rebuild an unrouted element rather than play into
-  // silence; there is no way to un-route one.
-  function audioReady() { return _audioGain === 1 || !_actx || _actx.state === 'running'; }
-  function isAudioRouted(el) { return !!(_routed && el && _routed.has(el)); }
+  function decodeAudio(ctx, arrayBuf) {
+    // Safari only grew the promise form in 14.1; the callback form still works.
+    return new Promise((resolve, reject) => {
+      let p;
+      try { p = ctx.decodeAudioData(arrayBuf, resolve, reject); } catch (e) { reject(e); return; }
+      if (p && p.then) p.then(resolve, reject);
+    });
+  }
+
+  function playBoosted(url, onended) {
+    if (!url || _audioGain === 1) return null;      // default: nothing to do
+    const ctx = audioGraph();
+    // A suspended context plays nothing. Ask for a resume and let THIS clip go
+    // out natively — the next one gets the boost.
+    if (!ctx || ctx.state !== 'running') { resumeAudio(); return null; }
+    let buf = _bufCache.get(url);
+    if (!buf) {
+      buf = nativeFetch(url)
+        .then(r => { if (!r.ok) throw new Error('clip fetch failed'); return r.arrayBuffer(); })
+        .then(bytes => decodeAudio(ctx, bytes));
+      buf.catch(() => _bufCache.delete(url));
+      _bufCache.set(url, buf);
+      if (_bufCache.size > BUF_CACHE_MAX) _bufCache.delete(_bufCache.keys().next().value);
+    }
+    return buf.then(buffer => {
+      stopBoosted();
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(_gainNode);
+      src.onended = () => {
+        if (_playing === src) _playing = null;
+        if (onended) { try { onended(); } catch (e) {} }
+      };
+      src.start();
+      _playing = src;
+      return true;
+    });
+  }
+
+  function stopBoosted() {
+    if (!_playing) return;
+    try { _playing.onended = null; _playing.stop(); } catch (e) {}
+    _playing = null;
+  }
+
+  // Kept as a no-op so a page cached from before this change can still call it
+  // without throwing. Boosting happens in playBoosted now.
+  function prepareAudio() {}
 
   function setAudioGain(value) {
     _audioGain = clampGain(value);
@@ -257,10 +292,10 @@
   window.CantoShell = {
     ready,
     applyAudioSession,
-    prepareAudio,          // call right before el.play() — no-op at 1× volume
+    playBoosted,           // play a clip URL through the gain graph, or null
+    stopBoosted,
+    prepareAudio,          // deprecated no-op — see playBoosted
     setAudioGain,          // live preview from Settings, before anything is saved
-    audioReady,            // false ⇒ a routed element would play silently
-    isAudioRouted,
     resumeAudio,
     audioGain: () => _audioGain,
     refresh: () => refresh(true),

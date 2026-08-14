@@ -1,5 +1,5 @@
 (function () {
-  var TOUR_VERSION = 32;
+  var TOUR_VERSION = 33;
   var STEPS = [
     { icon: '✏️', title: 'Type any word to add it',
       body: 'Translate an English word or phrase and it becomes a flashcard in your deck — with audio, romanization, and AI notes included.', v: 1 },
@@ -77,6 +77,8 @@
       body: 'Lessons now sometimes ask you to SPEAK. You get the English, you say it in your target language \u2014 no answer on screen \u2014 and your phone checks it generously, listening for how you said it rather than which characters it guessed. Can\u2019t talk right now? Type it instead, or skip and see the answer. For a full round of it, open \ud83c\udfaf Practice \u2192 \ud83c\udfa4 Speaking practice, built from the words and sentences your lessons have already taught, or tap \ud83c\udfa4 Speaking on any finished lesson. Turn it off in Settings if you\u2019d rather not. And when a sound can\u2019t be loaded, the \ud83d\udd0a button now shows as unavailable instead of quietly doing nothing \u2014 listening questions we can\u2019t play are skipped rather than asked in silence. And if app audio gets lost under your music, Settings \u2192 Audio volume turns it up (with a limiter, so it won\u2019t distort) \u2014 there\u2019s a Test button to set the level against whatever is playing.', v: 31 },
     { icon: '\u2691', title: 'Spotted a bad question? Rewrite it',
       body: 'If a drill is wrong \u2014 two options are both right, the answer isn\u2019t, an explanation contradicts itself \u2014 tap the small \u2691 in the corner underneath it. Tell us what\u2019s off (or don\u2019t) and that one question gets rewritten and saved, so it\u2019s fixed for good rather than waiting for you every time you replay the lesson. The rest of the lesson stays exactly as it is. And when you write a sentence a different way and it\u2019s accepted, you now see the lesson\u2019s own answer next to yours, with a note on what actually differs between them. Drills that came out in English by mistake \u2014 an \u201cwhat does this mean?\u201d question whose answer was the same English sentence \u2014 are now dropped automatically the next time you open the lesson.', v: 32 },
+    { icon: '\ud83d\udd0a', title: 'If the app has been silent, this was why',
+      body: 'App sound used to default to a mode that plays over your music \u2014 which iOS mutes entirely when your phone\u2019s ring switch is on silent. If you\u2019ve been tapping \ud83d\udd0a and hearing nothing, that was it, and it now plays normally by default. You can still turn \u201cPlay sound over my music\u201d back on in Settings; just know the ring switch silences it.', v: 33 },
   ];
 
   var steps, stepIdx;

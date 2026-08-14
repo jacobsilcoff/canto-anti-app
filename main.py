@@ -2304,9 +2304,11 @@ async def get_settings(user: dict = Depends(current_user)):
         # clip as recorded (and no Web Audio routing at all on the client).
         "audio_volume": _audio_volume(await db.get_setting(user["id"], "audio_volume")),
         # Play audio alongside the user's music instead of stopping it. Defaults
-        # ON — a flashcard clip killing someone's podcast is never what they
-        # wanted. See applyAudioSession in app-shell.js.
-        "audio_mix": (await db.get_setting(user["id"], "audio_mix") or "true") != "false",
+        # OFF, and that default is load-bearing: the mixing audio-session types
+        # are silenced by the iPhone's Ring/Silent switch, so ON means a learner
+        # with their phone on silent hears NOTHING anywhere in the app. Being
+        # heard beats not interrupting a podcast. See applyAudioSession.
+        "audio_mix": (await db.get_setting(user["id"], "audio_mix") or "false") == "true",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
         # IANA zone deciding when the learner's day rolls over (streak, XP ring,
         # daily quests, new-card cap). Auto-detected by the client; UTC until then.

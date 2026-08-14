@@ -581,8 +581,10 @@
   function speakMsg(text) {
     if (!text) return;
     try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    let _b = null;
+    try { _b = CantoShell.playBoosted('/api/tts?text=' + encodeURIComponent(text.slice(0, 200)) + '&lang=' + encodeURIComponent(_targetLang)); } catch {}
+    if (_b) { _b.catch(() => {}); return; }
     _audio = new Audio('/api/tts?text=' + encodeURIComponent(text.slice(0, 200)) + '&lang=' + encodeURIComponent(_targetLang));
-    try { CantoShell.prepareAudio(_audio); } catch {}
     _audio.play().catch(() => {});
   }
 

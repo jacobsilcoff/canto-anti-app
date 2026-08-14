@@ -90,8 +90,10 @@
   function playTTS(text, l) {
     if (!text) return;
     try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch {}
+    let _b = null;
+    try { _b = CantoShell.playBoosted('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(l)); } catch {}
+    if (_b) { _b.catch(() => {}); return; }
     _audio = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(l));
-    try { CantoShell.prepareAudio(_audio); } catch {}
     _audio.play().catch(() => {});
   }
 

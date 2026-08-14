@@ -806,13 +806,25 @@
   // ── Audio ─────────────────────────────────────────────────────────────────
   function playCardAudio(cardId, btn, isRetry) {
     stopAudio();
-    const el = new Audio(`/api/audio/${cardId}`);
+    const url = `/api/audio/${cardId}`;
+    // Volume boost (Settings). Plays the decoded bytes through the gain graph
+    // and leaves the <audio> element alone, so any failure — no boost, sleeping
+    // graph, fetch or decode error — falls through to ordinary playback below.
+    if (!isRetry) {
+      let boosted = null;
+      try { boosted = CantoShell.playBoosted(url, () => btn.classList.remove('playing')); } catch {}
+      if (boosted) {
+        btn.classList.add('playing');
+        boosted.catch(() => { btn.classList.remove('playing'); playCardAudio(cardId, btn, true); });
+        return;
+      }
+    }
+    const el = new Audio(url);
     currentAudio = el;
     btn.classList.add('playing');
     btn.classList.remove('audio-dead');
     btn.disabled = false;
     el.onended = () => btn.classList.remove('playing');
-    try { CantoShell.prepareAudio(el); } catch {}   // volume boost; never blocks play
     el.play().catch(err => {
       // Without this the button stays stuck in its 'playing' state forever
       // (onended never fires) and the failure is invisible.
@@ -836,6 +848,7 @@
 
   function stopAudio() {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    try { CantoShell.stopBoosted(); } catch {}
   }
 
   function renderCardListItem(card, container) {

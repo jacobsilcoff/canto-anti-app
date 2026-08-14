@@ -519,7 +519,7 @@
     document.getElementById('settings-lesson-length').value = settings.lesson_length || 'standard';
     document.getElementById('settings-ai-speak').checked = settings.lesson_ai_speak !== false;
     document.getElementById('settings-speaking').checked = settings.speaking_drills !== false;
-    document.getElementById('settings-audio-mix').checked = settings.audio_mix !== false;
+    document.getElementById('settings-audio-mix').checked = settings.audio_mix === true;
     _setVolumeSlider(settings.audio_volume);
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
@@ -726,7 +726,9 @@
         window.CantoShell.patch('settings', { audio_mix: checked });
         window.CantoShell.applyAudioSession({ audio_mix: checked });
       }
-      showToast(checked ? 'Sound will play over your music.' : 'Sound will play on its own.');
+      showToast(checked
+        ? 'Sound will play over your music — but not while your phone is on silent.'
+        : 'Sound will always play, pausing other audio.');
     } catch {
       document.getElementById('settings-audio-mix').checked = !checked;
       showToast('Failed to save setting.');
@@ -775,13 +777,18 @@
     const lang = settings.default_target_lang || 'yue';
     const btn = document.getElementById('settings-volume-test');
     try { if (_volumeTestAudio) { _volumeTestAudio.pause(); } } catch (e) {}
+    try { CantoShell.stopBoosted(); } catch (e) {}
     // A fresh element each time: one already routed through the gain graph is
     // fine to reuse, but a failed one is permanently dead (see learn.js).
-    _volumeTestAudio = new Audio('/api/tts?text=' + encodeURIComponent(_VOLUME_TEST_TEXT[lang] || 'Hello')
-                                 + '&lang=' + encodeURIComponent(lang));
-    if (window.CantoShell) CantoShell.prepareAudio(_volumeTestAudio);
+    const url = '/api/tts?text=' + encodeURIComponent(_VOLUME_TEST_TEXT[lang] || 'Hello')
+              + '&lang=' + encodeURIComponent(lang);
     btn.disabled = true;
     const done = () => { btn.disabled = false; };
+    // The boosted path is what a lesson will actually use, so test THAT.
+    let boosted = null;
+    try { boosted = CantoShell.playBoosted(url, done); } catch {}
+    if (boosted) { boosted.catch(() => { done(); showToast('Audio unavailable right now.'); }); return; }
+    _volumeTestAudio = new Audio(url);
     _volumeTestAudio.onended = done;
     _volumeTestAudio.play().then(done).catch(() => { done(); showToast('Audio unavailable right now.'); });
   }
