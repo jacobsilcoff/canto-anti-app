@@ -832,8 +832,9 @@
     _sourceBookId = b.id;
     _sourceGuidance = '';
     _sourceError = '';
-    const first = (b.chapters || [])[0];
-    _sourceSection = first ? '0' : 'custom';
+    const firstIdx = (b.chapters || []).findIndex(ch => ch.lesson_enabled !== false);
+    const first = firstIdx >= 0 ? b.chapters[firstIdx] : null;
+    _sourceSection = first ? String(firstIdx) : 'custom';
     _sourceStart = first ? first.start : 1;
     _sourceEnd = first ? first.end : Math.min(5, b.num_pages);
     if (_sourceEnd - _sourceStart + 1 > TEXTBOOK_SOURCE_PAGE_LIMIT) {
@@ -849,7 +850,8 @@
     if (!b) { _makerStep = 'books'; renderBookPicker(body); return; }
     _makerHeader('Review textbook unit');
     const sectionOptions = (b.chapters || []).map((ch, i) =>
-      `<option value="${i}"${_sourceSection === String(i) ? ' selected' : ''}>${esc(ch.title)} · pages ${ch.start}–${ch.end}</option>`).join('');
+      ch.lesson_enabled === false ? ''
+        : `<option value="${i}"${_sourceSection === String(i) ? ' selected' : ''}>${esc(ch.title)} · pages ${ch.start}–${ch.end}</option>`).join('');
     const visuals = _sourceVisuals.length ? `<label class="maker-field"><span>Images and diagrams from these pages</span>
         <div class="maker-help" style="margin-top:0"><span>Choose up to 6 relevant visuals for the unit planner; leave decorative images unselected.</span></div>
         <div class="maker-visual-grid">${_sourceVisuals.map(v => {
@@ -1242,6 +1244,10 @@
       <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.start}" onchange="chEdit(${bi},${ci},'start',this.value)" aria-label="Start page">
       <span class="ch-dash">–</span>
       <input class="ch-pg" type="number" min="1" max="${_books[bi].num_pages}" value="${ch.end}" onchange="chEdit(${bi},${ci},'end',this.value)" aria-label="End page">
+      <label class="ch-lessons" title="Hide this chapter from the lesson tree and prevent lesson generation">
+        <input type="checkbox"${ch.lesson_enabled !== false ? ' checked' : ''} onchange="chEdit(${bi},${ci},'lesson_enabled',this.checked)">
+        <span>Use for lessons</span>
+      </label>
       <button class="ch-btn" onclick="removeChapter(${bi},${ci})" title="Remove unit">✕</button>
       ${ch.skip_hint ? '<span class="ch-skip">Suggested skip</span>' : ''}
     </div>`;
@@ -1250,6 +1256,7 @@
   function chEdit(bi, ci, field, value) {
     const ch = _books[bi].chapters[ci];
     if (field === 'title') ch.title = value;
+    else if (field === 'lesson_enabled') ch.lesson_enabled = !!value;
     else ch[field] = Math.max(1, Math.min(_books[bi].num_pages, parseInt(value, 10) || 1));
     ch._dirty = true;
     renderLessonMaker();
@@ -1259,7 +1266,7 @@
     const b = _books[bi];
     const last = b.chapters[b.chapters.length - 1];
     const start = last ? Math.min(last.end + 1, b.num_pages) : 1;
-    b.chapters.push({ title: 'New unit', start, end: Math.min(start + 4, b.num_pages), skip_hint: false, status: '', queued: 0, _dirty: true });
+    b.chapters.push({ title: 'New unit', start, end: Math.min(start + 4, b.num_pages), skip_hint: false, status: '', lesson_enabled: true, queued: 0, _dirty: true });
     renderLessonMaker();
   }
 
@@ -1281,9 +1288,13 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Could not save units.');
       b.chapters = (data.chapters || []).map(c => ({ ...c, queued: 0 }));
-      const selected = b.chapters.findIndex(ch => ch.start === _sourceStart && ch.end === _sourceEnd);
+      const shelfBook = (_tbBooks || []).find(x => x.id === b.id);
+      if (shelfBook) shelfBook.chapters = b.chapters.map(c => ({ ...c }));
+      const selected = b.chapters.findIndex(ch => ch.lesson_enabled !== false
+        && ch.start === _sourceStart && ch.end === _sourceEnd);
       _sourceSection = selected >= 0 ? String(selected) : 'custom';
       _makerStep = 'source';
+      if (currentCourse) renderCourse(currentCourse);
     } catch (e) {
       _sourceError = e.message || 'Could not save units.';
     } finally {
@@ -1762,6 +1773,10 @@
                            openByDefault || busy, body);
   }
 
+  // Missing means an older saved chapter, which must keep behaving exactly as
+  // before. Only an explicit false opts a chapter out of the lesson curriculum.
+  function _chapterUsesLessons(ch) { return !ch || ch.lesson_enabled !== false; }
+
   // ── Skill-tree path rendering (AI lessons) ──
   function _unitBanner(u, unitNo, ach) {
     if (u.in_progress) {
@@ -2026,11 +2041,23 @@
     // the /textbooks page for each new chapter.
     loadTextbookShelf(course.id);
     const shelf = _tbBooks || [];
-    if (textbookUnits.length > 0 || shelf.length > 0) {
+    const shelfIds = new Set(shelf.map(b => b.id));
+    const hiddenTextbookUnitIds = new Set();
+    textbookUnits.forEach(u => {
+      const book = shelf.find(b => b.id === u.textbook_id);
+      const ch = book && u.chapter_idx != null && (book.chapters || [])[u.chapter_idx];
+      if (ch && !_chapterUsesLessons(ch)) hiddenTextbookUnitIds.add(u.id);
+    });
+    const visibleTextbookUnits = textbookUnits.filter(u => !hiddenTextbookUnitIds.has(u.id));
+    // A divided book with every chapter opted out contributes nothing to the
+    // lesson tree. An undivided book remains visible so the learner can set it up.
+    const visibleShelf = shelf.filter(b => !(b.chapters || []).length
+      || (b.chapters || []).some(_chapterUsesLessons));
+    if (visibleTextbookUnits.length > 0 || visibleShelf.length > 0) {
       // Default EXPANDED (the learner just built these). '1' = collapsed.
       const collapsed = localStorage.getItem('learn_textbooks_collapsed') === '1';
-      const tTotal = textbookUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
-      const tDone  = textbookUnits.reduce((n, u) =>
+      const tTotal = visibleTextbookUnits.reduce((n, u) => n + (u.lessons || []).length, 0);
+      const tDone  = visibleTextbookUnits.reduce((n, u) =>
         n + (u.lessons || []).filter(l => l.status === 'done').length, 0);
 
       const section = document.createElement('div');
@@ -2053,10 +2080,12 @@
       // book is on the shelf are claimed here — otherwise a unit from a deleted
       // book (or every unit, on the first paint before the shelf loads) would be
       // marked as rendered and then never drawn.
-      const shelfIds = new Set(shelf.map(b => b.id));
       const claimed = new Set();
       const unitFor = new Map();      // `${bookId}:${chapterIdx}` → unit
       textbookUnits.forEach(u => {
+        // Hidden chapters also claim their existing unit so it cannot fall
+        // through into the legacy "Other units" bucket below.
+        if (hiddenTextbookUnitIds.has(u.id)) { claimed.add(u.id); return; }
         if (shelfIds.has(u.textbook_id) && u.chapter_idx != null) {
           unitFor.set(`${u.textbook_id}:${u.chapter_idx}`, u);
           claimed.add(u.id);
@@ -2067,9 +2096,10 @@
       // working through (the first that isn't finished). Everything else starts
       // collapsed, so a two-book shelf is a readable list rather than a wall.
       const nextChapterOf = new Map();
-      shelf.forEach(b => {
+      visibleShelf.forEach(b => {
         const chapters = b.chapters || [];
         for (let ci = 0; ci < chapters.length; ci++) {
+          if (!_chapterUsesLessons(chapters[ci])) continue;
           const u = unitFor.get(`${b.id}:${ci}`);
           if (!u) { nextChapterOf.set(b.id, ci); break; }        // not built yet
           const ls = u.lessons || [];
@@ -2079,15 +2109,17 @@
         }
       });
 
-      shelf.forEach(b => {
+      visibleShelf.forEach(b => {
         const chapters = b.chapters || [];
-        const built = chapters.reduce((n, _c, ci) => n + (unitFor.has(`${b.id}:${ci}`) ? 1 : 0), 0);
+        const lessonChapters = chapters.filter(_chapterUsesLessons);
+        const built = chapters.reduce((n, c, ci) => n + (_chapterUsesLessons(c)
+          && unitFor.has(`${b.id}:${ci}`) ? 1 : 0), 0);
         const bookOpen = localStorage.getItem('tbbook:' + b.id) !== '0';
         add(`<div class="tb-book${bookOpen ? ' open' : ''}" data-book="${b.id}">
           <button class="tb-book-head" type="button" onclick="toggleTbBook(${b.id})">
             <span class="tb-chapter-chevron">›</span>
             <span class="tb-book-title">📕 ${esc(b.title)}</span>
-            <span class="tb-book-meta">${built}/${chapters.length || '–'} chapters</span>
+            <span class="tb-book-meta">${built}/${lessonChapters.length || '–'} lesson chapters</span>
           </button>
           <div class="tb-book-body" id="tb-book-${b.id}"></div>
         </div>`);
@@ -2104,12 +2136,13 @@
         }
         const openCi = nextChapterOf.get(b.id);
         chapters.forEach((ch, ci) => {
+          if (!_chapterUsesLessons(ch)) return;
           const u = unitFor.get(`${b.id}:${ci}`);
           addBook(u ? _textbookUnitHtml(u, ci === openCi)
                     : _emptyChapterHtml(b, ch, ci, ci === openCi));
         });
         // Units from this book with no chapter link (custom page ranges).
-        textbookUnits
+        visibleTextbookUnits
           .filter(u => u.textbook_id === b.id && !claimed.has(u.id))
           .forEach(u => { claimed.add(u.id); addBook(_textbookUnitHtml(u)); });
       });
@@ -2117,7 +2150,7 @@
       // before the shelf has loaded. Their lessons are still the learner's, so
       // they keep the old grouping by book name.
       let lastBook = null;
-      textbookUnits.filter(u => !claimed.has(u.id)).forEach(u => {
+      visibleTextbookUnits.filter(u => !claimed.has(u.id)).forEach(u => {
         const name = u.book_title || 'Other units';
         if (name !== lastBook) {
           add(`<div class="tb-book open"><div class="tb-book-head static">
@@ -3266,12 +3299,40 @@
       render(ex, root, lang) {
         let sel = null;
         root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'What did you hear?')}</div>
-          <div class="audio-center"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
+          <div class="audio-center" id="listen-audio"><button class="audio-play big" type="button" id="ex-audio">🔊</button></div>
+          <button class="listen-fallback" type="button" id="listen-fallback">Can’t listen? Show romanization</button>
+          <div class="listen-roman" id="listen-roman" aria-live="polite"></div>
           <div class="opt-list" id="opts"></div>`;
         bindAudioBtn(document.getElementById('ex-audio'), ex.audio, lang);
+        const fallback = document.getElementById('listen-fallback');
+        const roman = document.getElementById('listen-roman');
+        const audioWrap = document.getElementById('listen-audio');
+        const instruction = root.querySelector('.ex-instruction');
+        let fallbackShowing = false;
+        async function showRomanization() {
+          if (player.graded || fallbackShowing) return;
+          fallbackShowing = true;
+          ex._usedAudioFallback = true;
+          stopTTS();
+          fallback.disabled = true;
+          fallback.textContent = 'Loading romanization…';
+          const text = await _listeningRomanization(ex, lang);
+          // The learner may have advanced while the romanizer was loading.
+          if (!player || player.queue[player.idx] !== ex) return;
+          audioWrap.style.display = 'none';
+          fallback.style.display = 'none';
+          instruction.textContent = 'Which phrase matches this romanization?';
+          roman.textContent = text || ex.audio || 'Pronunciation unavailable';
+          roman.classList.add('shown');
+        }
+        fallback.onclick = showRomanization;
+        if (ex._audioUnavailable || ex._usedAudioFallback) showRomanization();
         // Guard the delayed auto-play: don't speak a stale exercise if the learner
         // already advanced (or quit) before the timer fired.
-        setTimeout(() => { if (player && player.queue[player.idx] === ex) playTTS(ex.audio, lang); }, 300);
+        setTimeout(() => {
+          if (player && player.queue[player.idx] === ex && !ex._usedAudioFallback)
+            playTTS(ex.audio, lang);
+        }, 300);
         const list = document.getElementById('opts');
         (ex.options || []).forEach((o, i) => {
           const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
@@ -4605,6 +4666,21 @@
     return _tokenCache[key];
   }
 
+  // Resolve the readable substitute for a listening prompt. Server-authored
+  // drills normally include the offline romanization already; client-created
+  // variants use the same token oracle on demand. For a Latin-script language,
+  // the written phrase is itself the useful pronunciation fallback.
+  async function _listeningRomanization(ex, lang) {
+    const supplied = ((ex && ex.audio_roman) || '').trim();
+    if (supplied) return supplied;
+    const audioText = ((ex && ex.audio) || '').trim();
+    if (!audioText) return '';
+    if (!needsRuby(lang)) return audioText;
+    const tokens = await _fetchTokens(audioText, lang);
+    if (!Array.isArray(tokens)) return '';
+    return tokens.filter(t => t.is_word).map(t => t.roman || t.text).join(' ').trim();
+  }
+
   // Pre-warm TTS audio + ruby token caches for an entire lesson, fired
   // immediately after the lesson JSON loads (before the first screen renders).
   // This way audio/ruby are in the browser cache by the time the learner
@@ -5148,15 +5224,28 @@
   // a dead 🔊 with nothing to go on. Returns true when the drill was dropped.
   function _guardAudioExercise(ex) {
     if (!_audioOnly(ex)) return false;
+    // A normal listening choice has a readable fallback. Keep it in the run and
+    // let the learner switch to romanization; audio-only mini-games still drop.
+    if (ex.type === 'listening' && (ex._usedAudioFallback || ex._audioUnavailable)) return false;
     const lang = player.lang;
     const clips = _exClips(ex);
-    if (!clips.length) { _skipExercise(ex, 'Skipped a listening exercise — no audio.'); return true; }
+    if (!clips.length) {
+      if (ex.type === 'listening') { ex._audioUnavailable = true; return false; }
+      _skipExercise(ex, 'Skipped a listening exercise — no audio.'); return true;
+    }
     const allDead = () => clips.every(c => ttsHealth(c, lang) === 'fail');
     const settle = () => {
-      if (!player || player.queue[player.idx] !== ex || player.graded || !allDead()) return;
+      if (!player || player.queue[player.idx] !== ex || player.graded
+          || ex._usedAudioFallback || ex._audioUnavailable || !allDead()) return;
       if (!ex._audioRetried) {            // one clean retry before giving up on it
         ex._audioRetried = true;
         clips.forEach(c => _retryTTS(c, lang));
+        return;
+      }
+      if (ex.type === 'listening') {
+        ex._audioUnavailable = true;
+        learnToast('Audio unavailable — showing romanization.');
+        renderExercise();
         return;
       }
       _skipExercise(ex, 'Skipped a listening exercise — audio unavailable.');
@@ -5288,7 +5377,8 @@
           player.firstPassCorrect++;
           player.combo++;
           player.maxCombo = Math.max(player.maxCombo, player.combo);
-          if (ex.type === 'listening') player.listeningHits = (player.listeningHits || 0) + 1;
+          if (ex.type === 'listening' && !ex._usedAudioFallback)
+            player.listeningHits = (player.listeningHits || 0) + 1;
           const gained = comboXp(player.combo);
           player.xp += gained;
           bumpCombo(gained);

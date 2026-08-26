@@ -349,7 +349,8 @@ def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
     """Clamp/repair a chapter list (from the detector OR a user edit): ranges
     forced inside the book, ordered by start page, overlaps resolved in favour
     of the earlier chapter, empty/malformed entries dropped. A valid `status`
-    survives (user edits round-trip through this too).
+    and the user-controlled `lesson_enabled` flag survive (user edits round-trip
+    through this too). Older saved chapters predate the flag and remain enabled.
 
     Mid-page splits: a chapter may carry `start_anchor`/`end_anchor` — verbatim
     lines marking where its content begins/ends WITHIN its first/last page. When
@@ -372,6 +373,7 @@ def _norm_chapters(parsed: dict, num_pages: int) -> list[dict]:
         status = ch.get("status") if ch.get("status") in _CHAPTER_STATUSES else ""
         out.append({"title": title, "start": start, "end": end,
                     "skip_hint": bool(ch.get("skip_hint")), "status": status,
+                    "lesson_enabled": ch.get("lesson_enabled") is not False,
                     "start_anchor": _clean_anchor(ch.get("start_anchor")),
                     "end_anchor": _clean_anchor(ch.get("end_anchor"))})
     out.sort(key=lambda c: (c["start"], c["end"]))
@@ -410,6 +412,10 @@ def merge_chapters(chapters: list[dict], index: int, title: str = "") -> list[di
         "start": min(int(a["start"]), int(b["start"])),
         "end": max(int(a["end"]), int(b["end"])),
         "skip_hint": bool(a.get("skip_hint")) and bool(b.get("skip_hint")),
+        # If either half was intended for lessons, the combined chapter still
+        # contains lesson material. The learner can turn it off after merging.
+        "lesson_enabled": (a.get("lesson_enabled") is not False
+                           or b.get("lesson_enabled") is not False),
         # Lessons were made from one of the halves → the merged range still has
         # lessons somewhere in it, so keep the flag rather than silently clearing.
         "status": a.get("status") or b.get("status") or "",

@@ -615,7 +615,8 @@
       const c = _seDraft[ci];
       const origEnd = c.end, origEndAnchor = c.end_anchor || '';
       const tail = { start: P, end: origEnd, end_anchor: origEndAnchor,
-                     title: (line || '').slice(0, 80), skip_hint: false, status: '' };
+                     title: (line || '').slice(0, 80), skip_hint: false, status: '',
+                     lesson_enabled: c.lesson_enabled !== false };
       if (target.kind === 'top') {
         c.end = P - 1; c.end_anchor = ''; tail.start = P; tail.start_anchor = '';
       } else if (target.kind === 'bottom') {
@@ -671,6 +672,7 @@
     const chapters = _seDraft
       .map(c => ({ title: (c.title || '').trim(), start: c.start, end: c.end,
                    skip_hint: !!c.skip_hint, status: c.status || '',
+                   lesson_enabled: c.lesson_enabled !== false,
                    start_anchor: c.start_anchor || '', end_anchor: c.end_anchor || '' }))
       .filter(c => c.title && c.start && c.end);
     try {
@@ -999,7 +1001,7 @@
 
   function startEditChapters() {
     _chDraft = (_chBook.chapters || []).map(c => ({ ...c }));
-    if (!_chDraft.length) _chDraft.push({ title: '', start: 1, end: _chBook.num_pages, skip_hint: false, status: '' });
+    if (!_chDraft.length) _chDraft.push({ title: '', start: 1, end: _chBook.num_pages, skip_hint: false, status: '', lesson_enabled: true });
     _chEdit = true;
     _splitAt = null; _splitLines = null;
     renderChapters();
@@ -1010,7 +1012,8 @@
     document.querySelectorAll('.toc-erow input').forEach(inp => {
       const i = +inp.dataset.i, k = inp.dataset.k;
       if (!_chDraft[i]) return;
-      _chDraft[i][k] = k === 'title' ? inp.value : (parseInt(inp.value, 10) || 0);
+      _chDraft[i][k] = k === 'title' ? inp.value
+        : (k === 'lesson_enabled' ? inp.checked : (parseInt(inp.value, 10) || 0));
     });
   }
 
@@ -1018,7 +1021,7 @@
     _syncDraft();
     const last = _chDraft[_chDraft.length - 1];
     const start = last ? Math.min(_chBook.num_pages, (last.end || 0) + 1) : 1;
-    _chDraft.push({ title: '', start, end: start, skip_hint: false, status: '' });
+    _chDraft.push({ title: '', start, end: start, skip_hint: false, status: '', lesson_enabled: true });
     _splitAt = null;
     renderChapters();
   }
@@ -1141,6 +1144,10 @@
           <input class="toc-numin" data-i="${i}" data-k="start" type="number" min="1" max="${b.num_pages}" value="${c.start}" title="First page">
           <span class="toc-dash">–</span>
           <input class="toc-numin" data-i="${i}" data-k="end" type="number" min="1" max="${b.num_pages}" value="${c.end}" title="Last page">
+          <label class="toc-lessons" title="Hide this chapter from the lesson tree and prevent lesson generation">
+            <input data-i="${i}" data-k="lesson_enabled" type="checkbox"${c.lesson_enabled !== false ? ' checked' : ''}>
+            <span>Use for lessons</span>
+          </label>
           <button class="toc-del" onclick="deleteChapterRow(${i})" title="Remove chapter">✕</button>
         </div>` + _boundaryRowHtml(i)).join('') + `</div>
         <button class="toc-add" onclick="addChapterRow()">＋ Add chapter</button>
@@ -1166,6 +1173,7 @@
           const here = curCh != null && curCh >= c.start && curCh <= c.end;
           const tags = [];
           if (c.skip_hint) tags.push('<span class="toc-skip">skip</span>');
+          if (c.lesson_enabled === false) tags.push('<span class="toc-readonly">read only</span>');
           if (c.status === 'queued') tags.push('lessons made');
           if (c.start_anchor || c.end_anchor) tags.push('<span class="toc-split">✂︎ split</span>');
           // Spell out where a shared page is cut, so the split can be sanity-
@@ -1199,6 +1207,7 @@
     const chapters = _chDraft
       .map(c => ({ title: (c.title || '').trim(), start: c.start, end: c.end,
                    skip_hint: !!c.skip_hint, status: c.status || '',
+                   lesson_enabled: c.lesson_enabled !== false,
                    start_anchor: c.start_anchor || '', end_anchor: c.end_anchor || '' }))
       .filter(c => c.title && c.start && c.end);
     const st = document.getElementById('ch-status');

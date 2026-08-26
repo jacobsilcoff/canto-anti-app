@@ -330,9 +330,9 @@ _SKIP_HARNESS = """
 
 
 @needs_node
-def test_an_unanswerable_listening_drill_is_dropped_after_one_retry():
-    """One /api/tts hiccup shouldn't cost a drill — but a clip that stays dead
-    must not leave the learner stuck on a question they cannot hear."""
+def test_an_unanswerable_listening_drill_uses_romanization_after_one_retry():
+    """A clip that stays dead becomes readable instead of disappearing from the
+    lesson (or leaving the learner stuck on an inaudible question)."""
     res = _run(_SKIP_HARNESS + """
       failing.add(_ttsUrl('你好', 'yue'));
       const listen = { type: 'listening', audio: '你好' };
@@ -344,18 +344,19 @@ def test_an_unanswerable_listening_drill_is_dropped_after_one_retry():
       const afterFirst = { dropped: player.queue.indexOf(listen) < 0,
                            retried: !!listen._audioRetried, total: player.total };
       done({ afterFirst, dropped: player.queue.indexOf(listen) < 0,
+             fallback: !!listen._audioUnavailable,
              left: player.queue.length, total: player.total,
              segTotal: player.segTotals[0], toasts: toasts.length,
-             onScreen: player.queue[player.idx] === readable });
+             onScreen: player.queue[player.idx] === listen });
     """, fns=_SKIP_FNS, decls=_TTS_DECLS)
-    # The first pass retries rather than dropping; the retry fails and it goes.
+    # The first pass retries; when that also fails the same question stays put
+    # and its renderer switches to romanization.
     assert res["afterFirst"]["retried"] is True
-    assert res["dropped"] is True
-    assert res["left"] == 1
+    assert res["dropped"] is False and res["fallback"] is True
+    assert res["left"] == 2
     assert res["onScreen"] is True
     assert res["toasts"] == 1
-    # It was never asked, so it must not count against the score or the bar.
-    assert res["total"] == 1 and res["segTotal"] == 1
+    assert res["total"] == 2 and res["segTotal"] == 2
 
 
 @needs_node
@@ -372,10 +373,10 @@ def test_a_working_clip_keeps_its_listening_drill():
 
 
 @needs_node
-def test_dropping_the_last_drill_ends_the_segment():
+def test_dropping_the_last_audio_minigame_ends_the_segment():
     res = _run(_SKIP_HARNESS + """
       failing.add(_ttsUrl('你好', 'yue'));
-      const listen = { type: 'listening', audio: '你好' };
+      const listen = { type: 'audio_blitz', items: [{ audio: '你好' }] };
       const player = { lang: 'yue', queue: [listen], idx: 0, segIdx: 0,
                        total: 1, segTotals: [1], graded: false, reviewStarted: false };
       globalThis.player = player;
@@ -386,6 +387,67 @@ def test_dropping_the_last_drill_ends_the_segment():
     assert res["left"] == 0
     assert res["afterSeg"] == 1 and res["finished"] == 0
     assert res["total"] == 0
+
+
+@needs_node
+def test_listening_fallback_prefers_saved_then_offline_romanization():
+    res = _run("""
+      function needsRuby(lang) { return lang === 'yue'; }
+      function _fetchTokens() { return Promise.resolve([
+        { text: '你', roman: 'nei5', is_word: true },
+        { text: '好', roman: 'hou2', is_word: true },
+      ]); }
+      Promise.all([
+        _listeningRomanization({ audio: '你好', audio_roman: 'saved rom' }, 'yue'),
+        _listeningRomanization({ audio: '你好' }, 'yue'),
+        _listeningRomanization({ audio: 'bonjour' }, 'fr'),
+      ]).then(([saved, oracle, latin]) => done({ saved, oracle, latin }));
+    """, fns=("async function _listeningRomanization(",))
+    assert res == {"saved": "saved rom", "oracle": "nei5 hou2", "latin": "bonjour"}
+
+
+@needs_node
+def test_listening_renderer_offers_and_restores_the_manual_fallback():
+    """Drive the shipped renderer far enough to prove the escape hatch is a real
+    control, and that going back to the question keeps romanization visible."""
+    src = open(LEARN_JS, encoding="utf-8").read()
+    listening = _extract_type(src, "listening").replace(
+        "const SPEAK = ", "const LISTENING = ")
+    script = r"""
+      function element() {
+        const classes = new Set();
+        return { style: {}, disabled: false, textContent: '', innerHTML: '',
+          children: [], onclick: null,
+          appendChild(x) { this.children.push(x); },
+          classList: { add: c => classes.add(c),
+            toggle: (c, on) => on ? classes.add(c) : classes.delete(c) } };
+      }
+      const els = { 'ex-audio': element(), 'listen-audio': element(),
+        'listen-fallback': element(), 'listen-roman': element(), opts: element() };
+      const instruction = element();
+      const root = { innerHTML: '', querySelector: () => instruction };
+      const document = { getElementById: id => els[id], createElement: element };
+      function esc(s) { return String(s || ''); }
+      function targetSpan(s) { return s; }
+      function bindAudioBtn() {}
+      function stopTTS() {}
+      function playTTS() {}
+      function updateAction() {}
+      async function _listeningRomanization() { return 'nei5 hou2'; }
+      const ex = { type: 'listening', audio: '你好', options: ['你好', '再見'],
+                   answer: 0, _usedAudioFallback: true };
+      const player = { graded: false, queue: [ex], idx: 0 };
+      LISTENING.render(ex, root, 'yue');
+      setTimeout(() => done({
+        offered: root.innerHTML.includes('Can’t listen? Show romanization'),
+        hiddenAudio: els['listen-audio'].style.display,
+        hiddenButton: els['listen-fallback'].style.display,
+        roman: els['listen-roman'].textContent,
+      }), 10);
+    """
+    res = _run(listening + script)
+    assert res == {"offered": True, "hiddenAudio": "none",
+                   "hiddenButton": "none", "roman": "nei5 hou2"}
 
 
 # ── Client: permissive speech grading ────────────────────────────────────────

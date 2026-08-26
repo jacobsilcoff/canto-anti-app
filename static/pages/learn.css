@@ -404,6 +404,11 @@
     .audio-play { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 0.95rem; color: var(--primary); }
     .audio-play.big { font-size: 1.3rem; padding: 18px 26px; }
     .audio-center { text-align: center; margin: 16px 0 26px; }
+    .listen-fallback { display: block; margin: -14px auto 20px; min-height: 44px; padding: 9px 14px; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: .8rem; font-weight: 650; cursor: pointer; }
+    .listen-fallback:hover { color: var(--primary); }
+    .listen-fallback:disabled { cursor: progress; opacity: .65; }
+    .listen-roman { display: none; margin: 8px auto 22px; padding: 16px 18px; max-width: 420px; border: 1px solid var(--primary); border-radius: 12px; background: var(--primary-soft); color: var(--text); text-align: center; font-size: 1.35rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+    .listen-roman.shown { display: block; }
     /* A clip we know we can't fetch: say so, rather than let a tap do nothing. */
     .audio-play.audio-dead {
       opacity: .45; cursor: not-allowed; color: var(--text-muted); border-style: dashed;
@@ -899,6 +904,8 @@
     .ch-title { flex: 1 1 150px; min-width: 0; font-size: 0.84rem; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
     .ch-pg { width: 50px; font-size: 0.84rem; padding: 5px 3px; border: 1px solid var(--border); border-radius: 8px; text-align: center; background: var(--surface); color: var(--text); }
     .ch-dash { color: var(--text-muted); font-size: 0.8rem; }
+    .ch-lessons { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: .7rem; white-space: nowrap; cursor: pointer; }
+    .ch-lessons input { margin: 0; accent-color: var(--primary); }
     .ch-btn { border: 1px solid var(--border); background: var(--surface-alt); border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer; color: var(--text); white-space: nowrap; }
     .ch-btn:disabled { opacity: 0.55; cursor: default; }
     .ch-btn.gen { background: var(--primary-soft); color: var(--primary); border-color: transparent; font-weight: 700; }
@@ -1063,4 +1070,3 @@
     .lesson.done .lesson-status.done { background: var(--good-soft); color: var(--good-strong); }
     .lesson-replay { font-size: 0.74rem; color: var(--primary); margin-top: 4px; }
     #course-cta .learn-center { padding: 28px 16px 8px; }
-  
