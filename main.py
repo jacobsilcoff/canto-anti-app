@@ -4236,6 +4236,8 @@ async def _prefetch_textbook_lesson(user: dict, unit_id: int) -> None:
         unit = await db.get_textbook_unit(user["id"], unit_id)
         if not unit or not await db.count_lesson_queue_for_unit(unit_id):
             return
+        if not await _textbook_unit_uses_lessons(user["id"], unit):
+            return
         course = await db.get_course(user["id"], unit["course_id"])
         if not course:
             return
@@ -4250,6 +4252,21 @@ async def _prefetch_textbook_lesson(user: dict, unit_id: int) -> None:
             await db.increment_usage(user["id"])
     except Exception as e:      # noqa: BLE001 — nothing is waiting on this
         logger.info("Textbook look-ahead generation skipped unit=%s: %s", unit_id, e)
+
+
+async def _textbook_unit_uses_lessons(user_id: int, unit: dict) -> bool:
+    """Whether a linked textbook unit may author more queued lessons.
+
+    Custom page-range units and units whose source book was deleted keep working;
+    only an explicit chapter opt-out stops generation.
+    """
+    textbook_id, chapter_idx = unit.get("textbook_id"), unit.get("chapter_idx")
+    if textbook_id is None or chapter_idx is None:
+        return True
+    book = await db.get_textbook(user_id, textbook_id)
+    if not book or not (0 <= chapter_idx < len(book.get("chapters") or [])):
+        return True
+    return book["chapters"][chapter_idx].get("lesson_enabled") is not False
 
 
 async def _resolve_lesson_model(user: dict, access) -> str:
@@ -4325,6 +4342,9 @@ async def next_textbook_unit_lesson(request: Request, unit_id: int,
     unit = await db.get_textbook_unit(user["id"], unit_id)
     if not unit:
         raise HTTPException(404, "Textbook unit not found")
+    if not await _textbook_unit_uses_lessons(user["id"], unit):
+        raise HTTPException(
+            409, "This chapter is marked ‘read only’ and is not used for lessons.")
     course = await db.get_course(user["id"], unit["course_id"])
     if not course:
         raise HTTPException(404, "Course not found")
@@ -5685,6 +5705,15 @@ async def create_textbook_unit(request: Request, textbook_id: int,
             if ch.get("start") == start and ch.get("end") == end
         ), None)
 
+    # A chapter can remain part of the readable book without being part of the
+    # lesson curriculum (answer keys, appendices, reference tables, etc.). Keep
+    # this as a server-side invariant too: stale clients must not silently build
+    # a hidden chapter after the learner explicitly opted it out.
+    if (chapter_idx is not None
+            and book["chapters"][chapter_idx].get("lesson_enabled") is False):
+        raise HTTPException(
+            409, "This chapter is marked ‘read only’ and is not used for lessons.")
+
     # ONE unit per chapter. Building a second one for the same pages just
     # duplicates the whole chapter in the roadmap, so the caller must say
     # explicitly that it's replacing the old one (the UI offers "Regenerate").
@@ -5806,6 +5835,9 @@ async def generate_chapter_lessons(request: Request, textbook_id: int,
     if not course:
         raise HTTPException(404, "Course not found")
     ch = book["chapters"][chapter_idx]
+    if ch.get("lesson_enabled") is False:
+        raise HTTPException(
+            409, "This chapter is marked ‘read only’ and is not used for lessons.")
 
     chapter_text = "\n".join(
         book["pages"][ch["start"] - 1:ch["end"]])[:textbook.MAX_CHAPTER_CHARS]
@@ -6266,7 +6298,10 @@ async def complete_lesson(
     # lesson, and quietly build the one after that so it's waiting for them.
     follow_on = await db.get_unit_next_lesson(user["id"], lesson_id)
     if follow_on and follow_on["theme"] == "textbook":
-        if follow_on["queued_remaining"] and not follow_on["next"]:
+        follow_unit = await db.get_textbook_unit(user["id"], follow_on["unit_id"])
+        if follow_unit and not await _textbook_unit_uses_lessons(user["id"], follow_unit):
+            follow_on = None
+        elif follow_on["queued_remaining"] and not follow_on["next"]:
             background_tasks.add_task(_prefetch_textbook_lesson, user, follow_on["unit_id"])
     else:
         follow_on = None

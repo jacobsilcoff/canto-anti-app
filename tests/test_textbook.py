@@ -152,6 +152,15 @@ def test_norm_chapters_preserves_valid_status():
     assert out[1]["status"] == ""
 
 
+def test_norm_chapters_round_trips_lesson_opt_out_and_defaults_old_books_on():
+    out = textbook._norm_chapters({"chapters": [
+        {"title": "Answer key", "start": 1, "end": 2, "lesson_enabled": False},
+        {"title": "Legacy chapter", "start": 3, "end": 4},
+    ]}, num_pages=10)
+    assert out[0]["lesson_enabled"] is False
+    assert out[1]["lesson_enabled"] is True
+
+
 # ── Mid-page unit split boundaries ────────────────────────────────────────────
 
 def test_norm_chapters_preserves_and_cleans_anchors():
@@ -1149,6 +1158,7 @@ def test_merge_chapters_joins_the_range_and_keeps_the_outer_anchors():
     assert merged[0]["end_anchor"] == "Unit 3: Travel"
     # Lessons exist somewhere inside the merged range → the flag survives.
     assert merged[0]["status"] == "queued"
+    assert merged[0]["lesson_enabled"] is True
     assert merged[1]["title"] == "Travel"
 
     # No title given → the two titles are joined rather than left blank.
@@ -1279,6 +1289,38 @@ async def test_delete_unit_and_lesson_clean_up_concepts_and_queue(fresh_db):
     assert await db.get_lesson(uid, keep) is None
     assert await db.count_lesson_queue_for_unit(unit_id) == 0
     assert not (await db.get_next_lesson_context(cid))["concept_registry"]
+
+
+@pytest.mark.asyncio
+async def test_read_only_chapter_cannot_generate_a_unit(fresh_db, monkeypatch):
+    uid = fresh_db
+    user = await db.get_user(uid)
+    cid = await db.create_course(uid, "yue", "A1")
+    tb_id = await db.create_textbook(uid, cid, "Book", "b.pdf", ["answers"])
+    await db.update_textbook_chapters(tb_id, [{
+        "title": "Answer key", "start": 1, "end": 1,
+        "skip_hint": False, "status": "", "lesson_enabled": False,
+    }])
+    unit_id = await db.create_textbook_unit_row(
+        cid, "Answer key", textbook_id=tb_id, chapter_idx=0)
+    unit = await db.get_textbook_unit(uid, unit_id)
+    assert await main._textbook_unit_uses_lessons(uid, unit) is False
+
+    async def must_not_plan(*args, **kwargs):
+        raise AssertionError("an opted-out chapter reached lesson planning")
+
+    monkeypatch.setattr(textbook, "plan_source_unit", must_not_plan)
+    with pytest.raises(main.HTTPException) as err:
+        await main.create_textbook_unit.__wrapped__(
+            None, tb_id,
+            {"start": 1, "end": 1, "section_title": "Answer key", "chapter_idx": 0},
+            BackgroundTasks(), user)
+    assert err.value.status_code == 409
+    assert "read only" in err.value.detail
+
+    with pytest.raises(main.HTTPException) as queued_err:
+        await main.next_textbook_unit_lesson.__wrapped__(None, unit_id, user)
+    assert queued_err.value.status_code == 409
 
 
 @pytest.mark.asyncio
