@@ -560,24 +560,30 @@
       audioBtn.className = 'audio-btn';
       audioBtn.innerHTML = `${ICONS.volume} Play`;
       audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
-      promptEl.appendChild(audioBtn);
+      const audioControls = document.createElement('div');
+      audioControls.className = 'audio-card-controls';
+      audioControls.appendChild(audioBtn);
       if (isLogographic(langCode) && item.romanization) {
         const showingRomanization = settings.audio_show_romanization !== false;
+        const romanToggle = document.createElement('button');
+        romanToggle.type = 'button';
+        romanToggle.className = `romanization-card-toggle${showingRomanization ? ' active' : ''}`;
+        romanToggle.disabled = _savingAudioRomanization;
+        romanToggle.textContent = 'Aa';
+        romanToggle.title = showingRomanization ? 'Hide romanization' : 'Show romanization';
+        romanToggle.setAttribute('aria-label', romanToggle.title);
+        romanToggle.setAttribute('aria-pressed', showingRomanization ? 'true' : 'false');
+        romanToggle.onclick = toggleAudioRomanization;
+        audioControls.appendChild(romanToggle);
+        promptEl.appendChild(audioControls);
         if (showingRomanization) {
           const rEl = document.createElement('div');
           rEl.className = 'jyutping-display';
           rEl.textContent = item.romanization;
           promptEl.appendChild(rEl);
         }
-        const romanToggle = document.createElement('button');
-        romanToggle.type = 'button';
-        romanToggle.className = 'romanization-card-toggle';
-        romanToggle.disabled = _savingAudioRomanization;
-        romanToggle.textContent = showingRomanization
-          ? 'Hide romanization' : 'Show romanization';
-        romanToggle.setAttribute('aria-pressed', showingRomanization ? 'true' : 'false');
-        romanToggle.onclick = toggleAudioRomanization;
-        promptEl.appendChild(romanToggle);
+      } else {
+        promptEl.appendChild(audioControls);
       }
     }
   }

@@ -63,4 +63,6 @@ def test_audio_card_renderer_contains_the_contextual_control():
     src = open(CARDS_JS, encoding="utf-8").read()
     assert "romanization-card-toggle" in src
     assert "Hide romanization" in src and "Show romanization" in src
+    assert "romanToggle.textContent = 'Aa'" in src
+    assert "romanToggle.setAttribute('aria-label', romanToggle.title)" in src
     assert "romanToggle.onclick = toggleAudioRomanization" in src

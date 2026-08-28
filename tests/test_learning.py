@@ -952,6 +952,24 @@ def test_chapter_block_progress_and_forced_close():
     assert 'MUST open a new chapter' in forced
 
 
+@pytest.mark.asyncio
+async def test_active_chapter_exposes_description_for_course_ui(fresh_db):
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    await db.set_active_plan(cid, {
+        "title": "At the market",
+        "objective": "Buy fruit politely",
+        "summary": "Prices, quantities, and polite requests",
+        "budget": 3,
+    })
+    await db.create_lesson(cid, 1, "Ask the price", "", [], {"segments": []}, "")
+
+    chapter = (await db.get_course(uid, cid))["active_chapter"]
+
+    assert chapter["objective"] == "Buy fruit politely"
+    assert chapter["summary"] == "Prices, quantities, and polite requests"
+
+
 def test_plan_prompt_units_and_feedback_sections():
     p = learning._build_plan_prompt(
         "fr", "A1", [], [],

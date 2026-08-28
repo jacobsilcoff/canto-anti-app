@@ -581,8 +581,27 @@
     if (!el) return;
     const open = !el.classList.contains('open');
     el.classList.toggle('open', open);
+    const button = el.querySelector('.ai-unit-toggle');
+    if (button) {
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${button.dataset.unitTitle || 'unit'}`);
+    }
     localStorage.setItem('aiunit:' + key, open ? '1' : '0');
     requestAnimationFrame(drawPathConnectors);
+  }
+
+  // Unit descriptions are useful context, but too verbose for the path itself.
+  // Keep them behind a small, independent info control so opening the note does
+  // not also expand/collapse the lesson nodes.
+  function toggleAiUnitInfo(event, button) {
+    event.stopPropagation();
+    const unit = button.closest('.ai-path-unit');
+    const note = unit && unit.querySelector('.ai-unit-description');
+    if (!note) return;
+    const open = note.hidden;
+    note.hidden = !open;
+    button.classList.toggle('active', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function _activeAiUnitIndex(units) {
@@ -1800,20 +1819,26 @@
 
   // ── Skill-tree path rendering (AI lessons) ──
   function _unitBanner(u, unitNo, ach) {
-    if (u.in_progress) {
-      // Show the active chapter's title + lesson budget ("Lesson 2 of ~4")
-      // instead of a bare "In progress" (chapters now carry a planned length).
-      const nDone = (u.lessons || []).length;
-      const label = (ach && ach.title) ? esc(ach.title) : 'In progress';
-      const pill = (ach && ach.budget)
-        ? `Lesson ${Math.min(nDone, ach.budget)} of ~${ach.budget}` : 'Up next';
-      return `<div class="lbanner"><span class="lb-unit">${label}</span><span class="lb-pill">${pill}</span></div>`;
-    }
-    return `<div class="lbanner">
-      <span class="lb-unit">Unit ${unitNo}</span>
-      <span class="lb-pill">${esc(u.title || 'Lessons')}</span>
-      ${u.summary ? `<span class="lb-sub">${esc(u.summary)}</span>` : ''}
-    </div>`;
+    const lessons = u.lessons || [];
+    const done = lessons.filter(l => l.status === 'done').length;
+    const title = u.in_progress
+      ? ((ach && ach.title) || 'In progress')
+      : (u.title || 'Lessons');
+    const total = u.in_progress && ach && ach.budget
+      ? Math.max(ach.budget, lessons.length)
+      : lessons.length;
+    const description = u.in_progress
+      ? ((ach && (ach.summary || ach.objective)) || '')
+      : (u.summary || '');
+    return {
+      title,
+      description,
+      label: `<span class="ai-unit-copy">
+          <span class="ai-unit-kicker">${u.in_progress ? 'Current unit' : `Unit ${unitNo}`}</span>
+          <span class="ai-unit-name">${esc(title)}</span>
+        </span>
+        <span class="ai-unit-progress">${done}/${total}</span>`,
+    };
   }
 
   function _pathRow(l, wave) {
@@ -2056,11 +2081,21 @@
         lessons.forEach(l => { unitBody += _pathRow(l, wave); wave++; });
         // Closed units get a checkpoint node sealing the unit (B3).
         if (!u.in_progress && u.id) { unitBody += _checkpointRow(u, wave); wave++; }
+        const banner = _unitBanner(u, unitNo, course.active_chapter);
         html += `<section class="ai-path-unit${open ? ' open' : ''}" data-ai-unit="${key}">
-          <button class="ai-unit-toggle" type="button" onclick="toggleAiUnit('${key}')"
-            aria-label="${open ? 'Collapse' : 'Expand'} ${esc(u.title || 'unit')}">
-            <span class="ai-unit-chevron">›</span>${_unitBanner(u, unitNo, course.active_chapter)}
-          </button>
+          <div class="ai-unit-header">
+            <button class="ai-unit-toggle" type="button" onclick="toggleAiUnit('${key}')"
+              data-unit-title="${esc(banner.title)}"
+              aria-label="${open ? 'Collapse' : 'Expand'} ${esc(banner.title)}"
+              aria-expanded="${open ? 'true' : 'false'}">
+              <span class="ai-unit-chevron">›</span>
+              ${banner.label}
+            </button>
+            ${banner.description ? `<button class="ai-unit-info" type="button"
+              onclick="toggleAiUnitInfo(event, this)" aria-label="About ${esc(banner.title)}"
+              aria-expanded="false" title="About this unit">i</button>` : '<span></span>'}
+            ${banner.description ? `<div class="ai-unit-description" hidden>${esc(banner.description)}</div>` : ''}
+          </div>
           <div class="ai-unit-body">${unitBody}</div>
         </section>`;
         renderedUnitIdx++;

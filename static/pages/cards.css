@@ -86,13 +86,17 @@
       gap: 4px;
       flex-shrink: 0;
     }
+    .audio-card-controls { display: flex; align-items: center; justify-content: center; gap: 7px; }
     .romanization-card-toggle {
-      display: block; margin: 8px auto 0; min-height: 40px; padding: 7px 12px;
-      border: 0; border-radius: 999px; background: var(--surface-alt);
-      color: var(--text-muted); font: inherit; font-size: 0.78rem; font-weight: 650;
-      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; padding: 0; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--surface); color: var(--text-muted);
+      font: inherit; font-size: 0.68rem; font-weight: 800; letter-spacing: -0.03em;
+      cursor: pointer; transition: color .15s, border-color .15s, background .15s;
     }
-    .romanization-card-toggle:hover { color: var(--primary); background: var(--primary-soft); }
+    .romanization-card-toggle:hover, .romanization-card-toggle.active {
+      color: var(--primary); border-color: var(--primary); background: var(--primary-soft);
+    }
     .romanization-card-toggle:disabled { opacity: .55; cursor: progress; }
     .card-edit-btn, .tutor-flag-btn {
       background: none;

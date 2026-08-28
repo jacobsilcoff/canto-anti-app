@@ -2692,14 +2692,15 @@ async def get_course(user_id: int, course_id: int) -> dict | None:
                 "lessons": pending, "in_progress": True,
             })
 
-        # The in-progress chapter's header info (title + lesson budget), so the
-        # roadmap can show "Chapter · Lesson 2 of ~4" instead of a bare
-        # "In progress".
+        # The in-progress chapter's compact header info and its longer context,
+        # which the roadmap reveals only from the separate info affordance.
         if active_plan and (active_plan.get("title") or "").strip():
             course["active_chapter"] = {
                 "title":  active_plan["title"],
                 "budget": active_plan.get("budget"),
                 "lessons_done": len(pending),
+                "objective": active_plan.get("objective") or "",
+                "summary": active_plan.get("summary") or "",
             }
 
         course["units"] = units
