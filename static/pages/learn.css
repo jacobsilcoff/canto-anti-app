@@ -101,6 +101,18 @@
     /* angled trail drawn as an SVG overlay through the node centres (drawPathConnectors) */
     .lpath-svg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
     .lpath-line { fill: none; stroke: var(--border); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 6 9; }
+    .ai-path-unit { position: relative; z-index: 1; border-bottom: 1px solid var(--border); }
+    .ai-path-unit:last-of-type { border-bottom: 0; }
+    .ai-unit-toggle { width: 100%; display: flex; align-items: center; justify-content: center;
+      gap: 4px; padding: 0 8px; border: 0; background: none; color: inherit;
+      font: inherit; cursor: pointer; }
+    .ai-unit-toggle:hover { background: var(--surface-alt); border-radius: 12px; }
+    .ai-unit-toggle .lbanner { flex: 1; pointer-events: none; }
+    .ai-unit-chevron { color: var(--text-muted); font-size: 1.15rem; line-height: 1;
+      transition: transform .2s; flex: 0 0 auto; }
+    .ai-path-unit.open > .ai-unit-toggle .ai-unit-chevron { transform: rotate(90deg); }
+    .ai-unit-body { display: none; padding-top: 2px; }
+    .ai-path-unit.open > .ai-unit-body { display: block; }
     /* Inline SVG icons replacing emoji for streak, XP, combo, crowns */
     .icon-svg { display: inline-block; vertical-align: -0.15em; fill: currentColor; }
     .lbanner { position: relative; z-index: 1; text-align: center; margin: 22px auto 16px; }
@@ -407,6 +419,11 @@
     .listen-fallback { display: block; margin: -14px auto 20px; min-height: 44px; padding: 9px 14px; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: .8rem; font-weight: 650; cursor: pointer; }
     .listen-fallback:hover { color: var(--primary); }
     .listen-fallback:disabled { cursor: progress; opacity: .65; }
+    .audio-bypass { text-align: center; margin: 2px 0 12px; }
+    .audio-bypass button { min-height: 44px; padding: 9px 14px; border: 0;
+      background: none; color: var(--text-muted); font: inherit; font-size: .8rem;
+      font-weight: 650; cursor: pointer; }
+    .audio-bypass button:hover { color: var(--primary); }
     .listen-roman { display: none; margin: 8px auto 22px; padding: 16px 18px; max-width: 420px; border: 1px solid var(--primary); border-radius: 12px; background: var(--primary-soft); color: var(--text); text-align: center; font-size: 1.35rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
     .listen-roman.shown { display: block; }
     /* A clip we know we can't fetch: say so, rather than let a tap do nothing. */

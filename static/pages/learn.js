@@ -573,6 +573,27 @@
     if (!isNowCollapsed) requestAnimationFrame(drawPathConnectors);
   }
 
+  // Units inside the AI path collapse independently. A missing preference is
+  // automatic: only the unit containing the learner's next available lesson is
+  // open. Explicit taps are remembered per course/unit.
+  function toggleAiUnit(key) {
+    const el = document.querySelector(`.ai-path-unit[data-ai-unit="${key}"]`);
+    if (!el) return;
+    const open = !el.classList.contains('open');
+    el.classList.toggle('open', open);
+    localStorage.setItem('aiunit:' + key, open ? '1' : '0');
+    requestAnimationFrame(drawPathConnectors);
+  }
+
+  function _activeAiUnitIndex(units) {
+    const withLessons = (units || []).filter(u => (u.lessons || []).length);
+    let idx = withLessons.findIndex(u =>
+      u.in_progress || (u.lessons || []).some(l => l.status === 'available'));
+    if (idx < 0) idx = withLessons.findIndex(u =>
+      (u.lessons || []).some(l => l.status !== 'done'));
+    return idx < 0 ? Math.max(0, withLessons.length - 1) : idx;
+  }
+
   // Foundations section collapse — default collapsed (hidden); '0' = expanded.
   function toggleFoundations() {
     const isNowCollapsed = localStorage.getItem('learn_foundations_collapsed') === '0';
@@ -1879,7 +1900,10 @@
     if (!path) return;
     const old = path.querySelector('.lpath-svg');
     if (old) old.remove();
-    const nodes = [...path.querySelectorAll('.lnode')];
+    // Collapsed AI units keep their nodes in the DOM. Exclude those zero-layout
+    // nodes or their (0,0) rectangles pull the visible trail into the corner.
+    const nodes = [...path.querySelectorAll('.lnode')]
+      .filter(n => n.offsetParent !== null);
     if (nodes.length < 2) return;
     const pr = path.getBoundingClientRect();
     if (!pr.width) return;
@@ -2019,15 +2043,27 @@
 
       const path = document.createElement('div');
       path.className = 'lpath';
-      let unitNo = 0, wave = 0, html = '';
+      const activeUnitIdx = _activeAiUnitIndex(aiUnits);
+      let unitNo = 0, wave = 0, html = '', renderedUnitIdx = 0;
       aiUnits.forEach(u => {
         const lessons = u.lessons || [];
         if (!lessons.length) return;
         if (!u.in_progress) unitNo += 1;
-        html += _unitBanner(u, unitNo, course.active_chapter);
-        lessons.forEach(l => { html += _pathRow(l, wave); wave++; });
+        const key = `${course.id}:${u.id || 'active'}`;
+        const stored = localStorage.getItem('aiunit:' + key);
+        const open = stored == null ? renderedUnitIdx === activeUnitIdx : stored === '1';
+        let unitBody = '';
+        lessons.forEach(l => { unitBody += _pathRow(l, wave); wave++; });
         // Closed units get a checkpoint node sealing the unit (B3).
-        if (!u.in_progress && u.id) { html += _checkpointRow(u, wave); wave++; }
+        if (!u.in_progress && u.id) { unitBody += _checkpointRow(u, wave); wave++; }
+        html += `<section class="ai-path-unit${open ? ' open' : ''}" data-ai-unit="${key}">
+          <button class="ai-unit-toggle" type="button" onclick="toggleAiUnit('${key}')"
+            aria-label="${open ? 'Collapse' : 'Expand'} ${esc(u.title || 'unit')}">
+            <span class="ai-unit-chevron">›</span>${_unitBanner(u, unitNo, course.active_chapter)}
+          </button>
+          <div class="ai-unit-body">${unitBody}</div>
+        </section>`;
+        renderedUnitIdx++;
       });
       path.innerHTML = html;
       section.querySelector('#ai-body').appendChild(path);
@@ -3352,6 +3388,7 @@
       render(ex, root, lang) {
         const answer = ex.answer_tokens || [];
         root.innerHTML = `<div class="ex-instruction">${esc(ex.instruction || 'Build the sentence')}</div>
+          ${ex.prompt ? `<div class="ex-prompt english">${esc(ex.prompt)}</div>` : ''}
           ${ex.audio ? `<div class="audio-center"><button class="audio-play" type="button" id="ex-audio">🔊 Play</button></div>` : ''}
           <div class="wb-answer" id="wb-answer"></div>
           <div class="wb-bank" id="wb-bank"></div>`;
@@ -3947,14 +3984,19 @@
   }
 
   // ── B4 · Lightning round (AI-lesson material) ───────────────────────────────
-  // A 60-second timed remix built entirely from a lesson's own stored choice
-  // drills (recognition / production / cloze). Reuses the foundations speed_round
-  // widget; client-side assembly, formative (combo XP, no mastery writes).
+  // A 60-second timed remix built from recognition/production choices plus
+  // clozes whose uniqueness we can PROVE. Conjugation clozes are assembled from
+  // our deterministic grammar engine and carry `lightning_safe`; free semantic
+  // blanks do not. Thus "Nous ___ français" with conjugated forms is eligible,
+  // while "The store is ___ the bank" (several relations fit) never is.
   function _lightningItems(segments) {
     const drills = [];
     (segments || []).forEach(sg => (sg.exercises || []).forEach(ex => {
+      const hasBlank = !!ex.is_cloze || /_{2,}/.test(ex.prompt || '');
+      const safeBlank = !!ex.is_cloze && ex.lightning_safe === true;
       if (ex.type === 'choice' && ex.prompt && Array.isArray(ex.options)
-          && ex.answer != null && ex.options[ex.answer]) drills.push(ex);
+          && ex.answer != null && ex.options[ex.answer]
+          && (!hasBlank || safeBlank)) drills.push(ex);
     }));
     return shuffle(drills).slice(0, 12).map(ex => {
       const correct = ex.options[ex.answer];
@@ -5257,6 +5299,49 @@
     return player.queue[player.idx] !== ex;
   }
 
+  // Every genuinely ear-only screen has an immediate learner-controlled exit.
+  // Listening choices have their richer romanization switch in their renderer;
+  // tile translation drills are no longer ear-only because the server supplies
+  // an English prompt. The remaining specialist drills either become readable
+  // or are skipped without affecting score/mastery.
+  function _renderAudioBypass(ex) {
+    const wrap = document.getElementById('audio-bypass');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    wrap.style.display = 'none';
+    if (!ex || ex.type === 'listening' || !_audioOnly(ex)) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    if (ex.type === 'block_build' && ex.roman) {
+      btn.textContent = 'Can’t listen? Show romanization';
+      btn.onclick = () => {
+        stopTTS();
+        ex.hide_roman = false;
+        renderExercise();
+      };
+    } else if (ex.type === 'memory_match' && ex.audio_mode) {
+      btn.textContent = 'Can’t listen? Match with text instead';
+      btn.onclick = () => {
+        stopTTS();
+        ex.audio_mode = false;
+        renderExercise();
+      };
+    } else {
+      btn.textContent = 'Can’t listen? Skip this audio exercise';
+      btn.onclick = () => {
+        stopTTS();
+        if (player && player._mgCleanup) {
+          player._mgCleanup();
+          player._mgCleanup = null;
+        }
+        _skipExercise(ex, 'Skipped an audio exercise.');
+      };
+    }
+    wrap.appendChild(btn);
+    wrap.style.display = '';
+  }
+
   function renderExercise() {
     const ex = player.queue[player.idx];
     // Before the guard: it refuses to yank a drill the learner has answered, and
@@ -5282,6 +5367,7 @@
         if (!ex._review) ex._counted = true;
         advanceExercise();
       });
+      _renderAudioBypass(ex);
       updateBar();
       return;
     }
@@ -5293,6 +5379,7 @@
     // asked for. NEVER pass the vocab glossary here: a recognition prompt would
     // reveal its own English answer on hover (glossing is teach-only).
     if (needsRuby(player.lang)) applyRuby(root, null, ex.type !== 'speak');
+    _renderAudioBypass(ex);
 
     const a = document.getElementById('player-action'); a.textContent = 'Check'; a.disabled = true;
     updateBar(); updateAction();

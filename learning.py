@@ -533,7 +533,7 @@ _DRILL_KINDS = """\
   {"kind":"production","concept":"<key>","tier":"core|standard|extra","gloss":"<English prompt>","target":"<native answer>","distractors":["<other native form>", ...]}
   {"kind":"listening","concept":"<key>","tier":"core|standard|extra","target":"<native word/phrase>","gloss":"<English>","distractors":["<other NATIVE-SCRIPT word — NEVER English; for tonal languages prefer words differing by one tone or one phoneme so the listener must discriminate carefully>", ...]}
   {"kind":"cloze","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence with exactly one ___>","answer":"<native word filling the blank>","gloss":"<English translation of the COMPLETE sentence with the answer already filled in (not with the blank) — translate as if ___ were replaced by the answer, so the learner sees what the full sentence means>","distractors":["<other native form>", ...],"verb":"<plain infinitive if the blank is one conjugated verb, else omit>","person":"<je|tu|il|nous|vous|ils if verb given, else omit>"}
-  {"kind":"reorder","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
+  {"kind":"reorder","concept":"<key>","tier":"core|standard|extra","sentence":"<full native sentence>","gloss":"<clear English translation of the complete sentence>","tokens":["<native word>", ...],"decoys":["<1–2 plausible native words NOT in the answer — tempting wrong choices that force recognition, not just arrangement>"],"glossary":[{"token":"<exact token from tokens or decoys>","gloss":"<short English, or POS abbrev (PRT/AUX/CONJ/CL) for a function word>"}, ...]}
   {"kind":"match","concept":"<key>","tier":"core|standard|extra","pairs":[{"target":"<native>","english":"<English>"}, ...]}
   {"kind":"translate","concept":"<key>","tier":"core|standard|extra","prompt":"<English sentence to translate>","answer":"<the most natural native translation>","accept":["<other fully correct native translations>", ...],"hint":"<optional 1-3 word nudge, e.g. the construction or a key word>"}
     → TYPED. No options: the learner writes the sentence themselves. This is the
@@ -1130,7 +1130,9 @@ def _build_drill(d: dict, lang: str, kinds: dict, rom) -> dict | None:
             if tok in all_tiles and gl:
                 glossary[tok] = gl
         return {"type": "word_bank", "concept_key": key, "grammar": is_grammar,
-                "instruction": "Put the words in the correct order",
+                "instruction": ("Translate by arranging the words" if gloss else
+                                "Put the words in the correct order"),
+                "prompt": gloss, "prompt_lang": "english",
                 "answer_tokens": ordered, "distractor_tokens": decoys,
                 "glossary": glossary,
                 "audio": sentence, "answer_roman": rom(sentence)}
