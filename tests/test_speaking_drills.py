@@ -304,6 +304,8 @@ def test_which_drills_cannot_be_answered_without_sound():
         toneChoice:  _audioOnly({ type: 'choice', audio: '詩', hide_roman: true }),
         blockBuild:  _audioOnly({ type: 'block_build', audio: '가', hide_roman: true }),
         readable:    _audioOnly({ type: 'choice', audio: '你好', prompt: 'hello' }),
+        translatedTiles: _audioOnly({ type: 'word_bank', audio: '你好', prompt: 'hello' }),
+        earOnlyTiles: _audioOnly({ type: 'word_bank', audio: '你好' }),
         spelled:     _audioOnly({ type: 'block_build', audio: '가', roman: 'ga' }),
         silent:      _audioOnly({ type: 'choice', prompt: 'hello' }),
         clips:       _exClips({ type: 'audio_blitz', items: [{ audio: 'a' }, { audio: 'b' }] }).length,
@@ -312,7 +314,93 @@ def test_which_drills_cannot_be_answered_without_sound():
     """, fns=("function _exClips(", "function _audioOnly("))
     assert res == {"listening": True, "blitz": True, "soundMemory": True,
                    "cardMemory": False, "toneChoice": True, "blockBuild": True,
-                   "readable": False, "spelled": False, "silent": False, "clips": 2}
+                   "readable": False, "translatedTiles": False, "earOnlyTiles": True,
+                   "spelled": False, "silent": False, "clips": 2}
+
+
+@needs_node
+def test_every_non_listening_ear_only_drill_gets_a_manual_bypass():
+    res = _run("""
+      const wrap = { style: {}, innerHTML: '', child: null,
+                     appendChild(x) { this.child = x; } };
+      const document = {
+        getElementById: id => id === 'audio-bypass' ? wrap : null,
+        createElement: () => ({ type: '', textContent: '', onclick: null })
+      };
+      let rendered = 0, skipped = 0;
+      function stopTTS() {}
+      function renderExercise() { rendered++; }
+      function _skipExercise() { skipped++; }
+      const player = { _mgCleanup: null };
+
+      const spelling = { type: 'block_build', audio: '가', roman: 'ga', hide_roman: true };
+      _renderAudioBypass(spelling);
+      const spellingLabel = wrap.child.textContent;
+      wrap.child.onclick();
+
+      wrap.child = null;
+      const memory = { type: 'memory_match', audio_mode: true, pairs: [] };
+      _renderAudioBypass(memory);
+      const memoryLabel = wrap.child.textContent;
+      wrap.child.onclick();
+
+      wrap.child = null;
+      const blitz = { type: 'audio_blitz', items: [{ audio: 'a' }] };
+      _renderAudioBypass(blitz);
+      const blitzLabel = wrap.child.textContent;
+      wrap.child.onclick();
+      done({ spellingLabel, spellingReadable: !spelling.hide_roman,
+             memoryLabel, memoryText: !memory.audio_mode,
+             blitzLabel, rendered, skipped });
+    """, fns=("function _audioOnly(", "function _renderAudioBypass("))
+    assert res["spellingReadable"] is True and res["memoryText"] is True
+    assert "romanization" in res["spellingLabel"]
+    assert "text instead" in res["memoryLabel"]
+    assert "Skip" in res["blitzLabel"]
+    assert res["rendered"] == 2 and res["skipped"] == 1
+
+
+@needs_node
+def test_lightning_excludes_semantically_ambiguous_fill_in_the_blanks():
+    res = _run("""
+      const segments = [{ exercises: [
+        { type: 'choice', is_cloze: true, prompt: 'The store is ___ the bank.',
+          tip: 'The store is in front of the bank.',
+          options: ['in front of', 'behind', 'next to', 'close to'], answer: 0 },
+        // Legacy lessons may carry a blank without the is_cloze flag.
+        { type: 'choice', prompt: 'Il ___ vite.',
+          options: ['court', 'marche'], answer: 0 },
+        { type: 'choice', is_cloze: true, lightning_safe: true,
+          prompt: 'Nous ___ français.', tip: 'We speak French.',
+          options: ['parlons', 'parle', 'parlez'], answer: 0 },
+        { type: 'choice', prompt: 'bonjour', options: ['hello', 'goodbye'], answer: 0 }
+      ] }];
+      const items = _lightningItems(segments);
+      done({ count: items.length,
+             prompts: items.map(i => i.symbol).sort(),
+             clozeIncluded: items.some(i => i.roman === 'in front of'),
+             safeGrammarIncluded: items.some(i => i.roman === 'parlons'),
+             legacyBlankIncluded: items.some(i => i.roman === 'court') });
+    """, fns=("function shuffle(", "function _lightningItems("))
+    assert res == {"count": 2, "prompts": ["Nous ___ français.", "bonjour"],
+                   "clozeIncluded": False, "safeGrammarIncluded": True,
+                   "legacyBlankIncluded": False}
+
+
+@needs_node
+def test_ai_path_active_unit_selection_prefers_the_available_lesson():
+    res = _run("""
+      done({ middle: _activeAiUnitIndex([
+               { lessons: [{ status: 'done' }] },
+               { lessons: [{ status: 'available' }] },
+               { in_progress: true, lessons: [{ status: 'locked' }] }
+             ]),
+             lastWhenFinished: _activeAiUnitIndex([
+               { lessons: [{ status: 'done' }] },
+               { lessons: [{ status: 'done' }] }
+             ]) });
+    """, fns=("function _activeAiUnitIndex(",))
+    assert res == {"middle": 1, "lastWhenFinished": 1}
 
 
 _SKIP_FNS = _TTS_FNS + ("function _dropFromTotals(", "function _skipExercise(",

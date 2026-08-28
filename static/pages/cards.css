@@ -86,6 +86,14 @@
       gap: 4px;
       flex-shrink: 0;
     }
+    .romanization-card-toggle {
+      display: block; margin: 8px auto 0; min-height: 40px; padding: 7px 12px;
+      border: 0; border-radius: 999px; background: var(--surface-alt);
+      color: var(--text-muted); font: inherit; font-size: 0.78rem; font-weight: 650;
+      cursor: pointer;
+    }
+    .romanization-card-toggle:hover { color: var(--primary); background: var(--primary-soft); }
+    .romanization-card-toggle:disabled { opacity: .55; cursor: progress; }
     .card-edit-btn, .tutor-flag-btn {
       background: none;
       border: none;
@@ -549,4 +557,3 @@
     .cd-remove-btn:disabled { opacity: 0.5; cursor: default; }
     .cd-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.92rem; }
     .cd-rating { display: inline-flex; gap: 1px; color: var(--warn-accent); font-size: 0.82rem; margin-left: 8px; }
-  

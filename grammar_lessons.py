@@ -204,6 +204,10 @@ def _conj_cloze(concept_key: str, lang: str, sentence: str, gloss: str,
     random.shuffle(opts)
     return {
         "type": "choice", "grammar": True, "concept_key": concept_key, "is_cloze": True,
+        # The answer and every foil come from our deterministic conjugation
+        # engine, with an explicit grammatical person. Unlike a free semantic
+        # blank, this is safe to remix into Lightning without hidden context.
+        "lightning_safe": True,
         "instruction": "Fill in the blank", "prompt": sentence, "prompt_lang": "target",
         "options": opts, "answer": opts.index(correct), "tip": gloss,
     }

@@ -136,11 +136,14 @@ def test_reorder_tokens_reordered_from_sentence():
     concepts = [{"kind": "vocab", "key": "hk_person", "label": "香港人", "gloss": "Hong Kong person"}]
     authored = {"teach": [], "drills": [
         {"kind": "reorder", "concept": "hk_person", "sentence": "你係香港人",
+         "gloss": "You are a Hong Konger.",
          "tokens": ["香港人", "你", "係"]},   # wrong order from model
     ]}
     exs = learning.assemble_lesson("yue", concepts, authored)["segments"][0]["exercises"]
     wb = next(e for e in exs if e["type"] == "word_bank")
     assert wb["answer_tokens"] == ["你", "係", "香港人"]
+    assert wb["prompt"] == "You are a Hong Konger."
+    assert wb["instruction"] == "Translate by arranging the words"
 
 
 def test_reorder_dropped_when_tokens_dont_tile_sentence():
@@ -220,6 +223,7 @@ def test_french_cloze_uses_conjugation_oracle():
     # final "AI Speak" segment.
     cloze = next(e for e in segs[0]["exercises"] if e["type"] == "choice")
     assert cloze["options"][cloze["answer"]] == "parlons"
+    assert cloze["lightning_safe"] is True
     all_ex = [e for s in segs for e in s["exercises"]]
     assert any(e["type"] == "construction_drill" for e in all_ex)
 
@@ -1147,6 +1151,46 @@ async def test_author_next_lesson_502_when_replan_still_duplicate(fresh_db, monk
     assert e.value.status_code == 502
     # No duplicate lesson shipped.
     assert (await db.get_next_lesson_context(cid))["lesson_num"] == 2
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_does_not_deadlock_on_a_known_deck_word(
+        fresh_db, monkeypatch):
+    """Deck familiarity steers two plan attempts but is not a permanent ban.
+
+    The course has never taught ``pomme``. A learner with a mature card for it
+    must still get a lesson if the planner cannot find a better route; only
+    actual course duplicates stay fatal.
+    """
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    await _seed_card(uid, "pomme", "apple", lang="fr", interval=10, reps=4)
+
+    calls = []
+
+    async def fake_plan(*a, **k):
+        calls.append(k)
+        return {"chapter_action": "new",
+                "chapter": {"title": "Food", "objective": "", "summary": "",
+                            "budget": 2},
+                "skill": {"kind": "vocab", "key": "apple", "label": "pomme",
+                          "gloss": "apple"},
+                "scope": "broad", "focus": "new",
+                "target_items": [{"label": "pomme", "gloss": "apple"}],
+                "_raw_prompt": "P", "_raw_response": "R"}
+
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    lid = await main._author_next_lesson(
+        course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert lid and len(calls) == 2
+    assert calls[1].get("avoid_feedback")
+    reg = (await db.get_next_lesson_context(cid))["concept_registry"]
+    assert {c["label"] for c in reg} == {"pomme"}
 
 
 @pytest.mark.asyncio

@@ -4101,11 +4101,32 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
         raw_concepts, deduped = await _dedup_plan_concepts(
             spec, ctx, known_texts, lang, access.api_key)
         if not deduped:
-            raise HTTPException(502, (
-                "The lesson planner keeps proposing material you've already been "
-                "taught. Try again in a moment — or add a few new flashcards / "
-                "update your tutor profile to steer it somewhere new."
-            ))
+            # A large, mature flashcard deck used to create a permanent planner
+            # deadlock here.  Known deck words and words taught by THIS COURSE
+            # were folded into one blacklist, so a learner whose next useful
+            # lesson naturally used familiar vocabulary could exhaust both plan
+            # attempts even though the course had never taught that material.
+            #
+            # Keep deck familiarity as the strong preference it is on attempt 1
+            # and in the explicit re-plan feedback.  If the model still cannot
+            # find another route, relax ONLY the deck-word filter.  Exact course
+            # concepts, words already taught in lessons, and semantic grammar
+            # duplicates remain blocked by the same deterministic guards.
+            _, course_new = await _dedup_plan_concepts(
+                spec, ctx, set(), lang, access.api_key)
+            if course_new:
+                logger.info(
+                    "Planner fallback is reusing deck-familiar vocabulary "
+                    "(lang=%s, keys=%s); course-duplicate guards still passed",
+                    lang, [c.get("key") for c in course_new],
+                )
+                deduped = course_new
+            else:
+                raise HTTPException(502, (
+                    "The lesson planner could not find material beyond what this "
+                    "course has already taught. Update your tutor profile to steer "
+                    "the next lesson toward a different skill."
+                ))
     concepts = deduped
 
     # 3. CHAPTER bookkeeping (from the FINAL spec — a re-plan may have changed it).

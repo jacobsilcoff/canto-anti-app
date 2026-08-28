@@ -28,6 +28,7 @@
   let filterPicker = null;
   let inlinePicker = null;
   let settings = { new_cards_per_day: 20, default_target_lang: 'yue' };
+  let _savingAudioRomanization = false;
   let sessionStats = { review_count: 0, new_count: 0, daily_new_used: 0, daily_new_limit: 20 };
   let _myDecks = [];
   let _activeDeckId = null;
@@ -216,6 +217,33 @@
     try {
       settings = await fetch('/api/settings').then(r => r.json());
     } catch { settings = { new_cards_per_day: 20, default_target_lang: 'yue' }; }
+  }
+
+  // The same account preference exposed in Settings, placed where it is useful:
+  // directly on an audio/pronunciation card. Optimistically refresh the current
+  // card, then persist; a failed save restores both the setting and the display.
+  async function toggleAudioRomanization() {
+    if (_savingAudioRomanization) return;
+    const previous = settings.audio_show_romanization !== false;
+    const next = !previous;
+    _savingAudioRomanization = true;
+    settings.audio_show_romanization = next;
+    _refreshCardDisplay();
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_show_romanization: next }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(next ? 'Romanization shown on audio cards.'
+                     : 'Romanization hidden on audio cards.');
+    } catch {
+      settings.audio_show_romanization = previous;
+      showToast('Could not save the romanization setting.');
+    } finally {
+      _savingAudioRomanization = false;
+      _refreshCardDisplay();
+    }
   }
 
   // ── Labels ────────────────────────────────────────────────────────────────
@@ -533,11 +561,23 @@
       audioBtn.innerHTML = `${ICONS.volume} Play`;
       audioBtn.onclick = () => playCardAudio(item.card_id, audioBtn);
       promptEl.appendChild(audioBtn);
-      if (isLogographic(langCode) && item.romanization && settings.audio_show_romanization !== false) {
-        const rEl = document.createElement('div');
-        rEl.className = 'jyutping-display';
-        rEl.textContent = item.romanization;
-        promptEl.appendChild(rEl);
+      if (isLogographic(langCode) && item.romanization) {
+        const showingRomanization = settings.audio_show_romanization !== false;
+        if (showingRomanization) {
+          const rEl = document.createElement('div');
+          rEl.className = 'jyutping-display';
+          rEl.textContent = item.romanization;
+          promptEl.appendChild(rEl);
+        }
+        const romanToggle = document.createElement('button');
+        romanToggle.type = 'button';
+        romanToggle.className = 'romanization-card-toggle';
+        romanToggle.disabled = _savingAudioRomanization;
+        romanToggle.textContent = showingRomanization
+          ? 'Hide romanization' : 'Show romanization';
+        romanToggle.setAttribute('aria-pressed', showingRomanization ? 'true' : 'false');
+        romanToggle.onclick = toggleAudioRomanization;
+        promptEl.appendChild(romanToggle);
       }
     }
   }
