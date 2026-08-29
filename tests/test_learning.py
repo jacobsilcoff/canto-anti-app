@@ -312,9 +312,10 @@ def test_cloze_prompt_roman_preserves_blank():
 
 
 def test_registry_block_caps_length():
-    registry = [{"key": f"k{i}", "label": f"l{i}", "gloss": "g"} for i in range(200)]
+    registry = [{"key": f"k{i}", "label": f"l{i}", "gloss": "g"}
+                for i in range(learning._REGISTRY_CAP + 50)]
     block = learning._registry_block(registry)
-    assert "k199" in block                  # newest kept
+    assert f"k{learning._REGISTRY_CAP + 49}" in block  # newest kept
     assert "k0" not in block                # oldest dropped
     assert "omitted" in block
 
@@ -984,6 +985,13 @@ def test_plan_prompt_units_and_feedback_sections():
     p2 = learning._build_plan_prompt("fr", "A1", [], [])
     assert "Completed units" not in p2 and "DO NOT REPEAT" not in p2
 
+    rescue = learning._build_plan_prompt(
+        "fr", "A1", [], [], forced_lesson_kind="vocab")
+    assert "REQUIRED RECOVERY TRACK: TOPICAL VOCABULARY" in rescue
+    assert 'skill.kind="vocab"' in rescue
+    assert "4–8 NEW words" in rescue
+    assert "pure review lesson" in rescue
+
 
 @pytest.mark.asyncio
 async def test_plan_next_lesson_normalizes_budget_and_forces_new(monkeypatch):
@@ -1129,6 +1137,7 @@ async def test_author_next_lesson_replans_on_duplicate(fresh_db, monkeypatch):
                     "_raw_prompt": "P1", "_raw_response": "R1"}
         # Second call must carry explicit duplicate feedback.
         assert "salut" in k.get("avoid_feedback", "")
+        assert k.get("forced_lesson_kind") == "vocab"
         return {"chapter_action": "continue", "chapter": {},
                 "skill": {"kind": "vocab", "key": "greet3", "label": "bonjour", "gloss": "hello"},
                 "scope": "broad", "focus": "new",
@@ -1155,7 +1164,10 @@ async def test_author_next_lesson_502_when_replan_still_duplicate(fresh_db, monk
         {"kind": "vocab", "key": "greet", "label": "salut", "gloss": "hi"},
     ], {"segments": []}, "s1")
 
+    calls = []
+
     async def fake_plan(*a, **k):
+        calls.append(k)
         return {"chapter_action": "continue", "chapter": {},
                 "skill": {"kind": "vocab", "key": "greet_again", "label": "salut", "gloss": "hi"},
                 "scope": "broad", "focus": "new",
@@ -1167,8 +1179,72 @@ async def test_author_next_lesson_502_when_replan_still_duplicate(fresh_db, monk
     with pytest.raises(HTTPException) as e:
         await main._author_next_lesson(course, _mk_access(), "gemini-2.5-flash-lite", uid)
     assert e.value.status_code == 502
+    assert len(calls) == 3
+    assert calls[1]["forced_lesson_kind"] == "vocab"
+    assert calls[2]["forced_lesson_kind"] == "vocab"
+    assert calls[2]["current_chapter"] is None
+    assert "fresh vocabulary topic" in e.value.detail
     # No duplicate lesson shipped.
     assert (await db.get_next_lesson_context(cid))["lesson_num"] == 2
+
+
+@pytest.mark.asyncio
+async def test_author_next_lesson_escapes_exhausted_chapter_with_fresh_vocab(
+        fresh_db, monkeypatch):
+    """A grammar-heavy active chapter must not become a permanent dead end.
+
+    Two duplicate plans trigger the final rescue, which drops the active chapter
+    from the prompt, forces topical vocabulary, and opens the returned chapter.
+    """
+    import main
+    uid = fresh_db
+    cid = await db.create_course(uid, "fr", "A1")
+    course = {"id": cid, "target_lang": "fr", "level": "A1"}
+    _no_cefr(monkeypatch)
+    await db.set_active_plan(cid, {
+        "title": "Everyday actions with adjectives", "objective": "describe routines",
+        "summary": "reflexive verbs with adjectives", "budget": 3,
+    })
+    await db.create_lesson(cid, 1, "Reflexive verbs and adjectives", "", [
+        {"kind": "grammar", "key": "reflexive_adjectives",
+         "label": "reflexive verbs with adjectives", "gloss": "describe routines"},
+    ], {"segments": []}, "reflexive verbs with descriptive adjectives")
+
+    calls = []
+
+    async def fake_plan(*a, **k):
+        calls.append(k)
+        if len(calls) < 3:
+            return {"chapter_action": "continue", "chapter": {},
+                    "skill": {"kind": "grammar", "key": "reflexive_adjectives",
+                              "label": "reflexive verbs and adjectives",
+                              "gloss": "describe routines with adjectives"},
+                    "scope": "narrow", "focus": "exceptions", "target_items": [],
+                    "_raw_prompt": f"P{len(calls)}", "_raw_response": f"R{len(calls)}"}
+        assert k["current_chapter"] is None
+        assert k["forced_lesson_kind"] == "vocab"
+        return {"chapter_action": "continue",
+                "chapter": {"title": "At the pharmacy", "objective": "buy medicine",
+                            "summary": "health and pharmacy words", "budget": 3},
+                "skill": {"kind": "vocab", "key": "pharmacy", "label": "pharmacie",
+                          "gloss": "pharmacy essentials"},
+                "scope": "broad", "focus": "new",
+                "target_items": [
+                    {"label": "ordonnance", "gloss": "prescription"},
+                    {"label": "pansement", "gloss": "bandage"},
+                ],
+                "_raw_prompt": "P3", "_raw_response": "R3"}
+
+    monkeypatch.setattr(main.learning, "plan_next_lesson", fake_plan)
+    monkeypatch.setattr(main.learning, "author_lesson", _fake_author_factory())
+
+    lid = await main._author_next_lesson(
+        course, _mk_access(), "gemini-2.5-flash-lite", uid)
+    assert lid and len(calls) == 3
+    chapter = await db.get_active_plan(cid)
+    assert chapter["title"] == "At the pharmacy"
+    assert {c["label"] for c in (await db.get_next_lesson_context(cid))["concept_registry"]} \
+        >= {"ordonnance", "pansement"}
 
 
 @pytest.mark.asyncio

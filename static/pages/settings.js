@@ -523,6 +523,7 @@
     _setVolumeSlider(settings.audio_volume);
     document.getElementById('settings-warmup').checked = settings.lesson_warmup !== false;
     document.getElementById('settings-course-focus').value = settings.course_focus || 'balanced';
+    document.getElementById('settings-course-level').value = settings.course_level || 'A1';
     const pScore = settings.populate_min_score !== undefined ? settings.populate_min_score : 0.55;
     document.getElementById('settings-populate-score').value = Math.round(pScore * 100);
     updateScoreLabel(Math.round(pScore * 100));
@@ -671,6 +672,7 @@
     const dailyGoal = parseInt(document.getElementById('settings-daily-goal').value, 10) || 50;
     const lessonLength = document.getElementById('settings-lesson-length').value;
     const courseFocus = document.getElementById('settings-course-focus').value;
+    const languageChanged = lang !== settings.default_target_lang;
     if (!val || val < 1 || val > 500) { showToast('Must be between 1 and 500.'); return; }
     const lessonBuf = isNaN(buf) ? 3 : Math.max(0, Math.min(10, buf));
     try {
@@ -687,9 +689,31 @@
       settings.daily_xp_goal = dailyGoal;
       settings.lesson_length = lessonLength;
       settings.course_focus = courseFocus;
+      if (languageChanged) {
+        const refreshed = await fetch('/api/settings').then(r => r.json());
+        settings.course_level = refreshed.course_level || 'A1';
+        document.getElementById('settings-course-level').value = settings.course_level;
+      }
       showToast('Saved.');
     } catch {
       showToast('Failed to save settings.');
+    }
+  }
+
+  async function saveCourseLevel() {
+    const level = document.getElementById('settings-course-level').value;
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_level: level }),
+      });
+      if (!res.ok) throw new Error();
+      settings.course_level = level;
+      showToast(`Future lessons will target ${level}.`);
+    } catch {
+      document.getElementById('settings-course-level').value = settings.course_level || 'A1';
+      showToast('Failed to update course level.');
     }
   }
 

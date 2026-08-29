@@ -293,6 +293,20 @@
       </div>
       <div class="settings-row">
         <div>
+          <div class="settings-label">Course level</div>
+          <div class="settings-desc">Sets the proficiency target for future lessons without restarting your course or changing existing lessons</div>
+        </div>
+        <select id="settings-course-level" class="settings-select" onchange="saveCourseLevel()">
+          <option value="A1">A1 · Beginner</option>
+          <option value="A2">A2 · Elementary</option>
+          <option value="B1">B1 · Intermediate</option>
+          <option value="B2">B2 · Upper intermediate</option>
+          <option value="C1">C1 · Advanced</option>
+          <option value="C2">C2 · Mastery</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <div>
           <div class="settings-label">Populate similarity threshold</div>
           <div class="settings-desc">How closely a card must match a label for "Already in your deck" suggestions (higher = stricter)</div>
         </div>

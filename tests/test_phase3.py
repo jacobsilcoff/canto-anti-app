@@ -110,6 +110,22 @@ async def test_warmup_setting_defaults_on_and_can_be_disabled(fresh_db):
     assert (await main.get_settings(user))["lesson_warmup"] is False
 
 
+@pytest.mark.asyncio
+async def test_course_level_can_change_without_restarting_course(fresh_db):
+    import main
+    uid = fresh_db
+    user = await db.get_user(uid)
+    await db.set_setting(uid, "default_target_lang", "fr")
+    cid = await db.create_course(uid, "fr", "A1")
+
+    assert (await main.get_settings(user))["course_level"] == "A1"
+    await main.update_settings(main.SettingsUpdate(course_level="B1"), user)
+
+    assert await db.get_active_course_level(uid, "fr") == "B1"
+    assert (await db.get_course(uid, cid))["level"] == "B1"
+    assert (await main.get_settings(user))["course_level"] == "B1"
+
+
 def test_norm_tier_clamps_to_known_values():
     assert learning._norm_tier("core") == "core"
     assert learning._norm_tier("EXTRA") == "extra"
@@ -153,5 +169,7 @@ def test_setting_validators_fall_back():
     assert main._valid_course_focus("conversation") == "conversation"
     assert main._valid_course_focus(None) == "balanced"
     assert main._valid_course_focus("x") == "balanced"
+    assert main._valid_course_level("B2") == "B2"
+    assert main._valid_course_level("x") == "A1"
     assert learning.clamp_chapter_budget(10) == 6
     assert learning.clamp_chapter_budget(10, floor=1, ceiling=12) == 10

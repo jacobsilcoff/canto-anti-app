@@ -1864,6 +1864,11 @@ def _valid_course_focus(value: str | None) -> str:
     return value if value in learning.COURSE_FOCUSES else "balanced"
 
 
+def _valid_course_level(value: str | None) -> str:
+    """Planner proficiency target; malformed legacy values fall back safely."""
+    return value if value in learning.COURSE_LEVELS else "A1"
+
+
 # How loud our own audio plays, as a multiplier. 1.0 is the clip as recorded and
 # means the client does no Web Audio routing at all, so the default keeps the
 # audio path exactly as it was. Bounded because the client can only limit so much
@@ -2263,6 +2268,7 @@ async def get_settings(user: dict = Depends(current_user)):
     default_reader_difficulty = await db.get_setting(user["id"], "default_reader_difficulty") or "B1"
     lesson_buffer = max(0, min(10, int(await db.get_setting(user["id"], "lesson_buffer") or 3)))
     populate_min_score = max(0.0, min(1.0, float(await db.get_setting(user["id"], "populate_min_score") or 0.55)))
+    course_level = await db.get_active_course_level(user["id"], default_target_lang)
     return {
         "new_cards_per_day": new_cards_per_day,
         "default_target_lang": default_target_lang,
@@ -2310,6 +2316,9 @@ async def get_settings(user: dict = Depends(current_user)):
         # heard beats not interrupting a podcast. See applyAudioSession.
         "audio_mix": (await db.get_setting(user["id"], "audio_mix") or "false") == "true",
         "course_focus": _valid_course_focus(await db.get_setting(user["id"], "course_focus")),
+        # Unlike focus (a user-wide preference), level belongs to the current
+        # language's active course. It changes only future planning.
+        "course_level": _valid_course_level(course_level),
         # IANA zone deciding when the learner's day rolls over (streak, XP ring,
         # daily quests, new-card cap). Auto-detected by the client; UTC until then.
         "timezone": await db.get_setting(user["id"], "timezone") or db.DEFAULT_TIMEZONE,
@@ -2339,6 +2348,7 @@ class SettingsUpdate(BaseModel):
     audio_mix: bool | None = None
     audio_volume: float | None = None
     course_focus: str | None = None
+    course_level: str | None = None
     timezone: str | None = None
 
 
@@ -2415,6 +2425,11 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(current_user
         if req.course_focus not in learning.COURSE_FOCUSES:
             raise HTTPException(400, "course_focus must be balanced/grammar/vocab/conversation")
         await db.set_setting(user["id"], "course_focus", req.course_focus)
+    if req.course_level is not None:
+        if req.course_level not in learning.COURSE_LEVELS:
+            raise HTTPException(400, "course_level must be A1/A2/B1/B2/C1/C2")
+        lang = await db.get_setting(user["id"], "default_target_lang") or "yue"
+        await db.set_active_course_level(user["id"], lang, req.course_level)
     if req.timezone is not None:
         # Sent automatically by the client on every load, so an unresolvable zone
         # is a bad browser rather than a bad user — fall back to UTC (the old
@@ -3488,7 +3503,10 @@ async def create_course(request: Request, req: CreateCourseRequest, user: dict =
     lang = req.target_lang or await db.get_setting(user["id"], "default_target_lang") or "yue"
     if lang not in translation.LANG_INFO:
         raise HTTPException(400, "Unsupported language")
-    course_id = await db.create_course(user["id"], lang, req.level or "A1")
+    level = req.level or "A1"
+    if level not in learning.COURSE_LEVELS:
+        raise HTTPException(400, "level must be A1/A2/B1/B2/C1/C2")
+    course_id = await db.create_course(user["id"], lang, level)
     # Non-Latin scripts get a pre-built, skippable Foundations (reading) track
     # prepended — the learner masters the writing system before/alongside vocab.
     foundation_units = foundations.build_units(lang)
@@ -4018,8 +4036,9 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     a genuine AI-planned lesson and never drains the textbook queue.
 
     A plan whose concepts are ALL already taught/known is never shipped: the
-    planner is re-run once with explicit feedback, then the request fails with a
-    502 (previously the duplicate lesson shipped as a fallback).
+    planner is re-run on a topical-vocabulary track with explicit feedback. If
+    the active chapter itself is exhausted, one final re-plan opens a fresh
+    vocabulary chapter (previously the duplicate lesson shipped as a fallback).
 
     Returns the new lesson_id; raises HTTPException(502) on generation failure."""
     course_id = course["id"]
@@ -4074,18 +4093,27 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
     #    already taught/known (string + semantic, concept level), OR the lesson
     #    as a whole is topically the same as one already generated (embedding of
     #    the planned topic vs every existing lesson). Either way the planner gets
-    #    ONE re-plan with the clash named, then the request fails — a duplicate
-    #    lesson is never shipped as a fallback.
+    #    a targeted vocabulary re-plan with the clash named. A final fresh-topic
+    #    rescue is available if the active chapter itself is the dead end; a
+    #    duplicate lesson is never shipped as a fallback.
     raw_concepts, deduped = await _dedup_plan_concepts(
         spec, ctx, known_texts, lang, access.api_key)
     feedback = await _plan_rejection(spec, raw_concepts, deduped, ctx, lang,
                                      access.api_key)
     if feedback:
-        logger.info("Plan rejected as redundant (lang=%s, keys=%s) — re-planning once",
+        logger.info("Plan rejected as redundant (lang=%s, keys=%s) — targeted re-plan",
                     lang, [c.get("key") for c in raw_concepts])
+        # Do not ask the same open-ended question twice. On a mature course the
+        # locally-salient grammar neighbourhood can be crowded even while whole
+        # vocabulary domains remain untouched. Force the recovery plan onto a
+        # topical-vocabulary track; familiar grammar can still be recycled in
+        # examples and warm-ups.
+        rescue_plan_kwargs = dict(plan_kwargs)
+        rescue_plan_kwargs["forced_lesson_kind"] = "vocab"
         try:
             spec = await learning.plan_next_lesson(
-                lang, course["level"], avoid_feedback=feedback, **plan_kwargs)
+                lang, course["level"], avoid_feedback=feedback,
+                **rescue_plan_kwargs)
         except Exception as e:
             logger.error("Lesson re-planning failed lang=%s: %s", lang, e, exc_info=True)
             raise HTTPException(502, _gen_error_detail(e, "Lesson planning", plan_model))
@@ -4122,11 +4150,43 @@ async def _author_next_lesson(course: dict, access, lesson_model: str, user_id: 
                 )
                 deduped = course_new
             else:
-                raise HTTPException(502, (
-                    "The lesson planner could not find material beyond what this "
-                    "course has already taught. Update your tutor profile to steer "
-                    "the next lesson toward a different skill."
-                ))
+                # One final, bounded rescue: the active chapter itself may be the
+                # trap (e.g. three adjective/verb plans in a row). Ask for a fresh
+                # vocabulary chapter, still guarded against every actual course
+                # concept/word. This is a third cheap planner call only on the rare
+                # path that previously hard-failed; authoring still happens once.
+                second_feedback = await _plan_rejection(
+                    spec, raw_concepts, deduped, ctx, lang, access.api_key)
+                fresh_plan_kwargs = dict(rescue_plan_kwargs)
+                fresh_plan_kwargs.update(
+                    current_chapter=None, lessons_done=0, budget_reached=False)
+                try:
+                    spec = await learning.plan_next_lesson(
+                        lang, course["level"],
+                        avoid_feedback=(feedback + "\n" + second_feedback).strip(),
+                        **fresh_plan_kwargs)
+                except Exception as e:
+                    logger.error("Lesson recovery planning failed lang=%s: %s",
+                                 lang, e, exc_info=True)
+                    raise HTTPException(
+                        502, _gen_error_detail(e, "Lesson planning", plan_model))
+                sep = "\n\n══════ FRESH-TOPIC RE-PLAN ══════\n\n"
+                plan_prompt += sep + spec.pop("_raw_prompt", "")
+                plan_response += sep + spec.pop("_raw_response", "")
+                # With no current chapter, `continue` has no coherent meaning.
+                spec["chapter_action"] = "new"
+                raw_concepts, deduped = await _dedup_plan_concepts(
+                    spec, ctx, known_texts, lang, access.api_key)
+                if not deduped:
+                    _, course_new = await _dedup_plan_concepts(
+                        spec, ctx, set(), lang, access.api_key)
+                    deduped = course_new
+                if not deduped:
+                    raise HTTPException(502, (
+                        "The planner returned only material this course already "
+                        "teaches, even after switching to a fresh vocabulary topic. "
+                        "Please retry; your course and progress are unchanged."
+                    ))
     concepts = deduped
 
     # 3. CHAPTER bookkeeping (from the FINAL spec — a re-plan may have changed it).

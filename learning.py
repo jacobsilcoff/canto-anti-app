@@ -70,7 +70,7 @@ def _load_example() -> dict:
 
 # ── Memory blocks (shared by both prompts) ───────────────────────────────────
 
-_REGISTRY_CAP = 150   # most recent concepts included in prompts (bounds prompt size)
+_REGISTRY_CAP = 300   # most recent concepts included in prompts (bounds prompt size)
 
 
 def _registry_block(concept_registry: list[dict]) -> str:
@@ -102,8 +102,8 @@ def _word_list_block(words: list[dict]) -> str:
 # the past, and it shows neither the words a grammar lesson taught (they live in
 # the concept's `items`, which are never registered) nor anything beyond the last
 # three lesson summaries.
-_TAUGHT_WORDS_CAP = 140
-_LESSON_INDEX_CAP = 40
+_TAUGHT_WORDS_CAP = 300
+_LESSON_INDEX_CAP = 100
 
 
 def _taught_words_block(taught_words: list[dict]) -> str:
@@ -273,6 +273,11 @@ COURSE_FOCUSES = {
                      "phrase patterns, vocab chosen for dialogue."),
 }
 
+# The proficiency target is stored on the course and can be changed without
+# rebuilding it. Keeping the allowlist next to the other planner-facing settings
+# makes creation and later Settings updates share one contract.
+COURSE_LEVELS = ("A1", "A2", "B1", "B2", "C1", "C2")
+
 # D4 · how many recent 👍/👎 feedback entries the planner is shown.
 _LESSON_FEEDBACK_SAMPLE = 8
 
@@ -291,6 +296,7 @@ def _build_plan_prompt(
     lesson_index: list[dict] | None = None,
     lessons_done: int = 0, budget_reached: bool = False,
     avoid_feedback: str = "",
+    forced_lesson_kind: str = "",
 ) -> str:
     info = LANG_INFO[target_lang]
     name = info.get("full_name", info["name"])
@@ -366,7 +372,9 @@ def _build_plan_prompt(
             mastery_section = (
                 f"── SKILLS NEEDING REINFORCEMENT (seen ≥3×, <70% accuracy) ──\n"
                 f"{weak_str}\n"
-                f"A `focus:\"review\"` lesson on one of these is a good choice when due.\n\n"
+                f"Recycle these in the warm-up and drills around a genuinely new "
+                f"skill; do not present an already-taught skill as the lesson's new "
+                f"concept.\n\n"
             )
 
     units_section = ""
@@ -381,6 +389,25 @@ def _build_plan_prompt(
         avoid_section = (
             f"── DO NOT REPEAT (your previous attempt was rejected) ──\n"
             f"{avoid_feedback.strip()}\n\n"
+        )
+
+    # A deterministic escape hatch for a mature course.  An unconstrained
+    # re-plan tends to stay in the same locally-salient grammar neighbourhood
+    # (especially inside an active grammar chapter), so two answers can be
+    # semantic duplicates even though the language still has thousands of
+    # teachable words and situations.  The caller enables this only after a
+    # normal plan was rejected.
+    forced_kind_section = ""
+    if forced_lesson_kind == "vocab":
+        forced_kind_section = (
+            "── REQUIRED RECOVERY TRACK: TOPICAL VOCABULARY ──\n"
+            "The previous plan repeated this course. This answer MUST use "
+            "skill.kind=\"vocab\" and teach a concrete themed set of 4–8 NEW words "
+            "or short phrases. Choose a useful situation or topic not represented "
+            "in the lesson index. You MAY reuse familiar grammar to put the new "
+            "vocabulary into sentences; familiar grammar is scaffolding, not the "
+            "new skill. Continue the current chapter only if the new set genuinely "
+            "advances it; otherwise open a fresh chapter.\n\n"
         )
 
     return (
@@ -403,6 +430,7 @@ def _build_plan_prompt(
         f"{_recent_block(recent_summaries)}"
         f"{_chapter_block(current_chapter, lessons_done, budget_reached)}\n"
         f"{avoid_section}"
+        f"{forced_kind_section}"
         f"── YOUR TASK ──\n"
         f"Pick the best next lesson. A lesson is a SATISFYING CHUNK, not one word:\n"
         f"• GRAMMAR: when a pattern has a clean regular core, teach the WHOLE core in "
@@ -411,9 +439,12 @@ def _build_plan_prompt(
         f"focus=\"exceptions\". List the specific forms/verbs to cover in target_items.\n"
         f"• VOCAB: group a themed SET of 4–8 related words into one lesson (not one at a "
         f"time). Put each word in target_items.\n"
-        f"• scope=\"broad\" for a full family/set, \"narrow\" for a focused exceptions or "
-        f"review lesson.\n"
-        f"• Never re-teach a concept key already taught; an exceptions/review lesson must "
+        f"• scope=\"broad\" for a full family/set, \"narrow\" for a focused exceptions "
+        f"or application lesson.\n"
+        f"• Every generated lesson must introduce at least one genuinely NEW concept "
+        f"or vocabulary item. Put review of weak skills in examples and warm-up drills; "
+        f"do NOT propose a pure review lesson as the new skill.\n"
+        f"• Never re-teach a concept key already taught; an exceptions/application lesson must "
         f"use a NEW key (e.g. present_er_spelling).\n"
         f"• key = stable snake_case. vocab labels/target_items in NATIVE {name} SCRIPT, "
         f"citation form; glosses in English.\n\n"
@@ -423,7 +454,7 @@ def _build_plan_prompt(
         '  "chapter": {"title":"<short English chapter title>","objective":"<one sentence>","summary":"<one sentence>","planned_lessons":<2-6: how many lessons this chapter should span — a tight arc, not an open-ended theme>},\n'
         '  "skill": {"kind":"grammar"|"vocab","key":"<snake_case>","label":"<pattern name OR native theme word>","gloss":"<one-line English>"},\n'
         '  "scope": "broad" | "narrow",\n'
-        '  "focus": "new" | "exceptions" | "review",\n'
+        '  "focus": "new" | "exceptions",\n'
         f'  "target_items": [{{"label":"<{name} native script>","gloss":"<English>"}}, ...],\n'
         '  "rationale": "<one sentence: why THIS lesson next>"\n'
         '}\n'
@@ -464,6 +495,7 @@ async def plan_next_lesson(
     lessons_done: int = 0,
     budget_reached: bool = False,
     avoid_feedback: str = "",
+    forced_lesson_kind: str = "",
     api_key: str,
     anthropic_key: str | None = None,
     model: str = DEFAULT_MODEL,
@@ -487,6 +519,7 @@ async def plan_next_lesson(
         unit_summaries=unit_summaries, taught_words=taught_words,
         lesson_index=lesson_index, lessons_done=lessons_done,
         budget_reached=budget_reached, avoid_feedback=avoid_feedback,
+        forced_lesson_kind=forced_lesson_kind,
     )
     raw = await llm.call(prompt, model=model, gemini_key=api_key, anthropic_key=anthropic_key)
     parsed = _parse_json(raw) or {}

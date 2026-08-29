@@ -2789,6 +2789,36 @@ async def get_active_course(user_id: int, target_lang: str) -> dict | None:
     return await get_course(user_id, row["id"]) if row else None
 
 
+async def get_active_course_level(user_id: int, target_lang: str) -> str | None:
+    """The current course's planner proficiency target, without loading its
+    entire lesson tree (Settings only needs this one field)."""
+    async with connect() as conn:
+        async with conn.execute(
+            """SELECT level FROM courses
+               WHERE user_id=? AND target_lang=? AND status='active'
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            (user_id, target_lang),
+        ) as cur:
+            row = await cur.fetchone()
+    return row[0] if row else None
+
+
+async def set_active_course_level(user_id: int, target_lang: str, level: str) -> bool:
+    """Change the proficiency target for future lessons; existing lessons and
+    mastery stay intact. Returns whether an active course existed."""
+    async with connect() as conn:
+        cur = await conn.execute(
+            """UPDATE courses SET level=? WHERE id=(
+                   SELECT id FROM courses
+                   WHERE user_id=? AND target_lang=? AND status='active'
+                   ORDER BY created_at DESC, id DESC LIMIT 1
+               )""",
+            (level, user_id, target_lang),
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
 async def delete_course(user_id: int, course_id: int) -> None:
     """Delete a course and all its units/lessons/concepts (ownership-checked)."""
     async with connect() as db:
